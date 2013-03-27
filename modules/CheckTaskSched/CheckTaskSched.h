@@ -28,7 +28,7 @@ private:
 
 public:
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);

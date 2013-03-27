@@ -12,27 +12,27 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	}
 	if (!allowArgs_) {
 		if (!cmd.second.empty()) {
-			NSC_LOG_ERROR(_T("Request contained arguments (not currently allowed, check the allow arguments option)."));
+			NSC_LOG_ERROR("Request contained arguments (not currently allowed, check the allow arguments option).");
 			throw nrpe::nrpe_exception("Request contained arguments (not currently allowed, check the allow arguments option).");
 		}
 	}
 	if (!allowNasty_) {
 		if (cmd.first.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-			NSC_LOG_ERROR(_T("Request command contained illegal metachars!"));
+			NSC_LOG_ERROR("Request command contained illegal metachars!");
 			throw nrpe::nrpe_exception("Request command contained illegal metachars!");
 		}
 		if (cmd.second.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-			NSC_LOG_ERROR(_T("Request arguments contained illegal metachars!"));
+			NSC_LOG_ERROR("Request arguments contained illegal metachars!");
 			throw nrpe::nrpe_exception("Request command contained illegal metachars!");
 		}
 	}
-	std::wstring wmsg, wperf;
+	std::string wmsg, wperf;
 	NSCAPI::nagiosReturn ret = -3;
 	try {
 		if (encoding_.empty()) {
-			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::to_unicode(cmd.first), utf8::to_unicode(cmd.second), wmsg, wperf);
+			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::cvt<std::string>(utf8::to_unicode(cmd.first)), utf8::cvt<std::string>(utf8::to_unicode(cmd.second)), wmsg, wperf);
 		} else {
-			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::from_encoding(cmd.first, encoding_), utf8::from_encoding(cmd.second, encoding_), wmsg, wperf);
+			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_)), utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_)), wmsg, wperf);
 		}
 	} catch (...) {
 		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length());
@@ -52,11 +52,11 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 	}
 	std::string data,msg, perf;
 	if (encoding_.empty()) {
-		msg = utf8::to_system(wmsg);
-		perf = utf8::to_system(wperf);
+		msg = utf8::to_system(utf8::cvt<std::wstring>(wmsg));
+		perf = utf8::to_system(utf8::cvt<std::wstring>(wperf));
 	} else {
-		msg = utf8::to_encoding(wmsg, encoding_);
-		perf = utf8::to_encoding(wperf, encoding_);
+		msg = utf8::to_encoding(utf8::cvt<std::wstring>(wmsg), encoding_);
+		perf = utf8::to_encoding(utf8::cvt<std::wstring>(wperf), encoding_);
 	}
 
 	const unsigned int max_len = p.get_payload_length()-1;

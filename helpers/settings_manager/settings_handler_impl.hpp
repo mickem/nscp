@@ -35,8 +35,8 @@
 namespace settings {
 	class settings_handler_impl : public settings_core {
 	private:
-		typedef std::map<std::wstring, std::wstring> path_map;
-		typedef std::map<std::wstring,settings_core::path_description> reg_paths_type;
+		typedef std::map<std::string, std::string> path_map;
+		typedef std::map<std::string,settings_core::path_description> reg_paths_type;
 		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
 		typedef settings_interface::string_list string_list;
 		
@@ -93,7 +93,7 @@ namespace settings {
 		void remove_defaults();
 		void migrate(instance_ptr from, instance_ptr to) {
 			if (!from || !to)
-				throw new settings_exception(_T("Source or target is null"));
+				throw new settings_exception("Source or target is null");
 			from->save_to(to);
 			set_primary(to->get_context());
 		}
@@ -103,15 +103,15 @@ namespace settings {
 		void migrate_from(instance_ptr from) {
 			migrate(from, get());
 		}
-		void migrate_to(std::wstring to) {
+		void migrate_to(std::string to) {
 			instance_ptr i = create_instance(to);
 			migrate_to(i);
 		}
-		void migrate_from(std::wstring from) {
+		void migrate_from(std::string from) {
 			instance_ptr i = create_instance(from);
 			migrate_from(i);
 		}
-		void migrate(std::wstring from, std::wstring to) {
+		void migrate(std::string from, std::string to) {
 			instance_ptr ifrom = create_instance(from);
 			instance_ptr ito = create_instance(to);
 			migrate(ifrom, ito);
@@ -129,7 +129,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced = false) {
+		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced = false) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id, title, description, advanced);
@@ -150,7 +150,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::wstring path, std::wstring key, settings_core::key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced = false) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id);
@@ -177,7 +177,7 @@ namespace settings {
 		/// @return the key description
 		///
 		/// @author mickem
-		settings_core::key_description get_registred_key(std::wstring path, std::wstring key) {
+		settings_core::key_description get_registred_key(std::string path, std::string key) {
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				path_description::keys_type::const_iterator cit2 = (*cit).second.keys.find(key);
@@ -188,7 +188,7 @@ namespace settings {
 			}
 			throw KeyNotFoundException(path, key);
 		}
-		settings_core::path_description get_registred_path(const std::wstring &path) {
+		settings_core::path_description get_registred_path(const std::string &path) {
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				return (*cit).second;
@@ -218,7 +218,7 @@ namespace settings {
 		/// @return a list of key names
 		///
 		/// @author mickem
-		virtual string_list get_reg_keys(std::wstring path) {
+		virtual string_list get_reg_keys(std::string path) {
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
@@ -227,17 +227,17 @@ namespace settings {
 				}
 				return ret;
 			}
-			throw KeyNotFoundException(path, _T(""));
+			throw KeyNotFoundException(path, "");
 		}
 
 
-		void set_instance(std::wstring key) {
+		void set_instance(std::string key) {
 			boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!mutex.owns_lock())
-				throw settings_exception(_T("set_instance Failed to get mutext, cant get access settings"));
+				throw settings_exception("set_instance Failed to get mutext, cant get access settings");
 			instance_ = create_instance(key);
 			if (!instance_)
-				throw settings_exception(_T("set_instance Failed to create instance for: ") + key);
+				throw settings_exception("set_instance Failed to create instance for: " + key);
 			instance_->set_core(this);
 		}
 
@@ -245,10 +245,10 @@ namespace settings {
 	private:
 		void destroy_all_instances();
 
-		virtual std::wstring to_string() {
+		virtual std::string to_string() {
 			if (instance_)
 				return instance_->to_string();
-			return _T("<NULL>");
+			return "<NULL>";
 		}
 
 	};

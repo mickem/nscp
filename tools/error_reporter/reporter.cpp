@@ -34,7 +34,7 @@ int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) { return nscp_main(argc, a
 int main(int argc, char* argv[]) { 
 	wchar_t **wargv = new wchar_t*[argc];
 	for (int i=0;i<argc;i++) {
-		std::wstring s = strEx::string_to_wstring(argv[i]);
+		std::wstring s = utf8::cvt<std::wstring>(argv[i]);
 		wargv[i] = new wchar_t[s.length()+10];
 		wcscpy(wargv[i], s.c_str());
 	}
@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
 int nscp_main(int argc, wchar_t* argv[]) {
 	if (argc > 1) {
-		std::string command = strEx::wstring_to_string(argv[1]);
+		std::string command = utf8::cvt<std::string>(argv[1]);
 		if (command == "restart" && argc > 2) {
 			return restart(argv[2]);
 		} else if (command == "archive" && argc > 6) {
@@ -118,7 +118,7 @@ int archive_dump(std::wstring file, std::wstring application, std::wstring versi
 		std::wstring fname = file.substr(file.find_last_of(_T("/\\")));
 		boost::filesystem::copy_file(file, target + fname);
 		std::wstring descfile = target + fname + _T(".txt");
-		if (!write_desc(strEx::wstring_to_string(descfile), strEx::wstring_to_string(application), strEx::wstring_to_string(version), strEx::wstring_to_string(date))) {
+		if (!write_desc(utf8::cvt<std::string>(descfile), utf8::cvt<std::string>(application), utf8::cvt<std::string>(version), utf8::cvt<std::string>(date))) {
 			std::wcout << _T("Failed to write description: ") << target << fname << _T(".txt") << std::endl;
 			return -1;
 		}

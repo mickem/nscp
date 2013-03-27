@@ -79,7 +79,7 @@ namespace socket_helpers {
 			return *this;
 		}
 
-		void set_source(std::wstring source);
+		void set_source(std::string source);
 		addr_v4 lookup_mask_v4(std::string mask);
 		addr_v6 lookup_mask_v6(std::string mask);
 		void refresh(std::list<std::string> &errors);
@@ -119,6 +119,7 @@ namespace socket_helpers {
 			return false;
 		}
 		std::wstring to_wstring();
+		std::string to_string();
 	};
 
 	struct connection_info {

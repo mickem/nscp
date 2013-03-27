@@ -20,15 +20,16 @@
 ***************************************************************************/
 #pragma once
 
+#include <boost/thread.hpp>
+
 #include <pdh/core.hpp>
 #include <error.hpp>
 #include <pdh/basic_impl.hpp>
-#include <Mutex.h>
 
 namespace PDH {
 
 	class ThreadedSafePDH : public PDH::NativeExternalPDH {
-		MutexHandler mutex_;
+		boost::shared_mutex mutex_;
 		typedef std::list<PDHImplSubscriber*> subscriber_list;
 		subscriber_list subscribers_;
 	private:
@@ -38,9 +39,9 @@ namespace PDH {
 		}
 
 		bool reload() {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for reload"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for reload");
 			return reload_unsafe();
 		}
 
@@ -56,15 +57,15 @@ namespace PDH {
 	public:
 
 		virtual void add_listener(PDHImplSubscriber* sub) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for reload"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for reload");
 			subscribers_.push_back(sub);
 		}
 		virtual void remove_listener(PDHImplSubscriber* sub) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for reload"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for reload");
 			for(subscriber_list::iterator it = subscribers_.begin(); it != subscribers_.end(); ++it) {
 				if ( (*it) == sub)
 					it = subscribers_.erase(it);
@@ -74,93 +75,93 @@ namespace PDH {
 		}
 
 		virtual PDHError PdhLookupPerfIndexByName(LPCTSTR szMachineName,LPCTSTR szName,DWORD *dwIndex) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhLookupPerfIndexByName"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhLookupPerfIndexByName");
 			if (pPdhLookupPerfIndexByName == NULL)
-				throw PDHException(_T("Failed to initalize PdhLookupPerfIndexByName"));
+				throw pdh_exception("Failed to initialize PdhLookupPerfIndexByName");
 			return PDH::PDHError(pPdhLookupPerfIndexByName(szMachineName,szName,dwIndex));
 		}
 
 		virtual PDHError PdhLookupPerfNameByIndex(LPCTSTR szMachineName,DWORD dwNameIndex,LPTSTR szNameBuffer,LPDWORD pcchNameBufferSize) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhLookupPerfNameByIndex"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhLookupPerfNameByIndex");
 			if (pPdhLookupPerfNameByIndex == NULL)
-				throw PDHException(_T("Failed to initalize PdhLookupPerfNameByIndex :("));
+				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
 			return PDH::PDHError(pPdhLookupPerfNameByIndex(szMachineName,dwNameIndex,szNameBuffer,pcchNameBufferSize));
 		}
 
 		virtual PDHError PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhExpandCounterPath"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhExpandCounterPath");
 			if (pPdhExpandCounterPath == NULL)
-				throw PDHException(_T("Failed to initalize PdhLookupPerfNameByIndex :("));
+				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
 			return PDH::PDHError(pPdhExpandCounterPath(szWildCardPath,mszExpandedPathList,pcchPathListLength));
 		}
 		virtual PDHError PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO *lpBuffer) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhGetCounterInfo"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhGetCounterInfo");
 			if (pPdhGetCounterInfo == NULL)
-				throw PDHException(_T("Failed to initalize PdhGetCounterInfo :("));
+				throw pdh_exception("Failed to initialize PdhGetCounterInfo :(");
 			return PDH::PDHError(pPdhGetCounterInfo(hCounter,bRetrieveExplainText,pdwBufferSize,lpBuffer));
 		}
 		virtual PDHError PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhAddCounter"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhAddCounter");
 			if (pPdhAddCounter == NULL)
-				throw PDHException(_T("Failed to initalize PdhAddCounter :("));
+				throw pdh_exception("Failed to initialize PdhAddCounter :(");
 			return PDH::PDHError(pPdhAddCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
 		}
 		virtual PDHError PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhRemoveCounter"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhRemoveCounter");
 			if (pPdhRemoveCounter == NULL)
-				throw PDHException(_T("Failed to initalize PdhRemoveCounter :("));
+				throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
 			return PDH::PDHError(pPdhRemoveCounter(hCounter));
 		}
 		virtual PDHError PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhGetFormattedCounterValue"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhGetFormattedCounterValue");
 			if (pPdhGetFormattedCounterValue == NULL)
-				throw PDHException(_T("Failed to initalize PdhGetFormattedCounterValue :("));
+				throw pdh_exception("Failed to initialize PdhGetFormattedCounterValue :(");
 			return PDH::PDHError(pPdhGetFormattedCounterValue(hCounter, dwFormat, lpdwType, pValue));
 		}
 		virtual PDHError PdhOpenQuery(LPCWSTR szDataSource, DWORD_PTR dwUserData, PDH::PDH_HQUERY * phQuery) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhOpenQuery"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhOpenQuery");
 			if (pPdhOpenQuery == NULL)
-				throw PDHException(_T("Failed to initalize PdhOpenQuery :("));
+				throw pdh_exception("Failed to initialize PdhOpenQuery :(");
 			return PDH::PDHError(pPdhOpenQuery(szDataSource, dwUserData, phQuery));
 		}
 		virtual PDHError PdhCloseQuery(PDH_HQUERY hQuery) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhCloseQuery"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhCloseQuery");
 			if (pPdhCloseQuery == NULL)
-				throw PDHException(_T("Failed to initalize PdhCloseQuery :("));
+				throw pdh_exception("Failed to initialize PdhCloseQuery :(");
 			return PDH::PDHError(pPdhCloseQuery(hQuery));
 		}
 		virtual PDHError PdhCollectQueryData(PDH_HQUERY hQuery) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhCollectQueryData"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhCollectQueryData");
 			if (pPdhCollectQueryData == NULL)
-				throw PDHException(_T("Failed to initalize PdhCollectQueryData :("));
+				throw pdh_exception("Failed to initialize PdhCollectQueryData :(");
 			return PDH::PDHError(pPdhCollectQueryData(hQuery));
 		}
 		virtual PDHError PdhValidatePath(LPCWSTR szFullPathBuffer, bool force_reload) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhValidatePath"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhValidatePath");
 			if (pPdhValidatePath == NULL)
-				throw PDHException(_T("Failed to initalize PdhValidatePath :("));
+				throw pdh_exception("Failed to initialize PdhValidatePath :(");
 			PDH::PDHError status = PDH::PDHError(pPdhValidatePath(szFullPathBuffer));
 			if (status.is_error() && force_reload) {
 				reload_unsafe();
@@ -169,19 +170,19 @@ namespace PDH {
 			return status;
 		}
 		virtual PDHError PdhEnumObjects(LPCWSTR szDataSource, LPCWSTR szMachineName, LPWSTR mszObjectList, LPDWORD pcchBufferSize, DWORD dwDetailLevel, BOOL bRefresh) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhEnumObjects"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhEnumObjects");
 			if (pPdhEnumObjects == NULL)
-				throw PDHException(_T("Failed to initalize PdhEnumObjects :("));
+				throw pdh_exception("Failed to initialize PdhEnumObjects :(");
 			return PDH::PDHError(pPdhEnumObjects(szDataSource, szMachineName, mszObjectList, pcchBufferSize, dwDetailLevel, bRefresh));
 		}
 		virtual PDHError PdhEnumObjectItems(LPCWSTR szDataSource, LPCWSTR szMachineName, LPCWSTR szObjectName, LPWSTR mszCounterList, LPDWORD pcchCounterListLength, LPWSTR mszInstanceList, LPDWORD pcchInstanceListLength, DWORD dwDetailLevel, DWORD dwFlags) {
-			MutexLock lock(mutex_);
-			if (!lock.hasMutex())
-				throw PDHException(_T("Failed to get mutex for PdhEnumObjectItems"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw pdh_exception("Failed to get mutex for PdhEnumObjectItems");
 			if (pPdhEnumObjectItems == NULL)
-				throw PDHException(_T("Failed to initalize PdhEnumObjectItems :("));
+				throw pdh_exception("Failed to initialize PdhEnumObjectItems :(");
 			return PDH::PDHError(pPdhEnumObjectItems(szDataSource, szMachineName, szObjectName, mszCounterList, pcchCounterListLength, mszInstanceList, pcchInstanceListLength, dwDetailLevel, dwFlags));
 		}
 	};

@@ -23,7 +23,7 @@ namespace settings_manager {
 
 	inline NSCSettingsImpl* internal_get() {
 		if (settings_impl == NULL)
-			throw settings::settings_exception(_T("Settings has not been initiated!"));
+			throw settings::settings_exception("Settings has not been initiated!");
 		return settings_impl;
 	}
 	nscapi::settings_helper::settings_impl_interface_ptr get_proxy() {
@@ -44,13 +44,13 @@ namespace settings_manager {
 		delete old;
 	}
 
-	std::wstring NSCSettingsImpl::find_file(std::wstring file, std::wstring fallback) {
+	std::string NSCSettingsImpl::find_file(std::string file, std::string fallback) {
 		// @todo: replace this with a proper parser!
 		if (file.size() == 0)
 			file = fallback;
 		return provider_->expand_path(file);
 	}
-	std::wstring NSCSettingsImpl::expand_path(std::wstring file) {
+	std::string NSCSettingsImpl::expand_path(std::string file) {
 		return provider_->expand_path(file);
 	}
 
@@ -64,80 +64,80 @@ namespace settings_manager {
 	/// @return a new instance of given type.
 	///
 	/// @author mickem
-	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::wstring key) {
-		net::wurl url = net::parse(key);
+	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string key) {
+		net::url url = net::parse(key);
 		if (url.protocol.empty()) {
-			url = net::parse(key + _T("://"));
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No driver specified attempting to fake one: " + utf8::cvt<std::string>(url.to_string()));
+			url = net::parse(key + "://");
+			get_logger()->debug("settings", __FILE__, __LINE__, "No driver specified attempting to fake one: " + url.to_string());
 		}
-		get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Creating instance for: " + utf8::cvt<std::string>(url.to_string()));
+		get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_string());
 		if (url.host.empty() && url.path.empty()) 
-			key = _T("");
+			key = "";
 #ifdef WIN32
-		if (url.protocol == _T("old")) {
+		if (url.protocol == "old") {
 			old_ = true;
 			if (key.empty())
 				key = DEFAULT_CONF_OLD_LOCATION;
 			return settings::instance_raw_ptr(new settings::OLDSettings(this, key));
 		}
-		if (url.protocol == _T("registry")) {
+		if (url.protocol == "registry") {
 			if (key.empty())
 				key = DEFAULT_CONF_REG_LOCATION;
 			return settings::instance_raw_ptr(new settings::REGSettings(this, key));
 		}
 #endif
-		if (url.protocol == _T("ini")) {
+		if (url.protocol == "ini") {
 			if (key.empty())
 				key = DEFAULT_CONF_INI_LOCATION;
 			return settings::instance_raw_ptr(new settings::INISettings(this, key));
 		}
-		if (url.protocol == _T("dummy")) {
+		if (url.protocol == "dummy") {
 			return settings::instance_raw_ptr(new settings::settings_dummy(this, key));
 		}
-		if (url.protocol == _T("http")) {
+		if (url.protocol == "http") {
 			return settings::instance_raw_ptr(new settings::settings_http(this, key));
 		}
-		throw settings::settings_exception(_T("Undefined settings protocol: ") + url.protocol);
+		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
 	}
 
-	bool NSCSettingsImpl::check_file(std::wstring file, std::wstring tag, std::wstring &key) {
-		std::wstring tmp = provider_->expand_path(file);
-		if (file_helpers::checks::exists(tmp)) {
+	bool NSCSettingsImpl::check_file(std::string file, std::string tag, std::string &key) {
+		std::string tmp = provider_->expand_path(file);
+		if (boost::filesystem::exists(tmp)) {
 			key = tag;
 			return true;
 		}
 		return false;
 	}
 
-	std::wstring NSCSettingsImpl::expand_context(std::wstring key) {
+	std::string NSCSettingsImpl::expand_context(std::string key) {
 #ifdef WIN32
-		if (key == _T("old"))
+		if (key == "old")
 			return DEFAULT_CONF_OLD_LOCATION;
-		if (key == _T("registry"))
+		if (key == "registry")
 			return DEFAULT_CONF_REG_LOCATION;
 #endif
-		if (key == _T("ini"))
+		if (key == "ini")
 			return DEFAULT_CONF_INI_LOCATION;
-		if (key == _T("dummy"))
-			return _T("dummy://");
+		if (key == "dummy")
+			return "dummy://";
 		return key;
 	}
 
-	bool NSCSettingsImpl::context_exists(std::wstring key) {
-		net::wurl url = net::parse(key);
+	bool NSCSettingsImpl::context_exists(std::string key) {
+		net::url url = net::parse(key);
 		if (url.protocol.empty())
 			url = net::parse(expand_context(key));
 #ifdef WIN32
-		if (url.protocol == _T("old"))
+		if (url.protocol == "old")
 			return settings::OLDSettings::context_exists(this, key);
-		if (url.protocol == _T("registry"))
+		if (url.protocol == "registry")
 			return settings::REGSettings::context_exists(this, key);
 #endif
-		if (url.protocol == _T("ini"))
+		if (url.protocol == "ini")
 			return settings::INISettings::context_exists(this, key);
-		if (url.protocol == _T("dummy"))
+		if (url.protocol == "dummy")
 			return true;
-		if (url.protocol == _T("http"))
+		if (url.protocol == "http")
 			return true;
 		return false;
 	}
@@ -152,127 +152,125 @@ namespace settings_manager {
 	/// @param file the file to use when booting.
 	///
 	/// @author mickem
-	void NSCSettingsImpl::boot(std::wstring key) {
-		std::list<std::wstring> order;
+	void NSCSettingsImpl::boot(std::string key) {
+		std::list<std::string> order;
 		if (!key.empty()) {
 			order.push_back(key);
 		} 
-		boot_ = utf8::cvt<std::string>(provider_->expand_path(BOOT_CONF_LOCATION));
+		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
 		if (boost::filesystem::is_regular_file(boot_)) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Boot.ini found in: " + boot_.string());
+			get_logger()->debug("settings", __FILE__, __LINE__, "Boot.ini found in: " + boot_.string());
 			for (int i=0;i<20;i++) {
-				std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
+				std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
 				if (!v.empty()) 
 					order.push_back(expand_context(v));
 			}
 		}
 		if (order.size() == 0) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
+			get_logger()->debug("settings", __FILE__, __LINE__, "No entries found looking in (adding default): " + boot_.string());
 			order.push_back(DEFAULT_CONF_OLD_LOCATION);
 			order.push_back(DEFAULT_CONF_INI_LOCATION);
 		}
-		std::wstring boot_order;
-		BOOST_FOREACH(std::wstring k, order) {
-			strEx::append_list(boot_order, k, _T(", "));
+		std::string boot_order;
+		BOOST_FOREACH(const std::string &k, order) {
+			strEx::append_list(boot_order, k, ", ");
 		}
-		BOOST_FOREACH(std::wstring k, order) {
+		BOOST_FOREACH(std::string k, order) {
 			if (context_exists(k)) {
-				get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Activating: " + utf8::cvt<std::string>(k));
+				get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
 				set_instance(k);
 				return;
 			}
 		}
 		if (!key.empty()) {
-			get_logger()->info(_T("settings"), __FILE__, __LINE__, _T("No valid settings found but one was given (using that): ") + key);
+			get_logger()->info("settings", __FILE__, __LINE__, "No valid settings found but one was given (using that): " + key);
 			set_instance(key);
 			return;
 		}
 
-		get_logger()->debug(_T("settings"), __FILE__, __LINE__, "No valid settings found (tried): " + utf8::cvt<std::string>(boot_order));
+		get_logger()->debug("settings", __FILE__, __LINE__, "No valid settings found (tried): " + boot_order);
 
-		std::wstring tgt = get_boot_string(_T("main"), _T("write"), _T(""));
+		std::string tgt = get_boot_string("main", "write", "");
 		if (!tgt.empty()) {
-			get_logger()->debug(_T("settings"), __FILE__, __LINE__, "Creating new settings file: " + utf8::cvt<std::string>(tgt));
+			get_logger()->debug("settings", __FILE__, __LINE__, "Creating new settings file: " + tgt);
 			set_instance(tgt);
 			return;
 		}
-		get_logger()->error(_T("settings"), __FILE__, __LINE__, std::wstring(_T("Settings contexts exausted, will create a new ")) + DEFAULT_CONF_INI_LOCATION);
+		get_logger()->error("settings", __FILE__, __LINE__, "Settings contexts exhausted, will create a new default context: " DEFAULT_CONF_INI_LOCATION);
 		set_instance(DEFAULT_CONF_INI_LOCATION);
 	}
 
-	void NSCSettingsImpl::set_primary(std::wstring key) {
-		std::list<std::wstring> order;
+	void NSCSettingsImpl::set_primary(std::string key) {
+		std::list<std::string> order;
 		for (int i=0;i<20;i++) {
-			std::wstring v = get_boot_string(_T("settings"), strEx::itos(i), _T(""));
+			std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
 			if (!v.empty()) {
 				order.push_back(expand_context(v));
-				set_boot_string(_T("settings"), strEx::itos(i), _T(""));
+				set_boot_string("settings", strEx::s::xtos(i), "");
 			}
 		}
 		order.remove(key);
 		order.push_front(key);
 		int i=1;
-		BOOST_FOREACH(std::wstring k, order) {
-			set_boot_string(_T("settings"), strEx::itos(i++), k);
+		BOOST_FOREACH(const std::string &k, order) {
+			set_boot_string("settings", strEx::s::xtos(i++), k);
 		}
-		set_boot_string(_T("main"), _T("write"), key);
+		set_boot_string("main", "write", key);
 		boot(key);
 	}
 
 
-	bool NSCSettingsImpl::create_context(std::wstring key) {
+	bool NSCSettingsImpl::create_context(std::string key) {
 		try {
 			change_context(key);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;
 		} catch (...) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 			return false;
 		}
 		return true;
 	}
 
-	void NSCSettingsImpl::change_context(std::wstring context) {
+	void NSCSettingsImpl::change_context(std::string context) {
 		try {
 			get_core()->migrate_to(context);
 			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 		} catch (...) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 		}
 	}
 
-	bool init_settings(provider_interface *provider, std::wstring context) {
+	bool init_settings(provider_interface *provider, std::string context) {
 		try {
 			settings_impl = new NSCSettingsImpl(provider);
-			get_core()->set_base(utf8::cvt<std::string>(provider->expand_path(_T("${base-path}"))));
+			get_core()->set_base(provider->expand_path("${base-path}"));
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;
 		} catch (...) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("FATAL ERROR IN SETTINGS SUBSYTEM"));
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 			return false;
 		}
 		return true;
 	}
 
-	void change_context(std::wstring context) {
+	void change_context(std::string context) {
 		settings_impl->change_context(context);
 	}
 
 	bool has_boot_conf() {
 		return settings_impl->has_boot_conf();
 	}
-	bool context_exists(std::wstring key) {
+	bool context_exists(std::string key) {
 		return settings_impl->context_exists(key);
 	}
-	bool create_context(std::wstring key) {
+	bool create_context(std::string key) {
 		return settings_impl->create_context(key);
 	}
-
-
 }

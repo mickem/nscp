@@ -135,20 +135,20 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		void functions::make_submit_from_query(std::string &message, const std::wstring channel, const std::wstring alias, const std::wstring target) {
+		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target) {
 			Plugin::QueryResponseMessage response;
 			response.ParseFromString(message);
 			Plugin::SubmitRequestMessage request;
 			request.mutable_header()->CopyFrom(response.header());
 			request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
-			request.set_channel(utf8::cvt<std::string>(channel));
+			request.set_channel(channel);
 			if (!target.empty()) {
-				request.mutable_header()->set_recipient_id(utf8::cvt<std::string>(target));
+				request.mutable_header()->set_recipient_id(target);
 			}
 			for (int i=0;i<response.payload_size();++i) {
 				request.add_payload()->CopyFrom(response.payload(i));
 				if (!alias.empty())
-					request.mutable_payload(i)->set_alias(utf8::cvt<std::string>(alias));
+					request.mutable_payload(i)->set_alias(alias);
 			}
 			message = request.SerializeAsString();
 		}
@@ -404,7 +404,7 @@ namespace nscapi {
 			Plugin::QueryResponseMessage message;
 			create_simple_header(message.mutable_header());
 
-			append_simple_query_response_payload(message.add_payload(), command, ret, msg, perf);
+			append_simple_query_response_payload(message.add_payload(), utf8::cvt<std::string>(command), ret, utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
 
 			message.SerializeToString(&buffer);
 			return ret;
@@ -433,17 +433,9 @@ namespace nscapi {
 		}
 
 
-		void functions::append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf) {
-			payload->set_command(utf8::cvt<std::string>(command));
-			payload->set_message(utf8::cvt<std::string>(msg));
-			payload->set_result(nagios_status_to_gpb(ret));
-			if (!perf.empty())
-				parse_performance_data(payload, perf);
-		}
-
-		void functions::append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf) {
-			payload->set_command(utf8::cvt<std::string>(command));
-			payload->set_message(utf8::cvt<std::string>(msg));
+		void functions::append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf) {
+			payload->set_command(command);
+			payload->set_message(msg);
 			payload->set_result(nagios_status_to_gpb(ret));
 			if (!perf.empty())
 				parse_performance_data(payload, perf);
@@ -468,17 +460,17 @@ namespace nscapi {
 		}
 
 
-		void functions::append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments) {
-			payload->set_command(utf8::cvt<std::string>(command));
-			BOOST_FOREACH(const std::wstring &s, arguments) {
-				payload->add_arguments(utf8::cvt<std::string>(s));
+		void functions::append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments) {
+			payload->set_command(command);
+			BOOST_FOREACH(const std::string &s, arguments) {
+				payload->add_arguments(s);
 			}
 		}
 
-		void functions::append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::wstring command, std::vector<std::wstring> arguments) {
-			payload->set_command(utf8::cvt<std::string>(command));
-			BOOST_FOREACH(const std::wstring &s, arguments) {
-				payload->add_arguments(utf8::cvt<std::string>(s));
+		void functions::append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments) {
+			payload->set_command(command);
+			BOOST_FOREACH(const std::string &s, arguments) {
+				payload->add_arguments(s);
 			}
 		}
 
@@ -500,7 +492,7 @@ namespace nscapi {
 		functions::decoded_simple_command_data functions::parse_simple_query_request(const std::string command, const std::string &request) {
 			decoded_simple_command_data data;
 
-			data.command = utf8::cvt<std::wstring>(command);
+			data.command = command;
 			Plugin::QueryRequestMessage message;
 			message.ParseFromString(request);
 
@@ -509,30 +501,14 @@ namespace nscapi {
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+				data.args.push_back(payload.arguments(i));
 			}
 			return data;
 		}
-		functions::decoded_simple_command_data functions::parse_simple_query_request(const wchar_t* char_command, const std::string &request) {
+		functions::decoded_simple_command_data functions::parse_simple_query_request(const char* char_command, const std::string &request) {
 			decoded_simple_command_data data;
 
 			data.command = char_command;
-			Plugin::QueryRequestMessage message;
-			message.ParseFromString(request);
-
-			if (message.payload_size() != 1) {
-				THROW_INVALID_SIZE(message.payload_size());
-			}
-			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
-			}
-			return data;
-		}
-		functions::decoded_simple_command_data_utf8 functions::parse_simple_query_request_utf8(const wchar_t* char_command, const std::string &request) {
-			decoded_simple_command_data_utf8 data;
-
-			data.command = utf8::cvt<std::string>(char_command);
 			Plugin::QueryRequestMessage message;
 			message.ParseFromString(request);
 
@@ -547,9 +523,9 @@ namespace nscapi {
 		}
 		functions::decoded_simple_command_data functions::parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload) {
 			decoded_simple_command_data data;
-			data.command = utf8::cvt<std::wstring>(payload.command());
+			data.command = payload.command();
 			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+				data.args.push_back(payload.arguments(i));
 			}
 			return data;
 		}
@@ -590,59 +566,59 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		void functions::create_simple_exec_request(const std::wstring &command, const std::list<std::wstring> & args, std::string &request) {
-
-			Plugin::ExecuteRequestMessage message;
-			create_simple_header(message.mutable_header());
-
-			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
-			payload->set_command(utf8::cvt<std::string>(command));
-
-			BOOST_FOREACH(std::wstring s, args)
-				payload->add_arguments(utf8::cvt<std::string>(s));
-
-			message.SerializeToString(&request);
-		}
-
 		void functions::create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request) {
 
 			Plugin::ExecuteRequestMessage message;
 			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
-			payload->set_command(utf8::cvt<std::string>(command));
+			payload->set_command(command);
 
-			BOOST_FOREACH(std::string s, args)
-				payload->add_arguments(utf8::cvt<std::string>(s));
+			BOOST_FOREACH(const std::string &s, args)
+				payload->add_arguments(s);
 
 			message.SerializeToString(&request);
 		}
-		void functions::create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request) {
+
+		void functions::create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request) {
 
 			Plugin::ExecuteRequestMessage message;
 			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
-			payload->set_command(utf8::cvt<std::string>(command));
+			payload->set_command(command);
 
-			BOOST_FOREACH(std::wstring s, args)
-				payload->add_arguments(utf8::cvt<std::string>(s));
+			BOOST_FOREACH(std::string s, args)
+				payload->add_arguments(s);
 
 			message.SerializeToString(&request);
 		}
-		int functions::parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
-			int ret = 0;
-			Plugin::ExecuteResponseMessage message;
-			message.ParseFromString(response);
-
-			for (int i=0;i<message.payload_size(); i++) {
-				result.push_back(utf8::cvt<std::wstring>(message.payload(i).message()));
-				int r=gbp_to_nagios_status(message.payload(i).result());
-				if (r > ret)
-					ret = r;
-			}
-			return ret;
-		}
+// 		void functions::create_simple_exec_request(const std::wstring &command, const std::vector<std::wstring> & args, std::string &request) {
+// 
+// 			Plugin::ExecuteRequestMessage message;
+// 			create_simple_header(message.mutable_header());
+// 
+// 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
+// 			payload->set_command(utf8::cvt<std::string>(command));
+// 
+// 			BOOST_FOREACH(std::wstring s, args)
+// 				payload->add_arguments(utf8::cvt<std::string>(s));
+// 
+// 			message.SerializeToString(&request);
+// 		}
+// 		int functions::parse_simple_exec_result(const std::string &response, std::list<std::wstring> &result) {
+// 			int ret = 0;
+// 			Plugin::ExecuteResponseMessage message;
+// 			message.ParseFromString(response);
+// 
+// 			for (int i=0;i<message.payload_size(); i++) {
+// 				result.push_back(utf8::cvt<std::wstring>(message.payload(i).message()));
+// 				int r=gbp_to_nagios_status(message.payload(i).result());
+// 				if (r > ret)
+// 					ret = r;
+// 			}
+// 			return ret;
+// 		}
 		int functions::parse_simple_exec_response(const std::string &response, std::list<std::string> &result) {
 			int ret = 0;
 			Plugin::ExecuteResponseMessage message;
@@ -656,41 +632,41 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		void functions::parse_simple_exec_result(const std::string &response, std::wstring &result) {
-			Plugin::ExecuteResponseMessage message;
-			message.ParseFromString(response);
+// 		void functions::parse_simple_exec_result(const std::string &response, std::wstring &result) {
+// 			Plugin::ExecuteResponseMessage message;
+// 			message.ParseFromString(response);
+// 
+// 			for (int i=0;i<message.payload_size(); i++) {
+// 				result += utf8::cvt<std::wstring>(message.payload(i).message());
+// 			}
+// 		}
 
-			for (int i=0;i<message.payload_size(); i++) {
-				result += utf8::cvt<std::wstring>(message.payload(i).message());
-			}
-		}
-
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const wchar_t* char_command, const std::string &request) {
+		functions::decoded_simple_command_data functions::parse_simple_exec_request(const char* char_command, const std::string &request) {
 			Plugin::ExecuteRequestMessage message;
 			message.ParseFromString(request);
 
 			return parse_simple_exec_request(char_command, message);
 		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const std::wstring cmd, const Plugin::ExecuteRequestMessage &message) {
+		functions::decoded_simple_command_data functions::parse_simple_exec_request(const std::string &cmd, const Plugin::ExecuteRequestMessage &message) {
 			decoded_simple_command_data data;
 			data.command = cmd;
 			if (message.has_header())
-				data.target = utf8::cvt<std::wstring>(message.header().recipient_id());
+				data.target = message.header().recipient_id();
 
 			if (message.payload_size() != 1) {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
 			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+				data.args.push_back(payload.arguments(i));
 			}
 			return data;
 		}
 		functions::decoded_simple_command_data functions::parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload) {
 			decoded_simple_command_data data;
-			data.command = utf8::cvt<std::wstring>(payload.command());
+			data.command = payload.command();
 			for (int i=0;i<payload.arguments_size();i++) {
-				data.args.push_back(utf8::cvt<std::wstring>(payload.arguments(i)));
+				data.args.push_back(payload.arguments(i));
 			}
 			return data;
 		}

@@ -20,14 +20,17 @@ namespace settings {
 			operator std::wstring () {
 				return path;
 			}
-			std::wstring to_string() {
+			std::string to_string() {
+				return utf8::cvt<std::string>(path);
+			}
+			std::wstring to_wstring() {
 				return path;
 			}
 		};
 
 
 		public:
-		REGSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {}
+		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {}
 
 		virtual ~REGSettings(void) {}
 
@@ -38,7 +41,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) {
+		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
 			return new REGSettings(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -49,7 +52,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type key) {
+		virtual std::string get_real_string(settings_core::key_path_type key) {
 			return getString_(get_reg_key(key.first), key.second);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -61,8 +64,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual int get_real_int(settings_core::key_path_type key) {
-			std::wstring str = get_real_string(key);
-			return strEx::stoi(str);
+			std::string str = get_real_string(key);
+			return strEx::s::stox<int>(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -73,7 +76,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool get_real_bool(settings_core::key_path_type key) {
-			std::wstring str = get_real_string(key);
+			std::string str = get_real_string(key);
 			return SettingsInterfaceImpl::string_to_bool(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -102,17 +105,17 @@ namespace settings {
 			} else if (value.type == settings_core::key_bool) {
 				setInt_(get_reg_key(key), key.second, value.get_bool()?1:0);
 			} else {
-				throw settings_exception(_T("Invalid settings type."));
+				throw settings_exception("Invalid settings type.");
 			}
 		}
-		virtual void set_real_path(std::wstring path) {
+		virtual void set_real_path(std::string path) {
 			// NOT Supported (and not needed) so silently ignored!
 		}
 
 		virtual void remove_real_value(settings_core::key_path_type key) {
 			// NOT Supported
 		}
-		virtual void remove_real_path(std::wstring path) {
+		virtual void remove_real_path(std::string path) {
 			// NOT Supported
 		}
 
@@ -125,7 +128,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::wstring path, string_list &list) {
+		virtual void get_real_sections(std::string path, string_list &list) {
 			getSubKeys_(get_reg_key(path), list);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -137,7 +140,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::wstring path, string_list &list) {
+		virtual void get_real_keys(std::string path, string_list &list) {
 			getValues_(get_reg_key(path), list);
 		}
 	// 	virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
@@ -147,21 +150,21 @@ namespace settings {
 		reg_key get_reg_key(settings_core::key_path_type key) {
 			return get_reg_key(key.first);
 		}
-		reg_key get_reg_key(std::wstring path) {
+		reg_key get_reg_key(std::string path) {
 			reg_key ret;
-			strEx::replace(path, _T("/"), _T("\\"));
+			strEx::replace(path, "/", "\\");
 			ret.path = NS_REG_ROOT;
 			if (path[0] != '\\')
 				ret.path += _T("\\");
-			ret.path += path;
+			ret.path += utf8::cvt<std::wstring>(path);
 			ret.hKey = NS_HKEY_ROOT;
 			return ret;
 		}
 		struct reg_buffer {
 			wchar_t *buf;
-			std::wstring::size_type len;
-			reg_buffer(std::wstring::size_type len) : buf(new wchar_t[len]), len(len) {}
-			reg_buffer(std::wstring str) : buf(new wchar_t[str.length()+1]), len(str.length()+1) {
+			std::string::size_type len;
+			reg_buffer(std::string::size_type len) : buf(new wchar_t[len]), len(len) {}
+			reg_buffer(std::string str) : buf(new wchar_t[str.length()+1]), len(str.length()+1) {
 				copy_from(str);
 			}
 			~reg_buffer() {
@@ -176,10 +179,16 @@ namespace settings {
 			int str_len() {
 				return (wcslen(buf)+1)*sizeof(wchar_t);
 			}
-			void copy_from(std::wstring &src) {
+			void copy_from(const std::wstring &src) {
 				if (src.length() > len)
 					resize(src.length()+1);
 				wcsncpy(buf, src.c_str(), src.length()+1);
+				buf[src.length()] = 0;
+			}
+			void copy_from(const std::string &src) {
+				if (src.length() > len)
+					resize(src.length()+1);
+				wcsncpy(buf, utf8::cvt<std::wstring>(src).c_str(), src.length()+1);
 				buf[src.length()] = 0;
 			}
 			void resize(unsigned int len) {
@@ -191,10 +200,16 @@ namespace settings {
 
 		struct tmp_reg_key {
 			HKEY hTemp;
+			tmp_reg_key(HKEY hKey, std::string path) : hTemp(NULL) {
+				open(hKey, utf8::cvt<std::wstring>(path));
+			}
 			tmp_reg_key(HKEY hKey, std::wstring path) : hTemp(NULL) {
+				open(hKey, path);
+			}
+			void open(HKEY hKey, std::wstring path) {
 				DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL);
 				if (err != ERROR_SUCCESS) {
-					throw settings_exception(_T("Failed to open key: ") + path + _T(" (") + error::format::from_system(err) + _T(")"));
+					throw settings_exception("Failed to open key " + utf8::cvt<std::string>(path) + ": " + error::lookup::last_error(err));
 				}
 			}
 			HKEY operator*() {
@@ -207,55 +222,55 @@ namespace settings {
 
 		};
 
-		static void setString_(reg_key path, std::wstring key, std::wstring value) {
+		static void setString_(reg_key path, std::string key, std::string value) {
 			tmp_reg_key hTemp(path.hKey, path.path);
 			reg_buffer buffer(value);
-			DWORD err = RegSetValueExW(*hTemp, key.c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.str_len());
+			DWORD err = RegSetValueExW(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.str_len());
 			if (err != ERROR_SUCCESS) {
-				throw settings_exception(_T("Failed to write string: ") + path.to_string() + _T(".") + key + _T(" (") + error::format::from_system(err) + _T(")"));
+				throw settings_exception("Failed to write string " + path.to_string() + "." + key + ": " + error::lookup::last_error(err));
 			}
 		}
 
-		static void setInt_(reg_key path, std::wstring key, DWORD value) {
+		static void setInt_(reg_key path, std::string key, DWORD value) {
 			tmp_reg_key hTemp(path.hKey, path.path);
-			DWORD err = RegSetValueEx(*hTemp, key.c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
+			DWORD err = RegSetValueEx(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
 			if (err != ERROR_SUCCESS) {
-				throw settings_exception(_T("Failed to int string: ") + path.to_string() + _T(".") + key + _T(" (") + error::format::from_system(err) + _T(")"));
+				throw settings_exception("Failed to int string: " + path.to_string() + "." + key + " (" + error::lookup::last_error(err) + ")");
 			}
 		}
 
-		static std::wstring getString_(reg_key path, std::wstring key) {
+		static std::string getString_(reg_key path, std::string key) {
 			HKEY hTemp;
 			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, &hTemp) != ERROR_SUCCESS) 
-				throw KeyNotFoundException(_T("Failed to open key: ") + path.to_string() + _T(": ") + error::lookup::last_error());
+				throw KeyNotFoundException("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error());
 			DWORD type;
 			const DWORD data_length = 2048;
 			DWORD cbData = data_length;
 			BYTE *bData = new BYTE[cbData];
-			LONG lRet = RegQueryValueEx(hTemp, key.c_str(), NULL, &type, bData, &cbData);
+			LONG lRet = RegQueryValueEx(hTemp, utf8::cvt<std::wstring>(key).c_str(), NULL, &type, bData, &cbData);
 			RegCloseKey(hTemp);
 			if (lRet == ERROR_SUCCESS) {
 				if (type == REG_SZ || type == REG_EXPAND_SZ) {
 					if (cbData == 0) {
 						delete [] bData;
-						return _T("");
+						return "";
 					}
 					if (cbData < data_length-1) {
 						bData[cbData] = 0;
 						const TCHAR *ptr = reinterpret_cast<TCHAR*>(bData);
 						std::wstring ret = ptr;
 						delete [] bData;
-						return ret;
+						return utf8::cvt<std::string>(std::wstring(ret));
 					}
-					throw settings_exception(_T("String to long: ") + path.to_string());
+					throw settings_exception("String to long: " + path.to_string());
 				} else if (type == REG_DWORD) {
 					DWORD dw = *(reinterpret_cast<DWORD*>(bData));
-					return strEx::itos(dw);
+					return strEx::s::xtos(dw);
 				}
-				throw settings_exception(_T("Unsupported key type: ") + path.to_string());
+				throw settings_exception("Unsupported key type: " + path.to_string());
 			} else if (lRet == ERROR_FILE_NOT_FOUND)
-				throw KeyNotFoundException(_T("Key not found: ") + path.to_string());
-			throw settings_exception(_T("Failed to open key: ") + path.to_string() + _T(": ") + error::lookup::last_error(lRet));
+				throw KeyNotFoundException("Key not found: " + path.to_string());
+			throw settings_exception("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error(lRet));
 		}
 		static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
 			DWORD ret = def;
@@ -296,9 +311,9 @@ namespace settings {
 					bRet = RegEnumValue(hTemp, i, lpValueName, &len, NULL, NULL, NULL, NULL);
 					if (bRet != ERROR_SUCCESS) {
 						delete [] lpValueName;
-						throw settings_exception(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
+						throw settings_exception("Failed to enumerate: " + path.to_string() + ": " + error::lookup::last_error());
 					}
-					list.push_back(std::wstring(lpValueName));
+					list.push_back(utf8::cvt<std::string>(std::wstring(lpValueName)));
 				}
 				delete [] lpValueName;
 			}
@@ -320,9 +335,9 @@ namespace settings {
 					bRet = RegEnumKey(hTemp, i, lpValueName, len);
 					if (bRet != ERROR_SUCCESS) {
 						delete [] lpValueName;
-						throw settings_exception(_T("Failed to enumerate: ") + path.to_string() + _T(": ") + error::lookup::last_error());
+						throw settings_exception("Failed to enumerate: " + path.to_string() + ": " + error::lookup::last_error());
 					}
-					list.push_back(std::wstring(lpValueName));
+					list.push_back(utf8::cvt<std::string>(std::wstring(lpValueName)));
 				}
 				delete [] lpValueName;
 			}
@@ -332,11 +347,11 @@ namespace settings {
 			return ret;
 		}
 
-		virtual std::wstring get_info() {
-			return _T("Registry settings: (") + context_ + _T(",TODO)");
+		virtual std::string get_info() {
+			return "Registry settings: (" + context_ + ",TODO)";
 		}
 public:
-		static bool context_exists(settings::settings_core *core, std::wstring key) {
+		static bool context_exists(settings::settings_core *core, std::string key) {
 			// @todo: Fix this
 			return false;
 		}

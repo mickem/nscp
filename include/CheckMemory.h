@@ -32,13 +32,13 @@ namespace CheckMemMethod
 
 class CheckMemoryException {
 private:
-	std::wstring name_;
-	std::wstring msg_;
+	std::string name_;
+	std::string msg_;
 public:
-	CheckMemoryException(std::wstring name,std::wstring msg) : name_(name), msg_(msg) {};
+	CheckMemoryException(std::string name,std::string msg) : name_(name), msg_(msg) {};
 
-	std::wstring getError() {
-		return _T("Service: ") + name_ + _T(" caused: ") + msg_;
+	std::string reason() {
+		return "Service: " + name_ + " caused: " + msg_;
 	}
 };
 
@@ -97,7 +97,7 @@ public:
 			MEMORYSTATUSEX buffer;
 			buffer.dwLength = sizeof(buffer);
 			if (!FEGlobalMemoryStatusEx(&buffer))
-				throw CheckMemoryException(_T("CheckMemory"), _T("GlobalMemoryStatusEx failed: ") + error::lookup::last_error());
+				throw CheckMemoryException("CheckMemory", "GlobalMemoryStatusEx failed: " + error::lookup::last_error());
 			ret.phys.total = buffer.ullTotalPhys;
 			ret.phys.avail = buffer.ullAvailPhys;
 			ret.virtualMem.total = buffer.ullTotalVirtual;
@@ -108,7 +108,7 @@ public:
 			MEMORYSTATUS buffer;
 			buffer.dwLength = sizeof(buffer);
 			if (!FEGlobalMemoryStatus(&buffer))
-				throw CheckMemoryException(_T("CheckMemory"), _T("GlobalMemoryStatus failed: ") + error::lookup::last_error());
+				throw CheckMemoryException("CheckMemory", "GlobalMemoryStatus failed: " + error::lookup::last_error());
 			ret.phys.total = buffer.dwTotalPhys;
 			ret.phys.avail = buffer.dwAvailPhys;
 			ret.virtualMem.total = buffer.dwTotalVirtual;

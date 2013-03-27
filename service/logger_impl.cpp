@@ -20,31 +20,12 @@ nsclient::logging::impl::raw_subscribers subscribers_;
 void log_fatal(std::string message) {
 	std::cout << message << std::endl;
 }
-
-std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::wstring &logMessage) {
+std::string create_message(const std::string &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::string &logMessage) {
 	std::string str;
 	try {
 		Plugin::LogEntry message;
 		Plugin::LogEntry::Entry *msg = message.add_entry();
-		msg->set_sender(utf8::cvt<std::string>(module));
-		msg->set_level(level);
-		msg->set_file(file);
-		msg->set_line(line);
-		msg->set_message(utf8::cvt<std::string>(logMessage));
-		return message.SerializeAsString();
-	} catch (std::exception &e) {
-		log_fatal(std::string("Failed to generate message: ") + e.what());
-	} catch (...) {
-		log_fatal("Failed to generate message: <UNKNOWN>");
-	}
-	return str;
-}
-std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::string &logMessage) {
-	std::string str;
-	try {
-		Plugin::LogEntry message;
-		Plugin::LogEntry::Entry *msg = message.add_entry();
-		msg->set_sender(utf8::cvt<std::string>(module));
+		msg->set_sender(module);
 		msg->set_level(level);
 		msg->set_file(file);
 		msg->set_line(line);
@@ -57,10 +38,7 @@ std::string create_message(const std::wstring &module, Plugin::LogEntry::Entry::
 	}
 	return str;
 }
-std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
-	return create_message(module, nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
-}
-std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
+std::string nsclient::logging::logger_helper::create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
 	return create_message(module, nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
 }
 
@@ -96,7 +74,7 @@ std::wstring render_console_message(const std::string &data) {
 				ss << _T(" -- ");
 			std::string tmp = msg.message();
 			strEx::replace(tmp, "\n", "\n    -    ");
-			ss << lpad(render_log_level_long(msg.level()), 8)
+			ss << lpad(render_log_level_short(msg.level()), 1)
 				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.sender()), 10)
 				<< _T(" ") + utf8::cvt<std::wstring>(msg.message())
 				<< std::endl;
@@ -190,36 +168,36 @@ public:
 	}
 	void configure() {
 		try {
-			std::wstring file;
+			std::string file;
 
 			sh::settings_registry settings(settings_manager::get_proxy());
-			settings.set_alias(_T("log/file"));
+			settings.set_alias("log/file");
 
 			settings.add_path_to_settings()
-				(_T("log"),_T("LOG SECTION"), _T("Configure log properties."))
+				("log", "LOG SECTION", "Configure log properties.")
 
-				(_T("log/file"), _T("LOG SECTION"), _T("Configure log file properties."))
+				("log/file", "LOG SECTION", "Configure log file properties.")
 				;
 
 
-			settings.add_key_to_settings(_T("log"))
-				(_T("file name"), sh::wstring_key(&file, _T("${exe-path}/nsclient.log")),
-				_T("FILENAME"), _T("The file to write log data to. Set this to none to disable log to file."))
+			settings.add_key_to_settings("log")
+				("file name", sh::string_key(&file, "${exe-path}/nsclient.log"),
+				"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
 
-				(_T("date format"), sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
-				_T("DATEMASK"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+				("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+				"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 				;
 
-			settings.add_key_to_settings(_T("log/file"))
-				(_T("max size"), sh::size_key(&max_size_, 0),
-				_T("MAXIMUM FILE SIZE"), _T("When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled"))
+			settings.add_key_to_settings("log/file")
+				("max size", sh::size_key(&max_size_, 0),
+				"MAXIMUM FILE SIZE", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
 				;
 
 			settings.register_all();
 			settings.notify();
 
-			file_ = utf8::cvt<std::string>(settings_manager::get_proxy()->expand_path(file));
+			file_ = settings_manager::get_proxy()->expand_path(file);
 			if (file_.empty())
 				file_ = base_path() + "nsclient.log";
 			if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
@@ -253,18 +231,16 @@ public:
 	}
 	void configure() {
 		try {
-			std::wstring file;
-
 			sh::settings_registry settings(settings_manager::get_proxy());
-			settings.set_alias(_T("log/file"));
+			settings.set_alias("log/file");
 
 			settings.add_path_to_settings()
-				(_T("log"),_T("LOG SECTION"), _T("Configure log properties."))
+				("log", "LOG SECTION", "Configure log properties.")
 				;
 
-			settings.add_key_to_settings(_T("log"))
-				(_T("date format"), sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
-				_T("DATEMASK"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+			settings.add_key_to_settings("log")
+				("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+				"DATEMASK", "The syntax of the dates in the log file.")
 
 				;
 
@@ -400,7 +376,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 			tmp->startup();
 	}
 	logger_impl_ = tmp;
-	logger_impl_->debug(_T("log"), __FILE__, __LINE__, "Creating logger: " + backend);
+	logger_impl_->debug("log", __FILE__, __LINE__, "Creating logger: " + backend);
 	delete old;
 	old = NULL;
 }
@@ -442,6 +418,6 @@ void nsclient::logging::logger::configure() {
 void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {
 	get_impl()->set_log_level(level);
 }
-void nsclient::logging::logger::set_log_level(std::wstring level) {
+void nsclient::logging::logger::set_log_level(std::string level) {
 	get_impl()->set_log_level(nscapi::logging::parse(level));
 }

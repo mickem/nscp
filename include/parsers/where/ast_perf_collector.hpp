@@ -8,15 +8,15 @@ namespace parsers {
 		//  Walk the tree
 		///////////////////////////////////////////////////////////////////////////
 		struct ast_perf_collector {
-			typedef std::map<std::wstring,std::wstring> boundries_type;
+			typedef std::map<std::string,std::string> boundries_type;
 			boundries_type boundries;
 			typedef bool result_type;
-			typedef std::list<std::wstring> error_type;
+			typedef std::list<std::string> error_type;
 
 			filter_handler handler;
 			ast_perf_collector(filter_handler handler) : handler(handler) {}
-			std::wstring last_value;
-			std::wstring last_variable;
+			std::string last_value;
+			std::string last_variable;
 
 			bool operator()(expression_ast & ast) {
 				bool result = boost::apply_visitor(*this, ast.expr);
@@ -29,10 +29,10 @@ namespace parsers {
 				}
 				return result;
 			}
-			void push(const std::wstring &var, const std::wstring &val) {
+			void push(const std::string &var, const std::string &val) {
 				boundries_type::iterator it = boundries.find(var);
 				if (it == boundries.end()) {
-					std::wcout << _T("*** Found: ") <<  var << _T(" : ") << val << std::endl;
+					std::cout << "*** Found: " <<  var << " : " << val << std::endl;
 					boundries[var] = val;
 				} else {
 					// TODO: increase if possible...
@@ -47,8 +47,8 @@ namespace parsers {
 				} else {
 					push(last_variable, last_value);
 				}
-				last_value = _T("");
-				last_variable = _T("");
+				last_value = "";
+				last_variable = "";
 				return false;
 			}
 			bool operator()(unary_op & expr) {
@@ -56,7 +56,7 @@ namespace parsers {
 			}
 
 			bool operator()(unary_fun & expr) {
-				if ((expr.name == _T("convert")) || (expr.name == _T("auto_convert") || expr.is_transparent(type_tbd) ) ) {
+				if ((expr.name == "convert") || (expr.name == "auto_convert" || expr.is_transparent(type_tbd) ) ) {
 					return boost::apply_visitor(*this, expr.subject.expr);
 				}
 				return false;
@@ -74,7 +74,7 @@ namespace parsers {
 				return true;
 			}
 			bool operator()(int_value & expr) {
-				last_value = strEx::itos(expr.value);
+				last_value = strEx::s::xtos(expr.value);
 				return true;
 			}
 			bool operator()(variable & expr) {

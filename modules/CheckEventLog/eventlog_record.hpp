@@ -7,9 +7,9 @@
 class EventLogRecord {
 	const EVENTLOGRECORD *pevlr_;
 	__int64 currentTime_;
-	std::wstring file_;
+	std::string file_;
 public:
-	EventLogRecord(std::wstring file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
+	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
 	}
 	inline __int64 timeGenerated() const {
 		return (currentTime_-pevlr_->TimeGenerated)*1000;
@@ -157,10 +157,10 @@ public:
 	}
 	bool get_dll(std::wstring &file_or_error) const {
 		try {
-			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + file_ + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
+			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
 			return true;
 		} catch (simple_registry::registry_exception &e) {
-			file_or_error = _T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + e.what();
+			file_or_error = _T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + utf8::cvt<std::wstring>(e.reason());
 			return false;
 		}
 	}
@@ -281,11 +281,12 @@ public:
 	SYSTEMTIME get_time_written() const {
 		return get_time(pevlr_->TimeWritten);
 	}
-	inline std::wstring get_log() {
+	inline std::string get_log() {
 		return file_;
 	}
 
-	std::wstring render(bool propper, std::wstring syntax, std::wstring date_format = DATE_FORMAT, DWORD langId = 0) const {
+	std::string render(const bool propper, const std::string syntax_s, const std::string date_format = DATE_FORMAT_S, const DWORD langId = 0) const {
+		std::wstring syntax = utf8::cvt<std::wstring>(syntax_s);
 		if (propper) {
 			// To obtain the appropriate message string from the message file, load the message file with the LoadLibrary function and use the FormatMessage function
 			strEx::replace(syntax, _T("%message%"), render_message(langId));
@@ -295,8 +296,8 @@ public:
 
 		strEx::replace(syntax, _T("%source%"), get_source());
 		strEx::replace(syntax, _T("%computer%"), get_computer());
-		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), date_format));
-		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), date_format));
+		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), utf8::cvt<std::wstring>(date_format)));
+		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), utf8::cvt<std::wstring>(date_format)));
 		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));
 		strEx::replace(syntax, _T("%written-raw%"), strEx::itos(pevlr_->TimeWritten));
 		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
@@ -308,10 +309,10 @@ public:
 		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
 		strEx::replace(syntax, _T("%strings%"), enumStrings());
 		strEx::replace(syntax, _T("%level%"), translateType(eventType()));
-		strEx::replace(syntax, _T("%log%"), file_);
-		strEx::replace(syntax, _T("%file%"), file_);
+		strEx::replace(syntax, _T("%log%"), utf8::cvt<std::wstring>(file_));
+		strEx::replace(syntax, _T("%file%"), utf8::cvt<std::wstring>(file_));
 		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
 		strEx::replace(syntax, _T("%user%"), userSID());
-		return syntax;
+		return utf8::cvt<std::string>(syntax);
 	}
 };

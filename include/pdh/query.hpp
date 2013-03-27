@@ -68,7 +68,7 @@ namespace PDH {
 			}
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhCloseQuery(hQuery_);
 			if (status.is_error())
-				throw PDHException(_T("PdhCloseQuery failed"), status);
+				throw pdh_exception("PdhCloseQuery failed", status);
 			hQuery_ = NULL;
 		}
 		virtual void on_reload() {
@@ -76,7 +76,7 @@ namespace PDH {
 				return;
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhOpenQuery( NULL, 0, &hQuery_ );
 			if (status.is_error())
-				throw PDHException(_T("PdhOpenQuery failed"), status);
+				throw pdh_exception("PdhOpenQuery failed", status);
 			for (CounterList::iterator it = counters_.begin(); it != counters_.end(); it++) {
 				(*it)->addToQuery(getQueryHandle());
 			}
@@ -84,14 +84,14 @@ namespace PDH {
 
 		void open() {
 			if (hQuery_ != NULL)
-				throw PDHException(_T("query is not null!"));
+				throw pdh_exception("query is not null!");
 			PDH::PDHFactory::get_impl()->add_listener(this);
 			on_reload();
 		}
 
 		void close() {
 			if (hQuery_ == NULL)
-				throw PDHException(_T("query is null!"));
+				throw pdh_exception("query is null!");
 			PDH::PDHFactory::get_impl()->remove_listener(this);
 			on_unload();
 			counters_.clear();
@@ -109,17 +109,17 @@ namespace PDH {
 				if (status.is_negative_denominator()) {
 					if (!hasDisplayedInvalidCOunter_) {
 						hasDisplayedInvalidCOunter_ = true;
-						throw PDHException(_T("Negative denominator issue (check FAQ for ways to solve this): ") + (*it)->getName(), status);
+						throw pdh_exception((*it)->getName(), "Negative denominator issue (check FAQ for ways to solve this): ", status);
 					}
 				} else if (status.is_error()) {
-					throw PDHException(_T("Failed to poll counter: ") + (*it)->getName(), status);
+					throw pdh_exception((*it)->getName(), "Failed to poll counter", status);
 				}
 			}
 		}
 		inline void collect() {
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhCollectQueryData(hQuery_);
 			if (status.is_error())
-				throw PDHException(_T("PdhCollectQueryData failed: "), status);
+				throw pdh_exception("PdhCollectQueryData failed: ", status);
 		}
 
 		PDH::PDH_HQUERY getQueryHandle() const {

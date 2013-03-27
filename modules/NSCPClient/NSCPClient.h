@@ -29,6 +29,7 @@
 #include <nscapi/targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <socket/client.hpp>
+#include <socket/socket_settings_helper.hpp>
 
 #include <nscp/packet.hpp>
 #include <nrpe/client/nrpe_client_protocol.hpp>
@@ -40,61 +41,33 @@ namespace sh = nscapi::settings_helper;
 class NSCPClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::wstring channel_;
-	std::wstring target_path;
+	std::string channel_;
+	std::string target_path;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
 		typedef nscapi::targets::target_object target_object;
 
 		static void init_default(target_object &target) {
-			target.set_property_int(_T("timeout"), 30);
-			target.set_property_bool(_T("ssl"), true);
-			target.set_property_int(_T("payload length"), 1024);
+			target.set_property_int("timeout", 30);
+			target.set_property_bool("ssl", true);
+			target.set_property_int("payload length", 1024);
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
-			settings.path(object.path).add_key()
 
-				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
-				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
-
-				(_T("dh"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("dh"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
-				_T("DH KEY"), _T(""), true)
-
-				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), false)
-
-				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), true)
-
-				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
-				_T("CERTIFICATE FORMAT"), _T(""), true)
-
-				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
-				_T("CA"), _T(""), true)
-
-				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
-				_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
-
-				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
-				_T("VERIFY MODE"), _T(""), false)
-
-				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
-				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
-
-
-				;
+			socket_helpers::settings_helper::add_core_client_opts(settings, proxy, object);
+			socket_helpers::settings_helper::add_ssl_client_opts(settings, proxy, object);
 		}
 
 		static void post_process_target(target_object &target) {
-			std::list<std::wstring> err;
-			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
-			nscapi::targets::helpers::verify_file(target, _T("dh"), err);
-			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
-			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
-			BOOST_FOREACH(const std::wstring &e, err) {
-				NSC_LOG_ERROR_STD(e);
+			std::list<std::string> err;
+			nscapi::targets::helpers::verify_file(target, "certificate", err);
+			nscapi::targets::helpers::verify_file(target, "dh", err);
+			nscapi::targets::helpers::verify_file(target, "certificate key", err);
+			nscapi::targets::helpers::verify_file(target, "ca", err);
+			BOOST_FOREACH(const std::string &e, err) {
+				NSC_LOG_ERROR(e);
 			}
 		}
 	};
@@ -148,7 +121,7 @@ public:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
@@ -162,7 +135,7 @@ public:
 	NSCPClient();
 	virtual ~NSCPClient();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -181,8 +154,8 @@ private:
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
-	void add_command(std::wstring key, std::wstring args);
-	void add_target(std::wstring key, std::wstring args);
+	void add_command(std::string key, std::string args);
+	void add_target(std::string key, std::string args);
 
 };
 

@@ -32,7 +32,7 @@ namespace PDH {
 	typedef HANDLE PDH_HLOG;
 
 	class PDHError {
-		std::wstring message_;
+		std::string message_;
 		bool error_;
 		bool more_data_;
 		bool negative_denominator_;
@@ -46,7 +46,7 @@ namespace PDH {
 		PDHError(PDH_STATUS status) : status_(status), error_(status!=ERROR_SUCCESS), more_data_(status==PDH_MORE_DATA), negative_denominator_(status==PDH_CALC_NEGATIVE_DENOMINATOR)
 		{
 			if (is_error()) {
-				message_ = error::format::from_module(_T("PDH.DLL"), status);
+				message_ = error::format::from_module("PDH.DLL", status);
 			}
 		}
 		PDHError(const PDHError &other) : error_(other.error_), more_data_(other.more_data_), message_(other.message_), negative_denominator_(other.negative_denominator_), status_(other.status_) {}
@@ -66,12 +66,12 @@ namespace PDH {
 		bool is_ok() const {
 			return !error_;
 		}
-		std::wstring to_wstring() const {
+		std::string to_string() const {
 			return message_;
 		}
-		void set_message(std::wstring message) {
-			message_ = message;
-		}
+// 		void set_message(std::wstring message) {
+// 			message_ = message;
+// 		}
 		bool is_more_data() {
 			return more_data_;
 		}
@@ -79,25 +79,28 @@ namespace PDH {
 			return negative_denominator_;
 		}
 	};
-	class PDHException {
+
+	class pdh_exception : public std::exception {
 	private:
-		std::wstring str_;
+		std::string str_;
 		std::wstring name_;
 		PDH::PDHError error_;
 		//PDH_STATUS pdhStatus_;
 	public:
-		PDHException(std::wstring name, std::wstring str, PDH::PDHError error) : name_(name), str_(str), error_(error) {}
-		PDHException(std::wstring name, LPCWSTR str) : name_(name), str_(str) {}
-		PDHException(std::wstring name, std::wstring str) : name_(name), str_(str) {}
-		PDHException(std::wstring str, PDH::PDHError error) : str_(str), error_(error) {}
-		PDHException(std::wstring str) : str_(str) {}
-		std::wstring getError() const {
-			std::wstring ret;
+		pdh_exception(std::wstring name, std::string str, PDH::PDHError error) : name_(name), str_(str), error_(error) {}
+		//pdh_exception(std::wstring name, LPCWSTR str) : name_(name), str_(str) {}
+		pdh_exception(std::wstring name, std::string str) : name_(name), str_(str) {}
+		pdh_exception(std::string str, PDH::PDHError error) : str_(str), error_(error) {}
+		pdh_exception(std::string str) : str_(str) {}
+		~pdh_exception() throw() {}
+		const char* what() const throw() { return reason().c_str(); }
+		std::string reason() const {
+			std::string ret;
 			if (!name_.empty())
-				ret += name_ + _T(": ");
+				ret += utf8::cvt<std::string>(name_) + ": ";
 			ret += str_;
 			if (error_.is_error()) {
-				ret += _T(": ") + error_.to_wstring();
+				ret += ": " + error_.to_string();
 			}
 			return ret;
 		}

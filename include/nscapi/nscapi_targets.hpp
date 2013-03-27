@@ -8,69 +8,64 @@
 #include <boost/shared_ptr.hpp>
 
 #include <settings/client/settings_client.hpp>
-#include <nscapi/settings_proxy.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/settings_object.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
 #include <net/net.hpp>
-#include <unicode_char.hpp>
-#include <utf8.hpp>
 
 namespace nscapi {
 	namespace targets {
 		struct target_object {
 
-			std::wstring path;
-			std::wstring alias;
-			std::wstring value;
-			std::wstring parent;
+			std::string path;
+			std::string alias;
+			std::string value;
+			std::string parent;
 			bool is_template;
 
-			net::wurl address;
-			typedef std::map<std::wstring,std::wstring> options_type;
+			net::url address;
+			typedef std::map<std::string,std::string> options_type;
 			options_type options;
 
-			std::wstring to_wstring() const {
-				std::wstringstream ss;
-				ss << _T("Target: ") << alias;
-				ss << _T(", address: ") << get_address();
-				ss << _T(", parent: ") << parent;
-				ss << _T(", is_template: ") << is_template;
+			std::string to_string() const {
+				std::stringstream ss;
+				ss << "Target: " << alias;
+				ss << ", address: " << get_address();
+				ss << ", parent: " << parent;
+				ss << ", is_template: " << is_template;
 				BOOST_FOREACH(options_type::value_type o, options) {
-					ss << _T(", option[") << o.first << _T("]: ") << o.second;
+					ss << ", option[" << o.first << "]: " << o.second;
 				}
 				return ss.str();
 			}
-			std::wstring get_address() const {
+			std::string get_address() const {
 				return address.to_string();
 			}
-			void set_address(std::wstring value) {
-				net::wurl n = net::parse(value);
+			void set_address(std::string value) {
+				net::url n = net::parse(value);
 				address.apply(n);
 			}
-			void set_host(std::wstring value) {
+			void set_host(std::string value) {
 				address.host = value;
 			}
 			void set_port(int value) {
 				address.port = value;
 			}
-			bool has_option(std::wstring key) const {
+			bool has_option(std::string key) const {
 				return options.find(key) != options.end();
 			}
-			bool has_option(std::string key) const {
-				return has_option(utf8::cvt<std::wstring>(key));
-			}
-			void set_property_int(std::wstring key, int value) {
-				if (key == _T("port")) {
+			void set_property_int(std::string key, int value) {
+				if (key == "port") {
 					set_port(value);
 				} else 
-					options[key] = strEx::itos(value);
+					options[key] = strEx::s::xtos(value);
 			}
-			void set_property_bool(std::wstring key, bool value) {
-				options[key] = value?_T("true"):_T("false");
+			void set_property_bool(std::string key, bool value) {
+				options[key] = value?"true":"false";
 			}
-			void set_property_string(std::wstring key, std::wstring value) {
-				if (key == _T("host")) {
+			void set_property_string(std::string key, std::string value) {
+				if (key == "host") {
 					set_host(value);
 				} else 
 					options[key] = value;
@@ -79,17 +74,17 @@ namespace nscapi {
 			nscapi::protobuf::types::destination_container to_destination_container() const {
 				nscapi::protobuf::types::destination_container ret;
 				if (!alias.empty())
-					ret.id = utf8::cvt<std::string>(alias);
-				ret.address.apply(net::wide_to_url(address));
+					ret.id = alias;
+				ret.address.apply(address);
 				BOOST_FOREACH(const options_type::value_type &kvp, options) {
-					ret.data[utf8::cvt<std::string>(kvp.first)] = utf8::cvt<std::string>(kvp.second);
+					ret.data[kvp.first] = kvp.second;
 				}
 				return ret;
 			}
 
 		};
 		typedef boost::optional<target_object> optional_target_object;
-		typedef std::map<std::wstring,std::wstring> targets_type;
+		typedef std::map<std::string,std::string> targets_type;
 
 		struct target_object_reader {
 			typedef target_object object_type;
@@ -117,37 +112,37 @@ namespace nscapi {
 
 			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
 				object.address = net::parse(object.value, 0);
-				if (object.alias == _T("default"))
+				if (object.alias == "default")
 					custom_reader::init_default(object);
 
 				nscapi::settings_helper::settings_registry settings(proxy);
 
 				object_type::options_type options;
 				settings.path(object.path).add_path()
-					(nscapi::settings_helper::wstring_map_path(&options), 
-					_T("TARGET DEFENITION"), _T("Target definition for: ") + object.alias)
+					(nscapi::settings_helper::string_map_path(&options), 
+					"TARGET DEFENITION", "Target definition for: " + object.alias)
 
 					;
 
 				settings.path(object.path).add_key()
 
-					(_T("address"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_address, &object, _1)),
-					_T("TARGET ADDRESS"), _T("Target host address"))
+					("address", sh::string_fun_key<std::string>(boost::bind(&object_type::set_address, &object, _1)),
+					"TARGET ADDRESS", "Target host address")
 
-					(_T("host"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_host, &object, _1)),
-					_T("TARGET HOST"), _T("The target server to report results to."), true)
+					("host", sh::string_fun_key<std::string>(boost::bind(&object_type::set_host, &object, _1)),
+					"TARGET HOST", "The target server to report results to.", true)
 
-					(_T("port"), sh::int_fun_key<int>(boost::bind(&object_type::set_port, &object, _1)),
-					_T("TARGET PORT"), _T("The target server port"), true)
+					("port", sh::int_fun_key<int>(boost::bind(&object_type::set_port, &object, _1)),
+					"TARGET PORT", "The target server port", true)
 
-					(_T("alias"), nscapi::settings_helper::wstring_key(&object.alias, object.alias),
-					_T("TARGET ALIAS"), _T("The alias for the target"), true)
+					("alias", nscapi::settings_helper::string_key(&object.alias, object.alias),
+					"TARGET ALIAS", "The alias for the target", true)
 
-					(_T("parent"), nscapi::settings_helper::wstring_key(&object.parent, _T("default")),
-					_T("TARGET PARENT"), _T("The parent the target inherits from"), true)
+					("parent", nscapi::settings_helper::string_key(&object.parent, "default"),
+					"TARGET PARENT", "The parent the target inherits from", true)
 
-					(_T("is template"), nscapi::settings_helper::bool_key(&object.is_template, false),
-					_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be avalible as a separate object)"), true)
+					("is template", nscapi::settings_helper::bool_key(&object.is_template, false),
+					"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
 					;
 				custom_reader::add_custom_keys(settings, proxy, object);
@@ -174,7 +169,7 @@ namespace nscapi {
 		template<class custom_reader>
 		struct handler : public nscapi::settings_objects::object_handler<target_object, split_object_reader<custom_reader > > {};
 		struct helpers {
-			static void verify_file(target_object &target, std::wstring key, std::list<std::wstring> &errors);
+			static void verify_file(target_object &target, std::string key, std::list<std::string> &errors);
 		};
 
 	}

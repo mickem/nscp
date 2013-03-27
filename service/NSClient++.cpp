@@ -49,13 +49,13 @@ static ExceptionManager *g_exception_manager = NULL;
 
 NSClient mainClient;	// Global core instance.
 
-#define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal(_T("core"), __FILE__, __LINE__, msg);}
+#define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal("core", __FILE__, __LINE__, msg);}
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::string(msg))
-#define LOG_ERROR_CORE(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg);}
+#define LOG_ERROR_CORE(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg);}
 #define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::string(msg))
-#define LOG_INFO_CORE(msg) { nsclient::logging::logger::get_logger()->info(_T("core"), __FILE__, __LINE__, msg);}
+#define LOG_INFO_CORE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg);}
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::string(msg))
-#define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug(_T("core"), __FILE__, __LINE__, msg);}
+#define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg);}
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
 
 /**
@@ -197,14 +197,6 @@ public:
  * End of class tray started (MERGE HELP)
  */
 
-bool is_module(boost::filesystem::path file ) 
-{
-#ifdef WIN32
-	return boost::ends_with(file.string(), _T(".dll"));
-#else
-	return boost::ends_with(file.string(), _T(".so"));
-#endif
-}
 /**
  * Application startup point
  *
@@ -241,12 +233,12 @@ int nscp_main(int argc, wchar_t* argv[])
 	return parser.parse(argc, argv);
 }
 
-std::list<std::wstring> NSClientT::list_commands() {
+std::list<std::string> NSClientT::list_commands() {
 	return commands_.list_all();
 }
 
-bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::wstring alias, std::wstring plugin) {
-	std::pair<std::wstring,std::wstring> v;
+bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
+	std::pair<std::string,std::string> v;
 	BOOST_FOREACH(v, ret.equal_range(alias)) {
 		if (v.second == plugin)
 			return true;
@@ -275,39 +267,39 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	plugin_alias_list_type ret;
 
 	settings::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-	BOOST_FOREACH(std::wstring plugin, list) {
-		std::wstring alias;
+	BOOST_FOREACH(std::string plugin, list) {
+		std::string alias;
 		try {
 			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
 		} catch (settings::settings_exception e) {
 			LOG_DEBUG_CORE_STD("Exception looking for module: " + e.reason());
 		}
-		if (plugin == _T("enabled") || plugin == _T("1")) {
+		if (plugin == "enabled" || plugin == "1") {
 			plugin = alias;
-			alias = _T("");
-		} else if (alias == _T("enabled") || alias == _T("1")) {
-				alias = _T("");
-		} else if ((active && plugin == _T("disabled")) || (active && alias == _T("disabled")))
+			alias = "";
+		} else if (alias == "enabled" || alias == "1") {
+				alias = "";
+		} else if ((active && plugin == "disabled") || (active && alias == "disabled"))
 			continue;
-		 else if ((active && plugin == _T("0")) || (active && alias == _T("0")))
+		 else if ((active && plugin == "0") || (active && alias == "0"))
 			continue;
-		else if (plugin == _T("disabled") || plugin == _T("0")) {
+		else if (plugin == "disabled" || plugin == "0") {
 			plugin = alias;
-			alias = _T("");
-		} else if (alias == _T("disabled") || alias == _T("0")) {
-			alias = _T("");
+			alias = "";
+		} else if (alias == "disabled" || alias == "0") {
+			alias = "";
 		}
 		if (!alias.empty()) {
-			std::wstring tmp = plugin;
+			std::string tmp = plugin;
 			plugin = alias;
 			alias = tmp;
 		}
 		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD("Found: " + utf8::cvt<std::string>(plugin));
+			LOG_DEBUG_CORE_STD("Found: " + plugin);
 		} else {
-			LOG_DEBUG_CORE_STD("Found: " + utf8::cvt<std::string>(plugin) + " as " + utf8::cvt<std::string>(alias));
+			LOG_DEBUG_CORE_STD("Found: " + plugin + " as " + alias);
 		}
-		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
+		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == ".dll")
 			plugin = plugin.substr(0, plugin.length()-4);
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
@@ -317,8 +309,8 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
 			if ( !is_directory(itr->status()) ) {
 				boost::filesystem::path file= itr->path().filename();
-				if (is_module(pluginPath  / file) && !contains_plugin(ret, _T(""), utf8::cvt<std::wstring>(file.string())))
-					ret.insert(plugin_alias_list_type::value_type(_T(""), utf8::cvt<std::wstring>(file.string())));
+				if (NSCPlugin::is_module(pluginPath  / file) && !contains_plugin(ret, "", file.string()))
+					ret.insert(plugin_alias_list_type::value_type("", file.string()));
 			}
 		}
 	} 
@@ -334,12 +326,9 @@ void NSClientT::preboot_load_all_plugin_files() {
 			LOG_CRITICAL_CORE(std::string("Failed to load plugins: ") + e.what() + " for " + expand_path("${module-path}"));
 			return;
 		}
-		plugin_alias_list_type plugins = find_all_plugins(false);
-		std::pair<std::wstring,std::wstring> v;
-
-		BOOST_FOREACH(v, plugins) {
+		BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins(false)) {
 			try {
-				addPlugin(pluginPath / utf8::cvt<std::string>(v.second), v.first);
+				addPlugin(pluginPath / v.second, v.first);
 			} catch (const NSPluginException &e) {
 				if (e.file().find("FileLogger") != std::string::npos) {
 					LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
@@ -347,7 +336,7 @@ void NSClientT::preboot_load_all_plugin_files() {
 					LOG_ERROR_CORE("Failed to register plugin: " + e.reason());
 				}
 			} catch (...) {
-				LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + utf8::cvt<std::string>(v.second));
+				LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
 			}
 		}
 	}
@@ -357,12 +346,12 @@ void NSClientT::preboot_load_all_plugin_files() {
 // Service functions
 
 struct nscp_settings_provider : public settings_manager::provider_interface {
-	virtual std::wstring expand_path(std::wstring file) {
-		return utf8::cvt<std::wstring>(mainClient.expand_path(utf8::cvt<std::string>(file)));
+	virtual std::string expand_path(std::string file) {
+		return mainClient.expand_path(file);
 	}
-	std::wstring get_data(std::wstring key) {
+	std::string get_data(std::string key) {
 		// TODO
-		return _T("");
+		return "";
 	}
 };
 
@@ -378,7 +367,7 @@ namespace sh = nscapi::settings_helper;
  * @return success
  * @author mickem
  */
-bool NSClientT::boot_init(std::wstring log_level) {
+bool NSClientT::boot_init(std::string log_level) {
 #ifdef WIN32
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
@@ -400,49 +389,49 @@ bool NSClientT::boot_init(std::wstring log_level) {
 	bool crash_submit = false;
 	bool crash_archive = false;
 	bool crash_restart = false;
-	std::wstring crash_url, crash_folder, crash_target;
+	std::string crash_url, crash_folder, crash_target;
 	try {
 
 		sh::settings_registry settings(settings_manager::get_proxy());
 
 		settings.add_path()
-			(_T("/modules"),			_T("MODULES"), _T("A list of modules."))
+			("/modules",			"MODULES", "A list of modules.")
 			;
 
 		settings.add_path_to_settings()
-			(_T("log"),			_T("LOG SETTINGS"), _T("Section for configuring the log handling."))
-			(_T("shared session"),	_T("SHRED SESSION"), _T("Section for configuring the shared session."))
-			(_T("crash"),			_T("CRASH HANDLER"), _T("Section for configuring the crash handler."))
+			("log",				"LOG SETTINGS", "Section for configuring the log handling.")
+			("shared session",	"SHRED SESSION", "Section for configuring the shared session.")
+			("crash",			"CRASH HANDLER", "Section for configuring the crash handler.")
 			;
 
-		settings.add_key_to_settings(_T("log"))
-			(_T("level"), sh::wstring_key(&log_level, _T("info")),
-			_T("LOG LEVEL"), _T("Log level to use. Avalible levels are error,warning,info,debug,trace"))
+		settings.add_key_to_settings("log")
+			("level", sh::string_key(&log_level, "info"),
+			"LOG LEVEL", "Log level to use. Avalible levels are error,warning,info,debug,trace")
 			;
 
-		settings.add_key_to_settings(_T("shared session"))
-			(_T("enabled"), sh::bool_key(&enable_shared_session_ , false),
-			_T("LOG LEVEL"), _T("Log level to use"))
+		settings.add_key_to_settings("shared session")
+			("enabled", sh::bool_key(&enable_shared_session_ , false),
+			"LOG LEVEL", "Log level to use")
 			;
 
-		settings.add_key_to_settings(_T("crash"))
-			(_T("submit"), sh::bool_key(&crash_submit, false),
-			_T("SUBMIT CRASHREPORTS"), _T("Submit crash reports to nsclient.org (or your configured submission server)"))
+		settings.add_key_to_settings("crash")
+			("submit", sh::bool_key(&crash_submit, false),
+			"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
 
-			(_T("archive"), sh::bool_key(&crash_archive, true),
-			_T("ARCHIVE CRASHREPORTS"), _T("Archive crash reports in the archive folder"))
+			("archive", sh::bool_key(&crash_archive, true),
+			"ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
 
-			(_T("restart"), sh::bool_key(&crash_restart, true),
-			_T("RESTART"), _T("Submit crash reports to nsclient.org (or your configured submission server)"))
+			("restart", sh::bool_key(&crash_restart, true),
+			"RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
 
-			(_T("restart target"), sh::wstring_key(&crash_target, get_service_control().get_service_name()),
-			_T("RESTART SERVICE NAME"), _T("The url to submit crash reports to"))
+			("restart target", sh::string_key(&crash_target, utf8::cvt<std::string>(get_service_control().get_service_name())),
+			"RESTART SERVICE NAME", "The url to submit crash reports to")
 
-			(_T("submit url"), sh::wstring_key(&crash_url, CRASH_SUBMIT_URL),
-			_T("SUBMISSION URL"), _T("The url to submit crash reports to"))
+			("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
+			"SUBMISSION URL", "The url to submit crash reports to")
 
-			(_T("archive folder"), sh::wpath_key(&crash_folder, CRASH_ARCHIVE_FOLDER_W),
-			_T("CRASH ARCHIVE LOCATION"), _T("The folder to archive crash dumps in"))
+			("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
+			"CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
 			;
 
 		settings.register_all();
@@ -459,26 +448,26 @@ bool NSClientT::boot_init(std::wstring log_level) {
 	if (!g_exception_manager) {
 		g_exception_manager = new ExceptionManager(false);
 
-		g_exception_manager->setup_app(to_wstring(APPLICATION_NAME), to_wstring(STRPRODUCTVER), to_wstring(STRPRODUCTDATE));
+		g_exception_manager->setup_app(utf8::cvt<std::wstring>(APPLICATION_NAME), utf8::cvt<std::wstring>(STRPRODUCTVER), utf8::cvt<std::wstring>(STRPRODUCTDATE));
 
 		if (crash_restart) {
-			LOG_DEBUG_CORE(_T("On crash: restart: ") + crash_target);
-			g_exception_manager->setup_restart(crash_target);
+			LOG_DEBUG_CORE("On crash: restart: " + crash_target);
+			g_exception_manager->setup_restart(utf8::cvt<std::wstring>(crash_target));
 		}
 
 		bool crashHandling = false;
 		if (crash_submit) {
-			g_exception_manager->setup_submit(false, crash_url);
-			LOG_DEBUG_CORE(_T("Submitting crash dumps to central server: ") + crash_url);
+			g_exception_manager->setup_submit(false, utf8::cvt<std::wstring>(crash_url));
+			LOG_DEBUG_CORE("Submitting crash dumps to central server: " + crash_url);
 			crashHandling = true;
 		}
 		if (crash_archive) {
-			g_exception_manager->setup_archive(crash_folder);
-			LOG_DEBUG_CORE(_T("Archiving crash dumps in: ") + crash_folder);
+			g_exception_manager->setup_archive(utf8::cvt<std::wstring>(crash_folder));
+			LOG_DEBUG_CORE("Archiving crash dumps in: " + crash_folder);
 			crashHandling = true;
 		}
 		if (!crashHandling) {
-			LOG_ERROR_CORE(_T("No crash handling configured"));
+			LOG_ERROR_CORE("No crash handling configured");
 		} else {
 			g_exception_manager->StartMonitoring();
 		}
@@ -489,7 +478,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 
 
 	if (enable_shared_session_) {
-		LOG_INFO_CORE(_T("shared session not ported yet!..."));
+		LOG_INFO_CORE("shared session not ported yet!...");
 // 		if (boot) {
 // 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
 // 			try {
@@ -531,7 +520,7 @@ bool NSClientT::boot_init(std::wstring log_level) {
 	try {
 		com_helper_.initialize();
 	} catch (com_helper::com_exception e) {
-		LOG_ERROR_CORE_STD("COM exception: " + utf8::cvt<std::string>(e.getMessage()));
+		LOG_ERROR_CORE_STD("COM exception: " + e.reason());
 		return false;
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception iniating COM...");
@@ -548,18 +537,11 @@ bool NSClientT::boot_load_all_plugins() {
 			LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
 			return false;
 		}
-		plugin_alias_list_type plugins = find_all_plugins(true);
-		std::pair<std::wstring,std::wstring> v;
-		BOOST_FOREACH(v, plugins) {
+		BOOST_FOREACH(const plugin_alias_list_type::value_type &v, find_all_plugins(true)) {
 			std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
-			std::wstring alias = v.first;
-// 			if (!alias.empty()) {
-// 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file + _T(" as ") + alias);
-// 			} else {
-// 				LOG_DEBUG_CORE_STD(_T("Processing plugin: ") + file);
-// 			}
+			std::string alias = v.first;
 			try {
-				addPlugin(pluginPath / boost::filesystem::path(file), alias);
+				addPlugin(pluginPath / file, alias);
 			} catch(const NSPluginException& e) {
 				if (e.file().find("FileLogger") != std::string::npos) {
 					LOG_DEBUG_CORE_STD("Exception raised: '" + e.reason() + "' in module: " + e.file());
@@ -584,28 +566,28 @@ bool NSClientT::boot_load_all_plugins() {
 	return true;
 }
 
-bool NSClientT::boot_load_plugin(std::wstring plugin) {
+bool NSClientT::boot_load_plugin(std::string plugin) {
 	try {
-		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == _T(".dll"))
+		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == ".dll")
 			plugin = plugin.substr(0, plugin.length()-4);
 
-		std::string plugin_file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(plugin));
+		std::string plugin_file = NSCPlugin::get_plugin_file(plugin);
 		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::path file = pluginPath / plugin_file;
 		if (boost::filesystem::is_regular(file)) {
-			plugin_type plugin_inst = addPlugin(file, _T(""));
+			plugin_type plugin_inst = addPlugin(file, "");
 		} else {
-			LOG_ERROR_CORE_STD("Failed to load: " + utf8::cvt<std::string>(plugin));
+			LOG_ERROR_CORE_STD("Failed to load: " + plugin);
 			return false;
 		}
 	} catch (const NSPluginException &e) {
 		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
 		return false;
 	} catch(const std::exception &e) {
-		LOG_ERROR_CORE_STD("Module (" + utf8::cvt<std::string>(plugin) + ") was not found: " + utf8::utf8_from_native(e.what()));
+		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
 		return false;
 	} catch(...) {
-		LOG_ERROR_CORE_STD("Module (" + utf8::cvt<std::string>(plugin) + ") was not found...");
+		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
 		return false;
 	}
 	return true;
@@ -670,7 +652,7 @@ bool NSClientT::stop_exit_pre() {
 	try {
 		com_helper_.unInitialize();
 	} catch (com_helper::com_exception e) {
-		LOG_ERROR_CORE_STD("COM exception: " + utf8::cvt<std::string>(e.getMessage()));
+		LOG_ERROR_CORE_STD("COM exception: " + e.reason());
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception uniniating COM...");
 	}
@@ -698,15 +680,15 @@ bool NSClientT::stop_exit_pre() {
 // 	} catch(...) {
 // 		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
 // 	}
-	try {
+// 	try {
 // 		if (shared_server_.get() != NULL) {
 // 			LOG_DEBUG_STD(_T("Stopping: shared server"));
 // 			shared_server_->set_handler(NULL);
 // 			shared_server_->close_session();
 // 		}
-	} catch(...) {
-		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
-	}
+// 	} catch(...) {
+// 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
+// 	}
 	return true;
 }
 bool NSClientT::stop_exit_post() {
@@ -745,14 +727,14 @@ void NSClientT::unloadPlugins() {
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (004)."));
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (!p)
 				continue;
 			try {
-				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->getSName() + "...");
+				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
 				p->unload_plugin();
 			} catch(const NSPluginException &e) {
 				LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
@@ -764,7 +746,7 @@ void NSClientT::unloadPlugins() {
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex (005).");
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
 		commands_.remove_all();
@@ -774,11 +756,11 @@ void NSClientT::unloadPlugins() {
 	}
 }
 
-bool NSClientT::do_reload(const bool delay, const std::wstring module) {
+bool NSClientT::do_reload(const bool delay, const std::string module) {
 	if (delay) {
 		boost::this_thread::sleep(boost::posix_time::seconds(1));
 	}
-	if (module == _T("settings")) {
+	if (module == "settings") {
 		try {
 			settings_manager::get_settings()->clear_cache();
 			return true;
@@ -787,7 +769,7 @@ bool NSClientT::do_reload(const bool delay, const std::wstring module) {
 		} catch(...) {
 			LOG_ERROR_CORE("Exception raised when reloading: UNKNOWN");
 		}
-	} else if (module == _T("service")) {
+	} else if (module == "service") {
 		try {
 			LOG_DEBUG_CORE_STD(std::string("Reloading all modules ") + (delay?"(delayed)":"") + ".");
 			stop_unload_plugins_pre();
@@ -802,12 +784,12 @@ bool NSClientT::do_reload(const bool delay, const std::wstring module) {
 	} else {
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("Failed to reload module (could not get write lock)."));
+			LOG_ERROR_CORE("Failed to reload module (could not get write lock).");
 			return false;
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
-				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->getSName() + ", reloading " + (delay?"(delayed)":"") + ".");
+				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading " + (delay?"(delayed)":"") + ".");
 				p->unload_plugin();
 				p->load_plugin(NSCAPI::normalStart);
 				return true;
@@ -818,14 +800,14 @@ bool NSClientT::do_reload(const bool delay, const std::wstring module) {
 }
 
 
-NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
+NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 	bool delayed = false;
-	if (module.size() > 8 && module.substr(0,8) == _T("delayed,")) {
+	if (module.size() > 8 && module.substr(0,8) == "delayed,") {
 		delayed = true;
 		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
 		delayed_thread.detach();
 		return NSCAPI::isSuccess;
-	} else if (module.size() > 6 && module.substr(0,6) == _T("delay,")) {
+	} else if (module.size() > 6 && module.substr(0,6) == "delay,") {
 			delayed = true;
 			boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
 			delayed_thread.detach();
@@ -833,15 +815,13 @@ NSCAPI::errorReturn NSClientT::reload(const std::wstring module) {
 	} else {
 		return do_reload(false, module)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 	}
-
-	return NSCAPI::hasFailed;
 }
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (006)."));
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return;
 		}
 		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
@@ -866,17 +846,17 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the 
  */
-NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::wstring alias) {
+NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::string alias) {
 	{
 		if (alias.empty()) {
 			LOG_DEBUG_CORE_STD("addPlugin(" + file.string() + " without alias)");
 		} else {
-			LOG_DEBUG_CORE_STD("addPlugin(" + file.string() + " as " + utf8::cvt<std::string>(alias) + ")");
+			LOG_DEBUG_CORE_STD("addPlugin(" + file.string() + " as " + alias + ")");
 		}
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex (007a).");
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return plugin_type();
 		}
 
@@ -895,7 +875,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::w
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex (007b).");
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return plugin;
 		}
 
@@ -908,23 +888,23 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::w
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		settings_manager::get_core()->register_key(0xffff, _T("/modules"), plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), _T("0"), false);
+		settings_manager::get_core()->register_key(0xffff, "/modules", plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false);
 	}
 	return plugin;
 }
 
 
-std::wstring NSClientT::describeCommand(std::wstring command) {
+std::string NSClientT::describeCommand(std::string command) {
 	return commands_.describe(command).description;
 }
-std::list<std::wstring> NSClientT::getAllCommandNames() {
+std::list<std::string> NSClientT::getAllCommandNames() {
 	return commands_.list_all();
 }
-void NSClientT::registerCommand(unsigned int id, std::wstring cmd, std::wstring desc) {
+void NSClientT::registerCommand(unsigned int id, std::string cmd, std::string desc) {
 	return commands_.register_command(id, cmd, desc);
 }
 
-NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf) {
+NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, std::string &msg, std::string & perf) {
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			return shared_client_->inject(command, arguments, splitter, escape, msg, perf);
@@ -937,13 +917,13 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
 		}
 	} else */{
 
-		std::list<std::wstring> args;
-		strEx::parse_command(arguments, args);
+		std::list<std::string> args;
+		strEx::s::parse_command(arguments, args);
 		std::string request, response;
 		nscapi::protobuf::functions::create_simple_query_request(command, args, request);
 		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), request, response);
 		if (response.empty()) {
-			LOG_ERROR_CORE(_T("No data retutned from command"));
+			LOG_ERROR_CORE("No data retutned from command");
 			return NSCAPI::returnUNKNOWN;
 		}
 		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
@@ -963,9 +943,9 @@ NSCAPI::nagiosReturn NSClientT::inject(std::wstring command, std::wstring argume
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::string &request, std::string &response) {
-	std::wstring cmd = nsclient::commands::make_key(raw_command);
-	LOG_DEBUG_CORE_STD("Injecting: " + utf8::cvt<std::string>(cmd) + "...");
+NSCAPI::nagiosReturn NSClientT::injectRAW(const char* raw_command, std::string &request, std::string &response) {
+	std::string cmd = nsclient::commands::make_key(raw_command);
+	LOG_DEBUG_CORE_STD("Injecting: " + cmd + "...");
 	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
 		try {
 			std::wstring msg, perf;
@@ -985,39 +965,39 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(const wchar_t* raw_command, std::strin
 		try {
 			nsclient::commands::plugin_type plugin = commands_.get(cmd);
 			if (!plugin) {
-				LOG_ERROR_CORE(_T("No handler for command: ") + cmd + _T(" avalible commands: ") + commands_.to_wstring());
-				nscapi::protobuf::functions::create_simple_query_response_unknown(cmd, _T("No handler for command: ") + cmd, response);
+				LOG_ERROR_CORE("No handler for command: " + cmd + " avalible commands: " + commands_.to_string());
+				nscapi::protobuf::functions::create_simple_query_response_unknown(cmd, "No handler for command: " + cmd, response);
 				return NSCAPI::returnIgnored;
 			}
 			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
-			LOG_DEBUG_CORE_STD("Result " + utf8::cvt<std::string>(cmd) + ": " + utf8::cvt<std::string>(nscapi::plugin_helper::translateReturn(c)));
+			LOG_DEBUG_CORE_STD("Result " + cmd + ": " + nscapi::plugin_helper::translateReturn(c));
 			return c;
 		} catch (const nsclient::commands::command_exception &e) {
-			LOG_ERROR_CORE("Failed to process command: " + utf8::cvt<std::string>(cmd) + ": " + utf8::utf8_from_native(e.what()));
+			LOG_ERROR_CORE("Failed to process command: " + cmd + ": " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::returnIgnored;
 		} catch (const std::exception &e) {
-			LOG_ERROR_CORE("Failed to process command: " + utf8::cvt<std::string>(cmd) + ": " + utf8::utf8_from_native(e.what()));
+			LOG_ERROR_CORE("Failed to process command: " + cmd + ": " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::returnIgnored;
 		} catch (...) {
-			LOG_ERROR_CORE("Error handling command: " + utf8::cvt<std::string>(cmd));
+			LOG_ERROR_CORE("Error handling command: " + cmd);
 			return NSCAPI::returnIgnored;
 		}
 	}
 }
 
 
-int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std::string> &errors) {
+int NSClientT::load_and_run(std::string module, run_function fun, std::list<std::string> &errors) {
 	int ret = -1;
 	bool found = false;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex (001).");
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return -1;
 		}
 		BOOST_FOREACH(plugin_type plugin, plugins_) {
 			if (plugin && (module.empty() || plugin->getModule() == module)) {
-				LOG_DEBUG_CORE_STD("Found module: " + plugin->getSName() + "...");
+				LOG_DEBUG_CORE_STD("Found module: " + plugin->get_alias_or_name() + "...");
 				try {
 					ret = fun(plugin);
 					found = true;
@@ -1032,9 +1012,9 @@ int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std
 		try {
 			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path("modules"), module);
 			if (boost::filesystem::is_regular(file)) {
-				plugin_type plugin = addPlugin(file, _T(""));
+				plugin_type plugin = addPlugin(file, "");
 				if (plugin) {
-					LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getSName() + "...");
+					LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_alias_or_name() + "...");
 					plugin->load_plugin(NSCAPI::dontStart);
 					ret = fun(plugin);
 				} else {
@@ -1058,7 +1038,7 @@ int NSClientT::load_and_run(std::wstring module, run_function fun, std::list<std
 	return ret;
 }
 
-int exec_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
+int exec_helper(NSClientT::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
 	std::string response;
 	if (!plugin || !plugin->has_command_line_exec())
 		return -1;
@@ -1068,14 +1048,14 @@ int exec_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector
 	return ret;
 }
 
-int NSClientT::simple_exec(std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+int NSClientT::simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp) {
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::string> errors;
 	nscapi::protobuf::functions::create_simple_exec_request(command, arguments, request);
-	std::wstring module;
-	std::wstring::size_type pos = command.find(L'.');
-	if (pos != std::wstring::npos) {
+	std::string module;
+	std::string::size_type pos = command.find(L'.');
+	if (pos != std::string::npos) {
 		module = command.substr(0, pos);
 		command = command.substr(pos+1);
 	}
@@ -1083,20 +1063,20 @@ int NSClientT::simple_exec(std::wstring command, std::vector<std::wstring> argum
 
 	BOOST_FOREACH(std::string &r, responses) {
 		try {
-			ret = nscapi::protobuf::functions::parse_simple_exec_result(r, resp);
+			ret = nscapi::protobuf::functions::parse_simple_exec_response(r, resp);
 		} catch (std::exception &e) {
-			resp.push_back(_T("Failed to extract return message: ") + utf8::to_unicode(e.what()));
+			resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 			LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
 	BOOST_FOREACH(const std::string &e, errors) {
 		LOG_ERROR_CORE_STD(e);
-		resp.push_back(utf8::cvt<std::wstring>(e));
+		resp.push_back(e);
 	}
 	return ret;
 }
-int query_helper(NSClientT::plugin_type plugin, std::wstring command, std::vector<std::wstring> arguments, std::string request, std::list<std::string> *responses) {
+int query_helper(NSClientT::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
 	return NSCAPI::returnIgnored;
 // 	std::string response;
 // 	if (!plugin->hasCommandHandler())
@@ -1107,7 +1087,7 @@ int query_helper(NSClientT::plugin_type plugin, std::wstring command, std::vecto
 // 	return ret;
 }
 
-int NSClientT::simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp) {
+int NSClientT::simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp) {
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::string> errors;
@@ -1116,42 +1096,42 @@ int NSClientT::simple_query(std::wstring module, std::wstring command, std::vect
 
 	nsclient::commands::plugin_type plugin = commands_.get(command);
 	if (!plugin) {
-		LOG_ERROR_CORE(_T("No handler for command: ") + command + _T(" available commands: ") + commands_.to_wstring());
-		resp.push_back(_T("No handler for command: ") + command);
+		LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
+		resp.push_back("No handler for command: " + command);
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::string response;
 	ret = plugin->handleCommand(command.c_str(), request, response);
 	try {
-		std::wstring msg, perf;
+		std::string msg, perf;
 		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
-		resp.push_back(msg + _T("|") + perf);
+		resp.push_back(msg + "|" + perf);
 	} catch (std::exception &e) {
-		resp.push_back(_T("Failed to extract return message: ") + utf8::to_unicode(e.what()));
+		resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 		LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::returnUNKNOWN;
 	}
 	BOOST_FOREACH(const std::string &e, errors) {
 		LOG_ERROR_CORE_STD(e);
-		resp.push_back(utf8::cvt<std::wstring>(e));
+		resp.push_back(e);
 	}
 	return ret;
 }
 
-NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wchar_t* raw_command, std::string &request, std::string &response) {
-	std::wstring target = raw_target;
+NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, const char* raw_command, std::string &request, std::string &response) {
+	std::string target = raw_target;
 	bool match_any = false;
 	bool match_all = false;
-	if (target == _T("any"))
+	if (target == "any")
 		match_any = true;
-	else if (target == _T("all") || target == _T("*"))
+	else if (target == "all" || target == "*")
 		match_all = true;
 	std::list<std::string> responses;
 	bool found = false;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (001)."));
+			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 			return -1;
 		}
 		BOOST_FOREACH(plugin_type p, plugins_) {
@@ -1161,7 +1141,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wc
 						std::string respbuffer;
 						NSCAPI::nagiosReturn r = p->commandLineExec(raw_command, request, respbuffer);
 						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
-							LOG_DEBUG_CORE_STD("Got response from: " + utf8::cvt<std::string>(p->getName()));
+							LOG_DEBUG_CORE_STD("Got response from: " + p->getName());
 							found = true;
 							if (match_any) {
 								response = respbuffer;
@@ -1195,9 +1175,9 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const wchar_t* raw_target, const wc
 }
 
 
-NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, std::string &buffer) {
+NSCAPI::errorReturn NSClientT::reroute(std::string &channel, std::string &buffer) {
 	BOOST_FOREACH(nsclient::plugin_type p, routers_.get(channel)) {
-		wchar_t *new_channel_buffer;
+		char *new_channel_buffer;
 		char *new_buffer;
 		unsigned int new_buffer_len;
 		int status = p->route_message(channel.c_str(), buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
@@ -1218,47 +1198,47 @@ NSCAPI::errorReturn NSClientT::reroute(std::wstring &channel, std::string &buffe
 	return NSCAPI::isfalse;
 }
 
-NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const wchar_t* channel) {
+NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const char* channel) {
 	channels_.register_listener(plugin_id, channel);
 	return NSCAPI::isSuccess;
 }
-NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const wchar_t* channel) {
+NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const char* channel) {
 	try {
 		routers_.register_listener(plugin_id, channel);
 	} catch (const std::exception &e) {
-		LOG_ERROR_CORE(_T("Failed to register channel: ") + std::wstring(channel) + _T(": ") + utf8::to_unicode(e.what()) + _T("Current channels: ") + channels_.to_wstring());
+		LOG_ERROR_CORE("Failed to register channel: " + utf8::cvt<std::string>(channel) + ": " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, std::string &request, std::string &response) {
+NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::string &request, std::string &response) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (009)."));
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return NSCAPI::hasFailed;
 	}
 
-	std::wstring schannel = channel;
+	std::string schannel = channel;
 	try {
 		int count = 0;
 		while (reroute(schannel, request)==NSCAPI::message_routed && count++ <= 10) {
-			LOG_DEBUG_CORE_STD("Re-routing message to: " + utf8::cvt<std::string>(schannel));
+			LOG_DEBUG_CORE_STD("Re-routing message to: " + schannel);
 		}
 		if (count >= 10) {
-			LOG_ERROR_CORE(_T("More then 10 routes, discarding message..."));
+			LOG_ERROR_CORE("More then 10 routes, discarding message...");
 			return NSCAPI::hasFailed;
 		}
 	} catch (nsclient::plugins_list_exception &e) {
-		LOG_ERROR_CORE(_T("Error routing channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()) + _T("Current channels: ") + channels_.to_wstring());
+		LOG_ERROR_CORE("Error routing channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
 		return NSCAPI::hasFailed;
 	} catch (...) {
-		LOG_ERROR_CORE(_T("Error routing channel: ") + std::wstring(channel));
+		LOG_ERROR_CORE("Error routing channel: " + schannel);
 		return NSCAPI::hasFailed;
 	}
 
 	bool found = false;
-	BOOST_FOREACH(std::wstring cur_chan, strEx::splitEx(schannel, _T(","))) {
+	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
 		try {
 			//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
@@ -1266,44 +1246,44 @@ NSCAPI::errorReturn NSClientT::send_notification(const wchar_t* channel, std::st
 				found = true;
 			}
 		} catch (nsclient::plugins_list_exception &e) {
-			LOG_ERROR_CORE(_T("No handler for channel: ") + std::wstring(channel) + _T(": ") + to_wstring(e.what()));
+			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::hasFailed;
 		} catch (...) {
-			LOG_ERROR_CORE(_T("Error handling channel: ") + std::wstring(channel));
+			LOG_ERROR_CORE("No handler for channel: " + schannel);
 			return NSCAPI::hasFailed;
 		}
 	}
 	if (!found) {
-		LOG_ERROR_CORE_STD("No one listens for events from: " + utf8::cvt<std::string>(schannel));
+		LOG_ERROR_CORE("No handler for channel: " + schannel);
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
 }
 
-std::wstring NSClientT::get_plugin_module_name(unsigned int plugin_id) {
+std::string NSClientT::get_plugin_module_name(unsigned int plugin_id) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (010)."));
-		return _T("");
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		return "";
 	}
 	BOOST_FOREACH(plugin_type plugin, plugins_) {
 		if (plugin->get_id() == plugin_id)
 			return plugin->getModule();
 	}
-	return _T("");
+	return "";
 }
 void NSClientT::listPlugins() {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (010)."));
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return;
 	}
 	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
 		try {
 			if ((*it)->isBroken()) {
-				std::wcout << (*it)->getModule() << _T(": ") << _T("broken") << std::endl;
+				std::cout << (*it)->getModule() << ": " << "broken" << std::endl;
 			} else {
-				std::wcout << (*it)->getModule() << _T(": ") << (*it)->getName() << std::endl;
+				std::cout << (*it)->getModule() << ": " << (*it)->getName() << std::endl;
 			}
 		} catch (NSPluginException e) {
 			LOG_ERROR_CORE_STD("Could not load plugin: " + e.file() + ": " + e.reason());
@@ -1314,7 +1294,7 @@ void NSClientT::listPlugins() {
 boost::filesystem::path NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
+		LOG_ERROR_CORE("FATAL ERROR: Could not get mutex.");
 		return "";
 	}
 	if (!basePath.empty())
@@ -1346,7 +1326,7 @@ typedef DWORD (WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lp
 boost::filesystem::path NSClientT::getTempPath() {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
-		LOG_ERROR_CORE(_T("FATAL ERROR: Could not get mutex."));
+		LOG_ERROR_CORE("FATAL ERROR: Could not get mutex.");
 		return "";
 	}
 	if (!tempPath.empty())
@@ -1451,6 +1431,9 @@ std::string NSClientT::getFolder(std::string key) {
 	if (key == "module-path") {
 		return "${shared-path}/modules";
 	}
+	if (key == "base-path") {
+		return getBasePath().string();
+	}
 	if (key == "temp") {
 		return getTempPath().string();
 	}
@@ -1520,87 +1503,130 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		for (int i=0;i<request.payload_size();i++) {
 			const Plugin::SettingsRequestMessage::Request &r = request.payload(i);
-			if (r.type() == Plugin::SettingsRequestMessage_Request_ActionType_INVENTORY) {
+			if (r.has_inventory()) {
 				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory(); 
 				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				if (q.node().has_key()) {
-					settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(utf8::cvt<std::wstring>(q.node().path()), utf8::cvt<std::wstring>(q.node().key()));
+					settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(q.node().path(), q.node().key());
 					Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->mutable_node()->CopyFrom(q.node());
-					rpp->mutable_info()->set_title(utf8::cvt<std::string>(desc.title));
-					rpp->mutable_info()->set_description(utf8::cvt<std::string>(desc.description));
+					rpp->mutable_info()->set_title(desc.title);
+					rpp->mutable_info()->set_description(desc.description);
 				} else {
 					if (q.recursive_fetch()) {
-						BOOST_FOREACH(const std::wstring &path, settings_manager::get_core()->get_reg_sections()) {
+						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections()) {
 							if (q.fetch_paths()) {
 								settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->mutable_node()->set_path(utf8::cvt<std::string>(path));
-								rpp->mutable_info()->set_title(utf8::cvt<std::string>(desc.title));
-								rpp->mutable_info()->set_description(utf8::cvt<std::string>(desc.description));
+								rpp->mutable_node()->set_path(path);
+								rpp->mutable_info()->set_title(desc.title);
+								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 							}
 							if (q.fetch_keys()) {
-								BOOST_FOREACH(const std::wstring &key, settings_manager::get_core()->get_reg_keys(path)) {
+								BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
 									settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 									Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-									rpp->mutable_node()->set_path(utf8::cvt<std::string>(path));
-									rpp->mutable_node()->set_key(utf8::cvt<std::string>(key));
-									rpp->mutable_info()->set_title(utf8::cvt<std::string>(desc.title));
-									rpp->mutable_info()->set_description(utf8::cvt<std::string>(desc.description));
+									rpp->mutable_node()->set_path(path);
+									rpp->mutable_node()->set_key(key);
+									rpp->mutable_info()->set_title(desc.title);
+									rpp->mutable_info()->set_description(desc.description);
 									rpp->mutable_info()->set_advanced(desc.advanced);
-									rpp->mutable_info()->set_default_value(utf8::cvt<std::string>(desc.defValue));
+									rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
+									rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 									settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 								}
 							}
 						}
 					} else {
-						std::wstring path = utf8::cvt<std::wstring>(q.node().path());
+						std::string path = q.node().path();
 						if (q.fetch_paths()) {
 							settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
 							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->mutable_node()->set_path(utf8::cvt<std::string>(path));
-							rpp->mutable_info()->set_title(utf8::cvt<std::string>(desc.title));
-							rpp->mutable_info()->set_description(utf8::cvt<std::string>(desc.description));
+							rpp->mutable_node()->set_path(path);
+							rpp->mutable_info()->set_title(desc.title);
+							rpp->mutable_info()->set_description(desc.description);
 							rpp->mutable_info()->set_advanced(desc.advanced);
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 						if (q.fetch_keys()) {
-							BOOST_FOREACH(const std::wstring &key, settings_manager::get_core()->get_reg_keys(path)) {
+							BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
 								settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 								rpp->mutable_node()->set_path(q.node().path());
-								rpp->mutable_node()->set_key(utf8::cvt<std::string>(key));
-								rpp->mutable_info()->set_title(utf8::cvt<std::string>(desc.title));
-								rpp->mutable_info()->set_description(utf8::cvt<std::string>(desc.description));
+								rpp->mutable_node()->set_key(key);
+								rpp->mutable_info()->set_title(desc.title);
+								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
-								rpp->mutable_info()->set_default_value(utf8::cvt<std::string>(desc.defValue));
+								rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
+								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 							}
 						}
 					}
 					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
-					rp->set_type(Plugin::SettingsResponseMessage_Response_ActionType_INVENTORY);
 				}
-			} else if (r.type() == Plugin::SettingsRequestMessage_Request_ActionType_QUERY) {
+			} else if (r.has_query()) {
 				const Plugin::SettingsRequestMessage::Request::Query &q = r.query(); 
 				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
-				Plugin::SettingsResponseMessage::Response::Query *rpp = rp->add_query();
+				Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
 				rpp->mutable_node()->CopyFrom(q.node());
 				if (q.node().has_key()) {
+					rpp->mutable_value()->set_type(q.type());
 					if (q.type() == Plugin::Common_DataType_STRING) {
-						rpp->mutable_value()->mutable_value()->set_string_data(utf8::cvt<std::string>(settings_manager::get_settings()->get_string(utf8::cvt<std::wstring>(q.node().path()), utf8::cvt<std::wstring>(q.node().key()))));
+						rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), q.default_value().string_data()));
+					} else if (q.type() == Plugin::Common_DataType_INT) {
+						rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key(), q.default_value().int_data()));
+					} else if (q.type() == Plugin::Common_DataType_BOOL) {
+						rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key(), q.default_value().bool_data()));
 					} else {
 						LOG_ERROR_CORE("Invalid type");
 					}
 				} else {
-					BOOST_FOREACH(const std::wstring &key, settings_manager::get_settings()->get_keys(utf8::cvt<std::wstring>(q.node().path()))) {
-						rpp->mutable_value()->mutable_value()->add_list_data(utf8::cvt<std::string>(key));
+					rpp->mutable_value()->set_type(Plugin::Common_DataType_LIST);
+					BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(q.node().path())) {
+						rpp->mutable_value()->add_list_data(key);
 					}
+				}
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			} else if (r.has_registration()) {
+				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration(); 
+				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
+				rp->mutable_registration();
+				if (q.node().has_key()) {
+					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced());
+				} else {
+					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced());
+				}
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			} else if (r.has_update()) {
+				const Plugin::SettingsRequestMessage::Request::Update &p = r.update(); 
+				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
+				rp->mutable_update();
+				if (p.value().type() == Plugin::Common_DataType_STRING) {
+					settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
+				} else if (p.value().type() == Plugin::Common_DataType_BOOL) {
+					settings_manager::get_settings()->set_bool(p.node().path(), p.node().key(), p.value().bool_data());
+				} else if (p.value().type() == Plugin::Common_DataType_INT) {
+					settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
+				} else {
+					LOG_ERROR_CORE("Invalid data type");
+				}
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			} else if (r.has_control()) {
+				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
+				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
+				rp->mutable_control();
+				if (p.command() == Plugin::Settings_Command_LOAD) {
+					settings_manager::get_core()->migrate_from(p.context());
+					settings_manager::get_settings()->reload();
+				} else if (p.command() == Plugin::Settings_Command_SAVE) {
+					settings_manager::get_core()->migrate_to(p.context());
 				}
 			} else {
 				LOG_ERROR_CORE("Invalid action");
+				return NSCAPI::hasFailed;
 			}
 		}
 		*response_buffer_len = response.ByteSize();
@@ -1629,31 +1655,31 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		for (int i=0;i<request.payload_size();i++) {
 			const Plugin::RegistryRequestMessage::Request &r = request.payload(i);
-			if (r.type() == Plugin::RegistryRequestMessage_Request_ActionType_INVENTORY) {
+			if (r.has_inventory()) {
 				const Plugin::RegistryRequestMessage::Request::Inventory &q = r.inventory(); 
 				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 				for (int i=0;i<q.type_size();i++) {
 					Plugin::Registry_ItemType type = q.type(i);
 					if (type == Plugin::Registry_ItemType_QUERY || type == Plugin::Registry_ItemType_ALL) {
-						BOOST_FOREACH(const std::wstring &command, commands_.list_commands()) {
+						BOOST_FOREACH(const std::string &command, commands_.list_commands()) {
 							nsclient::commands::command_info info = commands_.describe(command);
 							Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->set_name(utf8::cvt<std::string>(command));
+							rpp->set_name(command);
 							rpp->set_type(Plugin::Registry_ItemType_COMMAND);
 							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
-							rpp->mutable_info()->set_title(utf8::cvt<std::string>(info.name));
-							rpp->mutable_info()->set_description(utf8::cvt<std::string>(info.description));
+							rpp->mutable_info()->set_title(info.name);
+							rpp->mutable_info()->set_description(info.description);
 						}
 					} 
 					if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
-						BOOST_FOREACH(const std::wstring &command, commands_.list_aliases()) {
+						BOOST_FOREACH(const std::string &command, commands_.list_aliases()) {
 							nsclient::commands::command_info info = commands_.describe(command);
 							Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->set_name(utf8::cvt<std::string>(command));
+							rpp->set_name(command);
 							rpp->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
 							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
-							rpp->mutable_info()->set_title(utf8::cvt<std::string>(info.name));
-							rpp->mutable_info()->set_description(utf8::cvt<std::string>(info.description));
+							rpp->mutable_info()->set_title(info.name);
+							rpp->mutable_info()->set_description(info.description);
 						}
 					} 
 					if (type == Plugin::Registry_ItemType_PLUGIN || type == Plugin::Registry_ItemType_ALL) {
@@ -1661,27 +1687,30 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 						if (readLock.owns_lock()) {
 							BOOST_FOREACH(plugin_type plugin, plugins_) {
 								Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->set_name(utf8::cvt<std::string>(plugin->getModule()));
+								rpp->set_name(plugin->getModule());
 								rpp->set_type(Plugin::Registry_ItemType_COMMAND);
-								rpp->mutable_info()->add_plugin(utf8::cvt<std::string>(plugin->getModule()));
-								rpp->mutable_info()->set_title(utf8::cvt<std::string>(plugin->getName()));
-								rpp->mutable_info()->set_description(utf8::cvt<std::string>(plugin->getDescription()));
+								rpp->mutable_info()->add_plugin(plugin->getModule());
+								rpp->mutable_info()->set_title(plugin->getName());
+								rpp->mutable_info()->set_description(plugin->getDescription());
 							}
 						} else {
-							LOG_ERROR_CORE(_T("FATAL ERROR: Could not get read-mutex (010)."));
+							LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 						}
 					}
 				}
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
-				rp->set_type(Plugin::RegistryResponseMessage_Response_ActionType_INVENTORY);
-			} else if (r.type() == Plugin::RegistryRequestMessage_Request_ActionType_REGISTRATION) {
+			} else if (r.has_registration()) {
 				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
 				if (registration.type() == Plugin::Registry_ItemType_QUERY) {
-					commands_.register_command(registration.plugin_id(), utf8::cvt<std::wstring>(registration.name()), utf8::cvt<std::wstring>(registration.info().description()));
+					commands_.register_command(registration.plugin_id(), registration.name(), registration.info().description());
 					std::string description = "Alternative name for: " + registration.name();
 					for (int i=0;i<registration.alias_size();i++) {
-						commands_.register_alias(registration.plugin_id(), utf8::cvt<std::wstring>(registration.alias(i)), utf8::cvt<std::wstring>(description));
+						commands_.register_alias(registration.plugin_id(), registration.alias(i), description);
 					}
+				} else if (registration.type() == Plugin::Registry_ItemType_HANDLER) {
+					channels_.register_listener(registration.plugin_id(), registration.name());
+				} else if (registration.type() == Plugin::Registry_ItemType_ROUTER) {
+					routers_.register_listener(registration.plugin_id(), registration.name());
 				} else {
 					LOG_ERROR_CORE("Registration query: Unsupported type");
 				}

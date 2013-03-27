@@ -28,12 +28,12 @@ public:
 	CheckMKServer();
 	virtual ~CheckMKServer();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 private:
 
-	bool add_script(std::wstring alias, std::wstring file);
+	bool add_script(std::string alias, std::string file);
 
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<check_mk::server::server> server_;

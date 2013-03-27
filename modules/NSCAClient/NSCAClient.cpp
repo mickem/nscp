@@ -32,6 +32,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -49,42 +50,43 @@ NSCAClient::NSCAClient() {}
  */
 NSCAClient::~NSCAClient() {}
 
-bool NSCAClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("NSCA"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("NSCA", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("NSCA CLIENT SECTION"), _T("Section for NSCA passive check module."))
+			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("handlers", sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("hostname"), sh::string_key(&hostname_, "auto"),
-			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
+			("hostname", sh::string_key(&hostname_, "auto"),
+			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
 
-			(_T("channel"), sh::wstring_key(&channel_, _T("NSCA")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "NSCA"),
+			"CHANNEL", "The channel to listen to.")
 
-			(_T("delay"), sh::string_fun_key<std::wstring>(boost::bind(&NSCAClient::set_delay, this, _1), _T("0")),
-			_T("DELAY"), _T(""), true)
+			("delay", sh::string_fun_key<std::wstring>(boost::bind(&NSCAClient::set_delay, this, _1), _T("0")),
+			"DELAY", "", true)
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 
 
-		get_core()->registerSubmissionListener(get_id(), channel_);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -108,7 +110,7 @@ bool NSCAClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 					iter++;
 				}
 			} catch (const std::exception& e) {
-				NSC_LOG_ERROR_STD(_T("Failed to resolve: ") + utf8::to_unicode(e.what()));
+				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
 
@@ -116,13 +118,13 @@ bool NSCAClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			strEx::replace(hostname_, "${domain}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("Failed to send");
 		return false;
 	}
 	return true;
@@ -140,25 +142,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void NSCAClient::add_target(std::wstring key, std::wstring arg) {
+void NSCAClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void NSCAClient::add_command(std::wstring name, std::wstring args) {
+void NSCAClient::add_command(std::string name, std::string args) {
+	nscapi::core_helper::core_proxy core(get_core(), get_id());
 	try {
-		std::wstring key = commands.add_command(name, args);
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NSCA relay for: ") + name);
-	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+			core.register_command(key.c_str(), "NSCA relay for: " + name);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + name);
 	}
 }
 
@@ -251,9 +254,9 @@ void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -339,8 +342,8 @@ int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
 		nscapi::protobuf::functions::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request_payload(request_message.payload(i));
 		packet.code = 0;
-		if (data.command != _T("host_check"))
-			packet.service = utf8::cvt<std::string>(data.command);
+		if (data.command != "host_check")
+			packet.service = data.command;
 		//packet.result = data.;
 		list.push_back(packet);
 	}
@@ -361,12 +364,12 @@ struct client_handler : public socket_helpers::client::client_handler {
 	{}
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 	unsigned int get_encryption() {
@@ -379,28 +382,28 @@ struct client_handler : public socket_helpers::client::client_handler {
 
 boost::tuple<int,std::wstring> NSCAClient::send(connection_data con, const std::list<nsca::packet> packets) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
 		socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::shared_ptr<client_handler>(new client_handler(con)));
 		client.connect();
 
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
-			NSC_DEBUG_MSG_STD(_T("Sending (data): ") + utf8::cvt<std::wstring>(packet.to_string()));
+			NSC_DEBUG_MSG_STD("Sending (data): " + packet.to_string());
 			client.process_request(packet);
 		}
 		client.shutdown();
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
 	} catch (const nscp::encryption::encryption_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSCA Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Unknown exception when sending NSCA data: "));
+		NSC_LOG_ERROR_EX("Failed to send");
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }

@@ -21,7 +21,7 @@ namespace parsers {
 					value_type rtype = right.get_type();
 
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
-						handler->error(_T("Invalid types (not same) for binary operator"));
+						handler->error("Invalid types (not same) for binary operator");
 						return expression_ast(int_value(FALSE));
 					}
 					value_type type = left.get_type();
@@ -29,7 +29,7 @@ namespace parsers {
 						return eval_int(type, handler, left, right)?expression_ast(int_value(TRUE)):expression_ast(int_value(FALSE));
 					if (type == type_string)
 						return eval_string(type, handler, left, right)?expression_ast(int_value(TRUE)):expression_ast(int_value(FALSE));
-					handler->error(_T("missing impl for simple bool binary operator"));
+					handler->error("missing impl for simple bool binary operator");
 					return expression_ast(int_value(FALSE));
 				}
 				virtual bool eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const = 0;
@@ -42,7 +42,7 @@ namespace parsers {
 					value_type rtype = right.get_type();
 
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
-						handler->error(_T("Invalid types (not same) for binary operator"));
+						handler->error("Invalid types (not same) for binary operator");
 						return expression_ast(int_value(FALSE));
 					}
 					value_type type = left.get_type();
@@ -50,7 +50,7 @@ namespace parsers {
 						return expression_ast(int_value(eval_int(type, handler, left, right)));
 					if (type == type_string)
 						return expression_ast(int_value(eval_string(type, handler, left, right)));
-					handler->error(_T("missing impl for simple bool binary operator"));
+					handler->error("missing impl for simple bool binary operator");
 					return expression_ast(int_value(FALSE));
 				}
 				virtual long long eval_int(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const = 0;
@@ -66,7 +66,7 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("missing impl for and binary operator"));
+					handler->error("missing impl for and binary operator");
 					// TODO convert strings
 					return false;
 				};
@@ -80,7 +80,7 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("missing impl for or binary operator"));
+					handler->error("missing impl for or binary operator");
 					// TODO convert strings
 					return false;
 				};
@@ -92,11 +92,11 @@ namespace parsers {
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
 					type;
-					//if (debug_enabled && debug_level > 10) {
-						std::wstring lhs = left.get_string(handler);
-						std::wstring rhs = right.get_string(handler);
-						//std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
-					//}
+					if (debug_enabled && debug_level > 10) {
+						std::string lhs = left.get_string(handler);
+						std::string rhs = right.get_string(handler);
+						std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
+					}
 					return left.get_string(handler) == right.get_string(handler);
 				};
 			};
@@ -194,20 +194,20 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("Like not supported on numbers..."));
+					handler->error("Like not supported on numbers...");
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
 					type;
-					std::wstring s1 = left.get_string(handler);
-					std::wstring s2 = right.get_string(handler);
+					std::string s1 = left.get_string(handler);
+					std::string s2 = right.get_string(handler);
 					if (s1.size() == 0 && s2.size() == 0)
 						return true;
 					if (s1.size() == 0 || s2.size() == 0)
 						return false;
 					if (s1.size() > s2.size() && s2.size() > 0)
-						return s1.find(s2) != std::wstring::npos;
-					return s2.find(s1) != std::wstring::npos;
+						return s1.find(s2) != std::string::npos;
+					return s2.find(s1) != std::string::npos;
 				};
 			};
 			struct operator_regexp : public simple_bool_binary_operator_impl {
@@ -215,23 +215,23 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("Regular expression not supported on numbers..."));
+					handler->error("Regular expression not supported on numbers...");
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
 					type;
-					std::wstring str = left.get_string(handler);
-					std::wstring regexp = right.get_string(handler);
+					std::string str = left.get_string(handler);
+					std::string regexp = right.get_string(handler);
 					if (debug_enabled)
-						std::wcout << _T("(op_regexp) ") << str << _T(" regexp ") << regexp << std::endl;
+						std::cout << "(op_regexp) " << str << " regexp " << regexp << std::endl;
 					try {
-						boost::wregex re(regexp);
+						boost::regex re(regexp);
 						return boost::regex_match(str, re);
 					} catch (const boost::bad_expression e) {
-						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						handler->error("Invalid syntax in regular expression:" + regexp);
 						return false;
 					} catch (...) {
-						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						handler->error("Invalid syntax in regular expression:" + regexp);
 						return false;
 					}
 				};
@@ -241,23 +241,23 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("Regular expression not supported on numbers..."));
+					handler->error("Regular expression not supported on numbers...");
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
 					type;
-					std::wstring str = left.get_string(handler);
-					std::wstring regexp = right.get_string(handler);
+					std::string str = left.get_string(handler);
+					std::string regexp = right.get_string(handler);
 					if (debug_enabled)
-						std::wcout << _T("(op_regexp) ") << str << _T(" regexp ") << regexp << std::endl;
+						std::cout << "(op_regexp) " << str << " regexp " << regexp << std::endl;
 					try {
-						boost::wregex re(regexp);
+						boost::regex re(regexp);
 						return !boost::regex_match(str, re);
 					} catch (const boost::bad_expression e) {
-						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						handler->error("Invalid syntax in regular expression:" + regexp);
 						return false;
 					} catch (...) {
-						handler->error(_T("Invalid syntax in regular expression:") + regexp);
+						handler->error("Invalid syntax in regular expression:" + regexp);
 						return false;
 					}
 				};
@@ -267,16 +267,16 @@ namespace parsers {
 					type;
 					left;
 					right;
-					handler->error(_T("Not like not supported on numbers..."));
+					handler->error("Not like not supported on numbers...");
 					return false;
 				}
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const { 
 					type;
-					std::wstring s1 = left.get_string(handler);
-					std::wstring s2 = right.get_string(handler);
+					std::string s1 = left.get_string(handler);
+					std::string s2 = right.get_string(handler);
 					if (s1.size() > s2.size() && s2.size() > 0)
-						return s1.find(s2) == std::wstring::npos;
-					return s2.find(s1) == std::wstring::npos;
+						return s1.find(s2) == std::string::npos;
+					return s2.find(s1) == std::string::npos;
 				};
 			};
 			struct operator_not_in : public simple_bool_binary_operator_impl {
@@ -299,7 +299,7 @@ namespace parsers {
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
 					type;
 					right;
-					std::wstring val = left.get_string(handler);
+					std::string val = left.get_string(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_string(handler) == val)
 							return false;
@@ -327,7 +327,7 @@ namespace parsers {
 				bool eval_string(value_type type, filter_handler handler, const expression_ast &left, const expression_ast & right) const {
 					type;
 					right;
-					std::wstring val = left.get_string(handler);
+					std::string val = left.get_string(handler);
 					BOOST_FOREACH(list_item_type itm, list) {
 						if (itm.get_string(handler) == val)
 							return true;
@@ -339,18 +339,18 @@ namespace parsers {
 				expression_ast evaluate(filter_handler handler, const expression_ast &left, const expression_ast & right) const {
 					left;
 					right;
-					handler->error(_T("missing impl for FALSE"));
+					handler->error("missing impl for FALSE");
 					return expression_ast(int_value(FALSE));
 				}
 				expression_ast evaluate(filter_handler handler, const expression_ast &subject) const {
 					subject;
-					handler->error(_T("missing impl for FALSE"));
+					handler->error("missing impl for FALSE");
 					return expression_ast(int_value(FALSE));
 				}
 				expression_ast evaluate(parsers::where::value_type type, filter_handler handler, const expression_ast &subject) const {
 					type;
 					subject;
-					handler->error(_T("missing impl for FALSE"));
+					handler->error("missing impl for FALSE");
 					return expression_ast(int_value(FALSE));
 				}
 			};
@@ -369,7 +369,7 @@ namespace parsers {
 						if (type == type_string) {
 							return expression_ast(string_value(list.front().get_string(handler)));
 						}
-						handler->error(_T("1:Failed to handle type: ") + to_string(type));
+						handler->error("1:Failed to handle type: " + to_string(type));
 						return expression_ast(int_value(FALSE));
 					}
 					if (list.size()==2) {
@@ -382,46 +382,46 @@ namespace parsers {
 						if (type == type_size) {
 							return expression_ast(int_value(parse_size((*item).get_int(handler), (*unit).get_string(handler))));
 						}
-						handler->error(_T("m:Failed to handle type: ") + to_string(type) + _T(" ") + (*item).to_string() + _T(", ") + (*unit).to_string());
+						handler->error("m:Failed to handle type: " + to_string(type) + " " + (*item).to_string() + ", " + (*unit).to_string());
 						return expression_ast(int_value(FALSE));
 					}
-					std::wcout << _T("----------------------------------------------\n");
-					std::wcout << list.size() << _T("\n");
-					std::wcout << subject.to_string() << _T("\n");
-					std::wcout << _T("----------------------------------------------\n");
-					handler->error(_T("Missing implementation for convert function"));
+					std::cout << "----------------------------------------------\n";
+					std::cout << list.size() << _T("\n");
+					std::cout << subject.to_string() << _T("\n");
+					std::cout << "----------------------------------------------\n";
+					handler->error("Missing implementation for convert function");
 					return expression_ast(int_value(FALSE));
 				}
 
-				inline long long parse_time(long long value, std::wstring unit) const {
+				inline long long parse_time(long long value, std::string unit) const {
 					long long now = constants::get_now();
 					if (unit.empty())
 						return now + value;
-					else if ( (unit == _T("s")) || (unit == _T("S")) )
+					else if ( (unit == "s") || (unit == "S") )
 						return now + (value);
-					else if ( (unit == _T("m")) || (unit == _T("M")) )
+					else if ( (unit == "m") || (unit == "M") )
 						return now + (value * 60);
-					else if ( (unit == _T("h")) || (unit == _T("H")) )
+					else if ( (unit == "h") || (unit == "H") )
 						return now + (value * 60 * 60);
-					else if ( (unit == _T("d")) || (unit == _T("D")) )
+					else if ( (unit == "d") || (unit == "D") )
 						return now + (value * 24 * 60 * 60);
-					else if ( (unit == _T("w")) || (unit == _T("W")) )
+					else if ( (unit == "w") || (unit == "W") )
 						return now + (value * 7 * 24 * 60 * 60);
 					return now + value;
 				}
 
-				inline long long parse_size(long long value, std::wstring unit) const {
+				inline long long parse_size(long long value, std::string unit) const {
 					if (unit.empty())
 						return value;
-					else if ( (unit == _T("b")) || (unit == _T("B")) )
+					else if ( (unit == "b") || (unit == "B") )
 						return value;
-					else if ( (unit == _T("k")) || (unit == _T("k")) )
+					else if ( (unit == "k") || (unit == "k") )
 						return value * 1024;
-					else if ( (unit == _T("m")) || (unit == _T("M")) )
+					else if ( (unit == "m") || (unit == "M") )
 						return value * 1024 * 1024;
-					else if ( (unit == _T("g")) || (unit == _T("G")) )
+					else if ( (unit == "g") || (unit == "G") )
 						return value * 1024 * 1024 * 1024;
-					else if ( (unit == _T("t")) || (unit == _T("T")) )
+					else if ( (unit == "t") || (unit == "T") )
 						return value * 1024 * 1024 * 1024 * 1024;
 					return value;
 				}
@@ -436,7 +436,7 @@ namespace parsers {
 						return eval_int(type, handler, subject)?expression_ast(int_value(TRUE)):expression_ast(int_value(FALSE));
 					if (type == type_string)
 						return eval_string(type, handler, subject)?expression_ast(int_value(TRUE)):expression_ast(int_value(FALSE));
-					handler->error(_T("missing impl for bool unary operator"));
+					handler->error("missing impl for bool unary operator");
 					return expression_ast(int_value(FALSE));
 				}
 				virtual bool eval_int(value_type type, filter_handler handler, const expression_ast &subject) const = 0;
@@ -459,7 +459,7 @@ namespace parsers {
 						long long val = now - (subject.get_int(handler) - now);
 						return expression_ast(int_value(val));
 					}
-					handler->error(_T("missing impl for NOT operator"));
+					handler->error("missing impl for NOT operator");
 					return expression_ast(int_value(FALSE));
 				}
 			};
@@ -509,14 +509,14 @@ namespace parsers {
 			return bin_op_type(new operator_impl::operator_false());
 		}
 
-		factory::bin_fun_type factory::get_binary_function(std::wstring name, const expression_ast &subject) {
-			if (name == _T("convert"))
+		factory::bin_fun_type factory::get_binary_function(std::string name, const expression_ast &subject) {
+			if (name == "convert")
 				return bin_fun_type(new operator_impl::function_convert(subject));
-			if (name == _T("auto_convert"))
+			if (name == "auto_convert")
 				return bin_fun_type(new operator_impl::function_convert(subject));
-			if (name == _T("neg"))
+			if (name == "neg")
 				return bin_fun_type(new operator_impl::operator_not(subject));
-			std::wcout << _T("======== UNDEFINED FUNCTION: ") << name << std::endl;
+			std::cout << "======== UNDEFINED FUNCTION: " << name << std::endl;
 			return bin_fun_type(new operator_impl::operator_false());
 		}
 		factory::un_op_type factory::get_unary_operator(operators op) {

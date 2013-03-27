@@ -35,7 +35,7 @@ namespace file_filter {
 			, ullSize(0)
 			, ullNow(0)
 		{}
-		filter_obj(boost::filesystem::path path_, std::wstring filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
+		filter_obj(boost::filesystem::path path_, std::string filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
 			: path(path_)
 			, filename(filename_)
 			, ullCreationTime(creationTime)
@@ -47,16 +47,16 @@ namespace file_filter {
 		{};
 
 #ifdef WIN32
-		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem:: path path, std::wstring filename);
+		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem:: path path, std::string filename);
 		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::wstring filename);
 		static boost::shared_ptr<filter_obj>  get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
 #endif
-		static filter_obj get(unsigned long long now, boost::filesystem::path path, std::wstring filename);
-		static filter_obj get(unsigned long long now, std::wstring file);
-		static filter_obj get(std::wstring file);
+		static filter_obj get(unsigned long long now, boost::filesystem::path path, std::string filename);
+		static filter_obj get(unsigned long long now, std::string file);
+		static filter_obj get(std::string file);
 
-		std::wstring get_filename() { return filename; }
-		std::wstring get_path() { return path.wstring(); }
+		std::string get_filename() { return filename; }
+		std::string get_path() { return path.string(); }
 
 		long long get_creation() {
 			return strEx::filetime_to_time(ullCreationTime);
@@ -68,8 +68,8 @@ namespace file_filter {
 			return strEx::filetime_to_time(ullLastWriteTime);
 		}
 		unsigned long long get_size() { return ullSize; }
-		std::wstring render(std::wstring syntax, std::wstring datesyntax);
-		std::wstring get_version(filter_obj_handler *handler);
+		std::string render(std::string syntax, std::string datesyntax);
+		std::string get_version(filter_obj_handler *handler);
 		unsigned long get_line_count();
 
 	public:
@@ -105,9 +105,9 @@ namespace file_filter {
 		__int64 ullLastAccessTime;
 		__int64 ullLastWriteTime;
 		__int64 ullNow;
-		std::wstring filename;
+		std::string filename;
 		boost::filesystem::path path;
-		boost::optional<std::wstring> cached_version;
+		boost::optional<std::string> cached_version;
 		boost::optional<unsigned long> cached_count;
 		DWORD attributes;
 
@@ -123,26 +123,26 @@ namespace file_filter {
 
 		typedef parsers::where::filter_handler handler;
 		typedef parsers::where::expression_ast ast_expr_type;
-		typedef std::map<std::wstring,parsers::where::value_type> types_type;
-		typedef std::list<std::wstring> error_type;
+		typedef std::map<std::string,parsers::where::value_type> types_type;
+		typedef std::list<std::string> error_type;
 
 		filter_obj_handler();
 
-		base_handler::bound_string_type bind_simple_string(std::wstring key);
-		base_handler::bound_int_type bind_simple_int(std::wstring key);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, ast_expr_type *subject);
-		bool has_function(parsers::where::value_type to, std::wstring name, ast_expr_type *subject);
+		base_handler::bound_string_type bind_simple_string(std::string key);
+		base_handler::bound_int_type bind_simple_int(std::string key);
+		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, ast_expr_type *subject);
+		bool has_function(parsers::where::value_type to, std::string name, ast_expr_type *subject);
 
-		bool has_variable(std::wstring key);
-		parsers::where::value_type get_type(std::wstring key);
+		bool has_variable(std::string key);
+		parsers::where::value_type get_type(std::string key);
 		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
 
 	public:
-		void error(std::wstring err) { errors.push_back(err); }
+		void error(std::string err) { errors.push_back(err); }
 		bool has_error() { return !errors.empty(); }
-		std::wstring get_error() { return strEx::joinEx(errors, _T(", ")); }
+		std::string get_error() { return format::join(errors, ", "); }
 	private:
-		std::list<std::wstring> errors;
+		std::list<std::string> errors;
 		object_instance_type object;
 
 	private:
@@ -166,10 +166,10 @@ namespace file_filter {
 		int debugThreshold;
 
 		bool bShowDescriptions;
-		std::wstring pattern;
+		std::string pattern;
 		unsigned long long now;
 
-		file_finder_data_arguments(std::wstring pattern, int max_depth, parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false);
+		file_finder_data_arguments(std::string pattern, int max_depth, parent_type::error_type error, std::string syntax, std::string datesyntax, bool debug = false);
 
 
 		bool is_valid_level(int current_level) {
@@ -194,6 +194,6 @@ namespace file_filter {
 		static filter_engine create_engine(filter_argument arg);
  		static filesize_engine_interface create_size_engine();
 		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::wstring pattern, int max_depth, std::wstring syntax, std::wstring datesyntax);
+		static filter_argument create_argument(std::string pattern, int max_depth, std::string syntax, std::string datesyntax);
 	};
 }

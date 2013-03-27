@@ -12,87 +12,76 @@
 
 extern nscapi::helper_singleton* plugin_singleton;
 
-nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() {
+nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() const {
 	return plugin_singleton->get_core();
 }
 
-
-void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description, std::list<std::wstring> aliases) {
-	BOOST_FOREACH(const std::wstring alias, aliases) {
-		register_command(alias, description);
-	}
-	register_command(command, description);
-}
-void nscapi::impl::simple_plugin::register_command(std::wstring command, std::wstring description) {
-	get_core()->registerCommand(get_id(), command, description);
-}
-void nscapi::impl::simple_plugin::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
-	get_core()->settings_register_key(get_id(), path, key, type, title, description, defaultValue, advanced);
-}
-void nscapi::impl::simple_plugin::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
-	get_core()->settings_register_path(get_id(), path, title, description, advanced);
+std::string nscapi::impl::simple_plugin::get_base_path() const {
+	return get_core()->expand_path("${base-path}");
 }
 
-
-void nscapi::impl::simple_log_handler::handleMessageRAW(std::string data) {
-	try {
-		Plugin::LogEntry message;
-		message.ParseFromString(data);
-
-		for (int i=0;i<message.entry_size();i++) {
-			Plugin::LogEntry::Entry msg = message.entry(i);
-			handleMessage(msg.level(), msg.file(), msg.line(), msg.message());
-		}
-	} catch (std::exception &e) {
-		std::cout << "Failed to parse data from: " << format::strip_ctrl_chars(data) << e.what() <<  std::endl;;
-	} catch (...) {
-		std::cout << "Failed to parse data from: " << format::strip_ctrl_chars(data) << std::endl;;
-	}
-}
-
-NSCAPI::nagiosReturn nscapi::impl::simple_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_query_request(char_command, request);
-	std::wstring msg, perf;
-
-	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
-	nscapi::protobuf::functions::create_simple_query_response(data.command, ret, msg, perf, response);
-	return ret;
-}
-
-
-NSCAPI::nagiosReturn nscapi::impl::utf8_command_handler::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data_utf8 data = nscapi::protobuf::functions::parse_simple_query_request_utf8(char_command, request);
-	std::string msg, perf;
-
-	NSCAPI::nagiosReturn ret = handleCommand(data.target, boost::algorithm::to_lower_copy(data.command), data.args, msg, perf);
-	nscapi::protobuf::functions::create_simple_query_response(data.command, ret, msg, perf, response);
-	return ret;
-}
-
-
-
-NSCAPI::nagiosReturn nscapi::impl::simple_command_line_exec::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(char_command, request);
-	std::wstring result;
-	NSCAPI::nagiosReturn ret = commandLineExec(data.command, data.args, result);
-	if (ret == NSCAPI::returnIgnored)
-		return NSCAPI::returnIgnored;
-	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, result, response);
-	return ret;
-}
-
-NSCAPI::nagiosReturn nscapi::impl::simple_submission_handler::handleRAWNotification(const wchar_t* channel, std::string request, std::string &response) {
-	try {
-		std::wstring source, command, msg, perf;
-		int code = nscapi::protobuf::functions::parse_simple_submit_request(request, source, command, msg, perf);
-		NSCAPI::nagiosReturn ret = handleSimpleNotification(channel, source, command, code, msg, perf);
-		if (ret == NSCAPI::returnIgnored)
-			return NSCAPI::returnIgnored;
-		nscapi::protobuf::functions::create_simple_submit_response(channel, command, ret, _T(""), response);
-	} catch (std::exception &e) {
-		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + format::strip_ctrl_chars(request) + ": " + e.what()));
-	} catch (...) {
-		nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::wstring>("Failed to parse data from: " + format::strip_ctrl_chars(request)));
-	}
-	return NSCAPI::returnIgnored;
-}
+// void nscapi::impl::simple_plugin::register_command(std::string command, std::string description, std::list<std::string> aliases) {
+// 
+// 	Plugin::RegistryRequestMessage request;
+// 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+// 
+// 	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+// 	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+// 	regitem->set_plugin_id(get_id());
+// 	regitem->set_type(Plugin::Registry_ItemType_QUERY);
+// 	regitem->set_name(command);
+// 	regitem->mutable_info()->set_title(command);
+// 	regitem->mutable_info()->set_description(description);
+// 	BOOST_FOREACH(const std::string &alias, aliases) {
+// 		regitem->add_alias(alias);
+// 	}
+// 	std::string response_string;
+// 	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+// 	Plugin::RegistryResponseMessage response;
+// 	response.ParseFromString(response_string);
+// 	for (int i=0;i<response.payload_size();i++) {
+// 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+// 			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
+// 	}
+// }
+// void nscapi::impl::simple_plugin::settings_register_key(std::string path, std::string key, NSCAPI::settings_type type, std::string title, std::string description, std::string defaultValue, bool advanced) {
+// 	Plugin::SettingsRequestMessage request;
+// 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+// 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+// 	payload->set_plugin_id(get_id());
+// 	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+// 	regitem->mutable_node()->set_key(key);
+// 	regitem->mutable_node()->set_path(path);
+// 	regitem->mutable_info()->set_title(title);
+// 	regitem->mutable_info()->set_description(description);
+// 	regitem->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
+// 	regitem->mutable_info()->mutable_default_value()->set_string_data(defaultValue);
+// 	regitem->mutable_info()->set_advanced(advanced);
+// 	std::string response_string;
+// 	nscapi::plugin_singleton->get_core()->settings_query(request.SerializeAsString(), response_string);
+// 	Plugin::SettingsResponseMessage response;
+// 	response.ParseFromString(response_string);
+// 	for (int i=0;i<response.payload_size();i++) {
+// 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+// 			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + path + "." + key + ": " + response.payload(i).result().message());
+// 	}
+// }
+// void nscapi::impl::simple_plugin::settings_register_path(std::string path, std::string title, std::string description, bool advanced) {
+// 	Plugin::SettingsRequestMessage request;
+// 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+// 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+// 	payload->set_plugin_id(get_id());
+// 	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+// 	regitem->mutable_node()->set_path(path);
+// 	regitem->mutable_info()->set_title(title);
+// 	regitem->mutable_info()->set_description(description);
+// 	regitem->mutable_info()->set_advanced(advanced);
+// 	std::string response_string;
+// 	nscapi::plugin_singleton->get_core()->settings_query(request.SerializeAsString(), response_string);
+// 	Plugin::SettingsResponseMessage response;
+// 	response.ParseFromString(response_string);
+// 	for (int i=0;i<response.payload_size();i++) {
+// 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+// 			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + path + ": " + response.payload(i).result().message());
+// 	}
+// }

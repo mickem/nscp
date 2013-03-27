@@ -87,7 +87,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 	case LUA_TBOOLEAN:
 		return lua_toboolean(L, pos)?NSCAPI::returnOK:NSCAPI::returnCRIT;
 	}
-	NSC_LOG_ERROR_STD(_T("Incorrect type: should be error, ok, warning or unknown: ") + strEx::itos(lua_type(L, pos)));
+	NSC_LOG_ERROR_STD("Incorrect type: should be error, ok, warning or unknown: " + strEx::s::xtos(lua_type(L, pos)));
 	return NSCAPI::returnUNKNOWN;
 }
 
@@ -193,7 +193,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::string_to_code(std::string str) {
 	} else if (str == "unknown") {
 		return NSCAPI::returnUNKNOWN;
 	}
-	NSC_LOG_ERROR_STD(_T("Invalid code: ") + utf8::to_unicode(str));
+	NSC_LOG_ERROR_STD("Invalid code: " + str);
 	return NSCAPI::returnUNKNOWN;
 }
 
@@ -269,20 +269,20 @@ bool lua::lua_wrapper::empty() {
 void lua::lua_wrapper::assert_lua_return(int expected_size) {
 	int real_size = size();
 	if (real_size != expected_size) {
-		NSC_LOG_ERROR_STD(_T("Invalid return size: ") + strEx::itos(expected_size) + _T(" != ") + strEx::itos(real_size))
+		NSC_LOG_ERROR_STD("Invalid return size: " + strEx::s::xtos(expected_size) + " != " + strEx::s::xtos(real_size))
 	}
 }
 
 void lua::lua_wrapper::log_stack() {
 	int args = size();
-	NSC_DEBUG_MSG_STD(_T("Invalid lua stack state, dumping stack"));
+	NSC_DEBUG_MSG_STD("Invalid lua stack state, dumping stack");
 	for (int i=1;i<args+1;i++) {
-		NSC_DEBUG_MSG_STD(lua::s2w(get_type_as_string(i) +": " + get_string(i)));
+		NSC_DEBUG_MSG_STD(get_type_as_string(i) +": " + get_string(i));
 	}
 }
 
 int lua::lua_wrapper::error(std::string s) {
-	NSC_LOG_ERROR_STD(_T("Lua raised an error: ") + utf8::cvt<std::wstring>(s));
+	NSC_LOG_ERROR_STD("Lua raised an error: " + s);
 	return luaL_error(L, s.c_str());
 }
 

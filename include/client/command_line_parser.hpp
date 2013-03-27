@@ -23,12 +23,12 @@ namespace client {
 	};
 
 	struct nscp_cli_data {
-		std::wstring target_id;
-		std::wstring command;
-		std::wstring command_line;
-		std::wstring message;
-		std::wstring result;
-		std::vector<std::wstring> arguments;
+		std::string target_id;
+		std::string command;
+		std::string command_line;
+		std::string message;
+		std::string result;
+		std::vector<std::string> arguments;
 
 		nscapi::protobuf::types::destination_container host_self;
 		nscapi::protobuf::types::destination_container recipient;
@@ -36,18 +36,18 @@ namespace client {
 		int timeout;
 
 		nscp_cli_data() : timeout(10) {}
-		std::wstring to_wstring() {
-			std::wstringstream ss;
-			ss << _T("Timeout: ") << timeout;
-			ss << _T(", command: ") << command;
-			ss << _T(", target: ") << target_id;
-			ss << _T(", self: {") << utf8::cvt<std::wstring>(host_self.to_string()) << _T("}");
-			ss << _T(", recipient: {") << utf8::cvt<std::wstring>(recipient.to_string()) << _T("}");
-			ss << _T(", message: ") << message;
-			ss << _T(", result: ") << result;
+		std::string to_string() {
+			std::stringstream ss;
+			ss << "Timeout: " << timeout;
+			ss << ", command: " << command;
+			ss << ", target: " << target_id;
+			ss << ", self: {" << host_self.to_string() << "}";
+			ss << ", recipient: {" << recipient.to_string() << "}";
+			ss << ", message: " << message;
+			ss << ", result: " << result;
 			int i=0;
-			BOOST_FOREACH(std::wstring a, arguments) {
-				ss << _T(", argument[") << i++ << _T("]: ") << a;
+			BOOST_FOREACH(std::string a, arguments) {
+				ss << ", argument[" << i++ << "]: " << a;
 			}
 			return ss.str();
 		}
@@ -56,7 +56,7 @@ namespace client {
 	struct clp_handler;
 
 	struct target_lookup_interface {
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) = 0;
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) = 0;
 	};
 	struct configuration : public boost::noncopyable {
 		typedef boost::shared_ptr<nscp_cli_data> data_type;
@@ -112,8 +112,8 @@ namespace client {
 		typedef boost::unordered_map<std::string, command_container> command_type;
 		command_type commands;
 
-		std::wstring add_command(std::wstring name, std::wstring args);
-		int exec_simple(configuration &config, const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::string &response);
+		std::string add_command(std::string name, std::string args);
+		int exec_simple(configuration &config, const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &response);
 
 		// Wrappers based on source
 		void parse_query(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response &response, const Plugin::QueryRequestMessage &request_message);

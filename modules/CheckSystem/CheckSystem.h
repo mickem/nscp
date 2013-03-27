@@ -29,28 +29,27 @@ private:
 	CheckMemory memoryChecker;
 	PDHCollector pdh_collector;
 
-	typedef std::map<std::wstring,std::wstring> counter_map_type;
+	typedef std::map<std::string,std::string> counter_map_type;
 	counter_map_type counters;
 
 public:
-	std::map<DWORD,std::wstring> lookups_;
+	std::map<DWORD,std::string> lookups_;
 
 
 public:
 	CheckSystem() {}
 	virtual ~CheckSystem() {}
 
-	virtual bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	virtual bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	virtual bool unloadModule();
 
 	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
 
-	NSCAPI::nagiosReturn check_service(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_registry(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_memory(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_pdh(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_process(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_cpu(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
-	NSCAPI::nagiosReturn check_uptime(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+	NSCAPI::nagiosReturn check_service(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn check_memory(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn check_pdh(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn check_process(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn check_cpu(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn check_uptime(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 
 };

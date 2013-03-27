@@ -4,7 +4,7 @@
 
 #include <string>
 
-std::wstring to_nstring(System::String^ s);
+std::string to_nstring(System::String^ s);
 
 class plugin_manager;
 class instance_information;

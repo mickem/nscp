@@ -48,7 +48,6 @@ include <Windows.h>
 #endif
 
 #include <strEx.h>
-#include <utils.h>
 
 #include <types.hpp>
 #include <NSCAPI.h>

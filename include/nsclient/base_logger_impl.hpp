@@ -8,8 +8,8 @@ namespace nsclient {
 	namespace logging {
 
 		struct logger_helper {
-			static std::string create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message);
-			static std::string create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message);
+// 			static std::string create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message);
+			static std::string create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message);
 			static std::wstring render_log_level_short(NSCAPI::log_level::level code);
 			static std::wstring render_log_level_long(NSCAPI::log_level::level code);
 			static std::string get_formated_date(std::string format);
@@ -46,45 +46,47 @@ namespace nsclient {
 					do_log(logger_helper::create(module, NSCAPI::log_level::debug, file, line, message));
 			}
 			*/
-			void info(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
+			/*
+			void info(const std::string &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::info))
 					do_log(logger_helper::create(module, NSCAPI::log_level::info, file, line, message));
 			}
-			void warning(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
+			void warning(const std::string &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::warning))
 					do_log(logger_helper::create(module, NSCAPI::log_level::warning, file, line, message));
 			}
-			void error(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
+			void error(const std::string &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::error))
 					do_log(logger_helper::create(module, NSCAPI::log_level::error, file, line, message));
 			}
-			void fatal(const std::wstring &module, const char* file, const int line, const std::wstring &message) {
+			void fatal(const std::string &module, const char* file, const int line, const std::wstring &message) {
 				if (should_log(NSCAPI::log_level::critical))
 					do_log(logger_helper::create(module, NSCAPI::log_level::critical, file, line, message));
 			}
-			void debug(const std::wstring &module, const char* file, const int line, const std::string &message) {
+			*/
+			void debug(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::debug))
 					do_log(logger_helper::create(module, NSCAPI::log_level::debug, file, line, message));
 			}
-			void info(const std::wstring &module, const char* file, const int line, const std::string &message) {
+			void info(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::info))
 					do_log(logger_helper::create(module, NSCAPI::log_level::info, file, line, message));
 			}
-			void warning(const std::wstring &module, const char* file, const int line, const std::string &message) {
+			void warning(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::warning))
 					do_log(logger_helper::create(module, NSCAPI::log_level::warning, file, line, message));
 			}
-			void error(const std::wstring &module, const char* file, const int line, const std::string &message) {
+			void error(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::error))
 					do_log(logger_helper::create(module, NSCAPI::log_level::error, file, line, message));
 			}
-			void fatal(const std::wstring &module, const char* file, const int line, const std::string &message) {
+			void fatal(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::critical))
 					do_log(logger_helper::create(module, NSCAPI::log_level::critical, file, line, message));
 			}			void raw(const std::string &message) {
 				do_log(message);
 			}
-			void log(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
+			void log(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
 				if (should_log(level))
 					do_log(logger_helper::create(module, level, file, line, message));
 			}

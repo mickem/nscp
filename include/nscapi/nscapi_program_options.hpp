@@ -510,13 +510,13 @@ namespace nscapi {
 			}
 			void add_perf_unit(po::options_description &desc) {
 				desc.add_options()
-					("perf-unit", po::wvalue<std::wstring>(), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
+					("perf-unit", po::value<std::string>(), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
 					;
 			}
 			template<class T>
 			void collect_perf_unit(const boost::program_options::variables_map &vm, T &obj) {
 				if (vm.count("perf-unit"))
-					obj.perf_unit = vm["perf-unit"].as<std::wstring>();
+					obj.perf_unit = vm["perf-unit"].as<std::string>();
 			}
 			void add_show_all(po::options_description &desc) {
 				desc.add_options()
@@ -540,80 +540,80 @@ namespace nscapi {
 			void add_disk_check(po::options_description &desc) {
 #define ARGTYPES "Possible values include either a percentage or a fixed value with a unit suffix. For instance ARG=23% for 23% or ARG=23M for 23Mega bytes or ARG=23k for 23 kilo bytes."
 				desc.add_options()
-					("MaxWarnFree", po::wvalue<std::wstring>(), "Deprecated option.\nMaximum free size before a warning is returned. " ARGTYPES)
-					("MaxCritFree", po::wvalue<std::wstring>(), "Deprecated option.\nMaximum free size before a critical is returned. " ARGTYPES)
-					("MinWarnFree", po::wvalue<std::wstring>(), "Deprecated option.\nMinimum free size before a warning is returned. " ARGTYPES)
-					("MinCritFree", po::wvalue<std::wstring>(), "Deprecated option.\nMinimum free size before a critical is returned. " ARGTYPES)
-					("MaxWarnUsed", po::wvalue<std::wstring>(), "Deprecated option.\nMaximum used size before a warning is returned. " ARGTYPES)
-					("MaxCritUsed", po::wvalue<std::wstring>(), "Deprecated option.\nMaximum used size before a critical is returned. " ARGTYPES)
-					("MinWarnUsed", po::wvalue<std::wstring>(), "Deprecated option.\nMinimum used size before a warning is returned. " ARGTYPES)
-					("MinCritUsed", po::wvalue<std::wstring>(), "Deprecated option.\nMinimum used size before a critical is returned. " ARGTYPES)
-					("MaxWarn", po::wvalue<std::wstring>(), "Maximum used size before a warning is returned.\n" ARGTYPES)
-					("MaxCrit", po::wvalue<std::wstring>(), "Maximum used size before a critical is returned.\n" ARGTYPES)
-					("MinWarn", po::wvalue<std::wstring>(), "Minimum free size before a warning is returned.\n" ARGTYPES)
-					("MinCrit", po::wvalue<std::wstring>(), "Minimum free size before a critical is returned.\n" ARGTYPES)
+					("MaxWarnFree", po::value<std::string>(), "Deprecated option.\nMaximum free size before a warning is returned. " ARGTYPES)
+					("MaxCritFree", po::value<std::string>(), "Deprecated option.\nMaximum free size before a critical is returned. " ARGTYPES)
+					("MinWarnFree", po::value<std::string>(), "Deprecated option.\nMinimum free size before a warning is returned. " ARGTYPES)
+					("MinCritFree", po::value<std::string>(), "Deprecated option.\nMinimum free size before a critical is returned. " ARGTYPES)
+					("MaxWarnUsed", po::value<std::string>(), "Deprecated option.\nMaximum used size before a warning is returned. " ARGTYPES)
+					("MaxCritUsed", po::value<std::string>(), "Deprecated option.\nMaximum used size before a critical is returned. " ARGTYPES)
+					("MinWarnUsed", po::value<std::string>(), "Deprecated option.\nMinimum used size before a warning is returned. " ARGTYPES)
+					("MinCritUsed", po::value<std::string>(), "Deprecated option.\nMinimum used size before a critical is returned. " ARGTYPES)
+					("MaxWarn", po::value<std::string>(), "Maximum used size before a warning is returned.\n" ARGTYPES)
+					("MaxCrit", po::value<std::string>(), "Maximum used size before a critical is returned.\n" ARGTYPES)
+					("MinWarn", po::value<std::string>(), "Minimum free size before a warning is returned.\n" ARGTYPES)
+					("MinCrit", po::value<std::string>(), "Minimum free size before a critical is returned.\n" ARGTYPES)
 					;
 			}
 			template<class T>
 			void collect_disk_check(const boost::program_options::variables_map &vm, T &obj) {
 				if (vm.count("MaxWarnFree"))
-					obj.warn.max_.upper = vm["MaxWarnFree"].as<std::wstring>();
+					obj.warn.max_.upper = vm["MaxWarnFree"].as<std::string>();
 				if (vm.count("MaxCritFree"))
-					obj.crit.max_.upper = vm["MaxCritFree"].as<std::wstring>();
+					obj.crit.max_.upper = vm["MaxCritFree"].as<std::string>();
 				if (vm.count("MinWarnFree"))
-					obj.warn.min_.upper = vm["MinWarnFree"].as<std::wstring>();
+					obj.warn.min_.upper = vm["MinWarnFree"].as<std::string>();
 				if (vm.count("MinCritFree"))
-					obj.crit.min_.upper = vm["MinCritFree"].as<std::wstring>();
+					obj.crit.min_.upper = vm["MinCritFree"].as<std::string>();
 				if (vm.count("MaxWarnUsed"))
-					obj.warn.max_.lower = vm["MaxWarnUsed"].as<std::wstring>();
+					obj.warn.max_.lower = vm["MaxWarnUsed"].as<std::string>();
 				if (vm.count("MaxCritUsed"))
-					obj.crit.max_.lower = vm["MaxCritUsed"].as<std::wstring>();
+					obj.crit.max_.lower = vm["MaxCritUsed"].as<std::string>();
 				if (vm.count("MinWarnUsed"))
-					obj.warn.min_.lower = vm["MinWarnUsed"].as<std::wstring>();
+					obj.warn.min_.lower = vm["MinWarnUsed"].as<std::string>();
 				if (vm.count("MinCritUsed"))
-					obj.crit.min_.lower = vm["MinCritUsed"].as<std::wstring>();
+					obj.crit.min_.lower = vm["MinCritUsed"].as<std::string>();
 				if (vm.count("MaxWarn"))
-					obj.warn.max_.lower = vm["MaxWarn"].as<std::wstring>();
+					obj.warn.max_.lower = vm["MaxWarn"].as<std::string>();
 				if (vm.count("MaxCrit"))
-					obj.crit.max_.lower = vm["MaxCrit"].as<std::wstring>();
+					obj.crit.max_.lower = vm["MaxCrit"].as<std::string>();
 				if (vm.count("MinWarn"))
-					obj.warn.min_.upper = vm["MinWarn"].as<std::wstring>();
+					obj.warn.min_.upper = vm["MinWarn"].as<std::string>();
 				if (vm.count("MinCrit"))
-					obj.crit.min_.upper = vm["MinCrit"].as<std::wstring>();
+					obj.crit.min_.upper = vm["MinCrit"].as<std::string>();
 			}
 
 
 			void add_numerical_all(po::options_description &desc) {
 				desc.add_options()
-					("MaxWarn", po::wvalue<std::wstring>(), "Maximum number of matches before a warning is returned.")
-					("MaxCrit", po::wvalue<std::wstring>(), "Maximum number of matches before a critical is returned.")
-					("MinWarn", po::wvalue<std::wstring>(), "Minimum number of matches before a warning is returned.")
-					("MinCrit", po::wvalue<std::wstring>(), "Minimum number of matches before a critical is returned.")
+					("MaxWarn", po::value<std::string>(), "Maximum number of matches before a warning is returned.")
+					("MaxCrit", po::value<std::string>(), "Maximum number of matches before a critical is returned.")
+					("MinWarn", po::value<std::string>(), "Minimum number of matches before a warning is returned.")
+					("MinCrit", po::value<std::string>(), "Minimum number of matches before a critical is returned.")
 					;
 			}
 			template<class T>
 			void collect_numerical_all(const boost::program_options::variables_map &vm, T &obj) {
 				if (vm.count("MaxWarn"))
-					obj.warn.max_ = vm["MaxWarn"].as<std::wstring>();
+					obj.warn.max_ = vm["MaxWarn"].as<std::string>();
 				if (vm.count("MaxCrit"))
-					obj.crit.max_ = vm["MaxCrit"].as<std::wstring>();
+					obj.crit.max_ = vm["MaxCrit"].as<std::string>();
 				if (vm.count("MinWarn"))
-					obj.warn.min_ = vm["MinWarn"].as<std::wstring>();
+					obj.warn.min_ = vm["MinWarn"].as<std::string>();
 				if (vm.count("MinCrit"))
-					obj.crit.min_ = vm["MinCrit"].as<std::wstring>();
+					obj.crit.min_ = vm["MinCrit"].as<std::string>();
 			}
 			void add_exact_numerical_all(po::options_description &desc) {
 				desc.add_options()
-					("warn", po::wvalue<std::wstring>(), "Expression which raises a warning status.")
-					("crit", po::wvalue<std::wstring>(), "Expression which raises a critical status.")
+					("warn", po::value<std::string>(), "Expression which raises a warning status.")
+					("crit", po::value<std::string>(), "Expression which raises a critical status.")
 					;
 			}
 			template<class T>
 			void collect_exact_numerical_all(const boost::program_options::variables_map &vm, T &obj) {
 				if (vm.count("warn"))
-					obj.warn = vm["warn"].as<std::wstring>();
+					obj.warn = vm["warn"].as<std::string>();
 				if (vm.count("crit"))
-					obj.crit = vm["crit"].as<std::wstring>();
+					obj.crit = vm["crit"].as<std::string>();
 			}
 
 		}

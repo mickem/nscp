@@ -48,6 +48,10 @@ namespace file_helpers {
 			boost::filesystem::path path(utf8::cvt<std::string>(file));
 			return utf8::cvt<std::wstring>(path.parent_path().string());
 		}
+		static std::string get_path(std::string file) {
+			boost::filesystem::path path(file);
+			return path.parent_path().string();
+		}
 		static std::wstring get_filename(std::wstring file) {
 			return get_filename(boost::filesystem::path(utf8::cvt<std::string>(file)));
 		}

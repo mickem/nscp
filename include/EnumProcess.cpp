@@ -68,9 +68,9 @@ BOOL CALLBACK Enum16Proc( DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszMo
 	find_16bit_container *container = reinterpret_cast<find_16bit_container*>(lpUserDefined);
 	CEnumProcess::CProcessEntry pEntry;
 	pEntry.dwPID = container->pid;
-	pEntry.command_line = strEx::string_to_wstring(pszFileName);
-	std::wstring::size_type pos = pEntry.command_line.find_last_of(_T("\\"));
-	if (pos != std::wstring::npos)
+	pEntry.command_line = pszFileName;
+	std::string::size_type pos = pEntry.command_line.find_last_of("\\");
+	if (pos != std::string::npos)
 		pEntry.filename = pEntry.command_line.substr(++pos);
 	else
 		pEntry.filename = pEntry.command_line;
@@ -87,15 +87,15 @@ void CEnumProcess::enable_token_privilege(LPTSTR privilege)
 	ZeroMemory (&token_privileges, sizeof(token_privileges));
 	token_privileges.PrivilegeCount = 1;
 	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
-		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to open process token: " + error::lookup::last_error());
 	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
 		CloseHandle (hToken);
-		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to lookup privilege: " + error::lookup::last_error());
 	}
 	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
 	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
 		CloseHandle (hToken);
-		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to adjust token privilege: " + error::lookup::last_error());
 	}
 	CloseHandle (hToken);
 }
@@ -108,50 +108,40 @@ void CEnumProcess::disable_token_privilege(LPTSTR privilege)
 	ZeroMemory (&token_privileges, sizeof (token_privileges));
 	token_privileges.PrivilegeCount = 1;
 	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, &hToken))
-		throw process_enumeration_exception(_T("Failed to open process token: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to open process token: " + error::lookup::last_error());
 	if (!LookupPrivilegeValue ( NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
 		CloseHandle (hToken);
-		throw process_enumeration_exception(_T("Failed to lookup privilege: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to lookup privilege: " + error::lookup::last_error());
 	}
 	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_REMOVED;
 	if (!AdjustTokenPrivileges ( hToken, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
 		CloseHandle (hToken);
-		throw process_enumeration_exception(_T("Failed to adjust token privilege: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to adjust token privilege: " + error::lookup::last_error());
 	}
 	CloseHandle (hToken);
 }
 
 CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command_line, bool find_16bit, CEnumProcess::error_reporter *error_interface, unsigned int buffer_size) {
-	if (error_interface!=NULL)
-		error_interface->report_debug_enter(_T("enumerate_processes"));
 	try {
-		if (error_interface!=NULL)
-			error_interface->report_debug_enter(_T("enable_token_privilege"));
 		enable_token_privilege(SE_DEBUG_NAME);
-		if (error_interface!=NULL)
-			error_interface->report_debug_exit(_T("enable_token_privilege"));
 	} catch (process_enumeration_exception &e) {
 		if (error_interface!=NULL)
-			error_interface->report_warning(e.what());
+			error_interface->report_warning(e.reason());
 	} 
 
 	std::list<CProcessEntry> ret;
 	DWORD *dwPIDs = new DWORD[buffer_size+1];
 	DWORD cbNeeded = 0;
-	if (error_interface!=NULL)
-		error_interface->report_debug_enter(_T("FEnumProcesses"));
 	BOOL OK = FEnumProcesses(dwPIDs, buffer_size*sizeof(DWORD), &cbNeeded);
-	if (error_interface!=NULL)
-		error_interface->report_debug_exit(_T("FEnumProcesses"));
 	if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
 		delete [] dwPIDs;
 		if (error_interface!=NULL)
-			error_interface->report_debug(_T("Need larger buffer: ") + strEx::itos(buffer_size));
+			error_interface->report_debug("Need larger buffer: " + strEx::s::xtos(buffer_size));
 		return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size * 10); 
 	}
 	if (!OK) {
 		delete [] dwPIDs;
-		throw process_enumeration_exception(_T("Failed to enumerate process: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Failed to enumerate process: " + error::lookup::last_error());
 	}
 	unsigned int process_count = cbNeeded/sizeof(DWORD);
 	for (unsigned int i = 0;i <process_count; ++i) {
@@ -166,13 +156,13 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 				entry = describe_pid(dwPIDs[i], expand_command_line);
 			} catch (process_enumeration_exception &e) {
 				if (error_interface!=NULL)
-					error_interface->report_debug(e.what());
+					error_interface->report_debug(e.reason());
 				if (expand_command_line) {
 					try {
 				entry = describe_pid(dwPIDs[i], false);
 					} catch (process_enumeration_exception &e) {
 						if (error_interface!=NULL)
-							error_interface->report_debug(e.what());
+							error_interface->report_debug(e.reason());
 					}
 				}
 			}
@@ -180,8 +170,8 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 // 				error_interface->report_debug_exit(_T("describe_pid"));
 			if (VDMDBG!=NULL&&find_16bit) {
 				if (error_interface!=NULL)
-					error_interface->report_debug(_T("Looking for 16bit apps"));
-				if( _wcsicmp(entry.filename.substr(0,9).c_str(), _T("NTVDM.EXE")) == 0) {
+					error_interface->report_debug("Looking for 16bit apps");
+				if(stricmp(entry.filename.substr(0,9).c_str(), "NTVDM.EXE") == 0) {
 					find_16bit_container container;
 					container.target = &ret;
 					container.pid = entry.dwPID;
@@ -191,10 +181,10 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 			ret.push_back(entry);
 		} catch (process_enumeration_exception &e) {
 			if (error_interface!=NULL)
-				error_interface->report_error(_T("Unhandeled exception describing PID: ") + strEx::itos(dwPIDs[i]) + _T(": ") + e.what());
+				error_interface->report_error("Unhandeled exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
 		} catch (...) {
 			if (error_interface!=NULL)
-				error_interface->report_error(_T("Unknown exception describing PID: ") + strEx::itos(dwPIDs[i]));
+				error_interface->report_error("Unknown exception describing PID: " + strEx::s::xtos(dwPIDs[i]));
 		}
 	}
 
@@ -207,8 +197,6 @@ CEnumProcess::process_list CEnumProcess::enumerate_processes(bool expand_command
 	}
 
 	delete [] dwPIDs;
-	if (error_interface!=NULL)
-		error_interface->report_debug_exit(_T("enumerate_processes"));
 	return ret;
 }
 
@@ -227,7 +215,7 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam ) {
 	PDWORD result;
 	if (!SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 500, reinterpret_cast<PDWORD_PTR>(&result))) {
 		if (data->error_interface!=NULL)
-			data->error_interface->report_debug(_T("pid: ") + strEx::itos(pid) + _T(" was hung"));
+			data->error_interface->report_debug("pid: " + strEx::s::xtos(pid) + " was hung");
 		data->crashed_pids.push_back(pid);
 	}
 
@@ -242,16 +230,12 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam ) {
 }
 
 std::vector<DWORD> CEnumProcess::find_crashed_pids(CEnumProcess::error_reporter * error_interface) {
-	if (error_interface)
-		error_interface->report_debug_enter(_T("find_crashed_pids"));
 	enum_data data;
 	data.error_interface = error_interface;
 	if(!EnumWindows(&EnumWindowsProc, reinterpret_cast<LPARAM>(&data))) {
 		if (error_interface)
-			error_interface->report_error(_T("Failed to enumerate windows: ") + error::lookup::last_error());
+			error_interface->report_error("Failed to enumerate windows: " + utf8::cvt<std::string>(error::lookup::last_error()));
 	}
-	if (error_interface)
-		error_interface->report_debug_exit(_T("find_crashed_pids"));
 	return data.crashed_pids;
 }
 
@@ -264,9 +248,9 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 //		openArgs |= PROCESS_VM_OPERATION;
 	HANDLE hProc = OpenProcess(openArgs, FALSE, pid);
 	if (!hProc)
-		throw process_enumeration_exception(GetLastError(), _T("Failed to open process: ") + strEx::itos(pid) + _T(": "));
+		throw process_enumeration_exception(GetLastError(), "Failed to open process: " + strEx::s::xtos(pid) + ": ");
 	if (expand_command_line)
-		entry.command_line = GetCommandLine(hProc);
+		entry.command_line = utf8::cvt<std::string>(GetCommandLine(hProc));
 	HMODULE hMod;
 	DWORD size;
 	// Get the first module (the process itself)
@@ -274,14 +258,14 @@ CEnumProcess::CProcessEntry CEnumProcess::describe_pid(DWORD pid, bool expand_co
 		TCHAR buffer[MAX_FILENAME+1];
 		if( !FGetModuleFileNameEx( hProc, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME) ) { 
 			CloseHandle(hProc);
-			throw process_enumeration_exception(_T("Failed to find name for: ") + strEx::itos(pid) + _T(": ") + error::lookup::last_error());
+			throw process_enumeration_exception("Failed to find name for: " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
 		} else {
 			std::wstring path = buffer;
 			std::wstring::size_type pos = path.find_last_of(_T("\\"));
 			if (pos != std::wstring::npos) {
 				path = path.substr(++pos);
 			}
-			entry.filename = path;
+			entry.filename = utf8::cvt<std::string>(path);
 		}
 	}
 
@@ -307,7 +291,7 @@ typedef struct _UNICODE_STRING {
 LPVOID GetPebAddress(HANDLE ProcessHandle) {
 	PFNtQueryInformationProcess NtQueryInformationProcess = (PFNtQueryInformationProcess)GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess");
 	if (NtQueryInformationProcess == NULL)
-		throw CEnumProcess::process_enumeration_exception(_T("Failed to load NtQueryInformationProcess"));
+		throw CEnumProcess::process_enumeration_exception("Failed to load NtQueryInformationProcess");
 	PROCESS_BASIC_INFORMATION pbi;
 	NtQueryInformationProcess(ProcessHandle, 0, &pbi, sizeof(pbi), NULL);
 	return pbi.PebBaseAddress;
@@ -334,9 +318,9 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess) {
 	LPVOID pebAddress = GetPebAddress(hProcess);
 	LPVOID rtlUserProcParamsAddress;
 	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x20, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL))
-		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Could not read the address of ProcessParameters: " + error::lookup::last_error());
 	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x70, &commandLine, sizeof(commandLine), NULL))
-		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Could not read commandline: " + error::lookup::last_error());
 #else
 	bool osIsWin64 = IsWow64(GetCurrentProcess());
 	if (!IsWow64(hProcess, !osIsWin64))
@@ -344,9 +328,9 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess) {
 	LPVOID pebAddress = GetPebAddress(hProcess);
 	LPVOID rtlUserProcParamsAddress;
 	if (!ReadProcessMemory(hProcess, (PCHAR)pebAddress + 0x10, &rtlUserProcParamsAddress, sizeof(LPVOID), NULL))
-		throw process_enumeration_exception(_T("Could not read the address of ProcessParameters: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Could not read the address of ProcessParameters: " + error::lookup::last_error());
 	if (!ReadProcessMemory(hProcess, (PCHAR)rtlUserProcParamsAddress + 0x40, &commandLine, sizeof(commandLine), NULL))
-		throw process_enumeration_exception(_T("Could not read commandline: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Could not read commandline: " + error::lookup::last_error());
 #endif
 
 	/* allocate memory to hold the command line */
@@ -356,7 +340,7 @@ std::wstring CEnumProcess::GetCommandLine(HANDLE hProcess) {
 	/* read the command line */
 	if (!ReadProcessMemory(hProcess, commandLine.Buffer, commandLineContents, commandLine.Length, NULL)) {
 		delete [] commandLineContents;
-		throw process_enumeration_exception(_T("Could not read commandline string: ") + error::lookup::last_error());
+		throw process_enumeration_exception("Could not read commandline string: " + error::lookup::last_error());
 	}
 
 	commandLineContents[(commandLine.Length/sizeof(WCHAR))] = '\0';

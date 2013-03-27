@@ -47,6 +47,22 @@ std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
 	}
 	return ret;
 }
+std::string socket_helpers::allowed_hosts_manager::to_string() {
+	std::string ret;
+	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+		ip::address_v4 a(r.addr);
+		ip::address_v4 m(r.mask);
+		std::string s = a.to_string() + "(" + m.to_string() + ")";
+		strEx::append_list(ret, s);
+	}
+	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+		ip::address_v6 a(r.addr);
+		ip::address_v6 m(r.mask);
+		std::string s = a.to_string() + "(" + m.to_string() + ")";
+		strEx::append_list(ret, s);
+	}
+	return ret;
+}
 
 std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 	if (!mask.empty()) {
@@ -84,12 +100,12 @@ addr calculate_mask(std::string mask_s) {
 	return ret;
 }
 
-void socket_helpers::allowed_hosts_manager::set_source(std::wstring source) {
+void socket_helpers::allowed_hosts_manager::set_source(std::string source) {
 	sources.clear();
-	BOOST_FOREACH(std::wstring s, strEx::splitEx(source, std::wstring(_T(",")))) {
+	BOOST_FOREACH(std::string s, strEx::s::splitEx(source, std::string(","))) {
 		boost::trim(s);
 		if (!s.empty())
-			sources.push_back(utf8::cvt<std::string>(s));
+			sources.push_back(s);
 	}
 }
 

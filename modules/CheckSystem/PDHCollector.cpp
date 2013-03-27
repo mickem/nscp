@@ -33,12 +33,12 @@ PDHCollector::~PDHCollector()
 
 boost::shared_ptr<PDHCollectors::PDHCollector> PDHCollector::system_counter_data::counter::create(int check_intervall) {
 	if (data_type == type_uint64 && data_format == format_large && collection_strategy == value) {
-		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>);
+		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::StaticPDHCounterListener<unsigned __int64, PDHCollectors::format_large>);
 	} else if (data_type == type_int64 && data_format == format_large && collection_strategy == value) {
-		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>);
+		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::StaticPDHCounterListener<__int64, PDHCollectors::format_large>);
 	} else if (data_type == type_int64 && data_format == format_large && collection_strategy == rrd) {
 		unsigned int buffer_size = get_buffer_length(check_intervall);
-		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large, PDHCollectors::PDHCounterNormalMutex>(buffer_size));
+		return boost::shared_ptr<PDHCollectors::PDHCollector>(new PDHCollectors::RoundINTPDHBufferListener<__int64, PDHCollectors::format_large>(buffer_size));
 	}
 	return boost::shared_ptr<PDHCollectors::PDHCollector>();
 }
@@ -61,7 +61,7 @@ boost::shared_ptr<PDHCollectors::PDHCollector> PDHCollector::system_counter_data
 void PDHCollector::thread_proc() {
 
 	if (!thread_data_) {
-		NSC_LOG_ERROR_STD(_T("No configuration for PDH thread: Exiting"));
+		NSC_LOG_ERROR_STD("No configuration for PDH thread: Exiting");
 		return;
 
 	}
@@ -69,15 +69,15 @@ void PDHCollector::thread_proc() {
 	} else if (thread_data_->subsystem == _T("thread-safe")) {
 		PDH::PDHFactory::set_threadSafe();
 	} else {
-		NSC_LOG_ERROR_STD(_T("Unknown PDH subsystem (") + thread_data_->subsystem + _T(") valid values are: fast (default) and thread-safe"));
+		NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
 	}
 
 	check_intervall_ = thread_data_->check_intervall;
-	std::wstring default_buffer_length = thread_data_->buffer_length;
+	std::string default_buffer_length = thread_data_->buffer_length;
 	PDH::PDHQuery pdh;
 
 	if (thread_data_->counters.empty()) {
-		NSC_LOG_ERROR_STD(_T("No counters configure in PDH thread."));
+		NSC_LOG_ERROR_STD("No counters configure in PDH thread.");
 		return;
 	}
 
@@ -85,29 +85,29 @@ void PDHCollector::thread_proc() {
 		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
 		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 		if (!writeLock.owns_lock()) {
-			NSC_LOG_ERROR_STD(_T("Failed to get mutex when trying to start thread."));
+			NSC_LOG_ERROR_STD("Failed to get mutex when trying to start thread.");
 			return;
 		}
 		pdh.removeAllCounters();
 		BOOST_FOREACH(system_counter_data::counter c, thread_data_->counters) {
 			try {
-				NSC_DEBUG_MSG_STD(_T("Loading counter: ") + c.alias + _T(" = ") + c.path);
+				NSC_LOG_ERROR_WA("Loading counter: " + c.alias + " = ", c.path);
 				c.set_default_buffer_size(default_buffer_length);
 				collector_ptr collector = c.create(check_intervall_);
 				if (collector) {
 					counters_[c.alias] = collector;
 					pdh.addCounter(c.path, collector);
 				} else {
-					NSC_LOG_ERROR_STD(_T("Failed to load counter: ") + c.alias + _T(" = ") + c.path);
+					NSC_LOG_ERROR_WA("Failed to load counter: " + c.alias + " = ",  c.path);
 				}
 			} catch (...) {
-				NSC_LOG_ERROR_STD(_T("EXCEPTION: Failed to load counter: ") + c.alias + _T(" = ") + c.path);
+				NSC_LOG_ERROR_WA("EXCEPTION: Failed to load counter: " + c.alias + " = ", c.path);
 			}
 		}
 		try {
 			pdh.open();
-		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD(_T("Failed to open performance counters: ") + e.getError());
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_EXR("Opening performance counters: ", e);
 			return;
 		}
 	}
@@ -115,52 +115,52 @@ void PDHCollector::thread_proc() {
 	DWORD waitStatus = 0;
 	bool first = true;
 	do {
-		std::list<std::wstring>	errors;
+		std::list<std::string>	errors;
 		{
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!writeLock.owns_lock()) {
-				NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+				NSC_LOG_ERROR("Failed to get Mutex!");
 			} else {
 				try {
 					pdh.gatherData();
-				} catch (const PDH::PDHException &e) {
+				} catch (const std::exception &e) {
 					if (first) {	// If this is the first run an error will be thrown since the data is not yet available
 						// This is "ok" but perhaps another solution would be better, but this works :)
 						first = false;
 					} else {
-						errors.push_back(_T("Failed to query performance counters: ") + e.getError());
+						errors.push_back("Failed to query performance counters: " + utf8::utf8_from_native(e.what()));
 					}
 				} catch (...) {
-					errors.push_back(_T("Failed to query performance counters: "));
+					errors.push_back("Failed to query performance counters: ");
 				}
 			} 
 		}
-		for (std::list<std::wstring>::const_iterator cit = errors.begin(); cit != errors.end(); ++cit) {
-			NSC_LOG_ERROR_STD(*cit);
+		BOOST_FOREACH(const std::string &s, errors) {
+			NSC_LOG_ERROR(s);
 		}
 	} while (((waitStatus = WaitForSingleObject(stop_event_, check_intervall_*100)) == WAIT_TIMEOUT));
 	if (waitStatus != WAIT_OBJECT_0) {
-		NSC_LOG_ERROR(_T("Something odd happened when terminating PDH collection thread!"));
+		NSC_LOG_ERROR("Something odd happened when terminating PDH collection thread!");
 		return;
 	}
 
 	{
 		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!writeLock.owns_lock()) {
-			NSC_LOG_ERROR(_T("Failed to get Mute when closing thread!"));
+			NSC_LOG_ERROR("Failed to get Mute when closing thread!");
 		}
 		try {
 			pdh.close();
-		} catch (const PDH::PDHException &e) {
-			NSC_LOG_ERROR_STD(_T("Failed to close performance counters: ") + e.getError());
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_EXR("Failed to close performance counters: ", e);
 		}
 	}
 }
 
-__int64 PDHCollector::get_int_value(std::wstring counter) {
+__int64 PDHCollector::get_int_value(std::string counter) {
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR(_T("Failed to get Mutex for: ") + counter);
+		NSC_LOG_ERROR("Failed to get Mutex for: " + counter);
 		return 0;
 	}
 
@@ -171,21 +171,21 @@ __int64 PDHCollector::get_int_value(std::wstring counter) {
 	return ptr->get_int64();
 }
 
-double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
+double PDHCollector::get_avg_value(std::string counter, unsigned int delta) {
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR(_T("Failed to get Mutex for: ") + counter);
+		NSC_LOG_ERROR("Failed to get Mutex for: " + counter);
 		return -1;
 	}
 
 	counter_map::iterator it = counters_.find(counter);
 	if (it == counters_.end()) {
-		NSC_LOG_ERROR(_T("Counter not found: ") + counter);
+		NSC_LOG_ERROR("Counter not found: " + counter);
 		return -1;
 	}
 	collector_ptr ptr = (*it).second;
 	if (!ptr) {
-		NSC_LOG_ERROR(_T("Invalid counter: ") + counter);
+		NSC_LOG_ERROR("Invalid counter: " + counter);
 		return -1;
 	}
 
@@ -198,30 +198,30 @@ double PDHCollector::get_avg_value(std::wstring counter, unsigned int delta) {
 * @param time Time to check 
 * @return average CPU usage
 */
-int PDHCollector::getCPUAvrage(std::wstring time) {
+int PDHCollector::getCPUAvrage(std::string time) {
 	int frequency;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
-			NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+			NSC_LOG_ERROR("Failed to get Mutex!");
 			return -1;
 		}
 		frequency = check_intervall_*100;
 
 	}
 	if (frequency == 0) {
-		NSC_LOG_ERROR(_T("Invalid frequency: ") + strEx::itos(frequency));
+		NSC_LOG_ERROR("Invalid frequency: " + strEx::s::xtos(frequency));
 		return -1;
 	}
 	try {
 		unsigned int mseconds = strEx::stoui_as_time(time);
 		return static_cast<int>(get_avg_value(PDH_SYSTEM_KEY_CPU, mseconds/frequency));
 
-	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get CPU value: ") + e.getError());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to get CPU value: ", e);
 		return -1;
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Failed to get CPU value"));
+		NSC_LOG_ERROR_EX("Failed to get CPU value");
 		return -1;
 	}
 }
@@ -234,11 +234,11 @@ int PDHCollector::getCPUAvrage(std::wstring time) {
 long long PDHCollector::getUptime() {
 	try {
 		return get_int_value(PDH_SYSTEM_KEY_UPT);
-	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get UPTIME value: ") + e.getError());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to get UPTIME value: ", e);
 		return -1;
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Failed to get UPTIME value"));
+		NSC_LOG_ERROR_EX("Failed to get UPTIME value");
 		return -1;
 	}
 }
@@ -249,11 +249,11 @@ long long PDHCollector::getUptime() {
 unsigned long long PDHCollector::getMemCommitLimit() {
 	try {
 		return get_int_value(PDH_SYSTEM_KEY_MCL);
-	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get MEM_CMT_LIMIT value: ") + e.getError());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to get MEM_CMT_LIMIT value: ", e);
 		return -1;
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Failed to get MEM_CMT_LIMIT value"));
+		NSC_LOG_ERROR_EX("Failed to get MEM_CMT_LIMIT value");
 		return -1;
 	}
 }
@@ -265,33 +265,33 @@ unsigned long long PDHCollector::getMemCommitLimit() {
 unsigned long long PDHCollector::getMemCommit() {
 	try {
 		return get_int_value(PDH_SYSTEM_KEY_MCB);
-	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get MEM_CMT value: ") + e.getError());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to get MEM_CMT value: ", e);
 		return -1;
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Failed to get MEM_CMT value"));
+		NSC_LOG_ERROR_EX("Failed to get MEM_CMT value");
 		return -1;
 	}
 }
 
-double PDHCollector::get_double(std::wstring counter) {
+double PDHCollector::get_double(std::string counter) {
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR(_T("Failed to get Mutex!"));
+		NSC_LOG_ERROR("Failed to get Mutex!");
 		return -1;
 	}
 	try {
 		counter_map::iterator it = counters_.find(counter);
 		if (it == counters_.end()) {
-			NSC_LOG_ERROR(_T("COunter not found: ") + counter);
+			NSC_LOG_ERROR("Counter not found: " + counter);
 			return -1;
 		}
 		return (*it).second->get_double();
-	} catch (PDHCollectors::PDHException &e) {
-		NSC_LOG_ERROR(_T("Failed to get double value: ") + e.getError());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to get double value: ", e);
 		return -1;
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Failed to get double value"));
+		NSC_LOG_ERROR_EX("Failed to get double value");
 		return -1;
 	}
 }

@@ -39,7 +39,7 @@ namespace PDH {
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhLookupPerfNameByIndex(szMachineName,dwNameIndex,buffer,&bufLen);
 			if (status.is_error()) {
 				delete [] buffer;
-				throw PDHException(_T("RESOLVER"), _T("PdhLookupPerfNameByIndex: Could not find index: ") + strEx::itos(dwNameIndex), status);
+				throw pdh_exception(_T("RESOLVER"), "PdhLookupPerfNameByIndex: Could not find index: " + strEx::s::xtos(dwNameIndex), status);
 			}
 			std::wstring ret = buffer;
 			delete [] buffer;
@@ -53,7 +53,7 @@ namespace PDH {
 				delete [] buffer;
 				if (buffSize == PDH_INDEX_BUF_LEN && bufLen > buffSize)
 					return PdhExpandCounterPath(szWildCardPath, bufLen+10);
-				throw PDHException(_T("RESOLVER"), _T("PdhExpandCounterPath: Could not find index: ") + szWildCardPath, status);
+				throw pdh_exception(_T("RESOLVER"), "PdhExpandCounterPath: Could not find index: " + utf8::cvt<std::string>(szWildCardPath), status);
 			}
 			std::list<std::wstring> ret = PDHHelpers::build_list(buffer, bufLen);
 			delete [] buffer;
@@ -64,7 +64,7 @@ namespace PDH {
 			DWORD ret;
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhLookupPerfIndexByName(szMachineName,indexName, &ret);
 			if (status.is_error()) {
-				throw PDHException(_T("RESOLVER"), std::wstring(_T("PdhLookupPerfNameByIndex: Could not find index: ")) + indexName, status);
+				throw pdh_exception(_T("RESOLVER"), "PdhLookupPerfNameByIndex: Could not find index: " + utf8::cvt<std::string>(indexName), status);
 			}
 			return ret;
 		}
@@ -72,7 +72,7 @@ namespace PDH {
 		static bool validate(std::wstring counter, std::wstring &error, bool force_reload) {
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhValidatePath(counter.c_str(), force_reload);
 			if (status.is_error())
-				error = status.to_wstring();
+				error = utf8::cvt<std::wstring>(status.to_string());
 			return status.is_ok();
 		}
 		static bool is_speacial_char(wchar_t c) {

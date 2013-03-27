@@ -38,17 +38,17 @@ struct real_time_thread {
 
 	bool cache_;
 	bool debug_;
-	std::wstring filters_path_;
+	std::string filters_path_;
 
 	real_time_thread() : enabled_(false), debug_(false), cache_(false) {}
 
-	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query);
+	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 	void set_enabled(bool flag) { enabled_ = flag; } 
 
 	void set_language(std::string lang);
-	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring flt) {
+	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {
 		if (!flt.empty())
-			add_realtime_filter(proxy, _T("default"), flt);
+			add_realtime_filter(proxy, "default", flt);
 	}
 	bool has_filters() {
 		return !filters_.has_objects();

@@ -56,19 +56,24 @@ public:
 				return _T("");
 		}
 	}
-	static std::wstring getComError(std::wstring inDesc = _T(""));
+	static std::string getComError(std::wstring inDesc = _T(""));
 };
 
-class WMIException {
-	std::wstring message_;
+class WMIException : public std::exception {
+	std::string message_;
 public:
-	WMIException(std::wstring str, HRESULT code) {
-		message_ = str + _T(":") + error::format::from_system(code);
+	WMIException(std::string str, HRESULT code) {
+		message_ = str + ":" + error::format::from_system(code);
 	}
-	WMIException(std::wstring str) {
+	WMIException(std::string str) {
 		message_ = str;
 	}
-	std::wstring getMessage() {
+	~WMIException() throw() {}
+	const char* what() const throw() {
+		return reason().c_str();
+	}
+
+	std::string reason() const throw() {
 		return message_;
 	}
 };
@@ -127,17 +132,17 @@ public:
 			results[column] = value;
 		}
 
-		std::wstring render(std::wstring syntax = _T(""), std::wstring sep = _T(", ")) {
-			std::wstring ret;
-			for (list_type::const_iterator it = results.begin(); it != results.end(); ++it) {
+		std::string render(std::string syntax = "", std::string sep = ", ") {
+			std::string ret;
+			BOOST_FOREACH(const list_type::value_type &v, results) {
 				if (syntax.empty()) {
 					if (!ret.empty())	ret += sep;
-					ret += (*it).first + _T("=") + (*it).second.string;
+					ret += utf8::cvt<std::string>(v.first) + "=" + utf8::cvt<std::string>(v.second.string);
 				} else {
-					std::wstring sub = syntax;
-					strEx::replace(sub, _T("%column%"), (*it).first);
-					strEx::replace(sub, _T("%value%"), (*it).second.string);
-					strEx::replace(sub, _T("%") + (*it).first + _T("%"), (*it).second.string);
+					std::string sub = syntax;
+					strEx::replace(sub, "%column%", utf8::cvt<std::string>(v.first));
+					strEx::replace(sub, "%value%", utf8::cvt<std::string>(v.second.string));
+					strEx::replace(sub, "%" + utf8::cvt<std::string>(v.first) + "%", utf8::cvt<std::string>(v.second.string));
 					if (sub == syntax)
 						continue;
 					strEx::append_list(ret, sub, sep);
@@ -158,7 +163,7 @@ public:
 		}
 		bool matchFilter(const wmi_row &value) const {
 			if (!value.hasAlias(alias)) {
-				NSC_DEBUG_MSG_STD(_T("We don't have any column matching: ") + alias);
+				NSC_DEBUG_MSG_STD("We don't have any column matching: " + utf8::cvt<std::string>(alias));
 				return false;
 			}
 			if (alias.empty()) {
@@ -174,7 +179,7 @@ public:
 				else if ((numeric.hasFilter())&&(numeric.matchFilter(value.get(alias).numeric)))
 					return true;
 			}
-			NSC_DEBUG_MSG_STD(_T("Value did not match a filter: ") + alias);
+			NSC_DEBUG_MSG_STD("Value did not match a filter: " + utf8::cvt<std::string>(alias));
 			return false;
 		}
 	};

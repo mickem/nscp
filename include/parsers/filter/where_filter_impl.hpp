@@ -1,6 +1,6 @@
 #pragma once
 #include "where_filter.hpp"
-#define DATE_FORMAT _T("%#c")
+#define DATE_FORMAT "%#c"
 
 namespace where_filter {
 
@@ -13,15 +13,15 @@ namespace where_filter {
 		argument_type data;
 		parsers::where::parser ast_parser;
 		handler_instance_type object_handler;
-		std::wstring filter_string;
+		std::string filter_string;
 		bool perf_collection;
-		typedef std::map<std::wstring,std::wstring> boundries_type;
+		typedef std::map<std::string,std::string> boundries_type;
 		boundries_type boundries;
 
 		engine_impl(argument_type data) : data(data), object_handler(handler_instance_type(new handler_type())), perf_collection(false) {
 			filter_string = data->filter;
 		}
-		engine_impl(argument_type data, std::wstring filter) : data(data), object_handler(handler_instance_type(new handler_type())), filter_string(filter) {}
+		engine_impl(argument_type data, std::string filter) : data(data), object_handler(handler_instance_type(new handler_type())), filter_string(filter) {}
 		bool boot() {
 			return true; 
 		}
@@ -34,42 +34,42 @@ namespace where_filter {
 			perf_collection = true;
 		}
 
-		bool validate(std::wstring &message) {
+		bool validate(std::string &message) {
 			if (data->debug)
-				data->error->report_debug(_T("Parsing: ") + filter_string);
+				data->error->report_debug("Parsing: " + filter_string);
 
 			if (!ast_parser.parse(filter_string)) {
-				data->error->report_error(_T("Parsing failed of '") + filter_string + _T("' at: ") + ast_parser.rest);
-				message = _T("Parsing failed: ") + ast_parser.rest;
+				data->error->report_error("Parsing failed of '" + filter_string + "' at: " + ast_parser.rest);
+				message = "Parsing failed: " + ast_parser.rest;
 				return false;
 			}
 			if (data->debug)
-				data->error->report_debug(_T("Parsing succeeded: ") + ast_parser.result_as_tree());
+				data->error->report_debug("Parsing succeeded: " + ast_parser.result_as_tree());
 
 			if (!ast_parser.derive_types(object_handler) || object_handler->has_error()) {
-				message = _T("Invalid types: ") + object_handler->get_error();
+				message = "Invalid types: " + object_handler->get_error();
 				return false;
 			}
 			if (data->debug)
-				data->error->report_debug(_T("Type resolution succeeded: ") + ast_parser.result_as_tree());
+				data->error->report_debug("Type resolution succeeded: " + ast_parser.result_as_tree());
 
 			if (!ast_parser.bind(object_handler) || object_handler->has_error()) {
-				message = _T("Variable and function binding failed: ") + object_handler->get_error();
+				message = "Variable and function binding failed: " + object_handler->get_error();
 				return false;
 			}
 			if (data->debug)
-				data->error->report_debug(_T("Binding succeeded: ") + ast_parser.result_as_tree());
+				data->error->report_debug("Binding succeeded: " + ast_parser.result_as_tree());
 
 			if (!ast_parser.static_eval(object_handler) || object_handler->has_error()) {
-				message = _T("Static evaluation failed: ") + object_handler->get_error();
+				message = "Static evaluation failed: " + object_handler->get_error();
 				return false;
 			}
 			if (data->debug)
-				data->error->report_debug(_T("Static evaluation succeeded: ") + ast_parser.result_as_tree());
+				data->error->report_debug("Static evaluation succeeded: " + ast_parser.result_as_tree());
 
 			if (perf_collection) {
 				if (!ast_parser.collect_perfkeys(boundries, object_handler) || object_handler->has_error()) {
-					message = _T("Collection of perfkeys failed: ") + object_handler->get_error();
+					message = "Collection of perfkeys failed: " + object_handler->get_error();
 					return false;
 				}
 			}
@@ -81,27 +81,27 @@ namespace where_filter {
 			object_handler->set_current_element(record);
 			bool ret = ast_parser.evaluate(object_handler);
 			if (object_handler->has_error()) {
-				data->error->report_error(_T("Error: ") + object_handler->get_error());
+				data->error->report_error("Error: " + object_handler->get_error());
 			}
 			return ret;
 		}
-		std::wstring get_name() {
-			return _T("where");
+		std::string get_name() {
+			return "where";
 		}
-		std::wstring get_subject() { return filter_string; }
+		std::string get_subject() { return filter_string; }
 	};
 
 	
 	class collect_error_handler : public where_filter::error_handler_interface {
 		int error_count_;
 		int warning_count_;
-		std::wstring first_error_;
-		std::wstring last_error_;
-		std::wstring all_errors_;
-		std::wstring all_warnings_;
+		std::string first_error_;
+		std::string last_error_;
+		std::string all_errors_;
+		std::string all_warnings_;
 	public:
 		collect_error_handler() : error_count_(0), warning_count_(0) {}
-		void report_error(std::wstring error) {
+		void report_error(std::string error) {
 			if (error_count_==0)
 				first_error_ = error;
 			else
@@ -109,14 +109,14 @@ namespace where_filter {
 			error_count_++;
 			strEx::append_list(all_errors_, error);
 		}
-		void report_warning(std::wstring error) {
+		void report_warning(std::string error) {
 			warning_count_++;
 			strEx::append_list(all_errors_, error);
 		}
-		void report_debug(std::wstring error) {
+		void report_debug(std::string error) {
 		}
-		std::wstring get_error() {
-			return strEx::itos(error_count_) + _T(" errors and ") + strEx::itos(warning_count_) + _T(" warnings where returned: ") + first_error_;
+		std::string get_error() {
+			return strEx::s::xtos(error_count_) + " errors and " + strEx::s::xtos(warning_count_) + " warnings where returned: " + first_error_;
 		}
 		bool has_error() {
 			return error_count_ > 0;
@@ -126,33 +126,33 @@ namespace where_filter {
 	class nsc_error_handler : public where_filter::error_handler_interface {
 		int error_count_;
 		int warning_count_;
-		std::wstring first_error_;
-		std::wstring last_error_;
+		std::string first_error_;
+		std::string last_error_;
 		nscapi::core_wrapper *core_;
 	public:
 		nsc_error_handler(nscapi::core_wrapper *core) : error_count_(0), warning_count_(0), core_(core) {}
-		void report_error(std::wstring error) {
+		void report_error(std::string error) {
 			if (error_count_==0)
 				first_error_ = error;
 			else
 				last_error_ = error;
 			error_count_++;
 			if (core_->should_log(NSCAPI::log_level::error)) { 
-				core_->log(NSCAPI::log_level::error, __FILE__, __LINE__, error);
+				core_->log(NSCAPI::log_level::error, __FILE__, __LINE__, utf8::cvt<std::string>(error));
 			}
 		}
-		void report_warning(std::wstring error) {
+		void report_warning(std::string error) {
 			if (core_->should_log(NSCAPI::log_level::warning)) { 
-				core_->log(NSCAPI::log_level::warning, __FILE__, __LINE__, error);
+				core_->log(NSCAPI::log_level::warning, __FILE__, __LINE__, utf8::cvt<std::string>(error));
 			}
 		}
-		void report_debug(std::wstring error) {
+		void report_debug(std::string error) {
 			if (core_->should_log(NSCAPI::log_level::debug)) { 
-				core_->log(NSCAPI::log_level::debug, __FILE__, __LINE__, error);
+				core_->log(NSCAPI::log_level::debug, __FILE__, __LINE__, utf8::cvt<std::string>(error));
 			}
 		}
-		std::wstring get_error() {
-			return strEx::itos(error_count_) + _T(" errors and ") + strEx::itos(warning_count_) + _T(" warnings where returned: ") + first_error_;
+		std::string get_error() {
+			return strEx::s::xtos(error_count_) + " errors and " + strEx::s::xtos(warning_count_) + " warnings where returned: " + first_error_;
 		}
 		bool has_error() {
 			return error_count_ > 0;
@@ -163,9 +163,9 @@ namespace where_filter {
 	struct simple_count_result : public result_counter_interface<record_type> {
 		unsigned int count_;
 		unsigned int match_;
-		std::wstring message_;
-		std::wstring syntax_;
-		std::wstring date_syntax_;
+		std::string message_;
+		std::string syntax_;
+		std::string date_syntax_;
 		bool debug_;
 		boost::shared_ptr<where_filter::error_handler_interface> error_;
 
@@ -173,16 +173,7 @@ namespace where_filter {
 		void process(boost::shared_ptr<record_type> record, bool result) {
 			count_++;
 			if (result) {
-// 				if (debug_)
-// 					error_->report_debug(_T("==> Matched: ") + record->render(syntax_, DATE_FORMAT));
-						
 				strEx::append_list(message_, record->render(syntax_, date_syntax_));
-				/*
-				if (alias.length() < 16)
-					strEx::append_list(alias, info.filename);
-				else
-					strEx::append_list(alias, std::wstring(_T("...")));
-					*/
 				match_++;
 			} else {
 // 				if (debug_)
@@ -191,28 +182,28 @@ namespace where_filter {
 		}
 		unsigned int get_total_count() { return count_; }
 		unsigned int get_match_count() { return match_; }
-		std::wstring get_message() { return message_; }
-		std::wstring render(std::wstring syntax, int code) {
-			strEx::replace(syntax, _T("%list%"), message_);
-			strEx::replace(syntax, _T("%matches%"), strEx::itos(count_));
-			strEx::replace(syntax, _T("%total%"), strEx::itos(match_));
-			strEx::replace(syntax, _T("%status%"), strEx::itos(code));
+		std::string get_message() { return message_; }
+		std::string render(std::string syntax, int code) {
+			strEx::replace(syntax, "%list%", message_);
+			strEx::replace(syntax, "%matches%", strEx::s::xtos(count_));
+			strEx::replace(syntax, "%total%", strEx::s::xtos(match_));
+			strEx::replace(syntax, "%status%", strEx::s::xtos(code));
 			return syntax;
 		}
 	};
 
 	struct error_gatherer {
-		typedef std::list<std::wstring> error_type;
-		void error(std::wstring err) {
+		typedef std::list<std::string> error_type;
+		void error(std::string err) {
 			errors.push_back(err);
 		}
 		bool has_error() {
 			return !errors.empty();
 		}
-		std::wstring get_error() {
-			std::wstring ret;
-			BOOST_FOREACH(std::wstring s, errors) {
-				if (!ret.empty()) ret += _T(", ");
+		std::string get_error() {
+			std::string ret;
+			BOOST_FOREACH(std::string s, errors) {
+				if (!ret.empty()) ret += ", ";
 				ret += s;
 			}
 			return ret;

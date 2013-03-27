@@ -32,11 +32,11 @@ namespace eventlog_filter {
 		long long get_id() {
 			return record.eventID(); 
 		}
-		std::wstring get_source() {
-			return record.get_source(); 
+		std::string get_source() {
+			return utf8::cvt<std::string>(record.get_source());
 		}
-		std::wstring get_computer() {
-			return record.get_computer(); 
+		std::string get_computer() {
+			return utf8::cvt<std::string>(record.get_computer());
 		}
 		long long get_el_type() {
 			return record.eventType(); 
@@ -44,14 +44,14 @@ namespace eventlog_filter {
 		long long get_severity() {
 			return record.severity();
 		}
-		std::wstring get_message() {
-			return record.render_message(); 
+		std::string get_message() {
+			return utf8::cvt<std::string>(record.render_message());
 		}
-		std::wstring get_strings() {
-			return record.enumStrings(); 
+		std::string get_strings() {
+			return utf8::cvt<std::string>(record.enumStrings());
 		}
-		std::wstring get_log() {
-			return record.get_log(); 
+		std::string get_log() {
+			return utf8::cvt<std::string>(record.get_log());
 		}
 		long long get_written() {
 			return record.written(); 
@@ -75,34 +75,33 @@ namespace eventlog_filter {
 		expression_ast_type fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
 		expression_ast_type fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
 
-		int convert_severity(std::wstring str) {
-			if (str == _T("success") || str == _T("ok"))
+		int convert_severity(std::string str) {
+			if (str == "success" || str == "ok")
 				return 0;
-			if (str == _T("informational") || str == _T("info"))
+			if (str == "informational" || str == "info")
 				return 1;
-			if (str == _T("warning") || str == _T("warn"))
+			if (str == "warning" || str == "warn")
 				return 2;
-			if (str == _T("error") || str == _T("err"))
+			if (str == "error" || str == "err")
 				return 3;
-			return strEx::stoi(str);
+			return strEx::s::stox<int>(str);
 		}
-		int convert_type(std::wstring str) {
-			if (str == _T("error"))
+		int convert_type(std::string str) {
+			if (str == "error")
 				return EVENTLOG_ERROR_TYPE;
-			if (str == _T("warning"))
+			if (str == "warning")
 				return EVENTLOG_WARNING_TYPE;
-			if (str == _T("info"))
+			if (str == "info")
 				return EVENTLOG_INFORMATION_TYPE;
-			if (str == _T("success"))
+			if (str == "success")
 				return EVENTLOG_SUCCESS;
-			if (str == _T("auditSuccess"))
+			if (str == "auditSuccess")
 				return EVENTLOG_AUDIT_SUCCESS;
-			if (str == _T("auditFailure"))
+			if (str == "auditFailure")
 				return EVENTLOG_AUDIT_FAILURE;
-			return strEx::stoi(str);
+			return strEx::s::stox<int>(str);
 		}
-		std::wstring render(std::wstring syntax, std::wstring datesyntax);
-
+		std::string render(const std::string syntax, const std::string datesyntax);
 	};
 
 
@@ -113,18 +112,18 @@ namespace eventlog_filter {
 		typedef boost::shared_ptr<object_type> object_instance_type;
 		typedef parsers::where::filter_handler_impl<object_type> base_handler;
 
-		typedef std::map<std::wstring,parsers::where::value_type> types_type;
+		typedef std::map<std::string,parsers::where::value_type> types_type;
 		typedef parsers::where::expression_ast expression_ast_type;
 
 
 		filter_obj_handler();
-		bool has_variable(std::wstring key);
-		parsers::where::value_type get_type(std::wstring key);
+		bool has_variable(std::string key);
+		parsers::where::value_type get_type(std::string key);
 		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-		base_handler::bound_string_type bind_simple_string(std::wstring key);
-		base_handler::bound_int_type bind_simple_int(std::wstring key);
-		bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
+		base_handler::bound_string_type bind_simple_string(std::string key);
+		base_handler::bound_int_type bind_simple_int(std::string key);
+		bool has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
+		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
 	private:
 		types_type types;
 		static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
@@ -140,9 +139,9 @@ namespace eventlog_filter {
 		//bool bFilterIn;
 		bool bShowDescriptions;
 		unsigned long long now;
-		std::wstring alias;
+		std::string alias;
 
-		data_arguments(parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax)
+		data_arguments(parent_type::error_type error, std::string syntax, std::string datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax)
 		{}
 
 	};
@@ -158,6 +157,6 @@ namespace eventlog_filter {
 	struct factories {
 		static filter_engine create_engine(filter_argument arg);
 		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
+		static filter_argument create_argument(std::string syntax, std::string datesyntax);
 	};
 }

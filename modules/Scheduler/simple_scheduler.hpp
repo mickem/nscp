@@ -19,7 +19,7 @@ namespace scheduler {
 	class schedule_handler {
 	public:
 		virtual void handle_schedule(schedules::schedule_object item) = 0;
-		virtual void on_error(std::wstring error) = 0;
+		virtual void on_error(std::string error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -127,6 +127,7 @@ namespace scheduler {
 		void start_thread();
 
 		void log_error(std::wstring err);
+		void log_error(std::string err);
 
 		inline boost::posix_time::ptime now() {
 			return boost::get_system_time();

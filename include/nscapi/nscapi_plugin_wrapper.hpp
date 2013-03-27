@@ -83,10 +83,10 @@ namespace nscapi {
 		plugin_wrapper *plugin_;
 	public:
 		helper_singleton();
-		core_wrapper* get_core() {
+		core_wrapper* get_core() const {
 			return core_;
 		}
-		plugin_wrapper* get_plugin() {
+		plugin_wrapper* get_plugin() const {
 			return plugin_;
 		}
 	};
@@ -130,6 +130,15 @@ namespace nscapi {
 			return defaultReturnCode;
 		}
 
+		int static wrap_string(char *buffer, std::size_t bufLen, std::string str, int defaultReturnCode ) {
+			// @todo deprecate this
+			if (str.length() >= bufLen) {
+				std::string sstr = str.substr(0, bufLen-2);
+				return NSCAPI::isInvalidBufferLen;
+			}
+			strncpy(buffer, str.c_str(), bufLen);
+			return defaultReturnCode;
+		}
 	};
 	template<class impl_class>
 	struct basic_wrapper_static {
@@ -138,29 +147,29 @@ namespace nscapi {
 			try { 
 				return nscapi::plugin_singleton->get_core()->load_endpoints(f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: wrapModuleHelperInit")); 
+				NSC_LOG_CRITICAL("Unknown exception in: wrapModuleHelperInit");
 				return NSCAPI::hasFailed; 
 			} 
 		}
-		static void set_alias(const wchar_t *default_alias, const wchar_t *alias) {
+		static void set_alias(const char *default_alias, const char *alias) {
 			nscapi::plugin_singleton->get_core()->set_alias(default_alias, alias);
 		}
 		static int NSLoadModule() { 
 			return NSCAPI::hasFailed; 
 		} 
-		static int NSGetModuleName(wchar_t* buf, int buflen) { 
+		static int NSGetModuleName(char* buf, int buflen) { 
 			try {
 				return helpers::wrap_string(buf, buflen, impl_class::getModuleName(), NSCAPI::isSuccess);
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSGetModuleName")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleName");
 			} 
 			return NSCAPI::hasFailed; 
 		} 
-		static int NSGetModuleDescription(wchar_t* buf, int buflen) { 
+		static int NSGetModuleDescription(char* buf, int buflen) { 
 			try { 
 				return helpers::wrap_string(buf, buflen, impl_class::getModuleDescription(), NSCAPI::isSuccess);
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSGetModuleDescription")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleDescription");
 			} 
 			return NSCAPI::hasFailed; 
 		} 
@@ -172,7 +181,7 @@ namespace nscapi {
 				*revision = version.revision;
 				return NSCAPI::isSuccess;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSGetModuleVersion")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleVersion");
 			} 
 			return NSCAPI::hasFailed; 
 		}
@@ -180,7 +189,7 @@ namespace nscapi {
 			try {
 				delete [] *buffer;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSDeleteBuffer")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSDeleteBuffer");
 			} 
 		}
 	};
@@ -189,13 +198,13 @@ namespace nscapi {
 	struct basic_wrapper {
 		boost::shared_ptr<impl_class> instance;
 		basic_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
-		int NSLoadModuleEx(unsigned int id, wchar_t* alias, int mode) { 
+		int NSLoadModuleEx(unsigned int id, char* alias, int mode) { 
 			try { 
 				instance->set_id(id);
 				if (instance->loadModuleEx(alias, mode))
 					return NSCAPI::isSuccess;
 			} catch (...) {
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSLoadModuleEx")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSLoadModuleEx");
 			} 
 			return NSCAPI::hasFailed;
 		} 
@@ -204,7 +213,7 @@ namespace nscapi {
 				if (instance && instance->unloadModule())
 					return NSCAPI::isSuccess;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSUnloadModule")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSUnloadModule");
 			} 
 			return NSCAPI::hasFailed;
 		}
@@ -217,7 +226,7 @@ namespace nscapi {
 			try { 
 				instance->handleMessageRAW(std::string(request_buffer, request_buffer_len));
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleMessage")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSHandleMessage");
 			} 
 		} 
 		NSCAPI::boolReturn NSHasMessageHandler() { 
@@ -225,7 +234,7 @@ namespace nscapi {
 				if (instance->hasMessageHandler())
 					return NSCAPI::istrue;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHasMessageHandler")); 
+				NSC_LOG_CRITICAL("Unknown exception in: NSHasMessageHandler");
 			} 
 			return NSCAPI::isfalse; 
 		}
@@ -235,20 +244,20 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		command_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		NSCAPI::nagiosReturn NSHandleCommand(const wchar_t* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { 
+		NSCAPI::nagiosReturn NSHandleCommand(const char* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { 
 			try { 
 				std::string request(request_buffer, request_buffer_len), reply;
 				NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(command, request, reply);
 				helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
 				if (!nscapi::plugin_helper::isMyNagiosReturn(retCode)) {
-					NSC_LOG_ERROR(_T("A module returned an invalid return code"));
+					NSC_LOG_ERROR("A module returned an invalid return code");
 				}
 				return retCode;
 			} catch (const std::exception &e) { 
-				NSC_LOG_CRITICAL(_T("Exception in: NSHandleCommand: ") + utf8::to_unicode(e.what())); 
+				NSC_LOG_ERROR_EXR("NSHandleCommand", e);
 				return NSCAPI::returnUNKNOWN;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleCommand")); 
+				NSC_LOG_ERROR_EX("NSHandleCommand");
 				return NSCAPI::returnUNKNOWN;
 			} 
 			return NSCAPI::returnIgnored; 
@@ -258,7 +267,7 @@ namespace nscapi {
 				if (instance->hasCommandHandler())
 					return NSCAPI::istrue;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHasCommandHandler")); 
+				NSC_LOG_ERROR_EX("NSHasCommandHandler");
 			} 
 			return NSCAPI::isfalse; 
 		}
@@ -276,7 +285,7 @@ namespace nscapi {
 				helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
 				return retCode;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSRouteMessage")); 
+				NSC_LOG_ERROR_EX("NSRouteMessage");
 			} 
 			return NSCAPI::returnIgnored; 
 		} 
@@ -285,7 +294,7 @@ namespace nscapi {
 				if (instance->hasRoutingHandler())
 					return NSCAPI::istrue;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHasRoutingHandler")); 
+				NSC_LOG_ERROR_EX("NSHasRoutingHandler");
 			} 
 			return NSCAPI::isfalse; 
 		}
@@ -296,7 +305,7 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		submission_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		NSCAPI::nagiosReturn NSHandleNotification(const wchar_t* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
+		NSCAPI::nagiosReturn NSHandleNotification(const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
 			try { 
 				std::string request(buffer, buffer_len), reply;
 				NSCAPI::nagiosReturn retCode = instance->handleRAWNotification(channel, request, reply); 
@@ -304,9 +313,9 @@ namespace nscapi {
 				//return helpers::wrap_string(reply, response_buffer, response_buffer_len, retCode);
 				return retCode;
 			} catch (const std::exception &e) { 
-				NSC_LOG_CRITICAL(_T("Exception in NSHandleNotification: ") + utf8::to_unicode(e.what())); 
+				NSC_LOG_ERROR_EXR("NSHandleNotification", e);
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHandleNotification")); 
+				NSC_LOG_ERROR_EX("NSHandleNotification");
 			} 
 			return NSCAPI::returnIgnored; 
 		} 
@@ -315,7 +324,7 @@ namespace nscapi {
 				if (instance->hasNotificationHandler())
 					return NSCAPI::istrue;
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSHasNotificationHandler")); 
+				NSC_LOG_ERROR_EX("NSHasNotificationHandler");
 			} 
 			return NSCAPI::isfalse; 
 		}
@@ -326,16 +335,16 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		cliexec_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		int NSCommandLineExec(wchar_t *command, char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+		int NSCommandLineExec(const char *command, char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 			try { 
 				std::string request(request_buffer, request_buffer_len), reply;
 				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(command, request, reply); 
 				helpers::wrap_string(reply, response_buffer, response_buffer_len);
 				return retCode;
 			} catch (const std::exception &e) { 
-				NSC_LOG_CRITICAL(_T("Exception in: NSCommandLineExec: ") + utf8::cvt<std::wstring>(e.what())); 
+				NSC_LOG_ERROR_EXR("NSCommandLineExec", e);
 			} catch (...) { 
-				NSC_LOG_CRITICAL(_T("Unknown exception in: NSCommandLineExec")); 
+				NSC_LOG_ERROR_EX("NSCommandLineExec");
 			} 
 			return NSCAPI::hasFailed; 
 		} 

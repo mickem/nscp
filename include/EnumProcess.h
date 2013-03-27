@@ -60,21 +60,21 @@ public:
 
 	class error_reporter {
 	public:
-		virtual void report_error(std::wstring error) = 0;
-		virtual void report_warning(std::wstring error) = 0;
-		virtual void report_debug(std::wstring error) = 0;
-		virtual void report_debug_enter(std::wstring error) = 0;
-		virtual void report_debug_exit(std::wstring error) = 0;
+		virtual void report_error(std::string error) = 0;
+		virtual void report_warning(std::string error) = 0;
+		virtual void report_debug(std::string error) = 0;
+// 		virtual void report_debug_enter(std::string error) = 0;
+// 		virtual void report_debug_exit(std::string error) = 0;
 	};
 	class process_enumeration_exception {
-		std::wstring what_;
+		std::string what_;
 		DWORD error_code_;
 	public:
-		process_enumeration_exception(std::wstring what) : what_(what) {}
-		process_enumeration_exception(DWORD error_code, std::wstring what) : what_(what), error_code_(error_code) {
-			what += error::lookup::last_error(error_code_);
+		process_enumeration_exception(std::string what) : what_(what) {}
+		process_enumeration_exception(DWORD error_code, std::string what) : what_(what), error_code_(error_code) {
+			what_ += error::lookup::last_error(error_code_);
 		}
-		std::wstring what() {
+		std::string reason() {
 			return what_;
 		}
 		DWORD error_code() {
@@ -84,8 +84,8 @@ public:
 
 	struct CProcessEntry {
 		CProcessEntry() : hung(false), dwPID(0) {}
-		std::wstring filename;
-		std::wstring command_line;
+		std::string filename;
+		std::string command_line;
 		DWORD  dwPID;
 		bool hung;
 	};

@@ -25,6 +25,7 @@
 #include <error.hpp>
 #include <file_helpers.hpp>
 #include <checkHelpers.hpp>
+#include <utils.h>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -62,7 +63,7 @@ class volume_helper {
 	HMODULE hLib;
 
 public:
-	typedef std::map<std::wstring,std::wstring> map_type;
+	typedef std::map<std::string,std::string> map_type;
 
 public:
 	volume_helper() : ptrFindFirstVolumeW(NULL) {
@@ -106,7 +107,7 @@ public:
 
 		if (!GetVolumeInformation(volume.c_str(), volumeName.unsafe_get_buffer(), volumeName.length(), 
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.unsafe_get_buffer(), fileSysName.length())) {
-				NSC_LOG_ERROR_STD(_T("Failed to get volume information: ") + volume);
+				NSC_LOG_ERROR_WA("Failed to get volume information: ", volume);
 		} else {
 			name = volumeName.unsafe_get_buffer();
 		}
@@ -132,16 +133,16 @@ public:
 		std::wstring volume;
 		HANDLE hVol = FindFirstVolume(volume);
 		if (hVol == INVALID_HANDLE_VALUE) {
-			NSC_LOG_ERROR_STD(_T("Failed to enumerate volumes"));
+			NSC_LOG_ERROR_STD("Failed to enumerate volumes");
 			return ret;
 		}
 		BOOL bFlag = TRUE;
 		while (bFlag) {
-			map_type::iterator it = alias.find(volume);
+			map_type::iterator it = alias.find(utf8::cvt<std::string>(volume));
 			if (it != alias.end())
-				ret[volume] = (*it).second;
+				ret[utf8::cvt<std::string>(volume)] = (*it).second;
 			else
-				ret[volume] = get_title(volume);
+				ret[utf8::cvt<std::string>(volume)] = utf8::cvt<std::string>(get_title(volume));
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		return ret;
@@ -158,7 +159,7 @@ public:
 
 void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::wstring msg, perf;
+	std::string msg, perf;
 	std::vector<std::string> drives_string;
 	DriveContainer tmpObject;
 	bool bFilter = false;
@@ -170,7 +171,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	std::string strCheckAll;
 	bool ignore_unreadable = false;
 	float magic = 0;
-	std::wstring matching;
+	std::string matching;
 	std::vector<std::string> types;
 
 
@@ -185,12 +186,12 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
 							"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users."
 							)
-		("matching", po::value<std::wstring>(&matching),
+		("matching", po::value<std::string>(&matching),
 							"Check drives matching a given criteria.")
 		("magic", po::value<float>(&magic),
 							"Magic number for use with scaling drive sizes.")
 		("CheckAll", po::value<std::string>(&strCheckAll)->implicit_value("drives"),
-							"Check all avalible drives.\nIf a value is given a given type (see the FilterType option) of drives are checks. Supported values are drives and volumes")
+							"Check all available drives.\nIf a value is given a given type (see the FilterType option) of drives are checks. Supported values are drives and volumes")
 		("CheckAllOthers", po::bool_switch(&bCheckAllOthers)->implicit_value(true),
 							"Check all drives NOT specified in the list of drives given by the Drive option."
 							)
@@ -212,16 +213,16 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	nscapi::program_options::legacy::collect_perf_unit(vm, tmpObject);
 	nscapi::program_options::alias_map aliases = nscapi::program_options::parse_legacy_alias(unrecognized, "Drive");
 	BOOST_FOREACH(const std::string &d, drives_string) {
-		tmpObject.data = utf8::cvt<std::wstring>(d);
-		tmpObject.alias = utf8::cvt<std::wstring>(d);
+		tmpObject.data = d;
+		tmpObject.alias = d;
 		drives.push_back(tmpObject);
 	}
 	BOOST_FOREACH(const nscapi::program_options::alias_option &k, aliases) {
-		tmpObject.data = utf8::cvt<std::wstring>(k.value);
+		tmpObject.data = k.value;
 		if (k.alias.empty())
-			tmpObject.alias = utf8::cvt<std::wstring>(k.value);
+			tmpObject.alias = k.value;
 		else
-			tmpObject.alias = utf8::cvt<std::wstring>(k.alias);
+			tmpObject.alias = k.alias;
 		drives.push_back(tmpObject);
 	}
 
@@ -235,10 +236,10 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	if ((drives.size() == 0) && strCheckAll.empty())
 		bCheckAllDrives = true;
 
-	boost::wregex regexp_filter;
+	boost::regex regexp_filter;
 	if (!matching.empty()) {
 		try {
-			regexp_filter = boost::wregex(matching);
+			regexp_filter = boost::regex(matching);
 		} catch (const std::exception &e) {
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse expression: " + utf8::utf8_from_native(e.what()), *response);
 		}
@@ -253,7 +254,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
 			while (buffer[0] != 0) {
 				std::wstring drv = buffer;
-				volume_alias[helper.GetVolumeNameForVolumeMountPoint(drv)] = drv;
+				volume_alias[utf8::cvt<std::string>(helper.GetVolumeNameForVolumeMountPoint(drv))] = utf8::cvt<std::string>(drv);
 				buffer = &buffer[drv.size()];
 				buffer++;
 			}
@@ -262,7 +263,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 
 		volume_helper::map_type volumes = helper.get_volumes(volume_alias);
 		BOOST_FOREACH(volume_helper::map_type::value_type v, volumes) {
-			UINT drvType = GetDriveType(v.first.c_str());
+			UINT drvType = GetDriveType(utf8::cvt<std::wstring>(v.first).c_str());
 				if ( 
 					((!bFilter)&&(drvType == DRIVE_FIXED))  ||
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
@@ -273,11 +274,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 					) {
 						if (matching.empty() || boost::regex_match(v.second, regexp_filter))
 							drives.push_back(DriveContainer(v.first, v.second, tmpObject.warn, tmpObject.crit));
-						else
-							NSC_DEBUG_MSG_STD(_T("Ignoring drive (not matching filter): ") + v.second);
 				}
-				else
-				NSC_DEBUG_MSG_STD(_T("Ignoring drive: ") + v.second);
 		}
 	} else if (strCheckAll == "drives") {
 		bCheckAllDrives = true;
@@ -289,9 +286,9 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		int idx = 0;
 		while (dwDrives != 0) {
 			if (dwDrives & 0x1) {
-				std::wstring drv;
-				drv += static_cast<TCHAR>('A' + idx); drv += _T(":\\");
-				UINT drvType = GetDriveType(drv.c_str());
+				std::string drv;
+				drv += static_cast<char>('A' + idx); drv += ":\\";
+				UINT drvType = GetDriveType(utf8::cvt<std::wstring>(drv).c_str());
 				if ( ((!bFilter)&&(drvType == DRIVE_FIXED))  ||
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
@@ -301,8 +298,6 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 					) {
 						if (matching.empty() || boost::regex_match(drv, regexp_filter))
 							drives.push_back(DriveContainer(drv, tmpObject.warn, tmpObject.crit));
-						else
-							NSC_DEBUG_MSG_STD(_T("Ignoring drive (not matching filter): ") + drv);
 				}
 			}
 			idx++;
@@ -315,9 +310,9 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		int idx = 0;
 		while (dwDrives != 0) {
 			if (dwDrives & 0x1) {
-				std::wstring drv;
-				drv += static_cast<TCHAR>('A' + idx); drv += _T(":\\");
-				UINT drvType = GetDriveType(drv.c_str());
+				std::string drv;
+				drv += static_cast<char>('A' + idx); drv += ":\\";
+				UINT drvType = GetDriveType(utf8::cvt<std::wstring>(drv).c_str());
 				if ( ((!bFilter)&&(drvType == DRIVE_FIXED))  ||
 					((bFilter)&&(bFilterFixed)&&(drvType==DRIVE_FIXED)) ||
 					((bFilter)&&(bFilterCDROM)&&(drvType==DRIVE_CDROM)) ||
@@ -329,7 +324,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 					bool bFound = false;
 					for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
 						DriveContainer drive = (*pit);
-						if (_wcsicmp(drive.data.substr(0,1).c_str(), drv.substr(0,1).c_str())==0)
+						if (stricmp(drive.data.substr(0,1).c_str(), drv.substr(0,1).c_str())==0)
 							bFound = true;
 					}
 					if (!bFound)
@@ -346,12 +341,12 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	for (std::list<DriveContainer>::const_iterator pit = drives.begin();pit!=drives.end();++pit) {
 		DriveContainer drive = (*pit);
 		if (drive.data.length() == 1)
-			drive.data += _T(":");
+			drive.data += ":";
 		drive.perfData = bPerfData;
-		UINT drvType = GetDriveType(drive.data.c_str());
+		UINT drvType = GetDriveType(utf8::cvt<std::wstring>(drive.data).c_str());
 
 		if ((!bFilter)&&!((drvType == DRIVE_FIXED)||(drvType == DRIVE_NO_ROOT_DIR))) {
-			return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive is not fixed: " + utf8::cvt<std::string>(drive.getAlias()), *response);
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive is not fixed: " + drive.getAlias(), *response);
 		} else if ( (bFilter)&&
 			(
 			((!bFilterFixed)&&((drvType==DRIVE_FIXED)||(drvType==DRIVE_NO_ROOT_DIR))) ||
@@ -359,19 +354,19 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 			((!bFilterRemote)&&(drvType==DRIVE_REMOTE)) ||
 			((!bFilterRemovable)&&(drvType==DRIVE_REMOVABLE)) 
 			)) {
-				return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive does not match FilterType: " + utf8::cvt<std::string>(drive.getAlias()), *response);
+				return nscapi::program_options::invalid_syntax(desc, request.command(), "Drive does not match FilterType: " + drive.getAlias(), *response);
 		}
 
 		ULARGE_INTEGER freeBytesAvailableToCaller;
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
-		std::wstring error;
-		if (!GetDiskFreeSpaceEx(drive.data.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+		std::string error;
+		if (!GetDiskFreeSpaceEx(utf8::cvt<std::wstring>(drive.data).c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
 			DWORD err = GetLastError();
 			if (!ignore_unreadable || err != ERROR_ACCESS_DENIED)
-				return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to get size for: " + utf8::cvt<std::string>(drive.getAlias()) + utf8::cvt<std::string>(error::lookup::last_error(err)), *response);
+				return nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to get size for: " + drive.getAlias() + error::lookup::last_error(err), *response);
 			drive.setDefault(tmpObject);
-			error = drive.getAlias() + _T(": unreadable");
+			error = drive.getAlias() + ": unreadable";
 			freeBytesAvailableToCaller.QuadPart = 0;
 			totalNumberOfFreeBytes.QuadPart = 0;
 			totalNumberOfBytes.QuadPart = 0;
@@ -383,14 +378,13 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		} else {
 			if (error.empty()) {
 				checkHolders::PercentageValueType<checkHolders::disk_size_type, checkHolders::disk_size_type> value;
-				std::wstring tstr;
 				value.value = totalNumberOfBytes.QuadPart-totalNumberOfFreeBytes.QuadPart;
 				value.total = totalNumberOfBytes.QuadPart;
 				drive.setDefault(tmpObject);
 				drive.set_magic(magic);
 				drive.runCheck(value, returnCode, msg, perf);
 			} else {
-				strEx::append_list(msg, error, _T(", "));
+				strEx::append_list(msg, error, ", ");
 			}
 		}
 	}
@@ -399,7 +393,7 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 		if (msg.empty())
 			response->set_message("OK: All drives within bounds.");
 		else
-			response->set_message(utf8::cvt<std::string>(msg));
+			response->set_message(msg);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
 	}
 }
@@ -527,13 +521,13 @@ typedef checkHolders::CheckContainer<ExactBoundsDiscSize> DiscSizeContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsTime> DateTimeContainer;
 
 struct check_file_size : public checkHolders::check_proxy_container<file_filter::filter_obj, DiscSizeContainer> {
-	check_file_size() { set_alias(_T("size")); }
+	check_file_size() { set_alias("size"); }
 	checkHolders::disk_size_type get_value(file_filter::filter_obj &value) {
 		return value.ullSize;
 	}
 };
 struct check_file_line_count : public checkHolders::check_proxy_container<file_filter::filter_obj, ExactULongContainer> {
-	check_file_line_count() { set_alias(_T("line-count")); }
+	check_file_line_count() { set_alias("line-count"); }
 	unsigned long get_value(file_filter::filter_obj &value) {
 		return value.get_line_count();
 	}
@@ -546,13 +540,13 @@ struct check_file_dates : public checkHolders::check_proxy_container<file_filter
 	check_file_dates(type_type type) : type_(type) 
 	{ 
 		if (type_ == date_creation)
-			set_alias(_T("creation")); 
+			set_alias("creation");
 		else if (type_ == date_access)
-			set_alias(_T("access")); 
+			set_alias("access");
 		else if (type_ == date_written)
-			set_alias(_T("written")); 
+			set_alias("written"); 
 		else
-			set_alias(_T("unknown date type")); 
+			set_alias("unknown date type"); 
 }
 	unsigned long long get_value(file_filter::filter_obj &value) {
 		if (type_ == date_creation)
@@ -585,7 +579,7 @@ struct check_file_factories {
 };
 
 #define MAP_FACTORY_PB(value, obj) \
-		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_file_factories::obj()); }
+		else if ((p__.first == "check") && (p__.second == ##value)) { checker.add_check(check_file_factories::obj()); }
 
 /*
 NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(std::list<std::wstring> args, std::wstring &message, std::wstring &perf) {
@@ -653,83 +647,81 @@ NSCAPI::nagiosReturn CheckDisk::CheckSingleFile(std::list<std::wstring> args, st
 }
 */
 
-NSCAPI::nagiosReturn CheckDisk::check_files(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckDisk::check_files(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf) {
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsULongInteger> CheckFileQuery1Container;
 	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULongInteger> CheckFileQuery2Container;
 // 	typedef std::pair<int,file_finder::filter> filteritem_type;
 // 	typedef std::list<filteritem_type> filterlist_type;
 	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
+		msg = "Missing argument(s).";
 		return NSCAPI::returnUNKNOWN;
 	}
 	PathContainer tmpObject;
-	std::list<std::wstring> paths;
+	std::list<std::string> paths;
 	unsigned int truncate = 0;
 	CheckFileQuery1Container query1;
 	CheckFileQuery2Container query2;
-	std::wstring masterSyntax = _T("%list%");
-	std::wstring alias;
+	std::string masterSyntax = "%list%";
+	std::string alias;
 	bool bPerfData = true;
 	bool ignoreError = false;
 
-	file_filter::filter_argument fargs = file_filter::factories::create_argument(_T("*.*"), -1, _T("%filename%"), DATE_FORMAT);
+	file_filter::filter_argument fargs = file_filter::factories::create_argument("*.*", -1, "%filename%", DATE_FORMAT_S);
 
 	try {
 		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_NUMERIC_ALL(query1, _T(""))
-			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, _T(""))
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+			MAP_OPTIONS_NUMERIC_ALL(query1, "")
+			MAP_OPTIONS_EXACT_NUMERIC_ALL(query2, "")
+			MAP_OPTIONS_STR2INT("truncate", truncate)
 			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_STR(_T("syntax"), fargs->syntax)
-			MAP_OPTIONS_STR(_T("date-syntax"), fargs->date_syntax)
-			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
-			MAP_OPTIONS_PUSH(_T("path"), paths)
-			MAP_OPTIONS_STR(_T("pattern"), fargs->pattern)
-			MAP_OPTIONS_STR(_T("alias"), alias)
-			MAP_OPTIONS_PUSH(_T("file"), paths)
-			MAP_OPTIONS_BOOL_TRUE(_T("debug"), fargs->debug)
-			MAP_OPTIONS_BOOL_TRUE(_T("ignore-errors"), ignoreError)
-			MAP_OPTIONS_STR2INT(_T("max-dir-depth"), fargs->max_level)
-			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterIn, _T("in"), _T("out"))
-			MAP_OPTIONS_BOOL_EX(_T("filter"), fargs->bFilterAll, _T("all"), _T("any"))
-			MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
+// 			MAP_OPTIONS_STR(_T("syntax"), fargs->syntax)
+// 			MAP_OPTIONS_STR(_T("date-syntax"), fargs->date_syntax)
+// 			MAP_OPTIONS_STR(_T("master-syntax"), masterSyntax)
+			MAP_OPTIONS_PUSH("path", paths)
+// 			MAP_OPTIONS_STR(_T("pattern"), fargs->pattern)
+			MAP_OPTIONS_STR("alias", alias)
+			MAP_OPTIONS_PUSH("file", paths)
+			MAP_OPTIONS_BOOL_TRUE("debug", fargs->debug)
+			MAP_OPTIONS_BOOL_TRUE("ignore-errors", ignoreError)
+			MAP_OPTIONS_STR2INT("max-dir-depth", fargs->max_level)
+			MAP_OPTIONS_BOOL_EX("filter", fargs->bFilterIn, "in", "out")
+			MAP_OPTIONS_BOOL_EX("filter", fargs->bFilterAll, "all", "any")
+			MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 
-			MAP_OPTIONS_STR(_T("filter"), fargs->filter)
+// 			MAP_OPTIONS_STR(_T("filter"), fargs->filter)
 
-			MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
+			MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 			MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		msg = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (filters::filter_exception e) {
-		msg = e.getMessage();
+	} catch (...) {
+		msg = "errro";
 		return NSCAPI::returnUNKNOWN;
 	}
 	if (paths.empty()) {
-		msg = _T("Missing path argument");
+		msg = "Missing path argument";
 		return NSCAPI::returnUNKNOWN;
 	}
 	file_filter::filter_engine impl;
 	if (!fargs->filter.empty()) {
 		impl = file_filter::factories::create_engine(fargs);
-		if (!impl->validate(msg))
+		if (!impl->validate(msg)) {
 			return NSCAPI::returnUNKNOWN;
+		}
 	} else if (fargs->debug) {
-		NSC_DEBUG_MSG_STD(_T("No filter specified: matching all files and folders"));
+		NSC_DEBUG_MSG_STD("No filter specified: matching all files and folders");
 	}
 
-	if (fargs->debug)
-		NSC_DEBUG_MSG_STD(_T("NOW: ") + strEx::format_filetime(fargs->now));
+// 	if (fargs->debug)
+// 		NSC_DEBUG_MSG_STD("NOW: " + strEx::format_filetime(fargs->now));
 
 	file_filter::filter_result result = file_filter::factories::create_result(fargs);
-	for (std::list<std::wstring>::const_iterator pit = paths.begin(); pit != paths.end(); ++pit) {
-		file_finder::recursive_scan(result, fargs, impl, *pit);
+	BOOST_FOREACH(const std::string &path, paths) {
+		file_finder::recursive_scan(result, fargs, impl, path);
 		if (!ignoreError && fargs->error->has_error()) {
 			if (show_errors_)
 				msg = fargs->error->get_error();
 			else
-				msg = _T("Check contains error. Check log for details (or enable show_errors in nsc.ini)");
+				msg = "Check contains error. Check log for details (or enable show_errors in nsc.ini)";
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -741,23 +733,23 @@ NSCAPI::nagiosReturn CheckDisk::check_files(const std::wstring &target, const st
 	}
 
 	if (query1.alias.empty())
-		query1.alias = _T("found files");
+		query1.alias = "found files";
 	if (query2.alias.empty())
-		query2.alias = _T("found files");
+		query2.alias = "found files";
 	unsigned long count = result->get_match_count();
 	if (query1.hasBounds())
 		query1.runCheck(count, returnCode, msg, perf);
 	else if (query2.hasBounds())
 		query2.runCheck(count, returnCode, msg, perf);
 	else {
-		msg = _T("No bounds specified!");
+		msg = "No bounds specified!";
 		return NSCAPI::returnUNKNOWN;
 	}
 	if ((truncate > 0) && (msg.length() > (truncate-4))) {
-		msg = msg.substr(0, truncate-4) + _T("...");
+		msg = msg.substr(0, truncate-4) + "...";
 		//perf = _T("");
 	}
 	if (msg.empty())
-		msg = _T("CheckFile ok");
+		msg = "CheckFile ok";
 	return returnCode;
 }

@@ -32,9 +32,10 @@
 
 struct python_script : public boost::noncopyable {
 	std::string alias;
+	std::string base_path;
 	unsigned int plugin_id;
 	boost::python::dict localDict;
-	python_script(unsigned int plugin_id, const std::string alias, const script_container& script);
+	python_script(unsigned int plugin_id, const std::string base_path, const std::string alias, const script_container& script);
 	~python_script();
 	bool callFunction(const std::string& functionName);
 	bool callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2);
@@ -50,15 +51,15 @@ private:
 	script_type scripts_;
 	typedef std::list<boost::shared_ptr<python_script> > instance_list_type;
 	instance_list_type instances_;
-	std::wstring alias_;
+	std::string alias_;
 
 public:
 	PythonScript() {}
 	virtual ~PythonScript() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	std::wstring get_alias() {
+	std::string get_alias() {
 		return alias_;
 	}
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -66,7 +67,7 @@ public:
 	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 
 private:
-	bool loadScript(std::wstring alias, std::wstring script);
+	bool loadScript(std::string alias, std::string script);
 	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
 	boost::optional<boost::filesystem::path> find_file(std::string file);
 

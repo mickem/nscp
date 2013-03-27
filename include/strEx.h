@@ -153,18 +153,19 @@ namespace strEx {
 			lst += sep;
 		lst += append;
 	}
-	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
+	inline void append_list(std::string &lst, const std::string &append, const std::string sep = ", ") {
 		if (append.empty())
 			return;
 		if (!lst.empty())
 			lst += sep;
 		lst += append;
 	}
-	inline std::string wstring_to_string( const std::wstring& str ) {
-		return utf8::cvt<std::string>(str);
-	}
-	inline std::wstring string_to_wstring( const std::string& str ) {
-		return utf8::cvt<std::wstring>(str);
+	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
+		if (append.empty())
+			return;
+		if (!lst.empty())
+			lst += sep;
+		lst += append;
 	}
 
 	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
@@ -278,21 +279,21 @@ namespace strEx {
 		ss << i;
 		return ss.str();
 	}
-	inline std::wstring itos_non_sci(double i) {
-		std::wstringstream ss;
+	inline std::string itos_non_sci(double i) {
+		std::stringstream ss;
 		if (i < 10)
 			ss.precision(20);
 		ss << std::noshowpoint << std::fixed << i;
-		std::wstring s = ss.str();
-		std::wstring::size_type pos = s.find_last_not_of('0');
-		if (pos == std::wstring::npos)
+		std::string s = ss.str();
+		std::string::size_type pos = s.find_last_not_of('0');
+		if (pos == std::string::npos)
 			return s;
 		if (s[pos] != '.')
 			pos++;
 		return s.substr(0, pos);
 	}
-	inline std::wstring ihextos(unsigned int i) {
-		std::wstringstream ss;
+	inline std::string ihextos(unsigned int i) {
+		std::stringstream ss;
 		ss << std::hex << i;
 		return ss.str();
 	}
@@ -303,13 +304,13 @@ namespace strEx {
 	inline double stod(T s) {
 		return boost::lexical_cast<double>(s.c_str());
 	}
-	inline long long stoi64(std::wstring s) {
+	inline long long stoi64(std::string s) {
 		return boost::lexical_cast<long long>(s.c_str());
 	}
-	inline unsigned stoui_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
-		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
-		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
+	inline unsigned stoui_as_time(std::string time, unsigned int smallest_unit = 1000) {
+		std::wstring::size_type p = time.find_first_of("sSmMhHdDwW");
+		std::wstring::size_type pend = time.find_first_not_of("0123456789");
+		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
 		if (p == std::wstring::npos)
 			return value * smallest_unit;
 		else if ( (time[p] == 's') || (time[p] == 'S') )
@@ -372,9 +373,9 @@ namespace strEx {
 		return stoui_as_time_sec(time, smallest_unit);
 	}
 
-	inline unsigned long long stoi64_as_time(std::wstring time, unsigned int smallest_unit = 1000) {
-		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-		if (p == std::wstring::npos)
+	inline unsigned long long stoi64_as_time(std::string time, unsigned int smallest_unit = 1000) {
+		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
+		if (p == std::string::npos)
 			return boost::lexical_cast<long long>(time) * smallest_unit;
 		unsigned long long value = boost::lexical_cast<long long>(time.substr(0, p));
 		if ( (time[p] == 's') || (time[p] == 'S') )
@@ -396,29 +397,29 @@ namespace strEx {
 #define HOUR	(60 * 60 * 1000)
 #define MIN		(60 * 1000)
 #define SEC		(1000)
-	inline std::wstring itos_as_time(unsigned long long time) {
+	inline std::string itos_as_time(unsigned long long time) {
 		if (time > WEEK) {
 			long long w = time/WEEK;
 			long long d = (time-(w*WEEK))/DAY;
 			long long h = (time-(w*WEEK)-(d*DAY))/HOUR;
 			long long m = (time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN;
-			return itos(w) + _T("w ") + itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
+			return s::xtos(w) + "w " + s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
 		}
 		else if (time > DAY) {
 			long long d = time/DAY;
 			long long h = (time-(d*DAY))/HOUR;
 			long long m = (time-(d*DAY)-(h*HOUR))/MIN;
-			return itos(d) + _T("d ") + itos(h) + _T(":") + itos(m);
+			return s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
 		}
 		else if (time > HOUR) {
 			long long h = time/HOUR;
 			long long m = (time-(h*HOUR))/MIN;
-			return itos(h) + _T(":") + itos(m);
+			return s::xtos(h) + ":" + s::xtos(m);
 		} else if (time > MIN) {
-			return _T("0:") + itos(time/MIN);
+			return "0:" + s::xtos(time/MIN);
 		} else if (time > SEC)
-			return itos(time/SEC) + _T("s");
-		return itos(time);
+			return s::xtos(time/SEC) + "s";
+		return s::xtos(time);
 	}
 
 

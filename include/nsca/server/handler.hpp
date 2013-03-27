@@ -12,8 +12,8 @@ namespace nsca {
 			virtual unsigned int get_payload_length() = 0;
 			virtual void set_payload_length(unsigned int payload) = 0;
 			virtual void set_perf_data(bool) = 0;
-			virtual void set_channel(std::wstring channel) = 0;
-			virtual std::wstring get_channel() = 0;
+			virtual void set_channel(std::string channel) = 0;
+			virtual std::string get_channel() = 0;
 			virtual void set_encryption(std::string encryption) = 0;
 			virtual int get_encryption() = 0;
 			virtual std::string get_password() = 0;

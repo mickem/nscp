@@ -21,9 +21,9 @@
 #pragma once
 
 // Default Argument string (for consistency)
-#define SHOW_ALL _T("ShowAll")
-#define SHOW_FAIL _T("ShowFail")
-#define NSCLIENT _T("nsclient")
-#define IGNORE_PERFDATA _T("ignore-perf-data")
-#define CHECK_ALL _T("CheckAll")
-#define CHECK_ALL_OTHERS _T("CheckAllOthers")
+#define SHOW_ALL "ShowAll"
+#define SHOW_FAIL "ShowFail"
+#define NSCLIENT "nsclient"
+#define IGNORE_PERFDATA "ignore-perf-data"
+#define CHECK_ALL "CheckAll"
+#define CHECK_ALL_OTHERS "CheckAllOthers"

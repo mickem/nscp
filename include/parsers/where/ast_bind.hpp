@@ -7,7 +7,7 @@ namespace parsers {
 		///////////////////////////////////////////////////////////////////////////
 		struct ast_bind {
 			typedef bool result_type;
-			typedef std::list<std::wstring> error_type;
+			typedef std::list<std::string> error_type;
 
 			filter_handler handler;
 			ast_bind(filter_handler handler) : handler(handler) {}

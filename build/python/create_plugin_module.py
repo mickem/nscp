@@ -65,6 +65,9 @@ class Module:
 				elif c.request:
 					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_REQUEST_MESSAGE).substitute(cmd_tpl)
 					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP_REQUEST_MESSAGE).substitute(cmd_tpl)
+				elif c.nagios:
+					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_NAGIOS).substitute(cmd_tpl)
+					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP_NAGIOS).substitute(cmd_tpl)
 				elif c.no_mapping:
 					# Dont add anything sinxe it is not mapped
 					None
@@ -199,6 +202,7 @@ class Command:
 	request = False
 	no_mapping = False
 	raw_mapping = False
+	nagios = False
 
 	def __init__(self, name, description, alias = []):
 		self.name = name
@@ -208,6 +212,7 @@ class Command:
 		self.request = False
 		self.no_mapping = False
 		self.raw_mapping = False
+		self.nagios = False
 
 	def __repr__(self):
 		if self.alias:
@@ -238,6 +243,7 @@ def parse_commands(data):
 			request = False
 			no_mapping = False
 			raw_mapping = False
+			nagios = False
 			if key == "fallback" and value:
 				command_fallback = True
 			if type(value) is dict:
@@ -249,10 +255,15 @@ def parse_commands(data):
 					legacy = True
 				if 'request' in value and value['request']:
 					request = True
-				if 'mapping' in value and not value['mapping']:
-					no_mapping = True
-				if 'mapping' in value and value['mapping'] == 'raw':
-					raw_mapping = True
+				if 'nagios' in value and value['nagios']:
+					nagios = True
+				if 'mapping' in value:
+					if value['mapping'] == 'nagios':
+						nagios = True
+					elif value['mapping'] == 'raw':
+						raw_mapping = True
+					elif not value['mapping']:
+						no_mapping = True
 				if 'alias' in value:
 					if type(value['alias']) is list:
 						alias = value['alias']
@@ -264,6 +275,8 @@ def parse_commands(data):
 				cmd = Command(key, desc, alias)
 				if legacy:
 					cmd.legacy = True
+				if nagios:
+					cmd.nagios = True
 				if request:
 					cmd.request = True
 				if no_mapping:
@@ -279,7 +292,7 @@ def parse_module(data):
 
 COMMAND_INSTANCE_HPP = """	void ${COMMAND_NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 """
-COMMAND_INSTANCE_HPP_LEGACY = """	NSCAPI::nagiosReturn ${COMMAND_NAME}(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf);
+COMMAND_INSTANCE_HPP_LEGACY = """	NSCAPI::nagiosReturn ${COMMAND_NAME}(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 """
 COMMAND_INSTANCE_HPP_REQUEST_MESSAGE = """	void ${COMMAND_NAME}(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
 """
@@ -287,42 +300,44 @@ COMMAND_INSTANCE_HPP_FALLBACK = """	void query_fallback(const Plugin::QueryReque
 """
 COMMAND_INSTANCE_HPP_RAW = """	void ${COMMAND_NAME}(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
 """
+COMMAND_INSTANCE_HPP_NAGIOS = """	NSCAPI::nagiosReturn ${COMMAND_NAME}(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+"""
 
 COMMAND_DELEGATOR_HPP_TRUE = """
 	bool hasCommandHandler() { return true; }
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const char* char_command, const std::string &request, std::string &response);
 """
 COMMAND_DELEGATOR_HPP_FALSE = """
 	bool hasCommandHandler() { return false; }
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const char* char_command, const std::string &request, std::string &response);
 """
 
 CLI_DELEGATOR_HPP_TRUE = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 	*/
 """
 CLI_DELEGATOR_HPP_PASS_THROUGH = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
-	NSCAPI::nagiosReturn commandLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandLineExec(const char* char_command, const std::string &request, std::string &response);
 	*/
 """
 CLI_DELEGATOR_HPP_LEGACY = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
-	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn commandLineExec(const std::string &command, std::list<std::wstring> &arguments, std::wstring &result);
 	*/
 """
 CLI_DELEGATOR_HPP_FALSE = ""
 
 CHANNEL_DELEGATOR_HPP_PASS_THROUGH = """
 	bool hasNotificationHandler() { return true; };
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWNotification(const char* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
@@ -330,7 +345,7 @@ CHANNEL_DELEGATOR_HPP_PASS_THROUGH = """
 """
 CHANNEL_DELEGATOR_HPP_TRUE = """
 	bool hasNotificationHandler() { return true; };
-	NSCAPI::nagiosReturn handleRAWNotification(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWNotification(const char* char_command, const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	void handleNotification(const std::wstring channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
@@ -376,15 +391,15 @@ public:
 	 * Load module
 	 * @return True if we loaded successfully.
 	 */
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	/**
 	 * Return the module name.
 	 * @return The module name
 	 */
-	static std::wstring getModuleName() {
-		return _T("${MODULE_NAME}");
+	static std::string getModuleName() {
+		return "${MODULE_NAME}";
 	}
 	/**
 	* Module version
@@ -394,8 +409,8 @@ public:
 		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	static std::wstring getModuleDescription() {
-		return _T("${MODULE_DESCRIPTION}");
+	static std::string getModuleDescription() {
+		return "${MODULE_DESCRIPTION}";
 	}
 
 ${COMMAND_DELEGATOR_HPP}
@@ -449,24 +464,27 @@ LOG_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_HANDLE_MSG_DEF()"
 LOG_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_MSG_DEF()"
 
 CLI_DELEGATOR_CPP_LEGACY = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
 	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(char_command, request);
 	std::wstring result;
-	NSCAPI::nagiosReturn ret = impl_->commandLineExec(data.command, data.args, result);
+	std::list<std::wstring> args;
+	BOOST_FOREACH(const std::string &s, data.args)
+		args.push_back(utf8::cvt<std::wstring>(s));
+	NSCAPI::nagiosReturn ret = impl_->commandLineExec(utf8::cvt<std::wstring>(data.command), args, result);
 	if (ret == NSCAPI::returnIgnored)
 		return NSCAPI::returnIgnored;
-	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, result, response);
+	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, utf8::cvt<std::string>(result), response);
 	return ret;
 }
 """
 CLI_DELEGATOR_CPP_PASS_THROUGH = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
 	return impl_->commandLineExec(char_command, request, response);
 }
 """
 CLI_DELEGATOR_CPP_TRUE = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::string command = utf8::cvt<std::string>(char_command);
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
+	std::string command = char_command;
 	try {
 		Plugin::ExecuteRequestMessage request_message;
 		Plugin::ExecuteResponseMessage response_message;
@@ -506,8 +524,8 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const wchar_t* char_comm
 CLI_DELEGATOR_CPP_FALSE = ""
 
 CHANNEL_DELEGATOR_CPP_PASS_THROUGH = """
-NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_channel, const std::string &request, std::string &response) {
-	const std::string channel = utf8::cvt<std::string>(char_channel);
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const char* char_channel, const std::string &request, std::string &response) {
+	const std::string channel = char_channel;
 	try {
 		if (!impl_) {
 			return NSCAPI::returnIgnored;
@@ -529,8 +547,8 @@ NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_c
 }
 """
 CHANNEL_DELEGATOR_CPP_TRUE = """
-NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const wchar_t* char_channel, const std::string &request, std::string &response) {
-	const std::string channel = utf8::cvt<std::string>(char_channel);
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWNotification(const char* char_channel, const std::string &request, std::string &response) {
+	const std::string channel = char_channel;
 	try {
 		Plugin::SubmitRequestMessage request_message;
 		Plugin::SubmitResponseMessage response_message;
@@ -598,16 +616,16 @@ COMMAND_INSTANCE_CPP_FALLBACK = """			} else {
 				impl_->query_fallback(request_payload, response_payload, request_message);
 """
 COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${COMMAND_NAME}") {
-				std::wstring msg, perf;
-				std::list<std::wstring> args;
+				std::string msg, perf;
+				std::list<std::string> args;
 				for (int i=0;i<request_payload.arguments_size();i++) {
-					args.push_back(utf8::cvt<std::wstring>(request_payload.arguments(i)));
+					args.push_back(request_payload.arguments(i));
 				}
-				NSCAPI::nagiosReturn ret = impl_->${COMMAND_NAME}(utf8::cvt<std::wstring>(request_payload.target()), boost::algorithm::to_lower_copy(utf8::cvt<std::wstring>(request_payload.command())), args, msg, perf);
+				NSCAPI::nagiosReturn ret = impl_->${COMMAND_NAME}(request_payload.target(), boost::algorithm::to_lower_copy(request_payload.command()), args, msg, perf);
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
-				response_payload->set_message(utf8::cvt<std::string>(msg));
-				response_payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+				response_payload->set_message(msg);
+				response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 				if (!perf.empty())
 					nscapi::protobuf::functions::parse_performance_data(response_payload, perf);
 """
@@ -623,6 +641,20 @@ RAW_COMMAND_INSTANCE_CPP = """		else if (command == "${COMMAND_NAME}") {
 			return NSCAPI::isSuccess;
 		}
 """
+COMMAND_INSTANCE_CPP_NAGIOS = """			} else if (command == "${COMMAND_NAME}") {
+				std::string msg, perf;
+				std::list<std::string> args;
+				for (int i=0;i<request_payload.arguments_size();i++) {
+					args.push_back(request_payload.arguments(i));
+				}
+				NSCAPI::nagiosReturn ret = impl_->${COMMAND_NAME}(request_payload.target(), boost::algorithm::to_lower_copy(request_payload.command()), args, msg, perf);
+				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				response_payload->set_message(msg);
+				response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
+				if (!perf.empty())
+					nscapi::protobuf::functions::parse_performance_data(response_payload, perf);
+"""
 
 
 COMMAND_DELEGATOR_CPP_TRUE = """
@@ -634,16 +666,14 @@ COMMAND_DELEGATOR_CPP_TRUE = """
  * @param response THe response packet
  * @return status code
  */
-NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
-	std::string command = utf8::cvt<std::string>(char_command);
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const char* char_command, const std::string &request, std::string &response) {
+	std::string command = char_command;
 	try {
 		Plugin::QueryRequestMessage request_message;
 		Plugin::QueryResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
-		std::string command = utf8::cvt<std::string>(char_command);
-		command;
 		if (!impl_) {
 			return NSCAPI::returnIgnored;
 		}
@@ -703,7 +733,7 @@ namespace ch = nscapi::command_helper;
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool ${CLASS}Module::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool ${CLASS}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		if (impl_) {
 			unloadModule();
@@ -713,10 +743,10 @@ bool ${CLASS}Module::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 		registerCommands(get_command_proxy());
 ${LOAD_DELEGATOR}
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to load ${CLASS}: ") + utf8::cvt<std::wstring>(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to load ${CLASS}: ", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to load ${CLASS}: Unknwon exception"));
+		NSC_LOG_ERROR_EX("Failed to load ${CLASS}: ");
 		return false;
 	}
 	return true;
@@ -740,7 +770,7 @@ ${CHANNEL_DELEGATOR_CPP}
 ${CLI_DELEGATOR_CPP}
 
 NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF(${CLASS}Module, _T("${MODULE_ALIAS}"))
+NSC_WRAPPERS_MAIN_DEF(${CLASS}Module, "${MODULE_ALIAS}")
 ${LOG_DELEGATOR_CPP_DEF}
 ${COMMAND_DELEGATOR_CPP_DEF}
 ${CLI_DELEGATOR_CPP_DEF}

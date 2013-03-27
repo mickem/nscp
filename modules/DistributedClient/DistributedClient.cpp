@@ -57,7 +57,7 @@ bool DistributedClient::loadModule() {
 	return false;
 }
 
-bool DistributedClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool DistributedClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {

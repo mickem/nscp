@@ -2,7 +2,7 @@
 #include "eventlog_wrapper.hpp"
 #include "simple_registry.hpp"
 
-eventlog_wrapper::eventlog_wrapper(const std::wstring &name) : name(name), hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
+eventlog_wrapper::eventlog_wrapper(const std::string &s_name) : name(s_name), hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
 	open(name);
 }
 eventlog_wrapper::~eventlog_wrapper() {
@@ -12,9 +12,9 @@ eventlog_wrapper::~eventlog_wrapper() {
 	bufferSize = 0;
 	lastReadSize = 0;
 }
-void eventlog_wrapper::open(const std::wstring &name) {
-	std::wstring realname = find_eventlog_name(name);
-	hLog = OpenEventLog(NULL, realname.c_str());
+void eventlog_wrapper::open(const std::string &name) {
+	std::string realname = find_eventlog_name(name);
+	hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(realname).c_str());
 }
 
 void eventlog_wrapper::close() {
@@ -65,29 +65,25 @@ void eventlog_wrapper::resize_buffer(int size) {
 }
 
 
-std::wstring eventlog_wrapper::find_eventlog_name(const std::wstring name) {
+std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
-		std::list<std::wstring> list = key.get_keys();
-		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
+		BOOST_FOREACH(const std::wstring k, key.get_keys()) {
 			try {
-				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + *cit);
+				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + k);
 				std::wstring file = sub_key.get_string(_T("DisplayNameFile"));
 				int id = sub_key.get_int(_T("DisplayNameID"));
-				std::wstring real_name = error::format::message::from_module(file, id);
-				strEx::replace(real_name, _T("\n"), _T(""));
-				strEx::replace(real_name, _T("\r"), _T(""));
-				NSC_DEBUG_MSG(_T("Attempting to match: ") + real_name + _T(" with ") + name);
+				std::string real_name = error::format::message::from_module(utf8::cvt<std::string>(file), id);
+				strEx::replace(real_name, "\n", "");
+				strEx::replace(real_name, "\r", "");
 				if (real_name == name)
-					return *cit;
+					return utf8::cvt<std::string>(k);
 			} catch (simple_registry::registry_exception &e) { e;}
 		}
 		return name;
 	} catch (simple_registry::registry_exception &e) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand): ") + e.what());
 		return name;
 	} catch (...) {
-		NSC_DEBUG_MSG(_T("Failed to get eventlog name (assuming shorthand)"));
 		return name;
 	}
 }
@@ -120,12 +116,12 @@ DWORD eventlog_wrapper::read_record(DWORD dwRecordNumber, DWORD dwFlags) {
 
 			if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, pBuffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
 				status = GetLastError();
-				NSC_LOG_ERROR_STD(_T("Failed to read eventlog message: ") + error::lookup::last_error(status));
+				NSC_LOG_ERROR_STD("Failed to read eventlog message: " + utf8::cvt<std::string>(error::lookup::last_error(status)));
 				return status;
 			}
 		} else {
 			if (ERROR_HANDLE_EOF != status)	{
-				NSC_LOG_ERROR_STD(_T("Failed to read eventlog record(") + strEx::itos(dwRecordNumber) + _T("): ") + error::lookup::last_error(status));
+				NSC_LOG_ERROR_STD("Failed to read eventlog record(" + strEx::s::xtos(dwRecordNumber) + "): " + utf8::cvt<std::string>(error::lookup::last_error(status)));
 				return status;
 			}
 		}

@@ -20,7 +20,6 @@
 #include <parsers/expression/expression.hpp>
 
 #include <time.h>
-#include <utils.h>
 #include <error.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -39,20 +38,19 @@
 #include "filter.hpp"
 
 void real_time_thread::process_timeout(const filters::filter_config_object &object) {
-	std::wstring response;
-	std::wstring command = object.alias;
-	NSC_LOG_ERROR(_T("Processing timeout: ") + object.alias);
+	std::string response;
+	std::string command = object.alias;
 	if (!object.command.empty())
 		command = object.command;
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.empty_msg, _T(""), response)) {
-		NSC_LOG_ERROR(_T("Failed to submit result: ") + response);
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.empty_msg, "", response)) {
+		NSC_LOG_ERROR("Failed to submit result: " + response);
 	}
 }
 
 void real_time_thread::process_object(filters::filter_config_object &object) {
-	std::wstring response;
+	std::string response;
 	int severity = object.severity;
-	std::wstring command = object.alias;
+	std::string command = object.alias;
 	if (severity != -1) {
 		object.filter.returnCode = severity;
 	} else {
@@ -61,7 +59,6 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 	object.filter.reset();
 
 	bool matched = false;
-	NSC_LOG_ERROR(_T("Processing object: ") + object.alias);
 	BOOST_FOREACH(filters::file_container &c, object.files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
 		std::string fname = utf8::cvt<std::string>(c.file);
@@ -90,7 +87,7 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 			}
 			file.close();
 		} else {
-			NSC_LOG_ERROR(_T("Failed to open file: ") + c.file);
+			NSC_LOG_ERROR("Failed to open file: " + fname);
 		}
 	}
 	if (!matched) {
@@ -104,8 +101,8 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 		message = object.filter.message;
 	if (!object.command.empty())
 		command = object.command;
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.filter.returnCode, utf8::cvt<std::wstring>(message), _T(""), response)) {
-		NSC_LOG_ERROR(_T("Failed to submit '") + utf8::cvt<std::wstring>(message) + _T("' ") + object.alias + _T(": ") + response);
+	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.filter.returnCode, message, "", response)) {
+		NSC_LOG_ERROR("Failed to submit '" + message);
 	}
 }
 
@@ -118,7 +115,7 @@ void real_time_thread::thread_proc() {
 		logfile_filter::filter filter;
 		std::string message;
 		if (!object.boot(message)) {
-			NSC_LOG_ERROR(_T("Failed to load ") + object.alias + _T(": ") + utf8::cvt<std::wstring>(message));
+			NSC_LOG_ERROR("Failed to load " + utf8::cvt<std::string>(object.alias) + ": " + message);
 			continue;
 		}
 		BOOST_FOREACH(const filters::file_container &fc, object.files) {
@@ -131,7 +128,7 @@ void real_time_thread::thread_proc() {
 				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.wstring());
 				} else {
-					NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + fc.file);
+					NSC_LOG_ERROR("Failed to find folder for " + utf8::cvt<std::string>(object.alias) + ": " + path.string());
 					continue;
 				}
 			}
@@ -139,7 +136,7 @@ void real_time_thread::thread_proc() {
 			if (boost::filesystem::is_regular(path)) {
 				logs.push_back(utf8::cvt<std::wstring>(path.string()));
 			} else {
-				NSC_LOG_ERROR(_T("Failed to find folder for ") + object.alias + _T(": ") + fc.file);
+				NSC_LOG_ERROR("Failed to find folder for " + object.alias + ": " + fc.file);
 				continue;
 			}
 #endif
@@ -149,13 +146,12 @@ void real_time_thread::thread_proc() {
 
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD(_T("Scanning folders: ") + strEx::joinEx(logs, _T(", ")));
+	NSC_DEBUG_MSG_STD("Scanning folders: " + utf8::cvt<std::string>(strEx::joinEx(logs, _T(", "))));
 	std::vector<std::wstring> files_list(logs.begin(), logs.end());
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1+logs.size()];
 	handles[0] = stop_event_;
 	for (int i=0;i<files_list.size();i++) {
-		NSC_DEBUG_MSG_STD(_T("Adding folder: ") + files_list[i]);
 		handles[i+1] = FindFirstChangeNotification(files_list[i].c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
 	}
 #else
@@ -164,7 +160,6 @@ void real_time_thread::thread_proc() {
 
 	int *wds = new int[logs.size()];
 	for (int i=0;i<files_list.size();i++) {
-		NSC_DEBUG_MSG_STD(_T("Adding folder: ") + files_list[i]);
 		wds[i] = inotify_add_watch(pollfds[0].fd, utf8::cvt<std::string>(files_list[i]).c_str(), IN_MODIFY);
 	}
 
@@ -178,7 +173,6 @@ void real_time_thread::thread_proc() {
 		bool first = true;
 		boost::posix_time::ptime minNext;
 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
 			if (object.max_age && (first || object.next_ok_ < minNext) ) {
 				first = false;
 				minNext = object.next_ok_;
@@ -187,10 +181,10 @@ void real_time_thread::thread_proc() {
 
 		boost::posix_time::time_duration dur;
 		if (first) {
-			NSC_DEBUG_MSG(_T("Next miss time is in: no timeout specified"));
+			NSC_DEBUG_MSG("Next miss time is in: no timeout specified");
 		} else {
 			dur = minNext - boost::posix_time::ptime();
-			NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dur.total_seconds()) + _T("s"));
+			NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
 		}
 
 #ifdef WIN32
@@ -222,7 +216,7 @@ void real_time_thread::thread_proc() {
 		}
 		else if( length < 0 )
 		{
-			NSC_LOG_ERROR(_T("read failed!"));
+			NSC_LOG_ERROR("read failed!");
 			continue;
 		}
 		else if (pollfds[1].revents != 0) {
@@ -235,7 +229,7 @@ void real_time_thread::thread_proc() {
 				j += EVENT_SIZE + event->len;
 			}
 		} else {
-			NSC_LOG_ERROR(_T("Strange, please report this..."));
+			NSC_LOG_ERROR("Strange, please report this...");
 		}
 #endif
 
@@ -254,7 +248,7 @@ void real_time_thread::thread_proc() {
 				process_timeout(object);
 				object.touch(current_time);
 			} else {
-				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+				NSC_DEBUG_MSG_STD("missing: " + strEx::s::xtos(object.next_ok_));
 			}
 		}
 
@@ -295,13 +289,13 @@ bool real_time_thread::stop() {
 	return true;
 }
 
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query) {
+void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, filters_path_, key, query, key == _T("default"));
+		filters_.add(proxy, filters_path_, key, query, key == "default");
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
 	}
 }
 

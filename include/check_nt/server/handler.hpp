@@ -16,8 +16,8 @@ namespace check_nt {
 			virtual void set_allow_nasty_arguments(bool) = 0;
 			virtual void set_perf_data(bool) = 0;
 
-			virtual void set_password(std::wstring password) = 0;
-			virtual std::wstring get_password() const = 0;
+			virtual void set_password(std::string password) = 0;
+			virtual std::string get_password() const = 0;
 
 		};
 	}// namespace server

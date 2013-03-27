@@ -20,10 +20,10 @@ namespace nscapi {
 
 	namespace settings_objects {
 		class default_object_type {
-			std::wstring path;
-			std::wstring alias;
-			std::wstring value;
-			std::wstring parent;
+			std::string path;
+			std::string alias;
+			std::string value;
+			std::string parent;
 		};
 
 		template<class object_type>
@@ -38,20 +38,20 @@ namespace nscapi {
 		template<class t_object_type, class object_reader>
 		struct object_handler : boost::noncopyable {
 			typedef boost::optional<t_object_type> optional_object;
-			typedef std::map<std::wstring, t_object_type> object_list_type;
+			typedef std::map<std::string, t_object_type> object_list_type;
 			typedef object_handler<t_object_type, object_reader> my_type;
 
 			object_list_type object_list;
 			object_list_type template_list;
 
-			void add_missing(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
+			void add_missing(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string alias, std::string value, bool is_template = false) {
 				if (has_object(alias))
 					return;
 				add(proxy, path, alias, value, is_template);
 			}
 
-			std::list<std::wstring> get_object_key_list() const {
-				std::list<std::wstring> ret;
+			std::list<std::string> get_object_key_list() const {
+				std::list<std::string> ret;
 				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
 					ret.push_back(t.first);
 				}
@@ -68,7 +68,7 @@ namespace nscapi {
 				return !object_list.empty();
 			}
 
-			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring path, std::wstring alias, std::wstring value, bool is_template = false) {
+			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string alias, std::string value, bool is_template = false) {
 				optional_object previous = find_object(alias);
 				if (previous) {
 					t_object_type p = *previous;
@@ -77,11 +77,11 @@ namespace nscapi {
 				t_object_type object;
 				object.alias = alias;
 				object.value = value;
-				object.path = path + _T("/") + alias;
-				object.parent = _T("default");
+				object.path = path + "/" + alias;
+				object.parent = "default";
 				object.is_template = false;
 
-				std::list<std::wstring> keys = proxy->get_keys(object.path);
+				std::list<std::string> keys = proxy->get_keys(object.path);
 				object_reader::read_object(proxy, object, keys.empty());
 
 
@@ -89,7 +89,7 @@ namespace nscapi {
 					t_object_type parent;
 					optional_object tmp = find_object(object.parent);
 					if (!tmp) {
-						parent = add(proxy, path, object.parent, _T(""), true);
+						parent = add(proxy, path, object.parent, "", true);
 					} else {
 						parent = *tmp;
 					}
@@ -109,18 +109,14 @@ namespace nscapi {
 				}
 				object_list.clear();
 				BOOST_FOREACH(const t_object_type &o, tmp) {
-					std::wstring::size_type pos = o.path.find_last_of(_T("/"));
-					if (pos == std::wstring::npos)
+					std::string::size_type pos = o.path.find_last_of("/");
+					if (pos == std::string::npos)
 						continue;
 					add(proxy, o.path.substr(0, pos-1), o.path.substr(pos), o.host);
 				}
 			}
 
 			optional_object find_object(const std::string alias) const {
-				return find_object(utf8::cvt<std::wstring>(alias));
-			}
-
-			optional_object find_object(const std::wstring alias) const {
 				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return optional_object(cit->second);
@@ -130,7 +126,7 @@ namespace nscapi {
 				return optional_object();
 			}
 
-			bool has_object(std::wstring alias) const {
+			bool has_object(std::string alias) const {
 				typename object_list_type::const_iterator cit = object_list.find(alias);
 				if (cit != object_list.end())
 					return true;
@@ -145,15 +141,15 @@ namespace nscapi {
 			}
 
 
-			std::wstring to_wstring() {
-				std::wstringstream ss;
-				ss << _T("Objects: ");
+			std::string to_string() {
+				std::stringstream ss;
+				ss << "Objects: ";
 				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {
-					ss << _T(", ") << t.first << _T(" = {") << t.second.to_wstring() + _T("} ");
+					ss << ", " << t.first << " = {" << t.second.to_string() + "} ";
 				}
-				ss << _T("Templates: ");
+				ss << "Templates: ";
 				BOOST_FOREACH(const typename object_list_type::value_type &t, template_list) {
-					ss << _T(", ") << t.first << _T(" = {") << t.second.to_wstring() + _T("} ");
+					ss << ", " << t.first << " = {" << t.second.to_string() + "} ";
 				}
 				return ss.str();
 			}

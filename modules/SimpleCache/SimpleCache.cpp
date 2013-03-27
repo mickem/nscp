@@ -112,37 +112,38 @@ struct payload_alias_or_command_functor {
 std::string simple_string_fun(std::string key) {
 	return key;
 }
-bool SimpleCache::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string primary_key;
-	std::wstring channel;
+	std::string channel;
 	sh::settings_registry settings(get_settings_proxy());
 		
-	settings.set_alias(alias, _T("cache"));
+	settings.set_alias(alias, "cache");
 		
 	settings.alias().add_path_to_settings()
-		(_T("CACHE"), _T("Section for simple cache module (SimpleCache.dll)."))
+		("CACHE", "Section for simple cache module (SimpleCache.dll).")
 
 		;
 
 	settings.alias().add_key_to_settings()
-		(_T("primary index"), sh::string_key(&primary_key, "${alias-or-command}"),
-		_T("PRIMARY CACHE INDEX"), _T("Set this to the value you want to use as unique key for the cache.\nCan be any arbitrary string as well as include any of the following special keywords:")
-		_T("${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number)."))
+		("primary index", sh::string_key(&primary_key, "${alias-or-command}"),
+		"PRIMARY CACHE INDEX", "Set this to the value you want to use as unique key for the cache.\nCan be any arbitrary string as well as include any of the following special keywords:"
+		"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).")
 
-		(_T("channel"), sh::wstring_key(&channel, _T("CACHE")),
-		_T("CHANNEL"), _T("The channel to listen to."))
+		("channel", sh::string_key(&channel, "CACHE"),
+		"CHANNEL", "The channel to listen to.")
 
 		;
 
 	settings.register_all();
 	settings.notify();
 
-	get_core()->registerSubmissionListener(get_id(), channel);
+	nscapi::core_helper::core_proxy core(get_core(), get_id());
+	core.register_channel(channel);
 
 	parsers::simple_expression parser;
 	parsers::simple_expression::result_type result;
 	if (!parser.parse(primary_key, result)) {
-		NSC_LOG_ERROR_STD(_T("Failed to parse primary key: ") + utf8::cvt<std::wstring>(primary_key))
+		NSC_LOG_ERROR_STD("Failed to parse primary key: " + primary_key)
 	}
 	BOOST_FOREACH(parsers::simple_expression::entry &e, result) {
 		if (!e.is_variable) {
@@ -164,7 +165,7 @@ bool SimpleCache::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 			index_lookup_.push_back(payload_alias_or_command_functor());
 			command_lookup_.push_back(payload_alias_or_command_functor());
 		} else {
-			NSC_LOG_ERROR_STD(_T("Invalid index: ") + utf8::cvt<std::wstring>(e.name));
+			NSC_LOG_ERROR_STD("Invalid index: " + e.name);
 		}
 	}
 	return true;
@@ -176,7 +177,7 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 		key += f(channel, request_message.header(), request);
 	}
 	std::string data = request.SerializeAsString();
-	NSC_DEBUG_MSG(_T("Adding to index: ") + utf8::cvt<std::wstring>(key));
+	NSC_DEBUG_MSG("Adding to index: " + key);
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
@@ -214,7 +215,7 @@ void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &reques
 	}
 	if (key.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "No key specified", *response);
-	NSC_DEBUG_MSG(_T("Searching for index: ") + utf8::cvt<std::wstring>(key));
+	NSC_DEBUG_MSG("Searching for index: " + key);
 	boost::optional<std::string> data;
 	{
 

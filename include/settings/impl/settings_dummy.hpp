@@ -17,7 +17,7 @@ namespace settings {
 	private:
 
 	public:
-		settings_dummy(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {}
+		settings_dummy(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
 		///
@@ -25,7 +25,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) {
+		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
 			return new settings_dummy(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -36,7 +36,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type key) {
+		virtual std::string get_real_string(settings_core::key_path_type key) {
 			throw KeyNotFoundException(key);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -82,11 +82,11 @@ namespace settings {
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 		}
 
-		virtual void set_real_path(std::wstring path) {
+		virtual void set_real_path(std::string path) {
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
 		}
-		virtual void remove_real_path(std::wstring path) {
+		virtual void remove_real_path(std::string path) {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -98,7 +98,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::wstring path, string_list &list) {
+		virtual void get_real_sections(std::string path, string_list &list) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
@@ -109,7 +109,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::wstring path, string_list &list) {
+		virtual void get_real_keys(std::string path, string_list &list) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
@@ -118,8 +118,8 @@ namespace settings {
 		virtual void save() {
 			SettingsInterfaceImpl::save();
 		}
-		virtual std::wstring get_info() {
-			return _T("dummy settings");
+		virtual std::string get_info() {
+			return "dummy settings";
 		}
 		settings::error_list validate() {
 			settings::error_list ret;
@@ -128,7 +128,7 @@ namespace settings {
 
 		public:
 			virtual void real_clear_cache() {}
-			static bool context_exists(settings::settings_core *core, std::wstring key) {
+			static bool context_exists(settings::settings_core *core, std::string key) {
 				return true;
 			}
 	};

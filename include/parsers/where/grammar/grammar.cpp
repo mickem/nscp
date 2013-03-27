@@ -61,7 +61,7 @@ namespace parsers {
 			struct result { typedef expression_ast type; };
 
 			//template <typename A>
-			expression_ast operator()(std::wstring const & v) const {
+			expression_ast operator()(std::string const & v) const {
 				return expression_ast(variable(v));
 			}
 		};
@@ -69,7 +69,7 @@ namespace parsers {
 		struct build_function {
 			template <typename A, typename B>
 			struct result { typedef expression_ast type; };
-			expression_ast operator()(std::wstring const name, expression_ast const & var) const {
+			expression_ast operator()(std::string const name, expression_ast const & var) const {
 				return expression_ast(unary_fun(name, var));
 			}
 		};
@@ -79,8 +79,8 @@ namespace parsers {
 			struct result { typedef expression_ast type; };
 			expression_ast operator()(wchar_t const unit, expression_ast const & vars) const {
 				list_value args = list_value(vars);
-				args += expression_ast(string_value(std::wstring(1, unit)));
-				return expression_ast(unary_fun(_T("convert"), args));
+				args += expression_ast(string_value(std::string(1, unit)));
+				return expression_ast(unary_fun("convert", args));
 			}
 		};
 
@@ -145,10 +145,10 @@ namespace parsers {
 						(uint_ >> ascii::alpha)							[_val = build_ic(_2, build_ii(_1))]
 						]
 					| '-' >> qi::lexeme[
-						(uint_ >> ascii::alpha)							[_val = build_if(std::wstring(_T("neg")), build_ic(_2, build_ii(_1)))]
+						(uint_ >> ascii::alpha)							[_val = build_if(std::string("neg"), build_ic(_2, build_ii(_1)))]
 						]
 					| number											[_val = build_ii(_1)]
-					| '-' >> number										[_val = build_if(std::wstring(_T("neg")), build_ii(_1))]
+					| '-' >> number										[_val = build_if(std::string("neg"), build_ii(_1))]
 					;
 
 			list_expr

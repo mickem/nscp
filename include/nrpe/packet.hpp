@@ -46,7 +46,7 @@ namespace nrpe {
 			int16_t   packet_type;
 			u_int32_t crc32_value;
 			int16_t   result_code;
-			char      *buffer;
+//			char      *buffer;
 		} packet;
 
 	};
@@ -164,6 +164,18 @@ namespace nrpe {
 			return packet(nrpe::data::queryPacket, nrpe::data::version2, -1, payload, buffer_length);
 		}
 
+		static void update_payload(nrpe::data::packet *p, const std::string &payload) {
+			char *d1 = reinterpret_cast<char*>(p);
+			int sz = sizeof(nrpe::data::packet);
+			char *data = reinterpret_cast<char*>(p)+sizeof(nrpe::data::packet);
+			strncpy(data, payload.c_str(), payload.length());
+			data[payload.length()] = 0;
+		}
+		static std::string fetch_payload(const nrpe::data::packet *p) {
+			const char *data = reinterpret_cast<const char*>(p)+sizeof(nrpe::data::packet);
+			return std::string(data);
+		}
+
 		const char* create_buffer() {
 			delete [] tmpBuffer;
 			unsigned int packet_length = nrpe::length::get_packet_length(payload_length_);
@@ -174,9 +186,8 @@ namespace nrpe {
 			p->packet_type = swap_bytes::hton<int16_t>(type_);
 			p->packet_version = swap_bytes::hton<int16_t>(version_);
 			if (payload_.length() >= payload_length_)
-				throw nrpe::nrpe_exception("To much data cant create return packet (truncate datat)");
-			strncpy(p->buffer, payload_.c_str(), payload_.length());
-			p->buffer[payload_.length()] = 0;
+				throw nrpe::nrpe_exception("To much data cant create return packet (truncate data)");
+			update_payload(p, payload_);
 			p->crc32_value = 0;
 			crc32_ = p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
 			return tmpBuffer;
@@ -214,7 +225,7 @@ namespace nrpe {
 				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + strEx::s::xtos(crc32_) + "!=" + strEx::s::xtos(calculatedCRC32_));
 			// Verify CRC32 end
 			result_ = swap_bytes::ntoh<int16_t>(p->result_code);
-			payload_ = std::string(p->buffer);
+			payload_ = fetch_payload(p);
 		}
 
 		unsigned short getVersion() const { return version_; }

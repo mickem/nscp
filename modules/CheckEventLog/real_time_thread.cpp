@@ -15,43 +15,43 @@
 #include <parsers/where/variable.hpp>
 
 void real_time_thread::process_no_events(const filters::filter_config_object &object) {
-	std::wstring response;
-	std::wstring command = object.alias;
+	std::string response;
+	std::string command = object.alias;
 	if (!object.command.empty())
 		command = object.command;
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.ok_msg, object.perf_msg, response)) {
-		NSC_LOG_ERROR(_T("Failed to submit evenhtlog result: ") + response);
+		NSC_LOG_ERROR("Failed to submit evenhtlog result: " + response);
 	}
 }
 
 void real_time_thread::process_record(const filters::filter_config_object &object, const EventLogRecord &record) {
-	std::wstring response;
+	std::string response;
 	int severity = object.severity;
-	std::wstring command = object.alias;
+	std::string command = object.alias;
 	if (severity == -1) {
-		NSC_LOG_ERROR(_T("Severity not defined for: ") + object.alias);
+		NSC_LOG_ERROR("Severity not defined for: " + object.alias);
 		severity = NSCAPI::returnUNKNOWN;
 	}
 	if (!object.command.empty())
 		command = object.command;
-	std::wstring message = record.render(true, object.syntax, object.date_format, object.dwLang);
+	std::string message = record.render(true, object.syntax, object.date_format, object.dwLang);
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.severity, message, object.perf_msg, response)) {
-		NSC_LOG_ERROR(_T("Failed to submit eventlog result ") + object.alias + _T(": ") + response);
+		NSC_LOG_ERROR("Failed to submit eventlog result " + object.alias + ": " + response);
 	}
 }
 
 void real_time_thread::debug_miss(const EventLogRecord &record) {
-	std::wstring message = record.render(true, _T("%id% %level% %source%: %message%"), DATE_FORMAT, LANG_NEUTRAL);
-	NSC_DEBUG_MSG_STD(_T("No filter matched: ") + message);
+	std::string message = record.render(true, "%id% %level% %source%: %message%", DATE_FORMAT_S, LANG_NEUTRAL);
+	NSC_DEBUG_MSG_STD("No filter matched: " + message);
 }
 
 void real_time_thread::thread_proc() {
 
 	std::list<filters::filter_config_object> filters;
-	std::list<std::wstring> logs;
-	std::list<std::wstring> filter_list;
+	std::list<std::string> logs;
+	std::list<std::string> filter_list;
 
-	BOOST_FOREACH(std::wstring s, strEx::splitEx(logs_, _T(","))) {
+	BOOST_FOREACH(const std::string &s, strEx::s::splitEx(logs_, std::string(","))) {
 		logs.push_back(s);
 	}
 
@@ -61,24 +61,24 @@ void real_time_thread::thread_proc() {
 		fargs->debug = object.debug;
 		fargs->alias = object.alias;
 		fargs->bShowDescriptions = true;
-		if (object.log_ != _T("any") && object.log_ != _T("all"))
+		if (object.log_ != "any" && object.log_ != "all")
 			logs.push_back(object.log_);
 		// eventlog_filter::filter_engine 
 		object.engine = eventlog_filter::factories::create_engine(fargs);
 
 		if (!object.engine) {
-			NSC_LOG_ERROR_STD(_T("Invalid filter: ") + object.filter);
+			NSC_LOG_ERROR_WA("Invalid filter: ", object.filter);
 			continue;
 		}
 
 		if (!object.engine->boot()) {
-			NSC_LOG_ERROR_STD(_T("Error booting filter: ") + object.filter);
+			NSC_LOG_ERROR_WA("Error booting filter: ", object.filter);
 			continue;
 		}
 
-		std::wstring message;
+		std::string message;
 		if (!object.engine->validate(message)) {
-			NSC_LOG_ERROR_STD(_T("Error validating filter: ") + message);
+			NSC_LOG_ERROR("Error validating filter: " + message);
 			continue;
 		}
 		filters.push_back(object);
@@ -86,17 +86,17 @@ void real_time_thread::thread_proc() {
 	}
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD(_T("Scanning logs: ") + strEx::joinEx(logs, _T(", ")));
-	NSC_DEBUG_MSG_STD(_T("Scanning filters: ") + strEx::joinEx(filter_list, _T(", ")));
+	NSC_DEBUG_MSG_STD("Scanning logs: ", format::join(logs, ", "));
+	NSC_DEBUG_MSG_STD("Scanning filters: ", format::join(filter_list, ", "));
 
 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
 	typedef std::vector<eventlog_type> eventlog_list;
 	eventlog_list evlog_list;
 
-	BOOST_FOREACH(std::wstring l, logs) {
+	BOOST_FOREACH(const std::string &l, logs) {
 		eventlog_type el = eventlog_type(new eventlog_wrapper(l));
 		if (!el->seek_end()) {
-			NSC_LOG_ERROR_STD(_T("Failed to find the end of eventlog: ") + l);
+			NSC_LOG_ERROR_WA("Failed to find the end of eventlog: ", l);
 		} else {
 			evlog_list.push_back(el);
 		}
@@ -121,7 +121,7 @@ void real_time_thread::thread_proc() {
 
 		DWORD minNext = INFINITE;
 		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-			NSC_DEBUG_MSG_STD(_T("Getting next from: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+			NSC_DEBUG_MSG_STD("Getting next from: " + utf8::cvt<std::string>(object.alias) + ": " + strEx::s::xtos(object.next_ok_));
 			if (object.next_ok_ > 0 && object.next_ok_ < minNext)
 				minNext = object.next_ok_;
 		}
@@ -129,13 +129,13 @@ void real_time_thread::thread_proc() {
 		_time64(&ltime);
 
 		if (ltime > minNext) {
-			NSC_LOG_ERROR(_T("Strange seems we expect to send ok now?"));
+			NSC_LOG_ERROR("Strange seems we expect to send ok now?");
 			continue;
 		}
 		DWORD dwWaitTime = (minNext - ltime)*1000;
 		if (minNext == INFINITE || dwWaitTime < 0)
 			dwWaitTime = INFINITE;
-		NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dwWaitTime) + _T("s"));
+		NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dwWaitTime) + "s");
 
 		DWORD dwWaitReason = WaitForMultipleObjects(evlog_list.size()+1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
@@ -161,8 +161,8 @@ void real_time_thread::thread_proc() {
 				bool matched = false;
 
 				BOOST_FOREACH(filters::filter_config_object &object, filters) {
-					if (object.log_ != _T("any") && object.log_ != _T("all") && object.log_ != el->get_name()) {
-						NSC_DEBUG_MSG_STD(_T("Skipping filter: ") + object.alias);
+					if (object.log_ != "any" && object.log_ != "all" && object.log_ != utf8::cvt<std::string>(el->get_name())) {
+						NSC_DEBUG_MSG_STD("Skipping filter: " + utf8::cvt<std::string>(object.alias));
 						continue;
 					}
 					if (object.engine->match(arg)) {
@@ -177,9 +177,9 @@ void real_time_thread::thread_proc() {
 				pevlr = el->read_record_with_buffer();
 			}
 		} else {
-			NSC_LOG_ERROR(_T("Error failed to wait for eventlog message: ") + error::lookup::last_error());
+			NSC_LOG_ERROR_WA("Error failed to wait for eventlog message: ", error::lookup::last_error());
 			if (errors++ > 10) {
-				NSC_LOG_ERROR(_T("To many errors giving up"));
+				NSC_LOG_ERROR("To many errors giving up");
 				delete [] handles;
 				return;
 			}
@@ -190,7 +190,7 @@ void real_time_thread::thread_proc() {
 				process_no_events(object);
 				object.touch(ltime);
 			} else {
-				NSC_DEBUG_MSG_STD(_T("missing: ") + object.alias + _T(": ") + strEx::itos(object.next_ok_));
+				NSC_DEBUG_MSG_STD("missing: " + utf8::cvt<std::string>(object.alias) + ": " + strEx::s::xtos(object.next_ok_));
 			}
 		}
 	}
@@ -215,12 +215,12 @@ bool real_time_thread::stop() {
 	return true;
 }
 
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::wstring key, std::wstring query) {
+void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, filters_path_, key, query, key == _T("default"));
+		filters_.add(proxy, filters_path_, key, query, key == "default");
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
 	}
 }

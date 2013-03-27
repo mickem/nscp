@@ -35,12 +35,12 @@ class TaskSched
 {
 public:
 	class Exception {
-		std::wstring message_;
+		std::string message_;
 	public:
 		Exception(std::wstring str, HRESULT code) {
-			message_ = str + _T(":") + error::format::from_system(code);
+			message_ = utf8::cvt<std::string>(str) + ":" + error::format::from_system(code);
 		}
-		std::wstring getMessage() {
+		std::string reason() {
 			return message_;
 		}
 	};

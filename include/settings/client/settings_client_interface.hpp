@@ -8,7 +8,7 @@ namespace nscapi {
 
 		class settings_impl_interface {
 		public:
-			typedef std::list<std::wstring> string_list;
+			typedef std::list<std::string> string_list;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Register a path with the settings module.
@@ -20,7 +20,7 @@ namespace nscapi {
 			/// @param advanced advanced options will only be included if they are changed
 			///
 			/// @author mickem
-			virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) = 0;
+			virtual void register_path(std::string path, std::string title, std::string description, bool advanced) = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Register a key with the settings module.
@@ -35,7 +35,7 @@ namespace nscapi {
 			/// @param advanced advanced options will only be included if they are changed
 			///
 			/// @author mickem
-			virtual void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced) = 0;
+			virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced) = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Get a string value if it does not exist the default value will be returned
@@ -46,7 +46,7 @@ namespace nscapi {
 			/// @return the string value
 			///
 			/// @author mickem
-			virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) = 0;
+			virtual std::string get_string(std::string path, std::string key, std::string def) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Set or update a string value
 			///
@@ -55,7 +55,7 @@ namespace nscapi {
 			/// @param value the value to set
 			///
 			/// @author mickem
-			virtual void set_string(std::wstring path, std::wstring key, std::wstring value) = 0;
+			virtual void set_string(std::string path, std::string key, std::string value) = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Get an integer value if it does not exist the default value will be returned
@@ -66,7 +66,7 @@ namespace nscapi {
 			/// @return the string value
 			///
 			/// @author mickem
-			virtual int get_int(std::wstring path, std::wstring key, int def) = 0;
+			virtual int get_int(std::string path, std::string key, int def) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Set or update an integer value
 			///
@@ -75,7 +75,7 @@ namespace nscapi {
 			/// @param value the value to set
 			///
 			/// @author mickem
-			virtual void set_int(std::wstring path, std::wstring key, int value) = 0;
+			virtual void set_int(std::string path, std::string key, int value) = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Get a boolean value if it does not exist the default value will be returned
@@ -86,7 +86,7 @@ namespace nscapi {
 			/// @return the string value
 			///
 			/// @author mickem
-			virtual bool get_bool(std::wstring path, std::wstring key, bool def) = 0;
+			virtual bool get_bool(std::string path, std::string key, bool def) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Set or update a boolean value
 			///
@@ -95,7 +95,7 @@ namespace nscapi {
 			/// @param value the value to set
 			///
 			/// @author mickem
-			virtual void set_bool(std::wstring path, std::wstring key, bool value) = 0;
+			virtual void set_bool(std::string path, std::string key, bool value) = 0;
 
 			// Meta Functions
 			//////////////////////////////////////////////////////////////////////////
@@ -106,7 +106,7 @@ namespace nscapi {
 			/// @return a list of sections
 			///
 			/// @author mickem
-			virtual string_list get_sections(std::wstring path) = 0;
+			virtual string_list get_sections(std::string path) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Get all keys for a path.
 			///
@@ -114,10 +114,10 @@ namespace nscapi {
 			/// @return a list of keys
 			///
 			/// @author mickem
-			virtual string_list get_keys(std::wstring path) = 0;
+			virtual string_list get_keys(std::string path) = 0;
 
 
-			virtual std::wstring expand_path(std::wstring key) = 0;
+			virtual std::string expand_path(std::string key) = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an ERROR message.
@@ -127,7 +127,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void err(const char* file, int line, std::wstring message) = 0;
+			virtual void err(const char* file, int line, std::string message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an WARNING message.
 			///
@@ -136,7 +136,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void warn(const char* file, int line, std::wstring message) = 0;
+			virtual void warn(const char* file, int line, std::string message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an INFO message.
 			///
@@ -145,7 +145,7 @@ namespace nscapi {
 			/// @param message the message to log
 			///
 			/// @author mickem
-			virtual void info(const char* file, int line, std::wstring message) = 0;
+			virtual void info(const char* file, int line, std::string message) = 0;
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an DEBUG message.
 			///

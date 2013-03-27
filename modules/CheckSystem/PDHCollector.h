@@ -27,10 +27,10 @@
 #include <boost/shared_ptr.hpp>
 
 
-#define PDH_SYSTEM_KEY_CPU _T("cpu")
-#define PDH_SYSTEM_KEY_MCB _T("memory commit bytes")
-#define PDH_SYSTEM_KEY_MCL _T("memory commit limit")
-#define PDH_SYSTEM_KEY_UPT _T("uptime")
+#define PDH_SYSTEM_KEY_CPU "cpu"
+#define PDH_SYSTEM_KEY_MCB "memory commit bytes"
+#define PDH_SYSTEM_KEY_MCL "memory commit limit"
+#define PDH_SYSTEM_KEY_UPT "uptime"
 
 
 /**
@@ -68,14 +68,14 @@ public:
 				rrd, value
 			};
 
-			counter(std::wstring alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy)
+			counter(std::string alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy)
 				: alias(alias)
 				, path(path)
 				, data_type(data_type)
 				, data_format(data_format)
 				, collection_strategy(collection_strategy)
 			{}
-			counter(std::wstring alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy, std::wstring buffer_size)
+			counter(std::string alias, std::wstring path, data_type_struct data_type, data_format_struct data_format, collection_strategy_struct collection_strategy, std::string buffer_size)
 				: alias(alias)
 				, path(path)
 				, data_type(data_type)
@@ -85,13 +85,13 @@ public:
 			{}
 			data_type_struct data_type;
 			data_format_struct data_format;
-			std::wstring alias;
+			std::string alias;
 			std::wstring path;
-			std::wstring buffer_size;
+			std::string buffer_size;
 			collection_strategy_struct collection_strategy;
 
 			boost::shared_ptr<PDHCollectors::PDHCollector> create(int check_intervall);
-			void set_default_buffer_size(std::wstring buffer_size_) {
+			void set_default_buffer_size(std::string buffer_size_) {
 				if (buffer_size.empty())
 					buffer_size = buffer_size_;
 			}
@@ -112,7 +112,7 @@ public:
 		};
 
 		unsigned int check_intervall;
-		std::wstring buffer_length;
+		std::string buffer_length;
 		std::wstring subsystem;
 
 		std::list<counter> counters;
@@ -123,7 +123,7 @@ private:
 	boost::shared_mutex mutex_;
 	HANDLE stop_event_;
 	typedef boost::shared_ptr<PDHCollectors::PDHCollector> collector_ptr;
-	typedef boost::unordered_map<std::wstring,collector_ptr > counter_map;
+	typedef boost::unordered_map<std::string,collector_ptr > counter_map;
 	counter_map counters_;
 	int check_intervall_;
 	boost::shared_ptr<boost::thread> thread_;
@@ -136,15 +136,15 @@ public:
 	void exitThread(void);
 
 	// Retrieve values
-	int getCPUAvrage(std::wstring time);
+	int getCPUAvrage(std::string time);
 	long long getUptime();
 	unsigned long long getMemCommitLimit();
 	unsigned long long getMemCommit();
 	bool loadCounter(PDH::PDHQuery &pdh);
 
-	__int64 get_int_value(std::wstring counter);
-	double get_avg_value(std::wstring counter, unsigned int delta);
-	double get_double(std::wstring counter);
+	__int64 get_int_value(std::string counter);
+	double get_avg_value(std::string counter, unsigned int delta);
+	double get_double(std::string counter);
 	void start(boost::shared_ptr<system_counter_data> data);
 	bool stop();
 };

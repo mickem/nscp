@@ -7,6 +7,7 @@
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+
 #include <error.hpp>
 
 #include <parsers/where.hpp>
@@ -45,13 +46,13 @@ namespace tasksched_filter {
 				return strEx::filetime_to_time(date_);
 			}
 		};
-		typedef boost::optional<std::wstring> op_wstring;
+		typedef boost::optional<std::string> op_string;
 		typedef boost::optional<unsigned long> op_dword;
 		typedef boost::optional<unsigned short> op_word;
 		typedef boost::optional<long> op_long;
 		typedef boost::optional<task_sched_date> op_date;
 
-#define DECLARE_GET_STRING(variable) op_wstring variable; std::wstring get_ ## variable();
+#define DECLARE_GET_STRING(variable) op_string variable; std::string get_ ## variable();
 #define DECLARE_GET_DWORD(variable) op_dword variable; unsigned long get_ ## variable();
 #define DECLARE_GET_WORD(variable) op_word variable; unsigned short get_ ## variable();
 #define DECLARE_GET_WORD(variable) op_word variable; unsigned short get_ ## variable();
@@ -79,19 +80,19 @@ namespace tasksched_filter {
 
 		ITask* task;
 		//unsigned long long now;
-		filter_obj(ITask* task, std::wstring title) : task(task), title(title) {
+		filter_obj(ITask* task, std::string title) : task(task), title(title) {
 // 			FILETIME now_;
 // 			GetSystemTimeAsFileTime(&now_);
 // 			now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
 		}
 		filter_obj() : task(NULL)/*, now(0)*/ {}
 
-		std::wstring get_title() { return title; }
+		std::string get_title() { return title; }
 
 		expression_ast_type fun_convert_status(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject);
 
-		static long convert_status(std::wstring key);
-		static std::wstring convert_status(long status);
+		static long convert_status(std::string key);
+		static std::string convert_status(long status);
 
 		static unsigned long long systemtime_to_ullFiletime(SYSTEMTIME time) {
 			FILETIME localFileTime, fileTime;
@@ -107,11 +108,11 @@ namespace tasksched_filter {
 			typedef typename boost::optional<TReturn> client_type;
 			typedef HRESULT (__stdcall ITask::*fun_ptr_type)(raw_type*);
 		};
-		struct string_fetch_traits : public fetch_traits<LPWSTR, std::wstring> {
-			static std::wstring get_default() { return _T(""); }
+		struct string_fetch_traits : public fetch_traits<LPWSTR, std::string> {
+			static std::string get_default() { return ""; }
 			static void cleanup(LPWSTR obj) {CoTaskMemFree(obj); }
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static std::wstring convert(HRESULT hr, LPWSTR value) { return value; }
+			static std::string convert(HRESULT hr, LPWSTR value) { return utf8::cvt<std::string>(value); }
 		};
 
 		template<typename TTarget, typename TReturn>
@@ -145,7 +146,7 @@ namespace tasksched_filter {
 				raw_type tmp;
 				HRESULT hr = (parent->task->*f)(&tmp);
 				if (traits::has_failed(hr)) {
-					throw filter_exception(_T("ERROR: ") + ::error::format::from_system(hr));
+					throw filter_exception("ERROR: " + ::error::format::from_system(hr));
 					data = traits::get_default();
 					return false;
 				} else {
@@ -172,8 +173,9 @@ namespace tasksched_filter {
 		fetcher<word_fetch_traits<WORD, unsigned short> > word_fetcher;
 		fetcher<date_fetch_traits > date_fetcher;
 
-		std::wstring title;
-		std::wstring render(std::wstring format, std::wstring dateformat);
+		std::string title;
+		std::string render(std::string format, std::string dateformat);
+
 
 	};
 
@@ -186,18 +188,18 @@ namespace tasksched_filter {
 		typedef boost::shared_ptr<object_type> object_instance_type;
 		typedef parsers::where::filter_handler_impl<object_type> base_handler;
 
-		typedef std::map<std::wstring,parsers::where::value_type> types_type;
+		typedef std::map<std::string,parsers::where::value_type> types_type;
 		typedef parsers::where::expression_ast expression_ast_type;
 
 
 		filter_obj_handler();
-		bool has_variable(std::wstring key);
-		parsers::where::value_type get_type(std::wstring key);
+		bool has_variable(std::string key);
+		parsers::where::value_type get_type(std::string key);
 		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-		base_handler::bound_string_type bind_simple_string(std::wstring key);
-		base_handler::bound_int_type bind_simple_int(std::wstring key);
-		bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
+		base_handler::bound_string_type bind_simple_string(std::string key);
+		base_handler::bound_int_type bind_simple_int(std::string key);
+		bool has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
+		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
 
 	private:
 		types_type types;
@@ -206,7 +208,7 @@ namespace tasksched_filter {
 
 	struct data_arguments : public where_filter::argument_interface {
 		typedef where_filter::argument_interface parent_type;
-		data_arguments(parent_type::error_type error, std::wstring syntax, std::wstring datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax) {}
+		data_arguments(parent_type::error_type error, std::string syntax, std::string datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax) {}
 
 	};
 
@@ -221,7 +223,7 @@ namespace tasksched_filter {
 	struct factories {
 		static filter_engine create_engine(filter_argument arg);
 		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::wstring syntax, std::wstring datesyntax);
+		static filter_argument create_argument(std::string syntax, std::string datesyntax);
 	};
 
 }

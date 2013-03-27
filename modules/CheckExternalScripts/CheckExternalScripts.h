@@ -29,39 +29,39 @@ private:
 	commands::command_handler commands_;
 	commands::command_handler aliases_;
 	unsigned int timeout;
-	std::wstring commands_path;
-	std::wstring aliases_path;
+	std::string commands_path;
+	std::string aliases_path;
 	std::wstring scriptDirectory_;
 	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
-	std::map<std::wstring,std::wstring> wrappings_;
+	std::map<std::string,std::string> wrappings_;
 
 public:
 	CheckExternalScripts();
 	virtual ~CheckExternalScripts();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
 
 private:
 	void addAllScriptsFrom(std::wstring path);
-	void add_command(std::wstring key, std::wstring arg);
-	void add_alias(std::wstring key, std::wstring command);
-	void add_wrapping(std::wstring key, std::wstring command) {
-		strEx::token tok = strEx::getToken(command, ' ', true);
-		std::wstring::size_type pos = tok.first.find_last_of(_T("."));
-		std::wstring type;
+	void add_command(std::string key, std::string arg);
+	void add_alias(std::string key, std::string command);
+	void add_wrapping(std::string key, std::string command) {
+		strEx::s::token tok = strEx::s::getToken(command, ' ');
+		std::string::size_type pos = tok.first.find_last_of(".");
+		std::string type;
 		if (pos != std::wstring::npos)
 			type = tok.first.substr(pos+1);
 
-		std::wstring tpl = wrappings_[type];
+		std::string tpl = wrappings_[type];
 		if (tpl.empty()) {
-			NSC_LOG_ERROR(_T("Failed to find wrapping for type: ") + type);
+			NSC_LOG_ERROR("Failed to find wrapping for type: " + type);
 		} else {
-			strEx::replace(tpl, _T("%SCRIPT%"), tok.first);
-			strEx::replace(tpl, _T("%ARGS%"), tok.second);
+			strEx::replace(tpl, "%SCRIPT%", tok.first);
+			strEx::replace(tpl, "%ARGS%", tok.second);
 			add_command(key,tpl);
 		}
 	}

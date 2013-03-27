@@ -44,12 +44,12 @@ public:
 
 	void log_debug(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 };

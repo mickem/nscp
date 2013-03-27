@@ -26,7 +26,7 @@
 
 class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
 private:
-	std::wstring schedule_path;
+	std::string schedule_path;
 	scheduler::simple_scheduler scheduler_;
 	schedules::schedule_handler schedules_;
 
@@ -37,10 +37,10 @@ public:
 	}
 	virtual ~Scheduler() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void add_schedule(std::wstring alias, std::wstring command);
+	void add_schedule(std::string alias, std::string command);
 	void handle_schedule(schedules::schedule_object item);
-	void on_error(std::wstring error);
+	void on_error(std::string error);
 };

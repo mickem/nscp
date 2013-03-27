@@ -19,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include <strEx.h>
-#include <utils.h>
 #include "nsca_packet.hpp"
 
 unsigned int nsca::length::payload_length_ = 512;

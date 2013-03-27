@@ -26,6 +26,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -43,37 +44,38 @@ GraphiteClient::GraphiteClient() {}
  */
 GraphiteClient::~GraphiteClient() {}
 
-bool GraphiteClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("graphite"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("graphite", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("GRAPHITE CLIENT SECTION"), _T("Section for graphite passive check module."))
+			("GRAPHITE CLIENT SECTION", "Section for graphite passive check module.")
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&GraphiteClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("handlers", sh::fun_values_path(boost::bind(&GraphiteClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&GraphiteClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&GraphiteClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("hostname"), sh::string_key(&hostname_, "auto"),
-			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
+			("hostname", sh::string_key(&hostname_, "auto"),
+			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
 
-			(_T("channel"), sh::wstring_key(&channel_, _T("GRAPHITE")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "GRAPHITE"),
+			"CHANNEL", "The channel to listen to.")
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-		get_core()->registerSubmissionListener(get_id(), channel_);
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -94,7 +96,7 @@ bool GraphiteClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 					iter++;
 				}
 			} catch (const std::exception& e) {
-				NSC_LOG_ERROR_STD(_T("Failed to resolve: ") + utf8::to_unicode(e.what()));
+				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
 
@@ -104,13 +106,13 @@ bool GraphiteClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mod
 
 
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("NSClient API exception: ");
 		return false;
 	}
 	return true;
@@ -128,25 +130,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void GraphiteClient::add_target(std::wstring key, std::wstring arg) {
+void GraphiteClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add: " + key);
 	}
 }
 
-void GraphiteClient::add_command(std::wstring name, std::wstring args) {
+void GraphiteClient::add_command(std::string name, std::string args) {
 	try {
-		std::wstring key = commands.add_command(name, args);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("Graphite relay for: ") + name);
+			core.register_command(key.c_str(), "Graphite relay for: " + name);
 	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add: " + name);
 	}
 }
 
@@ -198,9 +201,9 @@ void GraphiteClient::setup(client::configuration &config, const ::Plugin::Common
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -228,7 +231,7 @@ GraphiteClient::connection_data GraphiteClient::parse_header(const ::Plugin::Com
 //
 
 int GraphiteClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("GRAPHITE does not support query patterns"));
+	NSC_LOG_ERROR_STD("GRAPHITE does not support query patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;
 }
@@ -258,14 +261,14 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 				if (perf.float_value().has_value())
 					value = perf.float_value().value();
 				else
-					NSC_LOG_ERROR(_T("Unsopported performance data (no value)"));
+					NSC_LOG_ERROR("Unsopported performance data (no value)");
 			} else if (perf.has_int_value()) {
 				if (perf.int_value().has_value())
 					value = perf.int_value().value();
 				else
-					NSC_LOG_ERROR(_T("Unsopported performance data (no value)"));
+					NSC_LOG_ERROR("Unsopported performance data (no value)");
 			} else {
-				NSC_LOG_ERROR(_T("Unsopported performance data type: ") + utf8::cvt<std::wstring>(perf.alias()));
+				NSC_LOG_ERROR("Unsopported performance data type: " + perf.alias());
 				continue;
 			}
 			strEx::replace(d.path, " ", "_");
@@ -280,7 +283,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 }
 
 int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("GRAPHITE does not support exec patterns"));
+	NSC_LOG_ERROR_STD("GRAPHITE does not support exec patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;
 }
@@ -291,8 +294,6 @@ int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data
 
 boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const std::list<g_data> payload) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + data.to_wstring());
-		
 		boost::asio::io_service io_service;
 		boost::asio::ip::tcp::resolver resolver(io_service);
 		boost::asio::ip::tcp::resolver::query query(data.host, data.port);
@@ -315,19 +316,18 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 
 		BOOST_FOREACH(const g_data &d, payload) {
 			std::string msg = d.path + " " +d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
-			NSC_DEBUG_MSG_STD(_T("Sending: ") + utf8::cvt<std::wstring>(msg));
 			socket.send(boost::asio::buffer(msg));
 		}
 		//socket.shutdown();
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
 	} catch (const std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Socket error", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("sending data", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Unknown exception when sending NSCA data: "));
+		NSC_LOG_ERROR_EX("sending data");
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }

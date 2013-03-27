@@ -181,19 +181,19 @@ namespace format {
 		ss << chars;
 		return ss.str();
 	}
-	inline std::wstring format_date(boost::posix_time::ptime date, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		std::locale locale_local ("");
+	inline std::string format_date(boost::posix_time::ptime date, std::string format = "%Y-%m-%d %H:%M:%S") {
+		std::locale locale_local("");
 
-		boost::gregorian::wdate_facet *date_output = new boost::gregorian::wdate_facet();
-		std::locale locale_adjusted (locale_local, date_output);
+		boost::gregorian::date_facet *date_output = new boost::gregorian::date_facet();
+		std::locale locale_adjusted(locale_local, date_output);
 
-		std::wstringstream date_ss;
+		std::stringstream date_ss;
 		date_ss.imbue(locale_adjusted);
 
 		date_output->format(format.c_str());
 		date_ss << date;
 
-		std::wstring ss = date_ss.str();
+		std::string ss = date_ss.str();
 		return ss;
 	}
 #ifdef WIN32
@@ -218,9 +218,23 @@ namespace format {
 		return buf;
 	}
 #endif
-	inline std::wstring format_date(std::time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+	inline std::string format_date(std::time_t time, std::string format = "%Y-%m-%d %H:%M:%S") {
 		return format_date(boost::posix_time::from_time_t(time), format);
 	}
+
+
+
+	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
+	static const long long SECS_TO_100NS = 10000000;
+	inline unsigned long long filetime_to_time(unsigned long long filetime) {
+		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
+	}
+	inline std::string format_filetime(unsigned long long filetime, std::string format = "%Y-%m-%d %H:%M:%S") {
+		if (filetime == 0)
+			return "ZERO";
+		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
+	}
+
 
 	template<class T>
 	inline std::wstring format_non_sci(T i) {
@@ -295,11 +309,11 @@ namespace format {
 		return ss.str();
 	}
 
-	inline long long decode_byte_units(const std::wstring &s) {
-		std::wstring::size_type p = s.find_first_not_of(_T("0123456789"));
-		if (p == std::wstring::npos || p == 0)
+	inline long long decode_byte_units(const std::string &s) {
+		std::string::size_type p = s.find_first_not_of("0123456789");
+		if (p == std::string::npos || p == 0)
 			return boost::lexical_cast<long long>(s);
-		std::wstring numbers = s.substr(0, p);
+		std::string numbers = s.substr(0, p);
 		if (s[p] == 'B') 
 			return boost::lexical_cast<long long>(numbers);
 		else if (s[p] == 'K') 
@@ -313,30 +327,30 @@ namespace format {
 		else
 			return boost::lexical_cast<long long>(numbers);
 	}
-#define BKMG_RANGE _T("BKMGTP")
+#define BKMG_RANGE "BKMGTP"
 #define BKMG_SIZE 5
 
 	template<class T>
-	inline std::wstring format_byte_units(T i) {
+	inline std::string format_byte_units(T i) {
 		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
+		char postfix[] = BKMG_RANGE;
 		int idx = 0;
 		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
 			cpy/=1024;
 			idx++;
 		}
-		std::wstringstream ss;
+		std::stringstream ss;
 		ss << std::setprecision(3);
 		ss << cpy;
-		std::wstring ret = ss.str(); // itos(cpy);
+		std::string ret = ss.str();
 		ret += postfix[idx];
 		return ret;
 	}
 	template<class T>
-	inline std::wstring format_byte_units(T i, std::wstring unit) {
-		std::wstringstream ss;
+	inline std::string format_byte_units(T i, std::string unit) {
+		std::stringstream ss;
 		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
+		char postfix[] = BKMG_RANGE;
 		if (unit.length() != 1) {
 			ss << cpy;
 			return ss.str();
@@ -344,8 +358,8 @@ namespace format {
 		for (int i=0;i<BKMG_SIZE;i++) {
 			if (unit[0] == postfix[i]) {
 				ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
-				std::wstring s = ss.str();
-				std::wstring::size_type pos = s.find_last_not_of(_T("0"));
+				std::string s = ss.str();
+				std::string::size_type pos = s.find_last_not_of("0");
 				if (pos != std::string::npos) {
 					s = s.substr(0,pos);
 				}
@@ -356,15 +370,15 @@ namespace format {
 		ss << cpy;
 		return ss.str();
 	}
-	inline std::wstring find_proper_unit_BKMG(unsigned long long i) {
+	inline std::string find_proper_unit_BKMG(unsigned long long i) {
 		double cpy = static_cast<double>(i);
-		wchar_t postfix[] = BKMG_RANGE;
+		char postfix[] = BKMG_RANGE;
 		int idx = 0;
 		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
 			cpy/=1024;
 			idx++;
 		}
-		return std::wstring(1, postfix[idx]);
+		return std::string(1, postfix[idx]);
 	}
 
 	typedef std::list<std::wstring> splitList;
@@ -392,12 +406,22 @@ namespace format {
 			ret.push_back(str.substr(lpos));
 		return ret;
 	}
-	inline std::wstring joinEx(splitList lst, std::wstring key) {
-		std::wstring ret;
-		for (splitList::const_iterator it = lst.begin(); it != lst.end(); ++it) {
+
+	inline std::string join(std::list<std::string> lst, std::string key) {
+		std::string ret;
+		BOOST_FOREACH(const std::string &s, lst) {
 			if (!ret.empty())
 				ret += key;
-			ret += *it;
+			ret += s;
+		}
+		return ret;
+	}
+	inline std::wstring join(std::list<std::wstring> lst, std::wstring key) {
+		std::wstring ret;
+		BOOST_FOREACH(const std::wstring &s, lst) {
+			if (!ret.empty())
+				ret += key;
+			ret += s;
 		}
 		return ret;
 	}

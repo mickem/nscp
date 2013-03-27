@@ -6,14 +6,14 @@
 namespace com_helper {
 
 	class com_exception {
-		std::wstring error_;
+		std::string error_;
 		HRESULT result_;
 	public:
-		com_exception(std::wstring error) : error_(error) {}
-		com_exception(std::wstring error, HRESULT result) : error_(error), result_(result) {
+		com_exception(std::string error) : error_(error) {}
+		com_exception(std::string error, HRESULT result) : error_(error), result_(result) {
 			error_ += error::format::from_system(result);
 		}
-		std::wstring getMessage() {
+		std::string reason() {
 			return error_;
 		}
 
@@ -30,12 +30,12 @@ namespace com_helper {
 		void initialize() {
 			HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
 			if (FAILED(hRes))
-				throw com_exception(_T("CoInitialize failed: "), hRes);
+				throw com_exception("CoInitialize failed: ", hRes);
 			isInitialized_ = true;
 			//hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
 			hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_DEFAULT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
 			if (FAILED(hRes)) 
-				throw com_exception(_T("CoInitializeSecurity failed: "), hRes);
+				throw com_exception("CoInitializeSecurity failed: ", hRes);
 		}
 		void unInitialize() {
 			if (!isInitialized_)

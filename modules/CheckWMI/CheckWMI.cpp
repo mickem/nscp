@@ -30,8 +30,6 @@
 #include <strEx.h>
 #include <time.h>
 
-//#include <arrayBuffer.h>
-
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
@@ -40,8 +38,8 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::wstring key, std::wstring val) {
-	std::wstring alias = key;
+void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::string key, std::string val) {
+	std::string alias = key;
 	target_info target;
 	try {
 		sh::settings_registry settings(core);
@@ -51,46 +49,43 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 			target.hostname = alias;
 
 		settings.add_path_to_settings()
-			(target.hostname, _T("TARGET LIST SECTION"), _T("A list of avalible remote target systems"))
+			(target.hostname, "TARGET LIST SECTION", "A list of available remote target systems")
 
 			;
 
-		settings.add_key_to_settings(_T("targets/") + target.hostname)
-			(_T("hostname"), sh::wstring_key(&target.hostname),
-			_T("TARGET HOSTNAME"), _T("Hostname or ip address of target"))
+		settings.add_key_to_settings("targets/" + target.hostname)
+			("hostname", sh::string_key(&target.hostname),
+			"TARGET HOSTNAME", "Hostname or ip address of target")
 
-			(_T("username"), sh::wstring_key(&target.username),
-			_T("TARGET USERNAME"), _T("Username used to authenticate with"))
+			("username", sh::string_key(&target.username),
+			"TARGET USERNAME", "Username used to authenticate with")
 
-			(_T("password"), sh::wstring_key(&target.password),
-			_T("TARGET PASSWORD"), _T("Password used to authenticate with"))
+			("password", sh::string_key(&target.password),
+			"TARGET PASSWORD", "Password used to authenticate with")
 
-			(_T("protocol"), sh::wstring_key(&target.protocol),
-			_T("TARGET PROTOCOL"), _T("Protocol identifier used to route requests"))
+			("protocol", sh::string_key(&target.protocol),
+			"TARGET PROTOCOL", "Protocol identifier used to route requests")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("loading: ", e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		NSC_LOG_ERROR_EX("loading: ");
 	}
 	targets[alias] = target;
-	NSC_LOG_ERROR_STD(_T("Found: ") + alias + _T(" ==> ") + target.to_wstring());
 }
 
-bool CheckWMI::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	//settings.set_alias(_T("targets"));
 
 	settings.add_path_to_settings()
-		(_T("targets"), sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
-		_T("TARGET LIST SECTION"), _T("A list of avalible remote target systems"))
+		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
+		"TARGET LIST SECTION", "A list of avalible remote target systems")
 		;
 
 	settings.register_all();
@@ -101,11 +96,11 @@ bool CheckWMI::unloadModule() {
 	return true;
 }
 
-std::wstring build_namespace(std::wstring ns, std::wstring computer) {
+std::wstring build_namespace(std::wstring ns, std::string computer) {
 	if (ns.empty())
 		ns = _T("root\\cimv2");
 	if (!computer.empty())
-		ns = _T("\\\\") + computer + _T("\\") + ns;
+		ns = _T("\\\\") + utf8::cvt<std::wstring>(computer) + _T("\\") + ns;
 	return ns;
 }
 #define MAP_CHAINED_FILTER(value, obj) \
@@ -131,8 +126,8 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	std::wstring query, alias;
 	std::wstring ns = _T("root\\cimv2");
 	bool bPerfData = true;
-	std::wstring colSyntax;
-	std::wstring colSep;
+	std::string colSyntax;
+	std::string colSep;
 	target_helper::target_info target_info;
 	boost::optional<target_helper::target_info> t;
 	/*
@@ -140,19 +135,19 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	if (t)
 		target_info = *t;
 		*/
-	std::wstring given_target;
+	std::string given_target;
 	WMIContainer result_query;
 
 
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	desc.add_options()
 		("truncate", po::value<unsigned int>(&truncate), "Truncate the resulting message (mainly useful in older version of nsclient++)")
-		("alias", po::wvalue<std::wstring>(&result_query.alias),			"Alias: TODO.")
-		("columnSyntax", po::wvalue<std::wstring>(&colSyntax), "Syntax for columns.")
-		("columnSeparator", po::wvalue<std::wstring>(&colSep), "TODO: What is this.")
-		("target", po::wvalue<std::wstring>(&given_target), "The target to check (for checking remote machines).")
-		("user", po::wvalue<std::wstring>(&target_info.username), "Remote username when checking remote machines.")
-		("password", po::wvalue<std::wstring>(&target_info.password), "Remote password when checking remote machines.")
+		("alias", po::value<std::string>(&result_query.alias),			"Alias: TODO.")
+		("columnSyntax", po::value<std::string>(&colSyntax), "Syntax for columns.")
+		("columnSeparator", po::value<std::string>(&colSep), "TODO: What is this.")
+		("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
+		("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")
+		("password", po::value<std::string>(&target_info.password), "Remote password when checking remote machines.")
 		("namespace", po::wvalue<std::wstring>(&ns), "The WMI root namespace to bind to.")
 		("query", po::wvalue<std::wstring>(&query), "The WMI query to execute.")
 		;
@@ -196,17 +191,16 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	try {
 		WMIQuery wmiQuery;
 		ns = build_namespace(ns, target_info.hostname);
-		NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns + _T(" with ") + target_info.to_wstring());
-		rows = wmiQuery.execute(ns, query, target_info.username, target_info.password);
+		rows = wmiQuery.execute(ns, query, utf8::cvt<std::wstring>(target_info.username), utf8::cvt<std::wstring>(target_info.password));
 	} catch (WMIException e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(_T("WMIQuery failed: ") + e.getMessage()));
+		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
 	int hit_count = 0;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	std::wstring message;
+	std::string message;
 	if (chain.empty()) {
-		NSC_DEBUG_MSG_STD(_T("No filters specified so we will match all rows"));
+		NSC_DEBUG_MSG_STD("No filters specified so we will match all rows");
 		hit_count = rows.size();
 		for (WMIQuery::result_type::iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 			WMIQuery::wmi_row vals = *citRow;
@@ -227,17 +221,16 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	if (!bPerfData)
 		result_query.perfData = false;
 	if (result_query.alias.empty())
-		result_query.alias = _T("wmi query");
+		result_query.alias = "wmi query";
 
-	NSC_DEBUG_MSG_STD(_T("Message is: ") + message);
-	std::wstring perf;
+	std::string perf;
 	result_query.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
+		message = message.substr(0, truncate-4) + "...";
 	if (message.empty())
-		message = _T("OK: WMI Query returned no results.");
+		message = "OK: WMI Query returned no results.";
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
-	response->set_message(utf8::cvt<std::string>(message));
+	response->set_message(message);
 }
 
 void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -260,7 +253,7 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 	if (t)
 		target_info = *t;
 	*/
-	std::wstring given_target;
+	std::string given_target;
 
 
 	po::options_description desc = nscapi::program_options::create_desc(request);
@@ -269,9 +262,9 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 //		("alias", po::wvalue<std::wstring>(&result_query.alias),			"Alias: TODO.")
 //		("columnSyntax", po::wvalue<std::wstring>(&colSyntax), "Syntax for columns.")
 //		("columnSeparator", po::wvalue<std::wstring>(&colSep), "TODO: What is this.")
-		("target", po::wvalue<std::wstring>(&given_target), "The target to check (for checking remote machines).")
-		("user", po::wvalue<std::wstring>(&target_info.username), "Remote username when checking remote machines.")
-		("password", po::wvalue<std::wstring>(&target_info.password), "Remote password when checking remote machines.")
+		("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
+		("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")
+		("password", po::value<std::string>(&target_info.password), "Remote password when checking remote machines.")
 		("namespace", po::wvalue<std::wstring>(&ns), "The WMI root namespace to bind to.")
 		("query", po::wvalue<std::wstring>(&query), "The WMI query to execute.")
 		;
@@ -314,21 +307,20 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 	WMIQuery::result_type rows;
 	try {
 		ns = build_namespace(ns, target_info.hostname);
-		NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns + _T(" with ") + target_info.to_wstring());
 		WMIQuery wmiQuery;
-		rows = wmiQuery.execute(ns, query, target_info.username, target_info.password);
+		rows = wmiQuery.execute(ns, query, utf8::cvt<std::wstring>(target_info.username), utf8::cvt<std::wstring>(target_info.password));
 	} catch (WMIException e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(_T("WMIQuery failed: ") + e.getMessage()));
+		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
 	int hit_count = 0;
 
-	std::wstring message, perf;
+	std::string message, perf;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	for (std::list<WMIContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 		WMIContainer itm = (*it);
 		itm.setDefault(tmpObject);
 		itm.perfData = bPerfData;
-		if (itm.data == _T("*")) {
+		if (itm.data == "*") {
 			for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 				for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
 					long long value = (*citCol).second.numeric;
@@ -339,19 +331,19 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 	}
 	for (WMIQuery::result_type::const_iterator citRow = rows.begin(); citRow != rows.end(); ++citRow) {
 		bool found = false;
-		std::wstring alias;
+		std::string alias;
 		if (!aliasCol.empty()) {
-			alias = (*citRow).get(aliasCol).string;
+			alias = utf8::cvt<std::string>((*citRow).get(aliasCol).string);
 		}
 		for (WMIQuery::wmi_row::list_type::const_iterator citCol = (*citRow).results.begin(); citCol != (*citRow).results.end(); ++citCol) {
 			for (std::list<WMIContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 				WMIContainer itm = (*it);
-				if (itm.data == _T("*")) {
+				if (itm.data == "*") {
 					found = true;
-				} else if ((*citCol).first == itm.data) {
-					std::wstring oldAlias = itm.alias;
+				} else if (utf8::cvt<std::string>((*citCol).first) == itm.data) {
+					std::string oldAlias = itm.alias;
 					if (!alias.empty())
-						itm.alias = alias + _T(" ") + itm.getAlias();
+						itm.alias = alias + " " + itm.getAlias();
 					found = true;
 					long long value = (*citCol).second.numeric;
 					itm.runCheck(value, returnCode, message, perf);
@@ -360,16 +352,16 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 			}
 		}
 		if (!found) {
-			NSC_LOG_ERROR_STD(_T("At least one of the queried columns was not found!"));
+			NSC_LOG_ERROR_STD("At least one of the queried columns was not found!");
 		}
 	}
 
 	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
+		message = message.substr(0, truncate-4) + "...";
 	if (message.empty())
-		message = _T("OK: Everything seems fine.");
+		message = "OK: Everything seems fine.";
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
-	response->set_message(utf8::cvt<std::string>(message));
+	response->set_message(message);
 }
 
 struct pad_handler {
@@ -408,7 +400,7 @@ struct pad_handler {
 void print_pretty_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
 {
 	pad_handler padder;
-	NSC_DEBUG_MSG_STD(_T("Query returned: ") + strEx::itos(rows.size()) + _T(" rows."));
+	//NSC_DEBUG_MSG_STD("Query returned: " + strEx::s:::xtos(rows.size()) + " rows.");
 	int rownum=0;
 	BOOST_FOREACH(const WMIQuery::wmi_row &row, rows) {
 		if (rownum++ == 0) {
@@ -485,9 +477,9 @@ void list_ns_rec(std::wstring ns, std::wstring user, std::wstring password, std:
 			result += ns + _T("\\") + name + _T("\n");
 			list_ns_rec(ns + _T("\\") + name, user, password, result);
 		}
-	} catch (WMIException e) {
-		NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-		result += _T("ERROR: ") + e.getMessage();
+	} catch (const WMIException &e) {
+		NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+		result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 	}
 }
 
@@ -498,7 +490,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 
 			namespace po = boost::program_options;
 
-			std::wstring query, ns, computer, user, password, list_cls, list_inst;
+			std::wstring query, ns, user, password, list_cls, list_inst;
+			std::string computer;
 			bool simple;
 			int limit = -1;
 			po::options_description desc("Allowed options");
@@ -512,7 +505,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				("list-all-ns", "list all name spaces recursively")
 				("limit,l", po::value<int>(&limit), "Limit number of rows")
 				("namespace,n", po::wvalue<std::wstring>(&ns)->default_value(_T("root\\cimv2")), "Namespace")
-				("computer,c", po::wvalue<std::wstring>(&computer), "A remote computer to connect to ")
+				("computer,c", po::value<std::string>(&computer), "A remote computer to connect to ")
 				("user,u", po::wvalue<std::wstring>(&user), "The user for the remote computer")
 				("password,p", po::wvalue<std::wstring>(&password), "The password for the remote computer")
 				;
@@ -547,11 +540,11 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 			if (vm.count("select")) {
 				try {
 					WMIQuery wmiQuery;
-					NSC_DEBUG_MSG_STD(_T("Running query: '") + query + _T("' on: ") + ns);
+					NSC_DEBUG_MSG_STD("Running query: '" + utf8::cvt<std::string>(query) + "' on: " + utf8::cvt<std::string>(ns));
 					rows = wmiQuery.execute(ns, query, user, password);
 				} catch (WMIException e) {
-					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-					result += _T("ERROR: ") + e.getMessage();
+					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 					return NSCAPI::hasFailed;
 				}
 				if (rows.empty()) {
@@ -566,8 +559,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					rows = wmiQuery.get_classes(ns, list_cls, user, password);
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
-					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-					result += _T("ERROR: ") + e.getMessage();
+					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-instances")) {
@@ -576,8 +569,8 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					rows = wmiQuery.get_instances(ns, list_inst, user, password);
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
-					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-					result += _T("ERROR: ") + e.getMessage();
+					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-ns")) {
@@ -586,24 +579,24 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					rows = wmiQuery.get_instances(ns, _T("__Namespace"), user, password);
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
-					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-					result += _T("ERROR: ") + e.getMessage();
+					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-all-ns")) {
 				try {
 					list_ns_rec(ns, user, password, result);
 				} catch (WMIException e) {
-					NSC_LOG_ERROR_STD(_T("WMIQuery failed: ") + e.getMessage());
-					result += _T("ERROR: ") + e.getMessage();
+					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
+					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
 					return NSCAPI::hasFailed;
 				}
 			}
 		}
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		result += _T("ERROR: Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what());
-		NSC_LOG_ERROR_STD(_T("Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what()));
+		result += _T("ERROR: Failed to parse command line: ") + utf8::to_unicode(e.what());
+		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::returnIgnored;

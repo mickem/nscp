@@ -27,7 +27,6 @@
 #include <swap_bytes.hpp>
 #include <unicode_char.hpp>
 #include <strEx.h>
-#include <utils.h>
 
 #include <protobuf/ipc.pb.h>
 #include <protobuf/plugin.pb.h>

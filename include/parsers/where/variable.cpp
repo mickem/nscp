@@ -12,15 +12,15 @@ namespace parsers {
 			if (type_is_int(type)) {
 				int_ptr_id = handler->bind_int(name);
 				if (!int_ptr_id)
-					handler->error(_T("Failed to bind (int) variable: ") + name);
+					handler->error("Failed to bind (int) variable: " + name);
 				return int_ptr_id;
 			} else {
 				string_ptr_id = handler->bind_string(name);
 				if (!string_ptr_id)
-					handler->error(_T("Failed to bind (string) variable: ") + name);
+					handler->error("Failed to bind (string) variable: " + name);
 				return string_ptr_id;
 			}
-			handler->error(_T("Failed to bind (unknown) variable: ") + name);
+			handler->error("Failed to bind (unknown) variable: " + name);
 			return false;
 		}
 
@@ -28,19 +28,19 @@ namespace parsers {
 			if (int_ptr_id)
 				return handler->execute_int(int_ptr_id);
 			if (string_ptr_id)
-				handler->error(_T("Int variable bound to string: ") + name);
+				handler->error("Int variable bound to string: " + name);
 			else
-				handler->error(_T("Int variable not bound: ") + name);
+				handler->error("Int variable not bound: " + name);
 			return -1;
 		}
-		std::wstring variable::get_string(filter_handler handler) const {
+		std::string variable::get_string(filter_handler handler) const {
 			if (string_ptr_id)
 				return handler->execute_string(string_ptr_id);
 			if (int_ptr_id)
-				handler->error(_T("String variable bound to int: ") + name);
+				handler->error("String variable bound to int: " + name);
 			else
-				handler->error(_T("String variable not bound: ") + name);
-			return _T("");
+				handler->error("String variable not bound: " + name);
+			return "";
 		}
 	}
 }

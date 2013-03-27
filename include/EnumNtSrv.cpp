@@ -21,12 +21,6 @@
 #include <error.hpp>
 #include "EnumNtSrv.h"
 
-#ifdef _DEBUG
-//#define new DEBUG_NEW
-#undef THIS_FILE
-static char THIS_FILE[] = __FILE__;
-#endif
-
 //=============================================================================
 // class TNtServiceInfo
 //
@@ -65,72 +59,72 @@ TNtServiceInfo& TNtServiceInfo::operator=(const TNtServiceInfo& source)
 }
 
 // Return a service type as a string
-std::wstring TNtServiceInfo::GetServiceType(void)
+std::string TNtServiceInfo::GetServiceType(void)
 {
-	std::wstring str = _T("UNKNOWN");
+	std::string str = "UNKNOWN";
 	if (m_dwServiceType & SERVICE_WIN32) {
 		if (m_dwServiceType & SERVICE_WIN32_OWN_PROCESS)
-			str = _T("WIN32_OWN_PROCESS");
+			str = "WIN32_OWN_PROCESS";
 		else if (m_dwServiceType & SERVICE_WIN32_SHARE_PROCESS)
-			str = _T("WIN32_SHARE_PROCESS");
+			str = "WIN32_SHARE_PROCESS";
 		if (m_dwServiceType & SERVICE_INTERACTIVE_PROCESS)
-			str += _T(" (INTERACTIVE_PROCESS)");
+			str += " (INTERACTIVE_PROCESS)";
 	}
 	switch (m_dwServiceType) {
 	case SERVICE_KERNEL_DRIVER: 
-		str = _T("KERNEL_DRIVER"); 
+		str = "KERNEL_DRIVER";
 		break;
 	case SERVICE_FILE_SYSTEM_DRIVER: 
-		str = _T("FILE_SYSTEM_DRIVER"); 
+		str = "FILE_SYSTEM_DRIVER";
 		break;
 	};
 	return str;
 }
 
 // Return a service start type as a string
-std::wstring TNtServiceInfo::GetStartType(void)
+std::string TNtServiceInfo::GetStartType(void)
 {
-	TCHAR *types[] = {
-		_T("BOOT_START"),		// 0
-			_T("SYSTEM_START"), // 1
-			_T("AUTO_START"),	// 2
-			_T("DEMAND_START"), // 3
-			_T("DISABLED"),		// 4
-			_T("DELAYED")		// 5
+	char *types[] = {
+		"BOOT_START",		// 0
+			"SYSTEM_START", // 1
+			"AUTO_START",	// 2
+			"DEMAND_START", // 3
+			"DISABLED",		// 4
+			"DELAYED"		// 5
 	};
-	return std::wstring(types[m_dwStartType]);
+	return types[m_dwStartType];
 }
 
 // Return this service error control as a string
-std::wstring TNtServiceInfo::GetErrorControl(void)
+std::string TNtServiceInfo::GetErrorControl(void)
 {
 	if (m_dwErrorControl >= 4)
 		throw std::exception();
-	TCHAR *types[] = {
-		_T("ERROR_IGNORE"),		// 0
-			_T("ERROR_NORMAL"), // 1
-			_T("ERROR_SEVERE"), // 2
-			_T("ERROR_CRITICAL")// 3
+	char *types[] = {
+		"ERROR_IGNORE",		// 0
+			"ERROR_NORMAL", // 1
+			"ERROR_SEVERE", // 2
+			"ERROR_CRITICAL"// 3
 	};
-	return std::wstring(types[m_dwErrorControl]);
+	return types[m_dwErrorControl];
 }
 
 // Return this service current state as a string
-std::wstring TNtServiceInfo::GetCurrentState(void)
+std::string TNtServiceInfo::GetCurrentState(void)
 {
 	if (m_dwErrorControl >= 8)
 		throw std::exception();
-	TCHAR *types[] = {
-		_T("UNKNOWN"),
-			_T("STOPPED"),			// 1
-			_T("START_PENDING"),	// 2
-			_T("STOP_PENDING"),		// 3
-			_T("RUNNING"),			// 4
-			_T("CONTINUE_PENDING"), // 5
-			_T("PAUSE_PENDING"),	// 6
-			_T("PAUSED")			// 7
+	char *types[] = {
+		"UNKNOWN",
+			"STOPPED",			// 1
+			"START_PENDING",	// 2
+			"STOP_PENDING",		// 3
+			"RUNNING",			// 4
+			"CONTINUE_PENDING", // 5
+			"PAUSE_PENDING",	// 6
+			"PAUSED"			// 7
 	};
-	return std::wstring(types[m_dwCurrentState]);
+	return types[m_dwCurrentState];
 }
 
 #ifndef SERVICE_CONFIG_DELAYED_AUTO_START_INFO
@@ -160,13 +154,13 @@ TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, boo
 			QUERY_SERVICE_CONFIG *lpqch = (QUERY_SERVICE_CONFIG*)Buffer;
 			for (DWORD ndx = 0; ndx < servicesReturned; ndx++) {
 				TNtServiceInfo info;
-				info.m_strServiceName = lpservice[ndx].lpServiceName;
-				info.m_strDisplayName = lpservice[ndx].lpDisplayName;
+				info.m_strServiceName = utf8::cvt<std::string>(lpservice[ndx].lpServiceName);
+				info.m_strDisplayName = utf8::cvt<std::string>(lpservice[ndx].lpDisplayName);
 				info.m_dwServiceType = lpservice[ndx].ServiceStatus.dwServiceType;
 				info.m_dwCurrentState = lpservice[ndx].ServiceStatus.dwCurrentState;
 				SC_HANDLE hService = ::OpenService(scman,lpservice[ndx].lpServiceName, SERVICE_QUERY_CONFIG);
 				if (::QueryServiceConfig(hService,lpqch,sizeof(Buffer),&bytesNeeded)) {
-					info.m_strBinaryPath = lpqch->lpBinaryPathName;
+					info.m_strBinaryPath = utf8::cvt<std::string>(lpqch->lpBinaryPathName);
 					info.m_dwStartType = lpqch->dwStartType;
 					info.m_dwErrorControl = lpqch->dwErrorControl;
 				}
@@ -194,26 +188,26 @@ TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, boo
 
 
 #define SC_BUF_LEN 4096
-TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
+TNtServiceInfo TNtServiceInfo::GetService(std::string name)
 {
 	TNtServiceInfo info;
 	info.m_strServiceName = name;
 	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
 	if (!scman) {
-		throw NTServiceException(name, _T("Could not open ServiceControl manager: ") + error::lookup::last_error());
+		throw NTServiceException(name, "Could not open ServiceControl manager: " + error::lookup::last_error());
 	}
-	SC_HANDLE sh = ::OpenService(scman,name.c_str(),SERVICE_QUERY_STATUS);
+	SC_HANDLE sh = ::OpenService(scman, utf8::cvt<std::wstring>(name).c_str(),SERVICE_QUERY_STATUS);
 	if (!sh) {
-		std::wstring short_name;
+		std::string short_name;
 		DWORD bufLen = SC_BUF_LEN;
 		TCHAR *buf = new TCHAR[bufLen+1];
-		if (GetServiceKeyName(scman, name.c_str(), buf, &bufLen) == 0) {
+		if (GetServiceKeyName(scman, utf8::cvt<std::wstring>(name).c_str(), buf, &bufLen) == 0) {
 			short_name = name;
 		} else {
-			short_name = buf;
+			short_name = utf8::cvt<std::string>(buf);
 		}
 		delete [] buf;
-		sh = ::OpenService(scman,short_name.c_str(),SERVICE_QUERY_STATUS);
+		sh = ::OpenService(scman,utf8::cvt<std::wstring>(short_name).c_str(),SERVICE_QUERY_STATUS);
 		if (sh == NULL) {
 			DWORD dwErr = GetLastError();
 			::CloseServiceHandle(scman);
@@ -222,7 +216,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 				info.m_dwServiceType = MY_SERVICE_NOT_FOUND;
 				return info;
 			} else {
-				throw NTServiceException(name, _T("OpenService: Could not open Service: ") + error::lookup::last_error(dwErr));
+				throw NTServiceException(name, "OpenService: Could not open Service: " + error::lookup::last_error(dwErr));
 			}
 		}
 	}
@@ -233,7 +227,7 @@ TNtServiceInfo TNtServiceInfo::GetService(std::wstring name)
 	} else {
 		::CloseServiceHandle(sh);
 		::CloseServiceHandle(scman);
-		throw NTServiceException(name, _T("QueryServiceStatus: Could not query service status: ") + error::lookup::last_error());
+		throw NTServiceException(name, "QueryServiceStatus: Could not query service status: " + error::lookup::last_error());
 	}
 	// TODO: Get more info here 
 	::CloseServiceHandle(sh);

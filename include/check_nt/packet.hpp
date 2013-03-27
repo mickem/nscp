@@ -25,7 +25,6 @@
 #include <unicode_char.hpp>
 #include <boost/asio/buffer.hpp>
 #include <strEx.h>
-#include <utils.h>
 
 using namespace nscp::helpers;
 
@@ -60,9 +59,6 @@ namespace check_nt {
 		packet(std::string data) 
 			: data_(data) 
 		{}
-		packet(std::wstring data) 
-			: data_(::to_string(data)) 
-		{}
 		packet(const packet &other) : data_(other.data_) {}
 		packet& operator=(packet const& other) {
 			data_ = other.data_;
@@ -76,17 +72,17 @@ namespace check_nt {
 		std::vector<char> get_buffer() const {
 			return std::vector<char>(data_.begin(), data_.end());
 		}
-		std::wstring get_payload() const {
-			return to_wstring(data_);
+		std::string get_payload() const {
+			return data_;
 		}
 
 		unsigned int get_packet_length() const { return data_.length(); }
 		boost::asio::const_buffer to_buffers() const {
 			return boost::asio::buffer(get_buffer(), get_packet_length());
 		}
-		std::wstring to_string() {
-			std::wstringstream ss;
-			ss << _T("data: ") << to_wstring(data_);
+		std::string to_string() {
+			std::stringstream ss;
+			ss << "data: " << data_;
 			return ss.str();
 		}
 	};

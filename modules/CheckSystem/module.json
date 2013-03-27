@@ -22,8 +22,7 @@
 		"check_service"	: { "legacy":true, "alias" : "checkServiceState",		"desc" : "Check the state of one or more of the computer services." },
 		"check_process"	: { "legacy":true, "alias" : "checkProcState",			"desc" : "Check the state of one or more of the processes running on the computer." },
 		"check_memory"	: { "legacy":true, "alias" : "checkMem",				"desc" : "Check free/used memory on the system." },
-		"check_pdh" 	: { "legacy":true, "alias" : "checkCounter",			"desc" : "Check a PDH counter." },
-		"check_registry": { "legacy":true, "alias" : "checkSingleRegEntry",	"desc" : "Check values in the registry." }
+		"check_pdh" 	: { "legacy":true, "alias" : "checkCounter",			"desc" : "Check a PDH counter." }
 	},
 
 	"command line exec" : "legacy",

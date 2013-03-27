@@ -40,9 +40,9 @@ namespace smtp {
 			if (active)
 				async_run_queue();
 
-			if (n > 0) {
-				NSC_DEBUG_MSG(_T("activated ") + strEx::itos(n) + _T(" deferred emails"));
-			}
+// 			if (n > 0) {
+// 				NSC_DEBUG_MSG(_T("activated ") + strEx::itos(n) + _T(" deferred emails"));
+// 			}
 		}
 
 		void smtp_client::async_run_queue() {

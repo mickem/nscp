@@ -40,13 +40,13 @@ namespace nsclient {
 						args += _T(" --name ") + service_name_;
 					serviceControll::Install(service_name_, service_description, get_default_service_deps(), SERVICE_WIN32_OWN_PROCESS, args);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service installation failed of '") + service_name_ + _T("' failed: ") + e.error_);
+					print_error(_T("Service installation failed of '") + service_name_ + _T("' failed: ") + utf8::cvt<std::wstring>(e.error_));
 					return -1;
 				}
 				try {
 					serviceControll::SetDescription(service_name_, service_description);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Couldn't set service description: ") + e.error_);
+					print_error(_T("Couldn't set service description: ") + utf8::cvt<std::wstring>(e.error_));
 				}
 				print_msg(_T("Service installed successfully!"));
 				return 0;
@@ -55,7 +55,7 @@ namespace nsclient {
 				try {
 					serviceControll::Uninstall(service_name_);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service de-installation (") + service_name_ + _T(") failed; ") + e.error_ + _T("\nMaybe the service was not previously installed properly?"));
+					print_error(_T("Service de-installation (") + service_name_ + _T(") failed; ") + utf8::cvt<std::wstring>(e.error_) + _T("\nMaybe the service was not previously installed properly?"));
 					return 0;
 				}
 				print_msg(_T("Service uninstalled successfully!"));
@@ -65,7 +65,7 @@ namespace nsclient {
 				try {
 					serviceControll::Start(service_name_);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service failed to start: ") + e.error_);
+					print_error(_T("Service failed to start: ") + utf8::cvt<std::wstring>(e.error_));
 					return -1;
 				}
 				return 0;
@@ -74,7 +74,7 @@ namespace nsclient {
 				try {
 					serviceControll::Stop(service_name_);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service failed to stop: ") + e.error_);
+					print_error(_T("Service failed to stop: ") + utf8::cvt<std::wstring>(e.error_));
 					return -1;
 				}
 				return 0;
@@ -83,7 +83,7 @@ namespace nsclient {
 				try {
 					return serviceControll::get_exe_path(service_name_);
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Failed to find service: ") + e.error_);
+					print_error(_T("Failed to find service: ") + utf8::cvt<std::wstring>(e.error_));
 					return _T("");
 				}
 			}

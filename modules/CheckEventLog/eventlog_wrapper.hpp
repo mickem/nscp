@@ -9,21 +9,21 @@ struct eventlog_wrapper {
 	DWORD bufferSize;
 	DWORD lastReadSize;
 	DWORD nextBufferPosition;
-	std::wstring name;
-	eventlog_wrapper(const std::wstring &name);
+	std::string name;
+	eventlog_wrapper(const std::string &name);
 	~eventlog_wrapper();
 
-	void open(const std::wstring &name);
+	void open(const std::string &name);
 	void close();
 	bool isOpen() {
 		return hLog != NULL;
 	}
-	std::wstring get_name() { return name; }
+	std::string get_name() { return name; }
 
 	bool get_last_Record_number(DWORD* pdwRecordNumber);
 	bool notify(HANDLE &handle);
 	bool seek_end();
-	static std::wstring find_eventlog_name(std::wstring name);
+	static std::string find_eventlog_name(std::string name);
 	DWORD read_record(DWORD dwRecordNumber, DWORD dwFlags);
 	EVENTLOGRECORD* read_record_with_buffer();
 	operator HANDLE () {

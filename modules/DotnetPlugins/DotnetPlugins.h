@@ -25,7 +25,7 @@ NSC_WRAPPERS_MAIN();
 
 #include "plugin_instance.hpp"
 
-class DotnetPlugin : public plugin_manager {
+class DotnetPlugins : public plugin_manager {
 private:
 
 	typedef boost::shared_ptr<plugin_instance> plugin_type;
@@ -47,28 +47,27 @@ public:
 	commands_type channels;
 
 public:
-	static std::wstring getModuleName() {
-		return _T("DotnetPlugin");
+	static std::string getModuleName() {
+		return "DotnetPlugin";
 	}
 	static nscapi::plugin_wrapper::module_version getModuleVersion() {
 		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
 		return version;
 	}
-	static std::wstring getModuleDescription() {
-		return _T("Plugin to load and manage plugins written in dot net.");
+	static std::string getModuleDescription() {
+		return "Plugin to load and manage plugins written in dot net.";
 	}
 
-	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	bool hasCommandHandler();
 	bool hasMessageHandler();
 	bool hasNotificationHandler();
 
-	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
-	NSCAPI::nagiosReturn handleRAWNotification(const std::wstring &channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const wchar_t* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const std::string &command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWNotification(const std::string &channel, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &command, const std::string &request, std::string &response);
 
 	bool register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description);
 	bool register_channel(std::wstring channel, plugin_instance::plugin_type plugin);

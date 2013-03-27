@@ -162,7 +162,6 @@ namespace http {
 			boost::asio::write(socket, requestbuf);
 		}
 		boost::tuple<std::string,unsigned int,std::string> read_result(boost::asio::streambuf &response) {
-			const char* crlf = "\r\n";
 			std::string http_version, status_message;
 			unsigned int status_code;
 			boost::asio::read_until(socket, response, "\r\n");
@@ -225,7 +224,7 @@ namespace http {
 				os << rs.payload;
 				return true;
 			} catch (std::exception& e) {
-				error_msg = std::string("Exception: ") + e.what();
+				error_msg = std::string("Exception: ") + utf8::utf8_from_native(e.what());
 				return false;
 			}
 		}

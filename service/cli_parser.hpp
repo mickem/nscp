@@ -1,11 +1,13 @@
 #pragma once
 
 #include <boost/program_options.hpp>
+#include <boost/noncopyable.hpp>
+
 #include "settings_client.hpp"
 #include <nsclient/logger.hpp>
 
 namespace po = boost::program_options;
-class cli_parser {
+class cli_parser : public boost::noncopyable {
 	
 
 	NSClient* core_;
@@ -19,18 +21,21 @@ class cli_parser {
 	bool help;
 	bool version;
 	bool log_debug;
-	std::wstring log_level;
-	std::wstring settings_store;
+	std::string log_level;
+	std::string settings_store;
 	std::vector<std::wstring> unknown_options;
 
 	static nsclient::logging::logger_interface* get_logger() {
 		return nsclient::logging::logger::get_logger(); 
 	}
-	static void error(unsigned int line, const std::wstring &message) {
-		get_logger()->error(_T("client"), __FILE__, line, message);
+	static void error(unsigned int line, const std::string &message) {
+		get_logger()->error("client", __FILE__, line, message);
 	}
-	static void info(unsigned int line, const std::wstring &message) {
-		get_logger()->info(_T("client"), __FILE__, line, message);
+	static void info(unsigned int line, const std::string &message) {
+		get_logger()->info("client", __FILE__, line, message);
+	}
+	static void info(unsigned int line, const std::string &message, const std::wstring &utf) {
+		get_logger()->info("client", __FILE__, line, message + utf8::cvt<std::string>(utf));
 	}
 
 public:
@@ -47,30 +52,30 @@ public:
 		, log_debug(false)
 	{
 		common.add_options()
-			("settings", po::value<std::wstring>(&settings_store), "Override (temporarily) settings subsystem to use")
+			("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
 			("help", po::bool_switch(&help), "produce help message")
 			("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
-			("log", po::value<std::wstring>(&log_level), "The log level to use")
+			("log", po::value<std::string>(&log_level), "The log level to use")
 			("version", po::bool_switch(&version), "Show version information")
 			;
 
 		settings.add_options()
-			("migrate-to", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
-			("migrate-from", po::value<std::wstring>(), "Migrate (copy) settings from current store to target store")
-			("generate", po::value<std::wstring>()->implicit_value(_T("settings")), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
+			("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to target store")
+			("migrate-from", po::value<std::string>(), "Migrate (copy) settings from current store to target store")
+			("generate", po::value<std::string>()->implicit_value("settings"), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
 			("add-missing", "Add all default (if missing) values.")
-			("filter", po::value<std::wstring>(), "Filter what to update (only works with generate trac currently).")
+			("filter", po::value<std::string>(), "Filter what to update (only works with generate trac currently).")
 			("validate", "Validate the current configuration (or a given configuration).")
 			("load-all", "Load all plugins (currently only used with generate).")
-			("path", po::value<std::wstring>()->default_value(_T("")), "Path of key to work with.")
-			("key", po::value<std::wstring>()->default_value(_T("")), "Key to work with.")
-			("set", po::value<std::wstring>()->implicit_value(_T("")), "Set a key and path to a given value.")
-			("switch", po::value<std::wstring>(), "Set default context to use (similar to migrate but does NOT copy values)")
+			("path", po::value<std::string>()->default_value(""), "Path of key to work with.")
+			("key", po::value<std::string>()->default_value(""), "Key to work with.")
+			("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value.")
+			("switch", po::value<std::string>(), "Set default context to use (similar to migrate but does NOT copy values)")
 			("show", "Set a value given a key and path.")
 			("list", "Set all keys below the path (or root).")
 			("add-defaults", "Same as --add-missing")
 			("remove-defaults", "Remove all keys which have default values (and empty sections)")
-			("activate-module", po::value<std::wstring>()->implicit_value(_T("")), "Add a module (and its configuration options) to the configuration.")
+			("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
 			;
 
 		service.add_options()
@@ -110,13 +115,13 @@ public:
 	bool process_common_options(std::string context, po::options_description &desc) {
 		nsclient::logging::logger::get_logger()->set_console_log(true);
 		if (log_debug) {
-			log_level = _T("debug");
+			log_level = "debug";
 		}
 		if (!log_level.empty())
 			nsclient::logging::logger::set_log_level(log_level);
 		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
 			BOOST_FOREACH(const std::wstring & a, unknown_options) {
-				get_logger()->info(_T("client"), __FILE__, __LINE__, _T("Extra options: ") + a);
+				get_logger()->info("client", __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
 			}
 		}
 
@@ -142,7 +147,7 @@ public:
 		handler_map handlers;
 		handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
 		handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
-		handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, _T(""));
+		handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, "");
 		handlers["test"] = boost::bind(&cli_parser::parse_test, this, _1, _2);
 		handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
 		handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, _1, _2);
@@ -177,7 +182,7 @@ public:
 
 			alias_map::const_iterator alias_it = aliases.find(mod);
 			if (alias_it != aliases.end())
-				return parse_client(argc-1, &argv[1], utf8::cvt<std::wstring>(alias_it->second));
+				return parse_client(argc-1, &argv[1], alias_it->second);
 
 			parse_help(argc, argv);
 			std::cerr << "Invalid module specified: " << mod << std::endl;
@@ -274,7 +279,7 @@ public:
 			po::notify(vm);
 
 			if (log_level.empty())
-				log_level  = _T("debug");
+				log_level  = "debug";
 
 			if (process_common_options("test", all))
 				return 1;
@@ -307,37 +312,37 @@ public:
 			bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
 			bool rem_def = vm.count("remove-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
-			std::wstring filter;
+			std::string filter;
 			if (vm.count("filter"))
-				filter = vm["filter"].as<std::wstring>();
+				filter = vm["filter"].as<std::string>();
 
 			nsclient::settings_client client(core_, log_level, def, rem_def, load_all, filter);
 			int ret = -1;
 
 			if (vm.count("generate")) {
-				std::wstring option = vm["generate"].as<std::wstring>();
+				std::string option = vm["generate"].as<std::string>();
 				ret = client.generate(option);
 			} else if (vm.count("migrate-to")) {
-				ret = client.migrate_to(vm["migrate-to"].as<std::wstring>());
+				ret = client.migrate_to(vm["migrate-to"].as<std::string>());
 			} else if (vm.count("migrate-from")) {
-				ret = client.migrate_from(vm["migrate-from"].as<std::wstring>());
+				ret = client.migrate_from(vm["migrate-from"].as<std::string>());
 			} else if (vm.count("set")) {
-				ret = client.set(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>(), vm["set"].as<std::wstring>());
+				ret = client.set(vm["path"].as<std::string>(), vm["key"].as<std::string>(), vm["set"].as<std::string>());
 			} else if (vm.count("list")) {
-				ret = client.list(vm["path"].as<std::wstring>());
+				ret = client.list(vm["path"].as<std::string>());
 			} else if (vm.count("show")) {
 				if (vm.count("path") > 0 && vm.count("key") > 0)
-				ret = client.show(vm["path"].as<std::wstring>(), vm["key"].as<std::wstring>());
+				ret = client.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
 				else {
 					std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
 					ret = -1;
 				}
 			} else if (vm.count("activate-module")) {
-				client.activate(vm["activate-module"].as<std::wstring>());
+				client.activate(vm["activate-module"].as<std::string>());
 			} else if (vm.count("validate")) {
 				ret = client.validate();
 			} else if (vm.count("switch")) {
-				client.switch_context(vm["switch"].as<std::wstring>());
+				client.switch_context(vm["switch"].as<std::string>());
 				client.list_settings_info();
 				ret = 0;
 			} else {
@@ -376,18 +381,18 @@ public:
 			if (vm.count("description")) {
 				desc = vm["description"].as<std::wstring>();
 			} else {
-				info(__LINE__, _T("TODO retrieve name from service here"));
+				info(__LINE__, "TODO retrieve name from service here");
 			}
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-				info(__LINE__, _T("Service name: ") + name);
-				info(__LINE__, _T("Service description: ") + desc);
+				info(__LINE__, "Service name: ", name);
+				info(__LINE__, "Service description: ", desc);
 			}
 
 			if (vm.count("run")) {
 				try {
 					core_->start_and_wait(name);
 				} catch (...) {
-					error(__LINE__, _T("Unknown exception in service"));
+					error(__LINE__, "Unknown exception in service");
 				}
 			} else {
 				nsclient::client::service_manager service_manager(name);
@@ -426,8 +431,8 @@ public:
 	}
 
 	struct client_arguments {
-		std::wstring command, combined_query, module;
-		std::vector<std::wstring> arguments;
+		std::string command, combined_query, module;
+		std::vector<std::string> arguments;
 		enum modes { exec, query, submit, none, combined};
 		modes mode;
 		bool boot;
@@ -436,23 +441,23 @@ public:
 
 		void debug() {
 			if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-				info(__LINE__, _T("Module: ") + module);
-				info(__LINE__, _T("Command: ") + command);
-				info(__LINE__, _T("Extra Query: ") + combined_query);
-				info(__LINE__, _T("Mode: ") + strEx::itos(mode));
-				info(__LINE__, _T("Boot: ") + strEx::itos(boot));
-				info(__LINE__, _T("Load All: ") + strEx::itos(load_all));
+				info(__LINE__, "Module: " + module);
+				info(__LINE__, "Command: " + command);
+				info(__LINE__, "Extra Query: " + combined_query);
+				info(__LINE__, "Mode: " + strEx::s::xtos(mode));
+				info(__LINE__, "Boot: " + strEx::s::xtos(boot));
+				info(__LINE__, "Load All: " + strEx::s::xtos(load_all));
 				if (!module.empty() && boot)
-					info(__LINE__, _T("Warning module and boot specified only THAT module will be loaded"));
-				std::wstring args;
-				BOOST_FOREACH(std::wstring s, arguments)
-					strEx::append_list(args, s, _T(", "));
-				info(__LINE__, _T("Arguments: ") + args);
+					info(__LINE__, "Warning module and boot specified only THAT module will be loaded");
+				std::string args;
+				BOOST_FOREACH(std::string s, arguments)
+					strEx::append_list(args, s, ", ");
+				info(__LINE__, "Arguments: " + args);
 			}
 
 		}
 	};
-	int parse_client(int argc, wchar_t* argv[], std::wstring module_ = _T("")) {
+	int parse_client(int argc, wchar_t* argv[], std::string module_ = "") {
 		try {
 			client_arguments args;
 
@@ -472,48 +477,49 @@ public:
 
 
 			if (vm.count("exec")) {
-				args.command = vm["exec"].as<std::wstring>();
+				args.command = vm["exec"].as<std::string>();
 				args.mode = client_arguments::exec;
 				if (vm.count("query")) {
-					args.combined_query = vm["query"].as<std::wstring>();
+					args.combined_query = vm["query"].as<std::string>();
 					args.mode = client_arguments::combined;
 				}
 			} else if (vm.count("query")) {
-				args.command = vm["query"].as<std::wstring>();
+				args.command = vm["query"].as<std::string>();
 				args.mode = client_arguments::query;
 			} else if (vm.count("submit")) {
-				args.command = vm["submit"].as<std::wstring>();
+				args.command = vm["submit"].as<std::string>();
 				args.mode = client_arguments::submit;
 			}
 
 			args.load_all = vm.count("load-all")==1;
 
 			if (vm.count("module"))
-				args.module = vm["module"].as<std::wstring>();
+				args.module = vm["module"].as<std::string>();
 
 			if (vm.count("boot"))
 				args.boot = true;
 
-			std::vector<std::wstring> kvp_args;
+			std::vector<std::string> kvp_args;
 			if (vm.count("argument"))
-				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
+				kvp_args = vm["argument"].as<std::vector<std::string> >();
 
-			args.arguments = unknown_options;
+			BOOST_FOREACH(const std::wstring &a, unknown_options)
+				args.arguments.push_back(utf8::cvt<std::string>(a));
 
-			BOOST_FOREACH(std::wstring s, kvp_args) {
-				std::wstring::size_type pos = s.find(L'=');
-				if (pos == std::wstring::npos)
-					args.arguments.push_back(_T("--") + s);
+			BOOST_FOREACH(std::string s, kvp_args) {
+				std::string::size_type pos = s.find('=');
+				if (pos == std::string::npos)
+					args.arguments.push_back("--" + s);
 				else {
-					args.arguments.push_back(_T("--") + s.substr(0,pos));
+					args.arguments.push_back("--" + s.substr(0,pos));
 					args.arguments.push_back(s.substr(pos+1));
 				}
 			}
 
 			if (vm.count("raw-argument"))
-				kvp_args = vm["raw-argument"].as<std::vector<std::wstring> >();
-			BOOST_FOREACH(std::wstring s, kvp_args) {
-				std::wstring::size_type pos = s.find(L'=');
+				kvp_args = vm["raw-argument"].as<std::vector<std::string> >();
+			BOOST_FOREACH(std::string s, kvp_args) {
+				std::string::size_type pos = s.find('=');
 				if (pos == std::wstring::npos)
 					args.arguments.push_back(s);
 				else {
@@ -534,7 +540,7 @@ public:
 	int parse_unittest(int argc, wchar_t* argv[]) {
 		try {
 			client_arguments args;
-			settings_store = _T("dummy");
+			settings_store = "dummy";
 			po::options_description all("Allowed options (client)");
 			all.add(common).add(unittest);
 
@@ -552,47 +558,52 @@ public:
 			if (vm.count("language")) {
 				std::wstring lang = vm["language"].as<std::wstring>();
 				if (lang == _T("python") || lang == _T("py")) {
-					args.command = _T("python-script");
-					args.combined_query = _T("py_unittest");
+					args.command = "python-script";
+					args.combined_query = "py_unittest";
 					args.mode = client_arguments::combined;
-					args.module = _T("PythonScript");
+					args.module = "PythonScript";
 				} else if (lang == _T("lua")) {
-						args.command = _T("LUAScript.run");
-						args.combined_query = _T("lua_unittest");
+						args.command = "LUAScript.run";
+						args.combined_query = "lua_unittest";
 						args.mode = client_arguments::combined;
-						args.module = _T("LuaScript");
+						args.module = "LuaScript";
 				} else {
 					std::wcerr << _T("Unknown language: ") << lang << std::endl;
 					return 1;
 				}
 			} else {
-				args.command = _T("python-script");
-				args.combined_query = _T("py_unittest");
+				args.command = "python-script";
+				args.combined_query = "py_unittest";
 				args.mode = client_arguments::combined;
-				args.module = _T("PythonScript");
+				args.module = "PythonScript";
 			}
 
 			std::vector<std::wstring> kvp_args;
 			if (vm.count("argument"))
 				kvp_args = vm["argument"].as<std::vector<std::wstring> >();
 
-			args.arguments = unknown_options;
+			BOOST_FOREACH(const std::wstring &ws, unknown_options) {
+				std::string s = utf8::cvt<std::string>(ws);
+				args.arguments.push_back(s);
+			}
 
-			BOOST_FOREACH(std::wstring s, kvp_args) {
-				std::wstring::size_type pos = s.find(L'=');
-				if (pos == std::wstring::npos)
-					args.arguments.push_back(_T("--") + s);
+			BOOST_FOREACH(const std::wstring &ws, kvp_args) {
+				std::string s = utf8::cvt<std::string>(ws);
+				std::string::size_type pos = s.find('=');
+				if (pos == std::string::npos)
+					args.arguments.push_back("--" + s);
 				else {
-					args.arguments.push_back(_T("--") + s.substr(0,pos));
+					args.arguments.push_back("--" + s.substr(0,pos));
 					args.arguments.push_back(s.substr(pos+1));
 				}
 			}
 
 			if (vm.count("raw-argument"))
 				kvp_args = vm["raw-argument"].as<std::vector<std::wstring> >();
-			BOOST_FOREACH(std::wstring s, kvp_args) {
-				std::wstring::size_type pos = s.find(L'=');
-				if (pos == std::wstring::npos)
+			BOOST_FOREACH(std::wstring ws, kvp_args) {
+				std::string s = utf8::cvt<std::string>(ws);
+				std::string::size_type pos = s.find('=');
+				if (pos == std::string::npos)
 					args.arguments.push_back(s);
 				else {
 					args.arguments.push_back(s.substr(0,pos));
@@ -622,29 +633,29 @@ public:
 				core_->boot_load_plugin(args.module);
 			core_->boot_start_plugins(args.boot);
 			int ret = 0;
-			std::list<std::wstring> resp;
+			std::list<std::string> resp;
 			if (args.mode == client_arguments::none) {
 				args.mode = client_arguments::exec;
 			}
 			if (args.mode == client_arguments::query) {
 				ret = core_->simple_query(args.module, args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
-					resp.push_back(_T("Command not found: ") + args.command);
-					std::wstring commands;
-					BOOST_FOREACH(const std::wstring &c, core_->list_commands()) {
+					resp.push_back("Command not found: " + args.command);
+					std::string commands;
+					BOOST_FOREACH(const std::string &c, core_->list_commands()) {
 						strEx::append_list(commands, c);
 					}
-					resp.push_back(_T("Avalible commmands: ") + commands);
+					resp.push_back("Available commands: " + commands);
 				}
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
 				ret = mainClient.simple_exec(args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
-					resp.push_back(_T("Command not found: ") + args.command);
-					core_->simple_exec(_T("help"), args.arguments, resp);
+					resp.push_back("Command not found: " + args.command);
+					core_->simple_exec("help", args.arguments, resp);
 				} else if (args.mode == client_arguments::combined) {
 					if (ret == NSCAPI::returnOK) {
-						core_->reload(_T("service"));
+						core_->reload("service");
 						ret = core_->simple_query(args.module, args.combined_query, args.arguments, resp);
 					} else {
 						std::wcerr << _T("Failed to execute command, will not attempt query") << std::endl;
@@ -659,8 +670,8 @@ public:
 			core_->stop_exit_pre();
 			core_->stop_exit_post();
 
-			BOOST_FOREACH(std::wstring r, resp) {
-				std::wcout << r << std::endl;
+			BOOST_FOREACH(std::string r, resp) {
+				std::cout << r << std::endl;
 			}
 			return ret;
 		} catch(const std::exception & e) {

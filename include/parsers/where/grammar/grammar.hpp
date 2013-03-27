@@ -22,12 +22,12 @@ namespace ascii = boost::spirit::ascii;
 namespace parsers {
 	namespace where {
 
-		struct where_grammar : qi::grammar<std::wstring::const_iterator, expression_ast(), ascii::space_type> {
-			typedef std::wstring::const_iterator iterator_type;
+		struct where_grammar : qi::grammar<std::string::const_iterator, expression_ast(), ascii::space_type> {
+			typedef std::string::const_iterator iterator_type;
 			where_grammar();
 			
 			qi::rule<iterator_type, expression_ast(), ascii::space_type>  expression, and_expr, not_expr, cond_expr, identifier_expr, identifier, list_expr;
-			qi::rule<iterator_type, std::wstring(), ascii::space_type> string_literal, variable_name, string_literal_ex;
+			qi::rule<iterator_type, std::string(), ascii::space_type> string_literal, variable_name, string_literal_ex;
 			qi::rule<iterator_type, unsigned int(), ascii::space_type> number;
 			qi::rule<iterator_type, operators(), ascii::space_type> op, bitop;
 			qi::rule<iterator_type, list_value(), ascii::space_type> value_list;

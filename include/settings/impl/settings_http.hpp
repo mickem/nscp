@@ -17,7 +17,7 @@
 namespace settings {
 	class settings_http : public settings::SettingsInterfaceImpl {
 	private:
-		std::wstring url_;
+		std::string url_;
 		boost::filesystem::path local_file;
 		net::url remote_url;
 
@@ -26,20 +26,20 @@ namespace settings {
 		}
 
 	public:
-		settings_http(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
+		settings_http(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {
 			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
-			boost::filesystem::path path = utf8::cvt<std::string>(core->expand_path(DEFAULT_CACHE_PATH));
+			boost::filesystem::path path = core->expand_path(DEFAULT_CACHE_PATH);
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path)) 
-					throw new settings_exception(_T("Cache path not found: ") + utf8::cvt<std::wstring>(path.string()));
+					throw new settings_exception("Cache path not found: " + path.string());
 				boost::filesystem::create_directories(path);
 				if (!boost::filesystem::is_directory(path))
-					throw new settings_exception(_T("Cache path not found: ") + utf8::cvt<std::wstring>(path.string()));
+					throw new settings_exception("Cache path not found: " + path.string());
 			}
 			local_file = boost::filesystem::path(path) / "cached.ini";
 
 			reload_data();
-			add_child(_T("ini:///") + utf8::cvt<std::wstring>(local_file.string()));
+			add_child("ini:///" + local_file.string());
 		}
 
 		virtual void real_clear_cache() {
@@ -51,13 +51,13 @@ namespace settings {
 			std::string error;
 			if (!http::client::download(remote_url.protocol, remote_url.host, remote_url.path, os, error)) {
 				os.close();
-				get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Failed to download settings: ") + utf8::cvt<std::wstring>(error));
+				get_logger()->error("settings",__FILE__, __LINE__, "Failed to download settings: " + error);
 			}
 			os.close();
 			if (!boost::filesystem::is_regular_file(local_file)) {
-				throw new settings_exception(_T("Failed to find cached settings: ") + utf8::cvt<std::wstring>(local_file.string()));
+				throw new settings_exception("Failed to find cached settings: " + local_file.string());
 			}
-			add_child(_T("ini://") + utf8::cvt<std::wstring>(local_file.string()));
+			add_child("ini://" + local_file.string());
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
@@ -66,7 +66,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) {
+		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
 			return new settings_http(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -77,7 +77,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type key) {
+		virtual std::string get_real_string(settings_core::key_path_type key) {
 			throw KeyNotFoundException(key);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -121,17 +121,17 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + key.first + _T(".") + key.second));
+			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
 		}
 
-		virtual void set_real_path(std::wstring path) {
-			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP: ") + path));
+		virtual void set_real_path(std::string path) {
+			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + make_skey(path));
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
-			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP")));
+			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
 		}
-		virtual void remove_real_path(std::wstring path) {
-			get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Cant save over HTTP")));
+		virtual void remove_real_path(std::string path) {
+			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -143,7 +143,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::wstring path, string_list &list) {
+		virtual void get_real_sections(std::string path, string_list &list) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
@@ -154,7 +154,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::wstring path, string_list &list) {
+		virtual void get_real_keys(std::string path, string_list &list) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
@@ -170,7 +170,7 @@ namespace settings {
 
 	private:
 
-		std::wstring get_file_name() {
+		std::string get_file_name() {
 			if (url_.empty()) {
 				url_ = get_file_from_context();
 			}
@@ -179,8 +179,8 @@ namespace settings {
 		bool file_exists() {
 			return boost::filesystem::is_regular(get_file_name());
 		}
-		virtual std::wstring get_info() {
-			return _T("HTTP settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
+		virtual std::string get_info() {
+			return "HTTP settings: (" + context_ + ", " + get_file_name() + ")";
 		}
 
 	};

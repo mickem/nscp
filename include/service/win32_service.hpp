@@ -28,12 +28,12 @@
 
 namespace service_helper_impl {
 	class service_exception {
-		std::wstring what_;
+		std::string what_;
 	public:
-		service_exception(std::wstring what) : what_(what) {
-			OutputDebugString((std::wstring(_T("ERROR:")) + what).c_str());
+		service_exception(std::string what) : what_(what) {
+			OutputDebugString(utf8::cvt<std::wstring>(what).c_str());
 		}
-		std::wstring what() {
+		std::string reason() {
 			return what_;
 		}
 	};
@@ -214,7 +214,7 @@ namespace service_helper_impl {
 		}
 		static void handle_error(const int line, const char* file, std::wstring message) {
 			OutputDebugString(message.c_str());
-			nsclient::logging::logger::get_logger()->error(_T("service"), file, line, message);
+			nsclient::logging::logger::get_logger()->error("service", file, line, utf8::cvt<std::string>(message));
 		}
 
 		bool StartServiceCtrlDispatcher() {
@@ -241,7 +241,7 @@ namespace service_helper_impl {
 					print_debug(_T("Windows 2000 or older detected (disabling session messages)"));
 			}
 			if (sshStatusHandle == 0)
-				throw service_exception(_T("Failed to register service: ") + error::lookup::last_error());
+				throw service_exception("Failed to register service: " + error::lookup::last_error());
 
 
 			ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
@@ -251,13 +251,12 @@ namespace service_helper_impl {
 			// report the status to the service control manager.
 			if (!_report_status_to_SCMgr(SERVICE_START_PENDING,3000)) {
 				_report_status_to_SCMgr(SERVICE_STOPPED,0);
-				throw service_exception(_T("Failed to report service status: ") + error::lookup::last_error());
+				throw service_exception("Failed to report service status: " + error::lookup::last_error());
 			}
 			try {
-				print_debug(std::wstring(_T("Attempting to start service with: ") + strEx::ihextos(dwControlsAccepted)).c_str());
 				_handle_start(dwArgc, lpszArgv);
 			} catch (...) {
-				throw service_exception(_T("Uncaught exception in service... terminating: ") + error::lookup::last_error());
+				throw service_exception("Uncaught exception in service... terminating: " + error::lookup::last_error());
 			}
 			_report_status_to_SCMgr(SERVICE_STOPPED,0);
 		}

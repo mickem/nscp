@@ -34,50 +34,50 @@ namespace sh = nscapi::settings_helper;
 class SyslogClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::wstring channel_;
-	std::wstring target_path;
+	std::string channel_;
+	std::string target_path;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
 		typedef nscapi::targets::target_object target_object;
 
 		static void init_default(target_object &target) {
-			target.set_property_string(_T("severity"), _T("error"));
-			target.set_property_string(_T("facility"), _T("kernel"));
-			target.set_property_string(_T("tag syntax"), _T("NSCA"));
-			target.set_property_string(_T("message syntax"), _T("%message%"));
-			target.set_property_string(_T("ok severity"), _T("informational"));
-			target.set_property_string(_T("warning severity"), _T("warning"));
-			target.set_property_string(_T("critical severity"), _T("critical"));
-			target.set_property_string(_T("unknown severity"), _T("emergency"));
+			target.set_property_string("severity", "error");
+			target.set_property_string("facility", "kernel");
+			target.set_property_string("tag syntax", "NSCA");
+			target.set_property_string("message syntax", "%message%");
+			target.set_property_string("ok severity", "informational");
+			target.set_property_string("warning severity", "warning");
+			target.set_property_string("critical severity", "critical");
+			target.set_property_string("unknown severity", "emergency");
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
 
-				(_T("severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("severity"), _1), _T("error")),
-				_T("TODO"), _T(""))
+				("severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "severity", _1), "error"),
+				"TODO", "")
 
-				(_T("facility"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("facility"), _1), _T("kernel")),
-				_T("TODO"), _T(""))
+				("facility", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "facility", _1), "kernel"),
+				"TODO", "")
 
-				(_T("tag_syntax"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("tag syntax"), _1), _T("NSCA")),
-				_T("TODO"), _T(""))
+				("tag_syntax", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "tag syntax", _1), "NSCA"),
+				"TODO", "")
 
-				(_T("message_syntax"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("message syntax"), _1), _T("%message%")),
-				_T("TODO"), _T(""))
+				("message_syntax", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "message syntax", _1), "%message%"),
+				"TODO", "")
 
-				(_T("ok severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ok severity"), _1), _T("informational")),
-				_T("TODO"), _T(""))
+				("ok severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ok severity", _1), "informational"),
+				"TODO", "")
 
-				(_T("warning severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("warning severity"), _1), _T("warning")),
-				_T("TODO"), _T(""))
+				("warning severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "warning severity", _1), "warning"),
+				"TODO", "")
 
-				(_T("critical severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("critical severity"), _1), _T("critical")),
-				_T("TODO"), _T(""))
+				("critical severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "critical severity", _1), "critical"),
+				"TODO", "")
 
-				(_T("unknown severity"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("unknown severity"), _1), _T("emergency")),
-				_T("TODO"), _T(""))
+				("unknown severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "unknown severity", _1), "emergency"),
+				"TODO", "")
 				;
 		}
 		static void post_process_target(target_object &target) {
@@ -117,14 +117,14 @@ private:
 			port = arguments.address.get_port(514);
 		}
 
-		std::wstring to_wstring() const {
-			std::wstringstream ss;
-			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
-			ss << _T(", port: ") << port;
-			ss << _T(", severity: ") << utf8::cvt<std::wstring>(severity);
-			ss << _T(", facility: ") << utf8::cvt<std::wstring>(facility);
-			ss << _T(", tag_syntax: ") << utf8::cvt<std::wstring>(tag_syntax);
-			ss << _T(", message_syntax: ") << utf8::cvt<std::wstring>(message_syntax);
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << "host: " << host;
+			ss << ", port: " << port;
+			ss << ", severity: " << severity;
+			ss << ", facility: " << facility;
+			ss << ", tag_syntax: " << tag_syntax;
+			ss << ", message_syntax: " << message_syntax;
 			return ss.str();
 		}
 	};
@@ -138,7 +138,7 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
@@ -152,7 +152,7 @@ public:
 	SyslogClient();
 	virtual ~SyslogClient();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -166,8 +166,8 @@ private:
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
-	void add_command(std::wstring key, std::wstring args);
-	void add_target(std::wstring key, std::wstring args);
+	void add_command(std::string key, std::string args);
+	void add_target(std::string key, std::string args);
 	std::string	parse_priority(std::string severity, std::string facility);
 
 };

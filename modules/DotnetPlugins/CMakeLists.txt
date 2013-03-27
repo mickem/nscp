@@ -4,13 +4,11 @@ SET(TARGET DotnetPlugins)
 
 PROJECT(${TARGET})
 
-SET(SRCS
+SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
 plugin_instance.cpp
-
-	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -24,6 +22,7 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		plugin_instance.hpp
+		DotnetPlugins.def
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

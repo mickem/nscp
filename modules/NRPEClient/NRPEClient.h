@@ -38,62 +38,62 @@ namespace sh = nscapi::settings_helper;
 class NRPEClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::wstring channel_;
-	std::wstring target_path;
+	std::string channel_;
+	std::string target_path;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
 		typedef nscapi::targets::target_object target_object;
 
 		static void init_default(target_object &target) {
-			target.set_property_int(_T("timeout"), 30);
-			target.set_property_bool(_T("ssl"), true);
-			target.set_property_int(_T("payload length"), 1024);
+			target.set_property_int("timeout", 30);
+			target.set_property_bool("ssl", true);
+			target.set_property_int("payload length", 1024);
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
 
-				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
-				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+				("timeout", sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
+				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
-				(_T("dh"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("dh"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
-				_T("DH KEY"), _T("The diffi-hellman perfect forwarded secret to use"), true)
+				("dh", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+				"DH KEY", "The diffi-hellman perfect forwarded secret to use", true)
 
-				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
-				_T("SSL CERTIFICATE"), _T("The ssl certificate to use to encrypt the communication"), false)
+				("certificate", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
+				"SSL CERTIFICATE", "The ssl certificate to use to encrypt the communication", false)
 
-				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
-				_T("SSL CERTIFICATE KEY"), _T("Key for the SSL certificate"), true)
+				("certificate key", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
+				"SSL CERTIFICATE KEY", "Key for the SSL certificate", true)
 
-				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
-				_T("CERTIFICATE FORMAT"), _T("Format of SSL certifiate"), true)
+				("certificate format", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
+				"CERTIFICATE FORMAT", "Format of SSL certificate", true)
 
-				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
-				_T("CA"), _T("The certificate authority to use to authenticate remote certificate"), true)
+				("ca", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
+				"CA", "The certificate authority to use to authenticate remote certificate", true)
 
-				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
-				_T("ALLOWED CIPHERS"), _T("The allowed list of ciphers, the default is insecure so a better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+				("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
+				"ALLOWED CIPHERS", "The allowed list of ciphers, the default is insecure so a better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
-				_T("VERIFY MODE"), _T("What to verify default is non, to validate remote certificate use remote-peer"), false)
+				("verify mode", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
+				"VERIFY MODE", "What to verify default is non, to validate remote certificate use remote-peer", false)
 
-				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), true),
-				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+				("use ssl", sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), true),
+				"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 
-				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 1024),
-				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."))
+				("payload length",  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "payload length", _1), 1024),
+				"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 				;
 		}
 
 		static void post_process_target(target_object &target) {
-			std::list<std::wstring> err;
-			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
-			nscapi::targets::helpers::verify_file(target, _T("dh"), err);
-			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
-			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
-			BOOST_FOREACH(const std::wstring &e, err) {
-				NSC_LOG_ERROR_STD(e);
+			std::list<std::string> err;
+			nscapi::targets::helpers::verify_file(target, "certificate", err);
+			nscapi::targets::helpers::verify_file(target, "dh", err);
+			nscapi::targets::helpers::verify_file(target, "certificate key", err);
+			nscapi::targets::helpers::verify_file(target, "ca", err);
+			BOOST_FOREACH(const std::string &e, err) {
+				NSC_LOG_ERROR(e);
 			}
 		}
 	};
@@ -128,10 +128,6 @@ public:
 
 		}
 
-		std::wstring to_wstring() const {
-			return utf8::cvt<std::wstring>(to_string());
-		}
-
 		std::string to_string() const {
 			std::stringstream ss;
 			ss << "host: " << get_endpoint_string();
@@ -150,7 +146,7 @@ public:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
@@ -164,7 +160,7 @@ public:
 	NRPEClient();
 	virtual ~NRPEClient();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
@@ -180,8 +176,8 @@ private:
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
-	void add_command(std::wstring key, std::wstring args);
-	void add_target(std::wstring key, std::wstring args);
+	void add_command(std::string key, std::string args);
+	void add_target(std::string key, std::string args);
 
 };
 

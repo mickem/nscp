@@ -32,6 +32,8 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
+#define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);
+#define CORE_LOG_ERROR_EXR(msg, ex) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, std::string("Exception in: ") + msg + utf8::utf8_from_native(ex.what()));
 
 extern nscapi::helper_singleton* nscapi::plugin_singleton;
 
@@ -39,16 +41,16 @@ nscapi::core_wrapper* get_core() {
 	return nscapi::plugin_singleton->get_core();
 }
 
-bool nscapi::core_helper::submit_simple_message(const std::wstring channel, const std::wstring command, const NSCAPI::nagiosReturn code, const std::wstring & message, const std::wstring & perf, std::wstring & response) {
+bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
 	std::string request, buffer;
 	nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = get_core()->submit_message(channel, request, buffer);
 	if (ret == NSCAPI::returnIgnored) {
-		response = _T("No handler for this message");
+		response = "No handler for this message";
 		return false;
 	}
 	if (buffer.size() == 0) {
-		response = _T("Missing response from submission");
+		response = "Missing response from submission";
 		return false;
 	}
 	nscapi::protobuf::functions::parse_simple_submit_response(buffer, response);
@@ -64,7 +66,7 @@ bool nscapi::core_helper::submit_simple_message(const std::wstring channel, cons
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::wstring & msg, std::wstring & perf) 
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf) 
 {
 	std::string response;
 	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
@@ -72,7 +74,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring comman
 		try {
 			return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 		} catch (std::exception &e) {
-			CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+			CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -87,17 +89,17 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring comman
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
-{
-	std::string request;
-	try {
-		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-	} catch (std::exception &e) {
-		CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
-		return NSCAPI::returnUNKNOWN;
-	}
-	return get_core()->query(command.c_str(), request, result);
-}
+// NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
+// {
+// 	std::string request;
+// 	try {
+// 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
+// 	} catch (const std::exception &e) {
+// 		CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
+// 		return NSCAPI::returnUNKNOWN;
+// 	}
+// 	return get_core()->query(command.c_str(), request, result);
+// }
 
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & arguments, std::string & result) 
 {
@@ -105,10 +107,10 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 	try {
 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
 	} catch (std::exception &e) {
-		CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
 		return NSCAPI::returnUNKNOWN;
 	}
-	return get_core()->query(utf8::cvt<std::wstring>(command).c_str(), request, result);
+	return get_core()->query(command.c_str(), request, result);
 }
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) 
 {
@@ -116,24 +118,73 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 	try {
 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
 	} catch (std::exception &e) {
-		CORE_LOG_ERROR(_T("Failed to extract return message: ") + utf8::cvt<std::wstring>(e.what()));
+		CORE_LOG_ERROR_EXR("Failed to extract return message", e);
 		return NSCAPI::returnUNKNOWN;
 	}
-	return get_core()->query(utf8::cvt<std::wstring>(command).c_str(), request, result);
+	return get_core()->query(command.c_str(), request, result);
 }
 
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::wstring command, const std::wstring & buffer, std::wstring & message, std::wstring & perf) {
-	boost::tokenizer<boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tok(buffer, boost::char_separator<wchar_t>(_T("!")));
-	std::list<std::wstring> arglist;
-	BOOST_FOREACH(std::wstring s, tok)
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf) {
+	boost::tokenizer<boost::char_separator<char>, std::string::const_iterator, std::string > tok(buffer, boost::char_separator<char>("!"));
+	std::list<std::string> arglist;
+	BOOST_FOREACH(std::string s, tok)
 		arglist.push_back(s);
 	return simple_query(command, arglist, message, perf);
 }
 
-NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::wstring target, const std::wstring command, const std::list<std::wstring> &argument, std::list<std::wstring> & result) {
+NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
 	NSCAPI::nagiosReturn ret = get_core()->exec_command(target, command, request, response);
-	nscapi::protobuf::functions::parse_simple_exec_result(response, result);
+	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;
+}
+
+
+
+void nscapi::core_helper::core_proxy::register_command(std::string command, std::string description, std::list<std::string> aliases) {
+
+	Plugin::RegistryRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+
+	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->set_plugin_id(plugin_id_);
+	regitem->set_type(Plugin::Registry_ItemType_QUERY);
+	regitem->set_name(command);
+	regitem->mutable_info()->set_title(command);
+	regitem->mutable_info()->set_description(description);
+	BOOST_FOREACH(const std::string &alias, aliases) {
+		regitem->add_alias(alias);
+	}
+	std::string response_string;
+	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(response_string);
+	for (int i=0;i<response.payload_size();i++) {
+		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
+	}
+}
+
+void nscapi::core_helper::core_proxy::register_channel(const std::string channel)
+{
+	Plugin::RegistryRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+
+	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->set_plugin_id(plugin_id_);
+	regitem->set_type(Plugin::Registry_ItemType_HANDLER);
+	regitem->set_name(channel);
+	regitem->mutable_info()->set_title(channel);
+	regitem->mutable_info()->set_description("Handler for: " + channel);
+	std::string response_string;
+	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(response_string);
+	for (int i=0;i<response.payload_size();i++) {
+		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
+	}
 }

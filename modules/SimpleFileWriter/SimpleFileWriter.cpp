@@ -98,41 +98,42 @@ struct payload_alias_or_command_functor {
 std::string simple_string_fun(std::string key) {
 	return key;
 }
-bool SimpleFileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string primary_key;
-	std::wstring channel;
+	std::string channel;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		
-		settings.set_alias(alias, _T("writers/file"));
+		settings.set_alias(alias, "writers/file");
 		
 		settings.alias().add_path_to_settings()
-			(_T("FILE WRITER"), _T("Section for simple file writer module (SimpleFileWriter.dll)."))
+			("FILE WRITER", "Section for simple file writer module (SimpleFileWriter.dll).")
 
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("syntax"), sh::string_key(&primary_key, "${alias-or-command} ${result} ${message}"),
-			_T("MESSAGE SYNTAX"), _T("The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:")
-			_T("${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number)."))
+			("syntax", sh::string_key(&primary_key, "${alias-or-command} ${result} ${message}"),
+			"MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
+			"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).")
 
-			(_T("file"), sh::path_key(&filename_, "output.txt"),
-			_T("FILE TO WRITE TO"), _T("The filename to write output to."))
+			("file", sh::path_key(&filename_, "output.txt"),
+			"FILE TO WRITE TO", "The filename to write output to.")
 
-			(_T("channel"), sh::wstring_key(&channel, _T("FILE")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel, "FILE"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		get_core()->registerSubmissionListener(get_id(), channel);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel);
 
 		parsers::simple_expression parser;
 		parsers::simple_expression::result_type result;
 		if (!parser.parse(primary_key, result)) {
-			NSC_LOG_ERROR_STD(_T("Failed to parse primary key: ") + utf8::cvt<std::wstring>(primary_key))
+			NSC_LOG_ERROR_STD("Failed to parse primary key: " + primary_key)
 		}
 		BOOST_FOREACH(parsers::simple_expression::entry &e, result) {
 			if (!e.is_variable) {
@@ -152,17 +153,17 @@ bool SimpleFileWriter::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode m
 			} else if (e.name == "result") {
 				index_lookup_.push_back(payload_result_functor());
 			} else {
-				NSC_LOG_ERROR_STD(_T("Invalid index: ") + utf8::cvt<std::wstring>(e.name));
+				NSC_LOG_ERROR_STD("Invalid index: " + e.name);
 			}
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command: ") + utf8::cvt<std::wstring>(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception: ") + utf8::cvt<std::wstring>(e.what()));
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to register command."));
+		NSC_LOG_ERROR_EX("load");
 		return false;
 	}
 	return true;
@@ -174,7 +175,6 @@ void SimpleFileWriter::handleNotification(const std::string &channel, const Plug
 		key += f(request.command(), request_message.header(), request);
 	}
 	std::string data = request.SerializeAsString();
-	NSC_DEBUG_MSG(_T("Writing to file: ") + utf8::cvt<std::wstring>(key));
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {

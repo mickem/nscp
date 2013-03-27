@@ -22,7 +22,6 @@
 
 #include <settings/macros.h>
 #include <strEx.h>
-#include <utils.h>
 #include <checkHelpers.hpp>
 
 #include <protobuf/plugin.pb.h>
@@ -37,7 +36,7 @@ public:
 	virtual ~CheckLogFile() {}
 
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	void check_logfile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 };

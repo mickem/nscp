@@ -43,10 +43,10 @@ CheckExternalScripts::~CheckExternalScripts() {}
 void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 	boost::filesystem::path path = utf8::cvt<std::string>(str_path);
 	if (path.has_relative_path())
-		path = utf8::cvt<std::string>(get_core()->getBasePath()) / path;
+		path = get_base_path() / path;
 	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
 	if (!boost::filesystem::is_directory(split_path.first))
-		NSC_LOG_ERROR_STD(_T("Path was not found: ") + utf8::cvt<std::wstring>(split_path.first.string()));
+		NSC_LOG_ERROR_STD("Path was not found: " + split_path.first.string());
 
 	boost::regex pattern(split_path.second.string());
 	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
@@ -58,29 +58,29 @@ void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
 			std::string name = itr->path().leaf();
 #endif
 			if (regex_match(name, pattern))
-				add_command(utf8::cvt<std::wstring>(name), utf8::cvt<std::wstring>((split_path.first / name).string()));
+				add_command(name, (split_path.first / name).string());
 		}
 	}
 }
 
 
-bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("external scripts"));
+		settings.set_alias(alias, "external scripts");
 
-		commands_path = settings.alias().get_settings_path(_T("scripts"));
-		aliases_path = settings.alias().get_settings_path(_T("alias"));
-		std::wstring wrappings_path = settings.alias().get_settings_path(_T("wrappings"));
+		commands_path = settings.alias().get_settings_path("scripts");
+		aliases_path = settings.alias().get_settings_path("alias");
+		std::string wrappings_path = settings.alias().get_settings_path("wrappings");
 
 		settings.alias().add_path_to_settings()
 
-			(_T("wrappings"), sh::wstring_map_path(&wrappings_)
-			, _T("EXTERNAL SCRIPT WRAPPINGS SECTION"), _T("A list of templates for wrapped scripts"))
+			("wrappings", sh::string_map_path(&wrappings_)
+			, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts")
 
-			(_T("alias"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
-			_T("EXTERNAL SCRIPT ALIAS SECTION"), _T("A list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)"))
+			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
+			"EXTERNAL SCRIPT ALIAS SECTION", "A list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)")
 
 			;
 
@@ -89,64 +89,64 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		settings.clear();
 
 		if (wrappings_.empty()) {
-			NSC_DEBUG_MSG(_T("No wrappings found (adding default: vbs, ps1 and bat)"));
-			wrappings_[_T("vbs")] = _T("cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%");
-			wrappings_[_T("ps1")] = _T("cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -");
-			wrappings_[_T("bat")] = _T("scripts\\\\%SCRIPT% %ARGS%");
-			settings.register_key(wrappings_path, _T("vbs"), NSCAPI::key_string, _T("VISUAL BASIC WRAPPING"), _T(""), wrappings_[_T("vbs")], false);
-			settings.register_key(wrappings_path, _T("ps1"), NSCAPI::key_string, _T("POWERSHELL WRAPPING"), _T(""), wrappings_[_T("ps1")], false);
-			settings.register_key(wrappings_path, _T("bat"), NSCAPI::key_string, _T("BATCH FILE WRAPPING"), _T(""), wrappings_[_T("bat")], false);
+			NSC_DEBUG_MSG("No wrappings found (adding default: vbs, ps1 and bat)");
+			wrappings_["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
+			wrappings_["ps1"] = "cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -";
+			wrappings_["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
+			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "VISUAL BASIC WRAPPING", "", wrappings_["vbs"], false);
+			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "", wrappings_["ps1"], false);
+			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "BATCH FILE WRAPPING", "", wrappings_["bat"], false);
 		}
 
 		if (aliases_.empty()) {
-			NSC_DEBUG_MSG(_T("No aliases found (adding default)"));
+			NSC_DEBUG_MSG("No aliases found (adding default)");
 
-			add_alias(_T("alias_cpu"), _T("checkCPU warn=80 crit=90 time=5m time=1m time=30s"));
-			add_alias(_T("alias_cpu_ex"), _T("checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s"));
-			add_alias(_T("alias_mem"), _T("checkMem MaxWarn=80% MaxCrit=90% ShowAll=long type=physical type=virtual type=paged type=page"));
-			add_alias(_T("alias_up"), _T("checkUpTime MinWarn=1d MinWarn=1h"));
-			add_alias(_T("alias_disk"), _T("CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED"));
-			add_alias(_T("alias_disk_loose"), _T("CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED ignore-unreadable"));
-			add_alias(_T("alias_volumes"), _T("CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED"));
-			add_alias(_T("alias_volumes_loose"), _T("CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED ignore-unreadable "));
-			add_alias(_T("alias_service"), _T("checkServiceState CheckAll"));
-			add_alias(_T("alias_service_ex"), _T("checkServiceState CheckAll \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc"));
-			add_alias(_T("alias_process"), _T("checkProcState \"$ARG1$=started\""));
-			add_alias(_T("alias_process_stopped"), _T("checkProcState \"$ARG1$=stopped\""));
-			add_alias(_T("alias_process_count"), _T("checkProcState MaxWarnCount=$ARG2$ MaxCritCount=$ARG3$ \"$ARG1$=started\""));
-			add_alias(_T("alias_process_hung"), _T("checkProcState MaxWarnCount=1 MaxCritCount=1 \"$ARG1$=hung\""));
-			add_alias(_T("alias_event_log"), _T("CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 \"filter=generated gt -2d AND severity NOT IN ('success', 'informational') AND source != 'SideBySide'\" truncate=800 unique descriptions \"syntax=%severity%: %source%: %message% (%count%)\""));
-			add_alias(_T("alias_file_size"), _T("CheckFiles \"filter=size > $ARG2$\" \"path=$ARG1$\" MaxWarn=1 MaxCrit=1 \"syntax=%filename% %size%\" max-dir-depth=10"));
-			add_alias(_T("alias_file_age"), _T("checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\""));
-			add_alias(_T("alias_sched_all"), _T("CheckTaskSched \"filter=exit_code ne 0\" \"syntax=%title%: %exit_code%\" warn=>0"));
-			add_alias(_T("alias_sched_long"), _T("CheckTaskSched \"filter=status = 'running' AND most_recent_run_time < -$ARG1$\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0"));
-			add_alias(_T("alias_sched_task"), _T("CheckTaskSched \"filter=title eq '$ARG1$' AND exit_code ne 0\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0"));
-			add_alias(_T("alias_updates"), _T("check_updates -warning 0 -critical 0"));
+			add_alias("alias_cpu", "checkCPU warn=80 crit=90 time=5m time=1m time=30s");
+			add_alias("alias_cpu_ex", "checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s");
+			add_alias("alias_mem", "checkMem MaxWarn=80% MaxCrit=90% ShowAll=long type=physical type=virtual type=paged type=page");
+			add_alias("alias_up", "checkUpTime MinWarn=1d MinWarn=1h");
+			add_alias("alias_disk", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED");
+			add_alias("alias_disk_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED ignore-unreadable");
+			add_alias("alias_volumes", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED");
+			add_alias("alias_volumes_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED ignore-unreadable ");
+			add_alias("alias_service", "checkServiceState CheckAll");
+			add_alias("alias_service_ex", "checkServiceState CheckAll \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
+			add_alias("alias_process", "checkProcState \"$ARG1$=started\"");
+			add_alias("alias_process_stopped", "checkProcState \"$ARG1$=stopped\"");
+			add_alias("alias_process_count", "checkProcState MaxWarnCount=$ARG2$ MaxCritCount=$ARG3$ \"$ARG1$=started\"");
+			add_alias("alias_process_hung", "checkProcState MaxWarnCount=1 MaxCritCount=1 \"$ARG1$=hung\"");
+			add_alias("alias_event_log", "CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 \"filter=generated gt -2d AND severity NOT IN ('success', 'informational') AND source != 'SideBySide'\" truncate=800 unique descriptions \"syntax=%severity%: %source%: %message% (%count%)\"");
+			add_alias("alias_file_size", "CheckFiles \"filter=size > $ARG2$\" \"path=$ARG1$\" MaxWarn=1 MaxCrit=1 \"syntax=%filename% %size%\" max-dir-depth=10");
+			add_alias("alias_file_age", "checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\"");
+			add_alias("alias_sched_all", "CheckTaskSched \"filter=exit_code ne 0\" \"syntax=%title%: %exit_code%\" warn=>0");
+			add_alias("alias_sched_long", "CheckTaskSched \"filter=status = 'running' AND most_recent_run_time < -$ARG1$\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
+			add_alias("alias_sched_task", "CheckTaskSched \"filter=title eq '$ARG1$' AND exit_code ne 0\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
+			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
 		}
 
 		settings.alias().add_path_to_settings()
-			(_T("EXTERNAL SCRIPT SECTION"), _T("Section for external scripts configuration options (CheckExternalScripts)."))
+			("EXTERNAL SCRIPT SECTION", "Section for external scripts configuration options (CheckExternalScripts).")
 
-			(_T("scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)), 
-			_T("EXTERNAL SCRIPT SCRIPT SECTION"), _T("A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>"))
+			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
+			"EXTERNAL SCRIPT SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>")
 
-			(_T("wrapped scripts"), sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
-			_T("EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION"), _T("A list of wrappped scripts (ie. using the template mechanism)"))
+			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
+			"EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION", "A list of wrappped scripts (ie. using the template mechanism)")
 
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("timeout"), sh::uint_key(&timeout, 60),
-			_T("COMMAND TIMEOUT"), _T("The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones."))
+			("timeout", sh::uint_key(&timeout, 60),
+			"COMMAND TIMEOUT", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
 
-			(_T("allow arguments"), sh::bool_key(&allowArgs_, false),
-			_T("COMMAND ARGUMENT PROCESSING"), _T("This option determines whether or not the we will allow clients to specify arguments to commands that are executed."))
+			("allow arguments", sh::bool_key(&allowArgs_, false),
+			"COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
 
-			(_T("allow nasty characters"), sh::bool_key(&allowNasty_, false),
-			_T("COMMAND ALLOW NASTY META CHARS"), _T("This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments."))
+			("allow nasty characters", sh::bool_key(&allowNasty_, false),
+			"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-			(_T("script path"), sh::wstring_key(&scriptDirectory_),
-			_T("SCRIPT DIRECTORY"), _T("Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)"))
+			("script path", sh::wstring_key(&scriptDirectory_),
+			"SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)")
 			;
 
 		settings.register_all();
@@ -156,13 +156,14 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);
 		}
-		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
+		root_ = get_base_path();
 
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
+			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
 		}
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
+			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
 		}
 
 
@@ -170,7 +171,7 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 // 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
 // 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("loading");
 		return false;
 	}
 	return true;
@@ -179,22 +180,22 @@ bool CheckExternalScripts::unloadModule() {
 	return true;
 }
 
-void CheckExternalScripts::add_command(std::wstring key, std::wstring arg) {
+void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
-		commands_.add(get_settings_proxy(), commands_path, key, arg, key == _T("default"));
+		commands_.add(get_settings_proxy(), commands_path, key, arg, key == "default");
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add: " + key);
 	}
 }
-void CheckExternalScripts::add_alias(std::wstring key, std::wstring arg) {
+void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 	try {
-		aliases_.add(get_settings_proxy(), aliases_path, key, arg, key == _T("default"));
+		aliases_.add(get_settings_proxy(), aliases_path, key, arg, key == "default");
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add alias: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add alias: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add: " + key);
 	}
 }
 
@@ -211,7 +212,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 	std::list<std::string> args = cd.arguments;
 	bool first = true;
 	if (isAlias || allowArgs_) {
-		BOOST_FOREACH(std::string arg, args) {
+		BOOST_FOREACH(std::string &arg, args) {
 			for(int i=0;i<request.arguments_size();i++) {
 				const std::string &replace_arg = request.arguments(i);
 				if (first && !isAlias && !allowNasty_) {
@@ -231,7 +232,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 	BOOST_FOREACH(std::string s, args) {
 		if (!xargs.empty())
 			xargs += " ";
-		xargs += s;
+		xargs += + "\"" + s + "\"";
 	}
 
 	if (isAlias) {
@@ -247,8 +248,8 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid return from: " + cd.command);
 			response->CopyFrom(local_response.payload(0));
 		} catch (boost::escaped_list_error &e) {
-			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
-			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
+			NSC_LOG_MESSAGE_STD("Failed to parse alias expression: " + e.what());
+			NSC_LOG_MESSAGE("We will now try parsing the old syntax instead...");
 			std::string buffer;
 			if (nscapi::core_helper::simple_query(cd.command, args, buffer) != NSCAPI::isSuccess) {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute process: " + cd.command);
@@ -270,6 +271,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 		int result = process::executeProcess(args, message, perf);
 		if (!nscapi::plugin_helper::isNagiosReturnCode(result))
 			return nscapi::protobuf::functions::set_response_bad(*response, "The command (" + args.command + ") returned an invalid return code: " + strEx::s::xtos(result));
+		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
 		response->set_message(message);
 		nscapi::protobuf::functions::parse_performance_data(response, perf);
 	}

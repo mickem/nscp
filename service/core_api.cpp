@@ -16,7 +16,7 @@
 #include "NSClient++.h"
 #include "core_api.h"
 #include <charEx.h>
-#include <arrayBuffer.h>
+#include <string.h>
 #include <settings/settings_core.hpp>
 #include "../helpers/settings_manager/settings_manager_impl.h"
 #include <nscapi/nscapi_helper.hpp>
@@ -32,72 +32,27 @@ using namespace nscp::helpers;
 #define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
 #define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
 
-#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
-#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error(_T("core"), __FILE__, __LINE__, msg); }
-#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info(_T("core"), __FILE__, __LINE__, msg); }
-#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug(_T("core"), __FILE__, __LINE__, msg); }
+#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg); }
+#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg); }
+#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg); }
+#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
 
-NSCAPI::errorReturn NSAPIExpandPath(const wchar_t* key, wchar_t* buffer,unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer,unsigned int bufLen) {
 	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(mainClient.expand_path(utf8::cvt<std::string>(key))), NSCAPI::isSuccess);
+		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.expand_path(key), NSCAPI::isSuccess);
 	} catch (...) {
 		LOG_ERROR_STD("Failed to getString: " + utf8::cvt<std::string>(key));
 		return NSCAPI::hasFailed;
 	}
 }
 
-NSCAPI::errorReturn NSAPIGetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* defaultValue, wchar_t* buffer, unsigned int bufLen) {
-	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, settings_manager::get_settings()->get_string(section, key, defaultValue), NSCAPI::isSuccess);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to get string: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (const std::exception &e) {
-		LOG_ERROR_STD("Failed to get string: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to get string: <UNKNOWN EXCEPTION>");
-		return NSCAPI::hasFailed;
-	}
+NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen) {
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(APPLICATION_NAME), NSCAPI::isSuccess);
 }
-int NSAPIGetSettingsInt(const wchar_t* section, const wchar_t* key, int defaultValue) {
-	try {
-		return settings_manager::get_settings()->get_int(section, key, defaultValue);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to set settings file" + e.reason());
-		return defaultValue;
-	} catch (const std::exception &e) {
-		LOG_ERROR_STD("Failed to get key: " + utf8::utf8_from_native(e.what()));
-		return defaultValue;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to get key: <UNKNOWN EXCEPTION>");
-		return defaultValue;
-	}
+NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char *buffer, unsigned int bufLen) {
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(CURRENT_SERVICE_VERSION), NSCAPI::isSuccess);
 }
-int NSAPIGetSettingsBool(const wchar_t* section, const wchar_t* key, int defaultValue) {
-	try {
-		return settings_manager::get_settings()->get_bool(section, key, defaultValue==1);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to get key: " + e.reason());
-		return defaultValue;
-	} catch (const std::exception &e) {
-		LOG_ERROR_STD("Failed to get key: " + utf8::utf8_from_native(e.what()));
-		return defaultValue;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to get key: <UNKNOWN EXCEPTION>");
-		return defaultValue;
-	}
-}
-NSCAPI::errorReturn NSAPIGetBasePath(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(mainClient.getBasePath().string()), NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetApplicationName(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(APPLICATION_NAME), NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetApplicationVersionStr(wchar_t*buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::wstring>(CURRENT_SERVICE_VERSION), NSCAPI::isSuccess);
-}
-void NSAPISimpleMessage(const wchar_t* module, int loglevel, const char* file, int line, const wchar_t* message) {
+void NSAPISimpleMessage(const char* module, int loglevel, const char* file, int line, const char* message) {
 	nsclient::logging::logger::get_logger()->log(module, loglevel, file, line, message);
 }
 void NSAPIMessage(const char* data, unsigned int count) {
@@ -107,7 +62,7 @@ void NSAPIMessage(const char* data, unsigned int count) {
 void NSAPIStopServer(void) {
 	mainClient.get_service_control().stop();
 }
-NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+NSCAPI::nagiosReturn NSAPIInject(const char* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.injectRAW(command, request, response);
 	*response_buffer_len = response.size();
@@ -120,7 +75,7 @@ NSCAPI::nagiosReturn NSAPIInject(const wchar_t* command, const char *request_buf
 	return ret;
 }
 
-NSCAPI::nagiosReturn NSAPIExecCommand(const wchar_t* target, const wchar_t* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char* command, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.exec_command(target, command, request, response);
 	*response_buffer_len = response.size();
@@ -134,47 +89,13 @@ NSCAPI::nagiosReturn NSAPIExecCommand(const wchar_t* target, const wchar_t* comm
 }
 
 
-
-NSCAPI::errorReturn NSAPIGetSettingsSection(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
-	try {
-		unsigned int len = 0;
-		*aBuffer = array_buffer::list2arrayBuffer(settings_manager::get_settings()->get_keys(section), len);
-		*bufLen = len;
-		return NSCAPI::isSuccess;
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to get section: " + e.reason());
-	} catch (...) {
-		LOG_ERROR_STD("Failed to getSection: " + utf8::cvt<std::string>(section));
-	}
-	return NSCAPI::hasFailed;
-}
-NSCAPI::errorReturn NSAPIGetSettingsSections(const wchar_t* section, wchar_t*** aBuffer, unsigned int * bufLen) {
-	try {
-		unsigned int len = 0;
-		*aBuffer = array_buffer::list2arrayBuffer(settings_manager::get_settings()->get_sections(section), len);
-		*bufLen = len;
-		return NSCAPI::isSuccess;
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to get section: " + e.reason());
-	} catch (...) {
-		LOG_ERROR_STD("Failed to getSection: " + utf8::cvt<std::string>(section));
-	}
-	return NSCAPI::hasFailed;
-}
-NSCAPI::errorReturn NSAPIReleaseSettingsSectionBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
-	array_buffer::destroyArrayBuffer(*aBuffer, *bufLen);
-	*bufLen = 0;
-	*aBuffer = NULL;
-	return NSCAPI::isSuccess;
-}
-
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
 
 NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
 	if (algorithm != NSCAPI::encryption_xor) {
-		LOG_ERROR(_T("Unknown algortihm requested."));
+		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
 	}
 	/*
@@ -217,7 +138,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer
 
 NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
 	if (algorithm != NSCAPI::encryption_xor) {
-		LOG_ERROR(_T("Unknown algortihm requested."));
+		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
 	}
 	/*
@@ -258,110 +179,6 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSAPISetSettingsString(const wchar_t* section, const wchar_t* key, const wchar_t* value) {
-	try {
-		settings_manager::get_settings()->set_string(section, key, value);
-	} catch (const std::exception &e) {
-		LOG_ERROR_STD("Failed to setString: " + utf8::cvt<std::string>(key) + ": " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to setString: " + utf8::cvt<std::string>(key));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPISetSettingsInt(const wchar_t* section, const wchar_t* key, int value) {
-	try {
-		settings_manager::get_settings()->set_int(section, key, value);
-	} catch (...) {
-		LOG_ERROR_STD("Failed to setInt: " + utf8::cvt<std::string>(key));
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIWriteSettings(const wchar_t* key) {
-	try {
-		settings::instance_ptr inst = settings_manager::get_core()->create_instance(key);
-		if (!inst) {
-			LOG_ERROR_STD("Failed to create settings: " + utf8::cvt<std::string>(key));
-			return NSCAPI::hasFailed;
-		}
-		settings_manager::get_core()->migrate_to(inst);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to write settings: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to write settings");
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReadSettings(const wchar_t* key) {
-	try {
-		settings::instance_ptr inst = settings_manager::get_core()->create_instance(key);
-		if (!inst) {
-			LOG_ERROR_STD("Failed to create settings: " + utf8::cvt<std::string>(key));
-			return NSCAPI::hasFailed;
-		}
-		settings_manager::get_core()->migrate_from(inst);
-		settings_manager::get_settings()->reload();
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to read settings: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to read settings");
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIRehash(int flag) {
-	return NSCAPI::hasFailed;
-}
-NSCAPI::errorReturn NSAPIDescribeCommand(const wchar_t* command, wchar_t* buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.describeCommand(command), NSCAPI::isSuccess);
-}
-NSCAPI::errorReturn NSAPIGetAllCommandNames(array_buffer::arrayBuffer* aBuffer, unsigned int *bufLen) {
-	unsigned int len = 0;
-	*aBuffer = array_buffer::list2arrayBuffer(mainClient.getAllCommandNames(), len);
-	*bufLen = len;
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReleaseAllCommandNamessBuffer(wchar_t*** aBuffer, unsigned int * bufLen) {
-	array_buffer::destroyArrayBuffer(*aBuffer, *bufLen);
-	*bufLen = 0;
-	*aBuffer = NULL;
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIRegisterCommand(unsigned int id, const wchar_t* cmd,const wchar_t* desc) {
-	try {
-		mainClient.registerCommand(id, cmd, desc);
-	} catch (nsclient::commands::command_exception &e) {
-		LOG_ERROR_STD("Exception registrying command '" + utf8::cvt<std::string>(cmd) + "': " + utf8::utf8_from_native(e.what()) + ", from: " + strEx::s::xtos(id));
-		return NSCAPI::isfalse;
-	} catch (...) {
-		LOG_ERROR_STD("Exception registrying command '" + utf8::cvt<std::string>(cmd) + ", from: " + strEx::s::xtos(id));
-		return NSCAPI::isfalse;
-	}
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPISettingsRegKey(unsigned int plugin_id, const wchar_t* path, const wchar_t* key, int type, const wchar_t* title, const wchar_t* description, const wchar_t* defVal, int advanced) {
-	try {
-		if (type == NSCAPI::key_string)
-			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_string, title, description, defVal, advanced==1);
-		if (type == NSCAPI::key_bool)
-			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_bool, title, description, defVal, advanced==1);
-		if (type == NSCAPI::key_integer)
-			settings_manager::get_core()->register_key(plugin_id, path, key, settings::settings_core::key_integer, title, description, defVal, advanced==1);
-		return NSCAPI::hasFailed;
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed register key: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed register key");
-		return NSCAPI::hasFailed;
-	}
-}
-
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	return mainClient.settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
 }
@@ -369,56 +186,15 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 	return mainClient.registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
 }
 
-
-NSCAPI::errorReturn NSAPISettingsRegPath(unsigned int plugin_id, const wchar_t* path, const wchar_t* title, const wchar_t* description, int advanced) {
-	try {
-		settings_manager::get_core()->register_path(plugin_id, path, title, description, advanced);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed register path: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed register path");
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
-//int wmain(int argc, wchar_t* argv[], wchar_t* envp[])
 wchar_t* copyString(const std::wstring &str) {
 	int sz = str.size();
 	wchar_t *tc = new wchar_t[sz+2];
 	wcsncpy(tc, str.c_str(), sz);
 	return tc;
 }
-NSCAPI::errorReturn NSAPIGetPluginList(int *len, NSCAPI::plugin_info *list[]) {
-//	NSClientT::plugin_info_list plugList= mainClient.get_all_plugins();
-	*len = 0; //plugList.size();
-
-	*list = new NSCAPI::plugin_info[*len+1];
-	/*
-	int i=0;
-	for(NSClientT::plugin_info_list::const_iterator cit = plugList.begin(); cit != plugList.end(); ++cit,i++) {
-		(*list)[i].dll = copyString((*cit).dll);
-		(*list)[i].name = copyString((*cit).name);
-		(*list)[i].version = copyString((*cit).version);
-		(*list)[i].description = copyString((*cit).description);
-	}
-	*/
-	return NSCAPI::isSuccess;
-}
-NSCAPI::errorReturn NSAPIReleasePluginList(int len, NSCAPI::plugin_info *list[]) {
-	for (int i=0;i<len;i++) {
-		delete [] (*list)[i].dll;
-		delete [] (*list)[i].name;
-		delete [] (*list)[i].version;
-		delete [] (*list)[i].description;
-	}
-	delete [] *list;
-	return NSCAPI::isSuccess;
-}
 
 
-NSCAPI::errorReturn NSAPIReload(const wchar_t *module) {
+NSCAPI::errorReturn NSAPIReload(const char *module) {
 	try {
 		return mainClient.reload(module);
 	} catch (...) {
@@ -427,114 +203,45 @@ NSCAPI::errorReturn NSAPIReload(const wchar_t *module) {
 	}
 }
 
-NSCAPI::errorReturn NSAPISettingsSave(void) {
-	try {
-		settings_manager::get_settings()->save();
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_STD("Failed to save: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Failed to save");
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
-
-
-LPVOID NSAPILoader(const wchar_t*buffer) {
-	if (wcscasecmp(buffer, _T("NSAPIGetApplicationName")) == 0)
+LPVOID NSAPILoader(const char* buffer) {
+	if (strcmp(buffer, "NSAPIGetApplicationName") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationName);
-	if (wcscasecmp(buffer, _T("NSAPIGetApplicationVersionStr")) == 0)
+	if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationVersionStr);
-	if (wcscasecmp(buffer, _T("NSAPIGetSettingsString")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsString);
-	if (wcscasecmp(buffer, _T("NSAPIGetSettingsSection")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsSection);
-	if (wcscasecmp(buffer, _T("NSAPIGetSettingsSections")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsSections);
-	if (wcscasecmp(buffer, _T("NSAPIReleaseSettingsSectionBuffer")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIReleaseSettingsSectionBuffer);
-	if (wcscasecmp(buffer, _T("NSAPIGetSettingsInt")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsInt);
-	if (wcscasecmp(buffer, _T("NSAPIGetSettingsBool")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetSettingsBool);
-	if (wcscasecmp(buffer, _T("NSAPIMessage")) == 0)
+	if (strcmp(buffer, "NSAPIMessage") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIMessage);
-	if (wcscasecmp(buffer, _T("NSAPISimpleMessage")) == 0)
+	if (strcmp(buffer, "NSAPISimpleMessage") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPISimpleMessage);
-	if (wcscasecmp(buffer, _T("NSAPIStopServer")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIStopServer);
-	if (wcscasecmp(buffer, _T("NSAPIInject")) == 0)
+	if (strcmp(buffer, "NSAPIInject") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIInject);
-	if (wcscasecmp(buffer, _T("NSAPIExecCommand")) == 0)
+	if (strcmp(buffer, "NSAPIExecCommand") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIExecCommand);
-	if (wcscasecmp(buffer, _T("NSAPIGetBasePath")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetBasePath);
-	if (wcscasecmp(buffer, _T("NSAPICheckLogMessages")) == 0)
+	if (strcmp(buffer, "NSAPICheckLogMessages") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPICheckLogMessages);
-	if (wcscasecmp(buffer, _T("NSAPIEncrypt")) == 0)
+	if (strcmp(buffer, "NSAPIEncrypt") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIEncrypt);
-	if (wcscasecmp(buffer, _T("NSAPIDecrypt")) == 0)
+	if (strcmp(buffer, "NSAPIDecrypt") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIDecrypt);
-	if (wcscasecmp(buffer, _T("NSAPISetSettingsString")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISetSettingsString);
-	if (wcscasecmp(buffer, _T("NSAPISetSettingsInt")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISetSettingsInt);
-	if (wcscasecmp(buffer, _T("NSAPIWriteSettings")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIWriteSettings);
-	if (wcscasecmp(buffer, _T("NSAPIReadSettings")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIReadSettings);
-	if (wcscasecmp(buffer, _T("NSAPIRehash")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIRehash);
-	if (wcscasecmp(buffer, _T("NSAPIDescribeCommand")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIDescribeCommand);
-	if (wcscasecmp(buffer, _T("NSAPIGetAllCommandNames")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetAllCommandNames);
-	if (wcscasecmp(buffer, _T("NSAPIReleaseAllCommandNamessBuffer")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIReleaseAllCommandNamessBuffer);
-	if (wcscasecmp(buffer, _T("NSAPIRegisterCommand")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIRegisterCommand);
-	if (wcscasecmp(buffer, _T("NSAPISettingsRegKey")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISettingsRegKey);
-	if (wcscasecmp(buffer, _T("NSAPISettingsRegPath")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISettingsRegPath);
-	if (wcscasecmp(buffer, _T("NSAPIGetPluginList")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetPluginList);
-	if (wcscasecmp(buffer, _T("NSAPIReleasePluginList")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIReleasePluginList);
-	if (wcscasecmp(buffer, _T("NSAPISettingsSave")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISettingsSave);
-	if (wcscasecmp(buffer, _T("NSAPINotify")) == 0)
+	if (strcmp(buffer, "NSAPINotify") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPINotify);
-	if (wcscasecmp(buffer, _T("NSAPIDestroyBuffer")) == 0)
+	if (strcmp(buffer, "NSAPIDestroyBuffer") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIDestroyBuffer);
-	if (wcscasecmp(buffer, _T("NSAPIExpandPath")) == 0)
+	if (strcmp(buffer, "NSAPIExpandPath") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIExpandPath);
-	if (wcscasecmp(buffer, _T("NSAPIRegisterSubmissionListener")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIRegisterSubmissionListener);
-	if (wcscasecmp(buffer, _T("NSAPIRegisterRoutingListener")) == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIRegisterRoutingListener);
-	if (wcscasecmp(buffer, _T("NSAPIReload")) == 0)
+	if (strcmp(buffer, "NSAPIReload") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIReload);
-	if (wcscasecmp(buffer, _T("NSAPIGetLoglevel")) == 0)
+	if (strcmp(buffer, "NSAPIGetLoglevel") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIGetLoglevel);
-	if (wcscasecmp(buffer, _T("NSAPISettingsQuery")) == 0)
+	if (strcmp(buffer, "NSAPISettingsQuery") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPISettingsQuery);
-	if (wcscasecmp(buffer, _T("NSAPIRegistryQuery")) == 0)
+	if (strcmp(buffer, "NSAPIRegistryQuery") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
 
-	LOG_ERROR_STD("Function not found: " + utf8::cvt<std::string>(buffer));
+	LOG_ERROR_STD("Function not found: " + buffer);
 	return NULL;
 }
 
-NSCAPI::errorReturn NSAPIRegisterSubmissionListener(unsigned int plugin_id, const wchar_t* channel) {
-	return mainClient.register_submission_listener(plugin_id, channel);
-}
-NSCAPI::errorReturn NSAPIRegisterRoutingListener(unsigned int plugin_id, const wchar_t* channel) {
-	return mainClient.register_routing_listener(plugin_id, channel);
-}
-
-NSCAPI::errorReturn NSAPINotify(const wchar_t* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
+NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.send_notification(channel, request, response);
 	*response_buffer_len = response.size();

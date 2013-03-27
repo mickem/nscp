@@ -36,34 +36,36 @@ namespace nscapi {
 	namespace settings_helper {
 
 		typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
-
+		static std::string make_skey(std::string path, std::string key) {
+			return path + "." + key;
+		}
 		class key_interface {
 		public:
 			virtual NSCAPI::settings_type get_type() const = 0;
-			virtual std::wstring get_default_as_string() const = 0;
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const = 0;
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const = 0;
+			virtual std::string get_default_as_string() const = 0;
+			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const = 0;
+			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const = 0;
 		};
 		template<class T>
 		class typed_key : public key_interface {
 		public:
-			typed_key(const T& v, bool has_default)  : has_default_(has_default), default_value_(boost::any(v)), default_value_as_text_(boost::lexical_cast<std::wstring>(v)) {}
+			typed_key(const T& v, bool has_default)  : has_default_(has_default), default_value_(boost::any(v)), default_value_as_text_(boost::lexical_cast<std::string>(v)) {}
 			typed_key(bool has_default)  : has_default_(has_default) {}
 
 			virtual typed_key* default_value(const T& v) {
 				default_value_ = boost::any(v);
-				default_value_as_text_ = boost::lexical_cast<std::wstring>(v);
+				default_value_as_text_ = boost::lexical_cast<std::string>(v);
 				return this;
 			}
 
-			virtual std::wstring get_default_as_string() const {
+			virtual std::string get_default_as_string() const {
 				return default_value_as_text_;
 			}
 			virtual void update_target(T *value) const = 0;
 		protected:
 			bool has_default_;
 			boost::any default_value_;
-			std::wstring default_value_as_text_;
+			std::string default_value_as_text_;
 		};
 
 		template<class T>
@@ -74,34 +76,34 @@ namespace nscapi {
 			virtual NSCAPI::settings_type get_type() const {
 				return NSCAPI::key_string;
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
-				std::wstring dummy(_T("$$DUMMY_VALUE_DO_NOT_USE$$"));
+			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
+				std::string dummy("$$DUMMY_VALUE_DO_NOT_USE$$");
 				if (typed_key<T>::has_default_)
 					dummy = typed_key<T>::default_value_as_text_;
-				std::wstring data = core_->get_string(path, key, dummy);
+				std::string data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) {
 					try {
 						T value = boost::lexical_cast<T>(data);
 						update_target(&value);
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
 				}
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
-				std::wstring dummy(_T("$$DUMMY_VALUE_DO_NOT_USE$$"));
+			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
+				std::string dummy("$$DUMMY_VALUE_DO_NOT_USE$$");
 				if (typed_key<T>::has_default_)
 					dummy = typed_key<T>::default_value_as_text_;
-				std::wstring data = core_->get_string(parent, key, dummy);
+				std::string data = core_->get_string(parent, key, dummy);
 				if (typed_key<T>::has_default_ || data != dummy) 
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
-				if (typed_key<T>::has_default_ || data != _T("$$DUMMY_VALUE_DO_NOT_USE$$")) {
+				if (typed_key<T>::has_default_ || data != "$$DUMMY_VALUE_DO_NOT_USE$$") {
 					try {
 						T value = boost::lexical_cast<T>(data);
 						update_target(&value);
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
 				}
 			}
@@ -113,35 +115,35 @@ namespace nscapi {
 			virtual NSCAPI::settings_type get_type() const {
 				return NSCAPI::key_string;
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
 				TString dummy(utf8::cvt<TString>("$$DUMMY_VALUE_DO_NOT_USE$$"));
 				if (typed_key<T>::has_default_)
 					dummy = utf8::cvt<TString>(typed_key<T>::default_value_as_text_);
-				TString data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::wstring>(dummy)));
+				TString data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::string>(dummy)));
 				if (typed_key<T>::has_default_ || data != dummy) {
 					try {
-						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::wstring>(data)));
+						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::string>(data)));
 						update_target(&value);
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
 				}
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				TString tag(utf8::cvt<TString>("$$DUMMY_VALUE_DO_NOT_USE$$"));
 				TString dummy = tag;
 				if (typed_key<T>::has_default_)
 					dummy = utf8::cvt<TString>(typed_key<T>::default_value_as_text_);
-				TString data = utf8::cvt<TString>(core_->get_string(parent, key, utf8::cvt<std::wstring>(dummy)));
+				TString data = utf8::cvt<TString>(core_->get_string(parent, key, utf8::cvt<std::string>(dummy)));
 				if (typed_key<T>::has_default_ || data != dummy) 
 					dummy = data;
-				data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::wstring>(dummy)));
+				data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::string>(dummy)));
 				if (typed_key<T>::has_default_ || data != tag) {
 					try {
-						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::wstring>(data)));
+						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::string>(data)));
 						update_target(&value);
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to parse key: ") + path + _T("/") + key + _T(": ") + utf8::to_unicode(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
 				}
 			}
@@ -159,7 +161,7 @@ namespace nscapi {
 			virtual NSCAPI::settings_type get_type() const {
 				return NSCAPI::key_integer;
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
 				int dummy = -1;
 				if (typed_key<T>::has_default_)
 					dummy = default_value_as_int_;
@@ -173,7 +175,7 @@ namespace nscapi {
 				T value = static_cast<T>(val);
 				update_target(&value);
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				if (typed_key<T>::has_default_) {
 					T default_value = static_cast<T>(core_->get_int(parent, key, default_value_as_int_));
 					T value = static_cast<T>(core_->get_int(path, key, default_value));
@@ -212,11 +214,11 @@ namespace nscapi {
 				return NSCAPI::key_bool;
 			}
 			// TODO: FIXME: Add support for has_default
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
 				T value = static_cast<T>(core_->get_bool(path, key, typed_int_value<T>::default_value_as_int_==1));
 				update_target(&value);
 			}
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring parent, std::wstring path, std::wstring key) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				T default_value = static_cast<T>(core_->get_bool(parent, key, typed_int_value<T>::default_value_as_int_==1));
 				T value = static_cast<T>(core_->get_bool(path, key, default_value));
 				update_target(&value);
@@ -263,8 +265,8 @@ namespace nscapi {
 		};
 
 		template<typename T>
-		boost::shared_ptr<typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> > > wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
-			boost::shared_ptr<typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> > > r(new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def, true));
+		boost::shared_ptr<typed_key_entry_in_vector<std::string, T, typed_string_value<std::string> > > string_vector_key(T *val, typename T::key_type key, std::string def) {
+			boost::shared_ptr<typed_key_entry_in_vector<std::string, T, typed_string_value<std::string> > > r(new typed_key_entry_in_vector<std::string, T, typed_string_value<std::string> >(val, key, def, true));
 			return r;
 		}
 
@@ -278,10 +280,6 @@ namespace nscapi {
 		typedef typed_key_value<std::size_t, typed_int_value<std::size_t> > size_key_type;
 		typedef typed_key_value<bool, typed_bool_value<bool> > bool_key_type;
 
-		/*
-		template<typename T>
-		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def);
-		*/
 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val, std::wstring def);
 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val);
 		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def);
@@ -324,48 +322,50 @@ namespace nscapi {
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > path_fun_key(boost::function<void (T)> fun, T def) {
-			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > r(new typed_key_fun<T, typed_xpath_value<T, std::wstring> >(fun, def, true));
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void (T)> fun, T def) {
+			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > r(new typed_key_fun<T, typed_xpath_value<T, std::string> >(fun, def, true));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > path_fun_key(boost::function<void (T)> fun) {
-			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::wstring> > > r(new typed_key_fun<T, typed_xpath_value<T, std::wstring> >(fun, T(), false));
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void (T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > r(new typed_key_fun<T, typed_xpath_value<T, std::string> >(fun, T(), false));
 			return r;
 		}
 
 		class path_interface {
 		public:
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path) const = 0;
+			virtual void notify(settings_impl_interface_ptr core_, std::string path) const = 0;
 		};
 
-		template<class T=std::map<std::wstring,std::wstring> >
+		template<class T=std::string>
 		class typed_path_map : public path_interface {
 		public:
-			typed_path_map(T* store_to)  : store_to_(store_to) {}
+			typedef std::map<T,T> map_type;
+			typed_path_map(map_type* store_to)  : store_to_(store_to) {}
 
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (store_to_) {
-					std::list<std::wstring> list = core_->get_keys(path);
-					T result;
-					BOOST_FOREACH(std::wstring key, list) {
-						result[key] = core_->get_string(path, key, _T(""));
+					std::list<std::string> list = core_->get_keys(path);
+					map_type result;
+					BOOST_FOREACH(std::string key, list) {
+						result[utf8::cvt<T>(key)] = utf8::cvt<T>(core_->get_string(path, key, ""));
 					}
 					*store_to_ = result;
 				}
 			}
 
 		protected:
-			T* store_to_;
+			map_type* store_to_;
 		};
 
 		class typed_path_list : public path_interface {
 		public:
 			typed_path_list(std::list<std::wstring>* store_to)  : store_to_(store_to) {}
 
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (store_to_) {
-					*store_to_ = core_->get_keys(path);
+					BOOST_FOREACH(const std::string &s, core_->get_keys(path))
+					store_to_->push_back(utf8::cvt<std::wstring>(s));
 				}
 			}
 
@@ -373,37 +373,38 @@ namespace nscapi {
 			std::list<std::wstring>* store_to_;
 		};
 
+		template<class T>
 		class typed_path_fun_value : public path_interface {
 		public:
-			typed_path_fun_value(boost::function<void (std::wstring, std::wstring)> callback) : callback_(callback) {}
+			typed_path_fun_value(boost::function<void (T, T)> callback) : callback_(callback) {}
 
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (callback_) {
-					std::list<std::wstring> list = core_->get_keys(path);
-					BOOST_FOREACH(std::wstring key, list) {
-						std::wstring val = core_->get_string(path, key, _T(""));
-						callback_(key, val);
+					std::list<std::string> list = core_->get_keys(path);
+					BOOST_FOREACH(std::string key, list) {
+						std::string val = core_->get_string(path, key, "");
+						callback_(utf8::cvt<T>(key), utf8::cvt<T>(val));
 					}
 					list = core_->get_sections(path);
-					BOOST_FOREACH(std::wstring key, list) {
-						callback_(key, _T(""));
+					BOOST_FOREACH(std::string key, list) {
+						callback_(utf8::cvt<T>(key), T());
 					}
 				}
 			}
 
 		protected:
-			boost::function<void (std::wstring, std::wstring)> callback_;
+			boost::function<void (T, T)> callback_;
 		};
 
 		class typed_path_fun : public path_interface {
 		public:
 			typed_path_fun(boost::function<void (std::wstring)> callback) : callback_(callback) {}
 
-			virtual void notify(settings_impl_interface_ptr core_, std::wstring path) const {
+			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (callback_) {
-					std::list<std::wstring> list = core_->get_keys(path);
-					BOOST_FOREACH(std::wstring key, list) {
-						callback_(key);
+					std::list<std::string> list = core_->get_keys(path);
+					BOOST_FOREACH(std::string key, list) {
+						callback_(utf8::cvt<std::wstring>(key));
 					}
 				}
 			}
@@ -414,21 +415,22 @@ namespace nscapi {
 
 
 		boost::shared_ptr<typed_path_fun> fun_path(boost::function<void (std::wstring)> fun);
-		boost::shared_ptr<typed_path_fun_value> fun_values_path(boost::function<void (std::wstring,std::wstring)> fun);
-		boost::shared_ptr<typed_path_map<> > wstring_map_path(std::map<std::wstring,std::wstring> *val);
+		boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void (std::string,std::string)> fun);
+		boost::shared_ptr<typed_path_map<std::wstring> > wstring_map_path(std::map<std::wstring,std::wstring> *val);
+		boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string,std::string> *val);
 		boost::shared_ptr<typed_path_list> wstring_list_path(std::list<std::wstring> *val);
 
 		struct description_container {
-			std::wstring title;
-			std::wstring description;
+			std::string title;
+			std::string description;
 			bool advanced;
 
-			description_container(std::wstring title, std::wstring description, bool advanced) 
+			description_container(std::string title, std::string description, bool advanced) 
 				: title(title)
 				, description(description)
 				, advanced(advanced)
 			{}
-			description_container(std::wstring title, std::wstring description) 
+			description_container(std::string title, std::string description) 
 				: title(title)
 				, description(description)
 				, advanced(false)
@@ -449,14 +451,14 @@ namespace nscapi {
 		};
 
 		struct key_info {
-			std::wstring path;
-			std::wstring key_name;
+			std::string path;
+			std::string key_name;
 			boost::shared_ptr<key_interface> key;
 			description_container description;
-			std::wstring parent;
+			std::string parent;
 
 
-			key_info(std::wstring path_, std::wstring key_name_, boost::shared_ptr<key_interface> key, description_container description_) 
+			key_info(std::string path_, std::string key_name_, boost::shared_ptr<key_interface> key, description_container description_) 
 				: path(path_)
 				, key_name(key_name_)
 				, key(key)
@@ -471,23 +473,23 @@ namespace nscapi {
 				parent = obj.parent;
 				return *this;
 			}
-			void set_parent(std::wstring parent_) {
+			void set_parent(std::string parent_) {
 				parent = parent_;
 			}
 			bool has_parent() const {
 				return !parent.empty();
 			}
-			std::wstring get_parent() const {
+			std::string get_parent() const {
 				return parent;
 			}
 		};
 		struct path_info {
-			std::wstring path_name;
+			std::string path_name;
 			boost::shared_ptr<path_interface> path;
 			description_container description;
 
-			path_info(std::wstring path_name, description_container description_) : path_name(path_name), description(description_) {}
-			path_info(std::wstring path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_) {}
+			path_info(std::string path_name, description_container description_) : path_name(path_name), description(description_) {}
+			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_) {}
 
 			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description) {}
 			virtual path_info& operator=(const path_info& obj) {
@@ -503,28 +505,28 @@ namespace nscapi {
 		class settings_paths_easy_init {
 		public:
 			settings_paths_easy_init(settings_registry* owner) : owner(owner) {}
-			settings_paths_easy_init(std::wstring path, settings_registry* owner) : path_(path), owner(owner) {}
+			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner) {}
 
-			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::string title, std::string description) {
 				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description)));
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(std::string title, std::string description) {
 				boost::shared_ptr<path_info> d(new path_info(path_, description_container(title, description)));
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::wstring path, std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(std::string path, std::string title, std::string description) {
 				if (!path_.empty())
-					path = path_ + _T("/") + path;
+					path = path_ + "/" + path;
 				boost::shared_ptr<path_info> d(new path_info(path, description_container(title, description)));
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::wstring path, boost::shared_ptr<path_interface> value, std::wstring title, std::wstring description) {
+			settings_paths_easy_init& operator()(std::string path, boost::shared_ptr<path_interface> value, std::string title, std::string description) {
 				if (!path_.empty())
-					path = path_ + _T("/") + path;
+					path = path_ + "/" + path;
 				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description)));
 				add(d);
 				return *this;
@@ -533,18 +535,18 @@ namespace nscapi {
 			void add(boost::shared_ptr<path_info> d);
 
 		private:
-			std::wstring path_;
+			std::string path_;
 			settings_registry* owner;
 		};	
 
 		class settings_keys_easy_init {
 		public:
 			settings_keys_easy_init(settings_registry* owner_) : owner(owner_) {}
-			settings_keys_easy_init(std::wstring path, settings_registry* owner_) : owner(owner_), path_(path) {}
-			settings_keys_easy_init(std::wstring path, std::wstring parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
+			settings_keys_easy_init(std::string path, settings_registry* owner_) : owner(owner_), path_(path) {}
+			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
 			virtual ~settings_keys_easy_init() {}
 
-			settings_keys_easy_init& operator()(std::wstring path, std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description, bool advanced = false) {
+			settings_keys_easy_init& operator()(std::string path, std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
 				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
@@ -552,7 +554,7 @@ namespace nscapi {
 				return *this;
 			}
 
-			settings_keys_easy_init& operator()(std::wstring key_name, boost::shared_ptr<key_interface> value, std::wstring title, std::wstring description, bool advanced = false) {
+			settings_keys_easy_init& operator()(std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
 				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
@@ -564,37 +566,37 @@ namespace nscapi {
 
 		private:
 			settings_registry* owner;
-			std::wstring path_;
-			std::wstring parent_;
+			std::string path_;
+			std::string parent_;
 		};	
 
 
 		class path_extension {
 		public:
-			path_extension(settings_registry * owner, std::wstring path) : owner_(owner), path_(path) {}
+			path_extension(settings_registry * owner, std::string path) : owner_(owner), path_(path) {}
 
-			settings_keys_easy_init add_key_to_path(std::wstring path) {
+			settings_keys_easy_init add_key_to_path(std::string path) {
 				return settings_keys_easy_init(get_path(path), owner_);
 			}
 			settings_keys_easy_init add_key() {
 				return settings_keys_easy_init(path_, owner_);
 			}
-			settings_paths_easy_init add_path(std::wstring path = _T("")) {
+			settings_paths_easy_init add_path(std::string path = "") {
 				return settings_paths_easy_init(get_path(path), owner_);
 			}
-			inline std::wstring get_path(std::wstring path) {
+			inline std::string get_path(std::string path) {
 				if (!path.empty())
-					return path_ + _T("/") + path;
+					return path_ + "/" + path;
 				return path_;
 			}
 
 		private:
 			settings_registry * owner_;
-			std::wstring path_;
+			std::string path_;
 		};
 		class alias_extension {
 		public:
-			alias_extension(settings_registry * owner, std::wstring alias) : owner_(owner), alias_(alias) {}
+			alias_extension(settings_registry * owner, std::string alias) : owner_(owner), alias_(alias) {}
 			alias_extension(const alias_extension &other) : owner_(other.owner_), alias_(other.alias_), parent_(other.parent_) {}
 			alias_extension& operator = (const alias_extension& other) {
 				owner_ = other.owner_;
@@ -603,65 +605,65 @@ namespace nscapi {
 				return *this;
 			}
 
-			settings_keys_easy_init add_key_to_path(std::wstring path) {
+			settings_keys_easy_init add_key_to_path(std::string path) {
 				return settings_keys_easy_init(get_path(path), parent_, owner_);
 			}
-			settings_paths_easy_init add_path(std::wstring path) {
+			settings_paths_easy_init add_path(std::string path) {
 				return settings_paths_easy_init(get_path(path), owner_);
 			}
-			inline std::wstring get_path(std::wstring path = _T("")) {
+			inline std::string get_path(std::string path = "") {
 				if (path.empty())
-					return _T("/") + alias_;
-				return path + _T("/") + alias_;
+					return "/" + alias_;
+				return path + "/" + alias_;
 			}
 
 
-			settings_keys_easy_init add_key_to_settings(std::wstring path = _T("")) {
+			settings_keys_easy_init add_key_to_settings(std::string path = "") {
 				return settings_keys_easy_init(get_settings_path(path), parent_, owner_);
 			}
-			settings_paths_easy_init add_path_to_settings(std::wstring path = _T("")) {
+			settings_paths_easy_init add_path_to_settings(std::string path = "") {
 				return settings_paths_easy_init(get_settings_path(path), owner_);
 			}
-			inline std::wstring get_settings_path(std::wstring path) {
+			inline std::string get_settings_path(std::string path) {
 				if (path.empty())
-					return _T("/settings/") + alias_;
-				return _T("/settings/") + alias_ + _T("/") + path;
+					return "/settings/" + alias_;
+				return "/settings/" + alias_ + "/" + path;
 			}
 
-			alias_extension add_parent(std::wstring parent_path) {
+			alias_extension add_parent(std::string parent_path) {
 				set_parent_path(parent_path);
 				return *this;
 			}
 
 
-			static std::wstring get_alias(std::wstring cur, std::wstring def) {
+			static std::string get_alias(std::string cur, std::string def) {
 				if (cur.empty())
 					return def;
 				else
 					return cur;
 			}
-			static std::wstring get_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+			static std::string get_alias(std::string prefix, std::string cur, std::string def) {
 				if (!prefix.empty())
-					prefix += _T("/");
+					prefix += "/";
 				if (cur.empty())
 					return prefix + def;
 				else
 					return prefix + cur;
 			}
-			void set_alias(std::wstring cur, std::wstring def) {
+			void set_alias(std::string cur, std::string def) {
 				alias_ = get_alias(cur, def);
 			}
-			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+			void set_alias(std::string prefix, std::string cur, std::string def) {
 				alias_ = get_alias(prefix, cur, def);
 			}
-			void set_parent_path(std::wstring parent) {
+			void set_parent_path(std::string parent) {
 				parent_ = parent;
 			}
 
 		private:
 			settings_registry * owner_;
-			std::wstring alias_;
-			std::wstring parent_;
+			std::string alias_;
+			std::string parent_;
 		};
 
 		class settings_registry {
@@ -670,7 +672,7 @@ namespace nscapi {
 			key_list keys_;
 			path_list paths_;
 			settings_impl_interface_ptr core_;
-			std::wstring alias_;
+			std::string alias_;
 		public:
 			settings_registry(settings_impl_interface_ptr core) : core_(core) {}
 			virtual ~settings_registry() {}
@@ -684,51 +686,60 @@ namespace nscapi {
 			settings_keys_easy_init add_key() {
 				return settings_keys_easy_init(this);
 			} 
-			settings_keys_easy_init add_key_to_path(std::wstring path) {
+			settings_keys_easy_init add_key_to_path(std::string path) {
 				return settings_keys_easy_init(path, this);
 			}
-			settings_keys_easy_init add_key_to_settings(std::wstring path) {
-				return settings_keys_easy_init(_T("/settings/") + path, this);
+			settings_keys_easy_init add_key_to_settings(std::string path) {
+				return settings_keys_easy_init("/settings/" + path, this);
 			}
 			settings_paths_easy_init add_path() {
 				return settings_paths_easy_init(this);
 			}
 			settings_paths_easy_init add_path_to_settings() {
-				return settings_paths_easy_init(_T("/settings"), this);
+				return settings_paths_easy_init("/settings", this);
 			}
 
-			void set_alias(std::wstring cur, std::wstring def) {
+			void set_alias(std::string cur, std::string def) {
 				alias_ = alias_extension::get_alias(cur, def);
 			}
-			void set_alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+			void set_alias(std::wstring cur, std::string def) {
+				alias_ = alias_extension::get_alias(utf8::cvt<std::string>(cur), def);
+			}
+			void set_alias(std::string prefix, std::string cur, std::string def) {
 				alias_ = alias_extension::get_alias(prefix, cur, def);
 			}
-			void set_alias(std::wstring alias) {
+			void set_alias(std::string prefix, std::wstring cur, std::string def) {
+				alias_ = alias_extension::get_alias(prefix, utf8::cvt<std::string>(cur), def);
+			}
+			void set_alias(std::string alias) {
 				alias_ = alias;
 			}
 			alias_extension alias() {
 				return alias_extension(this, alias_);
 			}
-			alias_extension alias(std::wstring alias) {
+			alias_extension alias(std::string alias) {
 				return alias_extension(this, alias);
 			}
-			alias_extension alias(std::wstring cur, std::wstring def) {
+			alias_extension alias(std::string cur, std::string def) {
 				return alias_extension(this, alias_extension::get_alias(cur, def));
 			}
-			alias_extension alias(std::wstring prefix, std::wstring cur, std::wstring def) {
+			alias_extension alias(std::string prefix, std::string cur, std::string def) {
 				return alias_extension(this, alias_extension::get_alias(prefix, cur, def));
 			}
 
-			path_extension path(std::wstring path) {
+			path_extension path(std::string path) {
 				return path_extension(this, path);
 			}
 
-			void set_static_key(std::wstring path, std::wstring key, std::wstring value) {
+			void set_static_key(std::string path, std::string key, std::string value) {
 				core_->set_string(path, key, value);
+			}
+			std::string get_static_string(std::string path, std::string key, std::string def_value) {
+				return core_->get_string(path, key, def_value);
 			}
 			
 
-			void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced = false)  {
+			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false)  {
 				core_->register_key(path, key, type, title, description, defaultValue, advanced);
 			}
 			void register_all() {
@@ -737,7 +748,7 @@ namespace nscapi {
 						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
 						if (v->has_parent()) {
 							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
-							std::wstring desc = v->description.description + _T(" parent for this key is found under: ") + v->parent + _T(" this is marked as advanced in favour of the parent.");
+							std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favour of the parent.";
 							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), true);
 						} else {
 							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
@@ -763,9 +774,9 @@ namespace nscapi {
 								v->key->notify(core_, v->path, v->key_name);
 						}
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->key_name + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name + ": " + utf8::utf8_from_native(e.what()));
 					} catch (...) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify: ") + v->key_name);
+						core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
 					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
@@ -773,9 +784,9 @@ namespace nscapi {
 						if (v->path)
 							v->path->notify(core_, v->path_name);
 					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify ") + v->path_name + _T(": ") + utf8::cvt<std::wstring>(e.what()));
+						core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name + ": " + utf8::utf8_from_native(e.what()));
 					} catch (...) {
-						core_->err(__FILE__, __LINE__, _T("Failed to notify: ") + v->path_name);
+						core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name);
 					}
 				}
 

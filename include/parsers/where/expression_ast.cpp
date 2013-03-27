@@ -20,7 +20,7 @@ namespace parsers {
 				expression_ast subnode = expression_ast();
 				subnode.expr = expr;
 				subnode.set_type(type);
-				expr = unary_fun(_T("auto_convert"), subnode);
+				expr = unary_fun("auto_convert", subnode);
 				type = newtype;
 				//std::wcout << _T("Forcing type (D1): ") << type_to_string(type) << _T(" to ") << type_to_string(newtype) << _T(" for ") << to_string() << std::endl;
 				return;
@@ -36,7 +36,7 @@ namespace parsers {
 			type = newtype; 
 		}
 
-		std::wstring expression_ast::to_string() const {
+		std::string expression_ast::to_string() const {
 			visitor_to_string visitor;
 			visitor(*this);
 			return visitor.result.str();
@@ -49,7 +49,7 @@ namespace parsers {
 		}
 
 
-		std::wstring expression_ast::get_string(filter_handler handler) const {
+		std::string expression_ast::get_string(filter_handler handler) const {
 			visitor_get_string visitor(handler, type);
 			return boost::apply_visitor(visitor, expr);
 		}

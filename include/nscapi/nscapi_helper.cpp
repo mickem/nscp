@@ -28,19 +28,18 @@
 #define REPORT_UNKNOWN	0x04
 #define REPORT_OK		0x08
 
-unsigned int nscapi::report::parse(std::wstring str) {
+unsigned int nscapi::report::parse(std::string str) {
 	unsigned int report = 0;
-	strEx::splitList lst = strEx::splitEx(str, _T(","));
-	for (strEx::splitList::const_iterator key = lst.begin(); key != lst.end(); ++key) {
-		if (*key == _T("all")) {
+	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(str, std::string(","))) {
+		if (key == "all") {
 			report |= REPORT_ERROR|REPORT_OK|REPORT_UNKNOWN|REPORT_WARNING;
-		} else if (*key == _T("error") || *key == _T("err") || *key == _T("critical") || *key == _T("crit")) {
+		} else if (key == "error" || key == "err" || key == "critical" || key == "crit") {
 			report |= REPORT_ERROR;
-		} else if (*key == _T("warning") || *key == _T("warn")) {
+		} else if (key == "warning" || key == "warn") {
 			report |= REPORT_WARNING;
-		} else if (*key == _T("unknown")) {
+		} else if (key == "unknown") {
 			report |= REPORT_UNKNOWN;
-		} else if (*key == _T("ok")) {
+		} else if (key == "ok") {
 			report |= REPORT_OK;
 		}
 	}
@@ -154,13 +153,12 @@ std::wstring nscapi::logging::to_string(NSCAPI::log_level::level level) {
 * @param defaultReturnCode The default return code
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-int nscapi::plugin_helper::wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode ) {
+int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
 	// @todo deprecate this
 	if (str.length() >= bufLen) {
-		std::wstring sstr = str.substr(0, bufLen-2);
 		return NSCAPI::isInvalidBufferLen;
 	}
-	wcsncpy(buffer, str.c_str(), bufLen);
+	strncpy(buffer, str.c_str(), bufLen);
 	return defaultReturnCode;
 }
 
@@ -212,33 +210,23 @@ std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes ms
  * @param returnCode 
  * @return 
  */
-std::wstring nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCode) {
+std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	if (returnCode == NSCAPI::returnOK)
-		return _T("OK");
+		return "OK";
 	else if (returnCode == NSCAPI::returnCRIT)
-		return _T("CRITICAL");
+		return "CRITICAL";
 	else if (returnCode == NSCAPI::returnWARN)
-		return _T("WARNING");
+		return "WARNING";
 	else if (returnCode == NSCAPI::returnUNKNOWN)
-		return _T("UNKNOWN");
+		return "UNKNOWN";
 	else
-		return _T("BAD_CODE: " + strEx::itos(returnCode));
+		return "BAD_CODE: " + strEx::s::xtos(returnCode);
 }
 /**
 * Translate a string into the corresponding return code 
 * @param returnCode 
 * @return 
 */
-NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::wstring str) {
-	if (str == _T("OK"))
-		return NSCAPI::returnOK;
-	else if (str == _T("CRITICAL"))
-		return NSCAPI::returnCRIT;
-	else if (str == _T("WARNING"))
-		return NSCAPI::returnWARN;
-	else 
-		return NSCAPI::returnUNKNOWN;
-}
 NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 	if ((str == "OK") || (str == "ok"))
 		return NSCAPI::returnOK;

@@ -36,7 +36,7 @@
 #define MUTEX_GUARD() \
 	boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
 	if (!mutex.owns_lock()) \
-		throw settings_exception(_T("Failed to get mutex, cant get settings instance"));
+		throw settings_exception("Failed to get mutex, cant get settings instance");
 
 
 namespace settings {
@@ -50,25 +50,25 @@ namespace settings {
 		struct conainer {
 			settings_core::key_type type;
 			int int_val;
-			std::wstring string_val;
+			std::string string_val;
 			conainer(int value) : type(settings_core::key_integer), int_val(value) {}
 			conainer(bool value) : type(settings_core::key_bool), int_val(value?1:0) {}
-			conainer(std::wstring value) : type(settings_core::key_string), string_val(value) {}
+			conainer(std::string value) : type(settings_core::key_string), string_val(value) {}
 			conainer() : type(settings_core::key_string) {}
 
-			std::wstring get_string() const {
+			std::string get_string() const {
 				if (type==settings_core::key_string)
 					return string_val;
 				if (type==settings_core::key_integer)
-					return strEx::itos(int_val);
+					return strEx::s::xtos(int_val);
 				if (type==settings_core::key_bool)
-					return int_val==1?_T("true"):_T("false");
-				return _T("UNKNOWN TYPE");
+					return int_val==1?"true":"false";
+				return "UNKNOWN TYPE";
 			}
 			int get_int() const {
 				try {
 					if (type==settings_core::key_string)
-						return strEx::stoi(string_val);
+						return strEx::s::stox<int>(string_val);
 					if (type==settings_core::key_integer)
 						return int_val;
 					if (type==settings_core::key_bool)
@@ -90,19 +90,19 @@ namespace settings {
 		};
 		typedef settings_core::key_path_type cache_key_type;
 		typedef std::map<cache_key_type,conainer> cache_type;
-		typedef std::set<std::wstring> path_cache_type;
+		typedef std::set<std::string> path_cache_type;
 		typedef std::set<cache_key_type> path_delete_cache_type;
-		typedef std::map<std::wstring,std::set<std::wstring> > key_cache_type;
+		typedef std::map<std::string,std::set<std::string> > key_cache_type;
 		cache_type settings_cache_;
 		path_delete_cache_type settings_delete_cache_;
 		path_cache_type path_cache_;
 		path_cache_type settings_delete_path_cache_;
 		key_cache_type key_cache_;
-		std::wstring context_;
-		net::wurl url_;
+		std::string context_;
+		net::url url_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
-		SettingsInterfaceImpl(settings_core *core, std::wstring context) : core_(core), context_(context), url_(net::parse(context_)) {}
+		SettingsInterfaceImpl(settings_core *core, std::string context) : core_(core), context_(context), url_(net::parse(context_)) {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Empty all cached settings values and force a reload.
@@ -136,14 +136,14 @@ namespace settings {
 		}
 		settings_core* get_core() const {
 			if (core_ == NULL)
-				throw settings_exception(_T("FATAL ERROR: Settings subsystem not initialized"));
+				throw settings_exception("FATAL ERROR: Settings subsystem not initialized");
 			return core_;
 		}
 		nsclient::logging::logger_interface* get_logger() const {
 			return nsclient::logging::logger::get_logger();
 		}
 
-		void add_child(std::wstring context) {
+		void add_child(std::string context) {
 			try {
 				instance_raw_ptr child = get_core()->create_instance(context);
 				{
@@ -151,7 +151,7 @@ namespace settings {
 					children_.push_back(child);
 				}
 			} catch (const std::exception &e) {
-				get_logger()->error(_T("settings"), __FILE__, __LINE__, _T("Failed to load child: ") + utf8::to_unicode(e.what()));
+				get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
 			}
 		}
 
@@ -167,12 +167,12 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_string(std::wstring path, std::wstring key) {
+		virtual std::string get_string(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
 			if (cit == settings_cache_.end()) {
-				std::wstring val;
+				std::string val;
 				try {
 					val = get_real_string(lookup);
 				} catch (KeyNotFoundException e) {
@@ -183,7 +183,7 @@ namespace settings {
 			}
 			return (*cit).second.get_string();
 		}
-		std::wstring get_string_from_child_unsafe(settings_core::key_path_type key) {
+		std::string get_string_from_child_unsafe(settings_core::key_path_type key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
 				try {
 					return (*it)->get_string(key.first, key.second);
@@ -202,7 +202,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) {
+		virtual std::string get_string(std::string path, std::string key, std::string def) {
 			try {
 				return get_string(path, key);
 			} catch (KeyNotFoundException e) {
@@ -219,7 +219,7 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_string(std::wstring path, std::wstring key, std::wstring value) {
+		virtual void set_string(std::string path, std::string key, std::string value) {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
@@ -228,7 +228,7 @@ namespace settings {
 			add_key(path, key);
 		}
 
-		virtual void remove_key(std::wstring path, std::wstring key) {
+		virtual void remove_key(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::iterator it = settings_cache_.find(lookup);
@@ -237,7 +237,7 @@ namespace settings {
 			}
 			settings_delete_cache_.insert(cache_key_type(path, key));
 		}
-		virtual void remove_path(std::wstring path) {
+		virtual void remove_path(std::string path) {
 			MUTEX_GUARD();
 			path_cache_type::iterator it = path_cache_.find(path);
 			if (it != path_cache_.end()) {
@@ -247,15 +247,15 @@ namespace settings {
 		}
 
 
-		virtual void add_path(std::wstring path) {
+		virtual void add_path(std::string path) {
 			MUTEX_GUARD();
 			path_cache_.insert(path);
 		}
-		virtual void add_key(std::wstring path, std::wstring key) {
+		virtual void add_key(std::string path, std::string key) {
 			MUTEX_GUARD();
 			key_cache_type::iterator it = key_cache_.find(path);
 			if (it == key_cache_.end()) {
-				std::set<std::wstring> s;
+				std::set<std::string> s;
 				s.insert(key);
 				key_cache_[path] = s;
 			} else {
@@ -273,7 +273,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::wstring path, std::wstring key) {
+		virtual int get_int(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
@@ -289,7 +289,7 @@ namespace settings {
 			}
 			return (*cit).second.get_int();
 		}
-		int get_int_from_child_unsafe(std::wstring path, std::wstring key) {
+		int get_int_from_child_unsafe(std::string path, std::string key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
 				try {
 					return (*it)->get_int(path, key);
@@ -308,7 +308,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::wstring path, std::wstring key, int def) {
+		virtual int get_int(std::string path, std::string key, int def) {
 			try {
 				return get_int(path, key);
 			} catch (KeyNotFoundException e) {
@@ -325,7 +325,7 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_int(std::wstring path, std::wstring key, int value) {
+		virtual void set_int(std::string path, std::string key, int value) {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
@@ -342,7 +342,7 @@ namespace settings {
 		/// @return the type of the key
 		///
 		/// @author mickem
-		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
+		virtual settings_core::key_type get_key_type(std::string path, std::string key) {
 			MUTEX_GUARD();
 			cache_type::iterator it = settings_cache_.find(cache_key_type(path, key));
 			if (it == settings_cache_.end())
@@ -358,7 +358,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::wstring path, std::wstring key) {
+		virtual bool get_bool(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
@@ -374,7 +374,7 @@ namespace settings {
 			}
 			return (*cit).second.get_bool();
 		}
-		bool get_bool_from_child_unsafe(std::wstring path, std::wstring key) {
+		bool get_bool_from_child_unsafe(std::string path, std::string key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
 				try {
 					return (*it)->get_bool(path, key);
@@ -393,7 +393,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::wstring path, std::wstring key, bool def) {
+		virtual bool get_bool(std::string path, std::string key, bool def) {
 			try {
 				return get_bool(path, key);
 			} catch (KeyNotFoundException e) {
@@ -410,7 +410,7 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_bool(std::wstring path, std::wstring key, bool value) {
+		virtual void set_bool(std::string path, std::string key, bool value) {
 			{
 				MUTEX_GUARD();
 				settings_cache_[cache_key_type(path,key)] = value;
@@ -429,9 +429,8 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual string_list get_sections(std::wstring path) {
+		virtual string_list get_sections(std::string path) {
 			MUTEX_GUARD();
-			//nsclient::logging::logger::get_logger()->debug(__FILE__, __LINE__, std::wstring(_T("Get sections for: ")) + path);
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);
@@ -440,12 +439,12 @@ namespace settings {
 			ret.unique();
 			return ret;
 		}
-		void get_cached_sections_unsafe(std::wstring path, string_list &list) {
+		void get_cached_sections_unsafe(std::string path, string_list &list) {
 			if (path.empty()) {
-				BOOST_FOREACH(std::wstring s, path_cache_) {
+				BOOST_FOREACH(std::string s, path_cache_) {
 					if (s.length() > 1) {
-						std::wstring::size_type pos = s.find(L'/', 1);
-						if (pos != std::wstring::npos)
+						std::string::size_type pos = s.find('/', 1);
+						if (pos != std::string::npos)
 							list.push_back(s.substr(0,pos));
 						else
 							list.push_back(s);
@@ -453,11 +452,11 @@ namespace settings {
 				}
 				// TODO add support for retrieving all key paths here!
 			} else {
-				std::wstring::size_type path_len = path.length();
-				BOOST_FOREACH(std::wstring s, path_cache_) {
+				std::string::size_type path_len = path.length();
+				BOOST_FOREACH(std::string s, path_cache_) {
 					if (s.length() > (path_len+1) && s.substr(0,path_len) == path) {
-						std::wstring::size_type pos = s.find(L'/', path_len+1);
-						if (pos != std::wstring::npos)
+						std::string::size_type pos = s.find('/', path_len+1);
+						if (pos != std::string::npos)
 							list.push_back(s.substr(path_len+1,pos));
 						else
 							list.push_back(s.substr(path_len+1));
@@ -465,7 +464,7 @@ namespace settings {
 				}
 			}
 		}
-		void get_section_from_child_unsafe(std::wstring path, string_list &list) {
+		void get_section_from_child_unsafe(std::string path, string_list &list) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
 				string_list itm = (*it)->get_sections(path);
 				list.insert(list.end(), itm.begin(), itm.end());
@@ -478,7 +477,7 @@ namespace settings {
 		/// @return a list of keys
 		///
 		/// @author mickem
-		virtual string_list get_keys(std::wstring path) {
+		virtual string_list get_keys(std::string path) {
 			MUTEX_GUARD();
 			string_list ret;
 			get_cached_keys_unsafe(path, ret);
@@ -488,17 +487,17 @@ namespace settings {
 			ret.unique();
 			return ret;
 		}
-		void get_cached_keys_unsafe(std::wstring path, string_list &list) {
+		void get_cached_keys_unsafe(std::string path, string_list &list) {
 			key_cache_type::iterator it = key_cache_.find(path);
 			if (it != key_cache_.end()) {
-				BOOST_FOREACH(std::wstring s, (*it).second) {
+				BOOST_FOREACH(std::string s, (*it).second) {
 					list.push_back(s);
 				}
 			}
 		}
-		void get_keys_from_child_unsafe(std::wstring path, string_list &list) {
+		void get_keys_from_child_unsafe(std::string path, string_list &list) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				std::wstring str = (*it)->get_context();
+				std::string str = (*it)->get_context();
 				string_list itm = (*it)->get_keys(path);
 				list.insert(list.end(), itm.begin(), itm.end());
 			}
@@ -510,8 +509,8 @@ namespace settings {
 		/// @return true/false
 		///
 		/// @author mickem
-		virtual bool has_section(std::wstring path) {
-			throw settings_exception(_T("TODO: FIX ME: has_section"));
+		virtual bool has_section(std::string path) {
+			throw settings_exception("TODO: FIX ME: has_section");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the key exists?
@@ -521,7 +520,7 @@ namespace settings {
 		/// @return true/false
 		///
 		/// @author mickem
-		virtual bool has_key(std::wstring path, std::wstring key) {
+		virtual bool has_key(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
@@ -538,15 +537,15 @@ namespace settings {
 		/// @return the context
 		///
 		/// @author mickem
-		virtual std::wstring get_context() {
+		virtual std::string get_context() {
 			MUTEX_GUARD();
 			return context_;
 		}
-		virtual std::wstring get_context_unsafe() {
+		virtual std::string get_context_unsafe() {
 			return context_;
 		}
-		virtual std::wstring get_file_from_context() {
-			return core_->find_file(url_.host + url_.path, _T(""));
+		virtual std::string get_file_from_context() {
+			return core_->find_file(url_.host + url_.path, "");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the context.
@@ -555,7 +554,7 @@ namespace settings {
 		/// @param context the new context
 		///
 		/// @author mickem
-		virtual void set_context(std::wstring context) {
+		virtual void set_context(std::string context) {
 			MUTEX_GUARD();
 			context_ = context;
 		}
@@ -566,7 +565,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void reload() {
-			throw settings_exception(_T("TODO: FIX ME: reload"));
+			throw settings_exception("TODO: FIX ME: reload");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Copy the settings store to another settings store
@@ -574,25 +573,25 @@ namespace settings {
 		/// @param other the settings store to save to
 		///
 		/// @author mickem
-		virtual void save_to(std::wstring other) {
+		virtual void save_to(std::string other) {
 			instance_ptr i = get_core()->create_instance(other);
 			save_to(i);
 		}
 		virtual void save_to(instance_ptr other) {
 			if (!other)
-				throw settings_exception(_T("Cant migrate to NULL instance!"));
+				throw settings_exception("Cant migrate to NULL instance!");
 			other->clear_cache();
-			st_copy_section(_T(""), other);
+			st_copy_section("", other);
 			other->save();
 		}
-		void st_copy_section(std::wstring path, instance_ptr other) {
+		void st_copy_section(std::string path, instance_ptr other) {
 			if (!other)
-				throw settings_exception(_T("Failed to create new instance!"));
+				throw settings_exception("Failed to create new instance!");
 			string_list list = get_sections(path);
-			std::wstring subpath = path;
+			std::string subpath = path;
 			// TODO: check trailing / instead!
 			if (!subpath.empty())
-				subpath += _T("/");
+				subpath += "/";
 			for (string_list::const_iterator cit = list.begin();cit != list.end(); ++cit) {
 				st_copy_section(subpath + *cit, other);
 			}
@@ -604,14 +603,14 @@ namespace settings {
 					try {
 						other->set_string(key.first, key.second, get_string(key.first, key.second));
 					} catch (KeyNotFoundException e) {
-						other->set_string(key.first, key.second, _T(""));
+						other->set_string(key.first, key.second, "");
 					}
 				} else if (type ==settings_core::key_integer)
 					other->set_int(key.first, key.second, get_int(key.first, key.second));
 				else if (type ==settings_core::key_bool)
 					other->set_bool(key.first, key.second, get_bool(key.first, key.second));
 				else
-					throw settings_exception(_T("Invalid type for key: ") + key.first + _T(".") + key.second);
+					throw settings_exception("Invalid type for key: " + key.first + "." + key.second);
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -624,21 +623,18 @@ namespace settings {
 			BOOST_FOREACH(cache_key_type v, settings_delete_cache_) {
 				remove_real_value(v);
 			}
-			BOOST_FOREACH(std::wstring v, settings_delete_path_cache_) {
+			BOOST_FOREACH(std::string v, settings_delete_path_cache_) {
 				remove_real_path(v);
 			}
 
-			BOOST_FOREACH(std::wstring path, path_cache_) {
+			BOOST_FOREACH(std::string path, path_cache_) {
 				set_real_path(path);
 			}
-			std::set<std::wstring> sections;
+			std::set<std::string> sections;
 			for (cache_type::const_iterator cit = settings_cache_.begin(); cit != settings_cache_.end(); ++cit) {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
 			}
-// 			BOOST_FOREACH(std::wstring str, get_core()->get_reg_sections()) {
-// 				set_real_path(str);
-// 			}
 		}
 		/////////////////////////////////////////////////////////////////////////
 		/// Load from another settings store
@@ -647,7 +643,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void load_from(instance_ptr other) {
-			throw settings_exception(_T("TODO: FIX ME: load_from"));
+			throw settings_exception("TODO: FIX ME: load_from");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Load from another context.
@@ -656,15 +652,15 @@ namespace settings {
 		/// @param context the context to load from
 		///
 		/// @author mickem
-		virtual void load_from(std::wstring context) {
-			throw settings_exception(_T("TODO: FIX ME: load_from"));
+		virtual void load_from(std::string context) {
+			throw settings_exception("TODO: FIX ME: load_from");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Load settings from the context.
 		///
 		/// @author mickem
 		virtual void load() {
-			throw settings_exception(_T("TODO: FIX ME: load"));
+			throw settings_exception("TODO: FIX ME: load");
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -680,7 +676,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::wstring path, string_list &list) = 0;
+		virtual void get_real_sections(std::string path, string_list &list) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
 		/// If the path is empty all root sections will be returned
@@ -690,7 +686,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::wstring path, string_list &list) = 0;
+		virtual void get_real_keys(std::string path, string_list &list) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
@@ -699,7 +695,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type key) = 0;
+		virtual std::string get_real_string(settings_core::key_path_type key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
 		///
@@ -727,7 +723,7 @@ namespace settings {
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) = 0;
 
 		virtual void remove_real_value(settings_core::key_path_type key) = 0;
-		virtual void remove_real_path(std::wstring path) = 0;
+		virtual void remove_real_path(std::string path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
@@ -736,7 +732,7 @@ namespace settings {
 		/// @param value The value to write
 		///
 		/// @author mickem
-		virtual void set_real_path(std::wstring path) = 0;
+		virtual void set_real_path(std::string path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -768,21 +764,29 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) = 0;
+		virtual SettingsInterfaceImpl* create_new_context(std::string context) = 0;
 
 		virtual void real_clear_cache() = 0;
 
 
-		virtual std::wstring to_string() {
-			std::wstring ret = get_info();
+		virtual std::string to_string() {
+			std::string ret = get_info();
 			if (!children_.empty()) {
-				ret += _T("parents = [");
+				ret += "parents = [";
 				BOOST_FOREACH(parent_list_type::value_type i, children_) {
 					ret += i->to_string();
 				}
-				ret += _T("]");
+				ret += "]";
 			}
-			return ret + _T("}");
+			return ret + "}";
 		}
+
+		inline std::string make_skey(std::string path, std::string key) {
+			return utf8::cvt<std::string>(path) + "." + utf8::cvt<std::string>(key);
+		}
+		inline std::string make_skey(std::string path) {
+			return utf8::cvt<std::string>(path);
+		}
+
 	};
 }

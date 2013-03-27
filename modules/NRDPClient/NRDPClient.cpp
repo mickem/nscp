@@ -30,6 +30,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -48,39 +49,40 @@ NRDPClient::NRDPClient() {}
 NRDPClient::~NRDPClient() {}
 
 
-bool NRDPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	std::wstring template_string, sender, recipient;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("NRDP"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("NRDP", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("SMTP CLIENT SECTION"), _T("Section for SMTP passive check module."))
-			(_T("handlers"), sh::fun_values_path(boost::bind(&NRDPClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
+			("handlers", sh::fun_values_path(boost::bind(&NRDPClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&NRDPClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&NRDPClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("hostname"), sh::string_key(&hostname_, "auto"),
-			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
+			("hostname", sh::string_key(&hostname_, "auto"),
+			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
 
-			(_T("channel"), sh::wstring_key(&channel_, _T("NRDP")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "NRDP"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 
 
-		get_core()->registerSubmissionListener(get_id(), channel_);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
 
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
@@ -104,7 +106,7 @@ bool NRDPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 					iter++;
 				}
 			} catch (const std::exception& e) {
-				NSC_LOG_ERROR_STD(_T("Failed to resolve: ") + utf8::to_unicode(e.what()));
+				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
 
@@ -112,13 +114,13 @@ bool NRDPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			strEx::replace(hostname_, "${domain}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("NSClient API exception: ");
 		return false;
 	}
 	return true;
@@ -136,25 +138,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void NRDPClient::add_target(std::wstring key, std::wstring arg) {
+void NRDPClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void NRDPClient::add_command(std::wstring name, std::wstring args) {
+void NRDPClient::add_command(std::string name, std::string args) {
+	nscapi::core_helper::core_proxy core(get_core(), get_id());
 	try {
-		std::wstring key = commands.add_command(name, args);
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NRPE relay for: ") + name);
+			core.register_command(key, "NRPE relay for: " + name);
 	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add target: " + name);
 	}
 }
 
@@ -214,9 +217,9 @@ void NRDPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -244,7 +247,7 @@ NRDPClient::connection_data NRDPClient::parse_header(const ::Plugin::Common_Head
 //
 
 int NRDPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("SMTP does not support query patterns"));
+	NSC_LOG_ERROR_STD("SMTP does not support query patterns");
 	return NSCAPI::hasFailed;
 }
 
@@ -294,7 +297,7 @@ int NRDPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 
 boost::tuple<int,std::wstring> NRDPClient::send(connection_data data, const nrdp::data &nrdp_data) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + data.to_wstring());
+		NSC_DEBUG_MSG_STD("Connection details: " + data.to_string());
 		http::client c;
 		http::client::request_type request;
 		request.add_default_headers();
@@ -303,19 +306,16 @@ boost::tuple<int,std::wstring> NRDPClient::send(connection_data data, const nrdp
 		post["XMLDATA"] = nrdp_data.render_request();
 		post["cmd"] = "submitcheck";
 		request.add_post_payload(post);
-		NSC_DEBUG_MSG_STD(utf8::cvt<std::wstring>(nrdp_data.render_request()));
-		NSC_DEBUG_MSG_STD(utf8::cvt<std::wstring>(request.payload));
+		NSC_DEBUG_MSG_STD(nrdp_data.render_request());
+		NSC_DEBUG_MSG_STD(request.payload);
 		http::client::response_type response = c.execute(data.host, data.port, "/nrdp/server/", request);
-		NSC_DEBUG_MSG_STD(utf8::cvt<std::wstring>(response.payload));
+		NSC_DEBUG_MSG_STD(response.payload);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
-	} catch (const std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Sending NSCA data", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Unknown exception when sending NSCA data: "));
+		NSC_LOG_ERROR_EX("Sending NSCA data");
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
 	}
 }

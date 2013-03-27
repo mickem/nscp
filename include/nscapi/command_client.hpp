@@ -108,7 +108,6 @@ namespace nscapi {
 				nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 				BOOST_FOREACH(command_list::value_type v, commands) {
 					Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
-					payload->set_type(Plugin::RegistryRequestMessage_Request_ActionType_REGISTRATION);
 					Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
 					regitem->set_plugin_id(core_->get_plugin_id());
 					regitem->set_type(Plugin::Registry_ItemType_QUERY);

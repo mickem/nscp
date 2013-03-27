@@ -9,7 +9,7 @@ class handler_impl : public check_nt::server::handler {
 	bool allowNasty_;
 	bool allowArgs_;
 
-	std::wstring password_;
+	std::string password_;
 public:
 	handler_impl() 
 		: noPerfData_(false)
@@ -44,13 +44,13 @@ public:
 		}
 	}
 
-	void set_password(std::wstring password) {
+	void set_password(std::string password) {
 		password_ = password;
 	}
-	std::wstring get_password() const {
+	std::string get_password() const {
 		return password_;
 	}
 
 private:
-	bool isPasswordOk(std::wstring remotePassword);
+	bool isPasswordOk(std::string remotePassword);
 };

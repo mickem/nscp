@@ -26,6 +26,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -43,43 +44,41 @@ NRPEClient::NRPEClient() {}
  */
 NRPEClient::~NRPEClient() {}
 
-bool NRPEClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("NRPE"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("NRPE", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("NRPE CLIENT SECTION"), _T("Section for NRPE active/passive check module."))
+			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("handlers", sh::fun_values_path(boost::bind(&NRPEClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&NRPEClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("channel"), sh::wstring_key(&channel_, _T("NRPE")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "NRPE"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-		get_core()->registerSubmissionListener(get_id(), channel_);
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
-		return false;
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		core.register_channel(channel_);
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("loading", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("loading");
 		return false;
 	}
 	return true;
@@ -97,25 +96,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void NRPEClient::add_target(std::wstring key, std::wstring arg) {
+void NRPEClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void NRPEClient::add_command(std::wstring name, std::wstring args) {
+void NRPEClient::add_command(std::string name, std::string args) {
 	try {
-		std::wstring key = commands.add_command(name, args);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NRPE relay for: ") + name);
+			core.register_command(key.c_str(), "NRPE relay for: " + name);
 	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + name);
 	}
 }
 
@@ -200,9 +200,9 @@ void NRPEClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -289,19 +289,19 @@ int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, co
 struct client_handler : public socket_helpers::client::client_handler {
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 };
 
 boost::tuple<int,std::string> NRPEClient::send(connection_data con, const std::string data) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
@@ -317,12 +317,13 @@ boost::tuple<int,std::string> NRPEClient::send(connection_data con, const std::s
 	} catch (nrpe::nrpe_exception &e) {
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, std::string("NRPE Packet errro: ") + e.what());
 	} catch (std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
+		NSC_LOG_ERROR_EX("failed to send");
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }

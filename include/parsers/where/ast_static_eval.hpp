@@ -7,7 +7,7 @@ namespace parsers {
 		///////////////////////////////////////////////////////////////////////////
 		struct ast_static_eval {
 			typedef bool result_type;
-			typedef std::list<std::wstring> error_type;
+			typedef std::list<std::string> error_type;
 
 			filter_handler handler;
 			ast_static_eval(filter_handler handler) : handler(handler) {}
@@ -33,7 +33,7 @@ namespace parsers {
 			}
 
 			bool operator()(unary_fun & expr) {
-				if ((expr.name == _T("convert")) || (expr.name == _T("auto_convert") || expr.is_transparent(type_tbd) ) ) {
+				if ((expr.name == "convert") || (expr.name == "auto_convert" || expr.is_transparent(type_tbd) ) ) {
 					return boost::apply_visitor(*this, expr.subject.expr);
 				}
 				return false;

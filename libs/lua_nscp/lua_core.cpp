@@ -36,7 +36,7 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 		NSCAPI::nagiosReturn ret = NSCAPI::returnUNKNOWN;
 		int arg_count = lua.size();
 		if (arg_count > 3) {
-			NSC_LOG_ERROR_STD(_T("Invalid return: ") + utf8::cvt<std::wstring>(lua.dump_stack()));
+			NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
 		}
 		if (arg_count > 2)
 			perf = lua.pop_string();

@@ -6,12 +6,12 @@ namespace parsers {
 	namespace where {		
 	
 		struct variable {
-			variable(std::wstring name) : name(name), int_ptr_id(0), string_ptr_id(0) {}
+			variable(std::string name) : name(name), int_ptr_id(0), string_ptr_id(0) {}
 
 			bool bind(value_type type, filter_handler handler);
 			long long get_int(filter_handler handler) const;
-			std::wstring get_string(filter_handler handler) const;
-			std::wstring get_name() const { return name; }
+			std::string get_string(filter_handler handler) const;
+			std::string get_name() const { return name; }
 			bool is_bound_int() const { return int_ptr_id != 0; }
 			bool is_bound_string() const { return string_ptr_id != 0; }
 			bool is_bound() const { return string_ptr_id != 0||int_ptr_id != 0; }
@@ -25,7 +25,7 @@ namespace parsers {
 			}
 			
 		private:
-			std::wstring name;
+			std::string name;
 			unsigned int int_ptr_id;
 			unsigned int string_ptr_id;
 			variable() : int_ptr_id(0), string_ptr_id(0) {}

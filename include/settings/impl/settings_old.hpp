@@ -13,7 +13,7 @@
 
 namespace settings {
 	class OLDSettings : public settings::SettingsInterfaceImpl {
-		std::wstring filename_;
+		std::string filename_;
 		typedef std::pair<std::wstring,std::wstring> section_key_type;
 
 		inline nsclient::logging::logger_interface* get_logger() const {
@@ -23,9 +23,9 @@ namespace settings {
 		class settings_map : boost::noncopyable {
 		public:
 
-			typedef std::multimap<std::wstring,std::wstring> path_map;
+			typedef std::multimap<std::string,std::string> path_map;
 			typedef std::multimap<settings_core::key_path_type,settings_core::key_path_type> key_map;
-			typedef std::pair<std::wstring,std::wstring> section_key_type;
+			typedef std::pair<std::string,std::string> section_key_type;
 			typedef std::pair<settings_core::key_path_type,settings_core::key_path_type> keys_key_type;
 
 			path_map sections_;
@@ -37,10 +37,10 @@ namespace settings {
 				return nsclient::logging::logger::get_logger();
 			}
 
-			void read_map_file(std::wstring file) {
-				std::ifstream in(strEx::wstring_to_string(file).c_str());
+			void read_map_file(std::string file) {
+				std::ifstream in(file.c_str());
 				if(!in) {
-					get_logger()->error(_T("settings"),__FILE__, __LINE__, "Failed to read MAP file: " + utf8::cvt<std::string>(file));
+					get_logger()->error("settings",__FILE__, __LINE__, "Failed to read MAP file: " + utf8::cvt<std::string>(file));
 					return;
 				}
 				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
@@ -57,10 +57,9 @@ namespace settings {
 						std::cerr << e.what() <<'\n';
 				}
 			}
-			void read_map_data(std::wstring data) {
-				strEx::splitList list = strEx::splitEx(data, std::wstring(_T("\n")));
-				BOOST_FOREACH(std::wstring l, list) {
-					parse_line(l);
+			void read_map_data(const std::string data) {
+				BOOST_FOREACH(const std::string &l, strEx::s::splitEx(data, std::string("\n"))) {
+					parse_line(utf8::cvt<std::wstring>(l));
 				}
 			}
 			void parse_line(std::wstring line) {
@@ -75,15 +74,15 @@ namespace settings {
 				line = line.substr(pos);
 				pos = line.find('=');
 				if (pos == -1) {
-					get_logger()->error(_T("settings"),__FILE__, __LINE__, _T("Invalid syntax: ") + line);
+					get_logger()->error("settings",__FILE__, __LINE__, "Invalid syntax: " + utf8::cvt<std::string>(line));
 					return;
 				}
 				std::pair<std::wstring,std::wstring> old_key = split_key(line.substr(0, pos));
 				std::pair<std::wstring,std::wstring> new_key = split_key(line.substr(pos+1));
 				if (old_key.second == _T("*") || old_key.second.empty()) {
-					add(line.substr(pos+1), old_key.first);
+					add(utf8::cvt<std::string>(line.substr(pos+1)), utf8::cvt<std::string>(old_key.first));
 				} else {
-					add(new_key.first, new_key.second, old_key.first, old_key.second);
+					add(utf8::cvt<std::string>(new_key.first), utf8::cvt<std::string>(new_key.second), utf8::cvt<std::string>(old_key.first), utf8::cvt<std::string>(old_key.second));
 				}
 
 			}
@@ -95,15 +94,15 @@ namespace settings {
 				return std::pair<std::wstring,std::wstring>(key.substr(0, pos), key.substr(pos+1));
 			}
 
-			void add(std::wstring path_new, std::wstring path_old) {
+			void add(std::string path_new, std::string path_old) {
 				sections_.insert(path_map::value_type(path_new, path_old));
 			}
-			void add(std::wstring path_new, std::wstring key_new, std::wstring path_old, std::wstring key_old) {
+			void add(std::string path_new, std::string key_new, std::string path_old, std::string key_old) {
 				settings_core::key_path_type new_key(path_new, key_new);
 				settings_core::key_path_type old_key(path_old, key_old);
 				keys_.insert(key_map::value_type(new_key, old_key));
 			}
-			std::wstring path(std::wstring path_new) {
+			std::string path(std::string path_new) {
 				path_map::iterator it = sections_.find(path_new);
 				if (it == sections_.end())
 					return path_new;
@@ -121,70 +120,68 @@ namespace settings {
 				}
 				return new_key;
 			}
-			std::wstring status() {
-				return _T("Sections: ") + strEx::itos(sections_.size()) + _T(", ")
-					+ _T("Keys: ") + strEx::itos(keys_.size())
+			std::string status() {
+				return "Sections: " + strEx::s::xtos(sections_.size()) + ", "
+					+ "Keys: " + strEx::s::xtos(keys_.size())
 					;
 			}
 
-			void get_sections(std::wstring path, string_list &list) {
+			void get_sections(std::string path, string_list &list) {
 				std::wstring::size_type path_length = path.length();
 				BOOST_FOREACH(section_key_type key, sections_) {
-					if (path_length == 0 || path == _T("/")) {
-						std::wstring::size_type pos = key.first.find(L'/', 1);
-						list.push_back(pos == std::wstring::npos?key.first:key.first.substr(0,pos));
+					if (path_length == 0 || path == "/") {
+						std::string::size_type pos = key.first.find('/', 1);
+						list.push_back(pos == std::string::npos?key.first:key.first.substr(0,pos));
 					} else if (key.first.length() > path_length && path == key.first.substr(0, path_length)) {
-						std::wstring::size_type pos = key.first.find(L'/', path_length+1);
-						list.push_back(pos == std::wstring::npos?key.first.substr(path_length+1):key.first.substr(path_length+1,pos-path_length-1));
+						std::string::size_type pos = key.first.find('/', path_length+1);
+						list.push_back(pos == std::string::npos?key.first.substr(path_length+1):key.first.substr(path_length+1,pos-path_length-1));
 					}
 				}
 				BOOST_FOREACH(keys_key_type key, keys_) {
-					if (path.empty() || path == _T("/")) {
-						std::wstring::size_type pos = key.first.first.find(L'/', 1);
-						if (pos != std::wstring::npos)
+					if (path.empty() || path == "/") {
+						std::string::size_type pos = key.first.first.find('/', 1);
+						if (pos != std::string::npos)
 							key.first.first = key.first.first.substr(0,pos);
 						list.push_back(key.first.first);
 					} else if (key.first.first.length() > path_length && path == key.first.first.substr(0, path_length)) {
-						std::wstring::size_type pos = key.first.first.find(L'/', path_length+1);
+						std::string::size_type pos = key.first.first.find('/', path_length+1);
 						list.push_back(pos == std::wstring::npos?key.first.first.substr(path_length+1):key.first.first.substr(path_length+1,pos-path_length-1));
 					}
 				}
 				list.unique();
 			}
-
-
 		};
 
 			settings_map map;
-			typedef std::map<std::wstring,std::set<std::wstring> > section_cache_type;
+			typedef std::map<std::string,std::set<std::string> > section_cache_type;
 			section_cache_type section_cache_;
 
 
 		public:
 
 
-		OLDSettings(settings::settings_core *core, std::wstring context) : settings::SettingsInterfaceImpl(core, context) {
-			get_logger()->debug(_T("settings"),__FILE__, __LINE__, "Loading OLD: " + utf8::cvt<std::string>(context));
-			std::wstring mapfile = core->get_boot_string(_T("settings"), _T("old_settings_map_file"), _T("old-settings.map"));
-			std::wstring file = core->find_file(_T("${exe-path}/") + mapfile, mapfile);
+		OLDSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {
+			get_logger()->debug("settings",__FILE__, __LINE__, "Loading OLD: " + context);
+			std::string mapfile = core->get_boot_string("settings", "old_settings_map_file", "old-settings.map");
+			std::string file = core->find_file("${exe-path}/" + mapfile, mapfile);
 			bool readmap = false;
-			if (file_helpers::checks::exists(file)) {
+			if (boost::filesystem::exists(file)) {
 				readmap = true;
 				map.read_map_file(file);
 			}
-			std::wstring mapdata = core->get_boot_string(_T("settings"), _T("old_settings_map_data"), _T(""));
+			std::string mapdata = core->get_boot_string("settings", "old_settings_map_data", "");
 			if (!mapdata.empty()) {
 				readmap = true;
 				map.read_map_data(mapdata);
 			}
 			if (!readmap) {
-				get_logger()->error(_T("settings"),__FILE__, __LINE__,_T("Failed to read map file: ") + mapfile);
+				get_logger()->error("settings",__FILE__, __LINE__, "Failed to read map file: " + mapfile);
 			}
 
-			string_list list = get_keys(_T("/includes"));
-			BOOST_FOREACH(std::wstring key, list) {
-				if (key.length() > 5 && key.substr(key.length()-4,4) == _T(".ini") && key.find_first_of(_T(":/\\")) == std::wstring::npos)
-					add_child(_T("old://${exe-path}/") + key);
+			string_list list = get_keys("/includes");
+			BOOST_FOREACH(const std::string &key, list) {
+				if (key.length() > 5 && key.substr(key.length()-4,4) == ".ini" && key.find_first_of(":/\\") == std::string::npos)
+					add_child("old://${exe-path}/" + key);
 				else
 					add_child(key);
 			}
@@ -196,7 +193,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::wstring context) {
+		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
 			return new OLDSettings(get_core(), context);
 		}
 		settings::error_list validate() {
@@ -213,7 +210,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_real_string(settings_core::key_path_type in_key) {
+		virtual std::string get_real_string(settings_core::key_path_type in_key) {
 			settings_core::key_path_type key = map.key(in_key);
 			if (has_key_int(key.first, key.second))
 				return internal_get_value(key.first, key.second);
@@ -223,19 +220,19 @@ namespace settings {
 		}
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
 
-		std::wstring internal_get_value(std::wstring path, std::wstring key, int bufferSize = 1024) {
+		std::string internal_get_value(std::string path, std::string key, int bufferSize = 1024) {
 			if (!has_key_int(path, key))
 				throw KeyNotFoundException(key);
 
 			TCHAR* buffer = new TCHAR[bufferSize+2];
 			if (buffer == NULL)
-				throw settings_exception(_T("Out of memory error!"));
-			int retVal = GetPrivateProfileString(path.c_str(), key.c_str(), _T(""), buffer, bufferSize, get_file_name().c_str());
+				throw settings_exception("Out of memory error!");
+			int retVal = GetPrivateProfileString(utf8::cvt<std::wstring>(path).c_str(), utf8::cvt<std::wstring>(key).c_str(), _T(""), buffer, bufferSize, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (retVal == bufferSize-1) {
 				delete [] buffer;
 				return internal_get_value(path, key, bufferSize*10);
 			}
-			std::wstring ret = buffer;
+			std::string ret = utf8::cvt<std::string>(buffer);
 			delete [] buffer;
 			return ret;
 		}
@@ -249,8 +246,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual int get_real_int(settings_core::key_path_type key) {
-			std::wstring str = get_real_string(key);
-			return strEx::stoi(str);
+			std::string str = get_real_string(key);
+			return strEx::s::stox<int>(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -261,7 +258,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool get_real_bool(settings_core::key_path_type key) {
-			std::wstring str = get_real_string(key);
+			std::string str = get_real_string(key);
 			return SettingsInterfaceImpl::string_to_bool(str);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -278,22 +275,22 @@ namespace settings {
 		}
 
 
-		std::set<std::wstring> internal_read_keys_from_section(std::wstring section, int bufferLength = 1024) {
+		std::set<std::string> internal_read_keys_from_section(std::string section, int bufferLength = 1024) {
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw settings_exception(_T("internal_read_keys_from_section:: Failed to allocate memory for buffer!"));
-			unsigned int count = ::GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
+				throw settings_exception("internal_read_keys_from_section:: Failed to allocate memory for buffer!");
+			unsigned int count = ::GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				return internal_read_keys_from_section(section, bufferLength*10);
 			}
-			std::set<std::wstring> ret;
+			std::set<std::string> ret;
 			unsigned int last = 0;
 			for (unsigned int i=0;i<count;i++) {
 				if (buffer[i] == '\0') {
-					std::wstring s = &buffer[last];
+					std::string s = utf8::cvt<std::string>(&buffer[last]);
 					std::size_t p = s.find('=');
-					ret.insert((p == std::wstring::npos)?s:s.substr(0,p));
+					ret.insert((p == std::string::npos)?s:s.substr(0,p));
 					last = i+1;
 				}
 			}
@@ -301,10 +298,10 @@ namespace settings {
 			return ret;
 		}
 
-		bool has_key_int(std::wstring path, std::wstring key) {
+		bool has_key_int(std::string path, std::string key) {
 			section_cache_type::const_iterator it = section_cache_.find(path);
 			if (it == section_cache_.end()) {
-				std::set<std::wstring> list = internal_read_keys_from_section(path);
+				std::set<std::string> list = internal_read_keys_from_section(path);
 				section_cache_[path] = list;
 				it = section_cache_.find(path);
 			}
@@ -321,21 +318,21 @@ namespace settings {
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			try {
 				key = map.key(key);
-				WritePrivateProfileString(key.first.c_str(), key.second.c_str(), value.get_string().c_str(), get_file_name().c_str());
+				WritePrivateProfileString(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(get_file_name()).c_str());
 			} catch (settings_exception e) {
-				get_logger()->error(_T("settings"),__FILE__, __LINE__, std::string("Failed to write key: " + e.reason()));
+				get_logger()->error("settings",__FILE__, __LINE__, std::string("Failed to write key: " + e.reason()));
 			} catch (...) {
-				get_logger()->error(_T("settings"),__FILE__, __LINE__, std::wstring(_T("Unknown filure when writing key: ") + key.first + _T(".") + key.second));
+				get_logger()->error("settings",__FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}
 		}
 
-		virtual void set_real_path(std::wstring path) {
+		virtual void set_real_path(std::string path) {
 			// NOT Supported (and not needed) so silently ignored!
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
 			// NOT Supported
 		}
-		virtual void remove_real_path(std::wstring path) {
+		virtual void remove_real_path(std::string path) {
 			// NOT Supported
 		}
 
@@ -348,7 +345,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::wstring path, string_list &list) {
+		virtual void get_real_sections(std::string path, string_list &list) {
 			unsigned int path_length = path.length();
 			map.get_sections(path, list);
 			list.unique();
@@ -365,8 +362,8 @@ namespace settings {
 			string_list ret;
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));
-			unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, get_file_name().c_str());
+				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+			unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				return int_read_sections(bufferLength*10);
@@ -374,7 +371,7 @@ namespace settings {
 			unsigned int last = 0;
 			for (unsigned int i=0;i<count;i++) {
 				if (buffer[i] == '\0') {
-					std::wstring s = &buffer[last];
+					std::string s = utf8::cvt<std::string>(&buffer[last]);
 					ret.push_back(s);
 					last = i+1;
 				}
@@ -391,19 +388,18 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::wstring path, string_list &list) {
-			std::wstring keyy = path + _T(" - ") + get_file_name();
-			if (path.empty() || path == _T("/")) {
-				get_logger()->debug(_T("settings"),__FILE__, __LINE__, "Loose leaves not supported: TODO");
+		virtual void get_real_keys(std::string path, string_list &list) {
+			if (path.empty() || path == "/") {
+				get_logger()->debug("settings",__FILE__, __LINE__, "Loose leaves not supported: TODO");
 				return;
 			}
 			// @todo: this will NOT work for "nodes in paths"
-			std::set<std::wstring> ignore_list;
+			std::set<std::string> ignore_list;
 			BOOST_FOREACH(settings_map::keys_key_type key, map.keys_) {
 				if (key.first.first == path) {
 					if (has_key_int(key.second.first, key.second.second)) {
 						list.push_back(key.first.second);
-						ignore_list.insert(key.second.first + _T("/") + key.second.second);
+						ignore_list.insert(key.second.first + "/" + key.second.second);
 					}
 				}
 			}
@@ -412,26 +408,25 @@ namespace settings {
 				if (key.first == path) {
 					section_cache_type::const_iterator it = section_cache_.find(key.second);
 					if (it == section_cache_.end()) {
-						std::set<std::wstring> list2 = internal_read_keys_from_section(key.second);
+						std::set<std::string> list2 = internal_read_keys_from_section(key.second);
 						section_cache_[path] = list2;
 						it = section_cache_.find(path);
 					}
-					BOOST_FOREACH(std::wstring k, (*it).second) {
-						std::set<std::wstring>::const_iterator cit = ignore_list.find(key.second + _T("/") + k);
+					BOOST_FOREACH(const std::string &k, (*it).second) {
+						std::set<std::string>::const_iterator cit = ignore_list.find(key.second + "/" + k);
 						if (cit == ignore_list.end())
 							list.push_back(k);
 					}
-					//list.insert(list.end(), (*it).second.begin(), (*it).second.end());
 				}
 			}
 		}
 	private:
 
-		void int_read_section(std::wstring section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
+		void int_read_section(std::string section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));
-			unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
+				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+			unsigned int count = GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				int_read_section(section, list, bufferLength*10);
@@ -440,7 +435,7 @@ namespace settings {
 			unsigned int last = 0;
 			for (unsigned int i=0;i<count;i++) {
 				if (buffer[i] == '\0') {
-					std::wstring s = &buffer[last];
+					std::string s = utf8::cvt<std::string>(&buffer[last]);
 					std::size_t p = s.find('=');
 					if (p == std::wstring::npos)
 						list.push_back(s);
@@ -452,11 +447,11 @@ namespace settings {
 			delete [] buffer;
 		}
 
-		string_list int_read_section_from_inifile(std::wstring section, unsigned int bufferLength = BUFF_LEN) {
+		string_list int_read_section_from_inifile(std::string section, unsigned int bufferLength = BUFF_LEN) {
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
-				throw settings_exception(_T("getSections:: Failed to allocate memory for buffer!"));
-			unsigned int count = GetPrivateProfileSection(section.c_str(), buffer, bufferLength, get_file_name().c_str());
+				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+			unsigned int count = GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength-2) {
 				delete [] buffer;
 				return int_read_section_from_inifile(section, bufferLength*10);
@@ -465,9 +460,9 @@ namespace settings {
 			string_list list;
 			for (unsigned int i=0;i<count;i++) {
 				if (buffer[i] == '\0') {
-					std::wstring s = &buffer[last];
+					std::string s = utf8::cvt<std::string>(&buffer[last]);
 					std::size_t p = s.find('=');
-					if (p == std::wstring::npos)
+					if (p == std::string::npos)
 						list.push_back(s);
 					else
 						list.push_back(s.substr(0,p));
@@ -479,7 +474,7 @@ namespace settings {
 		}
 
 
-		inline std::wstring get_file_name() {
+		inline std::string get_file_name() {
 			if (filename_.empty()) {
 				filename_ = get_file_from_context();
 			}
@@ -488,15 +483,15 @@ namespace settings {
 		bool file_exists() {
 			return boost::filesystem::is_regular_file(get_file_name());
 		}
-		virtual std::wstring get_info() {
-			return _T("INI settings: (") + context_ + _T(", ") + get_file_name() + _T(")");
+		virtual std::string get_info() {
+			return "INI settings: (" + context_ + ", " + get_file_name() + ")";
 		}
 public:
-		static bool context_exists(settings::settings_core *core, std::wstring key) {
-			net::wurl url = net::parse(key);
-			std::wstring file = url.host + url.path;
-			std::wstring tmp = core->expand_path(file);
-			return file_helpers::checks::exists(tmp);
+		static bool context_exists(settings::settings_core *core, std::string key) {
+			net::url url = net::parse(key);
+			std::string file = url.host + url.path;
+			std::string tmp = core->expand_path(file);
+			return boost::filesystem::exists(tmp);
 		}
 
 	};

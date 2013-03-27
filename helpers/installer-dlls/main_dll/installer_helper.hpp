@@ -28,15 +28,19 @@ public:
 		hInstall_ = NULL;
 	}
 
+	static std::wstring last_werror(int err = -1) {
+		return utf8::cvt<std::wstring>(error::lookup::last_error(err));
+	}
+
 	std::wstring getTargetPath(std::wstring path) {
 		wchar_t tmpBuf[MAX_PATH];
 		DWORD len = 0;
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
-			throw installer_exception(_T("Failed to get size for target path '") + path + _T("': ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to get size for target path '") + path + _T("': ") + last_werror());
 		len++;
 		tchar_buffer buffer(len);
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
-			throw installer_exception(_T("Failed to get target path '") + path + _T("': ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to get target path '") + path + _T("': ") + last_werror());
 		}
 		std::wstring value = buffer;
 		return value;
@@ -59,11 +63,11 @@ public:
 		wchar_t tmpBuf[MAX_PATH];
 		DWORD len = 0;
 		if (MsiGetProperty(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
-			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + last_werror());
 		len++;
 		tchar_buffer buffer(len);
 		if (MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
-			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + last_werror());
 		}
 		std::wstring value = buffer;
 		return value;
@@ -73,11 +77,11 @@ public:
 		DWORD len = 0;
 		UINT er;
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), emptyString, &len)) != ERROR_MORE_DATA)
-			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + error::format::from_system(er));
+			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + last_werror(er));
 		len+=2;
 		tchar_buffer buffer(len);
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len)) != ERROR_SUCCESS) {
-			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + error::format::from_system(er));
+			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + last_werror(er));
 		}
 		return buffer;
 	}
@@ -98,6 +102,11 @@ public:
 	MSIHANDLE createSimpleString(std::wstring msg) {
 		MSIHANDLE hRecord = ::MsiCreateRecord(1);
 		::MsiRecordSetString(hRecord, 1, msg.c_str());
+		return hRecord;
+	}
+	MSIHANDLE createSimpleString(std::string msg) {
+		MSIHANDLE hRecord = ::MsiCreateRecord(1);
+		::MsiRecordSetString(hRecord, 1, utf8::cvt<std::wstring>(msg).c_str());
 		return hRecord;
 	}
 	MSIHANDLE create3Int(int i1, int i2, int i3) {
@@ -128,6 +137,10 @@ public:
 		PMSIHANDLE hRecord = createSimpleString(msg);
 		::MsiProcessMessage(hInstall_, INSTALLMESSAGE(INSTALLMESSAGE_INFO), hRecord);
 	}
+	void logMessage(std::string msg) {
+		PMSIHANDLE hRecord = createSimpleString(msg);
+		::MsiProcessMessage(hInstall_, INSTALLMESSAGE(INSTALLMESSAGE_INFO), hRecord);
+	}
 	void startProgress(int step, int max, std::wstring description, std::wstring tpl) {
 		hActionRec = ::MsiCreateRecord(3);
 		MsiRecordSetString(hActionRec, 1, action_.c_str());
@@ -135,18 +148,18 @@ public:
 		MsiRecordSetString(hActionRec, 3, tpl.c_str());
 		UINT iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONSTART, hActionRec);
 		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
 
 
 		PMSIHANDLE hStart = create4Int(0, max, 0, 1);
 		iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hStart);
 		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
 
 		hProgressPos = create3Int(1,1,0);
 		iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hProgressPos);
 		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
 
 		set3Int(hProgressPos, 2, step, 0);
 	}
@@ -160,13 +173,13 @@ public:
 		MsiRecordSetString(hActionRec, 2, str1.c_str());
 		MsiRecordSetString(hActionRec, 3, str2.c_str());
 		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONSTART, hActionRec) == IDCANCEL)
-			throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
 		/*
 		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONDATA, hActionRec) == IDCANCEL)
 		throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
 		*/
 		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hProgressPos) == IDCANCEL)
-			throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
+			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
 	}
 	MSIHANDLE getActiveDatabase() {
 		if (isNull(hDatabase))
@@ -212,11 +225,11 @@ public:
 
 		UINT er = ::MsiDatabaseOpenViewW(getActiveDatabase(), wzSql, &phView);
 		if (er != ERROR_SUCCESS)
-			throw installer_exception(_T("failed to open view on database: ") + error::format::from_system(er));
+			throw installer_exception(_T("failed to open view on database: ") + last_werror(er));
 		er = ::MsiViewExecute(phView, NULL);
 		if (er != ERROR_SUCCESS) {
 			MsiCloseHandle(phView);
-			throw installer_exception(_T("failed to open view on database: ") + error::format::from_system(er));
+			throw installer_exception(_T("failed to open view on database: ") + last_werror(er));
 		}
 		return phView;
 	}
@@ -234,7 +247,7 @@ public:
 		if (er == ERROR_NO_MORE_ITEMS)
 			return NULL;
 		if (er != ERROR_SUCCESS) 
-			throw installer_exception(_T("failed to return rows from database: ") + error::format::from_system(er));
+			throw installer_exception(_T("failed to return rows from database: ") + last_werror(er));
 		return phRec;
 	}
 
@@ -256,14 +269,14 @@ public:
 		WCHAR szEmpty[1] = L"";
 		er = ::MsiRecordGetStringW(hRec, uiField, szEmpty, (DWORD*)&cch);
 		if (ERROR_MORE_DATA != er && ERROR_SUCCESS != er) {
-			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + error::format::from_system(er));
+			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + last_werror(er));
 		}
 		buffer.realloc(++cch);
 
 		er = ::MsiRecordGetStringW(hRec, uiField, buffer, (DWORD*)&cch);
 		if (er != ERROR_SUCCESS)
 		if (ERROR_MORE_DATA == er){
-			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + error::format::from_system(er));
+			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + last_werror(er));
 		}
 		std::wstring string = buffer;
 		return string;
@@ -287,7 +300,7 @@ public:
 		er = ::MsiRecordReadStream(hRec, uiField, buffer, (DWORD*)&size);
 		if (er != ERROR_SUCCESS)
 		if (ERROR_MORE_DATA == er){
-			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + error::format::from_system(er));
+			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + last_werror(er));
 		}
 		std::string string = buffer;
 		return utf8::cvt<std::wstring>(string);
@@ -382,13 +395,13 @@ public:
 		DWORD_PTR cch = 0;
 		er = ::MsiFormatRecordW(hInstall_, hRecFormat, szEmpty, (DWORD*)&cch);
 		if (ERROR_MORE_DATA != er && ERROR_SUCCESS != er) {
-			throw installer_exception(_T("get_record_formatted_string:: Failed to get length of string: ") + error::format::from_system(er));
+			throw installer_exception(_T("get_record_formatted_string:: Failed to get length of string: ") + last_werror(er));
 		}
 		tchar_buffer buffer(++cch);
 
 		er = ::MsiFormatRecordW(hInstall_, hRecFormat, buffer, (DWORD*)&cch);
 		if (er != ERROR_SUCCESS) {
-			throw installer_exception(_T("get_record_formatted_string:: Failed to format string: ") + error::format::from_system(er));
+			throw installer_exception(_T("get_record_formatted_string:: Failed to format string: ") + last_werror(er));
 		}
 		//logMessage(_T("FMT Record: '") + std::wstring(buffer) + _T("'"));
 		// put the nulls back
@@ -431,7 +444,7 @@ public:
 		INSTALLSTATE isAction = INSTALLSTATE_UNKNOWN;
 		UINT er = ::MsiGetComponentStateW(hInstall_, wzComponentId.c_str(), &isInstalled, &isAction);
 		if (ERROR_SUCCESS != er) {
-			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to: ") + error::format::from_system(er));
+			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to: ") + last_werror(er));
 			return WCA_TODO_UNKNOWN;
 		}
 
@@ -459,7 +472,7 @@ public:
 		INSTALLSTATE isAction = INSTALLSTATE_UNKNOWN;
 		UINT er = ::MsiGetComponentStateW(hInstall_, wzComponentId.c_str(), &isInstalled, &isAction);
 		if (ERROR_SUCCESS != er) {
-			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to: ") + error::format::from_system(er));
+			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to: ") + last_werror(er));
 			return WCA_TODO_UNKNOWN;
 		}
 		return (INSTALLSTATE_LOCAL == isInstalled || INSTALLSTATE_SOURCE == isInstalled);
@@ -615,7 +628,7 @@ public:
 		if (wzCustomActionData && *wzCustomActionData) {
 			er = ::MsiSetPropertyW(hInstall_, wzAction, wzCustomActionData);
 			if (er != ERROR_SUCCESS)
-				throw installer_exception(_T("Failed to set CustomActionData for deferred action") + error::format::from_system(er));
+				throw installer_exception(_T("Failed to set CustomActionData for deferred action") + last_werror(er));
 		}
 /*
 		if (0 < uiCost) {
@@ -627,7 +640,7 @@ public:
 		if (ERROR_INSTALL_USEREXIT == er)
 			return er;
 		 else if (er != ERROR_SUCCESS) 
-			throw installer_exception(_T("Failed MsiDoAction on deferred action") + error::format::from_system(er));
+			throw installer_exception(_T("Failed MsiDoAction on deferred action") + last_werror(er));
 		return S_OK;
 	}
 	/*

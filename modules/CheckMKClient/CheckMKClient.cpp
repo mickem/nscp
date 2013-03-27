@@ -26,6 +26,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -52,7 +53,7 @@ NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *informat
 	check_mk::check_mk_packet_wrapper* obj = Luna<check_mk::check_mk_packet_wrapper>::createNew(instance);
 	obj->packet = packet;
 	if (instance.pcall(args, LUA_MULTRET, 0) != 0) {
-		NSC_LOG_ERROR_STD(_T("Failed to process check_mk result: ") + utf8::cvt<std::wstring>(instance.pop_string()));
+		NSC_LOG_ERROR_STD("Failed to process check_mk result: " + instance.pop_string());
 		return NSCAPI::returnUNKNOWN;
 	}
 	instance.gc(LUA_GCCOLLECT, 0);
@@ -62,11 +63,11 @@ NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *informat
 
 
 //////////////////////////////////////////////////////////////////////////
-bool CheckMKClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {
-		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
+		root_ = get_base_path();
 		nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
 		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
 		lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
@@ -74,49 +75,51 @@ bool CheckMKClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("check_mk"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("check_mk", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("CHECK MK CLIENT SECTION"), _T("Section for NSCP active/passive check module."))
+			("CHECK MK CLIENT SECTION", "Section for NSCP active/passive check module.")
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("handlers", sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 
-			(_T("scripts"), sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("scripts", sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("channel"), sh::wstring_key(&channel_, _T("NSCP")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "CheckMK"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
+
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 
 		if (scripts_->empty()) {
-			add_script(_T("default"),_T("default_check_mk.lua"));
+			add_script("default", "default_check_mk.lua");
 		}
 
-		get_core()->registerSubmissionListener(get_id(), channel_);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
 
 		scripts_->load_all();
 
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Load", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Load", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("Load");
 		return false;
 	}
 	return true;
@@ -130,21 +133,20 @@ std::string get_command(std::string alias, std::string command = "") {
 	return "_NRPE_CHECK";
 }
 
-bool CheckMKClient::add_script(std::wstring alias, std::wstring file) {
+bool CheckMKClient::add_script(std::string alias, std::string file) {
 	try {
 		if (file.empty()) {
 			file = alias;
-			alias = _T("");
+			alias = "";
 		}
 
-		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
+		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
 		if (!ofile)
 			return false;
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + utf8::cvt<std::wstring>(ofile->string()) + _T(" as ") + alias + _T(")"));
-		scripts_->add(utf8::cvt<std::string>(alias), ofile->string());
+		scripts_->add(alias, ofile->string());
 		return true;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
+		NSC_LOG_ERROR("Could not load script: " + file);
 	}
 	return false;
 }
@@ -153,25 +155,26 @@ bool CheckMKClient::add_script(std::wstring alias, std::wstring file) {
 // Settings helpers
 //
 
-void CheckMKClient::add_target(std::wstring key, std::wstring arg) {
+void CheckMKClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void CheckMKClient::add_command(std::wstring name, std::wstring args) {
+void CheckMKClient::add_command(std::string name, std::string args) {
 	try {
-		std::wstring key = commands.add_command(name, args);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("check_mk relay for: ") + name);
-	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+			core.register_command(key.c_str(), "check_mk relay for: " + name);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + name);
 	}
 }
 
@@ -254,9 +257,9 @@ void CheckMKClient::setup(client::configuration &config, const ::Plugin::Common_
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -288,7 +291,7 @@ std::string gather_and_log_errors(std::string  &payload) {
 	std::string ret;
 	for (int i=0;i<message.error_size();i++) {
 		ret += message.error(i).message();
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
+		NSC_LOG_ERROR_STD("Error: " + message.error(i).message());
 	}
 	return ret;
 }
@@ -304,13 +307,13 @@ int CheckMKClient::clp_handler_impl::query(client::configuration::data_type data
 }
 
 int CheckMKClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("check_mk does not support submit patterns"));
+	NSC_LOG_ERROR_STD("check_mk does not support submit patterns");
 	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support query pattern");
 	return NSCAPI::isSuccess;
 }
 
 int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("check_mk does not support submit patterns"));
+	NSC_LOG_ERROR_STD("check_mk does not support submit patterns");
 	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support exec pattern");
 	return NSCAPI::isSuccess;
 }
@@ -321,19 +324,19 @@ int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data,
 struct client_handler : public socket_helpers::client::client_handler {
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::utf8_from_native(msg));
 		}
 	}
 	void log_error(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::utf8_from_native(msg));
 		}
 	}
 };
 
 void CheckMKClient::send(connection_data con) {
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
@@ -348,15 +351,15 @@ void CheckMKClient::send(connection_data con) {
 		if (cmd) {
 			parse_data(cmd->information, cmd->function, packet);
 		} else {
-			NSC_LOG_ERROR_STD(_T("No check_mk callback found!"));
+			NSC_LOG_ERROR_STD("No check_mk callback found!");
 		}
 		//lua_runtime_->on_query()
 		client.shutdown();
 	} catch (std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Error: ..."));
+		NSC_LOG_ERROR_EX("Failed to send");
 	}
 }

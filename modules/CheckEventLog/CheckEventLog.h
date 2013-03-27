@@ -27,7 +27,7 @@ class CheckEventLog : public nscapi::impl::simple_plugin {
 private:
 	boost::shared_ptr<real_time_thread> thread_;
 	bool debug_;
-	std::wstring syntax_;
+	std::string syntax_;
 	int buffer_length_;
 	bool lookup_names_;
 
@@ -35,7 +35,7 @@ public:
 	CheckEventLog() {}
 	virtual ~CheckEventLog() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	void parse(std::wstring expr);
 

@@ -28,6 +28,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <nscp/client/nscp_client_protocol.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -45,44 +46,45 @@ NSCPClient::NSCPClient() {}
  */
 NSCPClient::~NSCPClient() {}
 
-bool NSCPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool NSCPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("nscp"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("nscp", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("NSCP CLIENT SECTION"), _T("Section for NSCP active/passive check module."))
+			("NSCP CLIENT SECTION", "Section for NSCP active/passive check module.")
 
-			(_T("handlers"), sh::fun_values_path(boost::bind(&NSCPClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("handlers", sh::fun_values_path(boost::bind(&NSCPClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&NSCPClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&NSCPClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("channel"), sh::wstring_key(&channel_, _T("NSCP")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "NSCP"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-		get_core()->registerSubmissionListener(get_id(), channel_);
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("load");
 		return false;
 	}
 	return true;
@@ -100,25 +102,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void NSCPClient::add_target(std::wstring key, std::wstring arg) {
+void NSCPClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void NSCPClient::add_command(std::wstring name, std::wstring args) {
+void NSCPClient::add_command(std::string name, std::string args) {
 	try {
-		std::wstring key = commands.add_command(name, args);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NSCP relay for: ") + name);
-	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+			core.register_command(key, "NSCP relay for: " + name);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + name);
 	}
 }
 
@@ -195,9 +198,9 @@ void NSCPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -229,7 +232,7 @@ std::string gather_and_log_errors(std::string  &payload) {
 	std::string ret;
 	for (int i=0;i<message.error_size();i++) {
 		ret += message.error(i).message();
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::cvt<std::wstring>(message.error(i).message()));
+		NSC_LOG_ERROR_STD("Error: " + message.error(i).message());
 	}
 	return ret;
 }
@@ -252,7 +255,7 @@ int NSCPClient::clp_handler_impl::query(client::configuration::data_type data, c
 			nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
-			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			NSC_LOG_ERROR_STD("Unsupported message type: " + strEx::s::xtos(chunk.signature.payload_type));
 			nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
@@ -278,7 +281,7 @@ int NSCPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 			nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
-			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			NSC_LOG_ERROR_STD("Unsupported message type: " + strEx::s::xtos(chunk.signature.payload_type));
 			nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
@@ -304,7 +307,7 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 			nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, error);
 			ret = NSCAPI::returnUNKNOWN;
 		} else {
-			NSC_LOG_ERROR_STD(_T("Unsupported message type: ") + strEx::itos(chunk.signature.payload_type));
+			NSC_LOG_ERROR_STD("Unsupported message type: " + strEx::s::xtos(chunk.signature.payload_type));
 			nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "", NSCAPI::returnUNKNOWN, "Unsupported response type");
 			ret = NSCAPI::returnUNKNOWN;
 		}
@@ -318,12 +321,12 @@ int NSCPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 struct client_handler : public socket_helpers::client::client_handler {
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::to_unicode(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 };
@@ -331,7 +334,7 @@ struct client_handler : public socket_helpers::client::client_handler {
 std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::packet> &chunks) {
 	std::list<nscp::packet> response;
 	try {
-		NSC_DEBUG_MSG_STD(_T("Connection details: ") + con.to_wstring());
+		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 		if (con.ssl.enabled) {
 #ifndef USE_SSL
 			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
@@ -346,12 +349,13 @@ std::list<nscp::packet> NSCPClient::send(connection_data con, std::list<nscp::pa
 		client.shutdown();
 		return response;
 	} catch (std::runtime_error &e) {
-		NSC_LOG_ERROR_STD(_T("Socket error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return response;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Error: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return response;
 	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to send");
 		return response;
 	}
 }

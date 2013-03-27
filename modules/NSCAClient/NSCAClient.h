@@ -38,8 +38,8 @@ namespace sh = nscapi::settings_helper;
 class NSCAClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::wstring channel_;
-	std::wstring target_path;
+	std::string channel_;
+	std::string target_path;
 	std::string hostname_;
 	bool cacheNscaHost_;
 	long time_delta_;
@@ -49,63 +49,63 @@ private:
 		typedef nscapi::targets::target_object target_object;
 
 		static void init_default(target_object &target) {
-			target.set_property_int(_T("timeout"), 30);
-			target.set_property_string(_T("encryption"), _T("ase"));
-			target.set_property_int(_T("payload length"), 512);
+			target.set_property_int("timeout", 30);
+			target.set_property_string("encryption", "ase");
+			target.set_property_int("payload length", 512);
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
 
-				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
-				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+				("timeout", sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
+				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
-				(_T("dh"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("dh"), _1), _T("${certificate-path}/nrpe_dh_512.pem")),
-				_T("DH KEY"), _T(""), true)
+				("dh", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+				"DH KEY", "", true)
 
-				(_T("certificate"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), false)
+				("certificate", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
+				"SSL CERTIFICATE", "", false)
 
-				(_T("certificate key"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate key"), _1)),
-				_T("SSL CERTIFICATE"), _T(""), true)
+				("certificate key", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
+				"SSL CERTIFICATE", "", true)
 
-				(_T("certificate format"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("certificate format"), _1), _T("PEM")),
-				_T("CERTIFICATE FORMAT"), _T(""), true)
+				("certificate format", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
+				"CERTIFICATE FORMAT", "", true)
 
-				(_T("ca"), sh::path_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("ca"), _1)),
-				_T("CA"), _T(""), true)
+				("ca", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
+				"CA", "", true)
 
-				(_T("allowed ciphers"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("allowed ciphers"), _1), _T("ADH")),
-				_T("ALLOWED CIPHERS"), _T("A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"), false)
+				("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
+				"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-				(_T("verify mode"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("verify mode"), _1), _T("none")),
-				_T("VERIFY MODE"), _T(""), false)
+				("verify mode", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
+				"VERIFY MODE", "", false)
 
-				(_T("use ssl"), sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, _T("ssl"), _1), false),
-				_T("ENABLE SSL ENCRYPTION"), _T("This option controls if SSL should be enabled."))
+				("use ssl", sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), false),
+				"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 
-				(_T("payload length"),  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("payload length"), _1), 512),
-				_T("PAYLOAD LENGTH"), _T("Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work."), true)
+				("payload length",  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "payload length", _1), 512),
+				"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.", true)
 
-				(_T("encryption"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("encryption"), _1), _T("aes")),
-				_T("ENCRYPTION METHOD"), _T("Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all."))
+				("encryption", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "encryption", _1), "aes"),
+				"ENCRYPTION METHOD", "Number corresponding to the various encryption algorithms (see the wiki). Has to be the same as the server or it wont work at all.")
 
-				(_T("password"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("password"), _1), _T("")),
-				_T("PASSWORD"), _T("The password to use. Again has to be the same as the server or it wont work at all."))
+				("password", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "password", _1), ""),
+				"PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.")
 
-				(_T("time offset"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("delay"), _1), _T("0")),
-				_T("TIME OFFSET"), _T("Time offset."), true)
+				("time offset", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "delay", _1), "0"),
+				"TIME OFFSET", "Time offset.", true)
 				;
 		}
 
 		static void post_process_target(target_object &target) {
-			std::list<std::wstring> err;
-			nscapi::targets::helpers::verify_file(target, _T("certificate"), err);
-			nscapi::targets::helpers::verify_file(target, _T("dh"), err);
-			nscapi::targets::helpers::verify_file(target, _T("certificate key"), err);
-			nscapi::targets::helpers::verify_file(target, _T("ca"), err);
-			BOOST_FOREACH(const std::wstring &e, err) {
-				NSC_LOG_ERROR_STD(e);
+			std::list<std::string> err;
+			nscapi::targets::helpers::verify_file(target, "certificate", err);
+			nscapi::targets::helpers::verify_file(target, "dh", err);
+			nscapi::targets::helpers::verify_file(target, "certificate key", err);
+			nscapi::targets::helpers::verify_file(target, "ca", err);
+			BOOST_FOREACH(const std::string &e, err) {
+				NSC_LOG_ERROR(e);
 			}
 		}
 	};
@@ -176,7 +176,7 @@ public:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
@@ -190,7 +190,7 @@ public:
 	NSCAClient();
 	virtual ~NSCAClient();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -205,8 +205,8 @@ private:
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
-	void add_command(std::wstring key, std::wstring args);
-	void add_target(std::wstring key, std::wstring args);
+	void add_command(std::string key, std::string args);
+	void add_target(std::string key, std::string args);
 
 	void set_delay(std::wstring key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);

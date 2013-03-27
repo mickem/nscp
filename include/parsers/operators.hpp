@@ -22,7 +22,7 @@ namespace parsers {
 			typedef boost::shared_ptr<unary_operator_impl> un_op_type;
 
 			static bin_op_type get_binary_operator(operators op, const expression_ast &left, const expression_ast &right);
-			static bin_fun_type get_binary_function(std::wstring name, const expression_ast &subject);
+			static bin_fun_type get_binary_function(std::string name, const expression_ast &subject);
 			static un_op_type get_unary_operator(operators op);
 		};
 	}

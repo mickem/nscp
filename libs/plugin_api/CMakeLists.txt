@@ -7,7 +7,6 @@ LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 #INCLUDE_DIRECTORIES(${NSCP_INCLUDEDIR})
 
 SET(SRCS
-	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
 	${NSCP_INCLUDEDIR}/utils.cpp
@@ -20,6 +19,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.cpp
 	${NSCP_INCLUDEDIR}/nscapi/command_client.cpp
 	
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
@@ -30,7 +30,6 @@ IF(WIN32)
 
 		${NSCP_INCLUDEDIR}/strEx.h
 		${NSCP_INCLUDEDIR}/config.h
-		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
 		
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.hpp
@@ -43,7 +42,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp
 
 		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
-		${NSCP_INCLUDEDIR}/nscapi/settings_proxy.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.hpp
 		${NSCP_INCLUDEDIR}/nscapi/macros.hpp
 
 	)

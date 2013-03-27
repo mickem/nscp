@@ -36,25 +36,25 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool CheckNSCP::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	start_ =  boost::posix_time::microsec_clock::local_time();
 
 	std::string path;
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(_T("crash"), alias);
+	settings.set_alias(alias, "crash");
 
 	settings.alias().add_path_to_settings()
-		(_T("CRASH SECTION"), _T("Configure crash handling properties."))
+		("CRASH SECTION", "Configure crash handling properties.")
 		;
 
 	settings.alias().add_key_to_settings()
-		(_T("archive folder"), sh::path_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
-		CRASH_ARCHIVE_FOLDER_KEY, _T("The archive folder for crash dunpes."))
+		("archive folder", sh::path_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
+		CRASH_ARCHIVE_FOLDER_KEY, "The archive folder for crash dumps.")
 		;
 
 	settings.register_all();
 	settings.notify();
-	NSC_DEBUG_MSG(_T("Crash folder is: ") + utf8::cvt<std::wstring>(crashFolder.string()));
+	NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 	return true;
 }
 

@@ -26,7 +26,7 @@ public:
 	NSClientServer();
 	virtual ~NSClientServer();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	check_nt::packet handle(check_nt::packet packet);
@@ -46,12 +46,12 @@ public:
 		}
 	}
 
-	std::wstring get_password() const {
+	std::string get_password() const {
 		return password_;
 	}
 
 private:
-	void set_password(std::wstring password) {
+	void set_password(std::string password) {
 		password_ = password;
 	}
 	virtual void set_allow_arguments(bool v)  {
@@ -63,7 +63,7 @@ private:
 	virtual void set_perf_data(bool v) {
 		noPerfData_ = !v;
 	}
-	bool isPasswordOk(std::wstring remotePassword);
+	bool isPasswordOk(std::string remotePassword);
 
 private:
 	bool noPerfData_;
@@ -72,6 +72,6 @@ private:
 
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<check_nt::server::server> server_;
-	std::wstring password_;
+	std::string password_;
 
 };

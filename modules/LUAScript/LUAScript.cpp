@@ -36,22 +36,22 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 
-bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
 
-		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
+		root_ = get_base_path();
 		nscp_runtime_.reset(new scripts::nscp::nscp_runtime_impl(get_id(), get_core()));
 		lua_runtime_.reset(new lua::lua_runtime(utf8::cvt<std::string>(root_.string())));
 		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("lua"));
+		settings.set_alias(alias, "lua");
 
 		settings.alias().add_path_to_settings()
-			(_T("LUA SCRIPT SECTION"), _T("Section for the LUAScripts module."))
+			("LUA SCRIPT SECTION", "Section for the LUAScripts module.")
 
-			(_T("scripts"), sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1, _2)), 
-			_T("LUA SCRIPTS SECTION"), _T("A list of scripts available to run from the LuaSCript module."))
+			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1, _2)), 
+			"LUA SCRIPTS SECTION", "A list of scripts available to run from the LuaSCript module.")
 			;
 
 		settings.register_all();
@@ -63,31 +63,31 @@ bool LUAScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 
 		scripts_->load_all();
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("load");
 		return false;
 	}
 
 	return true;
 }
 
-bool LUAScript::loadScript(std::wstring alias, std::wstring file) {
+bool LUAScript::loadScript(std::string alias, std::string file) {
 	try {
 		if (file.empty()) {
 			file = alias;
-			alias = _T("");
+			alias = "";
 		}
 
-		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, utf8::cvt<std::string>(file));
+		boost::optional<boost::filesystem::path> ofile = lua::lua_script::find_script(root_, file);
 		if (!ofile)
 			return false;
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + utf8::cvt<std::wstring>(ofile->string()) + _T(" as ") + alias + _T(")"));
-		scripts_->add(utf8::cvt<std::string>(alias), ofile->string());
+		NSC_DEBUG_MSG_STD("Adding script: " + ofile->string());
+		scripts_->add(alias, ofile->string());
 		return true;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not load script: (Unknown exception) ") + file);
+		NSC_LOG_ERROR_EX("load script");
 	}
 	return false;
 }

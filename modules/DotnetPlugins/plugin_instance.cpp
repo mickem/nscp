@@ -4,21 +4,23 @@
 
 #include "plugin_instance.hpp"
 
+#include <protobuf/plugin.pb.h>
+
 using namespace System;
 using namespace System::IO;
 using namespace System::Reflection;
 using namespace System::Collections::Generic;
 using namespace System::Runtime::InteropServices;
 
-std::wstring to_nstring(System::String^ s) {
+std::string to_nstring(System::String^ s) {
 	pin_ptr<const wchar_t> pinString = PtrToStringChars(s);
-	return std::wstring(pinString);
+	return utf8::cvt<std::string>(std::wstring(pinString));
 }
 
 typedef cli::array<Byte> protobuf_data;
 
 
-std::string to_nstring(protobuf_data^  request) {
+std::string to_nstring(protobuf_data^ request) {
 	char *buffer = new char[request->Length+1];
 	memset(buffer, 0, request->Length+1);
 	Marshal::Copy(request, 0, IntPtr(buffer), (int)request->Length);
@@ -26,12 +28,7 @@ std::string to_nstring(protobuf_data^  request) {
 	delete [] buffer;
 	return ret;
 }
-/*
-std::string to_nstring(cli::array<unsigned char>^ buffer) {
-	cli::pin_ptr<unsigned char> native_buffer = &buffer[0];
-	return std::string(native_buffer, buffer->Length);
-}
-*/
+
 protobuf_data^ to_mstring(std::string &buffer) {
 	protobuf_data^ arr = gcnew protobuf_data(buffer.size());
 	Marshal::Copy(IntPtr(const_cast<char*>(buffer.c_str())), arr, 0, arr->Length);
@@ -117,51 +114,13 @@ ref class RegistryImpl : public NSCP::IRegistry, public BasicPlugin {
 public:
 	RegistryImpl(instance_information *info) : BasicPlugin(info) {}
 	virtual bool registerCommand(String^ command, String^ description) {
-		return get_manager()->register_command(to_nstring(command), get_self(), to_nstring(description));
+// 		nscapi::core_helper::core_proxy proxy(get_core(), 1);
+// 		proxy.register_command(to_nstring(command), to_nstring(description));
+		return false;
 	}
 	virtual bool subscribeChannel(String^ channel) {
-		return get_manager()->register_channel(to_nstring(channel), get_self());
+		return false; //get_manager()->register_channel(to_nstring(channel), get_self());
 	}
-};
-
-ref class SettingsImpl : public NSCP::ISettings, public BasicPlugin {
-public:
-	SettingsImpl(instance_information *info) : BasicPlugin(info) {}
-
-	virtual array<String^>^ getSection(String^ path) {
-		return to_mlist(get_core()->getSettingsSection(to_nstring(path)));
-	}
-	virtual String^ getString(String^ path, String ^key, String ^defaultValue) {
-		return to_mstring(get_core()->getSettingsString(to_nstring(path), to_nstring(key), to_nstring(defaultValue)));
-	}
-	virtual void setString(String^ path, String ^key, String ^theValue) {
-		get_core()->SetSettingsString(to_nstring(path), to_nstring(key), to_nstring(theValue));
-	}
-	virtual bool getBool(String^ path, String ^key, bool defaultValue) {
-		return get_core()->getSettingsBool(to_nstring(path), to_nstring(key), defaultValue);
-	}
-	virtual void setBool(String^ path, String ^key, bool theValue) {
-		get_core()->SetSettingsInt(to_nstring(path), to_nstring(key), theValue?1:0);
-	}
-	virtual int getInt(String^ path, String ^key, int defaultValue) {
-		return get_core()->getSettingsInt(to_nstring(path), to_nstring(key), defaultValue);
-	}
-	virtual void setInt(String^ path, String ^key, int theValue) {
-		get_core()->SetSettingsInt(to_nstring(path), to_nstring(key), theValue);
-	}
-	virtual bool save() {
-		get_core()->settings_save();
-		return true;
-	}
-	virtual bool registerPath(String^ path, String^ title, String^ description, bool advanced) {
-		get_manager()->settings_register_path(to_nstring(path), to_nstring(title), to_nstring(description), advanced);
-		return true;
-	}
-	virtual bool register_key(String^ path, String^ key, int type, String^ title, String^ description, String^ defaultValue, bool advanced) {
-		get_manager()->settings_register_key(to_nstring(path), to_nstring(key), type, to_nstring(title), to_nstring(description), to_nstring(defaultValue), advanced);
-		return true;
-	}
-
 };
 
 ref class CoreImpl : public NSCP::ICore, public BasicPlugin {
@@ -171,43 +130,50 @@ public:
 	virtual NSCP::Result^ query(String^ command, protobuf_data^ request) {
 		NSCP::Result^ ret= gcnew NSCP::Result();
 		std::string response;
-		ret->result = get_core()->query(to_nstring(command), to_nstring(request), response);
+// 		ret->result = get_core()->query(to_nstring(command), to_nstring(request), response);
 		ret->data = to_mstring(response);
 		return ret;
 	}
 	virtual NSCP::Result^ exec(String^ target, String^ command, protobuf_data^ request) {
 		NSCP::Result^ ret= gcnew NSCP::Result();
 		std::string response;
-		ret->result = get_core()->exec_command(to_nstring(target), to_nstring(command), utf8::cvt<std::string>(to_nstring(request)), response);
+// 		ret->result = get_core()->exec_command(to_nstring(target), to_nstring(command), utf8::cvt<std::string>(to_nstring(request)), response);
 		ret->data = to_mstring(response);
 		return ret;
 	}
 	virtual NSCP::Result^ exec(String^ command, protobuf_data^ request) {
 		NSCP::Result^ ret= gcnew NSCP::Result();
 		std::string response;
-		ret->result = get_core()->exec_command(_T("*"), to_nstring(command), utf8::cvt<std::string>(to_nstring(request)), response);
+// 		ret->result = get_core()->exec_command(_T("*"), to_nstring(command), utf8::cvt<std::string>(to_nstring(request)), response);
 		ret->data = to_mstring(response);
 		return ret;
 	}
 	virtual NSCP::Result^ submit(String^ channel, protobuf_data^ request) {
 		NSCP::Result^ ret= gcnew NSCP::Result();
 		std::string response;
-		ret->result = get_core()->submit_message(to_nstring(channel), utf8::cvt<std::string>(to_nstring(request)), response);
+// 		ret->result = get_core()->submit_message(to_nstring(channel), utf8::cvt<std::string>(to_nstring(request)), response);
 		ret->data = to_mstring(response);
 		return ret;
 	}
 	virtual bool reload(String^ module) {
-		return get_core()->reload(to_nstring(module)) == NSCAPI::isSuccess;
+		return false; //get_core()->reload(to_nstring(module)) == NSCAPI::isSuccess;
 	}
-
-	virtual NSCP::ISettings^ getSettings() {
-		return gcnew SettingsImpl(get_info());
+	virtual NSCP::Result^ settings(protobuf_data^ request) {
+		NSCP::Result^ ret= gcnew NSCP::Result();
+		std::string response;
+// 		ret->result = get_core()->settings_query(to_nstring(request), response);
+		ret->data = to_mstring(response);
+		return ret;
 	}
-	virtual NSCP::IRegistry^ getRegistry() {
-		return gcnew RegistryImpl(get_info());
+	virtual NSCP::Result^ registry(protobuf_data^ request) {
+		NSCP::Result^ ret= gcnew NSCP::Result();
+		std::string response;
+// 		ret->result = get_core()->registry_query(to_nstring(request), response);
+		ret->data = to_mstring(response);
+		return ret;
 	}
-	virtual NSCP::ILogger^ getLogger() {
-		return gcnew LoggerImpl();
+	virtual void log(protobuf_data^ request) {
+// 		get_core()->log(to_nstring(request));
 	}
 };
 
@@ -231,17 +197,17 @@ void plugin_instance::set_self(plugin_type self) {
 }
 
 plugin_instance::plugin_type plugin_instance::create(plugin_manager *manager, std::wstring factory, std::wstring plugin, std::wstring dll) {
-	NSC_DEBUG_MSG(_T("Using factory: ") + factory + _T(" for ") + plugin);
-	NSC_DEBUG_MSG(_T("About to load dotnet plugin: ") + dll);
+	//NSC_DEBUG_MSG("Using factory: " + factory + _T(" for ") + plugin);
+	NSC_DEBUG_MSG("About to load dotnet plugin: " + utf8::cvt<std::string>(dll));
 
 	plugin_type instance = plugin_type(new plugin_instance(manager, dll, factory));
 	if (!instance) {
-		NSC_LOG_ERROR_STD(_T("Failed to load plugin '") + factory + _T("' from ") + dll);
+		NSC_LOG_ERROR_STD("Failed to load plugin factory from " + utf8::cvt<std::string>(dll));
 		return instance;
 
 	}
 	instance->set_self(instance);
-	NSC_DEBUG_MSG(_T("Plugin loaded: ") + plugin);
+	NSC_DEBUG_MSG("Plugin loaded: " + utf8::cvt<std::string>(plugin));
 	instance->create();
 	return instance;
 }
@@ -251,20 +217,20 @@ void plugin_instance::create() {
 		System::Reflection::Assembly^ dllAssembly = System::Reflection::Assembly::LoadFrom(to_mstring(dll));
 		typeInstance = dllAssembly->GetType(to_mstring(type));
 		if (!typeInstance) {
-			NSC_LOG_ERROR_STD(_T("Failed to load factory '") + type + _T("' from ") + dll);
+			NSC_LOG_ERROR_STD("Failed to load plugin factory from " + utf8::cvt<std::string>(dll));
 			factory = nullptr;
 			plugin = nullptr;
 			return;
 		}
 		factory = (NSCP::IPluginFactory^)Activator::CreateInstance(typeInstance);
 	} catch(System::Exception ^e) {
-		NSC_LOG_ERROR_STD(_T("Failed to create instance of '") + dll + _T(": ") + to_nstring(e->ToString()));
+		NSC_LOG_ERROR_STD("Failed to create instance of " + utf8::cvt<std::string>(dll) + ": " + to_nstring(e->ToString()));
 	}
 }
 
 bool plugin_instance::load(std::wstring alias, int mode) {
 	if (!factory) {
-		NSC_LOG_ERROR_STD(_T("No factory for: ") + dll);
+		NSC_LOG_ERROR_STD("No factory for: " + utf8::cvt<std::string>(dll));
 		return false;
 	}
 	plugin = factory->create(core, to_mstring(alias));

@@ -30,11 +30,11 @@ namespace systemInfo {
 		LANGID GetSystemDefaultUILanguage() {
 				HMODULE hKernel = ::LoadLibrary(_TEXT("KERNEL32"));
 				if (!hKernel) 
-					throw SystemInfoException(_T("Could not load kernel32.dll: ") + error::lookup::last_error());
+					throw SystemInfoException("Could not load kernel32.dll: " + error::lookup::last_error());
 				tGetSystemDefaultUILanguage fGetSystemDefaultUILanguage;
 				fGetSystemDefaultUILanguage = (tGetSystemDefaultUILanguage)::GetProcAddress(hKernel, "GetSystemDefaultUILanguage");
 				if (!fGetSystemDefaultUILanguage)
-						throw SystemInfoException(_T("Could not load GetSystemDefaultUILanguage") + error::lookup::last_error());
+						throw SystemInfoException("Could not load GetSystemDefaultUILanguage" + error::lookup::last_error());
 				return fGetSystemDefaultUILanguage();
 			}
 	}

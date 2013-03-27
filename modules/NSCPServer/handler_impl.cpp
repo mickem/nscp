@@ -70,7 +70,7 @@ NSCAPI::nagiosReturn handler_impl::handle_query_request(const std::string &reque
 		std::wstring command = utf8::cvt<std::wstring>(payload.command());
 
 		if (command.empty() || command == _T("_NSCP_CHECK")) {
-			nscapi::protobuf::functions::create_simple_query_response(_T("_NSCP_CHECK"), NSCAPI::returnOK, _T("I (") + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + _T(") seem to be doing fine..."), _T(""), outBuffer);
+			nscapi::protobuf::functions::create_simple_query_response("_NSCP_CHECK", NSCAPI::returnOK, "I (" + nscapi::plugin_singleton->get_core()->getApplicationVersionString() + ") seem to be doing fine...", "", outBuffer);
 		} else if (!allowArgs_ && payload.arguments_size() > 0) {
 			nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Arguments not allowed for command: ") + command, _T(""), outBuffer);
 		} else {
@@ -79,7 +79,7 @@ NSCAPI::nagiosReturn handler_impl::handle_query_request(const std::string &reque
 			tmp.mutable_header()->CopyFrom(hdr);
 			tmp.add_payload()->CopyFrom(payload);
 			tmp.SerializeToString(&tmpBuffer);
-			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->query(command, tmpBuffer, outBuffer);
+			NSCAPI::nagiosReturn returncode = nscapi::plugin_singleton->get_core()->query(payload.command(), tmpBuffer, outBuffer);
 			if (returncode == NSCAPI::returnIgnored) {
 				nscapi::protobuf::functions::create_simple_query_response_unknown(command, _T("Command was not found: ") + command, _T(""), outBuffer);
 			}

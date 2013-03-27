@@ -35,6 +35,12 @@
 
 namespace settings {
 
+	static std::string key_to_string(std::string path, std::string key) {
+		return path + "." + key;
+	}
+	static std::string key_to_string(std::pair<std::string,std::string> key) {
+		return key.first + "." + key.second;
+	}
 
 	class settings_exception : public std::exception {
 		std::string error_;
@@ -44,8 +50,7 @@ namespace settings {
 		/// @param error the error message
 		///
 		/// @author mickem
-		settings_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
-		settings_exception(std::string error) : error_(utf8::cvt<std::string>(error)) {}
+		settings_exception(std::string error) : error_(error) {}
 		~settings_exception() throw() {}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -60,33 +65,33 @@ namespace settings {
 	};
 	class KeyNotFoundException : public settings_exception {
 	public:
-		KeyNotFoundException(std::wstring path, std::wstring key) : settings_exception(_T("Key not found: ")+ path + _T(" ") + key) {}
-		KeyNotFoundException(std::wstring path) : settings_exception(_T("Key not found: ")+ path) {}
-		KeyNotFoundException(std::pair<std::wstring,std::wstring> key) : settings_exception(_T("Key not found: ")+ key.first + _T(" ") + key.second) {}
+		KeyNotFoundException(std::string path, std::string key) : settings_exception("Key not found: " + key_to_string(path, key)) {}
+		KeyNotFoundException(std::string path) : settings_exception("Key not found: " + path) {}
+		KeyNotFoundException(std::pair<std::string,std::string> key) : settings_exception("Key not found: " + key_to_string(key)) {}
 	};
 
 	class settings_interface;
 	typedef boost::shared_ptr<settings_interface> instance_ptr;
 	typedef boost::shared_ptr<settings_interface> instance_raw_ptr;
-	typedef std::list<std::wstring> error_list;
+	typedef std::list<std::string> error_list;
 
 	class settings_core {
 	public:
-		typedef std::list<std::wstring> string_list;
+		typedef std::list<std::string> string_list;
 		typedef enum {
 			key_string = 100,
 			key_integer = 200,
 			key_bool = 300
 		} key_type;
-		typedef std::pair<std::wstring,std::wstring> key_path_type;
+		typedef std::pair<std::string,std::string> key_path_type;
 		struct key_description {
-			std::wstring title;
-			std::wstring description;
+			std::string title;
+			std::string description;
 			key_type type;
-			std::wstring defValue;
+			std::string defValue;
 			bool advanced;
 			std::set<unsigned int> plugins;
-			key_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, settings_core::key_type type_, std::wstring defValue_, bool advanced_) 
+			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_) 
 				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) { append_plugin(plugin_id); }
 			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false) { append_plugin(plugin_id); }
 			key_description() : type(settings_core::key_string), advanced(false) { }
@@ -95,16 +100,16 @@ namespace settings {
 			}
 		};
 		struct path_description {
-			std::wstring title;
-			std::wstring description;
+			std::string title;
+			std::string description;
 			bool advanced;
-			typedef std::map<std::wstring,key_description> keys_type;
+			typedef std::map<std::string,key_description> keys_type;
 			keys_type keys;
 			std::set<unsigned int> plugins;
-			path_description(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) { append_plugin(plugin_id); }
+			path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) { append_plugin(plugin_id); }
 			path_description(unsigned int plugin_id) : advanced(false) { append_plugin(plugin_id); }
 			path_description() : advanced(false) {  }
-			void update(unsigned int plugin_id, std::wstring title_, std::wstring description_, bool advanced_) {
+			void update(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_) {
 				title = title_;
 				description = description_;
 				advanced = advanced_;
@@ -132,7 +137,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_path(unsigned int plugin_id, std::wstring path, std::wstring title, std::wstring description, bool advanced = false) = 0;
+		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced = false) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
@@ -147,7 +152,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(unsigned int plugin_id, std::wstring path, std::wstring key, key_type type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced = false) = 0;
+		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced = false) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.
@@ -157,9 +162,9 @@ namespace settings {
 		/// @return the key description
 		///
 		/// @author mickem
-		virtual key_description get_registred_key(std::wstring path, std::wstring key) = 0;
+		virtual key_description get_registred_key(std::string path, std::string key) = 0;
 
-		virtual settings_core::path_description get_registred_path(const std::wstring &path) = 0;
+		virtual settings_core::path_description get_registred_path(const std::string &path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections
@@ -175,7 +180,7 @@ namespace settings {
 		/// @return a list of key names
 		///
 		/// @author mickem
-		virtual string_list get_reg_keys(std::wstring path) = 0;
+		virtual string_list get_reg_keys(std::string path) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the currently active settings interface.
@@ -198,11 +203,11 @@ namespace settings {
 		virtual void migrate(instance_ptr from, instance_ptr to) = 0;
 		virtual void migrate_to(instance_ptr to) = 0;
 		virtual void migrate_from(instance_ptr from) = 0;
-		virtual void migrate(std::wstring from, std::wstring to) = 0;
-		virtual void migrate_to(std::wstring to) = 0;
-		virtual void migrate_from(std::wstring from) = 0;
+		virtual void migrate(std::string from, std::string to) = 0;
+		virtual void migrate_to(std::string to) = 0;
+		virtual void migrate_from(std::string from) = 0;
 
-		virtual void set_primary(std::wstring context) = 0;
+		virtual void set_primary(std::string context) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Validate the settings store and report all missing/invalid and superflous keys.
@@ -227,9 +232,9 @@ namespace settings {
 		/// @param file the file to use when booting.
 		///
 		/// @author mickem
-		virtual void boot(std::wstring file = _T("boot.ini")) = 0;
+		virtual void boot(std::string file = "boot.ini") = 0;
 
-		virtual std::wstring find_file(std::wstring file, std::wstring fallback) = 0;
+		virtual std::string find_file(std::string file, std::string fallback) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string form the boot file.
@@ -240,7 +245,7 @@ namespace settings {
 		/// @return the value of the key or the default value.
 		///
 		/// @author mickem
-		virtual std::wstring get_boot_string(std::wstring section, std::wstring key, std::wstring def) = 0;
+		virtual std::string get_boot_string(std::string section, std::string key, std::string def) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Create an instance of a given type.
@@ -250,7 +255,7 @@ namespace settings {
 		/// @return a new instance of given type.
 		///
 		/// @author mickem
-		virtual instance_raw_ptr create_instance(std::wstring context) = 0;
+		virtual instance_raw_ptr create_instance(std::string context) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the basepath for the settings subsystem.
@@ -261,15 +266,15 @@ namespace settings {
 		/// @author mickem
 		virtual void set_base(boost::filesystem::path path) = 0;
 
-		virtual std::wstring to_string() = 0;
+		virtual std::string to_string() = 0;
 
-		virtual std::wstring expand_path(std::wstring key) = 0;
+		virtual std::string expand_path(std::string key) = 0;
 
 	};
 
 	class settings_interface {
 	public:
-		typedef std::list<std::wstring> string_list;
+		typedef std::list<std::string> string_list;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the core module to use
@@ -294,7 +299,7 @@ namespace settings {
 		/// @return the type of the key
 		///
 		/// @author mickem
-		virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) = 0;
+		virtual settings_core::key_type get_key_type(std::string path, std::string key) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
@@ -304,7 +309,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_string(std::wstring path, std::wstring key) = 0;
+		virtual std::string get_string(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist the default value will be returned
 		/// 
@@ -314,7 +319,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) = 0;
+		virtual std::string get_string(std::string path, std::string key, std::string def) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update a string value
 		///
@@ -323,7 +328,7 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_string(std::wstring path, std::wstring key, std::wstring value) = 0;
+		virtual void set_string(std::string path, std::string key, std::string value) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
@@ -333,7 +338,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::wstring path, std::wstring key) = 0;
+		virtual int get_int(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist the default value will be returned
 		/// 
@@ -343,7 +348,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::wstring path, std::wstring key, int def) = 0;
+		virtual int get_int(std::string path, std::string key, int def) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update an integer value
 		///
@@ -352,7 +357,7 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_int(std::wstring path, std::wstring key, int value) = 0;
+		virtual void set_int(std::string path, std::string key, int value) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -362,7 +367,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::wstring path, std::wstring key) = 0;
+		virtual bool get_bool(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist the default value will be returned
 		/// 
@@ -372,7 +377,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::wstring path, std::wstring key, bool def) = 0;
+		virtual bool get_bool(std::string path, std::string key, bool def) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update a boolean value
 		///
@@ -381,10 +386,10 @@ namespace settings {
 		/// @param value the value to set
 		///
 		/// @author mickem
-		virtual void set_bool(std::wstring path, std::wstring key, bool value) = 0;
+		virtual void set_bool(std::string path, std::string key, bool value) = 0;
 
-		virtual void remove_key(std::wstring path, std::wstring key) = 0;
-		virtual void remove_path(std::wstring path) = 0;
+		virtual void remove_key(std::string path, std::string key) = 0;
+		virtual void remove_path(std::string path) = 0;
 
 		// Meta Functions
 		//////////////////////////////////////////////////////////////////////////
@@ -395,7 +400,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual string_list get_sections(std::wstring path) = 0;
+		virtual string_list get_sections(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys for a path.
 		///
@@ -403,7 +408,7 @@ namespace settings {
 		/// @return a list of keys
 		///
 		/// @author mickem
-		virtual string_list get_keys(std::wstring path) = 0;
+		virtual string_list get_keys(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the section exists?
 		/// 
@@ -411,7 +416,7 @@ namespace settings {
 		/// @return true/false
 		///
 		/// @author mickem
-		virtual bool has_section(std::wstring path) = 0;
+		virtual bool has_section(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the key exists?
 		/// 
@@ -420,9 +425,9 @@ namespace settings {
 		/// @return true/false
 		///
 		/// @author mickem
-		virtual bool has_key(std::wstring path, std::wstring key) = 0;
+		virtual bool has_key(std::string path, std::string key) = 0;
 
-		virtual void add_path(std::wstring path) = 0;
+		virtual void add_path(std::string path) = 0;
 		// Misc Functions
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a context.
@@ -431,7 +436,7 @@ namespace settings {
 		/// @return the context
 		///
 		/// @author mickem
-		virtual std::wstring get_context() = 0;
+		virtual std::string get_context() = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the context.
 		/// The context is an identifier for the settings store for INI/XML it is the filename.
@@ -439,7 +444,7 @@ namespace settings {
 		/// @param context the new context
 		///
 		/// @author mickem
-		virtual void set_context(std::wstring context) = 0;
+		virtual void set_context(std::string context) = 0;
 
 		// Save/Load Functions
 		//////////////////////////////////////////////////////////////////////////
@@ -454,7 +459,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void save_to(instance_ptr other) = 0;
-		virtual void save_to(std::wstring other) = 0;
+		virtual void save_to(std::string other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
 		///
@@ -467,7 +472,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void load_from(instance_ptr other) = 0;
-		virtual void load_from(std::wstring other) = 0;
+		virtual void load_from(std::string other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Load settings from the context.
 		///
@@ -475,18 +480,18 @@ namespace settings {
 		virtual void load() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
-		/// Validate the settings store and report all missing/invalid and superflous keys.
+		/// Validate the settings store and report all missing/invalid and superfluous keys.
 		///
 		/// @author mickem
 		virtual settings::error_list validate() = 0;
 
-		virtual std::wstring to_string() = 0;
+		virtual std::string to_string() = 0;
 
-		virtual std::wstring get_info() = 0;
+		virtual std::string get_info() = 0;
 
-		static bool string_to_bool(std::wstring str) {
+		static bool string_to_bool(std::string str) {
 			std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-			return str == _T("true")||str == _T("1");
+			return str == "true"||str == "1";
 		}
 
 		virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;

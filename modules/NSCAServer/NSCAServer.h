@@ -28,7 +28,7 @@ public:
 	NSCAServer();
 	virtual ~NSCAServer() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 private:

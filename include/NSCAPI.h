@@ -109,16 +109,6 @@ namespace NSCAPI {
 	}
 
 	typedef log_level::level messageTypes;		// Message type
-
-	struct plugin_info {
-		wchar_t *dll;
-		wchar_t *name;
-		wchar_t *description;
-		wchar_t *version;
-	};
-	typedef plugin_info* plugin_info_list;
-
-
 }
 
 namespace nscapi {
@@ -136,76 +126,62 @@ namespace nscapi {
 	};
 
 	namespace core_api {
-		typedef void* (*lpNSAPILoader)(const wchar_t*);
+		typedef void* (*lpNSAPILoader)(const char*);
 
-		typedef NSCAPI::errorReturn (*lpNSAPIGetBasePath)(wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsString)(const wchar_t*,const wchar_t*,const wchar_t*,wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIExpandPath)(const wchar_t*,wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsInt)(const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsBool)(const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSection)(const wchar_t*, wchar_t***, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetSettingsSections)(const wchar_t*, wchar_t***, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPIReleaseSettingsSectionBuffer)(wchar_t***, unsigned int *);
-		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
-		typedef void (*lpNSAPISimpleMessage)(const wchar_t*, int, const char*, int, const wchar_t*);
-		typedef NSCAPI::errorReturn (*lpNSAPIStopServer)(void);
-		typedef NSCAPI::errorReturn (*lpNSAPIExit)(void);
-		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const wchar_t*, const char *, const unsigned int, char **, unsigned int *);
-		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const wchar_t* target, const wchar_t* command, const char *request, const unsigned int request_len, char ** response, unsigned int * response_len);
 		typedef void (*lpNSAPIDestroyBuffer)(char**);
 
-		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const wchar_t* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationName)(char*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIGetApplicationVersionStr)(char*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIExpandPath)(const char*,char*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const char* module);
+		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
+		typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
 
+		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
+		typedef void (*lpNSAPISimpleMessage)(const char*, int, const char*, int, const char*);
+
+		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const char* target, const char* command, const char *request, const unsigned int request_len, char ** response, unsigned int * response_len);
+		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const char* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);
+
+
+// TODO: investigate
 		typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
+
+// TODO: convert and re-add these
 		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPISetSettingsString)(const wchar_t*, const wchar_t*, const wchar_t*);
-		typedef NSCAPI::errorReturn (*lpNSAPISetSettingsInt)(const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPIWriteSettings)(int);
-		typedef NSCAPI::errorReturn (*lpNSAPIReadSettings)(int);
-		typedef NSCAPI::errorReturn (*lpNSAPIRehash)(int);
-		typedef NSCAPI::errorReturn (*lpNSAPIDescribeCommand)(const wchar_t*,wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetAllCommandNames)(wchar_t***, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPIReleaseAllCommandNamessBuffer)(wchar_t***, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPIRegisterCommand)(unsigned int, const wchar_t*,const wchar_t*);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegKey)(unsigned int, const wchar_t*, const wchar_t*, int, const wchar_t*, const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsRegPath)(unsigned int, const wchar_t*, const wchar_t*, const wchar_t*, int);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
-		typedef NSCAPI::errorReturn (*lpNSAPIGetPluginList)(int *len, NSCAPI::plugin_info *list[]);
-		typedef NSCAPI::errorReturn (*lpNSAPIReleasePluginList)(int len, NSCAPI::plugin_info *list[]);
-		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
-		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
-		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
-		typedef NSCAPI::errorReturn (*lpNSAPIReload)(const wchar_t* module);
-		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
-		typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
+
+// TODO: DEprecate these
+// 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
+// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
+// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 
 	}
 
 	namespace plugin_api {
-		typedef NSCAPI::errorReturn (*lpGetName)(wchar_t*,unsigned int);
-		typedef NSCAPI::errorReturn (*lpGetDescription)(wchar_t*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpGetName)(char*,unsigned int);
+		typedef NSCAPI::errorReturn (*lpGetDescription)(char*,unsigned int);
 		typedef NSCAPI::errorReturn (*lpModuleHelperInit)(unsigned int, ::nscapi::core_api::lpNSAPILoader f);
 		typedef NSCAPI::errorReturn (*lpGetVersion)(int* major, int* minor, int* revision);
 		typedef NSCAPI::errorReturn (*lpDeleteBuffer)(char** buffer);
 
-		typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const wchar_t* alias, int mode);
+		typedef NSCAPI::errorReturn (*lpLoadModule)(unsigned int plugin_id, const char* alias, int mode);
 		typedef NSCAPI::errorReturn (*lpUnLoadModule)(unsigned int plugin_id);
 
 		typedef NSCAPI::errorReturn (*lpHasCommandHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpHandleCommand)(unsigned int plugin_id, const wchar_t* command, const char* in_buffer, const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+		typedef NSCAPI::errorReturn (*lpHandleCommand)(unsigned int plugin_id, const char* command, const char* in_buffer, const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasMessageHandler)(unsigned int plugin_id);
 		typedef NSCAPI::errorReturn (*lpHandleMessage)(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasNotificationHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpHandleNotification)(unsigned int plugin_id, const wchar_t *channel, const char* buffer, unsigned int buffer_len, char **result_buffer, unsigned int *result_buffer_len);
+		typedef NSCAPI::errorReturn (*lpHandleNotification)(unsigned int plugin_id, const char *channel, const char* buffer, unsigned int buffer_len, char **result_buffer, unsigned int *result_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasRoutingHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
-		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const wchar_t* command, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const char* command, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 	}
 }

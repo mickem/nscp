@@ -25,7 +25,7 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 	if (file_helpers::checks::exists(source)) {
 		h.logMessage(_T("Copying: ") + source + _T(" to ") + target);
 		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
-			h.errorMessage(_T("Failed to copy file: ") + error::lookup::last_error());
+			h.errorMessage(_T("Failed to copy file: ") + utf8::cvt<std::wstring>(error::lookup::last_error()));
 		}
 	} else {
 		h.logMessage(_T("Copying failed: ") + source + _T(" to ") + target + _T(" source was not found."));
@@ -33,12 +33,12 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 
 }
 
-std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
-	if (level < NSCAPI::log_level::info)
-		return "E" + utf8::cvt<std::string>(message);
-	return "I" + utf8::cvt<std::string>(message);
-}
-std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
+// std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
+// 	if (level < NSCAPI::log_level::info)
+// 		return "E" + utf8::cvt<std::string>(message);
+// 	return "I" + utf8::cvt<std::string>(message);
+// }
+std::string nsclient::logging::logger_helper::create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
 	if (level < NSCAPI::log_level::info)
 		return "E" + message;
 	return "I" + message;
@@ -96,31 +96,31 @@ bool nsclient::logging::logger::shutdown() { return true; }
 void nsclient::logging::logger::configure() {}
 
 void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {}
-void nsclient::logging::logger::set_log_level(std::wstring level) {}
+void nsclient::logging::logger::set_log_level(std::string level) {}
 struct installer_settings_provider : public settings_manager::provider_interface {
 
 	msi_helper *h;
-	std::wstring basepath;
-	std::wstring old_settings_map;
+	std::string basepath;
+	std::string old_settings_map;
 
-	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) : h(h), basepath(basepath), old_settings_map(old_settings_map) {}
-	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), basepath(basepath) {}
+	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)) {}
+	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), basepath(utf8::cvt<std::string>(basepath)) {}
 
-	virtual std::wstring expand_path(std::wstring file) {
-		strEx::replace(file, _T("${base-path}"), basepath);
-		strEx::replace(file, _T("${exe-path}"), basepath);
-		strEx::replace(file, _T("${shared-path}"), basepath);
+	virtual std::string expand_path(std::string file) {
+		strEx::replace(file, "${base-path}", basepath);
+		strEx::replace(file, "${exe-path}", basepath);
+		strEx::replace(file, "${shared-path}", basepath);
 		return file;
 	}
-	std::wstring get_data(std::wstring key) {
-		if (!old_settings_map.empty() && key == _T("old_settings_map_data")) {
+	std::string get_data(std::string key) {
+		if (!old_settings_map.empty() && key == "old_settings_map_data") {
 			return old_settings_map;
 		}
-		return _T("");
+		return "";
 	}
 };
 
-std::wstring has_key(std::wstring path, std::wstring key) {
+std::wstring has_key(std::string path, std::string key) {
 	return settings_manager::get_settings()->has_key(path, key)?_T("1"):_T("");
 }
 
@@ -198,7 +198,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
 
 		installer_settings_provider provider(&h, target, map_data);
-		if (!settings_manager::init_settings(&provider, _T(""))) {
+		if (!settings_manager::init_settings(&provider, "")) {
 			h.logMessage(_T("Settings context had fatal errors"));
 			h.setProperty(_T("CONF_OLD_ERROR"), get_impl()->get_error());
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
@@ -214,8 +214,8 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			if (!settings_manager::has_boot_conf()) {
 				h.logMessage(_T("boot.conf was NOT found (so no new configuration)"));
 				if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
-					h.logMessage(std::wstring(_T("Old configuration found: ")) + DEFAULT_CONF_OLD_LOCATION);
-					h.setProperty(_T("CONF_OLD_ERROR"), std::wstring(_T("Old configuration (")) + DEFAULT_CONF_OLD_LOCATION + _T(") was found but we got errors accessing it: ") + get_impl()->get_error());
+					h.logMessage("Old configuration found: " DEFAULT_CONF_OLD_LOCATION);
+					h.setProperty(_T("CONF_OLD_ERROR"), std::wstring(_T("Old configuration (")) + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + _T(") was found but we got errors accessing it: ") + get_impl()->get_error());
 					h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
 					h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
 					h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
@@ -237,28 +237,28 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			}
 		}
 
-		h.setProperty(_T("CONFIGURATION_TYPE"), settings_manager::get_settings()->get_context());
-		h.logMessage(_T("CONFIGURATION_TYPE=") + settings_manager::get_settings()->get_context());
-		h.logMessage(_T("CONFIGURATION_TYPE=") + settings_manager::get_settings()->get_info());
+		h.setProperty(_T("CONFIGURATION_TYPE"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context()));
+		h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_context());
+		h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_info());
 		h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
 		h.setProperty(_T("CONF_HAS_ERRORS"), _T("0"));
 
-		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), settings_manager::get_settings()->get_string(_T("/settings/default"), _T("allowed hosts"), _T("")));
-		h.setPropertyAndOld(_T("NSCLIENT_PWD"), settings_manager::get_settings()->get_string(_T("/settings/default"), _T("password"), _T("")));
+		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", "")));
+		h.setPropertyAndOld(_T("NSCLIENT_PWD"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
 
-		std::wstring modpath = _T("/modules");
-		h.setPropertyAndOld(_T("CONF_NRPE"), has_key(modpath, _T("NRPEServer")));
-		h.setPropertyAndOld(_T("CONF_SCHEDULER"), has_key(modpath, _T("Scheduler")));
-		h.setPropertyAndOld(_T("CONF_NSCA"), has_key(modpath, _T("NSCAClient")));
-		h.setPropertyAndOld(_T("CONF_NSCLIENT"), has_key(modpath, _T("NSClientServer")));
-		h.setPropertyAndOld(_T("CONF_WMI"), has_key(modpath, _T("CheckWMI")));
+		std::string modpath = "/modules";
+		h.setPropertyAndOld(_T("CONF_NRPE"), has_key(modpath, "NRPEServer"));
+		h.setPropertyAndOld(_T("CONF_SCHEDULER"), has_key(modpath, "Scheduler"));
+		h.setPropertyAndOld(_T("CONF_NSCA"), has_key(modpath, "NSCAClient"));
+		h.setPropertyAndOld(_T("CONF_NSCLIENT"), has_key(modpath, "NSClientServer"));
+		h.setPropertyAndOld(_T("CONF_WMI"), has_key(modpath, "CheckWMI"));
 
-		if (settings_manager::get_settings()->has_key(modpath, _T("CheckSystem")) &&
-			settings_manager::get_settings()->has_key(modpath, _T("CheckDisk")) &&
-			settings_manager::get_settings()->has_key(modpath, _T("CheckEventLog")) &&
-			settings_manager::get_settings()->has_key(modpath, _T("CheckHelpers")) &&
-			settings_manager::get_settings()->has_key(modpath, _T("CheckExternalScripts")) &&
-			settings_manager::get_settings()->has_key(modpath, _T("CheckNSCP"))
+		if (settings_manager::get_settings()->has_key(modpath, "CheckSystem") &&
+			settings_manager::get_settings()->has_key(modpath, "CheckDisk") &&
+			settings_manager::get_settings()->has_key(modpath, "CheckEventLog") &&
+			settings_manager::get_settings()->has_key(modpath, "CheckHelpers") &&
+			settings_manager::get_settings()->has_key(modpath, "CheckExternalScripts") &&
+			settings_manager::get_settings()->has_key(modpath, "CheckNSCP")
 			) {
 				h.setPropertyAndOld(_T("CONF_CHECKS"), _T("1"));
 		} else {
@@ -364,12 +364,13 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
 		h.logMessage(_T("Got CA data: ") + data.to_string());
 		std::wstring target = data.get_next_string();
-		std::wstring context = data.get_next_string();
+		std::wstring context_w = data.get_next_string();
+		std::string context = utf8::cvt<std::string>(context_w);
 		std::wstring restore = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
 		h.logMessage(_T("Target: ") + target);
-		h.logMessage(_T("Context: ") + context);
+		h.logMessage("Context: " + context);
 		h.logMessage(_T("Restore: ") + restore);
 
 		boost::filesystem::path path = target;
@@ -407,22 +408,22 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		if (boost::filesystem::exists(path))
 			h.logMessage(_T("Size (002): ") + strEx::itos(boost::filesystem::file_size(path)));
 
-		h.logMessage(_T("Switching to: ") + context);
+		h.logMessage("Switching to: " + context);
 		settings_manager::change_context(context);
 		if (boost::filesystem::exists(path))
 			h.logMessage(_T("Size (003): ") + strEx::itos(boost::filesystem::file_size(path)));
 
 		while (data.has_more()) {
 			unsigned int mode = data.get_next_int();
-			std::wstring path = data.get_next_string();
-			std::wstring key = data.get_next_string();
-			std::wstring val = data.get_next_string();
+			std::string path = utf8::cvt<std::string>(data.get_next_string());
+			std::string key = utf8::cvt<std::string>(data.get_next_string());
+			std::string val = utf8::cvt<std::string>(data.get_next_string());
 
 			if (mode == 1) {
-				h.logMessage(_T("Set key: ") + path + _T("/") + key + _T(" = ") + val);
+				h.logMessage("Set key: " + path + "/" + key + " = " + val);
 				settings_manager::get_settings()->set_string(path, key, val);
 			} else if (mode == 2) {
-				h.logMessage(_T("***UNSUPPORTED*** Remove key: ") + path + _T("/") + key + _T(" = ") + val);
+				h.logMessage("***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
 			} else {
 				h.errorMessage(_T("Unknown mode in CA data: ") + strEx::itos(mode) + _T(": ") + data.to_string());
 				return ERROR_INSTALL_FAILURE;
@@ -468,7 +469,7 @@ extern "C" UINT __stdcall NeedUninstall (MSIHANDLE hInstall) {
 					if (dwstate == WAIT_TIMEOUT)
 						h.errorMessage(_T("Failed to wait for process (probably not such a big deal, the uninstall usualy takes alonger)!"));
 				} else {
-					h.errorMessage(_T("Failed to start process: ") + error::lookup::last_error());
+					h.errorMessage(_T("Failed to start process: ") + utf8::cvt<std::wstring>(error::lookup::last_error()));
 				}
 			}
 		}

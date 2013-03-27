@@ -1,4 +1,5 @@
 #pragma once
+
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 #include <settings/client/settings_client.hpp>
@@ -12,7 +13,7 @@ namespace settings_client {
 	public:
 		settings_proxy(settings::settings_handler_impl* core) : core_(core) {}
 
-		typedef std::list<std::wstring> string_list;
+		typedef std::list<std::string> string_list;
 
 
 		inline settings::settings_core* get_core() {
@@ -24,54 +25,54 @@ namespace settings_client {
 		inline settings::settings_handler_impl* get_handler() {
 			return core_;
 		}
-		virtual void register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
+		virtual void register_path(std::string path, std::string title, std::string description, bool advanced) {
 			get_core()->register_path(0xffff, path, title, description, advanced);
 		}
 
-		virtual void register_key(std::wstring path, std::wstring key, int type, std::wstring title, std::wstring description, std::wstring defValue, bool advanced) {
+		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced) {
 			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
 		}
 
-		virtual std::wstring get_string(std::wstring path, std::wstring key, std::wstring def) {
+		virtual std::string get_string(std::string path, std::string key, std::string def) {
 			return get_impl()->get_string(path, key, def);
 		}
-		virtual void set_string(std::wstring path, std::wstring key, std::wstring value) {
+		virtual void set_string(std::string path, std::string key, std::string value) {
 			get_impl()->set_string(path, key, value);
 		}
-		virtual int get_int(std::wstring path, std::wstring key, int def) {
+		virtual int get_int(std::string path, std::string key, int def) {
 			return get_impl()->get_int(path, key, def);
 		}
-		virtual void set_int(std::wstring path, std::wstring key, int value) {
+		virtual void set_int(std::string path, std::string key, int value) {
 			get_impl()->set_int(path, key, value);
 		}
-		virtual bool get_bool(std::wstring path, std::wstring key, bool def) {
+		virtual bool get_bool(std::string path, std::string key, bool def) {
 			return get_impl()->get_bool(path, key, def);
 		}
-		virtual void set_bool(std::wstring path, std::wstring key, bool value) {
+		virtual void set_bool(std::string path, std::string key, bool value) {
 			get_impl()->set_bool(path, key, value);
 		}
 
-		virtual string_list get_sections(std::wstring path) {
+		virtual string_list get_sections(std::string path) {
 			return get_impl()->get_sections(path);
 		}
-		virtual string_list get_keys(std::wstring path) {
+		virtual string_list get_keys(std::string path) {
 			return get_impl()->get_keys(path);
 		}
-		virtual std::wstring expand_path(std::wstring key) {
+		virtual std::string expand_path(std::string key) {
 			return get_handler()->expand_path(key);
 		}
 
-		virtual void err(const char* file, int line, std::wstring message) {
-			nsclient::logging::logger::get_logger()->error(_T("settings"),file, line, message);
+		virtual void err(const char* file, int line, std::string message) {
+			nsclient::logging::logger::get_logger()->error("settings",file, line, message);
 		}
-		virtual void warn(const char* file, int line, std::wstring message) {
-			nsclient::logging::logger::get_logger()->warning(_T("settings"),file, line, message);
+		virtual void warn(const char* file, int line, std::string message) {
+			nsclient::logging::logger::get_logger()->warning("settings",file, line, message);
 		}
-		virtual void info(const char* file, int line, std::wstring message)  {
-			nsclient::logging::logger::get_logger()->info(_T("settings"),file, line, message);
+		virtual void info(const char* file, int line, std::string message)  {
+			nsclient::logging::logger::get_logger()->info("settings",file, line, message);
 		}
 		virtual void debug(const char* file, int line, std::string message)  {
-			nsclient::logging::logger::get_logger()->debug(_T("settings"),file, line, message);
+			nsclient::logging::logger::get_logger()->debug("settings",file, line, message);
 		}
 	};
 }

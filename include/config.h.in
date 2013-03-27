@@ -58,21 +58,21 @@
 #define NASTY_METACHARS_W       _T("|`&><'\"\\[]{}")
 
 #define DATE_FORMAT _T("%#c")
+#define DATE_FORMAT_S "%#c"
 
-#define CRASH_SUBMIT_URL _T("http://crash.nsclient.org/submit")
+#define CRASH_SUBMIT_URL "http://crash.nsclient.org/submit"
 #define CRASH_ARCHIVE_FOLDER "${shared-path}/crash-dumps"
-#define CRASH_ARCHIVE_FOLDER_W _T("${shared-path}/crash-dumps")
-#define CRASH_ARCHIVE_FOLDER_KEY _T("folder")
+#define CRASH_ARCHIVE_FOLDER_KEY "folder"
 
 #ifdef WIN32
-#define DEFAULT_CONF_LOCATION _T("old")
+#define DEFAULT_CONF_LOCATION "old"
 #else
-#define DEFAULT_CONF_LOCATION _T("ini")
+#define DEFAULT_CONF_LOCATION "ini"
 #endif
-#define BOOT_CONF_LOCATION _T("${exe-path}/boot.ini")
-#define DEFAULT_CONF_OLD_LOCATION _T("old://${exe-path}/nsc.ini")
-#define DEFAULT_CONF_INI_LOCATION _T("ini://${shared-path}/nsclient.ini")
-#define DEFAULT_CONF_REG_LOCATION _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++")
+#define BOOT_CONF_LOCATION "${exe-path}/boot.ini"
+#define DEFAULT_CONF_OLD_LOCATION "old://${exe-path}/nsc.ini"
+#define DEFAULT_CONF_INI_LOCATION "ini://${shared-path}/nsclient.ini"
+#define DEFAULT_CONF_REG_LOCATION "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
 
-#define DEFAULT_CACHE_PATH _T("${shared-path}/cache")
+#define DEFAULT_CACHE_PATH "${shared-path}/cache"
 

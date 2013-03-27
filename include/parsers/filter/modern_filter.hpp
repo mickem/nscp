@@ -7,7 +7,7 @@ namespace modern_filter {
 
 	template<class Tobject, class THandler>
 	struct filter_text_renderer {
-		typedef boost::function<std::wstring(Tobject*)> function_type;
+		typedef boost::function<std::string(Tobject*)> function_type;
 		struct my_entry {
 			parsers::simple_expression::entry origin;
 			function_type fun;
@@ -34,7 +34,7 @@ namespace modern_filter {
 			BOOST_FOREACH(const parsers::simple_expression::entry &e, keys) {
 				my_entry my_e(e);
 				if (e.is_variable) {
-					std::wstring tag = utf8::cvt<std::wstring>(e.name);
+					std::string tag = e.name;
 					if (!handler.has_variable(tag)) {
 						error = "Invalid variable: " + e.name;
 						return false;
@@ -120,7 +120,7 @@ namespace modern_filter {
 		typedef where_filter::engine_impl<Tobject, Thandler, filter_argument_type> filter_engine_type;
 		typedef boost::shared_ptr<where_filter::error_handler_interface> error_type;
 		typedef boost::shared_ptr<filter_engine_type> filter_engine;
-		typedef std::map<std::wstring,std::wstring> boundries_type;
+		typedef std::map<std::string,std::string> boundries_type;
 
 		text_renderer<Tsummary> renderer_top;
 		filter_text_renderer<Tobject, Thandler> renderer_detail;
@@ -158,7 +158,7 @@ namespace modern_filter {
 
 
 		filter_engine create_engine(filter_argument_type arg, std::string filter) {
-			arg->filter = utf8::cvt<std::wstring>(filter);
+			arg->filter = filter;
 			return filter_engine(new filter_engine_type(arg));
 		}
 
@@ -175,7 +175,7 @@ namespace modern_filter {
 		}
 		bool build_engines(const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit, std::string &errors) {
 			error_type error(new where_filter::collect_error_handler());
-			filter_argument_type fargs(new where_filter::argument_interface(error, _T(""), _T("")));
+			filter_argument_type fargs(new where_filter::argument_interface(error, "", ""));
 
 			if (!filter.empty()) engine_filter = create_engine(fargs, filter);
 			if (!ok.empty()) engine_ok = create_engine(fargs, ok);
@@ -198,13 +198,13 @@ namespace modern_filter {
 		}
 
 		bool validate(std::string &error) {
-			std::wstring msg;
+			std::string msg;
 			if (engine_filter && !engine_filter->validate(msg)) {
-				error = utf8::cvt<std::string>(msg);
+				error = msg;
 				return false;
 			}
 			if (engine_warn && !engine_warn->validate(msg)) {
-				error = utf8::cvt<std::string>(msg);
+				error = msg;
 				return false;
 			}
 			if (engine_warn) {
@@ -215,7 +215,7 @@ namespace modern_filter {
 				}
 			}
 			if (engine_crit && !engine_crit->validate(msg)) {
-				error = utf8::cvt<std::string>(msg);
+				error = msg;
 				return false;
 			}
 			if (engine_crit) {
@@ -226,19 +226,18 @@ namespace modern_filter {
 				}
 			}
 			if (engine_ok && !engine_ok->validate(msg)) {
-				error = utf8::cvt<std::string>(msg);
+				error = msg;
 				return false;
 			}
 			return true;
 		}
 
 		void register_leaf_performance_data(const std::string &tag, const std::string &value, filter_engine engine) {
-			std::wstring wtag = utf8::cvt<std::wstring>(tag);
-			if (engine->object_handler->has_variable(wtag)) {
+			if (engine->object_handler->has_variable(tag)) {
 				perf_entry entry;
-				entry.type = engine->object_handler->get_type(wtag);
+				entry.type = engine->object_handler->get_type(tag);
 				if (entry.type == parsers::where::type_int) {
-					entry.collect_int = engine->object_handler->bind_simple_int(wtag);
+					entry.collect_int = engine->object_handler->bind_simple_int(tag);
 					if (!entry.collect_int)
 						return;
 					typename leaf_performance_entry_type::iterator it = leaf_performance_data.find(tag);
@@ -286,13 +285,13 @@ namespace modern_filter {
 					message = renderer_top.render(summary);
 					matched = true;
 				} else if (debug) {
-					NSC_DEBUG_MSG_STD(_T("Crit/warn/ok did not match: ") + utf8::cvt<std::wstring>(current));
+					NSC_DEBUG_MSG_STD("Crit/warn/ok did not match: " + current);
 				}
 				if (matched) {
 					message = renderer_top.render(summary);
 				}
 			} else if (debug) {
-				NSC_DEBUG_MSG_STD(_T("Did not match: ") + utf8::cvt<std::wstring>(renderer_detail.render(record)));
+				NSC_DEBUG_MSG_STD("Did not match: " + renderer_detail.render(record));
 			}
 			return boost::make_tuple(matched, done);
 		}
@@ -311,7 +310,7 @@ namespace modern_filter {
 			data.number_value = value;
 			performance_instance_data.push_back(data);
 		}
-		void append_record(const std::string &alias, const perf_entry &parent, std::wstring value) {
+		void append_record(const std::string &alias, const perf_entry &parent, std::string value) {
 			perf_instance_data data;
 			data.alias = alias;
 			data.parent = parent;

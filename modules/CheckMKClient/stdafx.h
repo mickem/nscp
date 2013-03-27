@@ -35,7 +35,6 @@
 
 
 #include <config.h>
-#include <utils.h>
 #include <types.hpp>
 
 #include <NSCAPI.h>

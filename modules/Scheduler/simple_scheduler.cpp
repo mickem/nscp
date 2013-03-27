@@ -134,7 +134,7 @@ namespace scheduler {
 
 	void simple_scheduler::reschedule(const schedules::schedule_object &item) {
 		if (item.duration.total_seconds() == 0)
-			log_error(_T("Not scheduling since duration is 0: ") + item.to_wstring());
+			log_error("Not scheduling since duration is 0: " + item.to_string());
 		else
 			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
 	}
@@ -153,6 +153,10 @@ namespace scheduler {
 
 
 	void simple_scheduler::log_error(std::wstring err) {
+		if (handler_)
+			handler_->on_error(utf8::cvt<std::string>(err));
+	}
+	void simple_scheduler::log_error(std::string err) {
 		if (handler_)
 			handler_->on_error(err);
 	}

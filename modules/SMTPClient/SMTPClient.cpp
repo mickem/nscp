@@ -29,6 +29,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 #include "smtp.hpp"
 
@@ -48,42 +49,43 @@ SMTPClient::SMTPClient() {}
  */
 SMTPClient::~SMTPClient() {}
 
-bool SMTPClient::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	std::wstring template_string, sender, recipient;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(_T("SMTP"), alias, _T("client"));
-		target_path = settings.alias().get_settings_path(_T("targets"));
+		settings.set_alias("SMTP", alias, "client");
+		target_path = settings.alias().get_settings_path("targets");
 
 		settings.alias().add_path_to_settings()
-			(_T("SMTP CLIENT SECTION"), _T("Section for SMTP passive check module."))
-			(_T("handlers"), sh::fun_values_path(boost::bind(&SMTPClient::add_command, this, _1, _2)), 
-			_T("CLIENT HANDLER SECTION"), _T(""))
+			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
+			("handlers", sh::fun_values_path(boost::bind(&SMTPClient::add_command, this, _1, _2)), 
+			"CLIENT HANDLER SECTION", "")
 
-			(_T("targets"), sh::fun_values_path(boost::bind(&SMTPClient::add_target, this, _1, _2)), 
-			_T("REMOTE TARGET DEFINITIONS"), _T(""))
+			("targets", sh::fun_values_path(boost::bind(&SMTPClient::add_target, this, _1, _2)), 
+			"REMOTE TARGET DEFINITIONS", "")
 			;
 
 		settings.alias().add_key_to_settings()
-			(_T("channel"), sh::wstring_key(&channel_, _T("SMTP")),
-			_T("CHANNEL"), _T("The channel to listen to."))
+			("channel", sh::string_key(&channel_, "SMTP"),
+			"CHANNEL", "The channel to listen to.")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 
-		targets.add_missing(get_settings_proxy(), target_path, _T("default"), _T(""), true);
-		get_core()->registerSubmissionListener(get_id(), channel_);
-	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
+		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		core.register_channel(channel_);
+	} catch (const nscapi::nscapi_exception &e) {
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: ") + utf8::to_unicode(e.what()));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_EX("load");
 		return false;
 	}
 	return true;
@@ -101,25 +103,26 @@ std::string get_command(std::string alias, std::string command = "") {
 // Settings helpers
 //
 
-void SMTPClient::add_target(std::wstring key, std::wstring arg) {
+void SMTPClient::add_target(std::string key, std::string arg) {
 	try {
 		targets.add(get_settings_proxy(), target_path , key, arg);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key + _T(", ") + utf8::to_unicode(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Failed to add target: ") + key);
+		NSC_LOG_ERROR_EX("Failed to add target: " + key);
 	}
 }
 
-void SMTPClient::add_command(std::wstring name, std::wstring args) {
+void SMTPClient::add_command(std::string name, std::string args) {
 	try {
-		std::wstring key = commands.add_command(name, args);
+		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		std::string key = commands.add_command(name, args);
 		if (!key.empty())
-			register_command(key.c_str(), _T("NRPE relay for: ") + name);
-	} catch (boost::program_options::validation_error &e) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name + _T(": ") + utf8::to_unicode(e.what()));
+			core.register_command(key.c_str(), "NRPE relay for: " + name);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not add command ") + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + name);
 	}
 }
 
@@ -175,9 +178,9 @@ void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
-	std::wstring recipient = utf8::cvt<std::wstring>(config.data->recipient.id);
+	std::string recipient = config.data->recipient.id;
 	if (!targets.has_object(recipient)) {
-		recipient = _T("default");
+		recipient = "default";
 	}
 	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
 
@@ -202,7 +205,7 @@ SMTPClient::connection_data SMTPClient::parse_header(const ::Plugin::Common_Head
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
 int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("SMTP does not support query patterns"));
+	NSC_LOG_ERROR_STD("SMTP does not support query patterns");
 	return NSCAPI::hasFailed;
 }
 
@@ -230,7 +233,7 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 }
 
 int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD(_T("SMTP does not support exec patterns"));
+	NSC_LOG_ERROR_STD("SMTP does not support exec patterns");
 	return NSCAPI::hasFailed;
 }
 

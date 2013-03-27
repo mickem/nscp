@@ -14,7 +14,7 @@ class nsca_handler_impl : public nsca::server::handler {
 	bool allowNasty_;
 	bool allowArgs_;
 
-	std::wstring channel_;
+	std::string channel_;
 	int encryption_;
 	std::string password_;
 public:
@@ -30,10 +30,10 @@ public:
 	void set_payload_length(unsigned int payload) {
 		payload_length_ = payload;
 	}
-	void set_channel(std::wstring channel) {
+	void set_channel(std::string channel) {
 		channel_ = channel;
 	}
-	std::wstring get_channel() {
+	std::string get_channel() {
 		return channel_;
 	}
 	void set_encryption(std::string enc) {
@@ -59,12 +59,12 @@ public:
 
 	void log_debug(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string module, std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::cvt<std::wstring>(msg));
+			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 };

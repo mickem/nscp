@@ -5,15 +5,15 @@
 std::wstring nsclient::logging::logger_helper::render_log_level_short(NSCAPI::log_level::level code) {
 	switch (code) {
 		case NSCAPI::log_level::critical:
-			return _T("c");
+			return _T("C");
 		case NSCAPI::log_level::warning:
-			return _T("w");
+			return _T("W");
 		case NSCAPI::log_level::error:
-			return _T("e");
+			return _T("E");
 		case NSCAPI::log_level::info:
-			return _T("l");
+			return _T("L");
 		case NSCAPI::log_level::debug:
-			return _T("d");
+			return _T("D");
 		default:
 			return _T("?");
 	}

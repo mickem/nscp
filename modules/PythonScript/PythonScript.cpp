@@ -105,11 +105,12 @@ BOOST_PYTHON_MODULE(NSCP)
 //	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
-python_script::python_script(unsigned int plugin_id, const std::string alias, const script_container& script) 
+python_script::python_script(unsigned int plugin_id, const std::string base_path, const std::string alias, const script_container& script) 
 	: alias(alias)
+	, base_path(base_path)
 	, plugin_id(plugin_id) {
-	NSC_DEBUG_MSG_STD(_T("Loading python script: ") + utf8::cvt<std::wstring>(script.script.string()));
-	std::wstring err;
+	NSC_DEBUG_MSG_STD("Loading python script: " + script.script.string());
+	std::string err;
 	if (!script.validate(err)) {
 		NSC_LOG_ERROR(err);
 		return;
@@ -135,7 +136,7 @@ bool python_script::callFunction(const std::string& functionName) {
 			return false;
 		}
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Unknown exception"));
+		NSC_LOG_ERROR("Unknown exception");
 		return false;
 	}
 }
@@ -154,7 +155,7 @@ bool python_script::callFunction(const std::string& functionName, const std::lis
 			return false;
 		}
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Unknown exception"));
+		NSC_LOG_ERROR("Unknown exception");
 		return false;
 	}
 }
@@ -173,7 +174,7 @@ bool python_script::callFunction(const std::string& functionName, unsigned int i
 			return false;
 		}
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Unknown exception"));
+		NSC_LOG_ERROR("Unknown exception");
 		return false;
 	}
 }
@@ -190,11 +191,11 @@ void python_script::_exec(const std::string &scriptfile){
 			PyRun_SimpleString("import cStringIO");
 			PyRun_SimpleString("import sys");
 			PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
-			boost::filesystem::path path = utf8::cvt<std::string>(GET_CORE()->getBasePath());
+			boost::filesystem::path path = base_path;
 			path /= "scripts";
 			path /= "python";
 			path /= "lib";
-			NSC_DEBUG_MSG(_T("Lib path: ") + utf8::cvt<std::wstring>(path.string()));
+			NSC_DEBUG_MSG("Lib path: " + path.string());
 #ifdef WIN32
 			//TODO: FIXME: Fix this somehow
 			PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
@@ -206,29 +207,28 @@ void python_script::_exec(const std::string &scriptfile){
 		} catch( error_already_set e) {
 			script_wrapper::log_exception();
 		} catch (const std::exception &e) {
-			NSC_LOG_ERROR(_T("Exception in python script: ") + utf8::to_unicode(e.what()));
+			NSC_LOG_ERROR_EXR("python script", e);
 		} catch(...) {
-			NSC_LOG_ERROR(_T("Unknown exception in python script: ") + utf8::to_unicode(scriptfile));
+			NSC_LOG_ERROR_EX("python script");
 		}
 	} catch (...) {
-		NSC_LOG_ERROR(_T("Unknown exception"));
+		NSC_LOG_ERROR_EX("python");
 	}
 }
 static bool has_init = false;
-bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	alias_ = alias;
-	NSC_DEBUG_MSG_STD(_T("LoadEx in PythonScript as ") + alias);
 	try {
-		root_ = utf8::cvt<std::string>(get_core()->getBasePath());
+		root_ = get_base_path();
 
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias(alias, _T("python"));
+		settings.set_alias(alias, "python");
 
 		settings.alias().add_path_to_settings()
-			(_T("LUA SCRIPT SECTION"), _T("Section for the PythonScripts module."))
+			("LUA SCRIPT SECTION", "Section for the PythonScripts module.")
 
-			(_T("scripts"), sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)), 
-			_T("LUA SCRIPTS SECTION"), _T("A list of scripts available to run from the PythonScript module."))
+			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)), 
+			"LUA SCRIPTS SECTION", "A list of scripts available to run from the PythonScript module.")
 			;
 
 		settings.register_all();
@@ -264,16 +264,16 @@ bool PythonScript::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 			}
 			//PyEval_ReleaseLock();
 			BOOST_FOREACH(script_container &script, scripts_) {
-				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), utf8::cvt<std::string>(alias), script)));
+				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), root_.string(), utf8::cvt<std::string>(alias), script)));
 			}
 
 		} catch (std::exception &e) {
-			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts: ") + utf8::cvt<std::wstring>(e.what()));
+			NSC_LOG_ERROR_EXR("load python scripts", e);
 		} catch (...) {
-			NSC_LOG_ERROR_STD(_T("Exception: Failed to load python scripts"));
+			NSC_LOG_ERROR_EX("load python scripts");
 		}
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
+		NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
 		return false;
 	}
 	return true;
@@ -289,29 +289,29 @@ boost::optional<boost::filesystem::path> PythonScript::find_file(std::string fil
 	checks.push_back(root_ / "scripts" / (file + ".py"));
 	checks.push_back(root_ / file);
 	BOOST_FOREACH(boost::filesystem::path c, checks) {
-		NSC_DEBUG_MSG_STD(_T("Looking for: ") + utf8::cvt<std::wstring>(c.string()));
+		NSC_DEBUG_MSG_STD("Looking for: " + c.string());
 		if (boost::filesystem::exists(c) && boost::filesystem::is_regular(c))
 			return boost::optional<boost::filesystem::path>(c);
 	}
-	NSC_LOG_ERROR(_T("Script not found: ") + utf8::cvt<std::wstring>(file));
+	NSC_LOG_ERROR("Script not found: " + file);
 	return boost::optional<boost::filesystem::path>();
 }
 
 
-bool PythonScript::loadScript(std::wstring alias, std::wstring file) {
+bool PythonScript::loadScript(std::string alias, std::string file) {
 	try {
 		if (file.empty()) {
 			file = alias;
-			alias = _T("");
+			alias = "";
 		}
-		boost::optional<boost::filesystem::path> ofile = find_file(utf8::cvt<std::string>(file));
+		boost::optional<boost::filesystem::path> ofile = find_file(file);
 		if (!ofile)
 			return false;
 		script_container::push(scripts_, alias, *ofile);
-		NSC_DEBUG_MSG_STD(_T("Adding script: ") + alias + _T(" (") + utf8::cvt<std::wstring>(ofile->string()) + _T(")"));
+		NSC_DEBUG_MSG_STD("Adding script: " + alias + " (" + ofile->string() + ")");
 		return true;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Could not find script: (Unknown exception) ") + file);
+		NSC_LOG_ERROR_STD("Could not find script: (Unknown exception) " + file);
 	}
 	return false;
 }
@@ -368,7 +368,7 @@ bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 			return true;
 		}
 		script_container sc(*ofile);
-		python_script script(get_id(), "", sc);
+		python_script script(get_id(), root_.string(), "", sc);
 		std::list<std::string> ops(script_options.begin(), script_options.end());
 		if (!script.callFunction("__main__", ops)) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");

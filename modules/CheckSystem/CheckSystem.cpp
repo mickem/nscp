@@ -25,14 +25,11 @@
 
 #include <map>
 #include <set>
-
+ 
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
-
-#include <tlhelp32.h>
-
-
+ 
 #include <utils.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
@@ -42,7 +39,6 @@
 #include <simple_registry.hpp>
 #include <settings/client/settings_client.hpp>
 #include <config.h>
-
 
 
 template <class TFilterType>
@@ -87,7 +83,7 @@ public:
 			message = lable + _T(": ") + filter.to_string() + _T(" matches ") + value;
 			return true;
 		} else {
-			NSC_LOG_MESSAGE_STD(_T("Missing bounds for filter check: ") + lable);
+			NSC_LOG_MESSAGE_STD("Missing bounds for filter check: ", utf8::cvt<std::string>(lable));
 		}
 		return false;
 	}
@@ -100,8 +96,7 @@ public:
 
 namespace sh = nscapi::settings_helper;
 
-boost::tuple<bool,std::wstring> validate_counter(std::wstring counter) {
-	std::pair<bool,std::wstring> ret;
+std::pair<bool,std::string> validate_counter(std::string counter) {
 	/*
 	std::wstring error;
 	if (!PDH::PDHResolver::validate(counter, error, false)) {
@@ -115,61 +110,58 @@ boost::tuple<bool,std::wstring> validate_counter(std::wstring counter) {
 	typedef PDHCollectors::StaticPDHCounterListener<double, PDH_FMT_DOUBLE> counter_type;
 	boost::shared_ptr<counter_type> collector(new counter_type());
 	try {
-		pdh.addCounter(counter, collector);
+		pdh.addCounter(utf8::cvt<std::wstring>(counter), collector);
 		pdh.open();
 		pdh.gatherData();
 		pdh.close();
-		return boost::make_tuple(true, _T("ok(") + strEx::itos(collector->getValue()) + _T(")"));
-	} catch (const PDH::PDHException e) {
+ 		return std::make_pair(true, "ok(" + strEx::s::xtos(collector->getValue()) + ")");
+	} catch (const std::exception &e) {
 		try {
 			pdh.gatherData();
 			pdh.close();
-			return boost::make_tuple(true, _T("ok-rate(") + strEx::itos(collector->getValue()) + _T(")"));
-		} catch (const PDH::PDHException e) {
-			return boost::make_tuple(false, _T("query failed: ") + e.getError());
+ 			return std::make_pair(true, "ok-rate(" + strEx::s::xtos(collector->getValue()) + ")");
+		} catch (const std::exception &e2) {
+			std::pair<bool,std::string> p(false, "query failed: EXCEPTION" + utf8::utf8_from_native(e.what()));
+			return p;
 		}
 	}
 }
-std::wstring find_system_counter(std::wstring counter) {
+std::string find_system_counter(std::string counter) {
 	if (counter == PDH_SYSTEM_KEY_UPT) {
-		wchar_t *keys[] = {_T("\\2\\674"), _T("\\System\\System Up Time"), _T("\\System\\Systembetriebszeit"), _T("\\Sistema\\Tempo di funzionamento sistema"), _T("\\Système\\Temps d'activité système")};
-		BOOST_FOREACH(const wchar_t *key, keys) {
-			boost::tuple<bool,std::wstring> result = validate_counter(key);
-			if (result.get<0>()) {
-				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+		char *keys[] = {"\\2\\674", "\\System\\System Up Time", "\\System\\Systembetriebszeit", "\\Sistema\\Tempo di funzionamento sistema", "\\Système\\Temps d'activité système"};
+		BOOST_FOREACH(const char *key, keys) {
+			std::pair<bool,std::string> result = validate_counter(key);
+			if (result.first) {
 				return key;
 			}
 		}
 		return keys[0];
 	}
 	if (counter == PDH_SYSTEM_KEY_MCL) {
-		wchar_t *keys[] = {_T("\\4\\30"), _T("\\Memory\\Commit Limit"), _T("\\Speicher\\Zusagegrenze"), _T("\\Memoria\\Limite memoria vincolata"), _T("\\Mémoire\\Limite de mémoire dédiée")};
-		BOOST_FOREACH(const wchar_t *key, keys) {
-			boost::tuple<bool,std::wstring> result = validate_counter(key);
-			if (result.get<0>()) {
-				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+		char *keys[] = {"\\4\\30", "\\Memory\\Commit Limit", "\\Speicher\\Zusagegrenze", "\\Memoria\\Limite memoria vincolata", "\\Mémoire\\Limite de mémoire dédiée"};
+		BOOST_FOREACH(const char *key, keys) {
+			std::pair<bool,std::string> result = validate_counter(key);
+			if (result.first) {
 				return key;
 			}
 		}
 		return keys[0];
 	}
 	if (counter == PDH_SYSTEM_KEY_MCB) {
-		wchar_t *keys[] = {_T("\\4\\26"), _T("\\Memory\\Committed Bytes"), _T("\\Speicher\\Zugesicherte Bytes"), _T("\\Memoria\\Byte vincolati"), _T("\\Mémoire\\Octets dédiés")};
-		BOOST_FOREACH(const wchar_t *key, keys) {
-			boost::tuple<bool,std::wstring> result = validate_counter(key);
-			if (result.get<0>()) {
-				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+		char *keys[] = {"\\4\\26", "\\Memory\\Committed Bytes", "\\Speicher\\Zugesicherte Bytes", "\\Memoria\\Byte vincolati", "\\Mémoire\\Octets dédiés"};
+		BOOST_FOREACH(const char *key, keys) {
+			std::pair<bool,std::string> result = validate_counter(key);
+			if (result.first) {
 				return key;
 			}
 		}
 		return keys[0];
 	}
 	if (counter == PDH_SYSTEM_KEY_CPU) {
-		wchar_t *keys[] = {_T("\\238(_total)\\6"), _T("\\Processor(_total)\\% Processor Time"), _T("\\Prozessor(_Total)\\Prozessorzeit (%)"), _T("\\Processore(_total)\\% Tempo processore"), _T("\\Processeur(_Total)\\% Temps processeur")};
-		BOOST_FOREACH(const wchar_t *key, keys) {
-			boost::tuple<bool,std::wstring> result = validate_counter(key);
-			if (result.get<0>()) {
-				NSC_DEBUG_MSG(_T("Found alternate key for ") + counter + _T(": ") + key);
+		char *keys[] = {"\\238(_total)\\6", "\\Processor(_total)\\% Processor Time", "\\Prozessor(_Total)\\Prozessorzeit (%)", "\\Processore(_total)\\% Tempo processore", "\\Processeur(_Total)\\% Temps processeur"};
+		BOOST_FOREACH(const char *key, keys) {
+			std::pair<bool,std::string> result = validate_counter(key);
+			if (result.first) {
 				return key;
 			}
 		}
@@ -178,26 +170,26 @@ std::wstring find_system_counter(std::wstring counter) {
 }
 
 
-void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_registry &settings) {
+void load_counters(std::map<std::string,std::string> &counters, sh::settings_registry &settings) {
 	settings.alias().add_path_to_settings()
-		(_T("pdh/counters"), sh::wstring_map_path(&counters)
-		, _T("PDH COUNTERS"), _T("Define various PDH counters to check."))
+		("pdh/counters", sh::string_map_path(&counters)
+		, "PDH COUNTERS", "Define various PDH counters to check.")
 		;
 
 	settings.register_all();
 	settings.notify();
 	settings.clear();
 
-	std::wstring path = settings.alias().get_settings_path(_T("pdh/counters"));
-	if (counters[PDH_SYSTEM_KEY_CPU] == _T("")) {
-		settings.register_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), NSCAPI::key_string, _T("Collection Strategy"), _T("Collection strategy for CPU is usually round robin, for others static."), _T("round robin"), false);
-		settings.set_static_key(path + _T("/") + PDH_SYSTEM_KEY_CPU, _T("collection strategy"), _T("round robin"));
+	std::string path = settings.alias().get_settings_path("pdh/counters");
+	if (counters[PDH_SYSTEM_KEY_CPU] == "") {
+		settings.register_key(path + "/" + PDH_SYSTEM_KEY_CPU, "collection strategy", NSCAPI::key_string, "Collection Strategy", "Collection strategy for CPU is usually round robin, for others static.", "round robin", false);
+		settings.set_static_key(path + "/" + PDH_SYSTEM_KEY_CPU, "collection strategy", "round robin");
 	}
-	wchar_t *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
-	BOOST_FOREACH(const wchar_t *key, keys) {
-		if (counters[key] == _T("")) {
+	char *keys[] = {PDH_SYSTEM_KEY_UPT, PDH_SYSTEM_KEY_MCL, PDH_SYSTEM_KEY_MCB, PDH_SYSTEM_KEY_CPU};
+	BOOST_FOREACH(const char *key, keys) {
+		if (counters[key] == "") {
 			counters[key] = find_system_counter(key);
-			settings.register_key(path, key, NSCAPI::key_string, key, _T("System counter for check_xx commands.."), counters[key], false);
+			settings.register_key(path, key, NSCAPI::key_string, key, "System counter for check_xx commands..", counters[key], false);
 		}
 	}
 }
@@ -207,64 +199,64 @@ void load_counters(std::map<std::wstring,std::wstring> &counters, sh::settings_r
  * Start the background collector thread and let it run until unloadModule() is called.
  * @return true
  */
-bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	boost::shared_ptr<PDHCollector::system_counter_data> data(new PDHCollector::system_counter_data);
 	data->check_intervall = 1;
 
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(alias, _T("system/windows"));
-	std::wstring counter_path = settings.alias().get_settings_path(_T("pdh/counters"));
+	settings.set_alias(alias, "system/windows");
+	std::string counter_path = settings.alias().get_settings_path("pdh/counters");
 
 	if (mode == NSCAPI::normalStart) {
 		load_counters(counters, settings);
 	}
 
 	settings.alias().add_path_to_settings()
-		(_T("WINDOWS CHECK SYSTEM"), _T("Section for system checks and system settings"))
+		("WINDOWS CHECK SYSTEM", "Section for system checks and system settings")
 
-		(_T("service mapping"), _T("SERVICE MAPPING SECTION"), _T("Confiure which services has to be in which state"))
+		("service mapping", "SERVICE MAPPING SECTION", "Confiure which services has to be in which state")
 
-		(_T("pdh"), _T("PDH COUNTER INFORMATION"), _T(""))
+		("pdh", "PDH COUNTER INFORMATION", "")
 
 		;
 
 	settings.alias().add_key_to_settings()
-		(_T("default buffer length"), sh::wstring_key(&data->buffer_length, _T("1h")),
-		_T("DEFAULT LENGTH"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."))
+		("default buffer length", sh::string_key(&data->buffer_length, "1h"),
+		"DEFAULT LENGTH", "Used to define the default interval for range buffer checks (ie. CPU).")
 
-		(_T("default intervall"), sh::uint_key(&data->check_intervall, 1),
-		_T("DEFAULT INTERVALL"), _T("Used to define the default intervall for range buffer checks (ie. CPU)."), true)
+		("default intervall", sh::uint_key(&data->check_intervall, 1),
+		"DEFAULT INTERVALL", "Used to define the default interval for range buffer checks (ie. CPU).", true)
 
-		(_T("subsystem"), sh::wstring_key(&data->subsystem, _T("default")),
-		_T("PDH SUBSYSTEM"), _T("Set which pdh subsystem to use."), true)
+		("subsystem", sh::wstring_key(&data->subsystem, _T("default")),
+		"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
-	settings.alias().add_key_to_settings(_T("service mapping"))
+	settings.alias().add_key_to_settings("service mapping")
 
-		(_T("BOOT_START"), sh::wstring_vector_key(&lookups_, SERVICE_BOOT_START, _T("ignored")),
-		_T("SERVICE_BOOT_START"), _T("TODO"), true)
+		("BOOT_START", sh::string_vector_key(&lookups_, SERVICE_BOOT_START, "ignored"),
+		"SERVICE_BOOT_START", "TODO", true)
 
-		(_T("SYSTEM_START"), sh::wstring_vector_key(&lookups_, SERVICE_SYSTEM_START, _T("ignored")),
-		_T("SERVICE_SYSTEM_START"), _T("TODO"), true)
+		("SYSTEM_START", sh::string_vector_key(&lookups_, SERVICE_SYSTEM_START, "ignored"),
+		"SERVICE_SYSTEM_START", "TODO", true)
 
-		(_T("AUTO_START"), sh::wstring_vector_key(&lookups_, SERVICE_AUTO_START, _T("started")),
-		_T("SERVICE_AUTO_START"), _T("TODO"), true)
+		("AUTO_START", sh::string_vector_key(&lookups_, SERVICE_AUTO_START, "started"),
+		"SERVICE_AUTO_START", "TODO", true)
 
-		(_T("DEMAND_START"), sh::wstring_vector_key(&lookups_, SERVICE_DEMAND_START, _T("ignored")),
-		_T("SERVICE_DEMAND_START"), _T("TODO"), true)
+		("DEMAND_START", sh::string_vector_key(&lookups_, SERVICE_DEMAND_START, "ignored"),
+		"SERVICE_DEMAND_START", "TODO", true)
 
-		(_T("DISABLED"), sh::wstring_vector_key(&lookups_, SERVICE_DISABLED, _T("stopped")),
-		_T("SERVICE_DISABLED"), _T("TODO"), true)
+		("DISABLED", sh::string_vector_key(&lookups_, SERVICE_DISABLED, "stopped"),
+		"SERVICE_DISABLED", "TODO", true)
 
-		(_T("DELAYED"), sh::wstring_vector_key(&lookups_, NSCP_SERVICE_DELAYED, _T("ignored")),
-		_T("SERVICE_DELAYED"), _T("TODO"), true)
+		("DELAYED", sh::string_vector_key(&lookups_, NSCP_SERVICE_DELAYED, "ignored"),
+		"SERVICE_DELAYED", "TODO", true)
 		;
 
 	bool reg_alias;
-	settings.alias().add_parent(_T("/settings/default")).add_key_to_settings()
+	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
-		(_T("modern commands"), sh::bool_key(&reg_alias, true),
-		_T("Register modern aliases for built-in commands"), _T("Register moden alias for commands (ccheck_xxx as opposed of CheckXXX) these are the names which will be used in future version of NSClient++"), true)
+		("modern commands", sh::bool_key(&reg_alias, true),
+		"Register modern aliases for built-in commands", "Register modern alias for commands (ccheck_xxx as opposed of CheckXXX) these are the names which will be used in future version of NSClient++", true)
 		;
 
 		settings.register_all();
@@ -274,22 +266,22 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
 	if (mode == NSCAPI::normalStart) {
 		typedef PDHCollector::system_counter_data::counter cnt;
 		BOOST_FOREACH(counter_map_type::value_type c, counters) {
-			std::wstring path = c.second;
-			boost::tuple<bool, std::wstring> result = validate_counter(path);
-			if (!result.get<0>()) {
-				NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T("(") + path + _T(": ") + result.get<1>());
+			std::string path = c.second;
+			std::pair<bool, std::string> result = validate_counter(path);
+			if (!result.first) {
+				NSC_LOG_ERROR("Failed to load counter " + c.first + "(" + path + ": " + result.second);
 			}
-			std::wstring strategy = get_core()->getSettingsString(counter_path + _T("/") + c.first, _T("collection strategy"), _T("static"));
-			if (strategy == _T("static")) {
-				data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::value));
-			} else if (strategy == _T("round robin")) {
-				std::wstring size = get_core()->getSettingsString(counter_path + _T("/") + c.first, _T("size"), _T(""));
+			std::string strategy = settings.get_static_string(counter_path + "/" + c.first, "collection strategy", "static");
+			if (strategy == "static") {
+				data->counters.push_back(cnt(c.first, utf8::cvt<std::wstring>(path), cnt::type_int64, cnt::format_large, cnt::value));
+			} else if (strategy == "round robin") {
+				std::string size = settings.get_static_string(counter_path + "/" + c.first, "size", "");
 				if (size.empty())
-					data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::rrd));
+					data->counters.push_back(cnt(c.first, utf8::cvt<std::wstring>(path), cnt::type_int64, cnt::format_large, cnt::rrd));
 				else
-					data->counters.push_back(cnt(c.first, path, cnt::type_int64, cnt::format_large, cnt::rrd, size));
+					data->counters.push_back(cnt(c.first, utf8::cvt<std::wstring>(path), cnt::type_int64, cnt::format_large, cnt::rrd, size));
 			} else {
-				NSC_LOG_ERROR(_T("Failed to load counter ") + c.first + _T(" invalid collection strategy: ") + strategy);
+				NSC_LOG_ERROR("Failed to load counter " + c.first + " invalid collection strategy: " + strategy);
 			}
 		}
 	}
@@ -308,7 +300,7 @@ bool CheckSystem::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) 
  */
 bool CheckSystem::unloadModule() {
 	if (!pdh_collector.stop()) {
-		NSC_LOG_ERROR(_T("Could not exit the thread, memory leak and potential corruption may be the result..."));
+		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
 	}
 	return true;
 }
@@ -362,10 +354,10 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 						total++;
 						if (!filter.empty() && line.find(filter) == std::wstring::npos)
 							continue;
-						boost::tuple<bool,std::wstring> status;
+						boost::tuple<bool,std::string> status;
 						if (validate) {
-							status = validate_counter(line);
-							result += line + _T(": ") + status.get<1>() + _T("\n");
+							status = validate_counter(utf8::cvt<std::string>(line));
+							result += line + _T(": ") + utf8::cvt<std::wstring>(status.get<1>()) + _T("\n");
 						} else
 							result += line + _T("\n");
 						match++;
@@ -377,10 +369,10 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 					total++;
 					if (!filter.empty() && line.find(filter) == std::wstring::npos)
 						continue;
-					boost::tuple<bool,std::wstring> status;
+					boost::tuple<bool,std::string> status;
 					if (validate) {
-						status = validate_counter(line);
-						result += line + _T(": ") + status.get<1>() + _T("\n");
+						status = validate_counter(utf8::cvt<std::string>(line));
+						result += line + _T(": ") + utf8::cvt<std::wstring>(status.get<1>()) + _T("\n");
 					} else 
 						result += line + _T("\n");
 					match++;
@@ -392,8 +384,8 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 			result += _T("Listed ") + strEx::itos(match) + _T(" of ") + strEx::itos(total) + _T(" counters.");
 		}
 		return true;
-	} catch (const PDH::PDHException e) {
-		result = _T("ERROR: Service enumeration failed: ") + e.getError();
+	} catch (const PDH::pdh_exception &e) {
+		result = _T("ERROR: Service enumeration failed: ") + utf8::cvt<std::wstring>(e.reason());
 		return false;
 	}
 }
@@ -468,7 +460,7 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 					int count = 0, match = 0;
 					if (counters.empty()) {
 						sh::settings_registry settings(get_settings_proxy());
-						settings.set_alias(_T("check"), _T("system/windows"), _T("system/windows"));
+						settings.set_alias("check", "system/windows", "system/windows");
 						load_counters(counters, settings);
 					}
 					if (!porcelain) {
@@ -476,22 +468,22 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 						result += _T("---------------------------\n");
 					} 
 					BOOST_FOREACH(const counter_map_type::value_type v, counters) {
-						std::wstring line = v.first + _T(" = ") + v.second;
-						boost::tuple<bool,std::wstring> status;
+						std::string line = v.first + " = " + v.second;
+						boost::tuple<bool,std::string> status;
 						count++;
-						if (!counter.empty() && line.find(counter) == std::wstring::npos)
+						if (!counter.empty() && line.find(utf8::cvt<std::string>(counter)) == std::string::npos)
 							continue;
 
 						if (validate)
 							status = validate_counter(v.second);
 
 						if (porcelain) 
-							line = v.first + _T(",") + v.second + _T(",") + status.get<1>();
+							line = v.first + "," + v.second + "," + status.get<1>();
 						else if (validate)
-							line = v.first + _T(" = ") + v.second + _T(": ") + status.get<1>();
+							line = v.first + " = " + v.second + ": " + status.get<1>();
 						else 
-							line = v.first + _T(" = ") + v.second;
-						result += line + _T("\n");
+							line = v.first + " = " + v.second;
+						result += utf8::cvt<std::wstring>(line) + _T("\n");
 						match++;
 					}
 					if (!porcelain) {
@@ -514,7 +506,7 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 					result += _T("  | Index for '") + lookup + _T("' is ") + strEx::itos(dw) + _T("\n");
 					result += _T("--+-----------------------------------------------------------");
 				}
-			} catch (const PDH::PDHException e) {
+			} catch (const PDH::pdh_exception &e) {
 				result += _T("Index not found: ") + lookup + _T("\n");
 				return NSCAPI::hasFailed;
 			}
@@ -528,8 +520,8 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 					result += _T("  | Index for '") + lookup + _T("' is ") + name + _T("\n");
 					result += _T("--+-----------------------------------------------------------");
 				}
-			} catch (const PDH::PDHException e) {
-				result += _T("Failed to lookup index: ") + e.getError();
+			} catch (const PDH::pdh_exception &e) {
+				result += _T("Failed to lookup index: ") + utf8::cvt<std::wstring>(e.reason());
 				return NSCAPI::hasFailed;
 			}
 		} else if (vm.count("expand-path")) {
@@ -544,8 +536,8 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 						result += _T("  | Found '") + s + _T("\n");
 					}
 				}
-			} catch (const PDH::PDHException e) {
-				result += _T("Failed to lookup index: ") + e.getError();
+			} catch (const PDH::pdh_exception &e) {
+				result += _T("Failed to lookup index: ") + utf8::cvt<std::wstring>(e.reason());
 				return NSCAPI::hasFailed;
 			}
 		} else {
@@ -561,40 +553,40 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 
 class cpuload_handler {
 public:
-	static int parse(std::wstring s) {
-		return strEx::stoi(s);
+	static int parse(std::string s) {
+		return strEx::s::stox<int>(s);
 	}
-	static int parse_percent(std::wstring s) {
-		return strEx::stoi(s);
+	static int parse_percent(std::string s) {
+		return strEx::s::stox<int>(s);
 	}
-	static std::wstring print(int value) {
-		return strEx::itos(value) + _T("%");
+	static std::string print(int value) {
+		return strEx::s::xtos(value) + "%";
 	}
-	static std::wstring print_unformated(int value) {
-		return strEx::itos(value);
+	static std::string print_unformated(int value) {
+		return strEx::s::xtos(value);
 	}
 
-	static std::wstring get_perf_unit(__int64 value) {
-		return _T("%");
+	static std::string get_perf_unit(__int64 value) {
+		return "%";
 	}
-	static std::wstring print_perf(__int64 value, std::wstring unit) {
-		return boost::lexical_cast<std::wstring>(value);
+	static std::string print_perf(__int64 value, std::string unit) {
+		return strEx::s::xtos(value);
 	}
-	static std::wstring print_percent(int value) {
-		return boost::lexical_cast<std::wstring>(value) + _T("%");
+	static std::string print_percent(int value) {
+		return strEx::s::xtos(value) + "%";
 	}
-	static std::wstring key_prefix() {
-		return _T("average load ");
+	static std::string key_prefix() {
+		return "average load ";
 	}
-	static std::wstring key_postfix() {
-		return _T("");
+	static std::string key_postfix() {
+		return "";
 	}
 };
-NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
+NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf) {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericBounds<int, cpuload_handler> > > CPULoadContainer;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Usage: check_cpu <threshold> <time1> [<time2>...] (check_cpu MaxWarn=80 time=5m)");
+		msg = "ERROR: Usage: check_cpu <threshold> <time1> [<time2>...] (check_cpu MaxWarn=80 time=5m)";
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<CPULoadContainer> list;
@@ -603,38 +595,38 @@ NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::wstring &target, const st
 	bool bPerfData = true;
 	CPULoadContainer tmpObject;
 
-	tmpObject.data = _T("cpuload");
+	tmpObject.data = "cpuload";
 
 	MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T(""))
-		MAP_OPTIONS_STR(_T("warn"), tmpObject.warn.max_)
-		MAP_OPTIONS_STR(_T("crit"), tmpObject.crit.max_)
+		MAP_OPTIONS_NUMERIC_ALL(tmpObject, "")
+		MAP_OPTIONS_STR("warn", tmpObject.warn.max_)
+		MAP_OPTIONS_STR("crit", tmpObject.crit.max_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_STR_AND(_T("time"), tmpObject.data, list.push_back(tmpObject))
-		MAP_OPTIONS_STR_AND(_T("Time"), tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_STR_AND("time", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_STR_AND("Time", tmpObject.data, list.push_back(tmpObject))
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-			else if (p2.first == _T("Time")) {
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+			else if (p2.first == "Time") {
 				tmpObject.data = p__.second;
 				tmpObject.alias = p2.second;
 				list.push_back(tmpObject);
 			}
-	MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
+	MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, list.push_back(tmpObject))
 	MAP_OPTIONS_END()
 
 	for (std::list<CPULoadContainer>::const_iterator it = list.begin(); it != list.end(); ++it) {
 		CPULoadContainer load = (*it);
-		int value = pdh_collector.getCPUAvrage(load.data + _T("m"));
+		int value = pdh_collector.getCPUAvrage(load.data + "m");
 		if (value == -1) {
-			msg = _T("ERROR: Could not get data for ") + load.getAlias() + _T(" please check log for details");
+			msg = "ERROR: Could not get data for " + load.getAlias() + " please check log for details";
 			return NSCAPI::returnUNKNOWN;
 		}
 		if (bNSClient) {
-			if (!msg.empty()) msg += _T("&");
-			msg += strEx::itos(value);
+			if (!msg.empty()) msg += "&";
+			msg += strEx::s::xtos(value);
 		} else {
 			load.setDefault(tmpObject);
 			load.perfData = bPerfData;
@@ -643,18 +635,18 @@ NSCAPI::nagiosReturn CheckSystem::check_cpu(const std::wstring &target, const st
 	}
 
 	if (msg.empty())
-		msg = _T("OK CPU Load ok.");
+		msg = "OK CPU Load ok.";
 	else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
-NSCAPI::nagiosReturn CheckSystem::check_uptime(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_uptime(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsTime> UpTimeContainer;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -662,27 +654,27 @@ NSCAPI::nagiosReturn CheckSystem::check_uptime(const std::wstring &target, const
 	bool bPerfData = true;
 	UpTimeContainer bounds;
 
-	bounds.data = _T("uptime");
+	bounds.data = "uptime";
 
 	MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_NUMERIC_ALL(bounds, _T(""))
-		MAP_OPTIONS_STR(_T("warn"), bounds.warn.min_)
-		MAP_OPTIONS_STR(_T("crit"), bounds.crit.min_)
+		MAP_OPTIONS_NUMERIC_ALL(bounds, "")
+		MAP_OPTIONS_STR("warn", bounds.warn.min_)
+		MAP_OPTIONS_STR("crit", bounds.crit.min_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_STR(_T("Alias"), bounds.data)
+		MAP_OPTIONS_STR("Alias", bounds.data)
 		MAP_OPTIONS_SHOWALL(bounds)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
+		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 		MAP_OPTIONS_END()
 
 
 	unsigned long long value = pdh_collector.getUptime();
 	if (value == -1) {
-		msg = _T("ERROR: Could not get value");
+		msg = "ERROR: Could not get value";
 		return NSCAPI::returnUNKNOWN;
 	}
 	if (bNSClient) {
-		msg = strEx::itos(value);
+		msg = strEx::s::xtos(value);
 	} else {
 		value *= 1000;
 		bounds.perfData = bPerfData;
@@ -690,9 +682,9 @@ NSCAPI::nagiosReturn CheckSystem::check_uptime(const std::wstring &target, const
 	}
 
 	if (msg.empty())
-		msg = _T("OK all counters within bounds.");
+		msg = "OK all counters within bounds.";
 	else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
@@ -731,15 +723,15 @@ inline int get_state(DWORD state) {
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_service(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::SimpleBoundsStateBoundsInteger> StateContainer;
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<StateContainer> list;
-	std::set<std::wstring> excludeList;
+	std::set<std::string> excludeList;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	bool bNSClient = false;
 	StateContainer tmpObject;
@@ -747,24 +739,24 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 	bool bAutoStart = false;
 	unsigned int truncate = 0;
 
-	tmpObject.data = _T("service");
-	tmpObject.crit.state = _T("started");
+	tmpObject.data = "service";
+	tmpObject.crit.state = "started";
 	//{{
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
-		MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_STR2INT("truncate", truncate)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_BOOL_TRUE(_T("CheckAll"), bAutoStart)
-		MAP_OPTIONS_INSERT(_T("exclude"), excludeList)
+		MAP_OPTIONS_BOOL_TRUE("CheckAll", bAutoStart)
+		MAP_OPTIONS_INSERT("exclude", excludeList)
 		//MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
 		//MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
 		//MAP_OPTIONS_SECONDARY_END()
 		else { 
 			tmpObject.data = p__.first;
 			if (p__.second.empty())
-				tmpObject.crit.state = _T("started"); 
+				tmpObject.crit.state = "started"; 
 			else
 				tmpObject.crit.state = p__.second; 
 			list.push_back(tmpObject); 
@@ -773,28 +765,26 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 	//}}
 	if (bAutoStart) {
 		// get a list of all service with startup type Automatic 
-		/*
-		;check_all_services[SERVICE_BOOT_START]=ignored
-		;check_all_services[SERVICE_SYSTEM_START]=ignored
-		;check_all_services[SERVICE_AUTO_START]=started
-		;check_all_services[SERVICE_DEMAND_START]=ignored
-		;check_all_services[SERVICE_DISABLED]=stopped
-		std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
-		*/
+// 		;check_all_services[SERVICE_BOOT_START]=ignored
+// 		;check_all_services[SERVICE_SYSTEM_START]=ignored
+// 		;check_all_services[SERVICE_AUTO_START]=started
+// 		;check_all_services[SERVICE_DEMAND_START]=ignored
+// 		;check_all_services[SERVICE_DISABLED]=stopped
+// 		std::wstring wantedMethod = NSCModuleHelper::getSettingsString(C_SYSTEM_SECTION_TITLE, C_SYSTEM_ENUMPROC_METHOD, C_SYSTEM_ENUMPROC_METHOD_DEFAULT);
 
 		bool vista = systemInfo::isAboveVista(systemInfo::getOSVersion());
 		std::list<TNtServiceInfo> service_list_automatic = TNtServiceInfo::EnumServices(SERVICE_WIN32,SERVICE_INACTIVE|SERVICE_ACTIVE, vista); 
-		for (std::list<TNtServiceInfo>::const_iterator service =service_list_automatic.begin();service!=service_list_automatic.end();++service) { 
-			if (excludeList.find((*service).m_strServiceName) == excludeList.end()) {
-				tmpObject.data = (*service).m_strServiceName;
-				std::wstring x = lookups_[(*service).m_dwStartType];
-				if (x != _T("ignored")) {
+		BOOST_FOREACH(const TNtServiceInfo &service, service_list_automatic) {
+			if (excludeList.find(service.m_strServiceName) == excludeList.end()) {
+				tmpObject.data = service.m_strServiceName;
+				std::string x = lookups_[service.m_dwStartType];
+				if (x != "ignored") {
 					tmpObject.crit.state = x;
 					list.push_back(tmpObject); 
 				}
 			}
 		} 
-		tmpObject.crit.state = _T("ignored");
+		tmpObject.crit.state = "ignored";
 	}
 	for (std::list<StateContainer>::iterator it = list.begin(); it != list.end(); ++it) {
 		TNtServiceInfo info;
@@ -802,8 +792,8 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 			try {
 				info = TNtServiceInfo::GetService((*it).data.c_str());
 			} catch (NTServiceException e) {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": Error");
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": Error";
 				nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
 				continue;
 			}
@@ -811,23 +801,23 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 				bool ok = (*it).crit.state.check(get_state(info.m_dwCurrentState));
 				if (!ok || (*it).showAll()) {
 					if (info.m_dwCurrentState == SERVICE_RUNNING) {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Started");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Started";
 					} else if (info.m_dwCurrentState == SERVICE_STOPPED) {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Stopped");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Stopped";
 					} else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND) {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Not found");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Not found";
 					} else if (info.m_dwCurrentState == SERVICE_START_PENDING) {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Start pending");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Start pending";
 					} else if (info.m_dwCurrentState == SERVICE_STOP_PENDING) {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Stop pending");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Stop pending";
 					} else {
-						if (!msg.empty()) msg += _T(" - ");
-						msg += (*it).data + _T(": Unknown");
+						if (!msg.empty()) msg += " - ";
+						msg += (*it).data + ": Unknown";
 					}
 					if (!ok) 
 						nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
@@ -836,9 +826,9 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 		} else {
 			try {
 				info = TNtServiceInfo::GetService((*it).data.c_str());
-			} catch (NTServiceException e) {
-				NSC_LOG_ERROR_STD(e.getError());
-				msg = e.getError();
+			} catch (const NTServiceException &e) {
+				NSC_LOG_ERROR_EXR("Service enumeration faied", e);
+				msg = e.what();
 				return NSCAPI::returnUNKNOWN;
 			}
 			checkHolders::state_type value;
@@ -853,7 +843,7 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 			else if (info.m_dwCurrentState == MY_SERVICE_NOT_FOUND)
 				value = checkHolders::state_not_found;
 			else {
-				NSC_LOG_MESSAGE(_T("Service had no (valid) state: ") + (*it).data + _T(" (") + strEx::itos(info.m_dwCurrentState) + _T(")"));
+				NSC_LOG_MESSAGE("Service had no (valid) state: " + utf8::cvt<std::string>((*it).data) + " (" + strEx::s::xtos(info.m_dwCurrentState) + ")");
 				value = checkHolders::state_none;
 			}
 			unsigned int x = returnCode;
@@ -864,13 +854,13 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
 		}
 	}
 	if ((truncate > 0) && (msg.length() > (truncate-4)))
-		msg = msg.substr(0, truncate-4) + _T("...");
+		msg = msg.substr(0, truncate-4) + "...";
 	if (msg.empty() && returnCode == NSCAPI::returnOK)
-		msg = _T("OK: All services are in their appropriate state.");
+		msg = "OK: All services are in their appropriate state.";
 	else if (msg.empty())
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": Whooha this is odd.");
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": Whooha this is odd.";
 	else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
@@ -885,11 +875,11 @@ NSCAPI::nagiosReturn CheckSystem::check_service(const std::wstring &target, cons
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_memory(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf)
 {
 	typedef checkHolders::CheckContainer<checkHolders::MaxMinBounds<checkHolders::NumericPercentageBounds<checkHolders::PercentageValueType<unsigned __int64, unsigned __int64>, checkHolders::disk_size_handler<unsigned __int64> > > > MemoryContainer;
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
 
@@ -902,23 +892,23 @@ NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const
 
 	MAP_OPTIONS_BEGIN(arguments)
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_STR_AND(_T("type"), tmpObject.data, list.push_back(tmpObject))
-		MAP_OPTIONS_STR_AND(_T("Type"), tmpObject.data, list.push_back(tmpObject))
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-		MAP_OPTIONS_SECONDARY_STR_AND(p2,_T("type"), tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
-			MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
+		MAP_OPTIONS_STR_AND("type", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_STR_AND("Type", tmpObject.data, list.push_back(tmpObject))
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+		MAP_OPTIONS_SECONDARY_STR_AND(p2,"type", tmpObject.data, tmpObject.alias, list.push_back(tmpObject))
+			MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 			MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_DISK_ALL(tmpObject, _T(""), _T("Free"), _T("Used"))
-		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
-		MAP_OPTIONS_STR(_T("perf-unit"), tmpObject.perf_unit)
+		MAP_OPTIONS_DISK_ALL(tmpObject, "", "Free", "Used")
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
+		MAP_OPTIONS_MISSING(msg, "Unknown argument: ")
 		MAP_OPTIONS_END()
 
 	if (bNSClient) {
-		tmpObject.data = _T("paged");
+		tmpObject.data = "paged";
 		list.push_back(tmpObject);
 	}
 
@@ -930,53 +920,53 @@ NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const
 		MemoryContainer check = (*pit);
 		check.setDefault(tmpObject);
 		checkHolders::PercentageValueType<unsigned long long, unsigned long long> value;
-		if (firstPaged && (check.data == _T("paged"))) {
+		if (firstPaged && (check.data == "paged")) {
 			firstPaged = false;
 			dataPaged.value = pdh_collector.getMemCommit();
 			if (dataPaged.value == -1) {
-				msg = _T("ERROR: Failed to get PDH value.");
+				msg = "ERROR: Failed to get PDH value.";
 				return NSCAPI::returnUNKNOWN;
 			}
 			dataPaged.total = pdh_collector.getMemCommitLimit();
 			if (dataPaged.total == -1) {
-				msg = _T("ERROR: Failed to get PDH value.");
+				msg = "ERROR: Failed to get PDH value.";
 				return NSCAPI::returnUNKNOWN;
 			}
 		} else if (firstMem) {
 			try {
 				data = memoryChecker.getMemoryStatus();
 			} catch (CheckMemoryException e) {
-				msg = e.getError();
+				msg = e.reason();
 				return NSCAPI::returnCRIT;
 			}
 		}
 
-		if (check.data == _T("page")) {
+		if (check.data == "page") {
 			value.value = data.pageFile.total-data.pageFile.avail; // mem.dwTotalPageFile-mem.dwAvailPageFile;
 			value.total = data.pageFile.total; //mem.dwTotalPageFile;
 			if (check.alias.empty())
-				check.alias = _T("page file");
-		} else if (check.data == _T("physical")) {
+				check.alias = "page file";
+		} else if (check.data == "physical") {
 			value.value = data.phys.total-data.phys.avail; //mem.dwTotalPhys-mem.dwAvailPhys;
 			value.total = data.phys.total; //mem.dwTotalPhys;
 			if (check.alias.empty())
-				check.alias = _T("physical memory");
-		} else if (check.data == _T("virtual")) {
+				check.alias = "physical memory";
+		} else if (check.data == "virtual") {
 			value.value = data.virtualMem.total-data.virtualMem.avail;//mem.dwTotalVirtual-mem.dwAvailVirtual;
 			value.total = data.virtualMem.total;//mem.dwTotalVirtual;
 			if (check.alias.empty())
-				check.alias = _T("virtual memory");
-		} else  if (check.data == _T("paged")) {
+				check.alias = "virtual memory";
+		} else  if (check.data == "paged") {
 			value.value = dataPaged.value;
 			value.total = dataPaged.total;
 			if (check.alias.empty())
-				check.alias = _T("paged bytes");
+				check.alias = "paged bytes";
 		} else {
-			msg = check.data + _T(" is not a known check...");
+			msg = check.data + " is not a known check...";
 			return NSCAPI::returnCRIT;
 		}
 		if (bNSClient) {
-			msg = strEx::itos(value.total) + _T("&") + strEx::itos(value.value);
+			msg = strEx::s::xtos(value.total) + "&" + strEx::s::xtos(value.value);
 			return NSCAPI::returnOK;
 		} else {
 			check.perfData = bPerfData;
@@ -985,37 +975,31 @@ NSCAPI::nagiosReturn CheckSystem::check_memory(const std::wstring &target, const
 	}
 
 	if (msg.empty())
-		msg = _T("OK memory within bounds.");
+		msg = "OK memory within bounds.";
 	else
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 typedef struct NSPROCDATA__ {
 	unsigned int count;
 	unsigned int hung_count;
 	CEnumProcess::CProcessEntry entry;
-	std::wstring key;
+	std::string key;
 
 	NSPROCDATA__() : count(0), hung_count(0) {}
 	NSPROCDATA__(const NSPROCDATA__ &other) : count(other.count), hung_count(other.hung_count), entry(other.entry), key(other.key) {}
 } NSPROCDATA;
-typedef std::map<std::wstring,NSPROCDATA> NSPROCLST;
+typedef std::map<std::string,NSPROCDATA> NSPROCLST;
 
 class NSC_error : public CEnumProcess::error_reporter {
-	void report_error(std::wstring error) {
+	void report_error(std::string error) {
 		NSC_LOG_ERROR(error);
 	}
-	void report_warning(std::wstring error) {
+	void report_warning(std::string error) {
 		NSC_LOG_MESSAGE(error);
 	}
-	void report_debug(std::wstring error) {
-		NSC_DEBUG_MSG_STD(_T("PROC::: ") + error);
-	}
-	void report_debug_enter(std::wstring error) {
-		NSC_DEBUG_MSG_STD(_T("PROC>>> ") + error);
-	}
-	void report_debug_exit(std::wstring error) {
-		NSC_DEBUG_MSG_STD(_T("PROC<<<") + error);
+	void report_debug(std::string error) {
+		NSC_DEBUG_MSG_STD(error);
 	}
 };
 
@@ -1028,15 +1012,15 @@ NSPROCLST GetProcessList(bool getCmdLines, bool use16Bit)
 	NSPROCLST ret;
 	CEnumProcess enumeration;
 	if (!enumeration.has_PSAPI()) {
-		NSC_LOG_ERROR_STD(_T("Failed to enumerat processes"));
-		NSC_LOG_ERROR_STD(_T("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft."));
-		NSC_LOG_ERROR_STD(_T("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac"));
-		throw CEnumProcess::process_enumeration_exception(_T("PSAPI not avalible, please see eror log for details."));
+		NSC_LOG_ERROR_STD("Failed to enumerat processes");
+		NSC_LOG_ERROR_STD("PSAPI method not availabletry installing \"Platform SDK Redistributable: PSAPI for Windows NT\" from Microsoft.");
+		NSC_LOG_ERROR_STD("Try this URL: http://www.microsoft.com/downloads/details.aspx?FamilyID=3d1fbaed-d122-45cf-9d46-1cae384097ac");
+		throw CEnumProcess::process_enumeration_exception("PSAPI not available, please see error log for details.");
 	}
 	NSC_error err;
 	CEnumProcess::process_list list = enumeration.enumerate_processes(getCmdLines, use16Bit, &err);
 	for (CEnumProcess::process_list::const_iterator entry = list.begin(); entry != list.end(); ++entry) {
-		std::wstring key;
+		std::string key;
 		if (getCmdLines && !(*entry).command_line.empty())
 			key = (*entry).command_line;
 		else
@@ -1063,30 +1047,30 @@ struct process_count_result {
 	unsigned long hung;
 	process_count_result() : running(0), hung(0) {}
 
-	std::wstring format_value(std::wstring tag, unsigned long count) {
+	std::string format_value(std::string tag, unsigned long count) {
 		if (count > 1)
-			return tag + _T("(") + strEx::itos(count) +_T(")");
+			return tag + "(" + strEx::s::xtos(count) + ")";
 		if (count == 1)
 			return tag;
-		return _T("");
+		return "";
 	}
-	std::wstring to_wstring() {
+	std::string to_string() {
 		if (running > 0 && hung > 0)
-			return format_value(_T("running"), running) + _T(", ") + format_value(_T("hung"), hung);
+			return format_value("running", running) + ", " + format_value("hung", hung);
 		if (running > 0)
-			return format_value(_T("running"), running);
+			return format_value("running", running);
 		if (hung > 0)
-			return format_value(_T("hung"), hung);
-		return _T("stopped");
+			return format_value("hung", hung);
+		return "stopped";
 	}
-	std::wstring to_wstring_short() {
+	std::string to_string_short() {
 		if (running > 0 && hung > 0)
-			return _T("running, hung");
+			return "running, hung";
 		if (running > 0)
-			return _T("running");
+			return "running";
 		if (hung > 0)
-			return _T("hung");
-		return _T("stopped");
+			return "hung";
+		return "stopped";
 	}
 
 };
@@ -1113,28 +1097,28 @@ public:
 	bool hasBounds() {
 		return running.hasBounds() || hung.hasBounds();
 	}
-	static std::wstring toStringLong(TValueType &value) {
-		return value.to_wstring();
+	static std::string toStringLong(TValueType &value) {
+		return value.to_string();
 	}
-	static std::wstring toStringShort(TValueType &value) {
-		return value.to_wstring_short();
+	static std::string toStringShort(TValueType &value) {
+		return value.to_string_short();
 	}
-	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, TValueType &value, TMyType &warn, TMyType &crit) {
+	std::string gatherPerfData(std::string alias, std::string unit, TValueType &value, TMyType &warn, TMyType &crit) {
 		if (hung.hasBounds())
 			return hung.gatherPerfData(alias, unit, value.hung, warn.hung, crit.hung);
 		return running.gatherPerfData(alias, unit, value.running, warn.running, crit.running);
 	}
-	std::wstring gatherPerfData(std::wstring alias, std::wstring unit, TValueType &value) {
+	std::string gatherPerfData(std::string alias, std::string unit, TValueType &value) {
 		THolder tmp;
 		if (hung.hasBounds())
 			return tmp.gatherPerfData(alias, unit, value.hung);
 		return tmp.gatherPerfData(alias, unit, value.running);
 	}
-	bool check(TValueType &value, std::wstring lable, std::wstring &message, checkHolders::ResultType type) {
+	bool check(TValueType &value, std::string lable, std::string &message, checkHolders::ResultType type) {
 		if (hung.hasBounds()) {
-			return hung.check_preformatted(value.hung, value.to_wstring(), lable, message, type);
+			return hung.check_preformatted(value.hung, value.to_string(), lable, message, type);
 		} else {
-			return running.check_preformatted(value.running, value.to_wstring(), lable, message, type);
+			return running.check_preformatted(value.running, value.to_string(), lable, message, type);
 		}
 	}
 
@@ -1149,14 +1133,14 @@ public:
  * @param &perf String to put performance data in 
  * @return The status of the command
  */
-NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_process(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf)
 {
 	typedef checkHolders::CheckContainer<ProcessBound> StateContainer;
 	
 //	typedef checkHolders::CheckContainer<checkHolders::ExactBoundsState> StateContainer2;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<StateContainer> list;
@@ -1179,44 +1163,44 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 
 	MAP_OPTIONS_BEGIN(arguments)
 		//MAP_OPTIONS_NUMERIC_ALL(tmpObject, _T("Count"))
-		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, _T("Count"), running)
-		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, _T("Count"), running)
-		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, _T("HungCount"), hung)
-		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, _T("HungCount"), hung)
-		MAP_OPTIONS_STR(_T("Alias"), tmpObject.alias)
+		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, "Count", running)
+		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, "Count", running)
+		MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(tmpObject, "HungCount", hung)
+		MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(tmpObject, "HungCount", hung)
+		MAP_OPTIONS_STR("Alias", tmpObject.alias)
 		MAP_OPTIONS_SHOWALL(tmpObject)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_BOOL_TRUE(_T("ignore-state"), ignoreState)
-		MAP_OPTIONS_BOOL_TRUE(_T("cmdLine"), useCmdLine)
-		MAP_OPTIONS_BOOL_TRUE(_T("16bit"), use16bit)
-		MAP_OPTIONS_MODE(_T("match"), _T("string"), match,  match_string)
-		MAP_OPTIONS_MODE(_T("match"), _T("regexp"), match,  match_regexp)
-		MAP_OPTIONS_MODE(_T("match"), _T("substr"), match,  match_substring)
-		MAP_OPTIONS_MODE(_T("match"), _T("substring"), match,  match_substring)
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-	else if (p2.first == _T("Proc")) {
+		MAP_OPTIONS_BOOL_TRUE("ignore-state", ignoreState)
+		MAP_OPTIONS_BOOL_TRUE("cmdLine", useCmdLine)
+		MAP_OPTIONS_BOOL_TRUE("16bit", use16bit)
+		MAP_OPTIONS_MODE("match", "string", match,  match_string)
+		MAP_OPTIONS_MODE("match", "regexp", match,  match_regexp)
+		MAP_OPTIONS_MODE("match", "substr", match,  match_substring)
+		MAP_OPTIONS_MODE("match", "substring", match,  match_substring)
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+	else if (p2.first == "Proc") {
 			tmpObject.data = p__.second;
 			tmpObject.alias = p2.second;
 			
 			list.push_back(tmpObject);
 		}
-	MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
+	MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
 		else { 
 			tmpObject.data = p__.first;
 			if (p__.second.empty()) {
 				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
-					tmpObject.crit.running.min = _T("1"); 
-			} else if (p__.second == _T("started")) {
+					tmpObject.crit.running.min = "1"; 
+			} else if (p__.second == "started") {
 				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
-					tmpObject.crit.running.min = _T("1");
-			} else if (p__.second == _T("stopped")) {
+					tmpObject.crit.running.min = "1";
+			} else if (p__.second == "stopped") {
 				if (!tmpObject.crit.running.hasBounds() && !tmpObject.warn.running.hasBounds())
-					tmpObject.crit.running.max = _T("0");
-			} else if (p__.second == _T("hung")) {
+					tmpObject.crit.running.max = "0";
+			} else if (p__.second == "hung") {
 				if (!tmpObject.crit.hung.hasBounds() && !tmpObject.warn.hung.hasBounds())
-					tmpObject.crit.hung.max = _T("1");
+					tmpObject.crit.hung.max = "1";
 			}
 			list.push_back(tmpObject);
 			tmpObject.reset();
@@ -1227,18 +1211,18 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 	try {
 		runningProcs = GetProcessList(useCmdLine, use16bit);
 	} catch (CEnumProcess::process_enumeration_exception &e) {
-		NSC_LOG_ERROR_STD(_T("ERROR: ") + e.what());
-		msg = static_cast<std::wstring>(_T("ERROR: ")) + e.what();
+		NSC_LOG_ERROR("ERROR: " + e.reason());
+		msg = "ERROR: " + e.reason();
 		return NSCAPI::returnUNKNOWN;
 	} catch (...) {
-		NSC_LOG_ERROR_STD(_T("Unhandled error when processing command"));
-		msg = _T("Unhandled error when processing command");
+		NSC_LOG_ERROR_EX("Unhandled error when processing command");
+		msg = "Unhandled error when processing command";
 		return NSCAPI::returnUNKNOWN;
 	}
 
 	for (std::list<StateContainer>::iterator it = list.begin(); it != list.end(); ++it) {
 		NSPROCLST::iterator proc;
-		std::wstring key = boost::to_lower_copy((*it).data);
+		std::string key = boost::to_lower_copy((*it).data);
 		if (match == match_string) {
 			proc = runningProcs.find(key);
 		} else if (match == match_substring) {
@@ -1248,35 +1232,34 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 			}
 		} else if (match == match_regexp) {
 			try {
-				boost::wregex filter(key,boost::regex::icase);
-				for (proc=runningProcs.begin();proc!=runningProcs.end();++proc) {
-					std::wstring value = (*proc).first;
-					if (boost::regex_match(value, filter))
+				boost::regex filter(key,boost::regex::icase);
+				BOOST_FOREACH(const NSPROCLST::value_type &p, runningProcs) {
+					if (boost::regex_match(p.first, filter))
 						break;
 				}
 			} catch (const boost::bad_expression e) {
-				NSC_LOG_ERROR_STD(_T("Failed to compile regular expression: ") + (*proc).first);
-				msg = _T("Failed to compile regular expression: ") + (*proc).first;
+				NSC_LOG_ERROR_EXR("Failed to compile regular expression: " + proc->first, e);
+				msg = "Failed to compile regular expression: " + proc->first;
 				return NSCAPI::returnUNKNOWN;
 			} catch (...) {
-				NSC_LOG_ERROR_STD(_T("Failed to compile regular expression: ") + (*proc).first);
-				msg = _T("Failed to compile regular expression: ") + (*proc).first;
+				NSC_LOG_ERROR_EX("Failed to compile regular expression");
+				msg = "Failed to compile regular expression: " + proc->first;
 				return NSCAPI::returnUNKNOWN;
 			}
 		} else {
-			NSC_LOG_ERROR_STD(_T("Unsupported mode for: ") + (*proc).first);
-			msg = _T("Unsupported mode for: ") + (*proc).first;
+			NSC_LOG_ERROR(std::string("Unsupported mode for: ") + proc->first);
+			msg = "Unsupported mode for: " + (*proc).first;
 			return NSCAPI::returnUNKNOWN;
 		}
 		bool bFound = (proc != runningProcs.end());
 		if (bNSClient) {
 			if (bFound && (*it).showAll()) {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*proc).first + _T(": Running");
+				if (!msg.empty()) msg += " - ";
+				msg += (*proc).first + ": Running";
 			} else if (bFound) {
 			} else {
-				if (!msg.empty()) msg += _T(" - ");
-				msg += (*it).data + _T(": not running");
+				if (!msg.empty()) msg += " - ";
+				msg += (*it).data + ": not running";
 				nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
 			}
 		} else {
@@ -1301,9 +1284,9 @@ NSCAPI::nagiosReturn CheckSystem::check_process(const std::wstring &target, cons
 
 	}
 	if (msg.empty())
-		msg = _T("OK: All processes are running.");
+		msg = "OK: All processes are running.";
 	else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
@@ -1342,12 +1325,12 @@ public:
  *
  * @todo add parsing support for NRPE
  */
-NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf)
+NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf)
 {
 	typedef PerfDataContainer<checkHolders::MaxMinBoundsDouble> CounterContainer;
 
 	if (arguments.empty()) {
-		msg = _T("ERROR: Missing argument exception.");
+		msg = "ERROR: Missing argument exception.";
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::list<CounterContainer> counters;
@@ -1356,42 +1339,42 @@ NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const st
 	bool bPerfData = true;
 	/* average maax */
 	bool bCheckAverages = true; 
-	std::wstring invalidStatus = _T("UNKNOWN");
+	std::string invalidStatus = "UNKNOWN";
 	unsigned int averageDelay = 1000;
 	CounterContainer tmpObject;
 	bool bExpandIndex = false;
 	bool bForceReload = false;
-	std::wstring extra_format;
+	std::string extra_format;
 
 	MAP_OPTIONS_BEGIN(arguments)
-		MAP_OPTIONS_STR(_T("InvalidStatus"), invalidStatus)
-		MAP_OPTIONS_STR_AND(_T("Counter"), tmpObject.data, counters.push_back(tmpObject))
-		MAP_OPTIONS_STR(_T("MaxWarn"), tmpObject.warn.max_)
-		MAP_OPTIONS_STR(_T("MinWarn"), tmpObject.warn.min_)
-		MAP_OPTIONS_STR(_T("MaxCrit"), tmpObject.crit.max_)
-		MAP_OPTIONS_STR(_T("MinCrit"), tmpObject.crit.min_)
+		MAP_OPTIONS_STR("InvalidStatus", invalidStatus)
+		MAP_OPTIONS_STR_AND("Counter", tmpObject.data, counters.push_back(tmpObject))
+		MAP_OPTIONS_STR("MaxWarn", tmpObject.warn.max_)
+		MAP_OPTIONS_STR("MinWarn", tmpObject.warn.min_)
+		MAP_OPTIONS_STR("MaxCrit", tmpObject.crit.max_)
+		MAP_OPTIONS_STR("MinCrit", tmpObject.crit.min_)
 		MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-		MAP_OPTIONS_STR(_T("Alias"), tmpObject.data)
-		MAP_OPTIONS_STR(_T("format"), extra_format)
+		MAP_OPTIONS_STR("Alias", tmpObject.data)
+		MAP_OPTIONS_STR("format", extra_format)
 		MAP_OPTIONS_SHOWALL(tmpObject)
-		MAP_OPTIONS_BOOL_EX(_T("Averages"), bCheckAverages, _T("true"), _T("false"))
+		MAP_OPTIONS_BOOL_EX("Averages", bCheckAverages, "true", "false")
 		MAP_OPTIONS_BOOL_TRUE(NSCLIENT, bNSClient)
-		MAP_OPTIONS_BOOL_TRUE(_T("index"), bExpandIndex)
-		MAP_OPTIONS_BOOL_TRUE(_T("reload"), bForceReload)
+		MAP_OPTIONS_BOOL_TRUE("index", bExpandIndex)
+		MAP_OPTIONS_BOOL_TRUE("reload", bForceReload)
 		MAP_OPTIONS_FIRST_CHAR('\\', tmpObject.data, counters.push_back(tmpObject))
-		MAP_OPTIONS_SECONDARY_BEGIN(_T(":"), p2)
-	else if (p2.first == _T("Counter")) {
+		MAP_OPTIONS_SECONDARY_BEGIN(":", p2)
+	else if (p2.first == "Counter") {
 		tmpObject.data = p__.second;
 				tmpObject.alias = p2.second;
 				counters.push_back(tmpObject);
 			}
-	MAP_OPTIONS_MISSING_EX(p2, msg, _T("Unknown argument: "))
+	MAP_OPTIONS_MISSING_EX(p2, msg, "Unknown argument: ")
 		MAP_OPTIONS_SECONDARY_END()
 		MAP_OPTIONS_FALLBACK_AND(tmpObject.data, counters.push_back(tmpObject))
 	MAP_OPTIONS_END()
 
 	if (counters.empty()) {
-		msg = _T("No counters specified");
+		msg = "No counters specified";
 		return NSCAPI::returnUNKNOWN;
 	}
 	PDH::PDHQuery pdh;
@@ -1403,45 +1386,44 @@ NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const st
 			} else {
 				std::wstring tstr;
 				if (bExpandIndex) {
-					PDH::PDHResolver::expand_index(counter.data);
+					PDH::PDHResolver::expand_index(utf8::cvt<std::wstring>(counter.data));
 				}
-				if (!PDH::PDHResolver::validate(counter.data, tstr, bForceReload)) {
-					NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+				if (!PDH::PDHResolver::validate(utf8::cvt<std::wstring>(counter.data), tstr, bForceReload)) {
+					NSC_LOG_ERROR("ERROR: Counter not found: " + counter.data + ": " + utf8::cvt<std::string>(tstr));
 					if (bNSClient) {
-						NSC_LOG_ERROR_STD(_T("ERROR: Counter not found: ") + counter.data + _T(": ") + tstr);
+						NSC_LOG_ERROR("ERROR: Counter not found: " + counter.data + ": " + utf8::cvt<std::string>(tstr));
 						//msg = _T("0");
 					} else {
-						msg = _T("CRIT: Counter not found: ") + counter.data + _T(": ") + tstr;
+						msg = "CRIT: Counter not found: " + counter.data + ": " + utf8::cvt<std::string>(tstr);
 						return NSCAPI::returnCRIT;
 					}
 				}
 				if (!extra_format.empty()) {
-					boost::char_separator<wchar_t> sep(_T(","));
-
-					boost::tokenizer< boost::char_separator<wchar_t>, std::wstring::const_iterator, std::wstring > tokens(extra_format, sep);
+					boost::char_separator<char> sep(",");
+					boost::tokenizer<boost::char_separator<char>, std::string::const_iterator, std::string> tokens(extra_format, sep);
 					DWORD flags = 0;
-					BOOST_FOREACH(std::wstring t, tokens) {
-						if (extra_format == _T("nocap100"))
+					BOOST_FOREACH(const std::string &t, tokens) {
+						if (t == "nocap100")
 							flags |= PDH_FMT_NOCAP100;
-						else if (extra_format == _T("1000"))
+						else if (t == "1000")
 							flags |= PDH_FMT_1000;
-						else if (extra_format == _T("noscale"))
+						else if (t == "noscale")
 							flags |= PDH_FMT_NOSCALE;
 						else {
-							NSC_LOG_ERROR_STD(_T("Unsupported extrta format: ") + extra_format);
+							NSC_LOG_ERROR("Unsupported extrta format: " + t);
 						}
 					}
 					counter.get_listener()->set_extra_format(flags);
 				}
-				pdh.addCounter(counter.data, counter.get_listener());
+				pdh.addCounter(utf8::cvt<std::wstring>(counter.data), counter.get_listener());
 				has_counter = true;
 			}
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError() + _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")"));
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_EXR("Failed to poll counter", e);
 			if (bNSClient)
-				msg = _T("0");
+				msg = "0";
 			else
-				msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getError()+ _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+				msg = std::string("ERROR: ") + utf8::utf8_from_native(e.what()) + " (" + counter.getAlias() + "|" + counter.data + ")";
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
@@ -1454,22 +1436,22 @@ NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const st
 			}
 			pdh.gatherData();
 			pdh.close();
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError());
+		} catch (const PDH::pdh_exception &e) {
+			NSC_LOG_ERROR_EXR("Failed to poll counter", e);
 			if (bNSClient)
-				msg = _T("0");
+				msg = "0";
 			else
-				msg = _T("ERROR: ") + e.getError();
+				msg = "ERROR: " + utf8::utf8_from_native(e.what());
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
 	BOOST_FOREACH(CounterContainer &counter, counters) {
 		try {
 			double value = 0;
-			if (counter.data.find('\\') == std::wstring::npos) {
+			if (counter.data.find('\\') == std::string::npos) {
 				value = pdh_collector.get_double(counter.data);
 				if (value == -1) {
-					msg = _T("ERROR: Failed to get counter value: ") + counter.data;
+					msg = "ERROR: Failed to get counter value: " + counter.data;
 					return NSCAPI::returnUNKNOWN;
 				}
 			} else {
@@ -1478,375 +1460,37 @@ NSCAPI::nagiosReturn CheckSystem::check_pdh(const std::wstring &target, const st
 
 			if (bNSClient) {
 				if (!msg.empty())
-					msg += _T(",");
-				msg += strEx::itos(static_cast<float>(value));
+					msg += ",";
+				msg += strEx::s::xtos(value);
 			} else {
 				counter.perfData = bPerfData;
 				counter.setDefault(tmpObject);
 				counter.runCheck(value, returnCode, msg, perf);
 			}
-		} catch (const PDH::PDHException e) {
-			NSC_LOG_ERROR_STD(_T("ERROR: ") + e.getError() + _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")"));
+		} catch (const PDH::pdh_exception &e) {
+			NSC_LOG_ERROR_EXR("ERROR", e);
 			if (bNSClient)
-				msg = _T("0");
+				msg = "0";
 			else
-				msg = static_cast<std::wstring>(_T("ERROR: ")) + e.getError()+ _T(" (") + counter.getAlias() + _T("|") + counter.data + _T(")");
+				msg = std::string("ERROR: ") + e.what()+ " (" + counter.getAlias() + "|" + counter.data + ")";
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
 
 	if (msg.empty() && !bNSClient)
-		msg = _T("OK all counters within bounds.");
+		msg = "OK all counters within bounds.";
 	else if (msg.empty()) {
-		NSC_LOG_ERROR_STD(_T("No value found returning 0?"));
-		msg = _T("0");
+		NSC_LOG_ERROR_STD("No value found returning 0?");
+		msg = "0";
 	}else if (!bNSClient)
-		msg = nscapi::plugin_helper::translateReturn(returnCode) + _T(": ") + msg;
+		msg = nscapi::plugin_helper::translateReturn(returnCode) + ": " + msg;
 	return returnCode;
 }
 
 //////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////
-
-struct regkey_info {
-
-	std::wstring error;
-
-	static regkey_info get(__int64 now, std::wstring path) {
-		return regkey_info(now, path);
-	}
-
-	regkey_info() 
-		: ullLastWriteTime(0)
-		, iType(0)
-		, ullNow(0)
-		, uiExists(0)
-		, ullChildCount(0)
-	{}
-	regkey_info(__int64 now, std::wstring path) 
-		: path(path)
-		, ullLastWriteTime(0)
-		, iType(0)
-		, ullNow(now)
-		, uiExists(0)
-		, ullChildCount(0)
-	{
-		std::wstring key;
-		try {
-			std::wcout << _T("opening: ") << path << std::endl;
-			std::wstring::size_type pos = path.find_first_of(L'\\');
-			if (pos != std::wstring::npos)  {
-				key = path.substr(0, pos);
-				path = path.substr(pos+1);
-				std::wcout << key << _T(":") << path << std::endl;
-				simple_registry::registry_key rkey(simple_registry::parseHKEY(key), path);
-				info = rkey.get_info();
-				uiExists = 1;
-			} else {
-				error = _T("Failed to parse key");
-			}
-		} catch (simple_registry::registry_exception &e) {
-			try {
-				std::wstring::size_type pos = path.find_last_of(L'\\');
-				if (pos != std::wstring::npos)  {
-					std::wstring item = path.substr(pos+1);
-					path = path.substr(0, pos);
-					std::wcout << key << _T(":") << path << _T(".") << item << std::endl;
-					simple_registry::registry_key rkey(simple_registry::parseHKEY(key), path);
-					info = rkey.get_info(item);
-					uiExists = 1;
-				} else {
-					error = _T("Failed to parse key");
-				}
-			} catch (simple_registry::registry_exception &e) {
-				//error = e.what();
-			}
-		} catch (...) {
-			error = _T("Unknown exception");
-		}
-
-		//HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\eventlog\Application\MaxSize
-
-		// TODO get key info here!
-		//ullLastWriteTime = ((info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime);
-	};
-
-	unsigned long long ullSize;
-	__int64 ullLastWriteTime;
-	__int64 ullNow;
-	std::wstring filename;
-	std::wstring path;
-	unsigned long ullChildCount;
-	unsigned long uiExists;
-	unsigned int iType;
-	simple_registry::registry_key::reg_info info;
-
-	static const __int64 MSECS_TO_100NS = 10000;
-
-	__int64 get_written() {
-		return (ullNow-ullLastWriteTime)/MSECS_TO_100NS;
-	}
-	std::wstring render(std::wstring syntax) {
-		strEx::replace(syntax, _T("%path%"), path);
-		strEx::replace(syntax, _T("%key%"), filename);
-		strEx::replace(syntax, _T("%write%"), strEx::format_filetime(ullLastWriteTime, DATE_FORMAT));
-		strEx::replace(syntax, _T("%write-raw%"), strEx::itos(ullLastWriteTime));
-		strEx::replace(syntax, _T("%now-raw%"), strEx::itos(ullNow));
-		strEx::replace(syntax, _T("%type%"), format::format_byte_units(iType));
-		strEx::replace(syntax, _T("%child-count%"), strEx::itos(ullChildCount));
-		strEx::replace(syntax, _T("%exists%"), strEx::itos(uiExists));
-		strEx::replace(syntax, _T("%int%"), strEx::itos(info.iValue));
-		strEx::replace(syntax, _T("%int-value%"), strEx::itos(info.iValue));
-		strEx::replace(syntax, _T("%string%"), info.sValue);
-		strEx::replace(syntax, _T("%string-value%"), info.sValue);
-		return syntax;
-	}
-};
-
-
-struct regkey_filter {
-	filters::filter_all_times written;
-	filters::filter_all_num_ul type;
-	filters::filter_all_num_ul exists;
-	filters::filter_all_num_ul child_count;
-	filters::filter_all_num_ll value_int;
-	filters::filter_all_strings value_string;
-
-	inline bool hasFilter() {
-		return type.hasFilter() || exists.hasFilter() || written.hasFilter() || child_count.hasFilter() || value_int.hasFilter() || value_string.hasFilter();
-	}
-	bool matchFilter(regkey_info &value) const {
-		if ((written.hasFilter())&&(written.matchFilter(value.get_written())))
-			return true;
-		else if (type.hasFilter()&&type.matchFilter(value.iType))
-			return true;
-		else if (exists.hasFilter()&&exists.matchFilter(value.uiExists))
-			return true;
-		else if ((child_count.hasFilter())&&(child_count.matchFilter(value.ullChildCount)))
-			return true;
-		else if ((value_int.hasFilter())&&(value_int.matchFilter(value.info.iValue)))
-			return true;
-		else if ((value_string.hasFilter())&&(value_string.matchFilter(value.info.sValue)))
-			return true;
-		return false;
-	}
-
-	std::wstring getValue() const {
-		if (written.hasFilter())
-			return _T("written: ") + written.getValue();
-		if (type.hasFilter())
-			return _T("type: ") + type.getValue();
-		if (exists.hasFilter())
-			return _T("exists: ") + exists.getValue();
-		if (child_count.hasFilter())
-			return _T("child_count: ") + child_count.getValue();
-		if (value_int.hasFilter())
-			return _T("value(i): ") + value_int.getValue();
-		if (value_string.hasFilter())
-			return _T("value(s): ") + value_string.getValue();
-		return _T("UNknown...");
-	}
-
-};
-
-
-struct regkey_container : public regkey_info {
-
-	static regkey_container get(std::wstring path, unsigned long long now) {
-		return regkey_container(now, path);
-	}
-
-
-	regkey_container(__int64 now, std::wstring path) : regkey_info(now, path) {}
-
-	bool has_errors() {
-		return !error.empty();
-	}
-	std::wstring get_error() {
-		return error;
-	}
-
-};
-
-
-class regkey_type_handler {
-public:
-	static int parse(std::wstring s) {
-		return 1;
-	}
-	static std::wstring print(int value) {
-		return _T("unknown");
-	}
-	static std::wstring print_unformated(int value) {
-		return strEx::itos(value);
-	}
-	static std::wstring key_prefix() {
-		return _T("");
-	}
-	static std::wstring key_postfix() {
-		return _T("");
-	}
-	static std::wstring get_perf_unit(int  value) {
-		return _T("");
-	}
-	static std::wstring print_perf(int  value, std::wstring unit) {
-		return strEx::itos(value);
-	}
-};
-class regkey_exists_handler {
-public:
-	static int parse(std::wstring s) {
-		if (s  == _T("true"))
-			return 1;
-		return 0;
-	}
-	static std::wstring print(int value) {
-		return value==1?_T("true"):_T("false");
-	}
-	static std::wstring print_unformated(int value) {
-		return strEx::itos(value);
-	}
-	static std::wstring key_prefix() {
-		return _T("");
-	}
-	static std::wstring key_postfix() {
-		return _T("");
-	}
-	static std::wstring get_perf_unit(int value) {
-		return _T("");
-	}
-	static std::wstring print_perf(int  value, std::wstring unit) {
-		return strEx::itos(value);
-	}
-};
-
-typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, regkey_type_handler> > > RegTypeContainer;
-typedef checkHolders::CheckContainer<checkHolders::ExactBounds<checkHolders::NumericBounds<int, regkey_exists_handler> > > RegExistsContainer;
 
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsULong> ExactULongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsLongLong> ExactLongLongContainer;
 typedef checkHolders::CheckContainer<checkHolders::ExactBoundsTime> DateTimeContainer;
 typedef checkHolders::CheckContainer<FilterBounds<filters::filter_all_strings> > StringContainer;
-
-struct check_regkey_child_count : public checkHolders::check_proxy_container<regkey_container, ExactULongContainer> {
-	check_regkey_child_count() { set_alias(_T("child-count")); }
-	unsigned long get_value(regkey_container &value) {
-		return value.ullChildCount;
-	}
-};
-struct check_regkey_int_value : public checkHolders::check_proxy_container<regkey_container, ExactLongLongContainer> {
-	check_regkey_int_value() { set_alias(_T("value")); }
-	long long get_value(regkey_container &value) {
-		return value.info.iValue;
-	}
-};
-struct check_regkey_string_value : public checkHolders::check_proxy_container<regkey_container, StringContainer> {
-	check_regkey_string_value() { set_alias(_T("value")); }
-	std::wstring get_value(regkey_container &value) {
-		return value.info.sValue;
-	}
-};
-struct check_regkey_written : public checkHolders::check_proxy_container<regkey_container, DateTimeContainer> {
-	check_regkey_written() { set_alias(_T("written")); }
-	unsigned long long get_value(regkey_container &value) {
-		return value.ullLastWriteTime;
-	}
-};
-struct check_regkey_type : public checkHolders::check_proxy_container<regkey_container, RegTypeContainer> {
-	check_regkey_type() { set_alias(_T("type")); }
-	int get_value(regkey_container &value) {
-		return value.iType;
-	}
-};
-struct check_regkey_exists : public checkHolders::check_proxy_container<regkey_container, RegExistsContainer> {
-	check_regkey_exists() { set_alias(_T("exists")); }
-	int get_value(regkey_container &value) {
-		return value.uiExists;
-	}
-};
-
-
-typedef checkHolders::check_multi_container<regkey_container> check_file_multi;
-struct check_regkey_factories {
-	static checkHolders::check_proxy_interface<regkey_container>* type() {
-		return new check_regkey_type();
-	}
-	static checkHolders::check_proxy_interface<regkey_container>* exists() {
-		return new check_regkey_exists();
-	}
-	static checkHolders::check_proxy_interface<regkey_container>* child_count() {
-		return new check_regkey_child_count();
-	}
-	static checkHolders::check_proxy_interface<regkey_container>* written() {
-		return new check_regkey_written();
-	}
-	static checkHolders::check_proxy_interface<regkey_container>* value_string() {
-		return new check_regkey_string_value();
-	}
-	static checkHolders::check_proxy_interface<regkey_container>* value_int() {
-		return new check_regkey_int_value();
-	}
-};
-
-#define MAP_FACTORY_PB(value, obj) \
-		else if ((p__.first == _T("check")) && (p__.second == ##value)) { checker.add_check(check_regkey_factories::obj()); }
-
-
-NSCAPI::nagiosReturn CheckSystem::check_registry(const std::wstring &target, const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &msg, std::wstring &perf) {
-	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
-	check_file_multi checker;
-	typedef std::pair<int,regkey_filter> filteritem_type;
-	typedef std::list<filteritem_type > filterlist_type;
-	if (arguments.empty()) {
-		msg = _T("Missing argument(s).");
-		return NSCAPI::returnUNKNOWN;
-	}
-	std::list<std::wstring> files;
-	unsigned int truncate = 0;
-	std::wstring syntax = _T("%filename%");
-	std::wstring alias;
-	bool bPerfData = true;
-
-	try {
-		MAP_OPTIONS_BEGIN(arguments)
-			MAP_OPTIONS_STR2INT(_T("truncate"), truncate)
-			MAP_OPTIONS_BOOL_FALSE(IGNORE_PERFDATA, bPerfData)
-			MAP_OPTIONS_STR(_T("syntax"), syntax)
-			MAP_OPTIONS_STR(_T("alias"), alias)
-			MAP_OPTIONS_PUSH(_T("path"), files)
-			MAP_OPTIONS_SHOWALL(checker)
-			MAP_OPTIONS_EXACT_NUMERIC_ALL_MULTI(checker, _T(""))
-			MAP_FACTORY_PB(_T("type"), type)
-			MAP_FACTORY_PB(_T("child-count"), child_count)
-			MAP_FACTORY_PB(_T("written"), written)
-			MAP_FACTORY_PB(_T("int"), value_int)
-			MAP_FACTORY_PB(_T("string"), value_string)
-			MAP_OPTIONS_MISSING(msg, _T("Unknown argument: "))
-			MAP_OPTIONS_END()
-	} catch (filters::parse_exception e) {
-		msg = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	} catch (filters::filter_exception e) {
-		msg = e.getMessage();
-		return NSCAPI::returnUNKNOWN;
-	}
-	FILETIME now;
-	GetSystemTimeAsFileTime(&now);
-	unsigned __int64 nowi64 = ((now.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now.dwLowDateTime);
-	for (std::list<std::wstring>::const_iterator pit = files.begin(); pit != files.end(); ++pit) {
-		regkey_container info = regkey_container::get(*pit, nowi64);
-		if (info.has_errors()) {
-			msg = info.error;
-			return NSCAPI::returnUNKNOWN;
-		}
-		checker.alias = info.render(syntax);
-		checker.runCheck(info, returnCode, msg, perf);
-	}
-	if ((truncate > 0) && (msg.length() > (truncate-4))) {
-		msg = msg.substr(0, truncate-4) + _T("...");
-		perf = _T("");
-	}
-	if (msg.empty())
-		msg = _T("CheckSingleRegkey ok");
-	return returnCode;
-}

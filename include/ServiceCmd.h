@@ -27,11 +27,11 @@
 namespace serviceControll {
 	class SCException {
 	public:
-		std::wstring error_;
-		SCException(std::wstring error) : error_(error) {
+		std::string error_;
+		SCException(std::string error) : error_(error) {
 		}
-		SCException(std::wstring error, int code) : error_(error) {
-			std::wstringstream ss;
+		SCException(std::string error, int code) : error_(error) {
+			std::stringstream ss;
 			ss << ": ";
 			ss << code;
 			error += ss.str();

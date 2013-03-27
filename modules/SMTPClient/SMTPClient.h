@@ -31,34 +31,34 @@ namespace sh = nscapi::settings_helper;
 class SMTPClient : public nscapi::impl::simple_plugin {
 private:
 
-	std::wstring channel_;
-	std::wstring target_path;
+	std::string channel_;
+	std::string target_path;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
 		typedef nscapi::targets::target_object target_object;
 
 		static void init_default(target_object &target) {
-			target.set_property_int(_T("timeout"), 30);
-			target.set_property_string(_T("sender"), _T("nscp@localhost"));
-			target.set_property_string(_T("recipient"), _T("nscp@localhost"));
-			target.set_property_string(_T("template"), _T("Hello, this is %source% reporting %message%!"));
+			target.set_property_int("timeout", 30);
+			target.set_property_string("sender", "nscp@localhost");
+			target.set_property_string("recipient", "nscp@localhost");
+			target.set_property_string("template", "Hello, this is %source% reporting %message%!");
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
 			settings.path(object.path).add_key()
 
-				(_T("timeout"), sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, _T("timeout"), _1), 30),
-				_T("TIMEOUT"), _T("Timeout when reading/writing packets to/from sockets."))
+				("timeout", sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
+				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
-				(_T("sender"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("sender"), _1), _T("nscp@localhost")),
-				_T("SENDER"), _T("Sender of email message"))
+				("sender", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "sender", _1), "nscp@localhost"),
+				"SENDER", "Sender of email message")
 
-				(_T("recipient"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("recipient"), _1), _T("nscp@localhost")),
-				_T("RECIPIENT"), _T("Recipient of email message"))
+				("recipient", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "recipient", _1), "nscp@localhost"),
+				"RECIPIENT", "Recipient of email message")
 
-				(_T("template"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("template"), _1), _T("Hello, this is %source% reporting %message%!")),
-				_T("TEMPLATE"), _T("Template for message data"))
+				("template", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "template", _1), "Hello, this is %source% reporting %message%!"),
+				"TEMPLATE", "Template for message data")
 			;
 		}
 		static void post_process_target(target_object &target) {
@@ -87,14 +87,14 @@ private:
 			port = arguments.address.get_port(25);
 		}
 
-		std::wstring to_wstring() const {
-			std::wstringstream ss;
-			ss << _T("host: ") << utf8::cvt<std::wstring>(host);
-			ss << _T(", port: ") << utf8::cvt<std::wstring>(port);
-			ss << _T(", timeout: ") << timeout;
-			ss << _T(", recipient: ") << utf8::cvt<std::wstring>(recipient_str);
-			ss << _T(", sender: ") << utf8::cvt<std::wstring>(sender);
-			ss << _T(", template: ") << utf8::cvt<std::wstring>(template_string);
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << "host: " << host;
+			ss << ", port: " << port;
+			ss << ", timeout: " << timeout;
+			ss << ", recipient: " << recipient_str;
+			ss << ", sender: " << sender;
+			ss << ", template: " << template_string;
 			return ss.str();
 		}
 	};
@@ -108,7 +108,7 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::wstring &id) {
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
 			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
 			if (opt)
 				return opt->to_destination_container();
@@ -122,7 +122,7 @@ public:
 	SMTPClient();
 	virtual ~SMTPClient();
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -135,8 +135,8 @@ private:
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
-	void add_command(std::wstring key, std::wstring args);
-	void add_target(std::wstring key, std::wstring args);
+	void add_command(std::string key, std::string args);
+	void add_target(std::string key, std::string args);
 
 };
 

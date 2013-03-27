@@ -28,7 +28,6 @@ SET(service_SRCS
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
-	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 
 	../resources/nsclient.ico
 )

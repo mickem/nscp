@@ -29,7 +29,6 @@
 #include <filter_framework.hpp>
 
 #include <time.h>
-#include <utils.h>
 #include <error.hpp>
 #include <map>
 #include <vector>
@@ -68,55 +67,55 @@ struct parse_exception {
 };
 
 
-bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(alias, _T("eventlog"));
+	settings.set_alias(alias, "eventlog");
 		
 	thread_.reset(new real_time_thread());
 	if (!thread_) {
-		NSC_LOG_ERROR_STD(_T("Failed to create thread container"));
+		NSC_LOG_ERROR_STD("Failed to create thread container");
 		return false;
 	}
-	thread_->filters_path_ = settings.alias().get_settings_path(_T("real-time/filters"));
+	thread_->filters_path_ = settings.alias().get_settings_path("real-time/filters");
 
 
 	settings.alias().add_path_to_settings()
-		(_T("EVENT LOG SECTION"), _T("Section for the EventLog Checker (CheckEventLog.dll)."))
+		("EVENT LOG SECTION", "Section for the EventLog Checker (CheckEventLog.dll).")
 
-		(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
+		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		(_T("real-time/filters"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
-		_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
+		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
+		"REALTIME FILTERS", "A set of filters to use in real-time mode")
 		;
 
 	settings.alias().add_key_to_settings()
-		(_T("debug"), sh::bool_key(&debug_, false),
-		_T("DEBUG"), _T("Log more information when filtering (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
+		("debug", sh::bool_key(&debug_, false),
+		"DEBUG", "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
-		(_T("lookup names"), sh::bool_key(&lookup_names_, true),
-		_T("LOOKUP NAMES"), _T("Lookup the names of eventlog files"))
+		("lookup names", sh::bool_key(&lookup_names_, true),
+		"LOOKUP NAMES", "Lookup the names of eventlog files")
 
-		(_T("syntax"), sh::wstring_key(&syntax_),
-		_T("SYNTAX"), _T("Set this to use a specific syntax string for all commands (that don't specify one)."))
+		("syntax", sh::string_key(&syntax_),
+		"SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).")
 
-		(_T("buffer size"), sh::int_key(&buffer_length_, 128*1024),
-		_T("BUFFER_SIZE"), _T("The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve."))
+		("buffer size", sh::int_key(&buffer_length_, 128*1024),
+		"BUFFER_SIZE", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 		;
 
-	settings.alias().add_key_to_settings(_T("real-time"))
+	settings.alias().add_key_to_settings("real-time")
 
-		(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-		_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which detects issues and reports them back instantly."))
+		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		"REAL TIME CHECKING", "Spawns a background thread which detects issues and reports them back instantly.")
 
-		(_T("startup age"), sh::string_fun_key<std::wstring>(boost::bind(&real_time_thread::set_start_age, thread_, _1), _T("30m")),
-		_T("STARTUP AGE"), _T("The initial age to scan when starting NSClient++"))
+		("startup age", sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_start_age, thread_, _1), "30m"),
+		"STARTUP AGE", "The initial age to scan when starting NSClient++")
 
-		(_T("log"), sh::wstring_key(&thread_->logs_ ,_T("application,system")),
-		_T("LOGS TO CHECK"), _T("Comma separated list of logs to check"))
+		("log", sh::string_key(&thread_->logs_ , "application,system"),
+		"LOGS TO CHECK", "Comma separated list of logs to check")
 
-		(_T("debug"), sh::bool_key(&thread_->debug_, false),
-		_T("DEBUG"), _T("Log missed records (usefull to detect issues with filters) not usefull in production as it is a bit of a resource hog."))
+		("debug", sh::bool_key(&thread_->debug_, false),
+		"DEBUG", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
 		;
 
@@ -125,13 +124,13 @@ bool CheckEventLog::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
-			NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
+			NSC_LOG_ERROR_STD("Failed to start collection thread");
 	}
 	return true;
 }
 bool CheckEventLog::unloadModule() {
 	if (!thread_->stop())
-		NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
+		NSC_LOG_ERROR_STD("Failed to start collection thread");
 	return true;
 }
 
@@ -140,7 +139,7 @@ class uniq_eventlog_record {
 	WORD type;
 	WORD category;
 public:
-	std::wstring message;
+	std::string message;
 	uniq_eventlog_record(EVENTLOGRECORD *pevlr) : ID(pevlr->EventID&0xffff), type(pevlr->EventType), category(pevlr->EventCategory) {}
 	bool operator< (const uniq_eventlog_record &other) const { 
 		return (ID < other.ID) || ((ID==other.ID)&&(type < other.type)) || (ID==other.ID&&type==other.type)&&(category < other.category);
@@ -205,12 +204,12 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 
-	std::vector<std::wstring> files;
+	std::vector<std::string> files;
 	EventLogQuery1Container query1;
 	EventLogQuery2Container query2;
 
 
-	eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(syntax_, DATE_FORMAT);
+	eventlog_filter::filter_argument fargs = eventlog_filter::factories::create_argument(syntax_, DATE_FORMAT_S);
 
 	bool bPerfData = true;
 	bool unique = false;
@@ -221,10 +220,10 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	desc.add_options()
 		("truncate", po::value<unsigned int>(&truncate),			"Truncate the resulting message (mainly useful in older version of nsclient++)")
-		("filter", po::wvalue<std::wstring>(&fargs->filter),		"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but they are checked use this to filter out unwanted items.")
-		("file", po::wvalue<std::vector<std::wstring>>(&files),		"The name of an eventlog file the default ones are Application, Security and System. If the specified eventlog was not found due to some idiotic reason windows opens the \"application\" log instead.")
-		("syntax", po::wvalue<std::wstring>(&fargs->syntax)->default_value(syntax_), "A string to use to represent each matched eventlog entry the following keywords will be replaced with corresponding values: %source%, %generated%, %written%, %type%, %severity%, %strings%, %id% and %message% (%message% requires you to set the description flag) %count% (requires the unique flag) can be used to display a count of the records returned.")
-		("date-syntax", po::wvalue<std::wstring>(&fargs->date_syntax)->default_value(DATE_FORMAT), "Syntax of renderd dates.")
+		("filter", po::value<std::string>(&fargs->filter),		"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but they are checked use this to filter out unwanted items.")
+		("file", po::value<std::vector<std::string>>(&files),		"The name of an eventlog file the default ones are Application, Security and System. If the specified eventlog was not found due to some idiotic reason windows opens the \"application\" log instead.")
+		("syntax", po::value<std::string>(&fargs->syntax)->default_value(syntax_), "A string to use to represent each matched eventlog entry the following keywords will be replaced with corresponding values: %source%, %generated%, %written%, %type%, %severity%, %strings%, %id% and %message% (%message% requires you to set the description flag) %count% (requires the unique flag) can be used to display a count of the records returned.")
+		("date-syntax", po::value<std::string>(&fargs->date_syntax)->default_value(DATE_FORMAT_S), "Syntax of renderd dates.")
 		("scan-range", po::wvalue<std::wstring>(&scan_range), "Date range to scan.\nThis is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
 		("debug", po::bool_switch(&fargs->debug), "Enable debug information.")
 		("descriptions", po::bool_switch(&fargs->debug), "Allow searching and scanning and rendering descriptions field (will be much slower).")
@@ -265,23 +264,23 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	__time64_t ltime;
 	_time64(&ltime);
 
-	std::wstring tmp;
+	std::string tmp;
 	if (!impl->validate(tmp)) {
-		return nscapi::protobuf::functions::set_response_bad(*response, utf8::cvt<std::string>(tmp));
+		return nscapi::protobuf::functions::set_response_bad(*response, tmp);
 	}
 
-	NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
+	NSC_DEBUG_MSG_STD("Boot time: " + strEx::s::xtos(time.stop()));
 
-	std::wstring message, perf;
-	BOOST_FOREACH(const std::wstring &file, files) {
-		std::wstring name = file;
+	std::string message, perf;
+	BOOST_FOREACH(const std::string &file, files) {
+		std::string name = file;
 		if (lookup_names_) {
 			name = eventlog_wrapper::find_eventlog_name(name);
 			if (file != name) {
-				NSC_DEBUG_MSG_STD(_T("Opening alternative log: ") + name);
+				NSC_DEBUG_MSG_STD("Opening alternative log: " + utf8::cvt<std::string>(name));
 			}
 		}
-		HANDLE hLog = OpenEventLog(NULL, name.c_str());
+		HANDLE hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
 		if (hLog == NULL)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Could not open the '" + utf8::cvt<std::string>(name) + "' event log: "  + utf8::cvt<std::string>(error::lookup::last_error()));
 		uniq_eventlog_map uniq_records;
@@ -314,16 +313,16 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 				DWORD err = GetLastError();
 				if (err == ERROR_INSUFFICIENT_BUFFER) {
 					if (!buffer_error_reported) {
-						NSC_LOG_ERROR_STD(_T("EvenlogBuffer is too small change the value of buffer_length=") + strEx::itos(dwNeeded+1) + _T(": ") + error::lookup::last_error(err));
+						NSC_LOG_ERROR_STD("EvenlogBuffer is too small change the value of buffer_length=" + strEx::s::xtos(dwNeeded+1));
 						buffer_error_reported = true;
 					}
 				} else if (err == ERROR_HANDLE_EOF) {
 					is_scanning = false;
 					break;
 				} else {
-					std::wstring error_msg = error::lookup::last_error(err);
+					std::string error_msg = error::lookup::last_error(err);
 					CloseEventLog(hLog);
-					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read from event log: " + utf8::cvt<std::string>(error_msg));
+					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to read from event log: " + error_msg);
 				}
 			}
 			EVENTLOGRECORD *pevlr = buffer.getBufferUnsafe(); 
@@ -347,30 +346,13 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 						(*it).second ++;
 					}
 					else {
-						if (!fargs->syntax.empty()) {
-							uniq_record.message = record.render(fargs->bShowDescriptions, fargs->syntax);
-						} else if (!fargs->bShowDescriptions) {
-							uniq_record.message = record.get_source();
-						} else {
-							uniq_record.message = record.get_source();
-							uniq_record.message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
-								strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
-							uniq_record.message += _T("[") + record.enumStrings() + _T("]");
-							uniq_record.message += _T("{%count%}");
-						}
+						uniq_record.message = record.render(fargs->bShowDescriptions, fargs->syntax);
 						uniq_records[uniq_record] = 1;
 					}
 					hit_count++;
 				} else if (match) {
 					if (!fargs->syntax.empty()) {
 						strEx::append_list(message, record.render(fargs->bShowDescriptions, fargs->syntax));
-					} else if (!fargs->bShowDescriptions) {
-						strEx::append_list(message, record.get_source());
-					} else {
-						strEx::append_list(message, record.get_source());
-						message += _T("(") + EventLogRecord::translateType(record.eventType()) + _T(", ") + 
-							strEx::itos(record.eventID()) + _T(", ") + EventLogRecord::translateSeverity(record.severity()) + _T(")");
-						message += _T("[") + record.enumStrings() + _T("]");
 					}
 					hit_count++;
 				}
@@ -379,32 +361,32 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 			} 
 		}
 		CloseEventLog(hLog);
-		for (uniq_eventlog_map::const_iterator cit = uniq_records.begin(); cit != uniq_records.end(); ++cit) {
-			std::wstring msg = (*cit).first.message;
-			strEx::replace(msg, _T("%count%"), strEx::itos((*cit).second));
+		BOOST_FOREACH(const uniq_eventlog_map::value_type &v, uniq_records) {
+			std::string msg = v.first.message;
+			strEx::replace(msg, "%count%", strEx::s::xtos(v.second));
 			strEx::append_list(message, msg);
 		}
 	}
-	NSC_DEBUG_MSG_STD(_T("Evaluation time: ") + strEx::itos(time.stop()));
+	NSC_DEBUG_MSG_STD("Evaluation time: " + strEx::s::xtos(time.stop()));
 
 	if (!bPerfData) {
 		query1.perfData = false;
 		query2.perfData = false;
 	}
 	if (query1.alias.empty())
-		query1.alias = _T("eventlog");
+		query1.alias = "eventlog";
 	if (query2.alias.empty())
-		query2.alias = _T("eventlog");
+		query2.alias = "eventlog";
 	if (query1.hasBounds())
 		query1.runCheck(hit_count, returnCode, message, perf);
 	else if (query2.hasBounds())
 		query2.runCheck(hit_count, returnCode, message, perf);
 	if ((truncate > 0) && (message.length() > (truncate-4)))
-		message = message.substr(0, truncate-4) + _T("...");
+		message = message.substr(0, truncate-4) + "...";
 	if (message.empty())
-		message = _T("Eventlog check ok");
+		message = "Eventlog check ok";
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(returnCode));
-	response->set_message(utf8::cvt<std::string>(message));
+	response->set_message(message);
 }
 
 NSCAPI::nagiosReturn CheckEventLog::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
@@ -487,7 +469,7 @@ NSCAPI::nagiosReturn CheckEventLog::insert_eventlog(std::list<std::wstring> argu
 			delete [] string_data;
 		}
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_STD(_T("Failed to parse command line: ") + utf8::cvt<std::wstring>(e.what()));
+		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
 	}
 	return NSCAPI::returnIgnored;
 }

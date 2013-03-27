@@ -51,7 +51,7 @@ void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter
 	while (SUCCEEDED(taskSchedEnum->Next(TASKS_TO_RETRIEVE, &lpwszNames, &dwFetchedTasks)) && (dwFetchedTasks != 0)) {
 		while (dwFetchedTasks) {
 			CComPtr<ITask> task;
-			std::wstring title = lpwszNames[--dwFetchedTasks];
+			std::string title = utf8::cvt<std::string>(lpwszNames[--dwFetchedTasks]);
 			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
 			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
 			boost::shared_ptr<tasksched_filter::filter_obj> arg = boost::shared_ptr<tasksched_filter::filter_obj>(new tasksched_filter::filter_obj((ITask*)task, title));

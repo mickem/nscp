@@ -88,7 +88,7 @@ private:
 	boost::timed_mutex internalVariables;
 	boost::shared_mutex m_mutexRW;
 
-	std::wstring context_;
+	std::string context_;
 
 	bool enable_shared_session_;
 	nsclient::commands commands_;
@@ -99,21 +99,21 @@ private:
 
 
 public:
-	typedef std::multimap<std::wstring,std::wstring> plugin_alias_list_type;
+	typedef std::multimap<std::string,std::string> plugin_alias_list_type;
 	// c-tor, d-tor
 	NSClientT();
 	virtual ~NSClientT();
 
 	// Service helper functions
-	bool boot_init(std::wstring log_level = _T(""));
+	bool boot_init(std::string log_level = "");
 	bool boot_load_all_plugins();
-	bool boot_load_plugin(std::wstring plugin);
+	bool boot_load_plugin(std::string plugin);
 	bool boot_start_plugins(bool boot);
 
 	bool stop_unload_plugins_pre();
 	bool stop_exit_pre();
 	bool stop_exit_post();
-	void set_settings_context(std::wstring context) { context_ = context; }
+	void set_settings_context(std::string context) { context_ = context; }
 	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Service API
@@ -129,21 +129,21 @@ public:
 	boost::filesystem::path getBasePath();
 	boost::filesystem::path getTempPath();
 
-	NSCAPI::errorReturn reroute(std::wstring &channel, std::string &buffer);
-	NSCAPI::errorReturn send_notification(const wchar_t* channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn injectRAW(const wchar_t* command, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn inject(std::wstring command, std::wstring arguments, std::wstring &msg, std::wstring & perf);
+	NSCAPI::errorReturn reroute(std::string &channel, std::string &buffer);
+	NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn injectRAW(const char* command, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn inject(std::string command, std::string arguments, std::string &msg, std::string & perf);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	int simple_exec(std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
-	int simple_query(std::wstring module, std::wstring command, std::vector<std::wstring> arguments, std::list<std::wstring> &resp);
-	NSCAPI::nagiosReturn exec_command(const wchar_t* target, const wchar_t* raw_command, std::string &request, std::string &response);
-	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const wchar_t* channel);
-	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const wchar_t* channel);
+	int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+	int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+	NSCAPI::nagiosReturn exec_command(const char* target, const char* raw_command, std::string &request, std::string &response);
+	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
+	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::errorReturn settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 
-	NSCAPI::errorReturn reload(const std::wstring module);
-	bool do_reload(const bool delay, const std::wstring module);
+	NSCAPI::errorReturn reload(const std::string module);
+	bool do_reload(const bool delay, const std::string module);
 
 	struct service_controller {
 		std::wstring service;
@@ -166,29 +166,29 @@ public:
 	//plugin_type loadPlugin(const boost::filesystem::path plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void unloadPlugins();
-	std::wstring describeCommand(std::wstring command);
-	std::list<std::wstring> getAllCommandNames();
-	void registerCommand(unsigned int id, std::wstring cmd, std::wstring desc);
+	std::string describeCommand(std::string command);
+	std::list<std::string> getAllCommandNames();
+	void registerCommand(unsigned int id, std::string cmd, std::string desc);
 	void startTrayIcons();
 	void startTrayIcon(DWORD dwSessionId);
 
 	void listPlugins();
 	plugin_info_list get_all_plugins();
-	std::wstring get_plugin_module_name(unsigned int plugin_id);
+	std::string get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);
-	std::list<std::wstring> list_commands();
+	std::list<std::string> list_commands();
 
 	std::string getFolder(std::string key);
 	std::string expand_path(std::string file);
 
 	typedef boost::function<int(plugin_type)> run_function;
-	int load_and_run(std::wstring module, run_function fun, std::list<std::string> &errors);
+	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
 
 	public:
 		void preboot_load_all_plugin_files();
 
 	private:
-		plugin_type addPlugin(boost::filesystem::path file, std::wstring alias);
+		plugin_type addPlugin(boost::filesystem::path file, std::string alias);
 };
 
 

@@ -25,23 +25,19 @@
 namespace parsers {
 	namespace where {
 
-		bool parser::parse(std::wstring expr) {
+		bool parser::parse(std::string expr) {
 			constants::reset();
-			//std::wcout << _T("Current time is: ") << constants::get_now() << std::endl;
 			typedef where_grammar grammar;
 
-			grammar calc; // Our grammar
+			grammar calc;
 
 			grammar::iterator_type iter = expr.begin();
 			grammar::iterator_type end = expr.end();
 			if (phrase_parse(iter, end, calc, ascii::space, resulting_tree)) {
-				rest = std::wstring(iter, end);
+				rest = std::string(iter, end);
 				return rest.empty();
-				//std::wcout<< _T("Rest: ") << rest << std::endl;
-				//return true;
 			}
-			rest = std::wstring(iter, end);
-			//std::wcout << _T("Rest: ") << rest << std::endl;
+			rest = std::string(iter, end);
 			return false;
 		}
 
@@ -51,7 +47,7 @@ namespace parsers {
 				resolver(resulting_tree);
 				return true;
 			} catch (...) {
-				handler->error(_T("Unhandled exception resolving types: ") + result_as_tree());
+				handler->error("Unhandled exception resolving types: " + result_as_tree());
 				return false;
 			}
 		}
@@ -62,18 +58,18 @@ namespace parsers {
 				evaluator(resulting_tree);
 				return true;
 			} catch (...) {
-				handler->error(_T("Unhandled exception static eval: ") + result_as_tree());
+				handler->error("Unhandled exception static eval: " + result_as_tree());
 				return false;
 			}
 		}
-		bool parser::collect_perfkeys(std::map<std::wstring,std::wstring> &boundries, filter_handler handler) {
+		bool parser::collect_perfkeys(std::map<std::string,std::string> &boundries, filter_handler handler) {
 			try {
 				ast_perf_collector evaluator(handler);
 				evaluator(resulting_tree);
 				boundries.insert(evaluator.boundries.begin(), evaluator.boundries.end());
 				return true;
 			} catch (...) {
-				handler->error(_T("Unhandled exception collecting performance data eval: ") + result_as_tree());
+				handler->error("Unhandled exception collecting performance data eval: " + result_as_tree());
 				return false;
 			}
 		}
@@ -84,7 +80,7 @@ namespace parsers {
 				binder(resulting_tree);
 				return true;
 			} catch (...) {
-				handler->error(_T("Unhandled exception static eval: ") + result_as_tree());
+				handler->error("Unhandled exception static eval: " + result_as_tree());
 				return false;
 			}
 		}
@@ -94,15 +90,13 @@ namespace parsers {
 				expression_ast ast = resulting_tree.evaluate(handler);
 				return ast.get_int(handler) == 1;
 			} catch (...) {
-				handler->error(_T("Unhandled exception static eval: ") + result_as_tree());
+				handler->error("Unhandled exception static eval: " + result_as_tree());
 				return false;
 			}
 		}
 
-		std::wstring parser::result_as_tree() const {
+		std::string parser::result_as_tree() const {
 			return resulting_tree.to_string();
 		}
 	}
 }
-
-

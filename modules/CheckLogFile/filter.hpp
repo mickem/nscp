@@ -25,33 +25,33 @@ namespace logfile_filter {
 		typedef parsers::where::expression_ast expression_ast_type;
 		filter_obj(std::string filename, std::string line, std::list<std::string> chunks, long long count) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()), count(count) {}
 
-		std::wstring get_column(int col) const {
+		std::string get_column(int col) const {
 			if (col >= 1 && col <= chunks.size())
-				return utf8::cvt<std::wstring>(chunks[col-1]);
-			return _T("");
+				return chunks[col-1];
+			return "";
 		}
 		long long get_column_number(int col) const {
 			if (col >= 1 && col <= chunks.size())
 				return strEx::s::stox<long long>(chunks[col-1]);
 			return 0;
 		}
-		std::wstring get_filename() const {
-			return utf8::cvt<std::wstring>(filename);
+		std::string get_filename() const {
+			return filename;
 		}
-		std::wstring get_line() const {
-			return utf8::cvt<std::wstring>(line);
+		std::string get_line() const {
+			return line;
 		}
 		long long get_count() const {
 			return count;
 		}
-		std::wstring get_count_str() const {
-			return strEx::itos(count);
+		std::string get_count_str() const {
+			return strEx::s::xtos(count);
 		}
 		void matched() {
 			count++;
 		}
 		expression_ast_type get_column_fun(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
-		std::wstring render(std::wstring syntax);
+		std::string render(std::string syntax);
 	};
 
 
@@ -62,18 +62,18 @@ namespace logfile_filter {
 		typedef boost::shared_ptr<object_type> object_instance_type;
 		typedef parsers::where::filter_handler_impl<object_type> base_handler;
 
-		typedef std::map<std::wstring,parsers::where::value_type> types_type;
+		typedef std::map<std::string,parsers::where::value_type> types_type;
 		typedef parsers::where::expression_ast expression_ast_type;
 
 
 		filter_obj_handler();
-		bool has_variable(std::wstring key);
-		parsers::where::value_type get_type(std::wstring key);
+		bool has_variable(std::string key);
+		parsers::where::value_type get_type(std::string key);
 		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-		base_handler::bound_string_type bind_simple_string(std::wstring key);
-		base_handler::bound_int_type bind_simple_int(std::wstring key);
-		bool has_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::wstring name, expression_ast_type *subject);
+		base_handler::bound_string_type bind_simple_string(std::string key);
+		base_handler::bound_int_type bind_simple_int(std::string key);
+		bool has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
+		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
 
 	private:
 		types_type types;

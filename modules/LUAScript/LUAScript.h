@@ -45,7 +45,7 @@ public:
 	LUAScript() {}
 	virtual ~LUAScript() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 
 	bool unloadModule();
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
@@ -55,7 +55,7 @@ public:
 
 	bool reload(std::wstring &msg);
 
-	bool loadScript(std::wstring alias, std::wstring file);
+	bool loadScript(std::string alias, std::string file);
 //	NSCAPI::nagiosReturn execute_and_load(std::list<std::wstring> args, std::wstring &message);
 //	NSCAPI::nagiosReturn handleSimpleNotification(const std::wstring channel, const std::wstring source, const std::wstring command, NSCAPI::nagiosReturn code, std::wstring msg, std::wstring perf);
 //	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);

@@ -64,12 +64,12 @@ namespace PDH {
 
 		PDHCounterInfo getCounterInfo(BOOL bExplainText = FALSE) {
 			if (hCounter_ == NULL)
-				throw PDHException(_T("Counter is null!"));
+				throw pdh_exception("Counter is null!");
 			BYTE *lpBuffer = new BYTE[1025];
 			DWORD bufSize = 1024;
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhGetCounterInfo(hCounter_, bExplainText, &bufSize, (PDH_COUNTER_INFO*)lpBuffer);
 			if (status.is_error())
-				throw PDHException(name_, _T("getCounterInfo failed (no query)"), status);
+				throw pdh_exception(name_, "getCounterInfo failed (no query)", status);
 			return PDHCounterInfo(lpBuffer, bufSize, TRUE);
 		}
 		const PDH::PDH_HCOUNTER getCounter() const {
@@ -80,19 +80,19 @@ namespace PDH {
 		}
 		void addToQuery(PDH::PDH_HQUERY hQuery) {
 			if (hQuery == NULL)
-				throw PDHException(name_, std::wstring(_T("addToQuery failed (no query).")));
+				throw pdh_exception(name_, "addToQuery failed (no query).");
 			if (hCounter_ != NULL)
-				throw PDHException(name_, std::wstring(_T("addToQuery failed (already opened).")));
+				throw pdh_exception(name_, "addToQuery failed (already opened).");
 			if (listener_)
 				listener_->attach(this);
 			LPCWSTR name = name_.c_str();
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhAddCounter(hQuery, name, 0, &hCounter_);
 			if (status.is_error()) {
 				hCounter_ = NULL;
-				throw PDHException(name_, _T("PdhAddCounter failed"), status);
+				throw pdh_exception(name_, "PdhAddCounter failed", status);
 			}
 			if (hCounter_ == NULL)
-				throw PDHException(_T("Counter is null!"));
+				throw pdh_exception("Counter is null!");
 		}
 		void remove() {
 			if (hCounter_ == NULL)
@@ -101,7 +101,7 @@ namespace PDH {
 				listener_->detach(this);
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhRemoveCounter(hCounter_);
 			if (status.is_error())
-				throw PDHException(name_, _T("PdhRemoveCounter failed"), status);
+				throw pdh_exception(name_, "PdhRemoveCounter failed", status);
 			hCounter_ = NULL;
 		}
 		PDH::PDHError collect() {

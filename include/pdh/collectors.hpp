@@ -27,92 +27,10 @@
 //#include <pdh.hpp>
 #include <Mutex.h>
 namespace PDHCollectors {
-	typedef PDH::PDHException PDHException;
+	typedef PDH::pdh_exception PDHException;
 	const int format_large = 0x00000400;
 	const int format_long = 0x00000100;
 	const int format_double = 0x00000200;
-/*
-	class PDHException {
-		std::wstring error_;
-	public:
-		PDHException(std::wstring error) : error_(error) {}
-		std::wstring getError() const { return error_; }
-
-	};
-	*/
-	class TPDHCounterMutex {
-	public:
-		virtual void lock() = 0;
-		virtual bool hasLock(bool silent = true) = 0;
-		virtual void release() = 0;
-	};
-
-	class PDHCounterNoMutex : public TPDHCounterMutex {
-	public:
-		void lock() {}
-		bool hasLock(bool silent = true) {
-			return true;
-		}
-		void release() {}
-	};
-	class PDHCounterNormalMutex : public TPDHCounterMutex {
-		MutexHandler mutex_;
-		ManualMutexLock lock_;
-	public:
-		PDHCounterNormalMutex() : lock_(mutex_) {}
-		void lock() {
-			lock_.lock();
-		}
-		bool hasLock(bool silent = true) {
-			if (!silent && !lock_.hasMutex()) {
-				std::wcout << _T("We never got the mutex... sorry...") << std::endl;
-			}
-			return lock_.hasMutex();
-		}
-		void release() {
-			lock_.release();
-		}
-	};
-	class PDHCounterMutexHandler {
-	private:
-		TPDHCounterMutex *mutex_;	// Handle to the mutex object.
-	public:
-		/**
-		* Default c-tor.
-		* Waits for the mutex object.
-		* @param mutex The mutex to use
-		* @timeout The timeout before abandoning wait
-		*/
-		PDHCounterMutexHandler(TPDHCounterMutex *mutex) : mutex_(mutex) {
-			if (mutex == NULL) {
-				std::wcout << _T("Error in mutex lock: ") << std::endl;
-				mutex = NULL;
-				return;
-			}
-			mutex->lock();
-		}
-		/**
-		* An attempt to simplify the has mutex thingy (don't know if it works, haven't tried it since I wrote this class a few years ago :)
-		* @return true if we have a mutex lock.
-		*/
-		operator bool () const {
-			return mutex_!=NULL&&mutex_->hasLock();
-		}
-		/**
-		* Check if we actually got the mutex (might have timed out)
-		* @return 
-		*/
-		bool hasLock(bool silent = true) const {
-			return mutex_!=NULL&&mutex_->hasLock(silent);
-		}
-		/**
-		* Default d-tor.
-		* Release the mutex
-		*/
-		virtual ~PDHCounterMutexHandler() {
-			mutex_->release();
-		}
-	};
 
 	class PDHCollector : public PDH::PDHCounterListener{
 	public:
@@ -124,14 +42,14 @@ namespace PDHCollectors {
 	};
 
 
-	template <class TType, int TCollectionFormat, class TMutextHandler = PDHCounterNoMutex>
+	template <class TType, int TCollectionFormat>
 	class StaticPDHCounterListener {
 	};
 
-	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_double, TMutextHandler> : public PDHCollector {
+	template <class TType>
+	class StaticPDHCounterListener<TType, format_double> : public PDHCollector {
 		TType value_;
-		TMutextHandler mutex_;
+		boost::shared_mutex mutex_;
 		bool hasValue_;
 		std::wstring lastError_;
 		const PDH::PDHCounter *parent_;
@@ -139,8 +57,8 @@ namespace PDHCollectors {
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			value_ = counter.getDoubleValue();
 			hasValue_ = true;
@@ -148,11 +66,11 @@ namespace PDHCollectors {
 		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
 		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
-				throw PDHException(get_name(), _T("Could not get mutex"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw PDHException(get_name(), "Could not get mutex");
 			if (!hasValue_)
-				throw PDHException(get_name(), _T("No value has been collected yet"));
+				throw PDHException(get_name(), "No value has been collected yet");
 			return value_;
 		}
 		void set_extra_format(DWORD format) {
@@ -182,18 +100,18 @@ namespace PDHCollectors {
 		}
 	};
 
-	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_long, TMutextHandler> : public PDHCollector {
+	template <class TType>
+	class StaticPDHCounterListener<TType, format_long> : public PDHCollector {
 		TType value_;
-		TMutextHandler mutex_;
+		boost::shared_mutex mutex_;
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
 		DWORD extra_format;
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			value_ = counter.getIntValue();
 			hasValue_ = true;
@@ -201,11 +119,11 @@ namespace PDHCollectors {
 		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
 		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
-				throw PDHException(get_name(), _T("Could not get mutex"));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw PDHException(get_name(), "Could not get mutex");
 			if (!hasValue_)
-				throw PDHException(get_name(), _T("No value has been collected yet"));
+				throw PDHException(get_name(), "No value has been collected yet");
 			return value_;
 		}
 		void set_extra_format(DWORD format) {
@@ -234,9 +152,9 @@ namespace PDHCollectors {
 		}
 	};
 
-	template <class TType, class TMutextHandler>
-	class StaticPDHCounterListener<TType, format_large, TMutextHandler> : public PDHCollector {
-		TMutextHandler mutex_;
+	template <class TType>
+	class StaticPDHCounterListener<TType, format_large> : public PDHCollector {
+		boost::shared_mutex mutex_;
 		TType value_;
 		bool hasValue_;
 		const PDH::PDHCounter *parent_;
@@ -244,8 +162,8 @@ namespace PDHCollectors {
 	public:
 		StaticPDHCounterListener() : value_(0), hasValue_(false), parent_(NULL), extra_format(0) {}
 		virtual void collect(const PDH::PDHCounter &counter) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			value_ = counter.getInt64Value();
 			hasValue_ = true;
@@ -253,11 +171,11 @@ namespace PDHCollectors {
 		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
 		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		TType getValue() {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
-				throw PDHException(get_name(), std::wstring(_T("Could not get mutex")));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw PDHException(get_name(), "Could not get mutex");
 			if (!hasValue_)
-				throw PDHException(get_name(), std::wstring(_T("No value has been collected yet")));
+				throw PDHException(get_name(), "No value has been collected yet");
 			return value_;
 		}
 		void set_extra_format(DWORD format) {
@@ -287,9 +205,9 @@ namespace PDHCollectors {
 	};
 
 
-	template <class TType, class TMutextHandler>
+	template <class TType>
 	class RoundINTPDHBufferListenerImpl : public PDHCollector {
-		TMutextHandler mutex_;
+		boost::shared_mutex mutex_;
 		unsigned int length;
 		TType *buffer;
 		unsigned int current;
@@ -302,8 +220,8 @@ namespace PDHCollectors {
 			resize(length_);
 		}
 		virtual ~RoundINTPDHBufferListenerImpl() {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			delete [] buffer;
 		}
@@ -320,8 +238,8 @@ namespace PDHCollectors {
 		* @param newLength The new length
 		*/
 		void resize(int newLength) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			delete [] buffer;
 
@@ -339,8 +257,8 @@ namespace PDHCollectors {
 		void attach(const PDH::PDHCounter *counter){ parent_ = counter;}
 		void detach(const PDH::PDHCounter *counter){ parent_ = NULL; }
 		void pushValue(TType value) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock())
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
 				return;
 			if (buffer == NULL)
 				return;
@@ -352,15 +270,15 @@ namespace PDHCollectors {
 				current = 0;
 		}
 		double getAvrage(unsigned int backItems) {
-			PDHCounterMutexHandler mutex(&mutex_);
-			if (!mutex.hasLock(true))
-				throw PDHException(get_name(), _T("Failed to get mutex :("));
+			boost::unique_lock<boost::shared_mutex> lock(mutex_);
+			if (!lock.owns_lock())
+				throw PDHException(get_name(), "Failed to get mutex :(");
 			if (!hasValue_)
-				throw PDHException(get_name(), _T("No value has been collected yet"));
+				throw PDHException(get_name(), "No value has been collected yet");
 			if (backItems == 0)
-				throw PDHException(get_name(), _T("No timeframe given on command line (ie. time=0)"));
+				throw PDHException(get_name(), "No time frame given on command line (ie. time=0)");
 			if (backItems >= length)
-				throw PDHException(get_name(), _T("Length given larger then interval: ") + strEx::itos(backItems) + _T(" >= ") + strEx::itos(length));
+				throw PDHException(get_name(), "Length given larger then interval: " + strEx::s::xtos(backItems) + " >= " + strEx::s::xtos(length));
 			double ret = 0;
 			if (current >= backItems) {
 				// Handle "whole" list.
@@ -399,12 +317,12 @@ namespace PDHCollectors {
 	};
 
 
-	template <class TType, DWORD TCollectionFormat, class TMutextHandler = PDHCounterNoMutex>
-	class RoundINTPDHBufferListener : public RoundINTPDHBufferListenerImpl<TType, TMutextHandler> {
+	template <class TType, DWORD TCollectionFormat>
+	class RoundINTPDHBufferListener : public RoundINTPDHBufferListenerImpl<TType> {
 	};
 
-	template <class TType, class TMutextHandler>
-	class RoundINTPDHBufferListener<TType, format_double, TMutextHandler> : public RoundINTPDHBufferListenerImpl<TType, TMutextHandler> {
+	template <class TType>
+	class RoundINTPDHBufferListener<TType, format_double> : public RoundINTPDHBufferListenerImpl<TType> {
 	public:
 		RoundINTPDHBufferListener() {}
 		RoundINTPDHBufferListener(int length) : RoundINTPDHBufferListenerImpl(length) {}
@@ -417,8 +335,8 @@ namespace PDHCollectors {
 		}
 	};
 
-	template <class TType, class TMutextHandler>
-	class RoundINTPDHBufferListener<TType, format_long, TMutextHandler> : public RoundINTPDHBufferListenerImpl<TType, TMutextHandler> {
+	template <class TType>
+	class RoundINTPDHBufferListener<TType, format_long> : public RoundINTPDHBufferListenerImpl<TType> {
 	public:
 		RoundINTPDHBufferListener() {}
 		RoundINTPDHBufferListener(int length) : RoundINTPDHBufferListenerImpl(length) {}
@@ -431,8 +349,8 @@ namespace PDHCollectors {
 		}
 	};
 
-	template <class TType, class TMutextHandler>
-	class RoundINTPDHBufferListener<TType, format_large, TMutextHandler> : public RoundINTPDHBufferListenerImpl<TType, TMutextHandler> {
+	template <class TType>
+	class RoundINTPDHBufferListener<TType, format_large> : public RoundINTPDHBufferListenerImpl<TType> {
 	public:
 		RoundINTPDHBufferListener() {}
 		RoundINTPDHBufferListener(int length) : RoundINTPDHBufferListenerImpl(length) {}

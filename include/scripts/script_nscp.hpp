@@ -2,6 +2,7 @@
 
 #include <scripts/script_interface.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 namespace scripts {
 	namespace nscp {
@@ -18,9 +19,11 @@ namespace scripts {
 		struct settings_provider_impl : public settings_provider {
 			int plugin_id;
 			nscapi::core_wrapper* core_;
+			nscapi::settings_proxy settings_;
 			settings_provider_impl(int plugin_id, nscapi::core_wrapper* core)
 				: plugin_id(plugin_id)
 				, core_(core)
+				, settings_(plugin_id, core)
 			{}
 
 			virtual std::list<std::string> get_section(std::string section);

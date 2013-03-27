@@ -29,56 +29,56 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 
 
 #define MAP_OPTIONS_BEGIN(args) \
-	for (std::list<std::wstring>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
-	std::pair<std::wstring,std::wstring> p__ = strEx::split(*cit__,std::wstring(_T("="))); if (false) {} else if (p__.first == _T("")) {}
+	for (std::list<std::string>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
+	std::pair<std::string,std::string> p__ = strEx::split(*cit__,std::string("=")); if (false) {} else if (p__.first == "") {}
 
 #define MAP_OPTIONS_SHOWALL(obj) \
-			else if (p__.first == SHOW_ALL) { if (p__.second == _T("long")) obj.show = checkHolders::showLong; else obj.show = checkHolders::showShort; } \
+			else if (p__.first == SHOW_ALL) { if (p__.second == "long") obj.show = checkHolders::showLong; else obj.show = checkHolders::showShort; } \
 			else if (p__.first == SHOW_FAIL) { obj.show = checkHolders::showProblems; }
 
 #define MAP_OPTIONS_DISK_ALL(obj, postfix, pfUpper, pfLower) \
-			else if (p__.first == _T("MaxWarn") pfUpper) { obj.warn.max_.upper = p__.second; } \
-			else if (p__.first == _T("MaxCrit") pfUpper) { obj.crit.max_.upper = p__.second; } \
-			else if (p__.first == _T("MinWarn") pfUpper) { obj.warn.min_.upper = p__.second; } \
-			else if (p__.first == _T("MinCrit") pfUpper) { obj.crit.min_.upper = p__.second; } \
-			else if (p__.first == _T("MaxWarn") pfLower) { obj.warn.max_.lower = p__.second; } \
-			else if (p__.first == _T("MaxCrit") pfLower) { obj.crit.max_.lower = p__.second; } \
-			else if (p__.first == _T("MinWarn") pfLower) { obj.warn.min_.lower = p__.second; } \
-			else if (p__.first == _T("MinCrit") pfLower) { obj.crit.min_.lower = p__.second; } \
-			else if (p__.first == _T("MaxWarn") postfix) { obj.warn.max_.lower = p__.second; } \
-			else if (p__.first == _T("MaxCrit") postfix) { obj.crit.max_.lower = p__.second; } \
-			else if (p__.first == _T("MinWarn") postfix) { obj.warn.min_.upper = p__.second; } \
-			else if (p__.first == _T("MinCrit") postfix) { obj.crit.min_.upper = p__.second; } 
+			else if (p__.first == "MaxWarn" pfUpper) { obj.warn.max_.upper = p__.second; } \
+			else if (p__.first == "MaxCrit" pfUpper) { obj.crit.max_.upper = p__.second; } \
+			else if (p__.first == "MinWarn" pfUpper) { obj.warn.min_.upper = p__.second; } \
+			else if (p__.first == "MinCrit" pfUpper) { obj.crit.min_.upper = p__.second; } \
+			else if (p__.first == "MaxWarn" pfLower) { obj.warn.max_.lower = p__.second; } \
+			else if (p__.first == "MaxCrit" pfLower) { obj.crit.max_.lower = p__.second; } \
+			else if (p__.first == "MinWarn" pfLower) { obj.warn.min_.lower = p__.second; } \
+			else if (p__.first == "MinCrit" pfLower) { obj.crit.min_.lower = p__.second; } \
+			else if (p__.first == "MaxWarn" postfix) { obj.warn.max_.lower = p__.second; } \
+			else if (p__.first == "MaxCrit" postfix) { obj.crit.max_.lower = p__.second; } \
+			else if (p__.first == "MinWarn" postfix) { obj.warn.min_.upper = p__.second; } \
+			else if (p__.first == "MinCrit" postfix) { obj.crit.min_.upper = p__.second; } 
 
 #define MAP_OPTIONS_NUMERIC_ALL(obj, postfix) \
-			else if (p__.first == (_T("MaxWarn") postfix)) { obj.warn.max_ = p__.second; } \
-			else if (p__.first == (_T("MaxCrit") postfix)) { obj.crit.max_ = p__.second; } \
-			else if (p__.first == (_T("MinWarn") postfix)) { obj.warn.min_ = p__.second; } \
-			else if (p__.first == (_T("MinCrit") postfix)) { obj.crit.min_ = p__.second; }
+			else if (p__.first == ("MaxWarn" postfix)) { obj.warn.max_ = p__.second; } \
+			else if (p__.first == ("MaxCrit" postfix)) { obj.crit.max_ = p__.second; } \
+			else if (p__.first == ("MinWarn" postfix)) { obj.warn.min_ = p__.second; } \
+			else if (p__.first == ("MinCrit" postfix)) { obj.crit.min_ = p__.second; }
 
 #define MAP_OPTIONS_EXACT_NUMERIC_LEGACY(obj, postfix) \
-			else if (p__.first == (_T("MaxWarn") postfix)) { obj.warn.max = p__.second; } \
-			else if (p__.first == (_T("MaxCrit") postfix)) { obj.crit.max = p__.second; } \
-			else if (p__.first == (_T("MinWarn") postfix)) { obj.warn.min = p__.second; } \
-			else if (p__.first == (_T("MinCrit") postfix)) { obj.crit.min = p__.second; }
+			else if (p__.first == ("MaxWarn" postfix)) { obj.warn.max = p__.second; } \
+			else if (p__.first == ("MaxCrit" postfix)) { obj.crit.max = p__.second; } \
+			else if (p__.first == ("MinWarn" postfix)) { obj.warn.min = p__.second; } \
+			else if (p__.first == ("MinCrit" postfix)) { obj.crit.min = p__.second; }
 
 #define MAP_OPTIONS_EXACT_NUMERIC_ALL(obj, postfix) \
-			else if (p__.first == (_T("warn") postfix)) { obj.warn = p__.second; } \
-			else if (p__.first == (_T("crit") postfix)) { obj.crit = p__.second; } \
+			else if (p__.first == ("warn" postfix)) { obj.warn = p__.second; } \
+			else if (p__.first == ("crit" postfix)) { obj.crit = p__.second; } \
 
 #define MAP_OPTIONS_EXACT_NUMERIC_LEGACY_EX(obj, postfix, subobj) \
-			else if (p__.first == (_T("MaxWarn") postfix)) { obj.warn.subobj.max = p__.second; } \
-			else if (p__.first == (_T("MaxCrit") postfix)) { obj.crit.subobj.max = p__.second; } \
-			else if (p__.first == (_T("MinWarn") postfix)) { obj.warn.subobj.min = p__.second; } \
-			else if (p__.first == (_T("MinCrit") postfix)) { obj.crit.subobj.min = p__.second; }
+			else if (p__.first == ("MaxWarn" postfix)) { obj.warn.subobj.max = p__.second; } \
+			else if (p__.first == ("MaxCrit" postfix)) { obj.crit.subobj.max = p__.second; } \
+			else if (p__.first == ("MinWarn" postfix)) { obj.warn.subobj.min = p__.second; } \
+			else if (p__.first == ("MinCrit" postfix)) { obj.crit.subobj.min = p__.second; }
 
 #define MAP_OPTIONS_EXACT_NUMERIC_ALL_EX(obj, postfix, subobj) \
-			else if (p__.first == (_T("warn") postfix)) { obj.warn.subobj = p__.second; } \
-			else if (p__.first == (_T("crit") postfix)) { obj.crit.subobj = p__.second; } \
+			else if (p__.first == ("warn" postfix)) { obj.warn.subobj = p__.second; } \
+			else if (p__.first == ("crit" postfix)) { obj.crit.subobj = p__.second; } \
 
 #define MAP_OPTIONS_EXACT_NUMERIC_ALL_MULTI(obj, postfix) \
-			else if (p__.first == (_T("warn") postfix)) { obj.set_warn_bound(p__.second); } \
-			else if (p__.first == (_T("crit") postfix)) { obj.set_crit_bound(p__.second); } \
+			else if (p__.first == ("warn" postfix)) { obj.set_warn_bound(p__.second); } \
+			else if (p__.first == ("crit" postfix)) { obj.set_crit_bound(p__.second); } \
 
 #define MAP_OPTIONS_PUSH_WTYPE(type, value, obj, list) \
 			else if (p__.first == value) { type o; o.obj = p__.second; list.push_back(o); }
@@ -94,7 +94,7 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 			else if (p__.first == value) { obj = strEx::stod(p__.second); }
 
 #define MAP_OPTIONS_STR2INT(value, obj) \
-			else if (p__.first == value) { obj = _wtoi(p__.second.c_str()); }
+			else if (p__.first == value) { obj = atoi(p__.second.c_str()); }
 #define MAP_OPTIONS_STR_AND(value, obj, extra) \
 			else if (p__.first == value) { obj = p__.second; extra;}
 #define MAP_OPTIONS_BOOL_TRUE(value, obj) \
@@ -122,8 +122,8 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 		else { arg = str + opt.first; return NSCAPI::returnUNKNOWN; }
 
 #define MAP_OPTIONS_SECONDARY_BEGIN(splt, arg) \
-	else if (p__.first.find(splt) != std::wstring::npos) { \
-	std::pair<std::wstring,std::wstring> arg = strEx::split(p__.first,std::wstring(splt)); if (false) {}
+	else if (p__.first.find(splt) != std::string::npos) { \
+	std::pair<std::string,std::string> arg = strEx::split(p__.first,std::string(splt)); if (false) {}
 
 #define MAP_OPTIONS_SECONDARY_STR_AND(opt, value, objfirst, objsecond, extra) \
 			else if (opt.first == value) { objfirst = p__.second; objsecond = opt.second; extra;}

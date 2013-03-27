@@ -21,7 +21,6 @@
 #include <boost/optional.hpp>
 
 #include <strEx.h>
-#include <utils.h>
 #include <settings/client/settings_client.hpp>
 
 #include <protobuf/plugin.pb.h>
@@ -35,10 +34,10 @@
 
 struct target_helper {
 	struct target_info {
-		std::wstring hostname;
-		std::wstring username;
-		std::wstring password;
-		std::wstring protocol;
+		std::string hostname;
+		std::string username;
+		std::string password;
+		std::string protocol;
 
 		target_info() {}
 		target_info(const target_info &other) 
@@ -56,11 +55,11 @@ struct target_helper {
 			return *this;
 		}
 
-		std::wstring to_wstring() const {
-			return _T("hostname: ") + hostname + 
-				_T(", username: ") + username +
-				_T(", password: ") + password +
-				_T(", protocol: ") + protocol;
+		std::string to_string() const {
+			return "hostname: " + hostname + 
+				", username: " + username +
+				", password: " + password +
+				", protocol: " + protocol;
 		}
 		void update_from(const target_helper::target_info& other) {
 			if (hostname.empty())
@@ -73,16 +72,16 @@ struct target_helper {
 				protocol = other.protocol;
 		}
 	};
-	typedef std::map<std::wstring, target_info> target_map_type;
+	typedef std::map<std::string, target_info> target_map_type;
 	target_map_type targets;
-	void add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::wstring key, std::wstring val);
-	boost::optional<target_info> find(std::wstring alias) {
+	void add_target(nscapi::settings_helper::settings_impl_interface_ptr core, std::string key, std::string val);
+	boost::optional<target_info> find(std::string alias) {
 		if (alias.empty())
 			return boost::optional<target_info>();
 		target_map_type::const_iterator it = targets.find(alias);
 		if (it == targets.end())
 			return boost::optional<target_info>();
-		NSC_DEBUG_MSG_STD(_T("FOund target: ") + it->second.to_wstring());
+		NSC_DEBUG_MSG_STD("Found target: " + it->second.to_string());
 		return boost::optional<target_info>(it->second);
 	}
 
@@ -94,7 +93,7 @@ public:
 	CheckWMI() {}
 	virtual ~CheckWMI() {}
 	// Module calls
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 	void check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);

@@ -80,12 +80,16 @@ namespace nscapi {
 			boost::shared_ptr<typed_path_fun> r(new typed_path_fun(fun));
 			return r;
 		}
-		boost::shared_ptr<typed_path_fun_value> fun_values_path(boost::function<void (std::wstring,std::wstring)> fun) {
-			boost::shared_ptr<typed_path_fun_value> r(new typed_path_fun_value(fun));
+		boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void (std::string,std::string)> fun) {
+			boost::shared_ptr<typed_path_fun_value<std::string> > r(new typed_path_fun_value<std::string>(fun));
 			return r;
 		}
-		boost::shared_ptr<typed_path_map<> > wstring_map_path(std::map<std::wstring,std::wstring> *val) {
-			boost::shared_ptr<typed_path_map<> > r(new typed_path_map<>(val));
+		boost::shared_ptr<typed_path_map<std::wstring> > wstring_map_path(std::map<std::wstring,std::wstring> *val) {
+			boost::shared_ptr<typed_path_map<std::wstring> > r(new typed_path_map<std::wstring>(val));
+			return r;
+		}
+		boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string,std::string> *val) {
+			boost::shared_ptr<typed_path_map<std::string> > r(new typed_path_map<std::string>(val));
 			return r;
 		}
 		boost::shared_ptr<typed_path_list> wstring_list_path(std::list<std::wstring> *val) {

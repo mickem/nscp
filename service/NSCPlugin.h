@@ -58,8 +58,8 @@ public:
 	/// @param error the error message
 	///
 	/// @author mickem
-	NSPluginException(const std::wstring &module, const std::string &error) : file_(utf8::cvt<std::string>(module)), error(error) {}
-	NSPluginException(const std::wstring &module, const std::wstring &error) : file_(utf8::cvt<std::string>(module)), error(utf8::cvt<std::string>(error)) {}
+	NSPluginException(const std::string &module, const std::string &error) : file_(module), error(error) {}
+//	NSPluginException(const std::string &module, const std::wstring &error) : file_(module), error(utf8::cvt<std::string>(error)) {}
 	~NSPluginException() throw() {}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -107,7 +107,7 @@ private:
 	bool loaded_;
 	bool broken_;
 	unsigned int plugin_id_;
-	std::wstring alias_;
+	std::string alias_;
 	bool lastIsMsgPlugin_;
 
 	nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;
@@ -128,15 +128,11 @@ private:
 	nscapi::plugin_api::lpRouteMessage fRouteMessage;
 
 public:
-	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::wstring alias);
+	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
 	virtual ~NSCPlugin(void);
 
-	std::string getSName() {
-		return utf8::cvt<std::string>(getName());
-	}
-
-	std::wstring getName(void);
-	std::wstring getDescription();
+	std::string getName(void);
+	std::string getDescription();
 	void load_dll();
 	bool load_plugin(NSCAPI::moduleLoadMode mode);
 	void setBroken(bool broken);
@@ -145,57 +141,64 @@ public:
 	bool hasCommandHandler(void);
 	bool hasNotificationHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const wchar_t *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
-	NSCAPI::nagiosReturn handleCommand(const wchar_t* command, std::string &request, std::string &reply);
-	NSCAPI::nagiosReturn handleNotification(const wchar_t *channel, std::string &request, std::string &reply);
-	NSCAPI::nagiosReturn handleNotification(const wchar_t *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+	NSCAPI::nagiosReturn handleCommand(const char *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
+	NSCAPI::nagiosReturn handleCommand(const char* command, std::string &request, std::string &reply);
+	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
+	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(const char* data, unsigned int len);
 	void unload_dll(void);
 	void unload_plugin(void);
 	std::wstring getCongifurationMeta();
-	int commandLineExec(const wchar_t* command, std::string &request, std::string &reply);
-	int commandLineExec(const wchar_t* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
+	int commandLineExec(const char* command, std::string &request, std::string &reply);
+	int commandLineExec(const char* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
-	bool is_duplicate( boost::filesystem::path file, std::wstring alias );
+	bool is_duplicate(boost::filesystem::path file, std::string alias);
 
 
 	bool has_routing_handler();
 
 	
-	bool route_message(const wchar_t *channel, const char* buffer, unsigned int buffer_len, wchar_t **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+	bool route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 	std::string get_description() {
 		if (alias_.empty())
-			return getSName();
-		return getSName() + " (" + utf8::cvt<std::string>(alias_) + ")";
+			return getName();
+		return getName() + " (" + alias_ + ")";
 	}
-	std::wstring get_alias() {
+	std::string get_alias() {
 		return alias_;
 	}
-	inline std::wstring getFilename() const {
-		return utf8::cvt<std::wstring>(module_.get_filename());
+	inline std::string getFilename() const {
+		return module_.get_filename();
 	}
-	inline std::wstring get_alias_or_name() const {
+	inline std::string get_alias_or_name() const {
 		if (!alias_.empty())
 			return alias_;
 		return getFilename();
 	}
-	std::wstring getModule() {
+	std::string getModule() {
 #ifndef WIN32
 		std::string file = module_.get_module_name();
 		if (file.substr(0,3) == "lib")
 			file = file.substr(3);
-		return utf8::cvt<std::wstring>(file);
+		return file;
 #else
-		return utf8::cvt<std::wstring>(module_.get_module_name());
+		return module_.get_module_name();
 #endif
 	}
-	static std::wstring get_plugin_file(std::wstring key) {
+	static std::string get_plugin_file(std::string key) {
 #ifdef WIN32
-		return key + _T(".dll");
+		return key + ".dll";
 #else
-		return _T("lib") + key + _T(".so");
+		return "lib" + key + ".so";
+#endif
+	}
+	static bool is_module(const boost::filesystem::path file) {
+#ifdef WIN32
+	return boost::ends_with(file.string(), _T(".dll"));
+#else
+	return boost::ends_with(file.string(), _T(".so"));
 #endif
 	}
 	bool getLastIsMsgPlugin() {
@@ -205,7 +208,7 @@ public:
 		return module_.is_loaded();
 	}
 	unsigned int get_id() const { return plugin_id_; }
-	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::wstring module);
+	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
 
 public:
 	void on_raw_log_message(std::string &payload) {
@@ -213,8 +216,8 @@ public:
 	}
 
 private:
-	bool getName_(wchar_t* buf, unsigned int buflen);
-	bool getDescription_(wchar_t* buf, unsigned int buflen);
+	bool getName_(char* buf, unsigned int buflen);
+	bool getDescription_(char* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
 };
 

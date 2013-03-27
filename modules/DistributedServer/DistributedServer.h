@@ -31,7 +31,7 @@ public:
 	virtual ~DistributedServer();
 	// Module calls
 	bool loadModule();
-	bool loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode);
+	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
 

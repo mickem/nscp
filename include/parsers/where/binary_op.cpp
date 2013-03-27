@@ -13,7 +13,7 @@ namespace parsers {
 			if (type_is_int(type)) {
 				return impl->evaluate(handler, left, right);
 			}
-			handler->error(_T("Missing operator implementation"));
+			handler->error("Missing operator implementation");
 			return expression_ast(int_value(FALSE));
 		}
 	}

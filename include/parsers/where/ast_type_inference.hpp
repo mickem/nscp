@@ -20,14 +20,11 @@ namespace parsers {
 			ast_type_inference(filter_handler & handler) : handler(handler) {}
 
 			value_type operator()(expression_ast & ast) {
-				//std::wcout << _T(">>>Setting type: ") << ast.to_string() << _T(" to: ") << ast.get_type() << std::endl;
 				value_type type = ast.get_type();
-				//std::wcout << _T("!!!Setting type: ") << ast.to_string() << _T(" to: ") << type << std::endl;
 				if (type != type_tbd)
 					return type;
 				type = boost::apply_visitor(*this, ast.expr);
 				ast.set_type(type);
-				//std::wcout << _T("<<<Setting type: ") << ast.to_string() << _T(" to: ") << ast.get_type() << std::endl;
 				return type;
 			}
 			bool can_convert(value_type src, value_type dst) {
@@ -57,26 +54,22 @@ namespace parsers {
 				if (rt == type_tbd && lt == type_tbd)
 					return type_tbd;
 				if (handler->can_convert(rt, lt)) {
-					//std::wcout << _T("FORCE 001") << std::endl;
 					right.force_type(lt);
 					return lt;
 				}
 				if (handler->can_convert(lt, rt)) {
-					//std::wcout << _T("FORCE 002") << std::endl;
 					left.force_type(rt);
 					return rt;
 				}
 				if (can_convert(rt, lt)) {
-					//std::wcout << _T("FORCE 003") << std::endl;
 					right.force_type(lt);
 					return rt;
 				}
 				if (can_convert(lt, rt)) {
-					//std::wcout << _T("FORCE 004") << std::endl;
 					left.force_type(rt);
 					return lt;
 				}
-				handler->error(_T("Invalid type detected for nodes: ") + left.to_string() + _T(" and " )+ right.to_string());
+				handler->error("Invalid type detected for nodes: " + left.to_string() + " and " + right.to_string());
 				return type_invalid;
 			}
 
@@ -110,14 +103,14 @@ namespace parsers {
 			}
 			value_type operator()(variable & expr) {
 				if (!handler->has_variable(expr.get_name())) {
-					handler->error(_T("Variable not found: ") + expr.get_name());
+					handler->error("Variable not found: " + expr.get_name());
 					return type_invalid;
 				}
 				return handler->get_type(expr.get_name());
 			}
 
 			value_type operator()(nil & expr) {
-				handler->error(_T("NULL node encountered"));
+				handler->error("NULL node encountered");
 				return type_invalid;
 			}
 		};

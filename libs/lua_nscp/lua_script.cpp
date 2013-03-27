@@ -90,7 +90,7 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
 }
 int lua::core_wrapper::exec(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+	NSC_LOG_ERROR_STD("Unsupported API called: exec");
 	return lua_instance.error("Unsupported API called: exec");
 }
 int lua::core_wrapper::simple_submit(lua_State *L) {
@@ -115,7 +115,7 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
 }
 int lua::core_wrapper::submit(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	NSC_LOG_ERROR_STD(_T("Unsupported API called: submit"));
+	NSC_LOG_ERROR_STD("Unsupported API called: submit");
 	return lua_instance.error("Unsupported API called: submit");
 }
 int lua::core_wrapper::reload(lua_State *L) {
@@ -225,7 +225,7 @@ int lua::registry_wrapper::register_simple_function(lua_State *L) {
 }
 int lua::registry_wrapper::register_cmdline(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+	NSC_LOG_ERROR_STD("Unsupported API called: exec");
 	return lua_instance.error("Unsupported API called: exec");
 }
 int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
@@ -241,7 +241,7 @@ int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
 }
 int lua::registry_wrapper::subscription(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	NSC_LOG_ERROR_STD(_T("Unsupported API called: exec"));
+	NSC_LOG_ERROR_STD("Unsupported API called: exec");
 	return lua_instance.error("Unsupported API called: exec");
 }
 int lua::registry_wrapper::simple_subscription(lua_State *L) {
@@ -476,11 +476,11 @@ static int log_any(lua_State *L, int mode) {
 	lua::lua_wrapper lua_instance(L);
 	lua::lua_wrapper::stack_trace trace = lua_instance.get_stack_trace();
 	int nargs = lua_instance.size();
-	std::wstring str;
+	std::string str;
 	for (int i=0;i<nargs;i++) {
-		str += utf8::cvt<std::wstring>(lua_instance.pop_string());
+		str += lua_instance.pop_string();
 	}
-	GET_CORE()->log(mode, utf8::cvt<std::string>(trace.first), trace.second, str);
+	GET_CORE()->log(mode, trace.first, trace.second, str);
 	return lua_instance.size();
 }
 static int info (lua_State *L) {

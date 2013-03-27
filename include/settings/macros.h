@@ -60,7 +60,7 @@
 #define NS_REG_ROOT _T("SOFTWARE\\NSClient++")
 
 namespace setting_keys {
-#define MAIN_MODULES_SECTION _T("/modules")
+#define MAIN_MODULES_SECTION "/modules"
 #define CHECK_SYSTEM_SECTION "/settings/system"
 #define CHECK_SYSTEM_COUNTERS_SECTION "/settings/system/PDH counters"
 }

@@ -42,7 +42,7 @@ bool DistributedServer::loadModule() {
 	return false;
 }
 
-bool DistributedServer::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool DistributedServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::wstring host, suffix, server_mode;
 	unsigned int thread_count;
 	try {

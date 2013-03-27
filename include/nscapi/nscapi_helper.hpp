@@ -34,16 +34,16 @@ namespace nscapi {
 		static int nagios2int(NSCAPI::nagiosReturn code);
 		static void escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode);
 		static void escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode);
-		static int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode );
+		//static int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode );
+		static int wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode );
 		static std::wstring translateMessageType(NSCAPI::messageTypes msgType);
-		static std::wstring translateReturn(NSCAPI::nagiosReturn returnCode);
-		static NSCAPI::nagiosReturn translateReturn(std::wstring str);
+		static std::string translateReturn(NSCAPI::nagiosReturn returnCode);
 		static NSCAPI::nagiosReturn translateReturn(std::string str);
 		static NSCAPI::nagiosReturn maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b);
 	};
 
 	namespace report {
-		unsigned int parse(std::wstring str);
+		unsigned int parse(std::string str);
 		bool matches(unsigned int report, NSCAPI::nagiosReturn code);
 		std::wstring to_string(unsigned int report);
 	}

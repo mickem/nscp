@@ -91,12 +91,12 @@ namespace PDH {
 			TCHAR* szObjectBuffer = NULL;
 			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
 			if (!status.is_more_data())
-				throw PDHException(_T("PdhEnumObjects failed when trying to retrieve size of object buffer"), status);
+				throw pdh_exception("PdhEnumObjects failed when trying to retrieve size of object buffer", status);
 
 			szObjectBuffer = new TCHAR[dwObjectBufLen+1024];
 			status = PDH::PDHFactory::get_impl()->PdhEnumObjects(NULL, NULL, szObjectBuffer, &dwObjectBufLen, dwDetailLevel, FALSE);
 			if (status.is_error())
-				throw PDHException(_T("PdhEnumObjects failed when trying to retrieve object buffer"), status);
+				throw pdh_exception("PdhEnumObjects failed when trying to retrieve object buffer", status);
 
 			TCHAR *cp=szObjectBuffer;
 			while(*cp != '\0') {

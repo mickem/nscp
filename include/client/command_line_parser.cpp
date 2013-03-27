@@ -15,35 +15,35 @@ po::options_description add_common_options(client::configuration::data_type comm
 		("address", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_address, &command_data->recipient, _1)), 
 		"The address (host:port) of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
-		("target,t", po::wvalue<std::wstring>(&command_data->target_id), "Target to use (lookup connection info from config)")
+		("target,t", po::value<std::string>(&command_data->target_id), "Target to use (lookup connection info from config)")
 		;
 	return desc;
 }
 po::options_description add_query_options(client::configuration::data_type command_data) {
 	po::options_description desc("Query options");
 	desc.add_options()
-		("command,c", po::wvalue<std::wstring>(&command_data->command), "The name of the query that the remote daemon should run")
-		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
-		("query-command", po::wvalue<std::wstring>(&command_data->command), "The name of the query that the remote daemon should run")
-		("query-arguments", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
+		("command,c", po::value<std::string>(&command_data->command), "The name of the query that the remote daemon should run")
+		("arguments,a", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
+		("query-command", po::value<std::string>(&command_data->command), "The name of the query that the remote daemon should run")
+		("query-arguments", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
 		;
 	return desc;
 }
 po::options_description add_submit_options(client::configuration::data_type command_data) {
 	po::options_description desc("Submit options");
 	desc.add_options()
-		("command,c", po::wvalue<std::wstring>(&command_data->command), "The name of the command that the remote daemon should run")
-		("alias,a", po::wvalue<std::wstring>(&command_data->command), "Same as command")
-		("message,m", po::wvalue<std::wstring>(&command_data->message), "Message")
-		("result,r", po::wvalue<std::wstring>(&command_data->result), "Result code either a number or OK, WARN, CRIT, UNKNOWN")
+		("command,c", po::value<std::string>(&command_data->command), "The name of the command that the remote daemon should run")
+		("alias,a", po::value<std::string>(&command_data->command), "Same as command")
+		("message,m", po::value<std::string>(&command_data->message), "Message")
+		("result,r", po::value<std::string>(&command_data->result), "Result code either a number or OK, WARN, CRIT, UNKNOWN")
 		;
 	return desc;
 }
 po::options_description add_exec_options(client::configuration::data_type command_data) {
 	po::options_description desc("Execute options");
 	desc.add_options()
-		("command,c", po::wvalue<std::wstring>(&command_data->command), "The name of the command that the remote daemon should run")
-		("arguments,a", po::wvalue<std::vector<std::wstring> >(&command_data->arguments), "list of arguments")
+		("command,c", po::value<std::string>(&command_data->command), "The name of the command that the remote daemon should run")
+		("arguments,a", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
 		;
 	return desc;
 }
@@ -61,17 +61,17 @@ po::options_description create_descriptor(const std::string &command, const std:
 	return desc;
 }
 
-int parse_result(std::wstring key) {
-	if (key == _T("UNKNOWN") || key == _T("unknown"))
+int parse_result(std::string key) {
+	if (key == "UNKNOWN" || key == "unknown")
 		return NSCAPI::returnUNKNOWN;
-	if (key == _T("warn") || key == _T("WARN") || key == _T("WARNING") || key == _T("warning"))
+	if (key == "warn" || key == "WARN" || key == "WARNING" || key == "warning")
 		return NSCAPI::returnWARN;
-	if (key == _T("crit") || key == _T("CRIT") || key == _T("CRITICAL") || key == _T("critical"))
+	if (key == "crit" || key == "CRIT" || key == "CRITICAL" || key == "critical")
 		return NSCAPI::returnWARN;
-	if (key == _T("OK") || key == _T("ok"))
+	if (key == "OK" || key == "ok")
 		return NSCAPI::returnUNKNOWN;
 	try {
-		return strEx::stoi(key);
+		return strEx::s::stox<int>(key);
 	} catch (...) {
 		return NSCAPI::returnUNKNOWN;
 	}
@@ -101,10 +101,10 @@ std::string parse_command(const std::string &command, const std::string &prefix)
 
 
 
-std::wstring client::command_manager::add_command(std::wstring name, std::wstring wargs) {
+std::string client::command_manager::add_command(std::string name, std::string args) {
 	command_container data;
 	bool first = true;
-	BOOST_FOREACH(const std::string &s, strEx::s::parse_command(utf8::cvt<std::string>(wargs))) {
+	BOOST_FOREACH(const std::string &s, strEx::s::parse_command(args)) {
 		if (first) {
 			data.command = s;
 			first = false;
@@ -113,8 +113,8 @@ std::wstring client::command_manager::add_command(std::wstring name, std::wstrin
 		}
 	}
 
-	std::wstring key = boost::algorithm::to_lower_copy(name);
-	data.key = utf8::cvt<std::string>(key);
+	std::string key = boost::algorithm::to_lower_copy(name);
+	data.key = key;
 	commands[data.key] = data;
 	return key;
 }
@@ -156,7 +156,7 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup)
-			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + utf8::cvt<std::string>(config.data->target_id));
+			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
 		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
 	}
 	if (real_command == "query" || (real_command.empty() && default_command == "query")) {
@@ -230,7 +230,7 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup) {
-			nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + utf8::cvt<std::string>(config.data->target_id));
+			nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
 			return true;
 		}
 		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
@@ -329,7 +329,7 @@ void client::command_manager::parse_submit(const std::string &prefix, const std:
 
 	if (!config.data->target_id.empty()) {
 		if (!config.target_lookup) 
-			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + utf8::cvt<std::string>(config.data->target_id));
+			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
 		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
 	}
 	if (real_command == "query" || (real_command.empty() && default_command == "query")) {

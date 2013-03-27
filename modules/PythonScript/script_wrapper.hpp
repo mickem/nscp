@@ -3,6 +3,9 @@
 #include <boost/python.hpp>
 #include <boost/thread.hpp>
 
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+
 namespace script_wrapper {
 	using namespace boost::python;
 
@@ -15,7 +18,7 @@ namespace script_wrapper {
 			boost::unique_lock<boost::shared_mutex> lock;
 			log_lock() : lock(thread_support::mutex, boost::get_system_time() + boost::posix_time::seconds(2)) {
 				if (!lock.owns_lock())
-					NSC_LOG_ERROR(_T("Failed to get mutex: thread_locker"));
+					NSC_LOG_ERROR("Failed to get mutex: thread_locker");
 			}
 		};
 
@@ -64,7 +67,7 @@ namespace script_wrapper {
 	void sleep(unsigned int seconds);
 	//std::string get_alias();
 
-	std::list<std::wstring> convert(boost::python::list lst);
+	std::list<std::string> convert(boost::python::list lst);
 	boost::python::list convert(const std::list<std::string> &lst);
 	boost::python::list convert(const std::list<std::wstring> &lst);
 	boost::python::list convert(const std::vector<std::wstring> &lst);
@@ -94,16 +97,18 @@ namespace script_wrapper {
 
 	struct function_wrapper {
 	private:
-		nscapi::core_wrapper* core;
+		nscapi::core_wrapper* raw_core;
 		unsigned int plugin_id;
-		function_wrapper() {}
+		nscapi::core_helper::core_proxy core;
 	public:
-		function_wrapper(const function_wrapper &other) : core(other.core) {}
+		function_wrapper(const function_wrapper &other) : raw_core(other.raw_core), plugin_id(other.plugin_id), core(other.raw_core, other.plugin_id) {}
 		function_wrapper& operator=(const function_wrapper &other) {
+			raw_core = other.raw_core;
+			plugin_id = other.plugin_id;
 			core = other.core;
 			return *this;
 		}
-		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
+		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : raw_core(core), plugin_id(plugin_id), core(core, plugin_id) {}
 		typedef std::map<std::string,PyObject*> function_map_type;
 		//typedef boost::python::tuple simple_return;
 
@@ -168,14 +173,17 @@ namespace script_wrapper {
 	private:
 		nscapi::core_wrapper* core;
 		unsigned int plugin_id;
+		nscapi::settings_proxy settings;
+		settings_wrapper() : core(NULL), plugin_id(-1), settings(-1, NULL) {}
 	public:
-		settings_wrapper() : core(NULL) {}
-		settings_wrapper(const settings_wrapper &other) : core(other.core) {}
+		settings_wrapper(const settings_wrapper &other) : core(other.core), plugin_id(other.plugin_id), settings(other.plugin_id, other.core) {}
 		settings_wrapper& operator=(const settings_wrapper &other) {
 			core = other.core;
+			plugin_id = other.plugin_id;
+			settings = other.settings;
 			return *this;
 		}
-		settings_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
+		settings_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id), settings(plugin_id, core) {}
 
 	public:
 		static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id) {

@@ -34,7 +34,6 @@
 #include <parsers/expression/expression.hpp>
 
 #include <time.h>
-#include <utils.h>
 #include <error.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -58,30 +57,30 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool CheckLogFile::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
+bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	thread_.reset(new real_time_thread);
 
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(alias, _T("logfile"));
+	settings.set_alias(alias, "logfile");
 
-	thread_->filters_path_ = settings.alias().get_settings_path(_T("real-time/checks"));
+	thread_->filters_path_ = settings.alias().get_settings_path("real-time/checks");
 
 	settings.alias().add_path_to_settings()
-		(_T("LOG FILE SECTION"), _T("Section for log file checker"))
+		("LOG FILE SECTION", "Section for log file checker")
 
-		(_T("real-time"), _T("CONFIGURE REALTIME CHECKING"), _T("A set of options to configure the real time checks"))
+		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		(_T("real-time/checks"), sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
-		_T("REALTIME FILTERS"), _T("A set of filters to use in real-time mode"))
+		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
+		"REALTIME FILTERS", "A set of filters to use in real-time mode")
 		;
 
 //	settings.alias().add_key_to_settings()
 //		;
 
-	settings.alias().add_key_to_settings(_T("real-time"))
+	settings.alias().add_key_to_settings("real-time")
 
-		(_T("enabled"), sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-		_T("REAL TIME CHECKING"), _T("Spawns a backgrounnd thread which waits for file changes."))
+		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		"REAL TIME CHECKING", "Spawns a backgrounnd thread which waits for file changes.")
 
 		;
 
@@ -90,13 +89,13 @@ bool CheckLogFile::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode)
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
-			NSC_LOG_ERROR_STD(_T("Failed to start collection thread"));
+			NSC_LOG_ERROR_STD("Failed to start collection thread");
 	}
 	return true;
 }
 bool CheckLogFile::unloadModule() {
 	if (thread_ && !thread_->stop())
-		NSC_LOG_ERROR_STD(_T("Failed to stop thread"));
+		NSC_LOG_ERROR_STD("Failed to stop thread");
 	return true;
 }
 
