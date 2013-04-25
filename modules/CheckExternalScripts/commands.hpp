@@ -27,10 +27,10 @@ namespace commands {
 			, parent(other.parent)
 			, is_template(other.is_template)
 			, command(other.command)
-			, arguments(other.arguments)
 			, user(other.user)
 			, domain(other.domain)
 			, password(other.password)
+			, encoding(other.encoding)
 		{}
 		const command_object& operator =(const command_object &other) {
 			path = other.path;
@@ -39,10 +39,10 @@ namespace commands {
 			parent = other.parent;
 			is_template = other.is_template;
 			command = other.command;
-			arguments = other.arguments;
 			user = other.user;
 			domain = other.domain;
 			password = other.password;
+			encoding = other.encoding;
 			return *this;
 		}
 	
@@ -55,33 +55,14 @@ namespace commands {
 
 		// Command keys
 		std::wstring command;
-		std::list<std::wstring> arguments;
 		std::wstring user, domain, password;
+		std::string encoding;
 
-
-		std::wstring get_argument() const {
-			std::wstring args;
-			BOOST_FOREACH(std::wstring s, arguments) {
-				if (!args.empty())
-					args += _T(" ");
-				args += s;
-			}
-			return args;
-		}
 
 		std::wstring to_wstring() const {
 			std::wstringstream ss;
 			ss << alias << _T("[") << alias << _T("] = ") 
-				<< _T("{command: ") << command
-				<< _T(", arguments: ");
-			bool first = true;
-			BOOST_FOREACH(const std::wstring &s, arguments) {
-				if (first)
-					first = false;
-				else 
-					ss << L',';
-				ss << s;
-			}
+				<< _T("{command: ") << command;
 			if (!user.empty()) {
 				ss << _T(", user: ") << user 
 				<< _T(", domain: ") << domain 
@@ -92,52 +73,7 @@ namespace commands {
 		}
 
 		void set_command(std::wstring str) {
-			if (str.empty())
-				return;
-			try {
-				strEx::parse_command(str, command, arguments);
-			} catch (const std::exception &e) {
-				NSC_LOG_MESSAGE(_T("Failed to parse arguments for command '") + alias + _T("', using old split string method: ") + utf8::to_unicode(e.what()) + _T(": ") + str);
-				strEx::splitList list = strEx::splitEx(str, _T(" "));
-				if (list.size() > 0) {
-					command = list.front();
-					list.pop_front();
-				}
-				arguments.clear();
-				std::list<std::wstring> buffer;
-				BOOST_FOREACH(std::wstring s, list) {
-					std::size_t len = s.length();
-					if (buffer.empty()) {
-						if (len > 2 && s[0] == L'\"' && s[len-1]  == L'\"') {
-							buffer.push_back(s.substr(1, len-2));
-						} else if (len > 1 && s[0] == L'\"') {
-							buffer.push_back(s);
-						} else {
-							arguments.push_back(s);
-						}
-					} else {
-						if (len > 1 && s[len-1] == L'\"') {
-							std::wstring tmp;
-							BOOST_FOREACH(const std::wstring &s2, buffer) {
-								if (tmp.empty()) {
-									tmp = s2.substr(1);
-								} else {
-									tmp += _T(" ") + s2;
-								}
-							}
-							arguments.push_back(tmp + _T(" ") + s.substr(0, len-1));
-							buffer.clear();
-						} else {
-							buffer.push_back(s);
-						}
-					}
-				}
-				if (!buffer.empty()) {
-					BOOST_FOREACH(const std::wstring &s, buffer) {
-						arguments.push_back(s);
-					}
-				}
-			}
+			command = str;
 		}
 
 	};
@@ -191,6 +127,7 @@ namespace commands {
 				_T("PARENT"), _T("The parent the target inherits from"), true)
 
 				(_T("is template"), nscapi::settings_helper::bool_key(&object.is_template, false),
+
 				_T("IS TEMPLATE"), _T("Declare this object as a template (this means it will not be available as a separate object)"), true)
 
 				(_T("user"), nscapi::settings_helper::wstring_key(&object.user),
@@ -201,6 +138,9 @@ namespace commands {
 
 				(_T("password"), nscapi::settings_helper::wstring_key(&object.password),
 				_T("PASSWORD"), _T("The user to run the command as"), true)
+
+				(_T("encoding"), nscapi::settings_helper::string_key(&object.encoding),
+				_T("ENCODING"), _T("The encoding to parse the command as"), true)
 
 				;
 
@@ -215,8 +155,7 @@ namespace commands {
 			import_string(object.domain, parent.domain);
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
-			if (object.arguments.empty() && !parent.arguments.empty())
-				object.arguments = parent.arguments;
+			import_string(object.encoding, parent.encoding);
 		}
 
 	};

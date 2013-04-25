@@ -79,6 +79,9 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			(_T("hostname"), sh::string_key(&hostname_, "auto"),
 			_T("HOSTNAME"), _T("The host name of this host if set to blank (default) the windows name of the computer will be used."))
 
+			(_T("encoding"), sh::string_key(&encoding_, ""),
+			_T("NSCA DATA ENCODING"), _T(""), true)
+
 			(_T("channel"), sh::wstring_key(&channel_, _T("NSCA")),
 			_T("CHANNEL"), _T("The channel to listen to."))
 
@@ -105,6 +108,9 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 		} else if (hostname_ == "auto-lc") {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+		} else if (hostname_ == "auto-uc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
 			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
 
@@ -124,10 +130,16 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			} catch (const std::exception& e) {
 				NSC_LOG_ERROR_STD(_T("Failed to resolve: ") + utf8::to_unicode(e.what()));
 			}
-
-
 			strEx::replace(hostname_, "${host}", dn.first);
 			strEx::replace(hostname_, "${domain}", dn.second);
+			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			strEx::replace(hostname_, "${host_uc}", dn.first);
+			strEx::replace(hostname_, "${domain_uc}", dn.second);
+			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			strEx::replace(hostname_, "${host_lc}", dn.first);
+			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_STD(_T("NSClient API exception: ") + utf8::to_unicode(e.what()));
@@ -347,11 +359,11 @@ int NSCAAgent::clp_handler_impl::submit(client::configuration::data_type data, c
 		std::wstring alias, msg, perf;
 		packet.code = nscapi::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
 		if (alias != _T("host_check"))
-			packet.service = utf8::cvt<std::string>(alias);
+			packet.service = utf8::to_encoding(alias, con.encoding);
 		if (perf.empty())
-			packet.result = utf8::cvt<std::string>(msg);
+			packet.result = utf8::to_encoding(msg, con.encoding);
 		else
-			packet.result = utf8::cvt<std::string>(msg + _T("|") + perf);
+			packet.result = utf8::to_encoding(msg + _T("|") + perf, con.encoding);
 		list.push_back(packet);
 	}
 

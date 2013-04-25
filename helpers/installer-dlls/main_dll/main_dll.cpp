@@ -56,7 +56,8 @@ public:
 		}
 		log_.push_back(str.substr(1));
 	}
-	void configure() {}
+	void asynch_configure() {}
+	void synch_configure() {}
 	bool startup() { return true; }
 	bool shutdown() { return true; }
 

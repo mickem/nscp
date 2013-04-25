@@ -8,7 +8,7 @@ SET(SRCS
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
-plugin_instance.cpp
+	plugin_instance.cpp
 
 	${NSCP_INCLUDEDIR}/arrayBuffer.cpp
 
@@ -20,6 +20,7 @@ plugin_instance.cpp
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
+	MESSAGE(STATUS "Hello Win32")
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"

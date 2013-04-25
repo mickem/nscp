@@ -46,19 +46,14 @@ def scp_file(file):
 	tfile = os.path.basename(file)
 	(name, version, arch) = tfile.split('-')
 	target = None
-	if '_' in name:
-		(name, tag) = name.split('_')
-		target = find_target(tag)
-		if target:
-			print 'Found tagged installer %s for %s'%(tfile, tag)
-		else:
-			print 'Ignoring unconfigured tagged installer: %s (define TARGET_SITE_%s to a destination)'%(tag,tag)
-	else:
-		print 'Found normal installer %s'%tfile
-		target = find_target()
+	print 'Found installer %s'%name
+	target = find_target(name)
 	if target:
+		print 'Found tagged installer %s for %s'%(tfile, target)
 		print 'Uploading name: %s to %s'%(tfile, target)
 		os.system("%s %s %s"%(SCP_BINARY, file, target))
+	else:
+		print 'Ignoring unconfigured tagged installer: %s (TARGET_SITE=%s=URL;...)'%(name, name)
 
 def rename_and_move(file, target):
 	tfile = '%s/%s'%(target, os.path.basename(file))
@@ -115,5 +110,5 @@ try:
 			scp_file(f)
 		for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
 			scp_file(f)
-except NameError:
-	print 'TARGET_SITE not defined so we wont upload anything...'
+except NameError, e:
+	print 'TARGET_SITE not defined so we wont upload anything: %s'%e

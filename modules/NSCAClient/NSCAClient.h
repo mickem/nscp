@@ -46,6 +46,7 @@ private:
 	std::string hostname_;
 	bool cacheNscaHost_;
 	long time_delta_;
+	std::string encoding_;
 
 	struct custom_reader {
 		typedef nscapi::targets::target_object object_type;
@@ -98,6 +99,9 @@ private:
 
 				(_T("time offset"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("delay"), _1), _T("0")),
 				_T("TIME OFFSET"), _T("Time offset."), true)
+
+				(_T("encoding"), sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_property_string, &object, _T("encoding"), _1), _T("")),
+				_T("ENCODING"), _T(""), true)
 				;
 		}
 
@@ -123,6 +127,7 @@ public:
 		std::string sender_hostname;
 		int buffer_length;
 		int time_delta;
+		std::string encoding;
 
 		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
 			arguments.import(target);
@@ -140,6 +145,7 @@ public:
 			buffer_length = arguments.get_int_data("payload length", 512);
 			password = arguments.get_string_data("password");
 			encryption = arguments.get_string_data("encryption");
+			encoding = arguments.get_string_data("encoding");
 			std::string tmp = arguments.get_string_data("time offset");
 			if (!tmp.empty())
 				time_delta = strEx::stol_as_time_sec(arguments.get_string_data("time offset"));
@@ -165,6 +171,7 @@ public:
 			ss << ", password: " << password;
 			ss << ", encryption: " << encryption << "(" << nscp::encryption::helpers::encryption_to_int(encryption) << ")";
 			ss << ", hostname: " << sender_hostname;
+			ss << ", encoding: " << encoding;
 			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
 		}

@@ -166,18 +166,13 @@ bool CheckExternalScripts::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMo
 		root_ = get_core()->getBasePath();
 
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			NSC_DEBUG_MSG(_T("Registring command: ") + o.second.to_wstring());
+			//NSC_DEBUG_MSG(_T("Registring command: ") + o.second.to_wstring());
 			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
 		}
-		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			NSC_DEBUG_MSG(_T("Registring alias: ") + o.second.to_wstring());
+		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
+			//NSC_DEBUG_MSG(_T("Registring alias: ") + o.second.to_wstring());
 			register_command(o.second.alias, _T("Alias for: ") + o.second.alias);
 		}
-
-
-// 	} catch (nrpe::server::nrpe_exception &e) {
-// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-// 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_STD(_T("Exception caught: <UNKNOWN EXCEPTION>"));
 		return false;
@@ -190,6 +185,9 @@ bool CheckExternalScripts::unloadModule() {
 
 void CheckExternalScripts::add_command(std::wstring key, std::wstring arg) {
 	try {
+		if (!allowArgs_ && arg.find(_T("$ARG")) != std::wstring::npos) {
+			NSC_DEBUG_MSG_STD(_T("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)"));
+		}
 		commands_.add(get_settings_proxy(), commands_path, key, arg, key == _T("default"));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD(_T("Failed to add command: ") + key + _T(", ") + utf8::to_unicode(e.what()));
@@ -218,75 +216,75 @@ bool CheckExternalScripts::hasMessageHandler() {
 NSCAPI::nagiosReturn CheckExternalScripts::handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response) {
 	nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 
-	commands::optional_command_object cmd = commands_.find_object(data.command);
-	bool isAlias = !cmd;
-	if (!cmd)
-		cmd = aliases_.find_object(data.command);
-	if (!cmd) {
-		NSC_LOG_ERROR_STD(_T("Alias: ") + char_command + _T(" not found."));
-		return NSCAPI::returnIgnored;
+	commands::optional_command_object command_def = commands_.find_object(data.command);
+	if (command_def) {
+		return handle_command(*command_def, data, response);
 	}
+	alias::optional_command_object alias_def = aliases_.find_object(data.command);
+	if (alias_def) {
+		return handle_alias(*alias_def, data, response);
+	}
+	NSC_LOG_ERROR_STD(_T("No command or alias found matching: ") + char_command);
+	return NSCAPI::returnIgnored;
+}
 
-	const commands::command_object cd = *cmd;
-	std::list<std::wstring> args = cd.arguments;
-	bool first = true;
-	if (isAlias || allowArgs_) {
-		BOOST_FOREACH(std::wstring &arg, args) {
-			int i=1;
-			BOOST_FOREACH(std::wstring str, data.args) {
-				if (first && !isAlias && !allowNasty_) {
-					if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
-						return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
-					}
-				}
-				strEx::replace(arg, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
+NSCAPI::nagiosReturn CheckExternalScripts::handle_command(const commands::command_object &cd, const nscapi::functions::decoded_simple_command_data &data, std::string &response) {
+	std::wstring cmdline = cd.command;
+	if (allowArgs_) {
+		int i=1;
+		BOOST_FOREACH(const std::wstring &str, data.args) {
+			if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
+				return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
 			}
+			strEx::replace(cmdline, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
 		}
-	} else if (!allowArgs_ && data.args.size() > 0) {
+	} else if (data.args.size() > 0) {
 		NSC_LOG_ERROR_STD(_T("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true"))
 	}
 
+	std::wstring message, perf;
 
-	std::wstring xargs;
-	BOOST_FOREACH(std::wstring s, args) {
-		if (!xargs.empty())
-			xargs += _T(" ");
-		xargs += s;
+	NSC_DEBUG_MSG(_T("Command line: ") + cmdline);
+
+	process::exec_arguments args(root_, cmdline, timeout, cd.encoding);
+	if (!cd.user.empty()) {
+		args.user = cd.user;
+		args.domain = cd.domain;
+		args.password = cd.password;
 	}
+	int result = process::executeProcess(args, message, perf);
+	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
+		nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
+		return NSCAPI::returnUNKNOWN;
+	}
+	nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);
+	return result;
+}
 
-	NSC_DEBUG_MSG(_T("Arguments: ") + xargs);
 
-
-	if (isAlias) {
-		std::wstring message;
-		try {
-			int result = nscapi::core_helper::simple_query(cd.command, args, response);
-			if (result == NSCAPI::returnIgnored) {
-				nscapi::functions::create_simple_query_response_unknown(data.command, _T("No handler for command: ") + cd.command, response);
-				return NSCAPI::returnUNKNOWN;
+NSCAPI::nagiosReturn CheckExternalScripts::handle_alias(const alias::command_object &cd, const nscapi::functions::decoded_simple_command_data &data, std::string &response) {
+	std::list<std::wstring> args = cd.arguments;
+	bool first = true;
+	BOOST_FOREACH(std::wstring &arg, args) {
+		int i=1;
+		BOOST_FOREACH(std::wstring str, data.args) {
+			if (first) {
+				if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
+					return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
+				}
 			}
-			return result;
-		} catch (boost::escaped_list_error &e) {
-			NSC_LOG_MESSAGE(_T("Failed to parse alias expression: ") + strEx::string_to_wstring(e.what()));
-			NSC_LOG_MESSAGE(_T("We will now try parsing the old syntax instead..."));
-			return nscapi::core_helper::simple_query(cd.command, args, response);
+			strEx::replace(arg, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
 		}
-	} else {
-		std::wstring message, perf;
-		process::exec_arguments args(root_, cd.command + _T(" ") + xargs, timeout);
-		if (!cd.user.empty()) {
-			args.user = cd.user;
-			args.domain = cd.domain;
-			args.password = cd.password;
-		}
-		int result = process::executeProcess(args, message, perf);
-		if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-			nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
-			return NSCAPI::returnUNKNOWN;
-		}
-		nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);
-		return result;
+		first = false;
 	}
+
+	std::wstring message;
+	int result = nscapi::core_helper::simple_query(cd.command, args, response);
+	if (result == NSCAPI::returnIgnored) {
+		nscapi::functions::create_simple_query_response_unknown(data.command, _T("No handler for command: ") + cd.command, response);
+		return NSCAPI::returnUNKNOWN;
+	}
+	return result;
 }
 NSC_WRAP_DLL()
 NSC_WRAPPERS_MAIN_DEF(CheckExternalScripts)

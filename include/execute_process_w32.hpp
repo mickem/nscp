@@ -45,7 +45,7 @@ namespace process {
 		return str;
 	}
 
-	int executeProcess(process::exec_arguments args, std::wstring &msg, std::wstring &perf) {
+	int executeProcess(const process::exec_arguments args, std::wstring &msg, std::wstring &perf) {
 		NSCAPI::nagiosReturn result;
 		PROCESS_INFORMATION pi;
 		STARTUPINFO si;
@@ -112,7 +112,7 @@ namespace process {
 			dwAvail = 0;
 			if (::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL) && dwAvail > 0)
 				str += readFromFile(buffer, hChildOutR);
-			msg = strEx::string_to_wstring(str);
+			msg = utf8::from_encoding(str, args.encoding);
 			destroyBuffer(buffer);
 
 			if (dwstate == WAIT_TIMEOUT) {

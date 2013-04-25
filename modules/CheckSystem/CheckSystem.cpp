@@ -665,10 +665,12 @@ NSCAPI::nagiosReturn CheckSystem::handleCommand(const std::wstring &target, cons
 class cpuload_handler {
 public:
 	static int parse(std::wstring s) {
-		return strEx::stoi(s);
+		std::wstring::size_type pos = s.find_first_not_of(_T("0123456789"));
+		return strEx::stoi(s.substr(0, pos));
 	}
 	static int parse_percent(std::wstring s) {
-		return strEx::stoi(s);
+		std::wstring::size_type pos = s.find_first_not_of(_T("0123456789"));
+		return strEx::stoi(s.substr(0, pos));
 	}
 	static std::wstring print(int value) {
 		return strEx::itos(value) + _T("%");

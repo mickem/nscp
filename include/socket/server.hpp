@@ -51,7 +51,8 @@ namespace socket_helpers {
 #endif
 
 			boost::asio::io_service io_service_;
-			boost::asio::ip::tcp::acceptor acceptor_;
+			boost::asio::ip::tcp::acceptor acceptor_v4;
+			boost::asio::ip::tcp::acceptor acceptor_v6;
 			boost::asio::strand accept_strand_;
 			socket_helpers::connection_info info_;
 			typename protocol_type::handler_type handler_;
@@ -66,7 +67,8 @@ namespace socket_helpers {
 			server(socket_helpers::connection_info info, typename protocol_type::handler_type handler)
 				: info_(info)
 				, handler_(handler)
-				, acceptor_(io_service_)
+				, acceptor_v4(io_service_)
+				, acceptor_v6(io_service_)
 				, accept_strand_(io_service_)
 				, logger_(protocol_type::create(info_, handler_))
 #ifdef USE_SSL
@@ -78,10 +80,13 @@ namespace socket_helpers {
 
 			}
 
-			void start() {
+			bool start() {
 				boost::system::error_code er;
 				ip::tcp::resolver resolver(io_service_);
 				ip::tcp::resolver::iterator endpoint_iterator;
+				if (info_.back_log == connection_info::backlog_default)
+					info_.back_log = boost::asio::socket_base::max_connections;
+
 				if (info_.address.empty()) {
 					endpoint_iterator = resolver.resolve(ip::tcp::resolver::query(info_.get_port()));
 				} else {
@@ -90,7 +95,7 @@ namespace socket_helpers {
 				ip::tcp::resolver::iterator end;
 				if (endpoint_iterator == end) {
 					logger_->log_error(__FILE__, __LINE__, "Failed to lookup: " + info_.get_endpoint_string());
-					return;
+					return false;
 				}
 				if (info_.ssl.enabled) {
 #ifdef USE_SSL
@@ -101,49 +106,87 @@ namespace socket_helpers {
 					}
 #else
 					logger_->log_error(__FILE__, __LINE__, "Not compiled with SSL");
+					return false;
 #endif
 				}
 				new_connection_.reset(create_connection());
 
-				ip::tcp::endpoint endpoint = *endpoint_iterator;
-				acceptor_.open(endpoint.protocol());
-				acceptor_.set_option(ip::tcp::acceptor::reuse_address(true), er);
-				if (er) {
-					logger_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
-				}
-				logger_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
-				acceptor_.bind(endpoint, er);
-				if (er) {
-					logger_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
-				}
-				if (info_.back_log == connection_info::backlog_default)
-					acceptor_.listen();
-				else
-					acceptor_.listen(info_.back_log);
+				for (;endpoint_iterator != end;++endpoint_iterator) {
+					ip::tcp::endpoint endpoint = *endpoint_iterator;
 
-				acceptor_.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
-					boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
+					std::stringstream ss;
+					ss << endpoint;
+					if (endpoint.address().is_v4()) {
+						ss << "(ipv4)";
+						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
+						if (!setup_acceptor(acceptor_v4, endpoint))
+							return false;
+					} else if (endpoint.address().is_v6()) {
+						ss << "(ipv6)";
+						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
+						if (!setup_acceptor(acceptor_v6, endpoint))
+							return false;
+					} else {
+						logger_->log_error(__FILE__, __LINE__, "Invalid protocol (ignoring): " + ss.str());
+						continue;
+					}
+					ss << endpoint;
+				}
+
+				if (acceptor_v4.is_open())
+					acceptor_v4.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
+						boost::bind(&server::handle_accept, this, false, boost::asio::placeholders::error)
 					));
-				logger_->log_debug(__FILE__, __LINE__, "Bound to: " + info_.get_endpoint_string());
+				if (acceptor_v6.is_open())
+					acceptor_v6.async_accept(new_connection_->get_socket(),accept_strand_.wrap(
+						boost::bind(&server::handle_accept, this, true, boost::asio::placeholders::error)
+						));
 
 				for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
 					thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
 				}
 			}
 
+			bool setup_acceptor(boost::asio::ip::tcp::acceptor &acceptor, ip::tcp::endpoint &endpoint) {
+				boost::system::error_code er;
+				if (acceptor.is_open()) {
+					logger_->log_error(__FILE__, __LINE__, "Acceptor is already open (cant bind multiple interfaces)");
+					return true;
+				}
+				acceptor.open(endpoint.protocol(), er);
+				if (er) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
+					return false;
+				}
 
-			std::string get_password() const
-			{
-				logger_->log_error(__FILE__, __LINE__, "Getting password...");
-				return "test";
+				logger_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
+				acceptor.bind(endpoint, er);
+				if (er) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
+					return false;
+				}
+
+				acceptor.listen(info_.back_log, er);
+				if (er) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to open: " + er.message());
+					return false;
+				}
+				return true;
 			}
+
+
+// 			std::string get_password() const
+// 			{
+// 				logger_->log_error(__FILE__, __LINE__, "Getting password...");
+// 				return "test";
+// 			}
 			void stop() {
 				io_service_.stop();
 				thread_group_.join_all();
 			}
 
 		private:
-			void handle_accept(const boost::system::error_code& e) {
+			void handle_accept(bool ipv6, const boost::system::error_code& e) {
 				if (!e) {
 					std::list<std::string> errors;
 					if (logger_->on_accept(new_connection_->get_socket())) {
@@ -151,12 +194,18 @@ namespace socket_helpers {
 					} else {
 						new_connection_->on_done(false);
 					}
-
 					new_connection_.reset(create_connection());
 
-					acceptor_.async_accept(new_connection_->get_socket(),
+					if (ipv6)
+ 						acceptor_v6.async_accept(new_connection_->get_socket(),
+ 							accept_strand_.wrap(
+ 							boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
+ 							)
+ 							);
+					else
+						acceptor_v4.async_accept(new_connection_->get_socket(),
 						accept_strand_.wrap(
-						boost::bind(&server::handle_accept, this, boost::asio::placeholders::error)
+						boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
 						)
 						);
 				} else {

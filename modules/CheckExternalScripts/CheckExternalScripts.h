@@ -24,11 +24,12 @@ NSC_WRAPPERS_MAIN()
 #include <error.hpp>
 #include <execute_process.hpp>
 #include "commands.hpp"
+#include "alias.hpp"
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
 	commands::command_handler commands_;
-	commands::command_handler aliases_;
+	alias::command_handler aliases_;
 	unsigned int timeout;
 	std::wstring commands_path;
 	std::wstring aliases_path;
@@ -63,6 +64,10 @@ public:
 	NSCAPI::nagiosReturn handleRAWCommand(const wchar_t* char_command, const std::string &request, std::string &response);
 	//NSCAPI::nagiosReturn handleCommand(const std::wstring command, std::list<std::wstring> arguments, std::wstring &message, std::wstring &perf);
 	std::wstring getConfigurationMeta();
+	NSCAPI::nagiosReturn handle_alias(const alias::command_object &cd, const nscapi::functions::decoded_simple_command_data &data, std::string &response);
+	NSCAPI::nagiosReturn handle_command(const commands::command_object &cd, const nscapi::functions::decoded_simple_command_data &data, std::string &response);
+
+
 
 private:
 	class NRPEException {

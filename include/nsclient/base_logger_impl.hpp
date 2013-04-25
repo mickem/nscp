@@ -66,7 +66,8 @@ namespace nsclient {
 			}
 
 			virtual void do_log(const std::string data) = 0;
-			virtual void configure() = 0;
+			virtual void synch_configure() = 0;
+			virtual void asynch_configure() = 0;
 			virtual bool shutdown() {
 				is_running_ = false;
 				return true;

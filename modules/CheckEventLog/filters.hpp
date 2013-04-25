@@ -281,6 +281,9 @@ namespace filters {
 				(_T("destination"), nscapi::settings_helper::wstring_key(&object.target),
 				_T("DESTINATION"), _T("The destination for intercepted messages"), !is_default)
 
+				(_T("target"), nscapi::settings_helper::wstring_key(&object.target),
+				_T("DESTINATION"), _T("Same as destination"), false)
+
 				(_T("language"), nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_language, &object, _1)),
 				_T("MESSAGE LANGUAGE"), _T("The language to use for rendering message (mainly used fror testing)"), true)
 

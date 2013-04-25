@@ -138,6 +138,13 @@ namespace nscapi {
 			Plugin::SubmitRequestMessage request;
 			request.mutable_header()->CopyFrom(response.header());
 			request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
+			for (int i=0;i<request.mutable_header()->hosts_size();i++) {
+				Plugin::Common_Host *host = request.mutable_header()->mutable_hosts(i);
+				if (host->id() == request.mutable_header()->recipient_id()) {
+					host->clear_address();
+					host->clear_metadata();
+				}
+			}
 			request.set_channel(utf8::cvt<std::string>(channel));
 			if (!target.empty()) {
 				request.mutable_header()->set_recipient_id(utf8::cvt<std::string>(target));

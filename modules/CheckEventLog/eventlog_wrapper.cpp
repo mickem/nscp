@@ -2,8 +2,9 @@
 #include "eventlog_wrapper.hpp"
 #include "simple_registry.hpp"
 
-eventlog_wrapper::eventlog_wrapper(const std::wstring &name) : name(name), hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
-	open(name);
+eventlog_wrapper::eventlog_wrapper(const std::wstring &tmpname) : hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
+	name = find_eventlog_name(tmpname);
+	open();
 }
 eventlog_wrapper::~eventlog_wrapper() {
 	if (isOpen())
@@ -12,16 +13,26 @@ eventlog_wrapper::~eventlog_wrapper() {
 	bufferSize = 0;
 	lastReadSize = 0;
 }
-void eventlog_wrapper::open(const std::wstring &name) {
-	std::wstring realname = find_eventlog_name(name);
-	hLog = OpenEventLog(NULL, realname.c_str());
+void eventlog_wrapper::open() {
+	hLog = OpenEventLog(NULL, name.c_str());
+	if (hLog == INVALID_HANDLE_VALUE) {
+		NSC_LOG_ERROR(_T("Failed to open eventlog: ") + error::lookup::last_error());
+	}
+}
+
+void eventlog_wrapper::reopen() {
+	if (isOpen())
+		close();
+	open();
 }
 
 void eventlog_wrapper::close() {
-	CloseEventLog(hLog);
+	if (!CloseEventLog(hLog)) {
+		NSC_LOG_ERROR(_T("Failed to close eventlog: ") + error::lookup::last_error());
+	}
 }
 
-bool eventlog_wrapper::get_last_Record_number(DWORD* pdwRecordNumber) {
+bool eventlog_wrapper::get_last_record_number(DWORD* pdwRecordNumber) {
 	DWORD status = ERROR_SUCCESS;
 	DWORD OldestRecordNumber = 0;
 	DWORD NumberOfRecords = 0;
@@ -36,8 +47,31 @@ bool eventlog_wrapper::get_last_Record_number(DWORD* pdwRecordNumber) {
 	return true;
 }
 
+bool eventlog_wrapper::get_first_record_number(DWORD* pdwRecordNumber) {
+	DWORD status = ERROR_SUCCESS;
+	DWORD OldestRecordNumber = 0;
+	DWORD NumberOfRecords = 0;
+
+	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
+		return false;
+
+	*pdwRecordNumber = OldestRecordNumber;
+	return true;
+}
+
 bool eventlog_wrapper::notify(HANDLE &handle) {
 	handle = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!handle) {
+		return false;
+	}
+	return NotifyChangeEventLog(hLog, handle);
+}
+
+bool eventlog_wrapper::un_notify(HANDLE &handle) {
+	return CloseHandle(handle);
+}
+
+bool eventlog_wrapper::re_notify(HANDLE &handle) {
 	if (!handle) {
 		return false;
 	}
@@ -47,7 +81,18 @@ bool eventlog_wrapper::notify(HANDLE &handle) {
 bool eventlog_wrapper::seek_end() {
 	DWORD dwLastRecordNumber = 0;
 
-	if (!get_last_Record_number(&dwLastRecordNumber))
+	if (!get_last_record_number(&dwLastRecordNumber))
+		return false;
+
+	if (read_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
+		return false;
+	return true;
+}
+
+bool eventlog_wrapper::seek_start() {
+	DWORD dwLastRecordNumber = 0;
+
+	if (!get_first_record_number(&dwLastRecordNumber))
 		return false;
 
 	if (read_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)

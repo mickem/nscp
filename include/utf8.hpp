@@ -99,6 +99,8 @@ namespace utf8 {
 
 #ifdef WIN32
 	inline UINT parse_encoding(const std::string & str) {
+		if (str.empty())
+			return CP_ACP;
 		if (str == "system")
 			return CP_ACP;
 		if (str == "utf8" || str == "utf-8")
@@ -110,7 +112,7 @@ namespace utf8 {
 		return CP_ACP;
 	}
 #endif
-	inline std::wstring from_encoding(std::string const & str, const std::string & encoding) {
+	inline std::wstring from_encoding(const std::string const & str, const std::string & encoding) {
 #ifdef WIN32
 		UINT uiEncoding = parse_encoding(encoding);
 		int len = static_cast<int>(str.length());

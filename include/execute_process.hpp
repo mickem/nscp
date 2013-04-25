@@ -32,10 +32,11 @@ namespace process {
 
 	class exec_arguments {
 	public:
-		exec_arguments(std::wstring root_path_, std::wstring command_, unsigned int timeout_)
+		exec_arguments(std::wstring root_path_, std::wstring command_, unsigned int timeout_, const std::string &encoding)
 			: root_path(root_path_)
 			, command(command_)
 			, timeout(timeout_) 
+			, encoding(encoding)
 		{}
 
 		std::wstring root_path;
@@ -44,6 +45,7 @@ namespace process {
 		std::wstring user;
 		std::wstring domain;
 		std::wstring password;
+		std::string encoding;
 	};
 }
 

@@ -255,10 +255,14 @@ namespace settings {
 			if (rc < 0)
 				throw_SI_error(rc, _T("Failed to load file"));
 
+			get_core()->register_path(_T("/includes"), _T("INCLUDED FILES"), _T("Files to be included in the configuration"), false);
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(_T("/includes"), lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-				add_child_unsafe(ini.GetValue(_T("/includes"), (*cit).pItem));
+				std::wstring child = ini.GetValue(_T("/includes"), (*cit).pItem);
+				get_core()->register_key(_T("/includes"), (*cit).pItem, settings::settings_core::key_string, 
+					_T("INCLUDED FILE"), child, child, false);
+				add_child_unsafe(child);
 			}
 			is_loaded_ = true;
 		}
