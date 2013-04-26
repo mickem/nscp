@@ -112,7 +112,7 @@ namespace utf8 {
 		return CP_ACP;
 	}
 #endif
-	inline std::wstring from_encoding(const std::string const & str, const std::string & encoding) {
+	inline std::wstring from_encoding(const std::string & str, const std::string & encoding) {
 #ifdef WIN32
 		UINT uiEncoding = parse_encoding(encoding);
 		int len = static_cast<int>(str.length());
