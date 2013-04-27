@@ -309,11 +309,14 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
 			if ( !is_directory(itr->status()) ) {
 				boost::filesystem::path file= itr->path().filename();
-				if (NSCPlugin::is_module(pluginPath  / file) && !contains_plugin(ret, "", file.string()))
-					ret.insert(plugin_alias_list_type::value_type("", file.string()));
+				if (NSCPlugin::is_module(pluginPath  / file)) {
+					const std::string module = NSCPlugin::file_to_module(file);
+					if (!contains_plugin(ret, "", module))
+						ret.insert(plugin_alias_list_type::value_type("", module));
+				}
 			}
 		}
-	} 
+	}
 	return ret;
 }
 
@@ -1494,18 +1497,18 @@ void settings_add_plugin_data(const std::set<unsigned int> &plugins, modules_typ
 }
 
 NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	try {
-		std::string response_string;
-		Plugin::SettingsRequestMessage request;
-		Plugin::SettingsResponseMessage response;
-		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
-		modules_type module_cache;
-		request.ParseFromArray(request_buffer, request_buffer_len);
-		for (int i=0;i<request.payload_size();i++) {
+	std::string response_string;
+	Plugin::SettingsRequestMessage request;
+	Plugin::SettingsResponseMessage response;
+	nscapi::protobuf::functions::create_simple_header(response.mutable_header());
+	modules_type module_cache;
+	request.ParseFromArray(request_buffer, request_buffer_len);
+	for (int i=0;i<request.payload_size();i++) {
+		Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
+		try {
 			const Plugin::SettingsRequestMessage::Request &r = request.payload(i);
 			if (r.has_inventory()) {
 				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory(); 
-				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				if (q.node().has_key()) {
 					settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(q.node().path(), q.node().key());
 					Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
@@ -1569,7 +1572,6 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				}
 			} else if (r.has_query()) {
 				const Plugin::SettingsRequestMessage::Request::Query &q = r.query(); 
-				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
 				rpp->mutable_node()->CopyFrom(q.node());
 				if (q.node().has_key()) {
@@ -1585,14 +1587,19 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					}
 				} else {
 					rpp->mutable_value()->set_type(Plugin::Common_DataType_LIST);
-					BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(q.node().path())) {
-						rpp->mutable_value()->add_list_data(key);
+					if (q.has_recursive() && q.recursive()) {
+						BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_sections(q.node().path())) {
+							rpp->mutable_value()->add_list_data(key);
+						}
+					} else {
+						BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(q.node().path())) {
+							rpp->mutable_value()->add_list_data(key);
+						}
 					}
 				}
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else if (r.has_registration()) {
 				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration(); 
-				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				rp->mutable_registration();
 				if (q.node().has_key()) {
 					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced());
@@ -1602,7 +1609,6 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else if (r.has_update()) {
 				const Plugin::SettingsRequestMessage::Request::Update &p = r.update(); 
-				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				rp->mutable_update();
 				if (p.value().type() == Plugin::Common_DataType_STRING) {
 					settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
@@ -1616,32 +1622,46 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else if (r.has_control()) {
 				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
-				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				rp->mutable_control();
 				if (p.command() == Plugin::Settings_Command_LOAD) {
-					settings_manager::get_core()->migrate_from(p.context());
+					if (p.has_context() && p.context().size() > 0)
+						settings_manager::get_core()->migrate_from(p.context());
+					else
+						settings_manager::get_settings()->load();
 					settings_manager::get_settings()->reload();
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 				} else if (p.command() == Plugin::Settings_Command_SAVE) {
-					settings_manager::get_core()->migrate_to(p.context());
+					if (p.has_context() && p.context().size() > 0)
+						settings_manager::get_core()->migrate_to(p.context());
+					else
+						settings_manager::get_settings()->save();
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				} else {
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_message("Unknown command");
 				}
 			} else {
-				LOG_ERROR_CORE("Invalid action");
-				return NSCAPI::hasFailed;
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_message("Settings error: Invalid action");
+				LOG_ERROR_CORE_STD("Settings error: Invalid action");
 			}
+		} catch (settings::settings_exception &e) {
+			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_message("Settings error: " + e.reason());
+			LOG_ERROR_CORE_STD("Settings error: " + e.reason());
+		} catch (const std::exception &e) {
+			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_message("Settings error: " + utf8::utf8_from_native(e.what()));
+			LOG_ERROR_CORE_STD("Settings error: " + utf8::utf8_from_native(e.what()));
+		} catch (...) {
+			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_message("Settings error");
+			LOG_ERROR_CORE_STD("Settings error");
 		}
-		*response_buffer_len = response.ByteSize();
-		*response_buffer = new char[*response_buffer_len + 10];
-		response.SerializeToArray(*response_buffer, *response_buffer_len);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD("Failed query key: " + e.reason());
-		return NSCAPI::hasFailed;
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Failed query key: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
-	} catch (...) {
-		LOG_ERROR_CORE("Failed query key");
-		return NSCAPI::hasFailed;
 	}
+	*response_buffer_len = response.ByteSize();
+	*response_buffer = new char[*response_buffer_len + 10];
+	response.SerializeToArray(*response_buffer, *response_buffer_len);
 	return NSCAPI::isSuccess;
 }
 

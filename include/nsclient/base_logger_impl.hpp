@@ -10,8 +10,8 @@ namespace nsclient {
 		struct logger_helper {
 // 			static std::string create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message);
 			static std::string create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message);
-			static std::wstring render_log_level_short(NSCAPI::log_level::level code);
-			static std::wstring render_log_level_long(NSCAPI::log_level::level code);
+			static std::string render_log_level_short(NSCAPI::log_level::level code);
+			static std::string render_log_level_long(NSCAPI::log_level::level code);
 			static std::string get_formated_date(std::string format);
 		};
 

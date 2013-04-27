@@ -2,37 +2,37 @@
 #include <nsclient/base_logger_impl.hpp>
 #include <boost/date_time.hpp>
 
-std::wstring nsclient::logging::logger_helper::render_log_level_short(NSCAPI::log_level::level code) {
+std::string nsclient::logging::logger_helper::render_log_level_short(NSCAPI::log_level::level code) {
 	switch (code) {
 		case NSCAPI::log_level::critical:
-			return _T("C");
+			return "C";
 		case NSCAPI::log_level::warning:
-			return _T("W");
+			return "W";
 		case NSCAPI::log_level::error:
-			return _T("E");
+			return "E";
 		case NSCAPI::log_level::info:
-			return _T("L");
+			return "L";
 		case NSCAPI::log_level::debug:
-			return _T("D");
+			return "D";
 		default:
-			return _T("?");
+			return "?";
 	}
 }
 
-std::wstring nsclient::logging::logger_helper::render_log_level_long(NSCAPI::log_level::level code) {
+std::string nsclient::logging::logger_helper::render_log_level_long(NSCAPI::log_level::level code) {
 	switch (code) {
 		case NSCAPI::log_level::error:
-			return _T("error");
+			return "error";
 		case NSCAPI::log_level::critical:
-			return _T("critical");
+			return "critical";
 		case NSCAPI::log_level::warning:
-			return _T("warning");
+			return "warning";
 		case NSCAPI::log_level::info:
-			return _T("message");
+			return "message";
 		case NSCAPI::log_level::debug:
-			return _T("debug");
+			return "debug";
 	}
-	return _T("unknown");
+	return "unknown";
 }
 
 std::string nsclient::logging::logger_helper::get_formated_date(std::string format) {

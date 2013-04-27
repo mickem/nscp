@@ -210,6 +210,15 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			po::options_description desc = create_descriptor(real_command, default_command, config);
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
 				return true;
+			if (!config.data->target_id.empty()) {
+				if (!config.target_lookup) {
+					nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
+					return true;
+				}
+				config.data->recipient.apply(config.target_lookup->lookup_target(config.data->target_id));
+				if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
+					return true;
+			}
 		} else {
 			std::vector<std::string> args;
 			po::options_description desc = create_descriptor(request.command(), default_command, config);
@@ -222,20 +231,24 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			}
 			if (!nscapi::program_options::process_arguments_from_vector(vm, desc, request.command(), args, response)) 
 				return true;
+			if (!config.data->target_id.empty()) {
+				if (!config.target_lookup) {
+					nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
+					return true;
+				}
+				config.data->recipient.apply(config.target_lookup->lookup_target(config.data->target_id));
+				if (!nscapi::program_options::process_arguments_from_vector(vm, desc, request.command(), args, response)) 
+					return true;
+			}
 		}
 	} catch (const std::exception &e) {
 		nscapi::protobuf::functions::set_response_bad(response, "Exception processing command line: " + utf8::utf8_from_native(e.what()));
 		return true;
 	}
 
-	if (!config.data->target_id.empty()) {
-		if (!config.target_lookup) {
-			nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
-			return true;
-		}
-		config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
-	}
-	if (real_command == "query" || (real_command.empty() && default_command == "query")) {
+	if (real_command.empty())
+		real_command = default_command;
+	if (real_command == "query") {
 		Plugin::QueryResponseMessage::Response local_response;
 		do_query(config, request_message.header(), local_response);
 		std::string s = nscapi::protobuf::functions::build_performance_data(local_response);
@@ -245,13 +258,16 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			s = local_response.message();
 		response.set_message(s);
 		response.set_result(local_response.result());
-	} else if (real_command == "exec" || (real_command.empty() && default_command == "exec")) {
+	} else if (real_command == "exec") {
 		do_exec(config, request_message.header(), response);
-	} else if (real_command == "submit" || (real_command.empty() && default_command == "submit")) {
+	} else if (real_command == "submit") {
 		Plugin::SubmitResponseMessage::Response local_response;
 		do_submit(config, request_message.header(), local_response);
 		if (local_response.status().status() == Plugin::Common_Status_StatusType_STATUS_OK || local_response.status().status() == Plugin::Common_Status_StatusType_STATUS_DELAYED) {
-			nscapi::protobuf::functions::set_response_good(response, "Submission successful: " + local_response.status().message());
+			if (local_response.status().message().empty())
+				nscapi::protobuf::functions::set_response_good(response, "Submission successful");
+			else
+				nscapi::protobuf::functions::set_response_good(response, local_response.status().message());
 		} else {
 			nscapi::protobuf::functions::set_response_bad(response, "Submission failed: " + local_response.status().message());
 		}

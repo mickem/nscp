@@ -201,6 +201,17 @@ public:
 	return boost::ends_with(file.string(), _T(".so"));
 #endif
 	}
+	static std::string file_to_module(const boost::filesystem::path &file) {
+		const std::string str = file.string();
+#ifdef WIN32
+		if (boost::ends_with(str, _T(".dll"))) 
+			return str.substr(0, str.size()-4);
+#else
+		if (boost::ends_with(file.string(), _T(".so"))) 
+			return str.substr(0, str.size()-3);
+#endif
+		return str;
+	}
 	bool getLastIsMsgPlugin() {
 		return lastIsMsgPlugin_;
 	}

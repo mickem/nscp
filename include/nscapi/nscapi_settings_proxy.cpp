@@ -126,7 +126,26 @@ void nscapi::settings_proxy::set_int(std::string path, std::string key, int valu
 	report_errors(response, core_, "update " + path + "." + key);
 }
 bool nscapi::settings_proxy::get_bool(std::string path, std::string key, bool def) {
-	return false;
+	Plugin::SettingsRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
+	item->mutable_node()->set_key(key);
+	item->mutable_node()->set_path(path);
+	item->set_type(Plugin::Common_DataType_BOOL);
+	item->set_recursive(false);
+	item->mutable_default_value()->set_type(Plugin::Common_DataType_BOOL);
+	item->mutable_default_value()->set_bool_data(def);
+
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+	if (response.payload_size() != 1 || !response.payload(0).has_query()) {
+		return def;
+	}
+	return response.payload(0).query().value().bool_data();
 }
 void nscapi::settings_proxy::set_bool(std::string path, std::string key, bool value) {
 	Plugin::SettingsRequestMessage request;
@@ -147,10 +166,58 @@ void nscapi::settings_proxy::set_bool(std::string path, std::string key, bool va
 }
 nscapi::settings_proxy::string_list nscapi::settings_proxy::get_sections(std::string path) {
 	nscapi::settings_proxy::string_list ret;
+	Plugin::SettingsRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
+	item->mutable_node()->set_path(path);
+	item->set_type(Plugin::Common_DataType_LIST);
+	item->set_recursive(true);
+
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+
+
+	if (response.payload_size() != 1 || !response.payload(0).has_query()) {
+		return ret;
+	}
+
+	const ::Plugin::Common_AnyDataType value = response.payload(0).query().value();
+
+	for (int i=0;i<value.list_data_size();++i) {
+		ret.push_back(value.list_data(i));
+	}
 	return ret;
 }
 nscapi::settings_proxy::string_list nscapi::settings_proxy::get_keys(std::string path) {
 	nscapi::settings_proxy::string_list ret;
+	Plugin::SettingsRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
+	item->mutable_node()->set_path(path);
+	item->set_type(Plugin::Common_DataType_LIST);
+	item->set_recursive(false);
+
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+
+
+	if (response.payload_size() != 1 || !response.payload(0).has_query()) {
+		return ret;
+	}
+
+	const ::Plugin::Common_AnyDataType value = response.payload(0).query().value();
+
+	for (int i=0;i<value.list_data_size();++i) {
+		ret.push_back(value.list_data(i));
+	}
 	return ret;
 }
 std::string nscapi::settings_proxy::expand_path(std::string key) {

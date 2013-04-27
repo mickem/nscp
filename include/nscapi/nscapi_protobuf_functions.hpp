@@ -38,36 +38,28 @@ namespace nscapi {
 			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 			
-			template<class T>
-			void set_response_good(T &response, std::string message);
-			template<>
+
 			inline void set_response_good(::Plugin::QueryResponseMessage::Response &response, std::string message) {
 				response.set_result(::Plugin::Common_ResultCode_OK);
 				response.set_message(message);
 			}
-			template<>
 			inline void set_response_good(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
 				response.set_result(::Plugin::Common_ResultCode_OK);
 				response.set_message(message);
 			}
-			template<>
 			inline void set_response_good(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
 				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_OK);
 				response.mutable_status()->set_message(message);
 			}
-			template<class T>
-			void set_response_bad(T &response, std::string message);
-			template<>
+
 			inline void set_response_bad(::Plugin::QueryResponseMessage::Response &response, std::string message) {
 				response.set_result(Plugin::Common_ResultCode_UNKNOWN);
 				response.set_message(message);
 			}
-			template<>
 			inline void set_response_bad(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
 				response.set_result(Plugin::Common_ResultCode_UNKNOWN);
 				response.set_message(message);
 			}
-			template<>
 			inline void set_response_bad(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
 				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_ERROR);
 				response.mutable_status()->set_message(message);
@@ -124,26 +116,18 @@ namespace nscapi {
 			void make_exec_from_query(std::string &data);
 			void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source);
 
-			void create_simple_query_request(std::wstring command, std::vector<std::wstring> arguments, std::string &buffer);
-			void create_simple_query_request(std::wstring command, std::list<std::wstring> arguments, std::string &buffer);
 			void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
 			void create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer);
-			void create_simple_submit_request(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
 			void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
-			void create_simple_submit_response(std::wstring channel, std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::string &buffer);
 			void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
-			NSCAPI::errorReturn parse_simple_submit_request(const std::string &request, std::wstring &source, std::wstring &command, std::wstring &msg, std::wstring &perf);
 
-			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
-			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
-			void parse_simple_query_request_payload(const Plugin::QueryRequestMessage::Request &payload, std::wstring &alias, std::wstring &command);
-			NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::wstring &response);
+ 			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
+ 			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
 			NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string response);
 			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::string msg, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
-			NSCAPI::nagiosReturn create_simple_query_response(std::wstring command, NSCAPI::nagiosReturn ret, std::wstring msg, std::wstring perf, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
 			void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
@@ -158,12 +142,9 @@ namespace nscapi {
 			decoded_simple_command_data parse_simple_query_request(const char* char_command, const std::string &request);
 			decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
 			decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
-			int parse_simple_query_response(const std::string &response, std::wstring &msg, std::wstring &perf);
 			int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
 			void create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request);
 			void create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request);
-			//int parse_simple_exec_result(const std::string &response, std::list<std::string> &result);
-			//void parse_simple_exec_result(const std::string &response, std::string &result);
 			int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
 
 			template<class T>

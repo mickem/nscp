@@ -42,25 +42,25 @@ std::string nsclient::logging::logger_helper::create(const std::string &module, 
 	return create_message(module, nscapi::protobuf::functions::log_to_gpb(level), file, line, message);
 }
 
-std::wstring render_log_level_short(Plugin::LogEntry::Entry::Level l) {
+std::string render_log_level_short(Plugin::LogEntry::Entry::Level l) {
 	return nsclient::logging::logger_helper::render_log_level_short(nscapi::protobuf::functions::gpb_to_log(l));
 }
 
-std::wstring render_log_level_long(Plugin::LogEntry::Entry::Level l) {
+std::string render_log_level_long(Plugin::LogEntry::Entry::Level l) {
 	return nsclient::logging::logger_helper::render_log_level_long(nscapi::protobuf::functions::gpb_to_log(l));
 }
-std::wstring rpad(std::wstring str, std::size_t len) {
+std::string rpad(std::string str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(str.length()-len);
-	return std::wstring(len-str.length(), L' ') + str;
+	return std::string(len-str.length(), ' ') + str;
 }
-std::wstring lpad(std::wstring str, std::size_t len) {
+std::string lpad(std::string str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(0, len);
-	return str + std::wstring(len-str.length(), L' ');
+	return str + std::string(len-str.length(), ' ');
 }
-std::wstring render_console_message(const std::string &data) {
-	std::wstringstream ss;
+std::string render_console_message(const std::string &data) {
+	std::stringstream ss;
 	try {
 		Plugin::LogEntry message;
 		if (!message.ParseFromString(data)) {
@@ -75,18 +75,18 @@ std::wstring render_console_message(const std::string &data) {
 			std::string tmp = msg.message();
 			strEx::replace(tmp, "\n", "\n    -    ");
 			ss << lpad(render_log_level_short(msg.level()), 1)
-				<< _T(" ") << rpad(utf8::cvt<std::wstring>(msg.sender()), 10)
-				<< _T(" ") + utf8::cvt<std::wstring>(msg.message())
+				<< " " << rpad(msg.sender(), 10)
+				<< " " + msg.message()
 				<< std::endl;
 			if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
-				ss << _T("                    ") 
-					<< utf8::cvt<std::wstring>(msg.file())
-					<< _T(":")
+				ss << "                    "
+					<< msg.file()
+					<< ":"
 					<< msg.line() << std::endl;
 
 			}
 		}
-		return ss.str();
+		return utf8::to_encoding(utf8::cvt<std::wstring>(ss.str()), "oem");
 	} catch (std::exception &e) {
 		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
@@ -226,7 +226,7 @@ public:
 
 	void do_log(const std::string data) {
 		if (get_console_log()) {
-			std::wcout << render_console_message(data);
+			std::cout << render_console_message(data);
 		}
 	}
 	void configure() {
@@ -281,7 +281,7 @@ public:
 
 	void do_log(const std::string data) {
 		if (get_console_log()) {
-			std::wcout << render_console_message(data);
+			std::cout << render_console_message(data);
 		}
 		push(data);
 	}

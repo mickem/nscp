@@ -50,10 +50,14 @@ namespace nsclient {
 				} else if (s.size() > 4 && s.substr(0,4) == "load") {
 					core_->boot_load_plugin(s.substr(5));
 				} else if (s == "list" || s == "commands") {
-					info(__LINE__, "Commands:");
 					std::list<std::string> lst = core_->list_commands();
-					BOOST_FOREACH(const std::string s, lst)
-						info(__LINE__, "| " + s + ": " + core_->describeCommand(s));
+					if (lst.size() == 0)
+						info(__LINE__, "NO commands found");
+					else {
+						info(__LINE__, "Commands:");
+						BOOST_FOREACH(const std::string s, lst)
+							info(__LINE__, "| " + s + ": " + core_->describeCommand(s));
+					}
 				} else if (s.size() > 4 && s.substr(0,3) == "log") {
 					info(__LINE__, "Setting log to: " + s.substr(4));
 					nsclient::logging::logger::set_log_level(s.substr(4));

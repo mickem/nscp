@@ -239,12 +239,9 @@ class NSCAServerTest(BasicTest):
 		result = TestResult('Testing payload submission (via command line exec): %s'%tag)
 		
 		result.add_message(result_code == 0, 'Testing to send message using %s/exec:1'%tag)
-		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag, len(result_message))
-		if len(result_message) > 0:
-			result.add_message(len(result_message[0]) == 0, 'Testing to send message using %s/exec:3'%tag, result_message[0])
-			self.wait_and_validate(uid, result, msg, perf, '%s/exec'%tag)
-		else:
-			result.add_message(False, 'Sending faliled: giving up on %s'%tag)
+		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag)
+		if len(result_message) == 1:
+			result.assert_equals(result_message[0], "Submission successful", 'Testing to send message using %s/exec:3'%tag)
 		return result
 
 	def test_one_crypto_full(self, encryption, state, key, target, length):

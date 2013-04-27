@@ -392,18 +392,18 @@ boost::tuple<int,std::wstring> NSCAClient::send(connection_data con, const std::
 			client.process_request(packet);
 		}
 		client.shutdown();
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
+		return boost::make_tuple(NSCAPI::isSuccess, _T(""));
 	} catch (const nscp::encryption::encryption_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("NSCA error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, _T("NSCA error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::runtime_error &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, _T("Socket error: ") + utf8::to_unicode(e.what()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, _T("Error: ") + utf8::to_unicode(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to send");
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::hasFailed, _T("Unknown error -- REPORT THIS!"));
 	}
 }

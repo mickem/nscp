@@ -15,7 +15,7 @@ namespace socket_helpers {
 		}
 
 
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default) {
+		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
@@ -36,7 +36,7 @@ namespace socket_helpers {
 				("ca", nscapi::settings_helper::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
 				"CA", "", true)
 
-				("allowed ciphers", nscapi::settings_helper::string_key(&info_.ssl.allowed_ciphers, "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+				("allowed ciphers", nscapi::settings_helper::string_key(&info_.ssl.allowed_ciphers, default_cipher),
 				"ALLOWED CIPHERS", "", true)
 
 				("verify mode", nscapi::settings_helper::string_key(&info_.ssl.verify_mode, "none"),

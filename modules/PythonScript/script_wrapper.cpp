@@ -532,7 +532,7 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 	} catch (...) {
 		return boost::python::make_tuple(false,std::string("Failed to submit message"));
 	}
-	std::wstring err;
+	std::string err;
 	nscapi::protobuf::functions::parse_simple_submit_response(response, err);
 	return boost::python::make_tuple(ret==NSCAPI::isSuccess,err);
 }
