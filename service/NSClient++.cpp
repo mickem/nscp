@@ -1107,7 +1107,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	ret = plugin->handleCommand(command.c_str(), request, response);
 	try {
 		std::string msg, perf;
-		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
+		ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 		resp.push_back(msg + "|" + perf);
 	} catch (std::exception &e) {
 		resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));

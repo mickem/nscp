@@ -6,12 +6,15 @@ from time import time
 install_checks = 100
 time_to_run = 30
 
-core = Core.get()
-
 class PythonTest(BasicTest):
 
 	noop_count = 0
 	stress_count = 0
+	
+	key = ''
+	reg = None
+	conf = None
+	core = None
 
 	def noop_handler(arguments):
 		instance = PythonTest.getInstance()
@@ -35,18 +38,15 @@ class PythonTest(BasicTest):
 	def setup(self, plugin_id, prefix):
 		log('Loading Python unit tests')
 		self.key = '_%stest_command'%prefix
-		self.reg = Registry.get(plugin_id)
 		self.reg.simple_function('py_stress_noop', PythonTest.noop_handler, 'This is a simple noop command')
 		self.reg.simple_subscription('py_stress_test', PythonTest.stress_handler)
-		conf = Settings.get()
-		conf.set_string('/settings/test_scheduler', 'threads', '50')
-		core.reload('test_scheduler')
+		self.conf.set_string('/settings/test_scheduler', 'threads', '50')
+		self.core.reload('test_scheduler')
 		
 
 	def teardown(self):
-		conf = Settings.get()
-		conf.set_string('/settings/test_scheduler', 'threads', '0')
-		core.reload('test_scheduler')
+		self.conf.set_string('/settings/test_scheduler', 'threads', '0')
+		self.core.reload('test_scheduler')
 		None
 
 	def run_test(self):
@@ -66,25 +66,24 @@ class PythonTest(BasicTest):
 		return result
 
 	def install(self, arguments):
-		conf = Settings.get()
-		conf.set_string('/modules', 'test_scheduler', 'Scheduler')
-		conf.set_string('/modules', 'pytest', 'PythonScript')
+		self.conf.set_string('/modules', 'test_scheduler', 'Scheduler')
+		self.conf.set_string('/modules', 'pytest', 'PythonScript')
 
-		conf.set_string('/settings/pytest/scripts', 'test_python', 'test_python.py')
+		self.conf.set_string('/settings/pytest/scripts', 'test_python', 'test_python.py')
 		
 		base_path = '/settings/test_scheduler'
-		conf.set_string(base_path, 'threads', '0')
+		self.conf.set_string(base_path, 'threads', '0')
 
 		default_path = '%s/schedules/default'%base_path
-		conf.set_string(default_path, 'channel', 'py_stress_test')
-		conf.set_string(default_path, 'alias', 'stress')
-		conf.set_string(default_path, 'command', 'py_stress_noop')
-		conf.set_string(default_path, 'interval', '5s')
+		self.conf.set_string(default_path, 'channel', 'py_stress_test')
+		self.conf.set_string(default_path, 'alias', 'stress')
+		self.conf.set_string(default_path, 'command', 'py_stress_noop')
+		self.conf.set_string(default_path, 'interval', '5s')
 		for i in range(1, install_checks):
 			alias = 'stress_python_%i'%i
-			conf.set_string('%s/schedules'%(base_path), alias, 'py_stress_noop')
+			self.conf.set_string('%s/schedules'%(base_path), alias, 'py_stress_noop')
 
-		conf.save()
+		self.conf.save()
 
 	def uninstall(self):
 		None
@@ -92,7 +91,12 @@ class PythonTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
+	def init(self, plugin_id, prefix):
+		self.key = '_%stest_command'%prefix
+		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
+
 		None
 
 	def shutdown(self):
@@ -102,7 +106,7 @@ setup_singleton(PythonTest)
 
 all_tests = [PythonTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):
@@ -110,4 +114,4 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-
+
