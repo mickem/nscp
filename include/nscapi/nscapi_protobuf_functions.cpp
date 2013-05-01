@@ -38,7 +38,7 @@ namespace nscapi {
 			template<>
 			struct perf_data_consts<std::wstring> {
 				static const std::wstring get_valid_perf_numbers() {
-					return _T("0123456789,.");
+					return _T("0123456789,.-");
 				}
 				static const std::wstring get_replace_perf_coma_src() {
 					return _T(",");
@@ -50,7 +50,7 @@ namespace nscapi {
 			template<>
 			struct perf_data_consts<std::string> {
 				static const std::string get_valid_perf_numbers() {
-					return "0123456789,.";
+					return "0123456789,.-";
 				}
 				static const std::string get_replace_perf_coma_src() {
 					return ",";
@@ -674,7 +674,10 @@ namespace nscapi {
 				} else {
 					chunk = perf.substr(0, p);
 					p = perf.find_first_not_of(tokenizer_data.perf_separator, p);
-					perf = perf.substr(p);
+					if (p == T::npos)
+						perf = T();
+					else
+						perf = perf.substr(p);
 				}
 				std::vector<T> items = strEx::splitV(chunk, tokenizer_data.perf_item_splitter);
 				if (items.size() < 1) {
@@ -729,7 +732,7 @@ namespace nscapi {
 			data.perf_lable_enclosure = _T("'");
 			data.perf_equal_sign = _T("=");
 			data.perf_item_splitter = _T(";");
-			data.perf_valid_number = _T("0123456789,.");
+			data.perf_valid_number = _T("0123456789,.-");
 			parse_performance_data_<std::wstring>(payload, perf, data);
 		}
 		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::string &perf) {
@@ -738,7 +741,7 @@ namespace nscapi {
 			data.perf_lable_enclosure = "'";
 			data.perf_equal_sign = "=";
 			data.perf_item_splitter = ";";
-			data.perf_valid_number = "0123456789,.";
+			data.perf_valid_number = "0123456789,.-";
 			parse_performance_data_<std::string>(payload, perf, data);
 		}
 

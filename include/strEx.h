@@ -284,8 +284,10 @@ namespace strEx {
 	inline int stoi(std::wstring s) {
 		return boost::lexical_cast<int>(s.c_str());
 	}
-	template<class T>
-	inline double stod(T s) {
+	inline double stod(std::string s) {
+		return boost::lexical_cast<double>(s.c_str());
+	}
+	inline double stod(std::wstring s) {
 		return boost::lexical_cast<double>(s.c_str());
 	}
 	inline long long stoi64(std::wstring s) {

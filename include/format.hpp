@@ -340,7 +340,7 @@ namespace format {
 				std::wstring s = ss.str();
 				std::wstring::size_type pos = s.find_last_not_of(_T("0"));
 				if (pos != std::string::npos) {
-					s = s.substr(0,pos);
+					s = s.substr(0,pos+1);
 				}
 				return s;
 			}

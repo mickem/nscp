@@ -10,6 +10,11 @@ std::string do_parse(std::string str) {
 	return nscapi::functions::build_performance_data(r);
 }
 
+
+TEST(PerfDataTest, fractions) {
+	EXPECT_EQ("'aaa'=1.23374g;0.12345;4.47538;2.23747;5.94849", do_parse("aaa=1.2337399999999999999g;0.123456;4.4753845;2.2374742;5.9484945"));
+}
+
 TEST(PerfDataTest, empty_string) {
 	EXPECT_EQ("", do_parse(""));
 }
@@ -20,11 +25,9 @@ TEST(PerfDataTest, full_string) {
 TEST(PerfDataTest, full_string_with_ticks) {
 	EXPECT_EQ("'aaa'=1g;0;4;2;5", do_parse("aaa=1g;0;4;2;5"));
 }
-/*
 TEST(PerfDataTest, full_spaces) {
 	EXPECT_EQ("'aaa'=1g;0;4;2;5", do_parse("     'aaa'=1g;0;4;2;5     "));
 }
-*/
 TEST(PerfDataTest, mltiple_strings) {
 	EXPECT_EQ("'aaa'=1g;0;4;2;5 'bbb'=2g;3;4;2;5", do_parse("aaa=1g;0;4;2;5 bbb=2g;3;4;2;5"));
 }
@@ -49,6 +52,9 @@ TEST(PerfDataTest, value_without_warncrit_maxmin) {
 TEST(PerfDataTest, leading_space) {
 	EXPECT_EQ("'aaa'=1g", do_parse(" aaa=1g"));
 	EXPECT_EQ("'aaa'=1g", do_parse("                   aaa=1g"));
+}
+TEST(PerfDataTest, negative_vvalues) {
+	EXPECT_EQ("'aaa'=-1g;-0;-4;-2;-5 'bbb'=2g;-3;4;-2;5", do_parse("aaa=-1g;-0;-4;-2;-5 bbb=2g;-3;4;-2;5"));
 }
 
 TEST(PerfDataTest, value_various_reparse) {

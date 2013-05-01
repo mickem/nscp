@@ -4,6 +4,14 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-04-30 MickeM
+ * Fixed issue with negative performance data
+ * Added unit test for arguments and external script
+ * Fixet truncation issue with performance data (#624)
+
+2013-04-27 MickeM
+ * Fixed bug added in build 95 regarding allowing nasty characters
+
 2013-04-24 MickeM
  * Added auto-uc to get hostname as upper case
 

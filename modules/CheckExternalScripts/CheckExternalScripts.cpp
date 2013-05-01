@@ -233,13 +233,15 @@ NSCAPI::nagiosReturn CheckExternalScripts::handle_command(const commands::comman
 	if (allowArgs_) {
 		int i=1;
 		BOOST_FOREACH(const std::wstring &str, data.args) {
-			if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
-				return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
+			if (!allowNasty_ && str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
+				return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters set /settings/external scripts/allow nasty characters=true!"), _T(""), response);
 			}
 			strEx::replace(cmdline, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
 		}
 	} else if (data.args.size() > 0) {
-		NSC_LOG_ERROR_STD(_T("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true"))
+		NSC_LOG_ERROR_STD(_T("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true"));
+		nscapi::functions::create_simple_query_response_unknown(data.command, _T("Arguments not allowed"), _T(""), response);
+		return NSCAPI::returnUNKNOWN;
 	}
 
 	std::wstring message, perf;
@@ -264,18 +266,11 @@ NSCAPI::nagiosReturn CheckExternalScripts::handle_command(const commands::comman
 
 NSCAPI::nagiosReturn CheckExternalScripts::handle_alias(const alias::command_object &cd, const nscapi::functions::decoded_simple_command_data &data, std::string &response) {
 	std::list<std::wstring> args = cd.arguments;
-	bool first = true;
 	BOOST_FOREACH(std::wstring &arg, args) {
 		int i=1;
 		BOOST_FOREACH(std::wstring str, data.args) {
-			if (first) {
-				if (str.find_first_of(NASTY_METACHARS_W) != std::wstring::npos) {
-					return nscapi::functions::create_simple_query_response_unknown(data.command, _T("Request contained illegal characters!"), _T(""), response);
-				}
-			}
 			strEx::replace(arg, _T("$ARG") + strEx::itos(i++) + _T("$"), str);
 		}
-		first = false;
 	}
 
 	std::wstring message;
