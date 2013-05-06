@@ -4,6 +4,10 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-05-05 MickeM
+ * Fixed a bug in the check_logfile which made filtering bail-out after the first hit.
+ * Added default column-split as \t
+ 
 2013-04-30 MickeM
  * Fixed issue with negative performance data
  * Added unit test for arguments and external script

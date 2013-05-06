@@ -460,7 +460,7 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 			("split", po::value<std::string>(&column_split),			"Lookup a string value in the PDH index table")
 			("line-split", po::value<std::string>(&line_split)->default_value("\\n"), 
 																		"Lookup a string value in the PDH index table")
-			("column-split", po::value<std::string>(&column_split),		"Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
+			("column-split", po::value<std::string>(&column_split)->default_value("\\t"),		"Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \\System\\*)")
 			("filter", po::value<std::string>(&filter_string),			"Check that performance counters are working")
 			("warn", po::value<std::string>(&warn_string),				"Filter which generates a warning state")
 			("crit", po::value<std::string>(&crit_string),				"Filter which generates a critical state")
@@ -469,7 +469,7 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 			("ok", po::value<std::string>(&ok_string),					"Filter which generates an ok state")
 			("top-syntax", po::value<std::string>(&syntax_top)->default_value("${file}: ${count} (${messages})"), 
 																		"Top level syntax")
-			("detail-syntax", po::value<std::string>(&syntax_detail)->default_value("${column1}, "), 
+			("detail-syntax", po::value<std::string>(&syntax_detail)->default_value("${line}, "), 
 																		"Detail level syntax")
 			("file", po::value<std::vector<std::string> >(&file_list),	"List counters and/or instances")
 			("files", po::value<std::string>(&files_string),			"List/check all counters not configured counter")
@@ -494,6 +494,7 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 		}
 
 		logfile_filter::filter filter;
+		filter.returnCode = NSCAPI::returnOK;
 		if (!filter.build_syntax(syntax_top, syntax_detail, message)) {
 			return NSCAPI::returnUNKNOWN;
 		}
@@ -507,6 +508,8 @@ NSCAPI::nagiosReturn CheckLogFile::handleCommand(const std::string &target, cons
 		if (!filter.validate(message)) {
 			return NSCAPI::returnUNKNOWN;
 		}
+
+		filter.reset();
 
 		NSC_DEBUG_MSG_STD(_T("Boot time: ") + strEx::itos(time.stop()));
 
