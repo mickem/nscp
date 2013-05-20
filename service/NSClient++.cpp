@@ -21,6 +21,10 @@
 #include <Userenv.h>
 #include <Lmcons.h>
 #endif
+
+
+#include <boost/unordered_map.hpp>
+
 #include "core_api.h"
 #include "../helpers/settings_manager/settings_manager_impl.h"
 #include <settings/macros.h>
@@ -924,7 +928,7 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 		strEx::s::parse_command(arguments, args);
 		std::string request, response;
 		nscapi::protobuf::functions::create_simple_query_request(command, args, request);
-		NSCAPI::nagiosReturn ret = injectRAW(command.c_str(), request, response);
+		NSCAPI::nagiosReturn ret = injectRAW(request, response);
 		if (response.empty()) {
 			LOG_ERROR_CORE("No data retutned from command");
 			return NSCAPI::returnUNKNOWN;
@@ -946,45 +950,58 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(const char* raw_command, std::string &request, std::string &response) {
-	std::string cmd = nsclient::commands::make_key(raw_command);
-	LOG_DEBUG_CORE_STD("Injecting: " + cmd + "...");
-	/*if (shared_client_.get() != NULL && shared_client_->hasMaster()) {
-		try {
-			std::wstring msg, perf;
-			int returnCode = shared_client_->inject(command, arrayBuffer::arrayBuffer2string(argument, argLen, _T(" ")), L' ', true, msg, perf);
-			NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, msg, returnCode);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, perf, returnCode);
-		} catch (nsclient_session::session_exception &e) {
-			LOG_ERROR_STD(_T("Failed to inject remote command: ") + e.what());
-			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command: ") + e.what(), NSCAPI::returnCRIT);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
-		} catch (...) {
-			LOG_ERROR_STD(_T("Failed to inject remote command: Unknown exception"));
-			int returnCode = NSCHelper::wrapReturnString(returnMessageBuffer, returnMessageBufferLen, _T("Failed to inject remote command:  + e.what()"), NSCAPI::returnCRIT);
-			return NSCHelper::wrapReturnString(returnPerfBuffer, returnPerfBufferLen, _T(""), returnCode);
-		}
-	} else */{
-		try {
-			nsclient::commands::plugin_type plugin = commands_.get(cmd);
-			if (!plugin) {
-				LOG_ERROR_CORE("No handler for command: " + cmd + " avalible commands: " + commands_.to_string());
-				nscapi::protobuf::functions::create_simple_query_response_unknown(cmd, "No handler for command: " + cmd, response);
-				return NSCAPI::returnIgnored;
+NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &response) {
+	try {
+		Plugin::QueryRequestMessage request_message;
+		Plugin::QueryResponseMessage response_message;
+		request_message.ParseFromString(request);
+
+		struct command_chunk {
+			nsclient::commands::plugin_type plugin;
+			Plugin::QueryRequestMessage request;
+		};
+
+		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
+		command_chunk_type command_chunks;
+
+		for (int i=0;i<request_message.payload_size(); i++) {
+			const ::Plugin::QueryRequestMessage::Request &payload = request_message.payload(i);
+			nsclient::commands::plugin_type plugin = commands_.get(payload.command());
+			if (plugin) {
+				unsigned int id = plugin->get_id();
+				if (command_chunks.find(id) == command_chunks.end()) {
+					command_chunks[id].plugin = plugin;
+					command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
+				}
+				command_chunks[id].request.add_payload()->CopyFrom(payload);
+			} else {
+				LOG_ERROR_CORE("No module for: " + payload.command());
 			}
-			NSCAPI::nagiosReturn c = plugin->handleCommand(cmd.c_str(), request, response);
-			LOG_DEBUG_CORE_STD("Result " + cmd + ": " + nscapi::plugin_helper::translateReturn(c));
-			return c;
-		} catch (const nsclient::commands::command_exception &e) {
-			LOG_ERROR_CORE("Failed to process command: " + cmd + ": " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::returnIgnored;
-		} catch (const std::exception &e) {
-			LOG_ERROR_CORE("Failed to process command: " + cmd + ": " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::returnIgnored;
-		} catch (...) {
-			LOG_ERROR_CORE("Error handling command: " + cmd);
-			return NSCAPI::returnIgnored;
 		}
+
+		BOOST_FOREACH(command_chunk_type::value_type &v, command_chunks) {
+			std::string local_response;
+			int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
+			if (ret != NSCAPI::isSuccess) {
+				LOG_ERROR_CORE("Failed to execute command");
+			} else {
+				Plugin::QueryResponseMessage local_response_message;
+				local_response_message.ParseFromString(local_response);
+				if (!response_message.has_header()) {
+					response_message.mutable_header()->CopyFrom(local_response_message.header());
+				}
+				for (int i=0;i<local_response_message.payload_size();i++) {
+					response_message.add_payload()->CopyFrom(local_response_message.payload(i));
+				}
+			}
+		}
+		response = response_message.SerializeAsString();
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
+		return NSCAPI::returnIgnored;
+	} catch (...) {
+		LOG_ERROR_CORE("Failed to process command: ");
+		return NSCAPI::returnIgnored;
 	}
 }
 
@@ -1045,7 +1062,7 @@ int exec_helper(NSClientT::plugin_type plugin, std::string command, std::vector<
 	std::string response;
 	if (!plugin || !plugin->has_command_line_exec())
 		return -1;
-	int ret = plugin->commandLineExec(command.c_str(), request, response);
+	int ret = plugin->commandLineExec(request, response);
 	if (ret != NSCAPI::returnIgnored && !response.empty())
 		responses->push_back(response);
 	return ret;
@@ -1104,7 +1121,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 		return NSCAPI::returnUNKNOWN;
 	}
 	std::string response;
-	ret = plugin->handleCommand(command.c_str(), request, response);
+	ret = plugin->handleCommand(request, response);
 	try {
 		std::string msg, perf;
 		ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
@@ -1121,7 +1138,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	return ret;
 }
 
-NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, const char* raw_command, std::string &request, std::string &response) {
+NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string &request, std::string &response) {
 	std::string target = raw_target;
 	bool match_any = false;
 	bool match_all = false;
@@ -1142,7 +1159,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, const char*
 				try {
 					if (match_all || match_any || p->get_alias() == target) {
 						std::string respbuffer;
-						NSCAPI::nagiosReturn r = p->commandLineExec(raw_command, request, respbuffer);
+						NSCAPI::nagiosReturn r = p->commandLineExec(request, respbuffer);
 						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
 							LOG_DEBUG_CORE_STD("Got response from: " + p->getName());
 							found = true;
@@ -1721,6 +1738,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else if (r.has_registration()) {
 				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
+				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 				if (registration.type() == Plugin::Registry_ItemType_QUERY) {
 					commands_.register_command(registration.plugin_id(), registration.name(), registration.info().description());
 					std::string description = "Alternative name for: " + registration.name();
@@ -1731,9 +1749,30 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 					channels_.register_listener(registration.plugin_id(), registration.name());
 				} else if (registration.type() == Plugin::Registry_ItemType_ROUTER) {
 					routers_.register_listener(registration.plugin_id(), registration.name());
+				} else if (registration.type() == Plugin::Registry_ItemType_PLUGIN) {
+					Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
+					boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+					if (readLock.owns_lock()) {
+						plugin_type match;
+						BOOST_FOREACH(plugin_type plugin, plugins_) {
+							if (plugin->get_id() == registration.plugin_id()) {
+								match = plugin;
+							}
+						}
+						if (match) {
+							int new_id = next_plugin_id_++;
+							commands_.add_plugin(new_id, match);
+							rpp->set_item_id(new_id);
+						} else {
+							LOG_ERROR_CORE("Plugin not found.");
+						}
+					} else {
+						LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+					}
 				} else {
 					LOG_ERROR_CORE("Registration query: Unsupported type");
 				}
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else {
 				LOG_ERROR_CORE("Registration query: Unsupported action");
 			}

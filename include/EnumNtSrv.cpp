@@ -130,6 +130,69 @@ std::string TNtServiceInfo::GetCurrentState(void)
 #ifndef SERVICE_CONFIG_DELAYED_AUTO_START_INFO
 #define SERVICE_CONFIG_DELAYED_AUTO_START_INFO 3
 #endif
+
+typedef struct NSCP_SERVICE_DELAYED_AUTO_START_INFO {
+	BOOL fDelayedAutostart;
+};
+
+template<class T>
+struct return_data {
+	TCHAR *buffer;
+	DWORD buffer_size;
+	T *object;
+
+	return_data() : buffer(NULL), object(NULL), buffer_size(0) {}
+	return_data(const return_data &other)  : buffer(NULL), object(NULL), buffer_size(other.buffer_size){
+		if (other.buffer_size > 0) {
+			buffer = new TCHAR[other.buffer_size];
+			memcpy(buffer, other.buffer, other.buffer_size);
+			object = reinterpret_cast<T*>(buffer);
+		}
+	}
+	return_data* operator= (const return_data &other) {
+		if (other.buffer_size > 0) {
+			buffer = new TCHAR[other.buffer_size];
+			memcpy(buffer, other.buffer, other.buffer_size);
+			buffer_size = other.buffer_size;
+			object = reinterpret_cast<T*>(buffer);
+		}
+		return *this;
+	}
+	~return_data() {
+		if (buffer)
+			delete [] buffer;
+	}
+	void resize() {
+		if (buffer != NULL)
+			delete [] buffer;
+		buffer_size += 10;
+		buffer = new TCHAR[buffer_size];
+		object = reinterpret_cast<T*>(buffer);
+	}
+	void clean() {
+		if (buffer != NULL)
+			delete [] buffer;
+		buffer = NULL;
+		object = NULL;
+		buffer_size = NULL;
+	}
+	bool has_data() const {
+		return buffer != NULL && object != NULL && buffer_size > 0;
+	}
+};
+template<class T>
+return_data<T> NSCP_QueryServiceConfig2(SC_HANDLE hService, DWORD dwInfoLevel) {
+	return_data<T> ret;
+	if (!QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, NULL, 0, &ret.buffer_size) && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
+		ret.resize();
+		if (QueryServiceConfig2(hService, dwInfoLevel, reinterpret_cast<LPBYTE>(&ret.buffer), ret.buffer_size, &ret.buffer_size)) {
+			return ret;
+		}
+	}
+	ret.clean();
+	return ret;
+}
+
 // Enumerate services on this machine and return a pointer to an array of objects.
 // Caller is responsible to delete this pointer using delete [] ...
 // dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
@@ -164,17 +227,10 @@ TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, boo
 					info.m_dwStartType = lpqch->dwStartType;
 					info.m_dwErrorControl = lpqch->dwErrorControl;
 				}
-				if (vista) {
-					DWORD size = 0;
-					if (!QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, NULL, 0, &size) && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
-						BYTE *buffer = new BYTE[size+1];
-						if (QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, buffer, size, &size)) {
-							if ((BOOL)buffer[0]) {
-								info.m_dwStartType = NSCP_SERVICE_DELAYED;
-							}
-						}
-						delete [] buffer;
-					}
+				if (info.m_dwStartType == SERVICE_AUTO_START && vista) {
+					return_data<NSCP_SERVICE_DELAYED_AUTO_START_INFO> delayed = NSCP_QueryServiceConfig2<NSCP_SERVICE_DELAYED_AUTO_START_INFO>(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO);
+					if (delayed.has_data() && delayed.object->fDelayedAutostart)
+						info.m_dwStartType = NSCP_SERVICE_DELAYED;
 				}
 				::CloseServiceHandle(hService);
 				ret.push_back(info);

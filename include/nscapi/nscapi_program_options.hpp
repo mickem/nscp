@@ -247,7 +247,7 @@ namespace nscapi {
 
 		void format_description(std::ostream& os,
 			const std::string& desc, 
-			unsigned first_column_width,
+			std::size_t first_column_width,
 			unsigned line_length)
 		{
 			// we need to use one char less per line to work correctly if actual

@@ -45,7 +45,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 
-
 #ifdef _DEBUG
 #include <iostream>
 #endif
@@ -53,10 +52,7 @@
 #include <string>
 #include <locale>
 
-
-
 namespace format {
-
 	inline std::wstring strip_ctrl_chars(std::wstring str) {
 		std::wstring ret; ret.reserve(str.size());
 		BOOST_FOREACH(wchar_t c, str)
@@ -222,8 +218,6 @@ namespace format {
 		return format_date(boost::posix_time::from_time_t(time), format);
 	}
 
-
-
 	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
 	static const long long SECS_TO_100NS = 10000000;
 	inline unsigned long long filetime_to_time(unsigned long long filetime) {
@@ -234,7 +228,6 @@ namespace format {
 			return "ZERO";
 		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
 	}
-
 
 	template<class T>
 	inline std::wstring format_non_sci(T i) {
@@ -314,15 +307,15 @@ namespace format {
 		if (p == std::string::npos || p == 0)
 			return boost::lexical_cast<long long>(s);
 		std::string numbers = s.substr(0, p);
-		if (s[p] == 'B') 
+		if (s[p] == 'B')
 			return boost::lexical_cast<long long>(numbers);
-		else if (s[p] == 'K') 
+		else if (s[p] == 'K')
 			return boost::lexical_cast<long long>(numbers)*1024;
-		else if (s[p] == 'M') 
+		else if (s[p] == 'M')
 			return boost::lexical_cast<long long>(numbers)*1024*1024;
-		else if (s[p] == 'G') 
+		else if (s[p] == 'G')
 			return boost::lexical_cast<long long>(numbers)*1024*1024*1024;
-		else if (s[p] == 'T') 
+		else if (s[p] == 'T')
 			return boost::lexical_cast<long long>(numbers)*1024*1024*1024*1024;
 		else
 			return boost::lexical_cast<long long>(numbers);

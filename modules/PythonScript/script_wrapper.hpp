@@ -162,7 +162,7 @@ namespace script_wrapper {
 		tuple simple_query(std::string command, boost::python::list args);
 		tuple query(std::string command, std::string request);
 		tuple simple_exec(std::string target, std::string command, boost::python::list args);
-		tuple exec(std::string target, std::string command, std::string request);
+		tuple exec(std::string target, std::string request);
 		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
 		tuple submit(std::string channel, std::string request);
 		bool reload(std::string module);

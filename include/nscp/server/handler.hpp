@@ -11,7 +11,7 @@ namespace nscp {
 
 			virtual void log_debug(std::string module, std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string module, std::string file, int line, std::string msg) const = 0;
-			virtual nscp::packet create_error(std::wstring msg) = 0;
+			virtual nscp::packet create_error(std::string msg) = 0;
 
 
 		};

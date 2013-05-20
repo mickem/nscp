@@ -98,7 +98,7 @@ namespace utf8 {
 		delete[] outString;
 
 		return retval;
-#endif	
+#endif
 	}
 
 #ifdef WIN32
@@ -155,14 +155,13 @@ namespace utf8 {
 		delete[] outString;
 
 		return retval;
-#endif	
+#endif
 	}
-
 
 	inline std::string to_encoding(std::wstring const & str, const std::string & encoding) {
 #ifdef WIN32
 		UINT uiEncoding = parse_encoding(encoding);
-		// figure out how many narrow characters we are going to get 
+		// figure out how many narrow characters we are going to get
 		int nChars = WideCharToMultiByte(uiEncoding, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
 			return "";
@@ -202,10 +201,9 @@ namespace utf8 {
 #endif
 	}
 
-
 	inline std::string to_system(std::wstring const & str) {
 #ifdef WIN32
-		// figure out how many narrow characters we are going to get 
+		// figure out how many narrow characters we are going to get
 		int nChars = WideCharToMultiByte(CP_ACP, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
 			return "";
@@ -245,11 +243,10 @@ namespace utf8 {
 #endif
 	}
 
-
 	template<>
 	inline std::string cvt(std::wstring const & str) {
 #ifdef WIN32
-		// figure out how many narrow characters we are going to get 
+		// figure out how many narrow characters we are going to get
 		int nChars = WideCharToMultiByte(CP_UTF8, 0, str.c_str(), static_cast<int>(str.length()), NULL, 0, NULL, NULL);
 		if (nChars == 0)
 			return "";
@@ -336,8 +333,6 @@ namespace utf8 {
 	inline std::string utf8_from_native(std::string const & str) {
 		return cvt<std::string>(to_unicode(str));
 	}
-
-
 }
 
 namespace boost

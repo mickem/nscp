@@ -20,42 +20,41 @@
 ***************************************************************************/
 #pragma once
 
-
 #include <unicode_char.hpp>
 #include <string>
 //#include <strEx.h>
 
 namespace NSCAPI {
-/*
-#ifdef DEBUG
+	/*
+	#ifdef DEBUG
 	typedef enum {
-		returnCRIT = 2,
-		returnOK = 0,
-		returnWARN = 1,
-		returnUNKNOWN = 3,
-		returnInvalidBufferLen = -2,
-		returnIgnored = -1
+	returnCRIT = 2,
+	returnOK = 0,
+	returnWARN = 1,
+	returnUNKNOWN = 3,
+	returnInvalidBufferLen = -2,
+	returnIgnored = -1
 	} nagiosReturn;
 	typedef enum {
-		istrue = 1, 
-		isfalse = 0
+	istrue = 1,
+	isfalse = 0
 	} boolReturn;
 	typedef enum {
-		isSuccess = 1, 
-		hasFailed = 0,
-		isInvalidBufferLen = -2
+	isSuccess = 1,
+	hasFailed = 0,
+	isInvalidBufferLen = -2
 	} errorReturn;
 	typedef enum {
-		key_string = 100,
-		key_integer = 200,
-		key_bool = 300,
+	key_string = 100,
+	key_integer = 200,
+	key_bool = 300,
 	} settings_type;
 
 	typedef enum {
-		normalStart = 0,
-		dontStart = 1,
+	normalStart = 0,
+	dontStart = 1,
 	} moduleLoadMode;
-#else
+	#else
 	*/
 	const int normalStart = 0;
 	const int dontStart = 1;
@@ -65,9 +64,9 @@ namespace NSCAPI {
 	const int returnUNKNOWN = 3;
 	const int returnInvalidBufferLen = -2;
 	const int returnIgnored = -1;
-	const int istrue = 1; 
+	const int istrue = 1;
 	const int isfalse = 0;
-	const int isSuccess = 1; 
+	const int isSuccess = 1;
 	const int hasFailed = 0;
 	const int isInvalidBufferLen = -2;
 	const int key_string = 100;
@@ -85,7 +84,7 @@ namespace NSCAPI {
 	typedef int errorReturn;
 	typedef int settings_type;
 	typedef int moduleLoadMode;
-//#endif
+	//#endif
 
 	const unsigned int encryption_xor = 1;
 
@@ -112,8 +111,6 @@ namespace NSCAPI {
 }
 
 namespace nscapi {
-
-
 	class nscapi_exception : public std::exception {
 	public:
 		std::string msg;
@@ -137,27 +134,27 @@ namespace nscapi {
 		typedef NSCAPI::log_level::level (*lpNSAPIGetLoglevel)();
 		typedef NSCAPI::errorReturn (*lpNSAPISettingsQuery)(const char *, const unsigned int, char **, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIRegistryQuery)(const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSCAPIJson2Protobuf)(const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::errorReturn (*lpNSCAPIProtobuf2Json)(const char *, const char *, const unsigned int, char **, unsigned int *);
 
 		typedef void (*lpNSAPIMessage)(const char*, unsigned int);
 		typedef void (*lpNSAPISimpleMessage)(const char*, int, const char*, int, const char*);
 
-		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char*, const char *, const unsigned int, char **, unsigned int *);
-		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const char* target, const char* command, const char *request, const unsigned int request_len, char ** response, unsigned int * response_len);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIInject)(const char *, const unsigned int, char **, unsigned int *);
+		typedef NSCAPI::nagiosReturn (*lpNSAPIExecCommand)(const char* target, const char *request, const unsigned int request_len, char ** response, unsigned int * response_len);
 		typedef NSCAPI::errorReturn (*lpNSAPINotify)(const char* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);
 
-
-// TODO: investigate
+		// TODO: investigate
 		typedef NSCAPI::boolReturn (*lpNSAPICheckLogMessages)(int);
 
-// TODO: convert and re-add these
+		// TODO: convert and re-add these
 		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 
-// TODO: DEprecate these
-// 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
-// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
-// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
-
+		// TODO: DEprecate these
+		// 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
+		// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
+		// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 	}
 
 	namespace plugin_api {
@@ -171,7 +168,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpUnLoadModule)(unsigned int plugin_id);
 
 		typedef NSCAPI::errorReturn (*lpHasCommandHandler)(unsigned int plugin_id);
-		typedef NSCAPI::errorReturn (*lpHandleCommand)(unsigned int plugin_id, const char* command, const char* in_buffer, const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+		typedef NSCAPI::errorReturn (*lpHandleCommand)(unsigned int plugin_id, const char* in_buffer, const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHasMessageHandler)(unsigned int plugin_id);
 		typedef NSCAPI::errorReturn (*lpHandleMessage)(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
@@ -182,6 +179,6 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpHasRoutingHandler)(unsigned int plugin_id);
 		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
-		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const char* command, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 	}
 }

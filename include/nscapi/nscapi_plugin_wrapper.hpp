@@ -108,6 +108,10 @@ namespace nscapi {
 		void erase(unsigned int id) {
 			plugins.erase(id);
 		}
+		void add_alias(const unsigned int existing_id, const unsigned int new_id) {
+			boost::shared_ptr<impl_type> old = get(existing_id);
+			plugins[new_id] = old;
+		}
 	};
 
 	struct helpers {
@@ -244,10 +248,10 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		command_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		NSCAPI::nagiosReturn NSHandleCommand(const char* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { 
+		NSCAPI::nagiosReturn NSHandleCommand(const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { 
 			try { 
 				std::string request(request_buffer, request_buffer_len), reply;
-				NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(command, request, reply);
+				NSCAPI::nagiosReturn retCode = instance->handleRAWCommand(request, reply);
 				helpers::wrap_string(reply, reply_buffer, reply_buffer_len);
 				if (!nscapi::plugin_helper::isMyNagiosReturn(retCode)) {
 					NSC_LOG_ERROR("A module returned an invalid return code");
@@ -335,10 +339,10 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		cliexec_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		int NSCommandLineExec(const char *command, char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+		int NSCommandLineExec(char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 			try { 
 				std::string request(request_buffer, request_buffer_len), reply;
-				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(command, request, reply); 
+				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(request, reply); 
 				helpers::wrap_string(reply, response_buffer, response_buffer_len);
 				return retCode;
 			} catch (const std::exception &e) { 

@@ -1,0 +1,13 @@
+*********************************
+  What's New in NSClient++ 0.4.2
+*********************************
+
+:Author: Michael Medin
+
+.. |release| replace:: 0.4.1
+
+Introduction
+============
+
+TODO
+

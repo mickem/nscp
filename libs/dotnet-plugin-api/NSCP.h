@@ -54,14 +54,18 @@ namespace NSCP {
 	};
 	public interface class ICore {
 	public:
-		Result^ query(String^ command, protobuf_data^ request);
-		Result^ exec(String^ target, String^ command, protobuf_data^ request);
+		Result^ query(protobuf_data^ request);
+		Result^ exec(String^ target, protobuf_data^ request);
 		Result^ submit(String^ channel, protobuf_data^ request);
 		bool reload(String^ module);
 
 		Result^ settings(protobuf_data^ request);
 		Result^ registry(protobuf_data^ request);
 		void log(protobuf_data^ request);
+
+		ILogger^ getLogger();
+		IRegistry^ getRegistry();
+		ISettings^ getSettings();
 	};
 
 
@@ -113,6 +117,6 @@ namespace NSCP {
 	};
 
 	public interface class IPluginFactory {
-		IPlugin^ create(ICore ^core, String^ alias);
+		IPlugin^ create(ICore ^core, int plugin_id, String^ alias);
 	};
 }

@@ -77,11 +77,11 @@ bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string 
 	return ret;
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf)
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf)
 {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_query_request(command, argument, request);
-	bool ret = core_->query(command, request, response) == NSCAPI::isSuccess;
+	bool ret = core_->query(request, response) == NSCAPI::isSuccess;
 	nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 	return ret;
 }
@@ -90,19 +90,19 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_simple_command(cons
 {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
-	bool ret = core_->exec_command(target, command, request, response) == NSCAPI::isSuccess;
+	bool ret = core_->exec_command(target, request, response) == NSCAPI::isSuccess;
 	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_command(const std::string target, const std::string &request, std::string &response)
 {
-	return core_->query(target, request, response);
+	return core_->exec_command(target, request, response);
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::query(const std::string target, const std::string &request, std::string &response)
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::query(const std::string &request, std::string &response)
 {
-	return core_->query(target, request, response);
+	return core_->query(request, response);
 }
 
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::submit(const std::string target, const std::string &request, std::string &response)

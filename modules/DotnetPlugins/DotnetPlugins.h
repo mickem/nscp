@@ -41,7 +41,6 @@ public:
 		id_ = id;
 	}
 
-
 	typedef std::map<std::wstring, plugin_type> commands_type;
 	commands_type commands;
 	commands_type channels;
@@ -65,9 +64,9 @@ public:
 	bool hasMessageHandler();
 	bool hasNotificationHandler();
 
-	NSCAPI::nagiosReturn handleRAWCommand(const std::string &command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn handleRAWNotification(const std::string &channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
 
 	bool register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description);
 	bool register_channel(std::wstring channel, plugin_instance::plugin_type plugin);
@@ -75,7 +74,18 @@ public:
 	bool settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 	nscapi::core_wrapper* get_core();
 
+	bool settings_query(const std::string &request_json, std::string &response_json);
+	bool registry_query(const std::string &request_json, std::string &response_json);
+
+	void registry_reg_command(const std::string command, const std::string description, int plugin_id);
+
 private:
-	void load(std::wstring key, std::wstring val);
+	void load(std::string key, std::string val);
+	std::list<std::string> settings_get_list(const std::string path);
+	void settings_reg_path(const std::string path, const std::string title, const std::string desc);
+	void settings_reg_key(const std::string path, const std::string key, const std::string title, const std::string desc);
+	std::string settings_get_string(const std::string path, const std::string key, const std::string value);
+	int settings_get_int(const std::string path, const std::string key, const int value);
+	int registry_reg_module(const std::string module);
 
 };

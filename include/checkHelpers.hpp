@@ -31,6 +31,10 @@
 #define MAKE_PERFDATA(alias, value, unit, warn, crit) "'" + alias + "'=" + value + unit + ";" + warn + ";" + crit 
 #define MAKE_PERFDATA_EX(alias, value, unit, warn, crit, xmin, xmax) "'" + alias + "'=" + value + unit + ";" + warn + ";" + crit + ";" + xmin + ";" + xmax
 
+
+#pragma warning( disable : 4505 )
+#pragma warning( disable : 4100 )
+
 namespace checkHolders {
 
 

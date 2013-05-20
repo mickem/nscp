@@ -147,8 +147,6 @@ namespace tasksched_filter {
 				HRESULT hr = (parent->task->*f)(&tmp);
 				if (traits::has_failed(hr)) {
 					throw filter_exception("ERROR: " + ::error::format::from_system(hr));
-					data = traits::get_default();
-					return false;
 				} else {
 					data = traits::convert(hr, tmp);
 					traits::cleanup(tmp);

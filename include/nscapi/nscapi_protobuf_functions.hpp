@@ -155,34 +155,10 @@ namespace nscapi {
 					target_message.add_payload()->CopyFrom(source_message.payload(i));
 			}
 
-			template<class T>
-			int create_simple_exec_response(T command, NSCAPI::nagiosReturn ret, T result, std::string &response) {
-				Plugin::ExecuteResponseMessage message;
-				create_simple_header(message.mutable_header());
-
-				Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
-				payload->set_command(utf8::cvt<std::string>(command));
-				payload->set_message(utf8::cvt<std::string>(result));
-
-				payload->set_result(nagios_status_to_gpb(ret));
-				message.SerializeToString(&response);
-				return ret;
-			}
-			template<class T>
-			int create_simple_exec_response_unknown(T command, T result, std::string &response) {
-				Plugin::ExecuteResponseMessage message;
-				create_simple_header(message.mutable_header());
-
-				Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
-				payload->set_command(utf8::cvt<std::string>(command));
-				payload->set_message(utf8::cvt<std::string>(result));
-
-				payload->set_result(nagios_status_to_gpb(NSCAPI::returnUNKNOWN));
-				message.SerializeToString(&response);
-				return NSCAPI::returnUNKNOWN;
-			}
-			decoded_simple_command_data parse_simple_exec_request(const char* char_command, const std::string &request);
-			decoded_simple_command_data parse_simple_exec_request(const std::string &cmd, const Plugin::ExecuteRequestMessage &message);
+			int create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response);
+			int create_simple_exec_response_unknown(std::string command, std::string result, std::string &response);
+			decoded_simple_command_data parse_simple_exec_request(const std::string &request);
+			decoded_simple_command_data parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message);
 			decoded_simple_command_data parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload);
 
 			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf);

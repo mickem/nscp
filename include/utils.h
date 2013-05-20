@@ -27,7 +27,6 @@ void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);
 unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 
-
 #define MAP_OPTIONS_BEGIN(args) \
 	for (std::list<std::string>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
 	std::pair<std::string,std::string> p__ = strEx::split(*cit__,std::string("=")); if (false) {} else if (p__.first == "") {}
@@ -48,7 +47,7 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 			else if (p__.first == "MaxWarn" postfix) { obj.warn.max_.lower = p__.second; } \
 			else if (p__.first == "MaxCrit" postfix) { obj.crit.max_.lower = p__.second; } \
 			else if (p__.first == "MinWarn" postfix) { obj.warn.min_.upper = p__.second; } \
-			else if (p__.first == "MinCrit" postfix) { obj.crit.min_.upper = p__.second; } 
+			else if (p__.first == "MinCrit" postfix) { obj.crit.min_.upper = p__.second; }
 
 #define MAP_OPTIONS_NUMERIC_ALL(obj, postfix) \
 			else if (p__.first == ("MaxWarn" postfix)) { obj.warn.max_ = p__.second; } \
@@ -102,9 +101,9 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 #define MAP_OPTIONS_BOOL_FALSE(value, obj) \
 			else if (p__.first == value) { obj = false; }
 #define MAP_OPTIONS_BOOL_VALUE(value, obj, tStr) \
-			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; } 
+			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; }
 #define MAP_OPTIONS_MODE(value, tStr, obj, oVal) \
-			else if ((p__.first == value)&&(p__.second == tStr)) { obj = oVal; } 
+			else if ((p__.first == value)&&(p__.second == tStr)) { obj = oVal; }
 #define MAP_OPTIONS_BOOL_EX(value, obj, tStr, fStr) \
 			else if ((p__.first == value)&&(p__.second == tStr)) { obj = true; } \
 			else if ((p__.first == value)&&(p__.second == fStr)) { obj = false; }
@@ -130,6 +129,6 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 
 #define MAP_OPTIONS_FIRST_CHAR(splt, obj, extra) \
 	else if (p__.first.size() > 1 && p__.first[0] == splt) { \
-			obj = p__.first; extra;}
+	obj = p__.first; extra;}
 
 #define MAP_OPTIONS_SECONDARY_END() }

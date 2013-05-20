@@ -56,7 +56,6 @@ class Module:
 		command_instances_hpp = ''
 		if commands or command_fallback:
 			command_instances_cpp = ''
-			raw_command_instances_cpp = ''
 			for c in commands:
 				cmd_tpl = c.tpl_data(module_info)
 				if c.legacy:
@@ -73,7 +72,7 @@ class Module:
 					None
 				elif c.raw_mapping:
 					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP_RAW).substitute(cmd_tpl)
-					raw_command_instances_cpp += string.Template(RAW_COMMAND_INSTANCE_CPP).substitute(cmd_tpl)
+					command_instances_cpp += string.Template(RAW_COMMAND_INSTANCE_CPP).substitute(cmd_tpl)
 				else:
 					command_instances_hpp += string.Template(COMMAND_INSTANCE_HPP).substitute(cmd_tpl)
 					command_instances_cpp += string.Template(COMMAND_INSTANCE_CPP).substitute(cmd_tpl)
@@ -89,8 +88,7 @@ class Module:
 			commands_cpp = string.Template(COMMAND_DELEGATOR_CPP_TRUE).substitute(dict(module_info.items() + 
 				{
 					'COMMAND_REGISTRATIONS_CPP': command_registrations_cpp, 
-					'COMMAND_INSTANCES_CPP' : command_instances_cpp,
-					'RAW_COMMAND_INSTANCES_CPP' : raw_command_instances_cpp
+					'COMMAND_INSTANCES_CPP' : command_instances_cpp
 				}.items()))
 			commands_hpp_def = COMMAND_DELEGATOR_DEF_HPP_TRUE
 			commands_cpp_def = COMMAND_DELEGATOR_DEF_CPP_TRUE
@@ -305,29 +303,29 @@ COMMAND_INSTANCE_HPP_NAGIOS = """	NSCAPI::nagiosReturn ${COMMAND_NAME}(const std
 
 COMMAND_DELEGATOR_HPP_TRUE = """
 	bool hasCommandHandler() { return true; }
-	NSCAPI::nagiosReturn handleRAWCommand(const char* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const std::string &request, std::string &response);
 """
 COMMAND_DELEGATOR_HPP_FALSE = """
 	bool hasCommandHandler() { return false; }
-	NSCAPI::nagiosReturn handleRAWCommand(const char* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn handleRAWCommand(const std::string &request, std::string &response);
 """
 
 CLI_DELEGATOR_HPP_TRUE = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 	*/
 """
 CLI_DELEGATOR_HPP_PASS_THROUGH = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	NSCAPI::nagiosReturn commandLineExec(const char* char_command, const std::string &request, std::string &response);
 	*/
 """
 CLI_DELEGATOR_HPP_LEGACY = """
-	NSCAPI::nagiosReturn commandRAWLineExec(const char* char_command, const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
 	NSCAPI::nagiosReturn commandLineExec(const std::string &command, std::list<std::wstring> &arguments, std::wstring &result);
@@ -464,8 +462,8 @@ LOG_DELEGATOR_DEF_CPP_TRUE = "NSC_WRAPPERS_HANDLE_MSG_DEF()"
 LOG_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_MSG_DEF()"
 
 CLI_DELEGATOR_CPP_LEGACY = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(char_command, request);
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(request);
 	std::wstring result;
 	std::list<std::wstring> args;
 	BOOST_FOREACH(const std::string &s, data.args)
@@ -478,13 +476,12 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command
 }
 """
 CLI_DELEGATOR_CPP_PASS_THROUGH = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
-	return impl_->commandLineExec(char_command, request, response);
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+	return impl_->commandLineExec(request, response);
 }
 """
 CLI_DELEGATOR_CPP_TRUE = """
-NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command, const std::string &request, std::string &response) {
-	std::string command = char_command;
+NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const std::string &request, std::string &response) {
 	try {
 		Plugin::ExecuteRequestMessage request_message;
 		Plugin::ExecuteResponseMessage response_message;
@@ -512,10 +509,10 @@ NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const char* char_command
 		}
 		return NSCAPI::returnIgnored;
 	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::create_simple_exec_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Failed to process command: ") + utf8::utf8_from_native(e.what()), response);
 		return NSCAPI::isSuccess;
 	} catch (...) {
-		nscapi::protobuf::functions::create_simple_exec_response_unknown(command, "Failed to process command: " + command, response);
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", "Failed to process command", response);
 		return NSCAPI::isSuccess;
 	}
 }
@@ -600,12 +597,12 @@ void ${CLASS}Module::handleMessageRAW(std::string data) {
 }
 """
 
-COMMAND_INSTANCE_CPP = """			} else if (command == "${COMMAND_NAME}") {
+COMMAND_INSTANCE_CPP = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->${COMMAND_NAME}(request_payload, response_payload);
 """
-COMMAND_INSTANCE_CPP_REQUEST_MESSAGE = """			} else if (command == "${COMMAND_NAME}") {
+COMMAND_INSTANCE_CPP_REQUEST_MESSAGE = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->${COMMAND_NAME}(request_payload, response_payload, request_message);
@@ -615,7 +612,7 @@ COMMAND_INSTANCE_CPP_FALLBACK = """			} else {
 				response_payload->set_command(request_payload.command());
 				impl_->query_fallback(request_payload, response_payload, request_message);
 """
-COMMAND_INSTANCE_CPP_LEGACY = """			} else if (command == "${COMMAND_NAME}") {
+COMMAND_INSTANCE_CPP_LEGACY = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
 				std::string msg, perf;
 				std::list<std::string> args;
 				for (int i=0;i<request_payload.arguments_size();i++) {
@@ -635,13 +632,12 @@ COMMAND_REGISTRATION_ALIAS_CPP = """		("${COMMAND_NAME}", "${ALIAS}",
 COMMAND_REGISTRATION_CPP = """		("${COMMAND_NAME}",
 		"${COMMAND_DESCRIPTION}")
 """
-RAW_COMMAND_INSTANCE_CPP = """		else if (command == "${COMMAND_NAME}") {
-			impl_->${COMMAND_NAME}(command, request_message, &response_message);
-			response_message.SerializeToString(&response);
-			return NSCAPI::isSuccess;
-		}
+RAW_COMMAND_INSTANCE_CPP = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
+				impl_->${COMMAND_NAME}("${COMMAND_NAME}", request_message, &response_message);
+				response_message.SerializeToString(&response);
+				return NSCAPI::isSuccess;
 """
-COMMAND_INSTANCE_CPP_NAGIOS = """			} else if (command == "${COMMAND_NAME}") {
+COMMAND_INSTANCE_CPP_NAGIOS = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
 				std::string msg, perf;
 				std::list<std::string> args;
 				for (int i=0;i<request_payload.arguments_size();i++) {
@@ -666,8 +662,7 @@ COMMAND_DELEGATOR_CPP_TRUE = """
  * @param response THe response packet
  * @return status code
  */
-NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const char* char_command, const std::string &request, std::string &response) {
-	std::string command = char_command;
+NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const std::string &request, std::string &response) {
 	try {
 		Plugin::QueryRequestMessage request_message;
 		Plugin::QueryResponseMessage response_message;
@@ -677,7 +672,6 @@ NSCAPI::nagiosReturn ${CLASS}Module::handleRAWCommand(const char* char_command, 
 		if (!impl_) {
 			return NSCAPI::returnIgnored;
 		}
-${RAW_COMMAND_INSTANCES_CPP}
 		for (int i=0;i<request_message.payload_size();i++) {
 			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
 			if (!impl_) {
@@ -688,9 +682,9 @@ ${COMMAND_INSTANCES_CPP}
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		return nscapi::protobuf::functions::create_simple_query_response_unknown(command, std::string("Failed to process command ") + command + ": " + e.what(), response);
+		return nscapi::protobuf::functions::create_simple_query_response_unknown("", std::string("Failed to process command : ") + e.what(), response);
 	} catch (...) {
-		return nscapi::protobuf::functions::create_simple_query_response_unknown(command, "Failed to process command: " + command, response);
+		return nscapi::protobuf::functions::create_simple_query_response_unknown("", "Failed to process command", response);
 	}
 }
 

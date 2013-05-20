@@ -228,19 +228,19 @@ bool NSCPlugin::has_routing_handler() {
  * @return Status of execution. Could be error codes, buffer length messages etc.
  * @throws NSPluginException if the module is not loaded.
  */
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* command, const char* dataBuffer, unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* dataBuffer, unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
 	if (!isLoaded() || fHandleCommand == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
-		return fHandleCommand(plugin_id_, command, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
+		return fHandleCommand(plugin_id_, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception in handleCommand.");
 	}
 }
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char *command, std::string &request, std::string &reply) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(std::string &request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
-	NSCAPI::nagiosReturn ret = handleCommand(command, request.c_str(), request.size(), &buffer, &len);
+	NSCAPI::nagiosReturn ret = handleCommand(request.c_str(), request.size(), &buffer, &len);
 	if (buffer != NULL) {
 		reply = std::string(buffer, len);
 		deleteBuffer(&buffer);
@@ -438,10 +438,10 @@ void NSCPlugin::loadRemoteProcs_(void) {
 }
 
 
-int NSCPlugin::commandLineExec(const char* command, std::string &request, std::string &reply) {
+int NSCPlugin::commandLineExec(std::string &request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
-	NSCAPI::nagiosReturn ret = commandLineExec(command, request.c_str(), request.size(), &buffer, &len);
+	NSCAPI::nagiosReturn ret = commandLineExec(request.c_str(), request.size(), &buffer, &len);
 	if (buffer != NULL) {
 		reply = std::string(buffer, len);
 		deleteBuffer(&buffer);
@@ -453,11 +453,11 @@ bool NSCPlugin::has_command_line_exec() {
 	return isLoaded() && fCommandLineExec != NULL;
 }
 
-int NSCPlugin::commandLineExec(const char* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {
+int NSCPlugin::commandLineExec(const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {
 	if (!has_command_line_exec())
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded or modules does not support command line");
 	try {
-		return fCommandLineExec(plugin_id_, command, request, request_len, reply, reply_len);
+		return fCommandLineExec(plugin_id_, request, request_len, reply, reply_len);
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhanded exception in handleCommand.");
 	}

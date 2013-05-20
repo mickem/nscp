@@ -1,0 +1,13 @@
+{
+	"module"		: {
+		"title"			: ".NET Plugin",
+		"description"	: "Plugin to load and manage plugins written in .net",
+		"name"			: "DotnetPlugins",
+		"alias"			: ".net",
+		"version"		: "auto"
+	},
+	
+	"commands" : {
+		"fallback" : "true"
+	}
+}

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
-//using NSCP;
+using NSCP;
 
 namespace NSCP.Plugin {
     public class PluginFactory : NSCP.IPluginFactory

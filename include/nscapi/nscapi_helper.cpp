@@ -55,7 +55,6 @@ bool nscapi::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 		);
 }
 
-
 std::wstring nscapi::report::to_string(unsigned int report) {
 	std::wstring ret;
 	if ((report&REPORT_OK)!=0) {
@@ -125,20 +124,20 @@ bool nscapi::logging::matches(NSCAPI::log_level::level level, NSCAPI::nagiosRetu
 
 std::wstring nscapi::logging::to_string(NSCAPI::log_level::level level) {
 	switch (level) {
-		case NSCAPI::log_level::trace:
-			return _T("trace");
-		case NSCAPI::log_level::error:
-			return _T("error");
-		case NSCAPI::log_level::critical:
-			return _T("critical");
-		case NSCAPI::log_level::debug:
-			return _T("debug");
-		case NSCAPI::log_level::info:
-			return _T("info");
-		case NSCAPI::log_level::warning:
-			return _T("warning");
-		case NSCAPI::log_level::off:
-			return _T("off");
+	case NSCAPI::log_level::trace:
+		return _T("trace");
+	case NSCAPI::log_level::error:
+		return _T("error");
+	case NSCAPI::log_level::critical:
+		return _T("critical");
+	case NSCAPI::log_level::debug:
+		return _T("debug");
+	case NSCAPI::log_level::info:
+		return _T("info");
+	case NSCAPI::log_level::warning:
+		return _T("warning");
+	case NSCAPI::log_level::off:
+		return _T("off");
 	}
 	return strEx::itos(level);
 }
@@ -183,33 +182,33 @@ void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &curren
 }
 
 /**
- * Translate a message type into a human readable string.
- *
- * @param msgType The message type
- * @return A string representing the message type
- */
+* Translate a message type into a human readable string.
+*
+* @param msgType The message type
+* @return A string representing the message type
+*/
 std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes msgType) {
 	switch (msgType) {
-		case NSCAPI::log_level::error:
-			return _T("error");
-		case NSCAPI::log_level::critical:
-			return _T("critical");
-		case NSCAPI::log_level::warning:
-			return _T("warning");
-		case NSCAPI::log_level::info:
-			return _T("info");
-		case NSCAPI::log_level::trace:
-			return _T("trace");
-		case NSCAPI::log_level::debug:
-			return _T("debug");
+	case NSCAPI::log_level::error:
+		return _T("error");
+	case NSCAPI::log_level::critical:
+		return _T("critical");
+	case NSCAPI::log_level::warning:
+		return _T("warning");
+	case NSCAPI::log_level::info:
+		return _T("info");
+	case NSCAPI::log_level::trace:
+		return _T("trace");
+	case NSCAPI::log_level::debug:
+		return _T("debug");
 	}
 	return _T("unknown");
 }
 /**
- * Translate a return code into the corresponding string
- * @param returnCode 
- * @return 
- */
+* Translate a return code into the corresponding string
+* @param returnCode
+* @return
+*/
 std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCode) {
 	if (returnCode == NSCAPI::returnOK)
 		return "OK";
@@ -223,9 +222,9 @@ std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCo
 		return "BAD_CODE: " + strEx::s::xtos(returnCode);
 }
 /**
-* Translate a string into the corresponding return code 
-* @param returnCode 
-* @return 
+* Translate a string into the corresponding return code
+* @param returnCode
+* @return
 */
 NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 	if ((str == "OK") || (str == "ok"))
@@ -234,16 +233,16 @@ NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 		return NSCAPI::returnCRIT;
 	else if ((str == "WARNING") || (str == "warning"))
 		return NSCAPI::returnWARN;
-	else 
+	else
 		return NSCAPI::returnUNKNOWN;
 }
 /**
- * Returns the biggest of the two states
- * STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
- * @param a 
- * @param b 
- * @return 
- */
+* Returns the biggest of the two states
+* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+* @param a
+* @param b
+* @return
+*/
 NSCAPI::nagiosReturn nscapi::plugin_helper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b) {
 	if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
 		return NSCAPI::returnCRIT;

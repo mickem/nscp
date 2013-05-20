@@ -195,7 +195,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	} catch (WMIException e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
-	int hit_count = 0;
+	std::size_t hit_count = 0;
 
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
 	std::string message;
@@ -312,7 +312,6 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 	} catch (WMIException e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
-	int hit_count = 0;
 
 	std::string message, perf;
 	NSCAPI::nagiosReturn returnCode = NSCAPI::returnOK;
@@ -599,5 +598,4 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
 		return NSCAPI::hasFailed;
 	}
-	return NSCAPI::returnIgnored;
 }

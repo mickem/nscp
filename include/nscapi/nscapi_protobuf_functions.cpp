@@ -452,15 +452,14 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const char* char_command, const std::string &request) {
+		functions::decoded_simple_command_data functions::parse_simple_exec_request(const std::string &request) {
 			Plugin::ExecuteRequestMessage message;
 			message.ParseFromString(request);
 
-			return parse_simple_exec_request(char_command, message);
+			return parse_simple_exec_request(message);
 		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const std::string &cmd, const Plugin::ExecuteRequestMessage &message) {
+		functions::decoded_simple_command_data functions::parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message) {
 			decoded_simple_command_data data;
-			data.command = cmd;
 			if (message.has_header())
 				data.target = message.header().recipient_id();
 
@@ -468,6 +467,7 @@ namespace nscapi {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
+			data.command = payload.command();
 			for (int i=0;i<payload.arguments_size();i++) {
 				data.args.push_back(payload.arguments(i));
 			}
@@ -480,6 +480,30 @@ namespace nscapi {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
+		}
+		int functions::create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response) {
+			Plugin::ExecuteResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(command);
+			payload->set_message(result);
+
+			payload->set_result(nagios_status_to_gpb(ret));
+			message.SerializeToString(&response);
+			return ret;
+		}
+		int functions::create_simple_exec_response_unknown(std::string command, std::string result, std::string &response) {
+			Plugin::ExecuteResponseMessage message;
+			create_simple_header(message.mutable_header());
+
+			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
+			payload->set_command(command);
+			payload->set_message(result);
+
+			payload->set_result(nagios_status_to_gpb(NSCAPI::returnUNKNOWN));
+			message.SerializeToString(&response);
+			return NSCAPI::returnUNKNOWN;
 		}
 
 		//////////////////////////////////////////////////////////////////////////

@@ -18,6 +18,13 @@ IF(JSON_SPIRIT_FOUND)
 		${JSON_SPIRIT_INCLUDE_DIR}/json_spirit_utils.h
 		${JSON_SPIRIT_INCLUDE_DIR}/json_spirit_writer_options.h
 		${JSON_SPIRIT_INCLUDE_DIR}/json_spirit_writer_template.h)
+
+	IF(WIN32)
+	  ADD_DEFINITIONS(-D_CRT_SECURE_NO_WARNINGS -MP -D_WIN32_WINNT=0x0500 -D_SCL_SECURE_NO_WARNINGS -EHsc -DBOOST_ALL_DYN_LINK)
+	  SET(CMAKE_CXX_FLAGS "-D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS /bigobj")
+	ELSE()
+	  SET(ADDED_DEFINITIONS -Wall -Wno-unused-function -Wno-unused-variable -fvisibility=hidden -fPIC -Wnon-virtual-dtor -Wreorder -Wstrict-null-sentinel -Wsign-promo)
+	ENDIF()
  
 	INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 	ADD_LIBRARY(json_spirit ${JSON_SPIRIT_SRCS})

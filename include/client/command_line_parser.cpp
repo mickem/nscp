@@ -258,8 +258,10 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			s = local_response.message();
 		response.set_message(s);
 		response.set_result(local_response.result());
+		return true;
 	} else if (real_command == "exec") {
 		do_exec(config, request_message.header(), response);
+		return true;
 	} else if (real_command == "submit") {
 		Plugin::SubmitResponseMessage::Response local_response;
 		do_submit(config, request_message.header(), local_response);
@@ -272,9 +274,8 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			nscapi::protobuf::functions::set_response_bad(response, "Submission failed: " + local_response.status().message());
 		}
 		return true;
-	} else {
-		return false;
 	}
+	return false;
 }
 
 void client::command_manager::do_exec(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::ExecuteResponseMessage::Response &response) {

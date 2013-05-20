@@ -7,75 +7,46 @@ message Common {
 	enum Version {
 		VERSION_1 = 1;
 	};
-};
-
-message RegisterSlave {
 	
-	required string sender = 1;
-	repeated string slaves = 2;
-	
-};
-
-message Signature {
-	required int32 version = 1;
-	required int32 header_type = 2;
-	required int32 payload_type = 3;
-	required string cookie = 4;
-};
-message MessageSignature {
-	required Signature signature = 1;
-	required string cookie = 2;
-	optional int64 sequence = 3;
-};
-
-message RequestEnvelope {
-	required Common.Version version = 1;
-	optional Common.Version max_supported_version = 2;
-	
-	optional string sender = 17;
-	optional string recipient = 18;
-	optional int32 id = 19;
-};
-
-message ResponseEnvelope {
-	enum Status {
-		IS_OK = 1;
-
-		HAS_WARNINGS = 5;
-		IS_WARNING = 6;
-		HAS_ERRRORS = 7;
-		IS_ERRRORS = 8;
-
-		IS_FATAL = 10;
+	enum MessageTypes {
 		
-		UNSUPPORTED_VERSION = 20;
+		QUERY_REQUEST = 1;
+		QUERY_RESPONSE = 2;
+		EXEC_REQUEST = 3;
+		EXEC_RESPONSE = 4;
+		SUBMIT_REQUEST = 5;
+		SUBMIT_RESPONSE = 6;
+		SETTINGS_REQUEST = 10;
+		SETTINGS_RESPONSE = 11;
+		REGISTRY_REQUEST = 12;
+		REGISTRY_RESPONSE = 12;
+		
+		ERROR_MESSAGE = 99;
+		CUSTOM_MESSAGE = 100;
 	};
-
-	required Common.Version version = 1;
-	required Common.Version max_supported_version = 2;
 	
-	required Status request_status = 3;
-
-	optional string message = 7;
-
-	optional string sender = 17;
-	optional string recipient = 18;
-	optional int32 id = 19;
+	message Header {
+		required Version version = 1;
+		required MessageTypes type = 3;
+		required string cookie = 4;
+		optional int64 sequence = 5;
+	};
+	
 };
 
-message MessageRequestEnvelope {
-	required RequestEnvelope envelope = 1;
-	optional string username = 2;
-	optional string password = 3;
-	optional int64 sequence = 4;
+message HeaderMessage {
+	required Common.Header header = 1;
+	required Common.MessageTypes type = 2;
+	optional string custom_type = 3;
+	required string message = 4;
 };
 
-message MessageResponseEnvelope {
-	required RequestEnvelope envelope = 1;
-	required string cookie = 2;
-	optional int64 sequence = 3;
-}
 
+message PayloadMessage {
+	required Common.Header header = 1;
+	required Common.MessageTypes type = 2;
+	required string message = 3;
+};
 
 
 message ErrorMessage {

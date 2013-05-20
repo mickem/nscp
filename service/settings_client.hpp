@@ -1,7 +1,7 @@
 #pragma once
 #include <settings/settings_core.hpp>
 #include <nsclient/logger.hpp>
-#ifdef JSON_SPIRIT
+#ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
 #endif
 
@@ -162,47 +162,47 @@ namespace nsclient {
 					}
 				} else if (target.empty()) {
 					settings_manager::get_core()->get()->save();
-#ifdef JSON_SPIRIT
-				} else if (target == _T("json") || target == _T("json-compact")) {
-					json_spirit::wObject json_root;
+#ifdef HAVE_JSON_SPIRIT
+				} else if (target == "json" || target == "json-compact") {
+					json_spirit::Object json_root;
 					settings::string_list s = settings_manager::get_core()->get_reg_sections();
-					BOOST_FOREACH(std::wstring path, s) {
+					BOOST_FOREACH(const std::string &path, s) {
 
 						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
 						bool include = filter_.empty();
-						json_spirit::wObject json_plugins;
+						json_spirit::Object json_plugins;
 						BOOST_FOREACH(unsigned int i, desc.plugins) {
-							std::wstring name = core_->get_plugin_module_name(i);
+							std::string name = core_->get_plugin_module_name(i);
 							if (match_filter(name))
 								include = true;
-							json_plugins.push_back(json_spirit::wPair(strEx::itos(i), name));
+							json_plugins.push_back(json_spirit::Pair(strEx::s::xtos(i), name));
 						}
 						if (!include)
 							continue;
 
-						json_spirit::wObject json_path;
-						json_path.push_back(json_spirit::wPair(_T("path"), path));
-						json_path.push_back(json_spirit::wPair(_T("title"), desc.title));
-						json_path.push_back(json_spirit::wPair(_T("description"), desc.description));
-						json_path.push_back(json_spirit::wPair(_T("plugins"), json_plugins));
+						json_spirit::Object json_path;
+						json_path.push_back(json_spirit::Pair("path", path));
+						json_path.push_back(json_spirit::Pair("title", desc.title));
+						json_path.push_back(json_spirit::Pair("description", desc.description));
+						json_path.push_back(json_spirit::Pair("plugins", json_plugins));
 
-						json_spirit::wObject json_keys;
-						BOOST_FOREACH(std::wstring key, settings_manager::get_core()->get_reg_keys(path)) {
+						json_spirit::Object json_keys;
+						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
 							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
-							json_spirit::wObject json_key;
-							json_key.push_back(json_spirit::wPair(_T("key"), key));
-							json_key.push_back(json_spirit::wPair(_T("title"), desc.title));
-							json_key.push_back(json_spirit::wPair(_T("description"), desc.description));
-							json_key.push_back(json_spirit::wPair(_T("default value"), desc.defValue));
-							json_keys.push_back(json_spirit::wPair(key, json_key));
+							json_spirit::Object json_key;
+							json_key.push_back(json_spirit::Pair("key", key));
+							json_key.push_back(json_spirit::Pair("title", desc.title));
+							json_key.push_back(json_spirit::Pair("description", desc.description));
+							json_key.push_back(json_spirit::Pair("default value", desc.defValue));
+							json_keys.push_back(json_spirit::Pair(key, json_key));
 						}
-						json_path.push_back(json_spirit::wPair(_T("keys"), json_keys));
-						json_root.push_back(json_spirit::wPair(path, json_path));
+						json_path.push_back(json_spirit::Pair("keys", json_keys));
+						json_root.push_back(json_spirit::Pair(path, json_path));
 					}
-					if (target == _T("json-compact"))
-						write(json_root, std::wcout);
+					if (target == "json-compact")
+						write(json_root, std::cout);
 					else
-						write(json_root, std::wcout, json_spirit::pretty_print);
+						write(json_root, std::cout, json_spirit::pretty_print);
 #endif
 				} else {
 					settings_manager::get_core()->get()->save_to(target);

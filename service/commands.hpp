@@ -50,8 +50,24 @@ namespace nsclient {
 			if (!plugin || !plugin->hasCommandHandler()) {
 				return;
 			}
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+			if (!writeLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex: commands::remove_all");
+				return;
+			}
 			plugins_[plugin->get_id()] = plugin;
-			
+		}
+
+		void add_plugin(int plugin_id, plugin_type plugin) {
+			if (!plugin || !plugin->hasCommandHandler()) {
+				return;
+			}
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+			if (!writeLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex: commands::remove_all");
+				return;
+			}
+			plugins_[plugin_id] = plugin;
 		}
 
 		void remove_all() {

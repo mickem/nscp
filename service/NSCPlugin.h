@@ -141,8 +141,8 @@ public:
 	bool hasCommandHandler(void);
 	bool hasNotificationHandler(void);
 	bool hasMessageHandler(void);
-	NSCAPI::nagiosReturn handleCommand(const char *command, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
-	NSCAPI::nagiosReturn handleCommand(const char* command, std::string &request, std::string &reply);
+	NSCAPI::nagiosReturn handleCommand(const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
+	NSCAPI::nagiosReturn handleCommand(std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);
@@ -150,8 +150,8 @@ public:
 	void unload_dll(void);
 	void unload_plugin(void);
 	std::wstring getCongifurationMeta();
-	int commandLineExec(const char* command, std::string &request, std::string &reply);
-	int commandLineExec(const char* command, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
+	int commandLineExec(std::string &request, std::string &reply);
+	int commandLineExec(const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
 	bool is_duplicate(boost::filesystem::path file, std::string alias);
 

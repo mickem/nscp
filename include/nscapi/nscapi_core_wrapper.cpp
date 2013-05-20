@@ -46,16 +46,15 @@ bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
 	return nscapi::logging::matches(level, msgType);
 }
 
-
 /**
- * Callback to send a message through to the core
- *
- * @param msgType Message type (debug, warning, etc.)
- * @param file File where message was generated (__FILE__)
- * @param line Line where message was generated (__LINE__)
- * @param message Message in human readable format
- * @throws nscapi::nscapi_exception When core pointer set is unavailable.
- */
+* Callback to send a message through to the core
+*
+* @param msgType Message type (debug, warning, etc.)
+* @param file File where message was generated (__FILE__)
+* @param line Line where message was generated (__LINE__)
+* @param message Message in human readable format
+* @throws nscapi::nscapi_exception When core pointer set is unavailable.
+*/
 void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string logMessage) {
 	if (!should_log(msgType))
 		return;
@@ -75,32 +74,30 @@ NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() {
 	return fNSAPIGetLoglevel();
 }
 
+/**
+* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+* @param command Command to inject (password should not be included.
+* @return The result (if any) of the command.
+* @throws nscapi::nscapi_exception When core pointer set is unavailable or an unknown inject error occurs.
+*/
 
 /**
- * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
- * @param command Command to inject (password should not be included.
- * @return The result (if any) of the command.
- * @throws nscapi::nscapi_exception When core pointer set is unavailable or an unknown inject error occurs.
- */
-
-/**
- * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
- * @param command Command to inject
- * @param argLen The length of the argument buffer
- * @param **argument The argument buffer
- * @param *returnMessageBuffer Buffer to hold the returned message
- * @param returnMessageBufferLen Length of returnMessageBuffer
- * @param *returnPerfBuffer Buffer to hold the returned performance data
- * @param returnPerfBufferLen returnPerfBuffer
- * @return The returned status of the command
- */
-NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
+* @param command Command to inject
+* @param argLen The length of the argument buffer
+* @param **argument The argument buffer
+* @param *returnMessageBuffer Buffer to hold the returned message
+* @param returnMessageBufferLen Length of returnMessageBuffer
+* @param *returnPerfBuffer Buffer to hold the returned performance data
+* @param returnPerfBufferLen returnPerfBuffer
+* @return The returned status of the command
+*/
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	return fNSAPIInject(command, request, request_len, response, response_len);
+	return fNSAPIInject(request, request_len, response, response_len);
 }
-
 
 void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 	if (!fNSAPIDestroyBuffer)
@@ -108,9 +105,7 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
 	return fNSAPIDestroyBuffer(buffer);
 }
 
-
 NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) {
-
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
@@ -126,25 +121,24 @@ NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::string channel, st
 }
 
 NSCAPI::errorReturn nscapi::core_wrapper::reload(std::string module) {
-
 	if (!fNSAPIReload)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIReload(module.c_str());
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
 {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPINotify(channel, request, request_len, response, response_len);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & command, const std::string & request, std::string & result) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, std::string & result)
 {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = query(command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = query(request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		//PluginCommand::ResponseMessage rsp_msg;
@@ -152,50 +146,32 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & command, co
 	}
 
 	DestroyBuffer(&buffer);
-	switch (retC) {
-		case NSCAPI::returnIgnored:
-			CORE_LOG_ERROR_WA("No handler for command: ", command);
-			break;
-		case NSCAPI::returnOK:
-		case NSCAPI::returnCRIT:
-		case NSCAPI::returnWARN:
-		case NSCAPI::returnUNKNOWN:
-			break;
-		default:
-			throw nscapi::nscapi_exception("Unknown return code from query: " + utf8::cvt<std::string>(command));
+	if (retC != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR("Failed to execute command");
 	}
 	return retC;
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::string target, const std::string command, std::string request, std::string & result) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), command.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		result = std::string(buffer, buffer_size);
 	}
 
 	DestroyBuffer(&buffer);
-	switch (retC) {
-		case NSCAPI::returnIgnored:
-			CORE_LOG_ERROR_WA("No handler for command: ", command);
-			break;
-		case NSCAPI::returnOK:
-		case NSCAPI::returnCRIT:
-		case NSCAPI::returnWARN:
-		case NSCAPI::returnUNKNOWN:
-			break;
-		default:
-			throw nscapi::nscapi_exception("Unknown return from exec: " + utf8::cvt<std::string>(command));
+	if (retC != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR("Failed to execute command");
 	}
 	return retC;
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char* command, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) 
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
 {
 	if (!fNSAPIExecCommand)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	return fNSAPIExecCommand(target, command, request, request_len, response, response_len);
+	return fNSAPIExecCommand(target, request, request_len, response, response_len);
 }
 
 std::string nscapi::core_wrapper::expand_path(std::string value) {
@@ -216,7 +192,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, co
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPISettingsQuery(request, request_len, response, response_len);
 }
-NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
+bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::errorReturn retC = settings_query(request.c_str(), request.size(), &buffer, &buffer_size);
@@ -224,7 +200,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const std::string reque
 		response = std::string(buffer, buffer_size);
 	}
 	DestroyBuffer(&buffer);
-	return retC;
+	return retC == NSCAPI::isSuccess;
 }
 
 NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
@@ -243,11 +219,45 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string reque
 	return retC;
 }
 
+bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = json_to_protobuf(request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC == NSCAPI::isSuccess;
+}
+
+NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSCAPIProtobuf2Json)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	return fNSCAPIProtobuf2Json(object, request, request_len, response, response_len);
+}
+
+bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	NSCAPI::errorReturn retC = protobuf_to_json(object.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC == NSCAPI::isSuccess;
+}
+
+NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+	if (!fNSCAPIJson2Protobuf)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	return fNSCAPIJson2Protobuf(request, request_len, response, response_len);
+}
+
 /**
- * Retrieve the application name (in human readable format) from the core.
- * @return A string representing the application name.
- * @throws nscapi::nscapi_exception When core pointer set is unavailable or an unexpected error occurs.
- */
+* Retrieve the application name (in human readable format) from the core.
+* @return A string representing the application name.
+* @throws nscapi::nscapi_exception When core pointer set is unavailable or an unexpected error occurs.
+*/
 std::string nscapi::core_wrapper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
@@ -301,10 +311,10 @@ bool nscapi::core_wrapper::checkLogMessages(int type) {
 	return fNSAPICheckLogMessages(type) == NSCAPI::istrue;
 }
 /**
- * Retrieve the application version as a string (in human readable format) from the core.
- * @return A string representing the application version.
- * @throws nscapi::nscapi_exception When core pointer set is unavailable.
- */
+* Retrieve the application version as a string (in human readable format) from the core.
+* @return A string representing the application version.
+* @throws nscapi::nscapi_exception When core pointer set is unavailable.
+*/
 std::string nscapi::core_wrapper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
@@ -324,11 +334,11 @@ void nscapi::core_wrapper::set_alias(const std::string default_alias_, const std
 }
 
 /**
- * Wrapper function around the ModuleHelperInit call.
- * This wrapper retrieves all pointers and stores them for future use.
- * @param f A function pointer to a function that can be used to load function from the core.
- * @return NSCAPI::success or NSCAPI::failure
- */
+* Wrapper function around the ModuleHelperInit call.
+* This wrapper retrieves all pointers and stores them for future use.
+* @param f A function pointer to a function that can be used to load function from the core.
+* @return NSCAPI::success or NSCAPI::failure
+*/
 bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIGetApplicationName = (nscapi::core_api::lpNSAPIGetApplicationName)f("NSAPIGetApplicationName");
 	fNSAPIGetApplicationVersionStr = (nscapi::core_api::lpNSAPIGetApplicationVersionStr)f("NSAPIGetApplicationVersionStr");
@@ -346,8 +356,11 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPISettingsQuery = (nscapi::core_api::lpNSAPISettingsQuery)f("NSAPISettingsQuery");
 	fNSAPIRegistryQuery = (nscapi::core_api::lpNSAPIRegistryQuery)f("NSAPIRegistryQuery");
 	fNSAPIExpandPath = (nscapi::core_api::lpNSAPIExpandPath)f("NSAPIExpandPath");
-	
+
 	fNSAPIGetLoglevel = (nscapi::core_api::lpNSAPIGetLoglevel)f("NSAPIGetLoglevel");
+
+	fNSCAPIJson2Protobuf = (nscapi::core_api::lpNSCAPIJson2Protobuf)f("NSCAPIJson2Protobuf");
+	fNSCAPIProtobuf2Json = (nscapi::core_api::lpNSCAPIProtobuf2Json)f("NSCAPIProtobuf2Json");
 
 	return true;
 }

@@ -49,7 +49,7 @@ namespace nscp {
 			}
 			void prepare_request(request_type &packet) {
 				set_state(has_request);
-				buffer_  = packet.write_string();
+				buffer_  = packet.write();
 			}
 
 			write_buffer_type& get_outbound() {
@@ -60,7 +60,7 @@ namespace nscp {
 			}
 
 			response_type get_timeout_response() {
-				return nscp::factory::create_error(_T("Failed to read data"));
+				return nscp::factory::create_error("Failed to read data");
 			}
 			response_type get_response() {
 				return digester_.get_packet();

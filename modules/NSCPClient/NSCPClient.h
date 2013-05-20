@@ -128,6 +128,9 @@ public:
 			nscapi::protobuf::types::destination_container ret;
 			return ret;
 		}
+
+	private:
+		int send(connection_data &con, ::NSCPIPC::Common_MessageTypes type, const std::string &request_message, std::string &response_message);
 	};
 
 
@@ -143,7 +146,7 @@ public:
 	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
 
 private:
-	std::list<nscp::packet> send(connection_data con, std::list<nscp::packet> &chunks);
+	nscp::packet send(connection_data con, nscp::packet &packet);
 
 
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);

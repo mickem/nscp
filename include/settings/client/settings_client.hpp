@@ -19,6 +19,8 @@
 #include <settings/client/settings_client_interface.hpp>
 
 
+#pragma warning( disable : 4800 )
+
 namespace boost
 {
 	template<>
@@ -34,7 +36,6 @@ namespace boost
 
 namespace nscapi {
 	namespace settings_helper {
-
 		typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
 		static std::string make_skey(std::string path, std::string key) {
 			return path + "." + key;
@@ -95,7 +96,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_)
 					dummy = typed_key<T>::default_value_as_text_;
 				std::string data = core_->get_string(parent, key, dummy);
-				if (typed_key<T>::has_default_ || data != dummy) 
+				if (typed_key<T>::has_default_ || data != dummy)
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
 				if (typed_key<T>::has_default_ || data != "$$DUMMY_VALUE_DO_NOT_USE$$") {
@@ -135,7 +136,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_)
 					dummy = utf8::cvt<TString>(typed_key<T>::default_value_as_text_);
 				TString data = utf8::cvt<TString>(core_->get_string(parent, key, utf8::cvt<std::string>(dummy)));
-				if (typed_key<T>::has_default_ || data != dummy) 
+				if (typed_key<T>::has_default_ || data != dummy)
 					dummy = data;
 				data = utf8::cvt<TString>(core_->get_string(path, key, utf8::cvt<std::string>(dummy)));
 				if (typed_key<T>::has_default_ || data != tag) {
@@ -365,7 +366,7 @@ namespace nscapi {
 			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (store_to_) {
 					BOOST_FOREACH(const std::string &s, core_->get_keys(path))
-					store_to_->push_back(utf8::cvt<std::wstring>(s));
+						store_to_->push_back(utf8::cvt<std::wstring>(s));
 				}
 			}
 
@@ -413,7 +414,6 @@ namespace nscapi {
 			boost::function<void (std::wstring)> callback_;
 		};
 
-
 		boost::shared_ptr<typed_path_fun> fun_path(boost::function<void (std::wstring)> fun);
 		boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void (std::string,std::string)> fun);
 		boost::shared_ptr<typed_path_map<std::wstring> > wstring_map_path(std::map<std::wstring,std::wstring> *val);
@@ -425,12 +425,12 @@ namespace nscapi {
 			std::string description;
 			bool advanced;
 
-			description_container(std::string title, std::string description, bool advanced) 
+			description_container(std::string title, std::string description, bool advanced)
 				: title(title)
 				, description(description)
 				, advanced(advanced)
 			{}
-			description_container(std::string title, std::string description) 
+			description_container(std::string title, std::string description)
 				: title(title)
 				, description(description)
 				, advanced(false)
@@ -447,7 +447,6 @@ namespace nscapi {
 				advanced = obj.advanced;
 				return *this;
 			}
-
 		};
 
 		struct key_info {
@@ -457,8 +456,7 @@ namespace nscapi {
 			description_container description;
 			std::string parent;
 
-
-			key_info(std::string path_, std::string key_name_, boost::shared_ptr<key_interface> key, description_container description_) 
+			key_info(std::string path_, std::string key_name_, boost::shared_ptr<key_interface> key, description_container description_)
 				: path(path_)
 				, key_name(key_name_)
 				, key(key)
@@ -498,7 +496,6 @@ namespace nscapi {
 				description = obj.description;
 				return *this;
 			}
-
 		};
 
 		class settings_registry;
@@ -537,7 +534,7 @@ namespace nscapi {
 		private:
 			std::string path_;
 			settings_registry* owner;
-		};	
+		};
 
 		class settings_keys_easy_init {
 		public:
@@ -568,8 +565,7 @@ namespace nscapi {
 			settings_registry* owner;
 			std::string path_;
 			std::string parent_;
-		};	
-
+		};
 
 		class path_extension {
 		public:
@@ -617,7 +613,6 @@ namespace nscapi {
 				return path + "/" + alias_;
 			}
 
-
 			settings_keys_easy_init add_key_to_settings(std::string path = "") {
 				return settings_keys_easy_init(get_settings_path(path), parent_, owner_);
 			}
@@ -634,7 +629,6 @@ namespace nscapi {
 				set_parent_path(parent_path);
 				return *this;
 			}
-
 
 			static std::string get_alias(std::string cur, std::string def) {
 				if (cur.empty())
@@ -685,7 +679,7 @@ namespace nscapi {
 
 			settings_keys_easy_init add_key() {
 				return settings_keys_easy_init(this);
-			} 
+			}
 			settings_keys_easy_init add_key_to_path(std::string path) {
 				return settings_keys_easy_init(path, this);
 			}
@@ -737,7 +731,6 @@ namespace nscapi {
 			std::string get_static_string(std::string path, std::string key, std::string def_value) {
 				return core_->get_string(path, key, def_value);
 			}
-			
 
 			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false)  {
 				core_->register_key(path, key, type, title, description, defaultValue, advanced);
@@ -789,7 +782,6 @@ namespace nscapi {
 						core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name);
 					}
 				}
-
 			}
 		};
 	}

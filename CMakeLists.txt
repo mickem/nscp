@@ -77,15 +77,6 @@ ELSE(NOT HAVE_REQUIRED_DEPENDENCIES)
 	MESSAGE(STATUS " - All required dependecies found! (some modules and features migh stil be missing though)")
 ENDIF(NOT HAVE_REQUIRED_DEPENDENCIES)
 
-FIND_PACKAGE(JSON_SPIRIT)
-IF (JSON_SPIRIT_FOUND)
-	MESSAGE(STATUS "Found json spirit in: ${JSON_SPIRIT_INCLUDE_DIR}")
-ENDIF (JSON_SPIRIT_FOUND)
-
-FIND_PACKAGE(ZeroMQ)
-IF (ZEROMQ_FOUND)
-	MESSAGE(STATUS "Found zeromq (lib) in: ${ZEROMQ_LIBRARY}")
-ENDIF (ZEROMQ_FOUND)
 
 #############################################################################
 #

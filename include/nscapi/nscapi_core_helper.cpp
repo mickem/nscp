@@ -110,7 +110,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 		CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
 		return NSCAPI::returnUNKNOWN;
 	}
-	return get_core()->query(command.c_str(), request, result);
+	return get_core()->query(request, result);
 }
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) 
 {
@@ -121,7 +121,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 		CORE_LOG_ERROR_EXR("Failed to extract return message", e);
 		return NSCAPI::returnUNKNOWN;
 	}
-	return get_core()->query(command.c_str(), request, result);
+	return get_core()->query(request, result);
 }
 
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf) {
@@ -135,7 +135,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
-	NSCAPI::nagiosReturn ret = get_core()->exec_command(target, command, request, response);
+	NSCAPI::nagiosReturn ret = get_core()->exec_command(target, request, response);
 	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;
 }

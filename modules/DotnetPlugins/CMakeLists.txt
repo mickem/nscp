@@ -8,7 +8,12 @@ SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
-plugin_instance.cpp
+	plugin_instance.cpp
+
+	block_allocator.cpp
+	json.cpp
+
+	json_writer.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
@@ -23,6 +28,10 @@ IF(WIN32)
 		"${TARGET}.h"
 		plugin_instance.hpp
 		DotnetPlugins.def
+
+		block_allocator.h
+		json.h
+		json_writer.h
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -43,7 +52,8 @@ STRING(REPLACE "/RTC1" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 STRING(REPLACE "/RTCs" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 STRING(REPLACE "/RTCu" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 STRING(REPLACE "/GZ" "" CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa /FU ${BUILD_TARGET_EXE_PATH}/NSCPDOTNET.dll")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa /FU")
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clr /EHa /FU ${BUILD_TARGET_EXE_PATH}/NSCPDOTNET.dll")
 
 ADD_LIBRARY(${TARGET} MODULE ${SRCS})
 

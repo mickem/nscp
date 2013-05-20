@@ -566,7 +566,7 @@ tuple script_wrapper::command_wrapper::query(std::string command, std::string re
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = core->query(command, request, response);
+		ret = core->query(request, response);
 	}
 	return boost::python::make_tuple(ret,response);
 }
@@ -589,21 +589,19 @@ tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::stri
 		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(command));
 	}
 }
-tuple script_wrapper::command_wrapper::exec(std::string target, std::string command, std::string request) {
+tuple script_wrapper::command_wrapper::exec(std::string target, std::string request) {
 	try {
 		std::string response;
 		int ret = 0;
 		{
 			thread_unlocker unlocker;
-			ret = core->exec_command(target, command, request, response);
+			ret = core->exec_command(target, request, response);
 		}
 		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to execute " + command, e);
 		return boost::python::make_tuple(false,utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to execute " + command);
-		return boost::python::make_tuple(false,command);
+		return boost::python::make_tuple(false,"Failed to execute");
 	}
 }
 

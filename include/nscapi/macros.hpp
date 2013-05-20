@@ -3,6 +3,8 @@
 #include <boost/shared_ptr.hpp>
 #include <NSCAPI.h>
 
+#pragma warning( disable : 4100 )
+
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
 #define NSC_WRAPPERS_MAIN() \
@@ -16,12 +18,12 @@
 	extern "C" NSCAPI::boolReturn NSHasCommandHandler(unsigned int plugin_id); \
 	extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id); \
 	extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len); \
-	extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
+	extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
 	extern "C" int NSUnloadModule(unsigned int plugin_id);
 
 
 #define NSC_WRAPPERS_CLI() \
-	extern "C" int NSCommandLineExec(unsigned int plugin_id, char *command, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
+	extern "C" int NSCommandLineExec(unsigned int plugin_id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
 
 #define NSC_WRAPPERS_CHANNELS() \
 	extern "C" int NSHasNotificationHandler(unsigned int plugin_id); \
@@ -95,9 +97,9 @@
 		return wrapper.NSHasMessageHandler(); }
 
 #define NSC_WRAPPERS_HANDLE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { \
+	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) { \
 		nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
-		return wrapper.NSHandleCommand(command, request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); } \
+		return wrapper.NSHandleCommand(request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); } \
 	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { \
 		nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
 		return wrapper.NSHasCommandHandler(); }
@@ -119,16 +121,16 @@
 		return wrapper.NSHasNotificationHandler(); }
 
 #define NSC_WRAPPERS_CLI_DEF() \
-	extern int NSCommandLineExec(unsigned int id, char *command, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) { \
+	extern int NSCommandLineExec(unsigned int id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) { \
 		nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \
-		return wrapper.NSCommandLineExec(command, request_buffer, request_len, response_buffer, response_len); }
+		return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); }
 
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
 	extern void NSHandleMessage(unsigned int id, const char* data, unsigned int len) {} \
 	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) { return NSCAPI::isfalse; }
 
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* command, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {  return NSCAPI::returnIgnored; } \
+	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {  return NSCAPI::returnIgnored; } \
 	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { return NSCAPI::isfalse; }
 
 #define NSC_WRAPPERS_IGNORE_NOTIFICATION_DEF() \

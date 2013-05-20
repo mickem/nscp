@@ -140,7 +140,7 @@ namespace net {
 			path_i = std::find(path_i, url_s.end(), L'/');
 			try {
 				ret.port = boost::lexical_cast<unsigned int>(std::wstring(port_b, path_i));
-			} catch (const std::exception &e) {
+			} catch (const std::exception&) {
 				ret.port = default_port;
 			}
 		} else {

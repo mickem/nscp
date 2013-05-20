@@ -21,3 +21,25 @@
 #include <strEx.h>
 #include <nscp/packet.hpp>
 
+
+bool nscp::packet::get_error(std::string &buffer) {
+	std::vector<char> ret;
+	BOOST_FOREACH(const nscp::data::frame &frame, frames_) {
+		if (frame.header.type == nscp::data::frame_error) {
+			buffer = frame.payload;
+			return true;
+		}
+	}
+	return false;
+}
+
+bool nscp::packet::get_payload(std::string &buffer) {
+	std::vector<char> ret;
+	BOOST_FOREACH(const nscp::data::frame &frame, frames_) {
+		if (frame.header.type == nscp::data::frame_payload) {
+			buffer = frame.payload;
+			return true;
+		}
+	}
+	return false;
+}

@@ -56,12 +56,11 @@ int lua::core_wrapper::simple_query(lua_State *L) {
 int lua::core_wrapper::query(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	try {
-		if (lua_instance.size() != 2)
-			return lua_instance.error("Incorrect syntax: query(command, [data])");
+		if (lua_instance.size() != 1)
+			return lua_instance.error("Incorrect syntax: query(data)");
 		std::string data = lua_instance.pop_string();
-		std::string command = lua_instance.pop_string();
 		std::string response;
-		NSCAPI::nagiosReturn ret = get()->query(command, data, response);
+		NSCAPI::nagiosReturn ret = get()->query(data, response);
 		lua_instance.push_code(ret);
 		lua_instance.push_raw_string(response);
 		lua_instance.assert_lua_return(2);

@@ -22,16 +22,13 @@
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-
 nscapi::helper_singleton::helper_singleton() : core_(new nscapi::core_wrapper()), plugin_(new nscapi::plugin_wrapper()) {}
 /**
- * Wrapper function around the ModuleHelperInit call.
- * This wrapper retrieves all pointers and stores them for future use.
- * @param f A function pointer to a function that can be used to load function from the core.
- * @return NSCAPI::success or NSCAPI::failure
- */
+* Wrapper function around the ModuleHelperInit call.
+* This wrapper retrieves all pointers and stores them for future use.
+* @param f A function pointer to a function that can be used to load function from the core.
+* @return NSCAPI::success or NSCAPI::failure
+*/
 int nscapi::plugin_wrapper::wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) {
 	return nscapi::plugin_singleton->get_core()->load_endpoints(f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 }
-
-
