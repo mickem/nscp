@@ -27,7 +27,7 @@ SET_TARGET_PROPERTIES(copy_docs PROPERTIES FOLDER "files")
 
 IF(SPHINX_FOUND)
 	ADD_CUSTOM_TARGET(build_doc_sources
-		COMMAND ${CMAKE_BINARY_DIR}/nscp py --load-all --script docs --format rst --output docs/source/reference
+		COMMAND ${CMAKE_BINARY_DIR}/nscp py --settings dummy --load-all --script docs --format rst --output docs/source/reference
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
 		DEPENDS nscp
 		COMMENT "Generate RST files")
