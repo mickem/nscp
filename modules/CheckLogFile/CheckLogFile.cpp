@@ -80,12 +80,17 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	settings.alias().add_key_to_settings("real-time")
 
 		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-		"REAL TIME CHECKING", "Spawns a backgrounnd thread which waits for file changes.")
+		"REAL TIME CHECKING", "Spawns a background thread which waits for file changes.")
 
 		;
 
 	settings.register_all();
 	settings.notify();
+
+	filters::command_reader::object_type tmp;
+	tmp.alias = "sample";
+	tmp.path = thread_->filters_path_ + "/sample";
+	filters::command_reader::read_object(get_settings_proxy(), tmp, false, true);
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())

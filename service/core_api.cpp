@@ -388,7 +388,8 @@ void parse_json_settings_common_info(Plugin::Settings::Information* gpb, const j
 		SET_STR(gpb, node, min_version);
 		SET_STR(gpb, node, max_version);
 		SET_BOOL(gpb, node, advanced);
-		SET_STR(gpb, node, sample);
+		SET_BOOL(gpb, node, sample);
+		SET_STR(gpb, node, sample_usage);
 		SET_STR_LIST(gpb, node, plugin);
 	}
 }

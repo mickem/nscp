@@ -9,7 +9,7 @@ void report_errors(const T &response, nscapi::core_wrapper* core, const std::str
 			core->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to " + action + ": " + response.payload(i).result().message());
 	}
 }
-void nscapi::settings_proxy::register_path(std::string path, std::string title, std::string description, bool advanced) {
+void nscapi::settings_proxy::register_path(std::string path, std::string title, std::string description, bool advanced, bool sample) {
 	Plugin::SettingsRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
@@ -19,6 +19,7 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
 	regitem->mutable_info()->set_title(title);
 	regitem->mutable_info()->set_description(description);
 	regitem->mutable_info()->set_advanced(advanced);
+	regitem->mutable_info()->set_sample(advanced);
 	std::string response_string;
 	core_->settings_query(request.SerializeAsString(), response_string);
 	Plugin::SettingsResponseMessage response;
@@ -27,7 +28,7 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
 	}
 	report_errors(response, core_, "register" + path);
 }
-void nscapi::settings_proxy::register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced) {
+void nscapi::settings_proxy::register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool sample) {
 	Plugin::SettingsRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
@@ -40,6 +41,7 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, int
 	regitem->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 	regitem->mutable_info()->mutable_default_value()->set_string_data(defValue);
 	regitem->mutable_info()->set_advanced(advanced);
+	regitem->mutable_info()->set_sample(advanced);
 	std::string response_string;
 	core_->settings_query(request.SerializeAsString(), response_string);
 	Plugin::SettingsResponseMessage response;

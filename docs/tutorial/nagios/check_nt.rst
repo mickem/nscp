@@ -39,7 +39,7 @@ To check the CPU load you can for instance run the following (assuming your wind
 
 If you instead got any of the following don't worry, it is because your NSClient++ is not configured properly and, we will solve that in the next section.
 
-.. TODO: code-block:: log
+.. TODO: code-block:: text
 
   CRITICAL - Socket timeout after 10 seconds
   Return code of 139 is out of bounds
@@ -93,13 +93,13 @@ allowed hosts
 
 If you do not configure the allowed hosts directive correctly you might get this in Nagios:
 
-.. code-block:: log
+.. code-block:: text
 
   Return code of 139 is out of bounds
 
 And if you check nsclient.log you would see:
 
-.. code-block:: log
+.. code-block:: text
 
   2013-03-20 17:23:50: e:D:\source\nscp\trunk\include\check_nt/server/protocol.hpp:65: Rejected connection from: ::ffff:10.83.14.251
 
@@ -116,12 +116,12 @@ trying it
 Now feel free to try the command line agent again and hopefully things should work out perfectly.
 Run the following command from your nagios server.
 
-.. code-block:: log
+.. code-block:: text
 
   check_nt -H 10.0.0.1 -p 12489 -v CPULOAD -w 80 -c 90 -l 5,80,90,10,80,90
   CPU Load 0% (5 min average) 0% (10 min average) |'5 min avg Load'=0%;80;90;0;100 '10 min avg Load'=0%;80;90;0;100
 
-.. code-block:: log
+.. code-block:: text
 
   check_nt -H 10.0.0.1 -p 12489 -v USEDDISKSPACE -d SHOWALL -l c
   c:\ - total: 149.00 Gb - used: 12.93 Gb (9%) - free: 136.07 Gb (91%) |'c:\ Used Space'=12.93Gb;0.00;0.00;0.00;149.00
@@ -149,7 +149,7 @@ When in test mode you will get a lot of interesting log messages when things are
 
 What you will see is the following output (or something similar):
 
-.. code-block:: log
+.. code-block:: text
 
   Launching test mode - client mode
   d NSClient++.cpp(1106) Enabling debug mode...
@@ -176,7 +176,7 @@ Then when you run the check from Nagios again:
 
 If you check the log from NSCLient++ you should see (amongst other):
 
-.. code-block:: log
+.. code-block:: text
 
   d \NSClientListener.cpp(146) Data: None&2&5
   d \NSClientListener.cpp(171) Data: 5

@@ -90,11 +90,15 @@ namespace settings {
 			key_type type;
 			std::string defValue;
 			bool advanced;
+			bool is_sample;
 			std::set<unsigned int> plugins;
-			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_) 
-				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_) { append_plugin(plugin_id); }
-			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false) { append_plugin(plugin_id); }
-			key_description() : type(settings_core::key_string), advanced(false) { }
+			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_, bool is_sample_) 
+				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_), is_sample(is_sample_) 
+			{
+					append_plugin(plugin_id); 
+			}
+			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false), is_sample(false) { append_plugin(plugin_id); }
+			key_description() : type(settings_core::key_string), advanced(false), is_sample(false) { }
 			void append_plugin(unsigned int plugin_id) {
 				plugins.insert(plugin_id);
 			}
@@ -103,16 +107,22 @@ namespace settings {
 			std::string title;
 			std::string description;
 			bool advanced;
+			bool is_sample;
 			typedef std::map<std::string,key_description> keys_type;
 			keys_type keys;
 			std::set<unsigned int> plugins;
-			path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_) : title(title_), description(description_), advanced(advanced_) { append_plugin(plugin_id); }
-			path_description(unsigned int plugin_id) : advanced(false) { append_plugin(plugin_id); }
-			path_description() : advanced(false) {  }
-			void update(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_) {
+			path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_, bool is_sample_) : title(title_), description(description_), advanced(advanced_), is_sample(is_sample_) { 
+				append_plugin(plugin_id); 
+			}
+			path_description(unsigned int plugin_id) : advanced(false), is_sample(false) {
+				append_plugin(plugin_id);
+			}
+			path_description() : advanced(false), is_sample(false) {}
+			void update(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_, bool is_sample_) {
 				title = title_;
 				description = description_;
 				advanced = advanced_;
+				is_sample = is_sample_;
 				append_plugin(plugin_id);
 			}
 			void append_plugin(unsigned int plugin_id) {
@@ -137,7 +147,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced = false) = 0;
+		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
@@ -152,7 +162,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced = false) = 0;
+		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.
@@ -172,7 +182,7 @@ namespace settings {
 		/// @return a list of section paths
 		///
 		/// @author mickem
-		virtual string_list get_reg_sections() = 0;
+		virtual string_list get_reg_sections(bool fetch_samples) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys for a registered section.
 		///
@@ -180,7 +190,7 @@ namespace settings {
 		/// @return a list of key names
 		///
 		/// @author mickem
-		virtual string_list get_reg_keys(std::string path) = 0;
+		virtual string_list get_reg_keys(std::string path, bool fetch_samples) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the currently active settings interface.

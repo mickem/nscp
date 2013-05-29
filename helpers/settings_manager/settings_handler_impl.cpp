@@ -21,9 +21,9 @@ settings::instance_ptr settings::settings_handler_impl::get_no_wait() {
 }
 
 void settings::settings_handler_impl::update_defaults() {
-	BOOST_FOREACH(const std::string &path, get_reg_sections()) {
+	BOOST_FOREACH(const std::string &path, get_reg_sections(false)) {
 		get()->add_path(path);
-		BOOST_FOREACH(const std::string &key, get_reg_keys(path)) {
+		BOOST_FOREACH(const std::string &key, get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (!desc.advanced) {
 				if (!get()->has_key(path, key)) {
@@ -61,8 +61,8 @@ void settings::settings_handler_impl::update_defaults() {
 
 
 void settings::settings_handler_impl::remove_defaults() {
-	BOOST_FOREACH(std::string path, get_reg_sections()) {
-		BOOST_FOREACH(std::string key, get_reg_keys(path)) {
+	BOOST_FOREACH(std::string path, get_reg_sections(false)) {
+		BOOST_FOREACH(std::string key, get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (get()->has_key(path, key)) {
 				try {

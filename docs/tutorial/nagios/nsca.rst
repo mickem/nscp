@@ -143,13 +143,13 @@ In our example we will be using the various aliases exposed by [`CheckExternalSc
 .. code-block:: ini
 
   [/settings/scheduler/schedules/default]
-interval=5m
+  interval=5m
 
   [/settings/scheduler/schedules]
-cpu=alias_cpu
-mem=alias_mem
-disk=alias_disk
-service=alias_service
+  cpu=alias_cpu
+  mem=alias_mem
+  disk=alias_disk
+  service=alias_service
 
 
 2.5 NSCAClient Configuration
@@ -178,12 +178,12 @@ The resulting configuration will look something like this:
 .. code-block:: ini
 
   [/settings/NSCA/client]
-hostname=win_${host}
+  hostname=win_${host}
 
   [/settings/NSCA/client/targets/default]
-address=1.2.3.4
-encryption=aes
-password=unbreakable
+  address=1.2.3.4
+  encryption=aes
+  password=unbreakable
 
 
 3. NSCA Server
@@ -213,9 +213,9 @@ will result in the following:
 
 .. code-block:: log
 
-Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Connection from 192.168.0.104 port 26117
-Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Handling the connection...
-Jul 12 19:35:21 localhost nsca`revision 27093 <changeset/27093>`_: Received invalid packet type/version from client
+  Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Connection from 192.168.0.104 port 26117
+  Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Handling the connection...
+  Jul 12 19:35:21 localhost nsca`revision 27093 <changeset/27093>`_: Received invalid packet type/version from client
 
 - possibly due to client using wrong password or crypto algorithm?
 
@@ -225,9 +225,9 @@ Another problem that was farily common previously (but should hopefully not be t
 
 .. code-block:: log
 
-Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Connection from 192.168.0.104 port 60421
-Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Handling the connection...
-Jul 12 19:42:55 localhost nsca`revision 27157 <changeset/27157>`_: Dropping packet with stale timestamp - packet was 57 seconds old.
+  Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Connection from 192.168.0.104 port 60421
+  Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Handling the connection...
+  Jul 12 19:42:55 localhost nsca`revision 27157 <changeset/27157>`_: Dropping packet with stale timestamp - packet was 57 seconds old.
 
 This is another issue you might sometime need to resolve it means the clocks of the machines are not in perfect syncronization.
 This can be solved in three ways:
@@ -240,14 +240,14 @@ If things are working you should see the following:
 
 .. code-block:: log
 
-Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Connection from 192.168.0.104 port 8198
-Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Handling the connection...
-Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: SERVICE CHECK -> Host Name: 'DESKTOP', 
+  Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Connection from 192.168.0.104 port 8198
+  Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Handling the connection...
+  Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: SERVICE CHECK -> Host Name: 'DESKTOP', 
   Service Description: 'CPU Load', Return Code: '0', 
   Output: 'OK CPU Load ok.|'5m'=0%;80;90; '1m'=1%;80;90; '30s'=3%;80;90; '
-Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: HOST CHECK -> Host Name: 'DESKTOP', 
+  Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: HOST CHECK -> Host Name: 'DESKTOP', 
   Return Code: '0', Output: 'Everything is fine|'
-Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: End of connection...
+  Jul 12 19:47:02 localhost nsca`revision 27207 <changeset/27207>`_: End of connection...
 
 
 5. Configure Nagios
@@ -295,20 +295,20 @@ First, its best practice to create a new template for each different type of hos
 
 .. code-block:: js
 
-define host{
-	name			tpl-windows-servers ; Name of this template
-	use			generic-host ; Inherit default values
-	check_period		24x7
-	check_interval		5
-	retry_interval		1
-	max_check_attempts	10
-	check_command		check-host-alive
-	notification_period	24x7
-	notification_interval	30
-	notification_options	d,r
-	contact_groups		admins
-	register		0 ; DONT REGISTER THIS - ITS A TEMPLATE
-}
+  define host{
+  	name			tpl-windows-servers ; Name of this template
+  	use			generic-host ; Inherit default values
+  	check_period		24x7
+  	check_interval		5
+  	retry_interval		1
+  	max_check_attempts	10
+  	check_command		check-host-alive
+  	notification_period	24x7
+  	notification_interval	30
+  	notification_options	d,r
+  	contact_groups		admins
+  	register		0 ; DONT REGISTER THIS - ITS A TEMPLATE
+  }
 
 
 Notice that the tpl-windows-servers template definition is inheriting default values from the generic-host template, which is
@@ -321,14 +321,14 @@ Next we need to define a new host for the remote windows server that references 
 
 .. code-block:: js
 
-define host{
-	use		tpl-windows-servers ; Inherit default values from a template
-	host_name	windowshost ; The name we're giving to this server
-	alias		My First Windows Server ; A longer name for the server
-	address		10.0.0.2 ; IP address of the server
-	active_checks_enabled	0 ; Active host checks are enabled
-	passive_checks_enabled	1 ; Passive host checks are enabled/accepted
-}
+  define host{
+  	use		tpl-windows-servers ; Inherit default values from a template
+  	host_name	windowshost ; The name we're giving to this server
+  	alias		My First Windows Server ; A longer name for the server
+  	address		10.0.0.2 ; IP address of the server
+  	active_checks_enabled	0 ; Active host checks are enabled
+  	passive_checks_enabled	1 ; Passive host checks are enabled/accepted
+  }
 
 
 Defining a service for monitoring the remote Windows server. These example service definitions will use
@@ -341,28 +341,28 @@ The following service will monitor the CPU load on the remote host. The "alias_c
 
 .. code-block:: js
 
-define service{
-	use			generic-service
-	host_name		windowshost 
-	service_description	CPU Load
-	check_command		check_nrpe!alias_cpu
-	active_checks_enabled	0 ; Active service checks are enabled
-	passive_checks_enabled	1 ; Passive service checks are enabled/accepted
-}
+  define service{
+  	use			generic-service
+  	host_name		windowshost 
+  	service_description	CPU Load
+  	check_command		check_nrpe!alias_cpu
+  	active_checks_enabled	0 ; Active service checks are enabled
+  	passive_checks_enabled	1 ; Passive service checks are enabled/accepted
+  }
 
 
 The following service will monitor the free drive space on /dev/hda1 on the remote host.
 
 .. code-block:: js
 
-define service{
-	use			generic-service
-	host_name		windowshost 
-	service_description	Free Space
-	check_command		check_nrpe!alias_disk
-	active_checks_enabled	0 ; Active service checks are enabled
-	passive_checks_enabled	1 ; Passive service checks are enabled/accepted
-}
+  define service{
+  	use			generic-service
+  	host_name		windowshost 
+  	service_description	Free Space
+  	check_command		check_nrpe!alias_disk
+  	active_checks_enabled	0 ; Active service checks are enabled
+  	passive_checks_enabled	1 ; Passive service checks are enabled/accepted
+  }
 
 
 Now a better way here is to add a new template and derive the service checks for a "tpl-passive-service" instead and put the passive options there but alas I was to lazy to do so in this quick guide.

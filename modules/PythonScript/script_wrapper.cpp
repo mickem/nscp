@@ -643,10 +643,10 @@ NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string sty
 }
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue) {
 	NSCAPI::settings_type type = get_type(stype);
-	settings.register_key(path, key, type, title, description, defaultValue, false);
+	settings.register_key(path, key, type, title, description, defaultValue, false, false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
-	settings.register_path(path, title, description, false);
+	settings.register_path(path, title, description, false, false);
 }
 tuple script_wrapper::settings_wrapper::query(std::string request) {
 	try {

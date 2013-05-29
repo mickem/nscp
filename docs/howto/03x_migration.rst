@@ -1,7 +1,10 @@
-= Migrating to 0.4.1 =
+.. _how_to_migrating_to_041:
+
+====================
+ Migrating to 0.4.1
+====================
 
 Since 0.4.1 has now been released it is important to consider how this will affect existing users. In general there are three major strategies:
-
 
 #. I am happy and don't want to change anything
 #. I am willing to migrate manually
@@ -19,45 +22,46 @@ To accommodate this flexibility the format **had to change**, it would have been
 But the changes are mainly structural and designed to make things look more similar so from a human perspective the change is minor.
 For instance compare the NRPE server configuration:
 
-'''0.3.9''':
+**0.3.9:**
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-`modules <modules>`_
-NRPEListsner
+.. code-block:: ini
 
-`NRPE <NRPE>`_
-port = 1234
-allow_arguments = 1
+   [modules]
+   NRPEListsner
+   
+   [NRPE]
+   port = 1234
+   allow_arguments = 1
 
+**0.4.1:**
 
-'''0.4.1''':
+.. code-block:: ini
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-`/modules </modules>`_
-NRPEServer = enabled
-
-`/settings/NRPE/server </settings/NRPE/server>`_
-port = 1234
-allow arguments = 1
-
+   [/modules]
+   NRPEServer = enabled
+   
+   [/settings/NRPE/server]
+   port = 1234
+   allow arguments = 1
 
 If we analyse this we can see four structural changes:
 
 #. Servers are now called Servers (they used to be called Listeners)
-    Thus NRPEListener is now NRPEServer
+   Thus NRPEListener is now NRPEServer
 
 #. Syntax is now KEY=VALUE, before it was sometimes just KEY, and sometimes KEY=VALUE
-    Thus where before it was module-name it is now module-name= enabled
+   Thus where before it was module-name it is now module-name= enabled
 
 #. Paths are now hierarchical and there are two reasons for this. The first one is that you can now load a module multiple times which requires you to configure it more than once which is impossible in a flat structure. The second reason is that where before it was 10-15 section there is now probably closer to hundreds.
-    `NRPE <NRPE>`_ is now `/settings/NRPE/server </settings/NRPE/server>`_
+   `NRPE <NRPE>`_ is now `/settings/NRPE/server </settings/NRPE/server>`_
 
 #. Keys are now using space not dash, underscore nor space etc. This is the only change I really regret doing but the idea was to make it simpler since before there was no rule.
-    Thus allowed-hosts is now "allowed hosts"
+   Thus allowed-hosts is now "allowed hosts"
 
 This is pretty much it in terms of structural changes. Some modules were changed, for instance NSCAAgent was split up into NSCAClient and Scheduler to allow for other passive protocols.
 
-== Future (What's to come) ==
+Future (What's to come)
+=======================
 
 So what will happen in the future?
 Well, two tings. 
@@ -66,10 +70,10 @@ Well, two tings.
 #. Next version will feature a new command check subsystem
 The first change is just good, the latter change might have impacts on how you use NSClient++ (it might be good to look into this if you're  planning to migrate). Just a quick recap (see milestone `milestone:0.4.2 <milestone:0.4.2>`_ for more details): checks will no longer support variable lists,  instead more common argument parsing system is used throughout. I think this is a simplification which helps since it is pretty confusing the way arguments are parsed today. For instance:
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-1 = CheckCounter MaxWarn=10 Counter=\a\a MaxWarn=20
-2 = CheckCounter MaxWarn=10 Counter=\b\b MaxWarn=20 Counter=\c\c
+.. code-block:: ini
 
+   1 = CheckCounter MaxWarn=10 Counter=\a\a MaxWarn=20
+   2 = CheckCounter MaxWarn=10 Counter=\b\b MaxWarn=20 Counter=\c\c
 
 Compare the following two aliases, what would you expect for bounds?
 
@@ -82,20 +86,26 @@ Pretty confusing right? In the future options will override each other so the an
 #. \a\a = 10 or 20? (Answer is: 20)
 #. \b\b = 10 or 20? (Answer is: 20)
 #. \c\c = 10 or 20? (Answer is: 20)
+
 Essentially rendering the Multiple MaxWarn statements meaningless.
 
 But this also means that you can only have one bound for each check (something you can easily get around by using CheckMulti so I don't think it's a big deal). But if you are using a lot of Multiple MaxWarn/Crit statements you might take this time to either wait before you upgrade or start looking at ways to change your checks (like check multi).
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-old = CheckCounter MaxWarn=10 Counter=\b\b MaxWarn=20 Counter=\c\c
-new = CheckMulti command="CheckCounter Counter=\b\b MaxWarn=10" command="MaxWarn=20 Counter=\c\c"
+.. code-block:: ini
 
+   old = CheckCounter MaxWarn=10 Counter=\b\b MaxWarn=20 Counter=\c\c
+   new = CheckMulti command="CheckCounter Counter=\b\b MaxWarn=10" command="MaxWarn=20 Counter=\c\c"
 
-I also don't "officially" support 0.3.x any more. This does not mean I wont help you but it does mean I reserve the right to say "sorry, you have to upgrade for that". or "can you reproduce on 0.4.1?". I always try to help people but without a support team I only have so much time to dedicate to support.
+.. note::
+   I also don't "officially" support 0.3.x any more. 
+   This does not mean I wont help you but it does mean I reserve the right to say "sorry, you have to upgrade for that". or "can you reproduce on 0.4.1?". 
+   I always try to help people but without a support team I only have so much time to dedicate to support.
 
-== Hands-on ==
+Hands-on
+========
 
-=== I don't want to upgrade ===
+I don't want to upgrade
+-----------------------
 
 This is fine and you can keep using the old format even with the new version without any problems.
 It is important to understand the limitations by doing this:
@@ -132,16 +142,16 @@ Another option is to use the settings command line tool to generate, add and rem
 See the guide on using settings command line interface (TODO).
 In the mean time the following commands might be a pointer:
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-nscp settings --help
-nscp settings --validate
-nscp settings --generate ini --add-defaults
-nscp settings --generate ini --remove-defaults
-nscp settings --path /settings/NRPE/server --key "allowed hosts" --set 127.0.0.1
+.. code-block:: bat
 
+   nscp settings --help
+   nscp settings --validate
+   nscp settings --generate ini --add-defaults
+   nscp settings --generate ini --remove-defaults
+   nscp settings --path /settings/NRPE/server --key "allowed hosts" --set 127.0.0.1
 
 
 Troubleshooting
 ---------------
 
-TODO: Add this section!
+**TODO**: Add this section!

@@ -219,7 +219,7 @@ namespace filters {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample = false) {
 			if (!object.value.empty())
 				object.filter_string = object.value;
 			std::string alias;
@@ -240,17 +240,21 @@ namespace filters {
 				if (pos != std::string::npos) {
 					std::string path = object.path.substr(0, pos);
 					std::string key = object.path.substr(pos+1);
-					proxy->register_key(path, key, NSCAPI::key_string, object.alias, "Filter for " + object.alias + ". To configure this item add a section called: " + object.path, "", false);
+					proxy->register_key(path, key, NSCAPI::key_string, object.alias, "Filter for " + object.alias + ". To configure this item add a section called: " + object.path, "", false, is_sample);
 					proxy->set_string(path, key, object.value);
 					return;
 				}
 			}
 
-			settings.path(object.path).add_path()
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
+
+			root_path.add_path()
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + object.alias)
 				;
 
-			settings.path(object.path).add_key()
+			root_path.add_key()
 				("filter", sh::string_key(&object.filter_string),
 				"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
 
@@ -291,7 +295,7 @@ namespace filters {
 				"DESTINATION", "The destination for intercepted messages", !is_default)
 
 				("maximum age", sh::string_fun_key<std::wstring>(boost::bind(&object_type::set_max_age, &object, _1), _T("5m")),
-				"MAGIMUM AGE", "How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)")
+				"MAGIMUM AGE", "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
 				("empty message", nscapi::settings_helper::string_key(&object.empty_msg, "eventlog found no records"),
 				"EMPTY MESSAGE", "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)

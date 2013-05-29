@@ -13,8 +13,8 @@ This is a quick guide over how to use NSClient++ with Nagios. It is divided into
    nrpe.rst
    nsca.rst
 
-Choosing a transport
-====================
+Choosing a transport/protocol
+=============================
 
 NSClient++ supports several transports and you can use either one or several of these or you can create your own cusom transport.
 Transports are methods which facilitates communication between Nagios and your server. You can look at this much like for instance HTTP (which you are using now) and FTP. They both support transferring files but they have slightly different approaches so things work differently but the end result is the same. A file gets transfered. In our case the end result is that a monitoring result gets submitted to Nagios.
@@ -37,8 +37,7 @@ Transports are methods which facilitates communication between Nagios and your s
 
 I would recommend nagios-beginners to starting out with NSClient++ to go with NSClient (since it is simplest to setup) and everyone else (NSClient++ beginner but nagios intermediates) go with NRPE (unless you have specific needs in which case you most likely know enough to choose for you self). And advanced users feel free pick and choose.
 
-NSClient (check_nt)
-===================
+**NSClient (check_nt):**
 
 .. image:: images/nagios-active-nsclient.png
 
@@ -48,8 +47,7 @@ Another option in favor of this is since check_nt is distributed in the "normal 
 
 For details on configuring this go to the :doc:`NSClient setup guide <check_nt>`.
 
-NRPE (check_nrpe)
-=================
+**NRPE (check_nrpe):**
 
 .. image:: images/nagios-active-nrpe.png
 
@@ -59,17 +57,15 @@ So with NSClient++ you get a lot of ready-to-use checks that wont require you to
 
 For details on configuring this go to the :doc:`NRPE setup guide <nrpe>`.
 
-NRPE and NSClient Server
-========================
+**NRPE and NSClient Server:**
 
 .. image:: images/nagios-active-nsclient-and-nrpe.png
 
 NSClient++ is built around choice this you can naturally use both NRPE (check_nrpe) and NSClient (check_nt) if you wish and this is the preferred way to migrate from old legacy setup to a more modern one.
 
-For details on configuring this go to both the :doc:`NRPE setup guide <nrpe>` and the :doc:`NSClient setup guide <nsclient>`.
+For details on configuring this go to both the :doc:`NRPE setup guide <nrpe>` and the :doc:`NSClient setup guide <check_nt>`.
 
-NSCA (nsca-client)
-==================
+**NSCA (nsca-client):**
 
 .. image:: images/nagios-passive-nsca.png
 
@@ -77,8 +73,7 @@ Passive checking is the "reversed" of active checking this means that instead of
 
 For details on configuring this go to the :doc:`NSCA setup guide <nsca>`.
 
-Make Your Own
-=============
+**Make Your Own:**
 
 .. image:: images/nagios-active-passive-roll-your-own.png
 

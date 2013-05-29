@@ -243,7 +243,7 @@ namespace filters {
 				if (pos != std::string::npos) {
 					std::string path = object.path.substr(0, pos);
 					std::string key = object.path.substr(pos+1);
-					proxy->register_key(path, key, NSCAPI::key_string, object.alias, "Filter for " + object.alias + ". To configure this item add a section called: " + object.path, "", false);
+					proxy->register_key(path, key, NSCAPI::key_string, object.alias, "Filter for " + object.alias + ". To configure this item add a section called: " + object.path, "", false, false);
 					proxy->set_string(path, key, object.value);
 					return;
 				}

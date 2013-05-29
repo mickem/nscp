@@ -1,8 +1,8 @@
 .. _how_to_external_scripts:
 
-****************
-External Scripts
-****************
+******************
+ External Scripts
+******************
 
 Finding Scripts
 ===============

@@ -206,10 +206,10 @@ There are a lot of other options as well but these are the most used ones.
 The other thing which you should configure is which modules to use. There is (at time of writing) 16 modules to choose from of which 9 will give you more "checks to run" so choosing which you need can be a bit of work. Here we shall start out with the basic ones and for details on the rest check out the `Modules section <CheckCommands>`_ in the wiki.
 
 ==================== =================================================================== =========================
-Module         Description         Commands
+Module               Description                                                         Commands
 ==================== =================================================================== =========================
-CheckSystem          Handles many system checks      CheckCPU, CheckMEM etc
-CheckDisk            Handles Disk related checks     CheckDisk
+CheckSystem          Handles many system checks                                          CheckCPU, CheckMEM etc
+CheckDisk            Handles Disk related checks                                         CheckDisk
 CheckExternalScripts Handles aliases (which is what we will use) and external scripts.   N/A
 NRPEServer           Listens and responds to incoming requests from Nagios via NRPE      N/A
 ==================== =================================================================== =========================

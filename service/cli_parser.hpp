@@ -648,7 +648,7 @@ public:
 					resp.push_back("Available commands: " + commands);
 				}
 			} else if (args.mode == client_arguments::exec || args.mode == client_arguments::combined) {
-				ret = mainClient.simple_exec(args.command, args.arguments, resp);
+				ret = mainClient.simple_exec(args.module + "." + args.command, args.arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					resp.push_back("Command not found: " + args.command);

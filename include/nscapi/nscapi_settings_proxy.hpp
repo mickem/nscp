@@ -29,8 +29,8 @@ namespace nscapi {
 
 		typedef std::list<std::string> string_list;
 
-		virtual void register_path(std::string path, std::string title, std::string description, bool advanced);
-		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced);
+		virtual void register_path(std::string path, std::string title, std::string description, bool advanced, bool sample);
+		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool sample);
 
 		virtual std::string get_string(std::string path, std::string key, std::string def);
 		virtual void set_string(std::string path, std::string key, std::string value);

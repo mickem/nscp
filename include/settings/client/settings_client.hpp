@@ -455,20 +455,23 @@ namespace nscapi {
 			boost::shared_ptr<key_interface> key;
 			description_container description;
 			std::string parent;
+			bool is_sample;
 
 			key_info(std::string path_, std::string key_name_, boost::shared_ptr<key_interface> key, description_container description_)
 				: path(path_)
 				, key_name(key_name_)
 				, key(key)
 				, description(description_)
+				, is_sample(false)
 			{}
-			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent) {}
+			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent), is_sample(obj.is_sample) {}
 			virtual key_info& operator=(const key_info& obj) {
 				path = obj.path;
 				key_name = obj.key_name;
 				key = obj.key;
 				description = obj.description;
 				parent = obj.parent;
+				is_sample = obj.is_sample;
 				return *this;
 			}
 			void set_parent(std::string parent_) {
@@ -485,15 +488,17 @@ namespace nscapi {
 			std::string path_name;
 			boost::shared_ptr<path_interface> path;
 			description_container description;
+			bool is_sample;
 
-			path_info(std::string path_name, description_container description_) : path_name(path_name), description(description_) {}
-			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_) {}
+			path_info(std::string path_name, description_container description_) : path_name(path_name), description(description_), is_sample(false) {}
+			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_), is_sample(false) {}
 
-			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description) {}
+			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
 			virtual path_info& operator=(const path_info& obj) {
 				path_name = obj.path_name;
 				path = obj.path;
 				description = obj.description;
+				is_sample = obj.is_sample;
 				return *this;
 			}
 		};
@@ -501,8 +506,9 @@ namespace nscapi {
 		class settings_registry;
 		class settings_paths_easy_init {
 		public:
-			settings_paths_easy_init(settings_registry* owner) : owner(owner) {}
-			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner) {}
+			settings_paths_easy_init(settings_registry* owner) : owner(owner), is_sample(false) {}
+			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner), is_sample(false) {}
+			settings_paths_easy_init(std::string path, settings_registry* owner, bool is_sample) : path_(path), owner(owner), is_sample(is_sample) {}
 
 			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::string title, std::string description) {
 				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description)));
@@ -534,13 +540,17 @@ namespace nscapi {
 		private:
 			std::string path_;
 			settings_registry* owner;
+			bool is_sample;
 		};
 
 		class settings_keys_easy_init {
 		public:
-			settings_keys_easy_init(settings_registry* owner_) : owner(owner_) {}
-			settings_keys_easy_init(std::string path, settings_registry* owner_) : owner(owner_), path_(path) {}
-			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent) {}
+			settings_keys_easy_init(settings_registry* owner_) : owner(owner_), is_sample(false) {}
+			settings_keys_easy_init(std::string path, settings_registry* owner_) : owner(owner_), path_(path), is_sample(false) {}
+			settings_keys_easy_init(std::string path, settings_registry* owner_, bool is_sample) : owner(owner_), path_(path), is_sample(is_sample) {}
+			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent), is_sample(false) {}
+			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_, bool is_sample) : owner(owner_), path_(path), parent_(parent), is_sample(is_sample) {}
+			
 			virtual ~settings_keys_easy_init() {}
 
 			settings_keys_easy_init& operator()(std::string path, std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
@@ -565,30 +575,34 @@ namespace nscapi {
 			settings_registry* owner;
 			std::string path_;
 			std::string parent_;
+			bool is_sample;
 		};
 
 		class path_extension {
 		public:
-			path_extension(settings_registry * owner, std::string path) : owner_(owner), path_(path) {}
+			path_extension(settings_registry * owner, std::string path) : owner_(owner), path_(path), is_sample(false) {}
 
 			settings_keys_easy_init add_key_to_path(std::string path) {
-				return settings_keys_easy_init(get_path(path), owner_);
+				return settings_keys_easy_init(get_path(path), owner_, is_sample);
 			}
 			settings_keys_easy_init add_key() {
-				return settings_keys_easy_init(path_, owner_);
+				return settings_keys_easy_init(path_, owner_, is_sample);
 			}
 			settings_paths_easy_init add_path(std::string path = "") {
-				return settings_paths_easy_init(get_path(path), owner_);
+				return settings_paths_easy_init(get_path(path), owner_, is_sample);
 			}
 			inline std::string get_path(std::string path) {
 				if (!path.empty())
 					return path_ + "/" + path;
 				return path_;
 			}
-
+			void set_sample() {
+				is_sample = true;
+			}
 		private:
 			settings_registry * owner_;
 			std::string path_;
+			bool is_sample ;
 		};
 		class alias_extension {
 		public:
@@ -733,23 +747,23 @@ namespace nscapi {
 			}
 
 			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false)  {
-				core_->register_key(path, key, type, title, description, defaultValue, advanced);
+				core_->register_key(path, key, type, title, description, defaultValue, advanced, false);
 			}
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					if (v->key) {
 						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
 						if (v->has_parent()) {
-							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
-							std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favour of the parent.";
-							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), true);
+							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced, v->is_sample);
+							std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
+							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default_as_string(), true, false);
 						} else {
-							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced);
+							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced, v->is_sample);
 						}
 					}
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
-					core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced);
+					core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
 				}
 			}
 			void clear() {

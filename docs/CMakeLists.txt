@@ -6,12 +6,15 @@ SET(ALL_FILES)
 copy_single_file(ALL_FILES "Nagios Usage Guide.pdf" docs)
 copy_single_file(ALL_FILES "NSClient++ Reference Manual.pdf" docs)
 copy_single_file(ALL_FILES "conf.py" docs)
+#copy_single_file(ALL_FILES "license.txt" .)
+#copy_single_file(ALL_FILES "../changelog" .)
 
 FILE (GLOB_RECURSE rst_DOCS "*.rst")
 FILE (GLOB_RECURSE htm_DOCS "*.html")
 FILE (GLOB_RECURSE png_DOCS "*.png")
+FILE (GLOB_RECURSE py_DOCS "*.py")
 
-SET(all_DOCS ${rst_DOCS} ${htm_DOCS} ${png_DOCS})
+SET(all_DOCS ${rst_DOCS} ${htm_DOCS} ${png_DOCS} ${py_DOCS})
 FOREACH(file ${all_DOCS})
 	get_filename_component(filename ${file} NAME)
 	get_filename_component(filepath ${file} PATH)
@@ -27,9 +30,9 @@ SET_TARGET_PROPERTIES(copy_docs PROPERTIES FOLDER "files")
 
 IF(SPHINX_FOUND)
 	ADD_CUSTOM_TARGET(build_doc_sources
-		COMMAND ${CMAKE_BINARY_DIR}/nscp py --settings dummy --load-all --script docs --format rst --output docs/source/reference
+		COMMAND ${CMAKE_BINARY_DIR}/nscp py --settings dummy --load-all --script docs --format rst --output docs/source
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-		DEPENDS nscp
+		DEPENDS nscp copy_scripts
 		COMMENT "Generate RST files")
 	
 	if(NOT DEFINED SPHINX_THEME)

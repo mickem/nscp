@@ -895,7 +895,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		settings_manager::get_core()->register_key(0xffff, "/modules", plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false);
+		settings_manager::get_core()->register_key(0xffff, "/modules", plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 	}
 	return plugin;
 }
@@ -1072,13 +1072,13 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 	std::string request;
 	std::list<std::string> responses;
 	std::list<std::string> errors;
-	nscapi::protobuf::functions::create_simple_exec_request(command, arguments, request);
 	std::string module;
 	std::string::size_type pos = command.find(L'.');
 	if (pos != std::string::npos) {
 		module = command.substr(0, pos);
 		command = command.substr(pos+1);
 	}
+	nscapi::protobuf::functions::create_simple_exec_request(command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&exec_helper, _1, command, arguments, request, &responses), errors);
 
 	BOOST_FOREACH(std::string &r, responses) {
@@ -1533,8 +1533,9 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					rpp->mutable_info()->set_title(desc.title);
 					rpp->mutable_info()->set_description(desc.description);
 				} else {
+					bool fetch_samples = q.fetch_samples();
 					if (q.recursive_fetch()) {
-						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections()) {
+						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections(fetch_samples)) {
 							if (q.fetch_paths()) {
 								settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
@@ -1542,10 +1543,11 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								rpp->mutable_info()->set_title(desc.title);
 								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
+								rpp->mutable_info()->set_sample(desc.is_sample);
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 							}
 							if (q.fetch_keys()) {
-								BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
+								BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, fetch_samples)) {
 									settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 									Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 									rpp->mutable_node()->set_path(path);
@@ -1553,6 +1555,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 									rpp->mutable_info()->set_title(desc.title);
 									rpp->mutable_info()->set_description(desc.description);
 									rpp->mutable_info()->set_advanced(desc.advanced);
+									rpp->mutable_info()->set_sample(desc.is_sample);
 									rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 									rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 									settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
@@ -1568,10 +1571,11 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 							rpp->mutable_info()->set_title(desc.title);
 							rpp->mutable_info()->set_description(desc.description);
 							rpp->mutable_info()->set_advanced(desc.advanced);
+							rpp->mutable_info()->set_sample(desc.is_sample);
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 						if (q.fetch_keys()) {
-							BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
+							BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, fetch_samples)) {
 								settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 								rpp->mutable_node()->set_path(q.node().path());
@@ -1579,6 +1583,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								rpp->mutable_info()->set_title(desc.title);
 								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
+								rpp->mutable_info()->set_sample(desc.is_sample);
 								rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
@@ -1619,9 +1624,9 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration(); 
 				rp->mutable_registration();
 				if (q.node().has_key()) {
-					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced());
+					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced(), q.info().sample());
 				} else {
-					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced());
+					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
 				}
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else if (r.has_update()) {

@@ -350,7 +350,8 @@ message Settings {
 		optional string min_version = 4;
 		optional string max_version = 5;
 		optional bool advanced = 6;
-		optional string sample = 7;
+		optional bool sample = 7;
+		optional string sample_usage = 8;
 		repeated string plugin = 9;
 	};
 	enum Command {
@@ -383,7 +384,8 @@ message SettingsRequestMessage {
 			optional bool recursive_fetch = 2;
 			optional bool fetch_keys = 3;
 			optional bool fetch_paths = 4;
-			optional bool descriptions = 5;
+			optional bool fetch_samples = 5;
+			optional bool descriptions = 6;
 		};
 		message Control {
 			required Settings.Command command = 1;

@@ -46,13 +46,13 @@ void scripts::nscp::settings_provider_impl::set_int(std::string path, std::strin
 
 void scripts::nscp::settings_provider_impl::register_path(std::string path, std::string title, std::string description, bool advanced)
 {
-	settings_.register_path(path, title, description, advanced);
+	settings_.register_path(path, title, description, advanced, false);
 }
 
 void scripts::nscp::settings_provider_impl::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue)
 {
 	NSCAPI::settings_type iType = scripts::settings_provider::parse_type(type);
-	settings_.register_key(path, key, iType, title, description, defaultValue, false);
+	settings_.register_key(path, key, iType, title, description, defaultValue, false, false);
 }
 
 void scripts::nscp::settings_provider_impl::save()

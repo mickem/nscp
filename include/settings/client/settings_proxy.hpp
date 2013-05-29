@@ -25,12 +25,12 @@ namespace settings_client {
 		inline settings::settings_handler_impl* get_handler() {
 			return core_;
 		}
-		virtual void register_path(std::string path, std::string title, std::string description, bool advanced) {
-			get_core()->register_path(0xffff, path, title, description, advanced);
+		virtual void register_path(std::string path, std::string title, std::string description, bool advanced, bool is_sample) {
+			get_core()->register_path(0xffff, path, title, description, advanced, is_sample);
 		}
 
-		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced) {
-			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced);
+		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
+			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced, is_sample);
 		}
 
 		virtual std::string get_string(std::string path, std::string key, std::string def) {

@@ -111,61 +111,13 @@ namespace nsclient {
 			try {
 				if (target == "settings" || target.empty()) {
 					settings_manager::get_core()->get()->save();
-				} else if (target == "trac") {
-					settings::string_list s = settings_manager::get_core()->get_reg_sections();
-					BOOST_FOREACH(std::string path, s) {
-
-						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
-						std::string plugins;
-						bool include = filter_.empty();
-						BOOST_FOREACH(unsigned int i, desc.plugins) {
-							std::string name = core_->get_plugin_module_name(i);
-							if (match_filter(name))
-								include = true;
-							if (!plugins.empty())
-								plugins += ", ";
-							plugins += name;
-						}
-
-						if (!include)
-							continue;
-
-						std::cout << "== " << path << " ==" << std::endl;
-						if (!desc.description.empty())
-							std::cout << desc.description << std::endl;
-						std::cout << "'''Used by:''' " << plugins << std::endl;
-						std::cout << std::endl;
-						settings::string_list k = settings_manager::get_core()->get_reg_keys(path);
-						bool first = true;
-						BOOST_FOREACH(std::string key, k) {
-							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
-							if (!desc.advanced) {
-								if (first)
-									std::cout << "'''Normal settings'''" << std::endl;
-								first = false;
-								strEx::replace(desc.description, "\n", "\n|| || ||");
-								if (desc.defValue.empty())
-									desc.defValue = " ";
-								std::cout << "||" << key << "||" << desc.defValue << "||" << desc.title << ": " << desc.description << std::endl;
-							}
-						}
-						first = true;
-						BOOST_FOREACH(std::string key, k) {
-							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
-							if (desc.advanced) {
-								if (first)
-									std::wcout << "'''Advanced settings'''" << std::endl;
-								first = false;
-								std::cout << "||" << key << "||" << desc.defValue << "||" << desc.title << ": " << desc.description << std::endl;
-							}
-						}
-					}
 				} else if (target.empty()) {
 					settings_manager::get_core()->get()->save();
 #ifdef HAVE_JSON_SPIRIT
 				} else if (target == "json" || target == "json-compact") {
 					json_spirit::Object json_root;
-					settings::string_list s = settings_manager::get_core()->get_reg_sections();
+					// TODO, allow samples to be generated
+					settings::string_list s = settings_manager::get_core()->get_reg_sections(false);
 					BOOST_FOREACH(const std::string &path, s) {
 
 						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
@@ -187,7 +139,7 @@ namespace nsclient {
 						json_path.push_back(json_spirit::Pair("plugins", json_plugins));
 
 						json_spirit::Object json_keys;
-						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path)) {
+						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, false)) {
 							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							json_spirit::Object json_key;
 							json_key.push_back(json_spirit::Pair("key", key));

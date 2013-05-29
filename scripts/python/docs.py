@@ -6,6 +6,7 @@ import os
 import csv
 import traceback
 import StringIO
+import string
 helper = None
 
 
@@ -17,6 +18,119 @@ def key2link(str):
 	str = str.replace('/', '_')
 	str = str.replace(' ', '_')
 	return str
+	
+def indent(numSpaces, s):
+	ret = ''
+	for line in s.split('\n'):
+		if line != '\n':
+			ret += (numSpaces * ' ') + line + '\n'
+		else:
+			ret += line + '\n'
+	return ret
+	#str = '\n'.join([(numSpaces * ' ') + string.lstrip(line) for line in s.split('\n')])
+
+class RSTRenderer(object):
+	padding = 0
+	
+	def __init__(self):
+		self.padding = 0
+	
+	def page_header(self, type, key):
+		return '.. nscp:%s:: %s\n\n'%(type, key)
+
+	def table(self, table):
+		cols = {}
+		for line in table:
+			i=0
+			for col in line:
+				if i in cols:
+					cols[i] = max(cols[i], len(col))
+				else:
+					cols[i] = len(col)
+				i=i+1
+		divider = ''
+		header = ''
+		data = ''
+		first = True
+		for line in table:
+			i=0
+			for col in line:
+				if first:
+					divider += '%s '%''.ljust(cols[i]+1, '=')
+					header += '%s '%col.ljust(cols[i]+1, ' ')
+				else:
+					data += '%s '%col.ljust(cols[i]+1, ' ')
+				i=i+1
+			if not first:
+				data += "\n"
+			first = False
+		return indent(self.padding, '%s\n%s\n%s\n%s%s\n\n'%(divider, header, divider, data, divider))
+		
+	def obj_link(self, type, name):
+		return ':ref:nscp:%s:`%s`'%(type, name.replace('/', '_'))
+
+	def obj_anchor(self, type, name, desc):
+		return '.. nscp:%s:: %s\n    :synopsis: %s\n\n'%(type, name.replace('/', '_'), desc)
+		
+	def link(self, k1, k2=None, k3=None, k4=None, title=None):
+		keys = k1.replace('/', '_')
+		if k2:
+			keys += "__" + k2.replace('/', '_')
+		if k3:
+			keys += "__" + k3.replace('/', '_')
+		if k4:
+			keys += "__" + k4.replace('/', '_')
+		if title:
+			return ':ref:`%s <%s>`'%(title, keys)
+		return ':ref:`%s`'%(keys)
+		
+	def anchor(self, k1, k2=None, k3=None, k4=None):
+		keys = k1.replace('/', '_')
+		if k2:
+			keys += "__" + k2.replace('/', '_')
+		if k3:
+			keys += "__" + k3.replace('/', '_')
+		if k4:
+			keys += "__" + k4.replace('/', '_')
+		return '.. _%s:\n\n'%keys
+		
+	def title(self, level, title):
+		l = len(title)
+		if level == 0:
+			tag = ''.rjust(l, '=')
+			return "%s\n%s\n%s\n"%(tag, title, tag)
+		else:
+			if level == 1:
+				char = '='
+			elif level == 2:
+				char = '-'
+			else:
+				char = '.'
+			tag = ''.rjust(l, char)
+			return "%s\n%s\n"%(title, tag)
+
+	def para(self, text, text2 = None):
+		if text2:
+			return indent(self.padding, '%s: %s\n\n'%(text, text2))
+		return indent(self.padding, '%s\n\n'%text)
+		
+	def serialize(self, string, filename):
+		path = os.path.dirname(filename)
+		if not os.path.exists(path):
+			os.makedirs(path)
+		f = open(filename,"w")
+		f.write(string)
+		f.close()
+		log_debug('Writing file: %s'%filename)
+		
+	def indent(self, chars):
+		self.padding += chars
+		
+	def sample(self, block, language, pad=4):
+		return '**Sample**:\n\n%s\n\n'%self.code_block(block, language, pad)
+		
+	def code_block(self, block, language, padlen=4):
+		return '.. codeblock::%s\n\n%s\n\n'%(language, indent(padlen, block))
 
 class root_container(object):
 	paths = {}
@@ -85,7 +199,7 @@ class DocumentationHelper(object):
 	registry = None
 	core = None
 	dir = None
-	trac_path = None
+	renderer = RSTRenderer()
 	
 	def __init__(self, plugin_id, plugin_alias, script_alias):
 		self.plugin_id = plugin_id
@@ -104,6 +218,7 @@ class DocumentationHelper(object):
 		payload.inventory.recursive_fetch = recursive
 		payload.inventory.fetch_keys = keys
 		payload.inventory.fetch_paths = not keys
+		payload.inventory.fetch_samples = True
 		payload.inventory.descriptions = True
 		return message.SerializeToString()
 	
@@ -135,7 +250,6 @@ class DocumentationHelper(object):
 				if payload.inventory:
 					log_debug('Found %d keys for %s'%(len(payload.inventory), path))
 					return payload.inventory
-		log_error('No keys found')
 		return []
 
 	def get_queries(self):
@@ -187,147 +301,82 @@ class DocumentationHelper(object):
 			root.append_plugin(p)
 		return root
 
-	def generate_trac_config_table(self, paths, module = None):
-		found = False
-		regular_keys = ''
-		advanced_keys = ''
-		for (p,pinfo) in paths.iteritems():
-			if not module or module in pinfo.info.plugin:
-				found = True
-				found_key = False
-				plink = '[wiki:%s/config#%s %s]'%(module, p.replace('/', '_'), p)
-				for (k,kinfo) in pinfo.keys.iteritems():
-					found_key = True
-					link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(p), key2link(k), k)
-					if not kinfo.info.advanced:
-						regular_keys += '||%s||%s ||%s ||%s \n'%(plink, link, kinfo.info.default_value, ttfix(kinfo.info.title))
-					else:
-						advanced_keys += '||%s||%s ||%s ||%s \n'%(plink, link, kinfo.info.default_value, ttfix(kinfo.info.title))
-				if not found_key:
-					regular_keys += '||%s|| || ||%s \n'%(plink, ttfix(pinfo.info.title))
 
-		if not found:
-			return False
-		return "||= '''Path / Section''' =||= '''Key''' =||= '''Default value''' =||= '''Description'''\n%s%s"%(regular_keys, advanced_keys)
-
-	def rst_table(self, table):
-		cols = {}
-		for line in table:
-			i=0
-			for col in line:
-				if i in cols:
-					cols[i] = max(cols[i], len(col))
-				else:
-					print col
-					cols[i] = len(col)
-				i=i+1
-		divider = ''
-		header = ''
-		data = ''
-		first = True
-		for line in table:
-			i=0
-			for col in line:
-				if first:
-					divider += '%s '%''.ljust(cols[i]+1, '=')
-					header += '%s '%col.ljust(cols[i]+1, ' ')
-				else:
-					data += '%s '%col.ljust(cols[i]+1, ' ')
-				i=i+1
-			if not first:
-				data += "\n"
-			first = False
-		return '%s\n%s\n%s\n%s%s\n\n'%(divider, header, divider, data, divider)
-		
 	def any_value(self, value):
 		if value.HasField("string_data"):
 			return value.string_data
 		return '??? %s ???'%value
 
-	def rst_link(self, page, section):
-		return ':ref:`%s <%s_%s>`'%(section, page.replace('/', '_'), section.replace('/', '_'))
-		
-	def rst_anchor(self, page, section):
-		return '.. _%s_%s:\n\n'%(page.replace('/', '_'), section.replace('/', '_'))
 
 	def generate_rst_config_table(self, paths, module = None):
-		found = False
+		renderer = self.renderer
 		regular_keys = []
-		regular_keys.append(['Path / Section', 'Key', 'Default value', 'Description'])
 
 		advanced_keys = []
-		for (p,pinfo) in paths.iteritems():
+		sample_keys = []
+		for (p,pinfo) in sorted(paths.iteritems()):
 			if not module or module in pinfo.info.plugin:
-				found = True
 				found_key = False
-				plink = self.rst_link('%s/config'%module, '%s'%p)
+				plink = renderer.link('%s/config'%module, '%s'%p)
 				for (k,kinfo) in pinfo.keys.iteritems():
 					found_key = True
-					link = self.rst_link('%s/config'%module, '%s__%s'%(key2link(p), key2link(k)))
-					if not kinfo.info.advanced:
+					link = renderer.link('%s/config'%module, '%s__%s'%(key2link(p), key2link(k)))
+					if kinfo.info.sample:
+						sample_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+					elif not kinfo.info.advanced:
 						regular_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
 					else:
 						advanced_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
 				if not found_key:
 					regular_keys.append([plink, '', '', ttfix(pinfo.info.title)])
-		if not found:
-			return False
-		regular_keys.extend(advanced_keys)
-		return self.rst_table(regular_keys)
+		if regular_keys or advanced_keys or sample_keys:
+			regular_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
+			ret = renderer.table(regular_keys)
+			if advanced_keys:
+				ret += 'Advanced keys:\n\n'
+				ret += renderer.table(advanced_keys)
+			if sample_keys:
+				ret += 'Sample keys:\n\n'
+				ret += renderer.table(sample_keys)
+			return ret
+		return False
 
-		#return "||= '''Path / Section''' =||= '''Key''' =||= '''Default value''' =||= '''Description'''\n%s%s"%(regular_keys, advanced_keys)
-		
-	def generate_trac_config_details(self, paths, table, module = None):
+	def generate_rst_config_details(self, paths, module = None):
+		renderer = self.renderer
 		string = ''
-		string += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
-		string += '[[PageOutline]]\n'
-		string += '= Configuration for %s module =\n'%module
-		string += 'Section with configuration keys for the %s module\n\n'%module
-		string += table + '\n\n'
 		
 		for (path,pinfo) in paths.iteritems():
 			if not module or module in pinfo.info.plugin:
-				string += '[=#%s]\n'%key2link(path)
-				string += '== %s ==\n'%pinfo.info.title
-				string += '%s\n\n'%(pinfo.info.description)
-				string += "'''Section:''' %s\n\n"%(path)
-				first = True
-				for (k,kinfo) in pinfo.keys.iteritems():
-					if not module or module in pinfo.info.plugin:
-						if not kinfo.info.advanced:
-							link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(path), key2link(k), k)
-							if first:
-								string += "'''Keys:'''\n"
-								string += "||= '''Key''' =||= '''Default''' =||= '''Title''' =||= '''Description'''\n"
-								first = False
-							string += '||%s||%s ||%s ||%s \n'%(link, kinfo.info.default_value, ttfix(kinfo.info.title), ttfix(kinfo.info.description, "'''TODO'''"))
-				if not first:
-					string += '\n\n'
-				first = True
-				for (k,kinfo) in pinfo.keys.iteritems():
-					if not module or module in pinfo.info.plugin:
-						if kinfo.info.advanced:
-							link = '[wiki:%s/config#%s__%s %s]'%(module, key2link(path), key2link(k), k)
-							if first:
-								string += "'''Advanced Keys:'''\n"
-								string += "||= '''Key''' =||= '''Default''' =||= '''Title''' =||= '''Description'''\n"
-								first = False
-							string += '||%s||%s ||%s ||%s \n'%(link, kinfo.info.default_value, ttfix(kinfo.info.title), ttfix(kinfo.info.description, "'''TODO'''"))
-				if not first:
-					string += '\n\n'
-				string += "'''Sample:'''\n\n"
-				string += "{{{\n"
-				string += "# %s\n"%pinfo.info.title
-				string += "# %s\n"%pinfo.info.description
-				string += "[%s]\n"%path
-				for (k,kinfo) in pinfo.keys.iteritems():
-					if not module or module in pinfo.info.plugin:
-						string += "# %s\n"%kinfo.info.title
-						string += "# %s\n"%kinfo.info.description
-						string += "%s=%s\n"%(k, kinfo.info.default_value)
+				string += renderer.title(3, pinfo.info.title)
+				string += renderer.para(pinfo.info.description)
 
-				string += "}}}\n"
-				string += '\n'
+				regular_keys = []
+				advanced_keys = []
+				sample_keys = []
+				for (k,kinfo) in sorted(pinfo.keys.iteritems()):
+					link = renderer.link('%s/config'%module, '%s__%s'%(key2link(path), key2link(k)))
+					if kinfo.info.sample:
+						sample_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+					elif not kinfo.info.advanced:
+						regular_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+					else:
+						advanced_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+				if regular_keys or advanced_keys or sample_keys:
+					regular_keys.insert(0, ['Key', 'Default Value', 'Description'])
+					regular_keys.extend(advanced_keys)
+					regular_keys.extend(sample_keys)
+					string += renderer.table(regular_keys)
+				
+				sample  = "    # %s\n"%pinfo.info.title
+				sample += "    # %s\n"%pinfo.info.description
+				sample += "    [%s]\n"%path
+				for (k,kinfo) in pinfo.keys.iteritems():
+					if not module or module in pinfo.info.plugin:
+						sample += "    # %s\n"%kinfo.info.title
+						sample += "    # %s\n"%kinfo.info.description
+						sample += "    %s=%s\n"%(k, kinfo.info.default_value)
+				string += renderer.sample(sample, 'ini')
+
 				for (k,kinfo) in pinfo.keys.iteritems():
 					if not module or module in pinfo.info.plugin:
 						string += '[=#%s__%s]\n'%(key2link(path), key2link(k))
@@ -357,326 +406,64 @@ class DocumentationHelper(object):
 						string += '\n'
 		return string
 
-	def generate_trac_commands(self, command, cinfo, module = None):
+	def generate_rst_command_details(self, command, cinfo, module):
+		renderer = self.renderer
 		string = ""
-		overview = ""
 		try:
-			overview += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
-			overview += '[[PageOutline]]\n'
-			overview += "= %s =\n"%cinfo.info.title
-			overview += "%s\n\n"%cinfo.info.description
-			overview += "'''Provided by''': the [%s] module\n\n"%module
-			overview += "'''Samples and usage''': This page provides reference information for samples and usage please see the samples page [wiki:%s/%s/samples].\n\n"%(module, command)
-
-			string += '=== %s ===\n'%cinfo.info.title
-			string += '%s\n\n'%(cinfo.info.description)
-			string += "For details on this command go to the [wiki:%s/%s %s] page\n\n"%(module, command, command)
+			string += renderer.obj_anchor('query', command, cinfo.info.description)
+			renderer.indent(4)
+			string += renderer.para(cinfo.info.description)
 
 			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
 			if ret == 0:
-				string += "'''Usage:''' (Click any option to go to the description page for that option)\n"
-				reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
-				table = ""
-				details = ""
-				table += "||= '''Option''' =||= '''Default value''' =||= '''Description''' \n"
-				for row in reader:
-					if len(row) < 3:
-						continue
-					desc = row[3]
-					ops = row[3].split("\\n", 1)
-					if len(ops) == 1:
-						ops += ['']
-					(desc, rest) = ops
-					if row[0] == 'help':
-						link = '[wiki:%s/%s#%s_ %s]'%(module, command, row[0], row[0])
-					else:
-						link = '[wiki:%s/%s#%s %s]'%(module, command, row[0], row[0])
-					if row[1] == "false":
-						table += "|| %s ||N/A ||%s\n"%(link, desc)
-					else:
-						table += "|| %s ||%s ||%s\n"%(link, row[2], desc)
-					
-					if row[0] == 'help':
-						details += "=== %s_ ===\n"%(row[0])
-						details += "''The _ is due to trac bugs, real name is help''\n\n"
-					else:
-						details += "=== %s ===\n"%(row[0])
-					details += "%s\n\n"%desc
-					if rest:
-						details += "'''Description''':\n%s\n\n"%rest.replace('\\n', '\n')
-					if row[1] == "false":
-						details += "'''Syntax''': %s\n\n"%(row[0])
-						details += "'''Sample''':\n{{{\n%s ... %s ...\n}}}\n\n"%(command, row[0])
-					else:
-						if row[2] == "":
-							details += "'''Syntax''': %s=ARGUMENT\n\n"%(row[0])
-							details += "'''Sample''':\n{{{\n%s ... %s=ARGUMENT ...\n}}}\n\n"%(command, row[0])
-						else:
-							details += "'''Default value''': %s=%s\n\n"%(row[0], row[2])
-							row[2] = row[2].replace('\"', '\\"')
-							if ' ' in row[2]:
-								details += "'''Sample''':\n{{{\n%s ... \"%s=%s\" ...\n}}}\n\n"%(command, row[0], row[2])
-							else:
-								details += "'''Sample''':\n{{{\n%s ... %s=%s ...\n}}}\n\n"%(command, row[0], row[2])
-				string += table
-				overview += table
-				overview += '== Options ==\n'
-				overview += details
-				overview += "== Sample commands ==\n\n"
-				overview += "Notice this section is included so please go [wiki:%s/%s/samples here] if you want to edit this section.\n\n"%(module, command)
-				overview += "[[Include(wiki:%s/%s/samples)]]\n\n"%(module, command)
-			else:
-				overview = False
-		except Exception as e:
-			log_error('Failed to generate command details for: %s'%command)
-			log_error(e)
-			log_error('%s'%traceback.format_exc())
-		return (string, overview)
-
-	def rst_page_header(self):
-		return ''
-
-	def generate_rst_commands(self, command, cinfo, module = None):
-		string = ""
-		overview = ""
-		try:
-			overview += self.rst_page_header()
-			overview += self.rst_anchor(module, command)
-			overview += self.rst_title(0, cinfo.info.title)
-			overview += self.rst_para(cinfo.info.description)
-			overview += self.rst_para("Provided by", "the [%s] module"%module)
-			overview += self.rst_para("Samples and usage", "This page provides reference information for samples and usage please see the samples page [wiki:%s/%s/samples]."%(module, command))
-
-			string += self.rst_title(3, cinfo.info.title)
-			string += self.rst_para(cinfo.info.description)
-			string += self.rst_para("For details on this command go to the %s page"%self.rst_link(module, command))
-
-			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
-			if ret == 0:
-				string += self.rst_para("Usage", "(Click any option to go to the description page for that option)")
+				string += renderer.para("Usage", "(Click any option to go to the description page for that option)")
 				reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
 				table = []
 				details = ""
-				table.append(['Option', 'Default value', 'Description'])
 				for row in reader:
 					if len(row) < 3:
 						continue
+					renderer.indent(4)
 					desc = row[3]
 					ops = row[3].split("\\n", 1)
 					if len(ops) == 1:
 						ops += ['']
 					(desc, rest) = ops
-					link = self.rst_link('%s/%s'%(module, command), row[0])
+					link = renderer.link('%s/%s'%(module, command), row[0])
 					if row[1] == "false":
 						table.append([link, 'N/A', desc])
 					else:
 						table.append([link, row[2], desc])
 					
-					details += self.rst_anchor('%s/%s'%(module, command), row[0])
-					details += self.rst_title(2, row[0])
-					details += self.rst_para(desc)
+					details += renderer.anchor('%s/%s'%(module, command), row[0])
+					details += renderer.title(2, row[0])
+					details += renderer.para(desc)
 					if rest:
-						details += self.rst_para("Description", "\n%s"%rest.replace('\\n', '\n'))
+						details += renderer.para("Description", "\n%s"%rest.replace('\\n', '\n'))
 					if row[1] == "false":
-						details += self.rst_para("Syntax", row[0])
-						details += self.rst_para("Sample", "\n{{{\n%s ... %s ...\n}}}"%(command, row[0]))
+						details += renderer.para("Syntax", row[0])
+						details += renderer.para("Sample", "\n{{{\n%s ... %s ...\n}}}"%(command, row[0]))
 					else:
 						if row[2] == "":
-							details += self.rst_para("Syntax", "%s=ARGUMENT"%(row[0]))
-							details += self.rst_para("Sample", "\n{{{\n%s ... %s=ARGUMENT ...\n}}}"%(command, row[0]))
+							details += renderer.para("Syntax", "%s=ARGUMENT"%(row[0]))
+							details += renderer.para("Sample", "\n{{{\n%s ... %s=ARGUMENT ...\n}}}"%(command, row[0]))
 						else:
-							details += self.rst_para("Default value", "%s=%s"%(row[0], row[2]))
+							details += renderer.para("Default value", "%s=%s"%(row[0], row[2]))
 							row[2] = row[2].replace('\"', '\\"')
 							if ' ' in row[2]:
-								details += self.rst_para("Sample", "\n{{{\n%s ... \"%s=%s\" ...\n}}}"%(command, row[0], row[2]))
+								details += renderer.para("Sample", "\n{{{\n%s ... \"%s=%s\" ...\n}}}"%(command, row[0], row[2]))
 							else:
-								details += self.rst_para("Sample", "\n{{{\n%s ... %s=%s ...\n}}}"%(command, row[0], row[2]))
-				table = self.rst_table(table)
-				string += table
-				overview += table
-				overview += self.rst_title(1, 'Options')
-				overview += details
-				overview += self.rst_title(1, "Sample commands")
-				overview += self.rst_para("Notice this section is included so please go [wiki:%s/%s/samples here] if you want to edit this section."%(module, command))
-				overview += "[[Include(wiki:%s/%s/samples)]]\n\n"%(module, command)
-			else:
-				overview = False
+								details += renderer.para("Sample", "\n{{{\n%s ... %s=%s ...\n}}}"%(command, row[0], row[2]))
+					renderer.indent(-4)
+				if table:
+					table.insert(0, ['Option', 'Default value', 'Description'])
+					string += renderer.table(table)
+					string += details
+			renderer.indent(-4)
 		except Exception as e:
-			log_error('Failed to generate command details for: %s'%command)
-			log_error(e)
-			log_error('%s'%traceback.format_exc())
-		return (string, overview)		
+			return '%s'%e
+		return string
 		
-	def serialize_wiki(self, string, filename, wikiname):
-		if self.dir:
-			if not os.path.exists(self.dir):
-				os.makedirs(self.dir)
-			f = open('%s/%s.wiki'%(self.dir, filename),"w")
-			f.write(string)
-			f.close()
-			return "trac-admin %s wiki import %s %s.wiki\n"%(self.trac_path, wikiname, filename)
-		else:
-			print string
-			return "Generated output for: %s"%wikiname
-
-	def serialize_rst(self, string, path, filename, wikiname):
-		if self.dir:
-			if not os.path.exists(self.dir):
-				os.makedirs(self.dir)
-			tf = '%s/modules/%s'%(self.dir, path)
-			if not os.path.exists(tf):
-				os.makedirs(tf)
-			f = open('%s/%s.rst'%(tf, filename),"w")
-			f.write(string)
-			f.close()
-			return "%s/%s"%(path, filename)
-		else:
-			return "Generated output for: %s"%wikiname
-	
-	def generate_trac(self, dir, trac_path):
-		self.dir = dir
-		self.trac_path = trac_path
-		if not trac_path:
-			trac_path = '/foo/bar'
-		docs = {}
-		root = self.get_info()
-		import_commands = ""
-		
-		i = 0
-		for (module,minfo) in root.plugins.iteritems():
-			i=i+1
-			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
-			string = ''
-			string += '[[TracNav(TracNav/CC|nocollapse|noreorder)]]\n'
-			string += '[[PageOutline]]\n'
-			string += "= %s =\n"%minfo.info.title
-			string += "%s\n\n"%minfo.info.description
-			string += '== Queries (Overview) ==\n'
-			string += 'A list of all avalible queries (check commands)\n\n'
-			query_found = False
-			for (c,cinfo) in root.commands.iteritems():
-				if module in cinfo.info.plugin:
-					string += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
-					string += "   %s\n"%cinfo.info.description
-					query_found = True
-			if not query_found:
-				string += "No commands avalible in %s\n"%module
-			else:
-				string += '== Aliases ==\n'
-				string += 'A list of all avalible aliases for queries and check commands\n\n'
-				for (c,cinfo) in root.aliases.iteritems():
-					if module in cinfo.info.plugin:
-						if cinfo.info.description.startswith('Alternative name for:'):
-							command = cinfo.info.description[22:]
-							string += " * [[%s/%s|%s]]\n"%(module, command, cinfo.info.title)
-							string += "   %s\n"%cinfo.info.description
-							if command in root.commands:
-								string += "   %s\n"%root.commands[command].info.description
-						else:
-							string += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
-							string += "   %s\n"%cinfo.info.description
-
-			string += "\n\n"
-			string += '== Commands (executable) ==\n'
-			string += "'''TODO:''' Add command list\n"
-			string += "\n\n"
-			#string += '[[PageOutline]]\n'
-			string += '== Configuration ==\n'
-			config_table = self.generate_trac_config_table(root.paths, module)
-			if config_table:
-				string += config_table
-				import_commands += self.serialize_wiki(self.generate_trac_config_details(root.paths, config_table, module), '%s_config'%module, '%s/config'%module)
-			else:
-				string += "''No configuration avalible for %s''\n\n"%module
-				
-			if query_found:
-				string += '== Queries (Reference) ==\n'
-				string += 'A quick reference for all avalible queries (check commands) in the %s module.\n\n'%module
-				for (c,cinfo) in root.commands.iteritems():
-					if module in cinfo.info.plugin:
-						(overview, details) =  self.generate_trac_commands(c, cinfo, module)
-						string += overview
-						if details:
-							import_commands += self.serialize_wiki(details, '%s_%s'%(module, c), '%s/%s'%(module, c))
-
-			import_commands += self.serialize_wiki(string, module, module)
-
-		all_config = """
-[[TracNav(TracNav/TOCDoc|nocollapse|noreorder)]]
-[[PageOutline]]
-= Configuration 0.4.x =
-
-For older version please refer to [[wiki:/doc/configuration/0.3.x]]
-
-Configuration is fairly simple and straight forward. But due to flexibility the actual file may be placed in many location and can even not be a file at all (for instance the registry). Regardless of which store you have for configuration the end result is the same. The configuration will const of a section (path) a key and a value. The path (section) is a hierarcical structure meaning you will find things like ''/foo/bar/baz'' or to make real examples ''/settings/NRPE/server''. This is similar to how it was in older version except there we would only have had NRPE in the path (section) name.
-If your configuration is in a file (and most likely it is) you can edit it using a normal text editor (such as notepad or vi). The file is usually called nsc.ini or nsclient.ini (but this can be changed).
-
-The configuration is as mentioned divided into sections (paths) each with a given name.
-
-The various sections are described in short below. The default configuration file has a lot of examples and comments so make sure you change this before you use NSClient++ as some of the examples might be potential security issues.
-		"""
-		all_config = self.generate_trac_config_table(root.paths)
-		#for (p,pinfo) in root.paths.iteritems():
-		#	all_config += self.generate_trac_config_path(p, pinfo)
-		import_commands += self.serialize_wiki(all_config, "all-config", "doc/configuration/0.4.x")
-			
-			
-		all_commands = """
-[[TracNav(TracNav/CC|nocollapse)]]
-[[PageOutline]]
-= Modules =
-NSClient++ comes with a set of modules out of the box that perform various checks and functions. A list of the modules and their potential use is listed below.  Click each plug-in to see detailed command descriptions and how the various modules can be used.
-"""
-		for (module,minfo) in root.plugins.iteritems():
-			all_commands += "== [[wiki:%s]] ==\n"%(module)
-			all_commands += "'''%s''': %s\n\n"%(minfo.info.title, minfo.info.description)
-			all_commands += '=== Queries (commands) ===\n'
-			found = False
-			for (c,cinfo) in root.commands.iteritems():
-				if module in cinfo.info.plugin:
-					all_commands += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
-					all_commands += "   %s\n"%cinfo.info.description
-					found = True
-			if not found:
-				all_commands += "No commands avalible in [[%s]]\n"%module
-			
-			all_commands += "\n\n"
-			all_commands += '=== Commands (executable) ===\n'
-			all_commands += "'''TODO:''' Add command list\n"
-			all_commands += "\n\n"
-		all_commands += """
-= All Commands =
-A list of all commands (alphabetically).
-[[ListTagged(check)]]
-"""
-		import_commands += self.serialize_wiki(all_commands, "all-commands", "CheckCommands")
-		#log_error('-------------------------------------------------------------')
-		#log_error(import_commands)
-		#log_error('-------------------------------------------------------------')
-		print import_commands
-		#log_error('-------------------------------------------------------------')
-
-		
-	def rst_title(self, level, title):
-		l = len(title)
-		if level == 0:
-			tag = ''.rjust(l, '=')
-			return "%s\n%s\n%s\n"%(tag, title, tag)
-		else:
-			if level == 1:
-				char = '='
-			elif level == 2:
-				char = '-'
-			else:
-				char = '.'
-			tag = ''.rjust(l, char)
-			return "%s\n%s\n"%(title, tag)
-
-	def rst_para(self, text, text2 = None):
-		if text2:
-			return '%s: %s\n\n'%(text, text2)
-		return '%s\n\n'%text
-	
 	def rst_build_command(self, commands):
 		ret = """Modules
 =======
@@ -692,11 +479,8 @@ Contents:
 				ret += '   %s.rst\n'%c
 		self.serialize_rst(ret, '', 'index', 'TODO')
 			
-	def generate_rst(self, dir, trac_path):
-		self.dir = dir
-		self.trac_path = trac_path
-		if not trac_path:
-			trac_path = '/foo/bar'
+	def generate_rst(self, dir):
+		renderer = self.renderer
 		docs = {}
 		root = self.get_info()
 		import_commands = []
@@ -706,100 +490,64 @@ Contents:
 		for (module,minfo) in root.plugins.iteritems():
 			i=i+1
 			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
-			string = ''
-			string += self.rst_title(0, minfo.info.title)
-			string += self.rst_para(minfo.info.description)
-			string += self.rst_title(1, 'Queries (Overview)')
-			string += self.rst_para('A list of all avalible queries (check commands)')
-			string += ".. toctree::\n"
-			string += "   :maxdepth: 2\n"
-			string += "   \n"
+			string = renderer.page_header('module', module)
+			string += renderer.title(0, minfo.info.title)
+			string += renderer.para(minfo.info.description)
+			string += renderer.title(1, 'Queries (Overview)')
+			string += renderer.para('A list of all avalible queries (check commands)')
 
-			query_found = False
-			for (c,cinfo) in root.commands.iteritems():
+			queries = []
+			for (c,cinfo) in sorted(root.commands.iteritems()):
 				if module in cinfo.info.plugin:
-					string += "   %s.rst\n"%cinfo.info.title
-					query_found = True
-			if not query_found:
-				string += self.rst_para("No commands avalible in %s"%module)
+					queries.append([renderer.obj_link('query', c), cinfo.info.description.split('\n')[0]])
+			if not queries:
+				string += renderer.para("No commands avalible in %s"%module)
 			else:
-				string += "   \n"
-				string += self.rst_title(1, 'Aliases')
-				string += self.rst_para('A list of all avalible aliases for queries and check commands')
-				for (c,cinfo) in root.aliases.iteritems():
-					if module in cinfo.info.plugin:
-						if cinfo.info.description.startswith('Alternative name for:'):
-							command = cinfo.info.description[22:]
-							string += " * %s\n"%self.rst_link('%s/%s'%(module, command), cinfo.info.title)
-							string += "   %s\n"%cinfo.info.description
-							if command in root.commands:
-								string += "   %s\n"%root.commands[command].info.description
-						else:
-							string += " * %s\n"%self.rst_link('%s/%s'%(module, command), cinfo.info.title)
-							string += "   %s\n"%cinfo.info.description
+				queries.insert(0, ['Command', 'Description'])
+				string += renderer.table(queries)
+				
+			table = []
+			for (c,cinfo) in sorted(root.aliases.iteritems()):
+				if module in cinfo.info.plugin:
+					if cinfo.info.description.startswith('Alternative name for:'):
+						command = cinfo.info.description[22:]
+						table.append([c, ':ref:nscp:query:`%s`'%command, cinfo.info.title])
+					else:
+						table.append([c, '', cinfo.info.title])
+			if table:
+				table.insert(0, ['Alias', 'Command', 'Description'])
+				string += renderer.table(table)
 
-			string += self.rst_para('')
-			string += self.rst_title(1, 'Commands (executable)')
-			string += self.rst_para("'''TODO:''' Add command list")
-			#string += '[[PageOutline]]\n'
-			string += self.rst_title(1, 'Configuration')
+			string += renderer.title(1, 'Commands (executable)')
+			string += renderer.para("**TODO:** Add command list")
+
+			string += renderer.title(1, 'Configuration')
 			config_table = self.generate_rst_config_table(root.paths, module)
 			if config_table:
 				string += config_table
-				import_commands.append(self.serialize_rst(self.generate_trac_config_details(root.paths, config_table, module), module, 'config', '%s/config'%module))
 			else:
-				string += self.rst_para("''No configuration avalible for %s''"%module)
+				string += renderer.para("''No configuration avalible for %s''"%module)
 				
-			if query_found:
-				string += self.rst_title(1, 'Queries (Reference)')
-				string += self.rst_para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
+			if queries:
+				string += renderer.title(1, 'Queries (Reference)')
+				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
 				for (c,cinfo) in root.commands.iteritems():
 					if module in cinfo.info.plugin:
-						(overview, details) =  self.generate_rst_commands(c, cinfo, module)
-						string += overview
-						if details:
-							import_commands.append(self.serialize_rst(details, module, c, '%s/%s'%(module, c)))
+						string += self.generate_rst_command_details(c, cinfo, module)
 
-			import_commands.append(self.serialize_rst(string, module, 'index', module))
+			if config_table:
+				string += renderer.title(1, 'Configuration (Reference)')
+				string += renderer.para('A quick reference for all avalible configuration options in the %s module.'%module)
+				string += self.generate_rst_config_details(root.paths, module)
+			
+			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))
 
 		all_config = self.generate_rst_config_table(root.paths)
-		import_config += self.serialize_rst(all_config, '', "all-config", "doc/configuration/0.4.x")
+		renderer.serialize(all_config, '%s/reference/config.rst'%dir)
 			
 			
-		all_commands = """
-[[TracNav(TracNav/CC|nocollapse)]]
-[[PageOutline]]
-= Modules =
-NSClient++ comes with a set of modules out of the box that perform various checks and functions. A list of the modules and their potential use is listed below.  Click each plug-in to see detailed command descriptions and how the various modules can be used.
-"""
-		for (module,minfo) in root.plugins.iteritems():
-			all_commands += self.rst_title(1, module)
-			all_commands += self.rst_para(minfo.info.title, minfo.info.description)
-			all_commands += self.rst_title(2,'Queries (commands)')
-			found = False
-			for (c,cinfo) in root.commands.iteritems():
-				if module in cinfo.info.plugin:
-					all_commands += " * %s\n"%self.rst_link('%s/%s'%(module, command), cinfo.info.title)
-					#all_commands += " * [[%s/%s|%s]]\n"%(module, cinfo.info.title, cinfo.info.title)
-					all_commands += "   %s\n"%cinfo.info.description
-					found = True
-			if not found:
-				all_commands += self.rst_para("No commands avalible in [[%s]]"%module)
-			
-			all_commands += self.rst_title(2,'Commands (executable)')
-			all_commands += self.rst_para("TODO", 'Add command list')
-		all_commands += """
-= All Commands =
-A list of all commands (alphabetically).
-[[ListTagged(check)]]
-"""
-		import_commands.append(self.serialize_wiki(all_commands, "all-commands", "CheckCommands"))
-		#log_error('-------------------------------------------------------------')
-		#log_error(import_commands)
-		#log_error('-------------------------------------------------------------')
-		self.rst_build_command(import_commands)
-		#print import_commands
-		#log_error('-------------------------------------------------------------')
+
+		#renderer.build_command(import_commands)
 
 	def main(self, args):
 		parser = OptionParser(prog="")
@@ -808,10 +556,10 @@ A list of all commands (alphabetically).
 		parser.add_option("--trac-path", help="The path to track (used for importing wikis)")
 		(options, args) = parser.parse_args(args=args)
 
-		if options.format in ["trac"]:
-			self.generate_trac(options.output, options.trac_path)
+		#if options.format in ["trac"]:
+		#	self.generate_trac(options.output, options.trac_path)
 		if options.format in ["rst"]:
-			self.generate_rst(options.output, options.trac_path)
+			self.generate_rst(options.output)
 		else:
 			log("Help%s"%parser.print_help())
 			log("Invalid format: %s"%options.format)

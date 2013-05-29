@@ -129,12 +129,12 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced = false) {
+		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
-				registred_paths_[path] = path_description(plugin_id, title, description, advanced);
+				registred_paths_[path] = path_description(plugin_id, title, description, advanced, is_sample);
 			} else {
-				(*it).second.update(plugin_id, title, description, advanced);
+				(*it).second.update(plugin_id, title, description, advanced, is_sample);
 			}
 		}
 
@@ -150,16 +150,16 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced = false) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id);
-				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
+				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
 			} else {
 				(*it).second.append_plugin(plugin_id);
 				path_description::keys_type::iterator kit = (*it).second.keys.find(key);
 				if (kit == (*it).second.keys.end()) {
-					(*it).second.keys[key] = key_description(plugin_id, title, description, type, defValue, advanced);
+					(*it).second.keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
 				} else {
 					(*kit).second.append_plugin(plugin_id);
 					if (!description.empty() && (*kit).second.description.empty()) {
@@ -204,10 +204,11 @@ namespace settings {
 		/// @return a list of section paths
 		///
 		/// @author mickem
-		string_list get_reg_sections() {
+		string_list get_reg_sections(bool fetch_samples) {
 			string_list ret;
-			for (reg_paths_type::const_iterator cit = registred_paths_.begin(); cit != registred_paths_.end(); ++cit) {
-				ret.push_back((*cit).first);
+			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
+				if (!v.second.is_sample || fetch_samples)
+					ret.push_back(v.first);
 			}
 			return ret;
 		}
@@ -218,12 +219,13 @@ namespace settings {
 		/// @return a list of key names
 		///
 		/// @author mickem
-		virtual string_list get_reg_keys(std::string path) {
+		virtual string_list get_reg_keys(std::string path, bool fetch_samples) {
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
-				for (path_description::keys_type::const_iterator cit2 = (*cit).second.keys.begin();cit2 != (*cit).second.keys.end(); ++cit2) {
-					ret.push_back((*cit2).first);
+				BOOST_FOREACH(const path_description::keys_type::value_type &v, (*cit).second.keys) {
+					if (!v.second.is_sample || fetch_samples)
+						ret.push_back(v.first);
 				}
 				return ret;
 			}
