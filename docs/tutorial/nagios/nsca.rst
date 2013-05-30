@@ -211,7 +211,7 @@ sudo tail -f /var/log/syslog
 
 will result in the following:
 
-.. code-block:: log
+.. code-block:: text
 
   Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Connection from 192.168.0.104 port 26117
   Jul 12 19:35:20 localhost nsca`revision 27093 <changeset/27093>`_: Handling the connection...
@@ -223,7 +223,7 @@ And this is clue that we have indeed miss configured NSCA. Most often it is eith
 
 Another problem that was farily common previously (but should hopefully not be to frequent anymore) is time zone desynchronization:
 
-.. code-block:: log
+.. code-block:: text
 
   Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Connection from 192.168.0.104 port 60421
   Jul 12 19:42:54 localhost nsca`revision 27157 <changeset/27157>`_: Handling the connection...
@@ -238,7 +238,7 @@ This can be solved in three ways:
 
 If things are working you should see the following:
 
-.. code-block:: log
+.. code-block:: text
 
   Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Connection from 192.168.0.104 port 8198
   Jul 12 19:47:01 localhost nsca`revision 27207 <changeset/27207>`_: Handling the connection...

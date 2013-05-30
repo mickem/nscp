@@ -45,7 +45,7 @@ The client is (generally) called check_nrpe and works like so:
 
 So the simplest way to see if things are a-working just run it without a command and you should get a response specifying the version of "NRPE" (in this case NSClient++) like so:
 
-.. code-block:: log
+.. code-block:: text
 
   ./check_nrpe -H <nsclient++ server ip>
   I (0.3.3.19 2008-07-02) seem to be doing fine...
@@ -91,7 +91,7 @@ The result should look like this (assuming your nagios server ip address is 10.0
 Now feel free to try the command line agent again and hopefully things should work out perfectly.
 Run the following command from your nagios server.
 
-.. code-block:: log
+.. code-block:: text
 
   ./check_nrpe -H 10.0.0.1
   I (0.3.3.19 2008-07-02) seem to be doing fine...
@@ -103,7 +103,7 @@ Run the following command from your nagios server.
 
 A good way to find and solve problems is to run nsclient++ in "test" mode this is done by stopping the service and starting it in "test" mode.
 
-.. code-block:: log
+.. code-block:: text
 
   nscp service --stop
   nscp test
@@ -120,7 +120,7 @@ Start NSClient++ in test mode like so:
 
 And you should see something along the following lines (it will look different depending on your setup):
 
-.. code-block:: log
+.. code-block:: text
 
   Launching test mode - client mode
   d NSClient++.cpp(1106) Enabling debug mode...
@@ -134,21 +134,21 @@ And you should see something along the following lines (it will look different d
 
 Now you can run the the command again from Nagios like so:
 
-.. code-block:: log
+.. code-block:: text
 
   ./check_nrpe -H 10.0.0.1
   I (0.3.7.7 2009-07-05) seem to be doing fine...
 
 And if you check the log of NSClient++ /test you will this time not see anything and this is because the "check version" is an internal command so lets try with something slightly more interesting:
 
-.. code-block:: log
+.. code-block:: text
 
   ./check_nrpe -H 10.0.0.1 -c foobar
   UNKNOWN: No handler for that command
 
 And don't worry there is no foobar command but we will see how this looks in NSClient++
 
-.. code-block:: log
+.. code-block:: text
 
   d NSClient++.cpp(1034) Injecting: foobar:
   l NSClient++.cpp(1085) No handler for command: 'foobar'
@@ -238,7 +238,7 @@ Lets start with a simple one CheckCPU and see how to use it.
 
 If we check the docs for it it has an example like so:
 
-.. code-block:: log
+.. code-block:: text
 
   checkCPU warn=80 crit=90 time=20m time=10s time=4
   CPU Load ok.|'20m average'=11%;80;90; '10s average'=7%;80;90; '4 average'=10%;80;90;
@@ -253,7 +253,7 @@ check_nrpe has two options for settings commands (-c) and arguments (-a) and is 
 
 in this case (CheckCPU) this translates to:
 
-.. code-block:: log
+.. code-block:: text
 
   check_nrpe ... -c CheckCPU -a warn=80 crit=90 time=20m time=10s time=4
   CPU Load ok.|'20m average'=11%;80;90; '10s average'=7%;80;90; '4 average'=10%;80;90;

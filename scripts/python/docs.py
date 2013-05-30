@@ -30,13 +30,9 @@ def indent(numSpaces, s):
 	#str = '\n'.join([(numSpaces * ' ') + string.lstrip(line) for line in s.split('\n')])
 
 class RSTRenderer(object):
-	padding = 0
-	
-	def __init__(self):
-		self.padding = 0
 	
 	def page_header(self, type, key):
-		return '.. nscp:%s:: %s\n\n'%(type, key)
+		return '.. default-domain:: nscp\n\n'
 
 	def table(self, table):
 		cols = {}
@@ -64,13 +60,15 @@ class RSTRenderer(object):
 			if not first:
 				data += "\n"
 			first = False
-		return indent(self.padding, '%s\n%s\n%s\n%s%s\n\n'%(divider, header, divider, data, divider))
+		return '%s\n%s\n%s\n%s%s\n\n'%(divider, header, divider, data, divider)
 		
-	def obj_link(self, type, name):
-		return ':ref:nscp:%s:`%s`'%(type, name.replace('/', '_'))
+	def obj_link(self, type, name, title=None):
+		if title:
+			return ':%s:`%s<%s>`'%(type, title, name)
+		return ':%s:`%s`'%(type, name)
 
 	def obj_anchor(self, type, name, desc):
-		return '.. nscp:%s:: %s\n    :synopsis: %s\n\n'%(type, name.replace('/', '_'), desc)
+		return '.. %s:: %s\n    :synopsis: %s\n\n'%(type, name, desc)
 		
 	def link(self, k1, k2=None, k3=None, k4=None, title=None):
 		keys = k1.replace('/', '_')
@@ -111,8 +109,8 @@ class RSTRenderer(object):
 
 	def para(self, text, text2 = None):
 		if text2:
-			return indent(self.padding, '%s: %s\n\n'%(text, text2))
-		return indent(self.padding, '%s\n\n'%text)
+			return '%s: %s\n\n'%(text, text2)
+		return '%s\n\n'%text
 		
 	def serialize(self, string, filename):
 		path = os.path.dirname(filename)
@@ -123,14 +121,14 @@ class RSTRenderer(object):
 		f.close()
 		log_debug('Writing file: %s'%filename)
 		
-	def indent(self, chars):
-		self.padding += chars
+	def heading(self, title, text):
+		return '**%s**:\n\n%s\n\n'%(title, text)
 		
 	def sample(self, block, language, pad=4):
 		return '**Sample**:\n\n%s\n\n'%self.code_block(block, language, pad)
 		
 	def code_block(self, block, language, padlen=4):
-		return '.. codeblock::%s\n\n%s\n\n'%(language, indent(padlen, block))
+		return '.. code-block:: %s\n\n%s\n\n'%(language, indent(padlen, block))
 
 class root_container(object):
 	paths = {}
@@ -317,26 +315,28 @@ class DocumentationHelper(object):
 		for (p,pinfo) in sorted(paths.iteritems()):
 			if not module or module in pinfo.info.plugin:
 				found_key = False
-				plink = renderer.link('%s/config'%module, '%s'%p)
+				plink = renderer.obj_link('confpath', p)
 				for (k,kinfo) in pinfo.keys.iteritems():
 					found_key = True
-					link = renderer.link('%s/config'%module, '%s__%s'%(key2link(p), key2link(k)))
+					link = renderer.obj_link('confkey', '%s.%s'%(p, k))
 					if kinfo.info.sample:
-						sample_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						sample_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 					elif not kinfo.info.advanced:
-						regular_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						regular_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 					else:
-						advanced_keys.append([plink, link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						advanced_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 				if not found_key:
-					regular_keys.append([plink, '', '', ttfix(pinfo.info.title)])
+					regular_keys.append([plink, '', '', pinfo.info.title])
 		if regular_keys or advanced_keys or sample_keys:
 			regular_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
 			ret = renderer.table(regular_keys)
 			if advanced_keys:
 				ret += 'Advanced keys:\n\n'
+				advanced_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
 				ret += renderer.table(advanced_keys)
 			if sample_keys:
 				ret += 'Sample keys:\n\n'
+				sample_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
 				ret += renderer.table(sample_keys)
 			return ret
 		return False
@@ -347,20 +347,20 @@ class DocumentationHelper(object):
 		
 		for (path,pinfo) in paths.iteritems():
 			if not module or module in pinfo.info.plugin:
-				string += renderer.title(3, pinfo.info.title)
-				string += renderer.para(pinfo.info.description)
+				string = renderer.title(2, ':confpath:`%s`'%path)
+				string += renderer.obj_anchor('confpath', path, pinfo.info.description)
 
 				regular_keys = []
 				advanced_keys = []
 				sample_keys = []
 				for (k,kinfo) in sorted(pinfo.keys.iteritems()):
-					link = renderer.link('%s/config'%module, '%s__%s'%(key2link(path), key2link(k)))
+					link = renderer.obj_link('confkey', k)
 					if kinfo.info.sample:
-						sample_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						sample_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 					elif not kinfo.info.advanced:
-						regular_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						regular_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 					else:
-						advanced_keys.append([link, self.any_value(kinfo.info.default_value), ttfix(kinfo.info.title)])
+						advanced_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 				if regular_keys or advanced_keys or sample_keys:
 					regular_keys.insert(0, ['Key', 'Default Value', 'Description'])
 					regular_keys.extend(advanced_keys)
@@ -368,100 +368,66 @@ class DocumentationHelper(object):
 					string += renderer.table(regular_keys)
 				
 				sample  = "    # %s\n"%pinfo.info.title
-				sample += "    # %s\n"%pinfo.info.description
+				sample += "# %s\n"%pinfo.info.description.split('\n')[0]
 				sample += "    [%s]\n"%path
 				for (k,kinfo) in pinfo.keys.iteritems():
 					if not module or module in pinfo.info.plugin:
 						sample += "    # %s\n"%kinfo.info.title
 						sample += "    # %s\n"%kinfo.info.description
-						sample += "    %s=%s\n"%(k, kinfo.info.default_value)
+						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
 				string += renderer.sample(sample, 'ini')
 
 				for (k,kinfo) in pinfo.keys.iteritems():
 					if not module or module in pinfo.info.plugin:
-						string += '[=#%s__%s]\n'%(key2link(path), key2link(k))
-						string += "=== %s ===\n"%kinfo.info.title
-						string += "'''Description:''' %s\n\n"%kinfo.info.description
+						string += renderer.obj_anchor('confkey', k, kinfo.info.title)
+						string += renderer.para(indent(4, '**%s**'%kinfo.info.title))
+						string += renderer.para(indent(4, kinfo.info.description))
 						if kinfo.info.advanced:
-							string += "'''Advanced:''' (means it is not commonly used)\n\n"
-						string += "'''Key:''' %s\n\n"%k
+							string += renderer.para(indent(4, "**Advanced** (means it is not commonly used)"))
+						string += renderer.para(indent(4, "**Path**: %s"%path))
+						string += renderer.para(indent(4, "**Key**: %s"%k))
 						if kinfo.info.default_value:
-							string += "'''Default value:''' %s\n\n"%kinfo.info.default_value
-						string += "'''Used by:''' "
-						first = True
+							string += renderer.para(indent(4, "**Default value**: %s"%self.any_value(kinfo.info.default_value)))
+						if kinfo.info.sample:
+							string += renderer.para(indent(4, "**Sample key**: This key is provided as a sample to show how to configure objects"))
+						mods = ""
 						for p in pinfo.info.plugin:
-							if first:
-								first = False
-							else:
-								string += ", "
-							string += "[[%s]]"%p
-						string += "\n\n"
-						string += "'''Sample:'''\n\n"
-						string += "{{{\n"
-						string += "# %s\n"%kinfo.info.title
-						string += "# %s\n"%kinfo.info.description
-						string += "[%s]\n"%path
-						string += "%s=%s\n"%(k, kinfo.info.default_value)
-						string += "}}}\n"
-						string += '\n'
+							if mods:
+								mods += ", "
+							mods += ":module:`%s`"%p
+						string += renderer.para(indent(4, "**Used by**: %s"%mods))
+						sample  = "# %s\n"%kinfo.info.title
+						sample += "# %s\n"%kinfo.info.description.split('\n')[0]
+						sample += "[%s]\n"%path
+						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
+						string += indent(4, renderer.sample(sample, 'ini'))
 		return string
 
 	def generate_rst_command_details(self, command, cinfo, module):
 		renderer = self.renderer
-		string = ""
+		string = renderer.title(2, ':query:`%s`'%command)
+		string += renderer.obj_anchor('query', command, cinfo.info.description)
 		try:
-			string += renderer.obj_anchor('query', command, cinfo.info.description)
-			renderer.indent(4)
-			string += renderer.para(cinfo.info.description)
 
 			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
 			if ret == 0:
-				string += renderer.para("Usage", "(Click any option to go to the description page for that option)")
+				string += renderer.para("**Usage:**")
 				reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
 				table = []
 				details = ""
 				for row in reader:
 					if len(row) < 3:
 						continue
-					renderer.indent(4)
-					desc = row[3]
-					ops = row[3].split("\\n", 1)
-					if len(ops) == 1:
-						ops += ['']
-					(desc, rest) = ops
-					link = renderer.link('%s/%s'%(module, command), row[0])
-					if row[1] == "false":
-						table.append([link, 'N/A', desc])
-					else:
-						table.append([link, row[2], desc])
-					
-					details += renderer.anchor('%s/%s'%(module, command), row[0])
-					details += renderer.title(2, row[0])
-					details += renderer.para(desc)
-					if rest:
-						details += renderer.para("Description", "\n%s"%rest.replace('\\n', '\n'))
-					if row[1] == "false":
-						details += renderer.para("Syntax", row[0])
-						details += renderer.para("Sample", "\n{{{\n%s ... %s ...\n}}}"%(command, row[0]))
-					else:
-						if row[2] == "":
-							details += renderer.para("Syntax", "%s=ARGUMENT"%(row[0]))
-							details += renderer.para("Sample", "\n{{{\n%s ... %s=ARGUMENT ...\n}}}"%(command, row[0]))
-						else:
-							details += renderer.para("Default value", "%s=%s"%(row[0], row[2]))
-							row[2] = row[2].replace('\"', '\\"')
-							if ' ' in row[2]:
-								details += renderer.para("Sample", "\n{{{\n%s ... \"%s=%s\" ...\n}}}"%(command, row[0], row[2]))
-							else:
-								details += renderer.para("Sample", "\n{{{\n%s ... %s=%s ...\n}}}"%(command, row[0], row[2]))
-					renderer.indent(-4)
+					link = renderer.obj_link('option', row[0])
+					table.append([link, 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2], row[3].split('\n')[0]])
+					details += renderer.obj_anchor('option', row[0], row[3])
+					details += renderer.para(indent(4, row[3]))
 				if table:
 					table.insert(0, ['Option', 'Default value', 'Description'])
 					string += renderer.table(table)
 					string += details
-			renderer.indent(-4)
 		except Exception as e:
-			return '%s'%e
+			string = '%s'%e
 		return string
 		
 	def rst_build_command(self, commands):
@@ -487,23 +453,22 @@ Contents:
 		import_config = ""
 		
 		i = 0
+		commands = []
 		for (module,minfo) in root.plugins.iteritems():
 			i=i+1
 			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
 			string = renderer.page_header('module', module)
-			string += renderer.title(0, minfo.info.title)
+			string += renderer.obj_anchor('module', module, minfo.info.description)
+			string += renderer.title(0, ':module:`%s` --- %s'%(module, minfo.info.title))
 			string += renderer.para(minfo.info.description)
-			string += renderer.title(1, 'Queries (Overview)')
-			string += renderer.para('A list of all avalible queries (check commands)')
 
 			queries = []
 			for (c,cinfo) in sorted(root.commands.iteritems()):
 				if module in cinfo.info.plugin:
 					queries.append([renderer.obj_link('query', c), cinfo.info.description.split('\n')[0]])
-			if not queries:
-				string += renderer.para("No commands avalible in %s"%module)
-			else:
+			if queries:
 				queries.insert(0, ['Command', 'Description'])
+				string += renderer.heading('Queries (Overview)', 'A list of all avalible queries (check commands)')
 				string += renderer.table(queries)
 				
 			table = []
@@ -511,40 +476,52 @@ Contents:
 				if module in cinfo.info.plugin:
 					if cinfo.info.description.startswith('Alternative name for:'):
 						command = cinfo.info.description[22:]
-						table.append([c, ':ref:nscp:query:`%s`'%command, cinfo.info.title])
+						table.append([c, renderer.obj_link('query', command), cinfo.info.title])
 					else:
 						table.append([c, '', cinfo.info.title])
 			if table:
 				table.insert(0, ['Alias', 'Command', 'Description'])
+				string += renderer.heading('Aliases', 'A list of all short hand aliases for queries (check commands)')
 				string += renderer.table(table)
 
-			string += renderer.title(1, 'Commands (executable)')
-			string += renderer.para("**TODO:** Add command list")
+			string += renderer.para('Commands (executable)', "**TODO:** Add command list")
 
-			string += renderer.title(1, 'Configuration')
 			config_table = self.generate_rst_config_table(root.paths, module)
 			if config_table:
+				string += renderer.heading('Configuration (Overview)', 'A list of all configuration options')
 				string += config_table
-			else:
-				string += renderer.para("''No configuration avalible for %s''"%module)
 				
 			if queries:
-				string += renderer.title(1, 'Queries (Reference)')
+				string += renderer.title(1, 'Queries')
 				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
 				for (c,cinfo) in root.commands.iteritems():
 					if module in cinfo.info.plugin:
 						string += self.generate_rst_command_details(c, cinfo, module)
 
 			if config_table:
-				string += renderer.title(1, 'Configuration (Reference)')
+				string += renderer.title(1, 'Configuration')
 				string += renderer.para('A quick reference for all avalible configuration options in the %s module.'%module)
 				string += self.generate_rst_config_details(root.paths, module)
 			
 			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))
+			commands.append('%s.rst'%module)
 
 		all_config = self.generate_rst_config_table(root.paths)
-		renderer.serialize(all_config, '%s/reference/config.rst'%dir)
+		#renderer.serialize(all_config, '%s/reference/config.rst'%dir)
 			
+		string = """Modules
+=======
+
+Contents:
+
+.. toctree::
+   :maxdepth: 3
+
+"""
+		for c in sorted(commands):
+			string += '   %s\n'%c
+		renderer.serialize(string, '%s/reference/index.rst'%dir)
+		
 			
 
 		#renderer.build_command(import_commands)

@@ -72,18 +72,17 @@ class AdaObject(ObjectDescription):
 			ann = ' (%s, %s)'%(module, confpath)
 			signode += addnodes.desc_name(sig, sig)
 			signode += addnodes.desc_annotation(ann, ann)
-		print 'handle_signature(%s, %s) => %s'%(sig, signode, fullname)
+		#print 'handle_signature(%s, %s) => %s'%(sig, signode, fullname)
 		return fullname, sig
 
 	def _get_index_text(self, name):
-		print "_get_index_text %s, %s" % (name, self.objtype)
+		#print "_get_index_text %s, %s" % (name, self.objtype)
 		if self.objtype == 'query':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
 		elif self.objtype == 'exec':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
 		elif self.objtype == 'confkey':
 			confpath = self.env.temp_data.get('nscp:confpath', '')
-			print confpath
 			return _('%s (%s, %s)') % (name[1], self.env.temp_data['nscp:module'], confpath)
 		elif self.objtype == 'confpath':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
@@ -94,7 +93,7 @@ class AdaObject(ObjectDescription):
 
 
 	def add_target_and_index(self, name, sig, signode):
-		print 'add_target_and_index(%s, %s, %s)'%(name, sig, signode)
+		#print 'add_target_and_index(%s, %s, %s)'%(name, sig, signode)
 		if self.objtype == 'query':
 			self.env.temp_data['nscp:command'] = name[1]
 			fullname = name[0]
@@ -112,7 +111,7 @@ class AdaObject(ObjectDescription):
 		else:
 			fullname = name[0]
 			domain = 'objects'
-		print "DEBUG: add_target_and_index name = %s as %s" %(name, fullname)
+		#print "DEBUG: add_target_and_index name = %s as %s" %(name, fullname)
 		if fullname not in self.state.document.ids:
 			signode['names'].append(fullname)
 			signode['ids'].append(fullname)
@@ -361,13 +360,24 @@ class NSClientDomain(Domain):
 			
 		if objtype == 'query':
 			if name in self.data['queries']:
-				print "** Found direct query: %s"%name
 				docname, objtype = self.data['queries'][name]
 				return name, docname
-			print 'Quriery not found: %s'%self.data['queries']
+			tname = '%s.%s'%(modname, name)
+			if tname in self.data['queries']:
+				docname, objtype = self.data['queries'][tname]
+				return tname, docname
+			print "Query data NOT FOUND: %s"%self.data['queries']
 			return None, None
 		if name in self.data['objects']:
-			return name, self.data['objects'][name][0]
+			return name, self.data['objects'][name]
+		tname = '%s.%s'%(modname, name)
+		if tname in self.data['objects']:
+			docname, objtype = self.data['objects'][tname]
+			return tname, docname
+		tname = '%s:%s'%(modname, name)
+		if tname in self.data['objects']:
+			docname, objtype = self.data['objects'][tname]
+			return tname, docname
 		print 'Found nothing for: %s'%name
 
 		#if '/' in name:
@@ -392,7 +402,7 @@ class NSClientDomain(Domain):
 
 	def resolve_xref(self, env, fromdocname, builder,
 					typ, target, node, contnode):
-		print 'resolve_xref(%s)'%node
+		#print 'resolve_xref(%s)'%node
 		if typ == 'module' and target in self.data['modules']:
 			docname, synopsis, deprecated = self.data['modules'].get(target, ('','',''))
 			if docname:
@@ -418,9 +428,9 @@ class NSClientDomain(Domain):
 									contnode, name)
 
 	def get_objects(self):
-		print 'get_objects'
+		#print 'get_objects'
 		for refname, (docname, type) in self.data['objects'].iteritems():
-			print '%s, %s, %s'%(refname, docname, type)
+			#print '%s, %s, %s'%(refname, docname, type)
 			yield (refname, refname, type, docname, refname, 1)
 
 def setup(app):

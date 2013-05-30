@@ -96,7 +96,7 @@ The long term plan (read 0.4.4) plan is to some day move the settings file over 
 So the first thing you need to do now is tell NSClient++ this but before we get ahead of our self lets look at how we can manipulate the settings via the nscp command line interface. If you remember from the getting help section above we had a "settings" mode of operation. Lets look into that one a bit more.
 
 
-.. code-block:: log
+.. code-block:: text
 
   nscp settings --help
   Allowed options (settings):
@@ -133,7 +133,7 @@ This has the option --switch and takes a single argument which defines the setti
 Notice the comment about difference between the various --migrate-xxx options and switch. Switch will not migrate your current settings.
 Using migrate here would thus copy all settings from whatever settings you are using today to the new one befor updateing the settings to use.
 
-.. code-block:: log
+.. code-block:: text
 
   d:\source\nscp\build\x64>nscp settings --switch ini://${exe-path}/nscp.ini
   Current settings instance loaded:
@@ -201,7 +201,7 @@ nscp test
 
 This will print some debug log messages and eventually leave you with blinking cursor.
 
-.. code-block:: log
+.. code-block:: text
 
   d:\source\nscp\build\x64>nscp test
   d vice\logger_impl.cpp:373  Creating logger: console
@@ -235,7 +235,7 @@ This will print some debug log messages and eventually leave you with blinking c
 Now you can enter commands.
 For instance if you start by entering the commands command
 
-.. code-block:: log
+.. code-block:: text
 
   commands
   l ce\simple_client.hpp:54   Commands:
@@ -260,7 +260,7 @@ For instance if you start by entering the commands command
 You get a list of all commands you can execute. commands in this context is actual check commands which generaly checks some aspect of you system.
 Lets try out the first one:
 
-.. code-block:: log
+.. code-block:: text
 
   check_cpu
   d rvice\NSClient++.cpp:933  Injecting: check_cpu...
@@ -272,7 +272,7 @@ Now this is more of an exception then a rule but it it the idea hence fort to tr
 
 Now lets move on to trying to run the actual suggested commands:
 
-.. code-block:: log
+.. code-block:: text
 
   check_cpu MaxWarn=80 time=5m
   d rvice\NSClient++.cpp:933  Injecting: check_cpu...
