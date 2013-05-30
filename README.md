@@ -1,15 +1,14 @@
-nscp
-====
+NSClient++
+==========
 
-About NSClient++
-----------------
-
-NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Nagios/Icinga, but nothing in the daemon is Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.
+NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. 
+It was built for Nagios/Icinga, but nothing in the daemon is Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.
 
 The deamon has 3 main functions:
-#. Allow a remote machine (monitoring server) to request commands to be run on this machine (the monitored machine) which return the status of the machine.
-#. Submit the same results to a remote (monitoring server).
-#. Take action and perform tasks.
+
+* Allow a remote machine (monitoring server) to request commands to be run on this machine (the monitored machine) which return the status of the machine.
+* Submit the same results to a remote (monitoring server).
+* Take action and perform tasks.
 
 NSClient++ can be found at: http://nsclient.org
 
@@ -46,7 +45,8 @@ Since NSClient++ is meaningless by itself it also supports a lot of protocols to
  * Graphite allows you do real-time graphing.
  * SMTP is more of a toy currently.
 
-== Supported OS/Platform ==
+Supported OS/Platform
+---------------------
 
 NSClient++ should run on the following operating systems:
  * Windows: From NT4 SP5 up to Windows 2008 and Windows 7
