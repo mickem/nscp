@@ -56,18 +56,31 @@ When you need to put spaces in a string you do the following:
 1.6 How do I properly escape $ in strings
 ******************************************
 
+Dollar signs are "strange" in nagios nad has to be escaped using double $$s
+
 From:
  * nagios:
    - $$ (you use two $ signs)
  * from NSClient++
    - $ (you do not need to escape them at all)
 
-1.7 System Tray does not work
+1.7 How do I properly escape \ in strings
+******************************************
+
+Backslashes and som other control characters are handled by the shell in Nagios and thus escaped as such.
+
+From:
+ * nagios:
+   - "...\\..."
+ * from NSClient++
+   - "...\\..."
+
+1.8 System Tray does not work
 ******************************
  **NOTICE**
  System tray is currently disabled and will be added back at some point
 
-1.8 I get <insert random error from nagios here>
+1.9 I get <insert random error from nagios here>
 *************************************************
 
 This information is usually useless to me since the error in nagios is not related to the problem.
@@ -94,12 +107,12 @@ To get the debug log do the following:
 
 Please check and include this information before you submit questions and/or bug reports.
 
-1.9 I use version 0.3.9 or 0.2.7
+1.10 I use version 0.3.9 or 0.2.7
 ********************************
 
 please upgrade to 0.4.1 and see if the error still persist before you ask questions and/or report bugs
 
-1.10 Rejected connection from: <ip address here>
+1.11 Rejected connection from: <ip address here>
 ************************************************
 This is due to invalid configuration.
 One important thing you '''NEED''' to configure is which hosts are allowed to connect. If this configuration is missing or invalid you will get the following error:
@@ -117,12 +130,12 @@ To resolve this please update your configuration:
   ; ALLOWED HOSTS - A coma separated list of hosts which are allowed to connect. You can use netmasks (/ syntax) or * to create ranges.
   allowed hosts = <ADD YOUR NAGIOS 1 IP HERE>,<ADD YOUR NAGIOS 2 IP HERE>,10.11.12.0/24
 
-1.11 Arguments via NRPE
+1.12 Arguments via NRPE
 ***********************
 
 For details see :ref:`how_to_external_scripts`
 
-1.12 Nasty metacharacters
+1.13 Nasty metacharacters
 *************************
 
 If you get illegal metachars or similar errors you are sending characters which are considered harmful through NRPE.
@@ -134,3 +147,12 @@ To enable this in the NRPE server you can add the following (please '''notice'''
 
   [/settings/NRPE/server]
   allow nasty characters=true
+
+1.14 High CPU load and check_eventlog
+*************************************
+
+Som people experience high CPU load when checking the event log this can usualy be resolved using the new command line option scan-range setting it to the time region you want to check
+
+.. code-block::
+
+  CheckEventLog ... scan-range=12h ...
