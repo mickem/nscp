@@ -26,10 +26,11 @@ Since much of what NSClient++ does requires "elevated privileged" you should alw
 
 Now change directory to where you unzipped NSClient++ and run nscp without any arguments like so:
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-cd to/your/nsclient++/folder
-nscp
-...
+.. code-block:: bat
+
+  cd to/your/nsclient++/folder
+  nscp
+  ...
 
 
 Running nscp without arguments will show you the initial help screen.
@@ -38,21 +39,22 @@ Getting Help
 ============
 The next step is to explore the various "modes".
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-nscp --help
-Allowed options:
+.. code-block:: bat
 
-Common options:
-  --settings arg        Override (temporarily) settings subsystem to use
-  --help                produce help message
-  --debug               Set log level to debug (and show debug information)
-  --log arg             The log level to use
-  --version             Show version information
-...
-Unit-test Options:
-  -l [ --language ] arg Language tests are written in
-  -a [ --argument ] arg List of arguments (gets -- prefixed automatically)
-  --raw-argument arg    List of arguments (does not get -- prefixed)
+  nscp --help
+  Allowed options:
+  
+  Common options:
+    --settings arg        Override (temporarily) settings subsystem to use
+    --help                produce help message
+    --debug               Set log level to debug (and show debug information)
+    --log arg             The log level to use
+    --version             Show version information
+  ...
+  Unit-test Options:
+    -l [ --language ] arg Language tests are written in
+    -a [ --argument ] arg List of arguments (gets -- prefixed automatically)
+    --raw-argument arg    List of arguments (does not get -- prefixed)
 
 First argument has to be one of the following: client, help, service, settings, test, unit,
 Or on of the following client aliases: eventlog, lua, nrpe, nsca, nscp, py, python, sys, syslog, wmi,
@@ -179,6 +181,7 @@ So how do we load modules?
 The simple way is to use the NSClient++ command line syntax here as well.
 
 .. code-block:: bat
+
   nscp settings --activate-module CheckSystem --add-missing
 
 You should by now be able to guess what this command will do.

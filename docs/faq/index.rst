@@ -1,4 +1,4 @@
-.. _faq-index:
+.. _faq_index:
 
 #################################
  FAQ: Frequently asked questions
@@ -26,10 +26,11 @@ This makes it quite easy to see what is going on and why things go wrong.
  * The first thing to check is the version. If you are using an old version (pre 0.3.x) upgrade!
  * Second thing to check is whether the servers' performance counters working?
    Sometimes the performance counters end up broken and need to be rebuilt there is a command to validate performance counters:
+
 ..  code-block:: bat
 
     nscp sys --validate
-   
+
 For details: Microsoft KB: http://support.microsoft.com/kb/300956 essentially you need to use the "lodctr /R" command.
 
 1.3 Bind failed

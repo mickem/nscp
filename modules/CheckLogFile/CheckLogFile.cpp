@@ -87,10 +87,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	settings.register_all();
 	settings.notify();
 
-	filters::command_reader::object_type tmp;
-	tmp.alias = "sample";
-	tmp.path = thread_->filters_path_ + "/sample";
-	filters::command_reader::read_object(get_settings_proxy(), tmp, false, true);
+	filters::filter_config_handler::add_samples(get_settings_proxy(), thread_->filters_path_);
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())

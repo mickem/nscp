@@ -70,16 +70,22 @@ namespace socket_helpers {
 		}
 
 		template<class object_type>
-		static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
-			settings.path(object.path).add_key()
+		static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
+			root_path.add_key()
 
 				("timeout", nscapi::settings_helper::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
 				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 				;
 		}
 		template<class object_type>
-		static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
-			settings.path(object.path).add_key()
+		static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
+			root_path.add_key()
 
 				("dh", nscapi::settings_helper::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1),"${certificate-path}/nrpe_dh_512.pem"),
 				"DH KEY", "", true)

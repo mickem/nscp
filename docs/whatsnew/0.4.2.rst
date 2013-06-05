@@ -9,5 +9,40 @@
 Introduction
 ============
 
-TODO
+The main goal of the 0.4.2 update is to create a new modern check subsystem.
+This means all checks will get:
+ * help command linte options to get help
+ * proper documentation
+ * the same or similar syntax
+ * "real-time" options in many instances
+
+Documentation
+-------------
+
+Compleatly new documentation tool chain (your reading the result).
+
+**Status:** Essentially done...
+
+New windows subsystem
+---------------------
+
+The windows subsystem in < 0.4.2 is optimized for Windows NT and really needs an overhaul.
+ * Support for remote checking of windows machines (ie. allow NSCLient++ act as a broker and check remote machines in an agent-less fashion)
+ * Support for Modern Windows (vista and beyond)
+ * Drop support for "Legacy Windows" (will still be available as-is in but not updated/get extended support)
+ * Support real-time monitoring in more instances
+
+**Status:** In progress...
+
+Monitoring Kits
+---------------
+
+The script support will be extended to include "monitoring kits" which is a concept of installable easy to configure monitoring patterns. The idea is that this should be enough to setup a new SQL server which has two databases foo and bar.
+
+.. code-block:: text
+
+  nscp py --script sql-server --install --db foo --db bar --report nsca
+
+**Status:** Not started...
+
 

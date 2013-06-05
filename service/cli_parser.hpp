@@ -75,6 +75,7 @@ public:
 			("list", "Set all keys below the path (or root).")
 			("add-defaults", "Same as --add-missing")
 			("remove-defaults", "Remove all keys which have default values (and empty sections)")
+			("use-samples", "Some commands (generate) can alsu se sample values")
 			("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
 			;
 
@@ -312,11 +313,12 @@ public:
 			bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
 			bool rem_def = vm.count("remove-defaults")==1;
 			bool load_all = vm.count("load-all")==1;
+			bool use_samples = vm.count("use-samples")==1;
 			std::string filter;
 			if (vm.count("filter"))
 				filter = vm["filter"].as<std::string>();
 
-			nsclient::settings_client client(core_, log_level, def, rem_def, load_all, filter);
+			nsclient::settings_client client(core_, log_level, def, rem_def, load_all, use_samples, filter);
 			int ret = -1;
 
 			if (vm.count("generate")) {

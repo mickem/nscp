@@ -14,11 +14,12 @@ namespace nsclient {
 		bool default_;
 		bool remove_default_;
 		bool load_all_;
+		bool use_samples_;
 		std::string filter_;
 
 	public:
-		settings_client(NSClient* core, std::string log, bool update_defaults, bool remove_defaults, bool load_all, std::string filter) 
-			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), filter_(filter) 
+		settings_client(NSClient* core, std::string log, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) 
+			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples), filter_(filter) 
 		{
 			startup();
 		}
@@ -117,7 +118,7 @@ namespace nsclient {
 				} else if (target == "json" || target == "json-compact") {
 					json_spirit::Object json_root;
 					// TODO, allow samples to be generated
-					settings::string_list s = settings_manager::get_core()->get_reg_sections(false);
+					settings::string_list s = settings_manager::get_core()->get_reg_sections(use_samples_);
 					BOOST_FOREACH(const std::string &path, s) {
 
 						settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
@@ -137,15 +138,21 @@ namespace nsclient {
 						json_path.push_back(json_spirit::Pair("title", desc.title));
 						json_path.push_back(json_spirit::Pair("description", desc.description));
 						json_path.push_back(json_spirit::Pair("plugins", json_plugins));
+						json_path.push_back(json_spirit::Pair("advanced", desc.advanced));
+						if (use_samples_)
+							json_path.push_back(json_spirit::Pair("sample", desc.is_sample));
 
 						json_spirit::Object json_keys;
-						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, false)) {
+						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, use_samples_)) {
 							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							json_spirit::Object json_key;
 							json_key.push_back(json_spirit::Pair("key", key));
 							json_key.push_back(json_spirit::Pair("title", desc.title));
 							json_key.push_back(json_spirit::Pair("description", desc.description));
 							json_key.push_back(json_spirit::Pair("default value", desc.defValue));
+							json_key.push_back(json_spirit::Pair("advanced", desc.advanced));
+							if (use_samples_)
+								json_key.push_back(json_spirit::Pair("sample", desc.is_sample));
 							json_keys.push_back(json_spirit::Pair(key, json_key));
 						}
 						json_path.push_back(json_spirit::Pair("keys", json_keys));

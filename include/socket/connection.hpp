@@ -13,7 +13,6 @@ namespace socket_helpers {
 	namespace server {
 
 		using boost::asio::ip::tcp;
-		static const bool debug_trace = false;
 
 		//
 		// The socket statemachine:
@@ -44,7 +43,7 @@ namespace socket_helpers {
 			}
 
 			inline void trace(std::string msg) const {
-				if (debug_trace) 
+				if (protocol_type::debug_trace) 
 					protocol_->log_debug(__FILE__, __LINE__, msg);
 			}
 

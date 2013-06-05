@@ -72,6 +72,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		targets.add_samples(get_settings_proxy(), target_path);
 		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 		core.register_channel(channel_);
 	} catch (std::exception &e) {

@@ -54,8 +54,11 @@ private:
 			target.set_property_string("path", "/nsclient++");
 		}
 
-		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
-			settings.path(object.path).add_key()
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
+			root_path.add_key()
 
 				("path", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
 				"PATH FOR VALUES", "Path mapping for metrics")

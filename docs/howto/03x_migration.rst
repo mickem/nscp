@@ -68,6 +68,7 @@ Well, two tings.
 
 #. Next version will support Lua configuration (i.e. scripts) which will handle all migration so hopefully this is the last change.
 #. Next version will feature a new command check subsystem
+
 The first change is just good, the latter change might have impacts on how you use NSClient++ (it might be good to look into this if you're  planning to migrate). Just a quick recap (see milestone `milestone:0.4.2 <milestone:0.4.2>`_ for more details): checks will no longer support variable lists,  instead more common argument parsing system is used throughout. I think this is a simplification which helps since it is pretty confusing the way arguments are parsed today. For instance:
 
 .. code-block:: ini
@@ -118,8 +119,9 @@ It is important to understand the limitations by doing this:
 
 It is simple to keep the old format. When you upgrade you select "Old configuration" in the installer UI. And afterwards you can at any time run the following command to change the configuration file:
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-nscp settings --switch old
+.. code-block:: bat
+
+  nscp settings --switch old
 
 To change to the old file. This assumes you have the file since it is not shipped with NSClient++ any more. If you want you can always get the old ini file from github here: `https://github.com/mickem/nscp/blob/0.3.9/NSC.dist <https://github.com/mickem/nscp/blob/0.3.9/NSC.dist>`_
 
@@ -129,9 +131,9 @@ I want to migrate
 Migrating automatically should work for most people and can be done from the installer or manually at a later time. It is very possible to install with "Old configuration" and then migrate at a later time.
 To migrate the configuration you run the following command:
 
-.. TODO: Indent lines, set language: Example .. code-block:: python
-nscp settings --migrate-to ini
+.. code-block:: bat
 
+  nscp settings --migrate-to ini
 
 I want to change by hand
 ------------------------

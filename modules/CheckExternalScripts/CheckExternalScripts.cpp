@@ -101,7 +101,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		if (aliases_.empty()) {
 			NSC_DEBUG_MSG("No aliases found (adding default)");
 
-			add_alias("alias_cpu", "checkCPU warn=80 crit=90 time=5m time=1m time=30s");
+			add_alias("alias_cpu", "check_cpu warn=80 crit=90 time=5m time=1m time=30s");
 			add_alias("alias_cpu_ex", "checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s");
 			add_alias("alias_mem", "checkMem MaxWarn=80% MaxCrit=90% ShowAll=long type=physical type=virtual type=paged type=page");
 			add_alias("alias_up", "checkUpTime MinWarn=1d MinWarn=1h");

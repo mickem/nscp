@@ -59,9 +59,9 @@ private:
 			target.set_property_int("payload length", 1024);
 		}
 
-		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
-			socket_helpers::settings_helper::add_ssl_client_opts(settings, proxy, object);
-			socket_helpers::settings_helper::add_core_client_opts(settings, proxy, object);
+		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
+			socket_helpers::settings_helper::add_ssl_client_opts(settings, proxy, object, is_sample);
+			socket_helpers::settings_helper::add_core_client_opts(settings, proxy, object, is_sample);
 		}
 
 		static void post_process_target(target_object &target) {

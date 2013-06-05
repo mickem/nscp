@@ -95,7 +95,7 @@ namespace nscapi {
 		namespace sh = nscapi::settings_helper;
 		struct dummy_custom_reader {
 			typedef target_object object_type;
-			static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object) {
+			static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
 				settings; 
 				proxy; 
 				object;
@@ -110,21 +110,25 @@ namespace nscapi {
 				custom_reader::post_process_target(object);
 			}
 
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
+			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample = false) {
 				object.address = net::parse(object.value, 0);
 				if (object.alias == "default")
 					custom_reader::init_default(object);
 
 				nscapi::settings_helper::settings_registry settings(proxy);
 
+				nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+				if (is_sample)
+					root_path.set_sample();
+
 				object_type::options_type options;
-				settings.path(object.path).add_path()
+				root_path.add_path()
 					(nscapi::settings_helper::string_map_path(&options), 
 					"TARGET DEFENITION", "Target definition for: " + object.alias)
 
 					;
 
-				settings.path(object.path).add_key()
+				root_path.add_key()
 
 					("address", sh::string_fun_key<std::string>(boost::bind(&object_type::set_address, &object, _1)),
 					"TARGET ADDRESS", "Target host address")
@@ -145,7 +149,7 @@ namespace nscapi {
 					"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
 					;
-				custom_reader::add_custom_keys(settings, proxy, object);
+				custom_reader::add_custom_keys(settings, proxy, object, is_sample);
 
 				settings.register_all();
 				settings.notify();

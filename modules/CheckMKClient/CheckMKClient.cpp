@@ -101,6 +101,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		settings.register_all();
 		settings.notify();
 
+		targets.add_samples(get_settings_proxy(), target_path);
 		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 
 		if (scripts_->empty()) {

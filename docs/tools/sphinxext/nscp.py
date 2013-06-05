@@ -44,6 +44,8 @@ class AdaObject(ObjectDescription):
 		#synopsis = unicodedata.normalize('NFD', self.options.get('synopsis'))
 		synopsis = self.options.get('synopsis')
 		module = self.env.temp_data.get('nscp:module')
+		confpath = self.env.temp_data.get('nscp:confpath')
+		command = self.env.temp_data.get('nscp:command')
 		fullname = 'TODO'
 		if self.objtype == 'query':
 			fullname = '%s.%s'%(module, sig)
@@ -53,7 +55,6 @@ class AdaObject(ObjectDescription):
 			signode += addnodes.desc_content('')
 			signode += addnodes.compact_paragraph(synopsis, synopsis)
 		elif self.objtype == 'option':
-			command = self.env.temp_data.get('nscp:command')
 			fullname = '%s.%s:%s'%(module, command, sig)
 			signode['fullname'] = fullname
 			ann = ' (%s, %s)'%(module, command)
@@ -66,7 +67,6 @@ class AdaObject(ObjectDescription):
 			signode += addnodes.desc_name(sig, sig)
 			signode += addnodes.desc_annotation(ann, ann)
 		elif self.objtype == 'confkey':
-			confpath = self.env.temp_data.get('nscp:confpath', '')
 			fullname = '%s:%s:%s'%(module, confpath, sig)
 			signode['fullname'] = fullname
 			ann = ' (%s, %s)'%(module, confpath)
@@ -82,8 +82,7 @@ class AdaObject(ObjectDescription):
 		elif self.objtype == 'exec':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
 		elif self.objtype == 'confkey':
-			confpath = self.env.temp_data.get('nscp:confpath', '')
-			return _('%s (%s, %s)') % (name[1], self.env.temp_data['nscp:module'], confpath)
+			return _('%s (%s, %s)') % (name[1], self.env.temp_data['nscp:module'], self.env.temp_data['nscp:confpath'])
 		elif self.objtype == 'confpath':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
 		elif self.objtype == 'option':
@@ -240,6 +239,8 @@ class AdaCurrentModule(Directive):
 class AdaXRefRole(XRefRole):
 	def process_link(self, env, refnode, has_explicit_title, title, target):
 		refnode['nscp:module'] = env.temp_data.get('nscp:module')
+		refnode['nscp:command'] = env.temp_data.get('nscp:command')
+		refnode['nscp:confpath'] = env.temp_data.get('nscp:confpath')
 		if not has_explicit_title:
 			title = title.lstrip(':')   # only has a meaning for the target
 			target = target.lstrip('~') # only has a meaning for the title
@@ -334,7 +335,7 @@ class NSClientDomain(Domain):
 		for modname, (fn, _, _) in self.data['modules'].items():
 			if fn == docname:
 				del self.data['modules'][modname]
-		for fullname, funcs in self.data['queries'].items():
+		for fullname, (fn, _) in self.data['queries'].items():
 			if fn == docname:
 				del self.data['queries'][fullname]
 		for fullname, funcs in self.data['procedures'].items():
@@ -344,12 +345,12 @@ class NSClientDomain(Domain):
 			if not self.data['procedures'][fullname]:
 				del self.data['procedures'][fullname]
 
-	def _find_obj(self, env, modname, name, objtype, searchorder=0):
+	def _find_obj(self, env, modname, commandname, confpath, name, objtype):
 		"""
 		Find a NSClient++ object for "name", perhaps using the given module and/or
 		classname.
 		"""
-		print "_find_obj: modname: %s, name: %s, objtype: %s" % (modname, name, objtype)
+		#print "_find_obj: modname: %s, commandname: %s, name: %s, objtype: %s" % (modname, commandname, name, objtype)
 		if not name:
 			return None, None
 		if objtype == 'module':
@@ -358,7 +359,7 @@ class NSClientDomain(Domain):
 				return name, docname
 			return None, None
 			
-		if objtype == 'query':
+		elif objtype == 'query':
 			if name in self.data['queries']:
 				docname, objtype = self.data['queries'][name]
 				return name, docname
@@ -366,19 +367,52 @@ class NSClientDomain(Domain):
 			if tname in self.data['queries']:
 				docname, objtype = self.data['queries'][tname]
 				return tname, docname
-			print "Query data NOT FOUND: %s"%self.data['queries']
+			print "_find_obj: QUERY: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['queries'].keys())
 			return None, None
-		if name in self.data['objects']:
-			return name, self.data['objects'][name]
-		tname = '%s.%s'%(modname, name)
-		if tname in self.data['objects']:
-			docname, objtype = self.data['objects'][tname]
-			return tname, docname
-		tname = '%s:%s'%(modname, name)
-		if tname in self.data['objects']:
-			docname, objtype = self.data['objects'][tname]
-			return tname, docname
-		print 'Found nothing for: %s'%name
+
+		elif objtype == 'confpath':
+			if name in self.data['objects']:
+				return name, self.data['objects'][name]
+			tname = '%s:%s'%(modname, name)
+			if tname in self.data['objects']:
+				docname, objtype = self.data['objects'][tname]
+				return tname, docname
+			#print "_find_obj: CONFPATH: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['objects'].keys())
+			return None, None
+
+		elif objtype == 'confkey':
+			if name in self.data['objects']:
+				return name, self.data['objects'][name]
+			if confpath:
+				tname = '%s:%s:%s'%(modname, confpath, name)
+			elif modname:
+				tname = '%s:%s'%(modname, name)
+			else:
+				tname = name
+			if tname in self.data['objects']:
+				docname, objtype = self.data['objects'][tname]
+				return tname, docname
+			#print "_find_obj: CONFKEY: modname: %s, commandname: %s, confpath: %s, name: %s, objtype: %s => %s" % (modname, commandname, confpath, name, objtype, self.data['objects'].keys())
+			return None, None
+
+		elif objtype == 'option':
+			if name in self.data['options']:
+				return name, self.data['options'][name]
+			tname = '%s.%s:%s'%(modname, commandname, name)
+			if tname in self.data['options']:
+				docname, objtype = self.data['options'][tname]
+				return tname, docname
+			print "_find_obj: OPTION: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['options'].keys())
+			return None, None
+
+		print "_find_obj: NOTHING: modname: %s, commandname: %s, name: %s, objtype: %s => NONE" % (modname, commandname, name, objtype)
+		#if name in self.data['objects']:
+		#	return name, self.data['objects'][name]
+		#tname = '%s.%s'%(modname, name)
+		#if tname in self.data['objects']:
+		#	docname, objtype = self.data['objects'][tname]
+		#	return tname, docname
+		#print 'Found nothing for: %s'%name
 
 		#if '/' in name:
 		#	fname, arity = name.split('/')
@@ -409,18 +443,19 @@ class NSClientDomain(Domain):
 				return make_refnode(builder, fromdocname, docname, target, contnode, synopsis)
 			else:
 				return None
-		if typ == 'query' and target in self.data['modules']:
-			docname, synopsis, deprecated = self.data['modules'].get(target, ('','',''))
-			if not docname:
-				return None
-			else:
-				title = '%s%s' % (synopsis, (deprecated and ' (deprecated)' or ''))
-				return make_refnode(builder, fromdocname, docname,
-									'module-' + target, contnode, title)
+		#if typ == 'query' and target in self.data['modules']:
+		#	docname, synopsis, deprecated = self.data['modules'].get(target, ('','',''))
+		#	if not docname:
+		#		return None
+		#	else:
+		#		title = '%s%s' % (synopsis, (deprecated and ' (deprecated)' or ''))
+		#		return make_refnode(builder, fromdocname, docname,
+		#							'module-' + target, contnode, title)
 		else:
 			modname = node.get('nscp:module')
-			searchorder = node.hasattr('refspecific') and 1 or 0
-			name, obj = self._find_obj(env, modname, target, typ, searchorder)
+			command = node.get('nscp:command')
+			confpath = node.get('nscp:confpath')
+			name, obj = self._find_obj(env, modname, command, confpath, target, typ)
 			if not obj:
 				return None
 			else:

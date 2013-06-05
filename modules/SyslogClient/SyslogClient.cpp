@@ -110,6 +110,7 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		settings.register_all();
 		settings.notify();
 
+		targets.add_samples(get_settings_proxy(), target_path);
 		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		core.register_channel(channel_);

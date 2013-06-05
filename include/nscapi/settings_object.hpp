@@ -50,6 +50,13 @@ namespace nscapi {
 				add(proxy, path, alias, value, is_template);
 			}
 
+			static void add_samples(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path) {
+				t_object_type tmp;
+				tmp.alias = "sample";
+				tmp.path = path + "/sample";
+				object_reader::read_object(proxy, tmp, false, true);
+			}
+
 			std::list<std::string> get_object_key_list() const {
 				std::list<std::string> ret;
 				BOOST_FOREACH(const typename object_list_type::value_type &t, object_list) {

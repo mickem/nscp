@@ -15,8 +15,11 @@
     Last updated on {{ last_updated|e }}.
     <a href="{{ pathto('bugs') }}">Found a bug</a>?
     <br />
-    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> {{ sphinx_version|e }}.
+    Created using <a href="http://sphinx-doc.org/">Sphinx</a> {{ sphinx_version|e }}.
     </div>
+	<!--Start of Zopim Live Chat Script-->
+	<script src="https://cdn.zopim.com/?t1aTK0tc9BXJ1AUgJVfDcd1kBmXwJwQt" charset="utf-8" type="text/javascript"></script>
+	<!--End of Zopim Live Chat Script-->
 {% endblock %}
 {% block sidebarsourcelink %}
 {%- if show_source and has_source and sourcename %}
@@ -28,3 +31,48 @@
 </ul>
 {%- endif %}
 {% endblock %}
+{% block sidebar1 %}
+<div class="adsense">
+<script type="text/javascript"><!--
+google_ad_client = "ca-pub-5641896420604648";
+/* NSCP Skyscraper */
+google_ad_slot = "2344911472";
+google_ad_width = 120;
+google_ad_height = 600;
+//-->
+</script>
+<script type="text/javascript" src="http://pagead2.googlesyndication.com/pagead/show_ads.js"></script>
+</div>
+{% endblock %}
+  {%- block document %}
+      <div class="documentwrapper">
+      {%- if render_sidebar %}
+        <div class="bodywrapper">
+      {%- endif %}
+          <div class="body">
+            {% block body %} {% endblock %}
+  <div id="disqus_thread"></div>
+    <script type="text/javascript">
+        /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+        var disqus_shortname = 'nsclientdocs'; // required: replace example with your forum shortname
+
+        /* * * DON'T EDIT BELOW THIS LINE * * */
+        (function() {
+            var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+            dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script>
+    <noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+    <a href="http://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+          </div>
+      {%- if render_sidebar %}
+        </div>
+      {%- endif %}
+      </div>
+	  
+	  
+  {%- endblock %}
+
+
+    

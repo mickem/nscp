@@ -91,7 +91,7 @@ namespace nrpe {
 		unsigned int payload_length_;
 		short type_;
 		short version_;
-		int result_;
+		int16_t result_;
 		std::string payload_;
 		unsigned int crc32_;
 		unsigned int calculatedCRC32_;
@@ -165,8 +165,6 @@ namespace nrpe {
 		}
 
 		static void update_payload(nrpe::data::packet *p, const std::string &payload) {
-			char *d1 = reinterpret_cast<char*>(p);
-			int sz = sizeof(nrpe::data::packet);
 			char *data = reinterpret_cast<char*>(p)+sizeof(nrpe::data::packet);
 			strncpy(data, payload.c_str(), payload.length());
 			data[payload.length()] = 0;

@@ -1,0 +1,11 @@
+
+@import url("default.css");
+
+div.document {
+    margin-right: 130px;
+}
+
+div.adsense {
+  width: 120px;
+  float: right;
+}

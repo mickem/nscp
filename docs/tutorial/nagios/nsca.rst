@@ -76,12 +76,12 @@ The resulting modules section in NSC.ini will look like so:
 .. code-block:: ini
 
   [/modules]
-CheckSystem=enabled
-CheckDisk=enabled
-CheckExternalScripts=enabled
-CheckHelpers=enabled
-Scheduler=enabled
-NSCAClient=enabled
+  CheckSystem=enabled
+  CheckDisk=enabled
+  CheckExternalScripts=enabled
+  CheckHelpers=enabled
+  Scheduler=enabled
+  NSCAClient=enabled
 
 
 2.2 Scheduler Configuration
@@ -103,17 +103,17 @@ The other thing worth mentioning about containers is that they can be configure 
 .. code-block:: ini
 
   [/settings/scheduler/schedules]
-foo=bar
-alias=command
+  foo=bar
+  alias=command
 
 The same section using long format looks like this:
 
 .. code-block:: ini
 
   [/settings/scheduler/schedules/foo]
-command=bar
+  command=bar
   [/settings/scheduler/schedules/alias]
-command=command
+  command=command
 
 The upside to the short format is that you can configure a massive number of schedules as a single lines the drawback is that you can only configure the command (unless you use the default template). So if you need to configure you commands individually you are forced to use the long format. From NSClient++ perspective they will get treated the same.
 
@@ -207,7 +207,8 @@ The most important thing to understand when diagnosing errors and finding config
 THus the first thing to check is the syslog (or where you have your log configured).
 
 .. code-block:: bash
-sudo tail -f /var/log/syslog
+
+   sudo tail -f /var/log/syslog
 
 will result in the following:
 
@@ -258,7 +259,7 @@ If things are working you should see the following:
 5.1 Introduction
 ----------------
 
-.. image:: imagesnagios-configuration-inheritance.png
+.. image:: images/nagios-configuration-inheritance.png
 
 Nagios configuration is in itself a whole chapter and this is just a quick peek on how you can do things. First off there are a few concepts to understand:
 
@@ -275,8 +276,10 @@ The configuration is at the end layer quite simple you have a "check" and a "hos
 The main difference between passive checks and active checks are the following two flags:
  **active_checks_enabled**::
    Active service checks are enabled
+
  **passive_checks_enabled**::
    Passive service checks are enabled/accepted
+
 So adding the following will "change" an active check to a passive check.
 
 .. code-block:: js

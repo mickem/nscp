@@ -99,6 +99,17 @@ namespace settings {
 			}
 			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false), is_sample(false) { append_plugin(plugin_id); }
 			key_description() : type(settings_core::key_string), advanced(false), is_sample(false) { }
+			key_description& operator=(const key_description &other) {
+				title = other.title;
+				description = other.description;
+				type = other.type;
+				defValue = other.defValue;
+				advanced = other.advanced;
+				is_sample = other.is_sample;
+				plugins = other.plugins;
+				return *this;
+			}
+
 			void append_plugin(unsigned int plugin_id) {
 				plugins.insert(plugin_id);
 			}

@@ -40,16 +40,16 @@ SMTP     Passive  Communicate with nsclient++ through mails. More of a toy curre
 In this document, we will cover NRPE and NSCA, as well as show how it is integrated with Nagios. If you have other protocols or monitoring solutions the general concepts can be easily adapted to any of the other supported protocols.
 
 Nsclient++ allows many ways to check your system:
- * Get System health (cpu, disks…)
+ * Get System health (cpu, disks...)
  * Get performances counters
  * Get WMI query
  * Check Log file
  * Check scheduled task
  * Execute:
-  * powershell scripts
-  * VB Scripts (.VBS)
-  * Executable files
-  * Batch (.BAT) files
+ ** powershell scripts
+ ** VB Scripts (.VBS)
+ ** Executable files
+ ** Batch (.BAT) files
 
 Requirements
 ------------
@@ -88,7 +88,7 @@ Before rushing on the binaries and install them, you must spend 15m in making th
 
 .. warning::
    We do recommend that you do not skip this step, as you will have issues later and get frustrated... What is 15minutes compared to a great monitoring solution?
-   If you still can’t afford these 15 minutes, take the config example in this doc
+   If you still can't afford these 15 minutes, take the config example in this doc
 
 One important thing to understand when it comes to NSCLient++ configuration is that while most people use ini-files it is not the only posibility other options include registry and remote files. But for the reminder of this tutorial we only consider ini files since it is the normal and simplest way.
 
@@ -151,7 +151,7 @@ Modules
 Here are the available modules. Each module get loaded if enabled. You can enable all and use only one, but that may open doors for nothing and add load on your systems.
 There are a few ways you can enable modules, setting the value to 1, true and enabled are all correct but enabled is preferd like so:
 
-.. code-block::
+.. code-block:: ini
 
    [/modules]
    NRPEServer = enabled
@@ -159,7 +159,7 @@ There are a few ways you can enable modules, setting the value to 1, true and en
 There is an advanced topic when it comes to modules and that is loading the same module multiple times.
 This is not common but since it changes the syntax we mention it for compleation. When a module is loaded multiple times it is given an alias as a key (since key names have to be unique) and thus the syntax changes into this:
 
-.. code-block::
+.. code-block:: ini
 
    [/modules]
    nrpe1 = NRPEServer
@@ -175,7 +175,7 @@ Module                    Has Config Requires Config Comment
 ========================= ========== =============== ========================================================================================================================================================
 CauseCrashes                                         Dont use this unless you want to tes the crash restart/submission tool. It will crash NSClient++
 **CheckDisk**                                        Can check various file and disk related things. The current version has commands to check Size of hard drives and directories
-**CheckEventLog**         X                          Check for errors and warnings in the event log. This is only supported through NRPE so if you plan to use only NSClient this won’t help you at all
+**CheckEventLog**         X                          Check for errors and warnings in the event log. This is only supported through NRPE so if you plan to use only NSClient this won't help you at all
 **CheckExternalScripts**  X          X               A simple wrapper to run external scripts and batch files
 **CheckHelpers**                                     Various helper function to extend other checks. This is also only supported through NRPE
 CheckLogFile              X                          Check text files (usually log files) for patterns.
@@ -251,7 +251,7 @@ NSCA Client
 
 Another way to configure monitoring is to use what is commonly referd to as *passive monitoring*. 
 This means that NSClient++ will periodically phone home when it has something to report much like SNMP traps.
-The main difference is that Nagios is just waiting for these informations and so doesn’t poll for them. 
+The main difference is that Nagios is just waiting for these informations and so doesn't poll for them. 
 This can avoid a lot of load by not polling for nothing. Load is also distributed on all hosts and not Nagios centric.
 
 For a detailed guide on how to setup NSCA with NSClient++ step by step including debugging and testing see :ref:`tutorial_nagios_nsca`.
@@ -333,16 +333,18 @@ Tools to deploy
 
 Deploying nsclient++ and updating config file/plugins will be a major pain if not automated. We provide here guidance and free tool to deploy to all your Windows. 
 Of course you may have already a solution like SCCM or LanDesk, which is no problem. All these tools does the same job:
+
  * remote copying files
  * Execute binaries or script
  * Watch for output error code
  * Return result.
+
 If you don't already own this tool, then we recommend to use the free version of PDQ Deploy.
 Yes, it's really free, only limited to 8 computers at same time. Yes, it's graphical and works great, even on Windows Core 2012. 
 It can deploy both domain joined and workgroup, only need to provide credentials and source computer must have windows share access (firewall).
 
 .. note::
-   You will need these tools after the initial setup, to maintain agents. So this won’t be a single one shot. 
+   You will need these tools after the initial setup, to maintain agents. So this won't be a single one shot. 
    Except if you have less than 10 servers to monitors, we heavily recommend you to have a similar solution.
 
 PDQ Deploy install

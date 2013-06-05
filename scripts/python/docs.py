@@ -347,7 +347,7 @@ class DocumentationHelper(object):
 		
 		for (path,pinfo) in paths.iteritems():
 			if not module or module in pinfo.info.plugin:
-				string = renderer.title(2, ':confpath:`%s`'%path)
+				string = renderer.title(2, ':confpath:`%s <%s>`'%(path.replace('/', '\u200B/'), path))
 				string += renderer.obj_anchor('confpath', path, pinfo.info.description)
 
 				regular_keys = []

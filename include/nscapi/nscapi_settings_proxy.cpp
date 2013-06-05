@@ -19,7 +19,7 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
 	regitem->mutable_info()->set_title(title);
 	regitem->mutable_info()->set_description(description);
 	regitem->mutable_info()->set_advanced(advanced);
-	regitem->mutable_info()->set_sample(advanced);
+	regitem->mutable_info()->set_sample(sample);
 	std::string response_string;
 	core_->settings_query(request.SerializeAsString(), response_string);
 	Plugin::SettingsResponseMessage response;
@@ -41,7 +41,7 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, int
 	regitem->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 	regitem->mutable_info()->mutable_default_value()->set_string_data(defValue);
 	regitem->mutable_info()->set_advanced(advanced);
-	regitem->mutable_info()->set_sample(advanced);
+	regitem->mutable_info()->set_sample(sample);
 	std::string response_string;
 	core_->settings_query(request.SerializeAsString(), response_string);
 	Plugin::SettingsResponseMessage response;
