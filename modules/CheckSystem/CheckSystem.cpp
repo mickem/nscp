@@ -554,10 +554,12 @@ int CheckSystem::commandLineExec(const std::wstring &command, std::list<std::wst
 class cpuload_handler {
 public:
 	static int parse(std::string s) {
-		return strEx::s::stox<int>(s);
+		std::string::size_type pos = s.find_first_not_of("0123456789");
+		return strEx::s::stox<int>(s.substr(0, pos));
 	}
 	static int parse_percent(std::string s) {
-		return strEx::s::stox<int>(s);
+		std::string::size_type pos = s.find_first_not_of("0123456789");
+		return strEx::s::stox<int>(s.substr(0, pos));
 	}
 	static std::string print(int value) {
 		return strEx::s::xtos(value) + "%";

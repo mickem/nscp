@@ -111,17 +111,13 @@ namespace settings {
 		/// @author mickem
 		void clear_cache() {
 			MUTEX_GUARD();
-			settings_cache_.clear();
-			path_cache_.clear();
-			key_cache_.clear();
-			real_clear_cache();
-			BOOST_FOREACH(instance_raw_ptr child, children_) {
-				try {
-					return child->clear_cache();
-				} catch (...) {
-					continue;
-				}
+			{
+				settings_cache_.clear();
+				path_cache_.clear();
+				key_cache_.clear();
+				children_.clear();
 			}
+			real_clear_cache();
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -152,6 +148,15 @@ namespace settings {
 				}
 			} catch (const std::exception &e) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
+			}
+		}
+
+		void add_child_unsafe(std::string context) {
+			try {
+				instance_raw_ptr child = get_core()->create_instance(context);
+				children_.push_back(child);
+			} catch (const std::exception &e) {
+				get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child " + context + ": " + utf8::utf8_from_native(e.what()));
 			}
 		}
 

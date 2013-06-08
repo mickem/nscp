@@ -134,7 +134,8 @@ public:
 			return true;
 		}
 		if (version) {
-			std::wcout << APPLICATION_NAME << _T(", Version: ") << CURRENT_SERVICE_VERSION << _T(", Platform: ") << SZARCH << std::endl;
+			std::wstring message = std::wstring(APPLICATION_NAME) + _T(", version: ") + CURRENT_SERVICE_VERSION + _T(", Platform: ") + SZARCH;
+			std::wcout << message << std::endl;
 			return true;
 		}
 		return false;

@@ -4,10 +4,49 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2013-05-05 MickeM
+ * Fixed a bug in the check_logfile which made filtering bail-out after the first hit.
+ * Added default column-split as \t
+ 
+2013-04-30 MickeM
+ * Fixed issue with negative performance data
+ * Added unit test for arguments and external script
+ * Fixet truncation issue with performance data (#624)
+
+2013-04-27 MickeM
+ * Fixed bug added in build 95 regarding allowing nasty characters
+
+2013-04-24 MickeM
+ * Added auto-uc to get hostname as upper case
+
+2013-04-23 MickeM
+ * Added encoding option to external scripts
+ * Added encoding option to NSCAClient
+ * Added NSCPDOTNET.dll for making dot-net plugins
+
+2013-04-22 MickeM
+ * Fixed an issue with % in warn and crit thresholds for CheckCPU
+
+2013-04-21 MickeM
+ * Fixed issue with eventlog reset (will not rescan from the beginning if an error is encountered)
+
+2013-04-16 MickeM
+ * re-added check_nt FILEAGE option.
+
+2013-04-13 MickeM
+ * Fixed issue with binding to multiple interfaces (ie. machines with both ipv6 and ipv4 addresses).
+ * Fixed some missing documentation from core settings keys such as /settings/log and /includes.
+ * Added debug message warning about having $ARG??$ in external scripts wehn allowe arguments is false.
+ * Removed need to escape and qoute commands for external scripts (command line will now be used as-is)
+ * Fixed qouting issues with external scripts
+ 
+2013-01-21 MickeM
+ * Fixed two include files issues
+
 2013-01-19 MickeM
  * Fixed Wix 3.7 and added wix to dependencies
 
-2013-01-17 MickeM
+2013-01-17 MickeM - 0.4.1 RELEASE (2)
  * Added nsclient-full.ini with "all" (non advanced) avalible options.
  * Fix for reloading settings from file from script: core:reload('settings') will not work.
    Notice it still will onlya reload the settings not the modules so modules have to be reloaded manually.
@@ -49,7 +88,7 @@ TODO:
  * Added error message when overriding a commad (ie. when alias check_cpu overrides the new command check_cpu).
    Wont work (for technical reasons) for duplicate aliases ie.- alias x=foo and x=bar
 
-2012-12-18 MickeM - 0.4.1 RELEASE
+2012-12-18 MickeM - 0.4.1 RELEASE (1)
  * Fixed path issues in the installer
  * Fixed shortcuts in the installer
  * Fixed so clients can understand no prefixed arguments ie.

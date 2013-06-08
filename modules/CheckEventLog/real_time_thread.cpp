@@ -29,8 +29,8 @@ void real_time_thread::process_record(const filters::filter_config_object &objec
 	int severity = object.severity;
 	std::string command = object.alias;
 	if (severity == -1) {
-		NSC_LOG_ERROR("Severity not defined for: " + object.alias);
-		severity = NSCAPI::returnUNKNOWN;
+		NSC_LOG_ERROR("Severity not defined for (assuming critical): " + object.alias);
+		severity = NSCAPI::returnCRIT;
 	}
 	if (!object.command.empty())
 		command = object.command;
@@ -145,11 +145,15 @@ void real_time_thread::thread_proc() {
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
 
-			eventlog_type el = evlog_list[dwWaitReason-WAIT_OBJECT_0-1];
+			int index = dwWaitReason-WAIT_OBJECT_0-1;
+			eventlog_type el = evlog_list[index];
 			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
 			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status) {
-				delete [] handles;
-				return;
+				NSC_LOG_ERROR("Assuming eventlog reset (re-reading from start)");
+				el->un_notify(handles[index+1]);
+				el->reopen();
+				el->notify(handles[index+1]);
+				el->seek_start();
 			}
 
 			_time64(&ltime);

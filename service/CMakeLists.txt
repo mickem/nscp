@@ -160,6 +160,7 @@ IF(GTEST_FOUND)
 	INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIR})
 	SET(SRCS
 		performance_data_test.cpp
+		various_test.cpp
 	)
 	ADD_EXECUTABLE(${TARGET}_test ${SRCS})
 	ADD_TEST(${TARGET}_test ${TARGET}_test)

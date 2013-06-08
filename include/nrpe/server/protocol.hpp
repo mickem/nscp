@@ -25,7 +25,7 @@ namespace nrpe {
 
 	static const int socket_bufer_size = 8096;
 	struct read_protocol : public boost::noncopyable {
-		static const bool debug_trace = false;
+		static const bool debug_trace = true;
 
 
 		typedef std::vector<char> outbound_buffer_type;

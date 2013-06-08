@@ -19,6 +19,7 @@ namespace check_nt {
 	static const int socket_bufer_size = 8096;
 	static const bool debug_trace = true;
 	struct read_protocol : public boost::noncopyable {
+		static const bool debug_trace = false;
 
 		typedef std::vector<char> outbound_buffer_type;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;

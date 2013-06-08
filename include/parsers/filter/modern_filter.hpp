@@ -266,8 +266,9 @@ namespace modern_filter {
 		boost::tuple<bool,bool> match(boost::shared_ptr<Tobject> record) {
 			bool matched = false;
 			bool done = false;
-			if (!engine_filter || engine_filter->match(record)) {
-				has_matched = true;
+			// done should be set if we want to bail out after the first hit!
+			// I.e. mode==first (mode==all)
+			if (engine_filter && engine_filter->match(record)) {
 				record->matched();
 				std::string current = renderer_detail.render(record);
 				store_perf(record, current);
@@ -275,11 +276,11 @@ namespace modern_filter {
 				if (engine_crit && engine_crit->match(record)) {
 					summary.matched_crit(current);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
-					matched = done = true;
+					matched = true;
 				} else if (engine_warn && engine_warn->match(record)) {
 					summary.matched_warn(current);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
-					matched = done = true;
+					matched = true;
 				} else if (engine_ok && engine_ok->match(record) || !engine_ok) {
 					summary.matched_ok(current);
 					message = renderer_top.render(summary);

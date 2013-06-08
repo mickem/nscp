@@ -290,8 +290,10 @@ namespace strEx {
 	inline int stoi(std::wstring s) {
 		return boost::lexical_cast<int>(s.c_str());
 	}
-	template<class T>
-	inline double stod(T s) {
+	inline double stod(std::string s) {
+		return boost::lexical_cast<double>(s.c_str());
+	}
+	inline double stod(std::wstring s) {
 		return boost::lexical_cast<double>(s.c_str());
 	}
 	inline long long stoi64(std::string s) {
@@ -491,25 +493,25 @@ namespace strEx {
 
 #define MK_FORMAT_FTD(min, key, val) \
 	if (mtm->tm_year > min) \
-	strEx::replace(format, key, strEx::itos(val));  \
+	strEx::replace(format, key, strEx::s::xtos(val));  \
 	else  \
-	strEx::replace(format, key, _T("0"));
+	strEx::replace(format, key, "0");
 #ifdef WIN32
-	inline std::wstring format_time_delta(struct tm *mtm, std::wstring format = _T("%Y years %m months %d days %H hours %M minutes")) {
+	inline std::string format_time_delta(struct tm *mtm, std::string format = "%Y years %m months %d days %H hours %M minutes") {
 		// "Date: %Y-%m-%d %H:%M:%S"
-		MK_FORMAT_FTD(70, _T("%Y"), mtm->tm_year);
-		MK_FORMAT_FTD(0, _T("%m"), mtm->tm_mon);
-		MK_FORMAT_FTD(0, _T("%d"), mtm->tm_mday-1);
-		MK_FORMAT_FTD(0, _T("%H"), mtm->tm_hour);
-		MK_FORMAT_FTD(0, _T("%M"), mtm->tm_min);
-		MK_FORMAT_FTD(0, _T("%S"), mtm->tm_sec);
+		MK_FORMAT_FTD(70, "%Y", mtm->tm_year);
+		MK_FORMAT_FTD(0, "%m", mtm->tm_mon);
+		MK_FORMAT_FTD(0, "%d", mtm->tm_mday-1);
+		MK_FORMAT_FTD(0, "%H", mtm->tm_hour);
+		MK_FORMAT_FTD(0, "%M", mtm->tm_min);
+		MK_FORMAT_FTD(0, "%S", mtm->tm_sec);
 		return format;
 	}
-	inline std::wstring format_time_delta(time_t time, std::wstring format = _T("%Y years %m months %d days %H hours %M minutes")) {
+	inline std::string format_time_delta(time_t time, std::string format = "%Y years %m months %d days %H hours %M minutes") {
 		struct tm nt; // = new struct tm;
 #if (_MSC_VER > 1300)  // 1300 == VC++ 7.0
 		if (gmtime_s(&nt, &time) != 0)
-			return _T("");
+			return "";
 #else
 		nt = gmtime(&time);
 		if (nt == NULL)
@@ -517,9 +519,9 @@ namespace strEx {
 #endif
 		return format_time_delta(&nt, format);
 	}
-	inline std::wstring format_filetime_delta(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+	inline std::string format_filetime_delta(unsigned long long filetime, std::string format = "%Y-%m-%d %H:%M:%S") {
 		if (filetime == 0)
-			return _T("ZERO");
+			return "ZERO";
 		//filetime -= (SECS_BETWEEN_EPOCHS * SECS_TO_100NS);
 		filetime /= SECS_TO_100NS;
 		return format_time_delta(static_cast<time_t>(filetime), format);

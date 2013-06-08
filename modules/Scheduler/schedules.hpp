@@ -107,7 +107,7 @@ namespace schedules {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 			object.set_command(object.value);
 			if (object.alias == "default") {
 				object.set_duration("5m");
@@ -117,12 +117,15 @@ namespace schedules {
 			std::string alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
 
-			settings.path(object.path).add_path()
+			root_path.add_path()
 				("SCHEDULE DEFENITION", "Schedule definition for: " + object.alias)
 				;
 
-			settings.path(object.path).add_key()
+			root_path.add_key()
 
 				("command", sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
 				"SCHEDULE COMMAND", "Command to execute", object.alias == "default")
@@ -141,7 +144,7 @@ namespace schedules {
 
 				;
 			if (object.alias == "default") {
-				settings.path(object.path).add_key()
+				root_path.add_key()
 
 					("channel", sh::string_key(&object.channel, "NSCA"),
 					"SCHEDULE CHANNEL", "Channel to send results on")
@@ -154,7 +157,7 @@ namespace schedules {
 
 					;
 			} else {
-				settings.path(object.path).add_key()
+				root_path.add_key()
 					("channel", sh::string_key(&object.channel),
 					"SCHEDULE CHANNEL", "Channel to send results on")
 

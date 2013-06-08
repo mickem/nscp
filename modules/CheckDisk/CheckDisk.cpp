@@ -753,3 +753,43 @@ NSCAPI::nagiosReturn CheckDisk::check_files(const std::string &target, const std
 		msg = "CheckFile ok";
 	return returnCode;
 }
+
+NSCAPI::nagiosReturn CheckDisk::get_file_age(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf) {
+	if (arguments.empty()) {
+		msg = "Missing argument(s).";
+		return NSCAPI::returnUNKNOWN;
+	}
+	std::string format = "%Y years %m mon %d days %H hours %M min %S sec";
+	std::string path;
+	MAP_OPTIONS_BEGIN(arguments)
+		MAP_OPTIONS_STR("path", path)
+		MAP_OPTIONS_STR("date", format)
+		MAP_OPTIONS_FALLBACK(format)
+	MAP_OPTIONS_END()
+
+	if (path.empty()) {
+		msg = "ERROR: no file specified.";
+		return NSCAPI::returnUNKNOWN;
+	}
+
+	DWORD fileAttr = GetFileAttributes(utf8::cvt<std::wstring>(path).c_str());
+	if (fileAttr == INVALID_FILE_ATTRIBUTES) {
+		msg = "ERROR: file not found.";
+		return NSCAPI::returnUNKNOWN;
+	}
+
+	WIN32_FILE_ATTRIBUTE_DATA data;
+	if (!GetFileAttributesEx(utf8::cvt<std::wstring>(path).c_str(), GetFileExInfoStandard, reinterpret_cast<LPVOID>(&data))) {
+		msg = "ERROR: file not found.";
+		return NSCAPI::returnUNKNOWN;
+	}
+	FILETIME now_;
+	GetSystemTimeAsFileTime(&now_);
+	unsigned long long now = ((now_.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)now_.dwLowDateTime);
+	unsigned long long ullLastWriteTime = 
+		(data.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)data.ftCreationTime.dwLowDateTime;
+	time_t value = (now-ullLastWriteTime)/10000000;
+	msg = strEx::s::xtos(value/60) + "&" + strEx::format_time_delta(gmtime(&value), format);
+	return NSCAPI::returnOK;
+}
+

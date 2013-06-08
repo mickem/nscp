@@ -224,7 +224,7 @@ namespace filters {
 		static void post_process_object(object_type &object) {}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 			object.set_filter(utf8::cvt<std::string>(object.value));
 			std::string alias;
 			bool is_default = object.alias == "default";
@@ -237,6 +237,9 @@ namespace filters {
 			}
 
 			nscapi::settings_helper::settings_registry settings(proxy);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
 
 			if (oneliner) {
 				std::string::size_type pos = object.path.find_last_of("/");
@@ -249,11 +252,11 @@ namespace filters {
 				}
 			}
 
-			settings.path(object.path).add_path()
+			root_path.add_path()
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + object.alias)
 				;
 
-			settings.path(object.path).add_key()
+			root_path.add_key()
 				("filter", sh::string_fun_key<std::string>(boost::bind(&object_type::set_filter, &object, _1)),
 				"FILTER", "The filter to match")
 
@@ -281,8 +284,8 @@ namespace filters {
 				("destination", nscapi::settings_helper::string_key(&object.target),
 				"DESTINATION", "The destination for intercepted messages", !is_default)
 
-				("language", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_language, &object, _1)),
-				"MESSAGE LANGUAGE", "The language to use for rendering message (mainly used fror testing)", true)
+				("target", nscapi::settings_helper::string_key(&object.target),
+				"DESTINATION", "Same as destination", false)
 
 				("maximum age", sh::string_fun_key<std::string>(boost::bind(&object_type::set_max_age, &object, _1), "5m"),
 				"MAGIMUM AGE", "How long before reporting \"ok\" (if this is set to off no ok will be reported only errors)")

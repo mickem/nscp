@@ -27,10 +27,10 @@ namespace commands {
 			, parent(other.parent)
 			, is_template(other.is_template)
 			, command(other.command)
-			, arguments(other.arguments)
 			, user(other.user)
 			, domain(other.domain)
 			, password(other.password)
+			, encoding(other.encoding)
 		{}
 		const command_object& operator =(const command_object &other) {
 			path = other.path;
@@ -39,10 +39,10 @@ namespace commands {
 			parent = other.parent;
 			is_template = other.is_template;
 			command = other.command;
-			arguments = other.arguments;
 			user = other.user;
 			domain = other.domain;
 			password = other.password;
+			encoding = other.encoding;
 			return *this;
 		}
 	
@@ -54,60 +54,25 @@ namespace commands {
 		bool is_template;
 
 		// Command keys
+		std::string encoding;
 		std::string command;
-		std::list<std::string> arguments;
 		std::string user, domain, password;
 
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << alias << "[" << alias << "] = "
+				<< "{command: " << command;
+			if (!user.empty()) {
+				ss << ", user: " << user 
+				<< ", domain: " << domain 
+				<< ", password: " << password;
+			}
+			ss << "}";
+			return ss.str();
+		}
 
 		void set_command(std::string str) {
-			if (str.empty())
-				return;
-			try {
-				strEx::s::parse_command(str, arguments);
-				if (arguments.size() > 0) {
-					command = arguments.front(); arguments.pop_front();
-				}
-			} catch (const std::exception &e) {
-				std::list<std::string> list = strEx::s::splitEx(str, std::string(" "));
-				if (list.size() > 0) {
-					command = list.front();
-					list.pop_front();
-				}
-				arguments.clear();
-				std::list<std::string> buffer;
-				BOOST_FOREACH(std::string s, list) {
-					std::size_t len = s.length();
-					if (buffer.empty()) {
-						if (len > 2 && s[0] == L'\"' && s[len-1]  == L'\"') {
-							buffer.push_back(s.substr(1, len-2));
-						} else if (len > 1 && s[0] == L'\"') {
-							buffer.push_back(s);
-						} else {
-							arguments.push_back(s);
-						}
-					} else {
-						if (len > 1 && s[len-1] == '\"') {
-							std::string tmp;
-							BOOST_FOREACH(const std::string &s2, buffer) {
-								if (tmp.empty()) {
-									tmp = s2.substr(1);
-								} else {
-									tmp += " " + s2;
-								}
-							}
-							arguments.push_back(tmp + " " + s.substr(0, len-1));
-							buffer.clear();
-						} else {
-							buffer.push_back(s);
-						}
-					}
-				}
-				if (!buffer.empty()) {
-					BOOST_FOREACH(const std::string &s, buffer) {
-						arguments.push_back(s);
-					}
-				}
-			}
+			command = str;
 		}
 
 	};
@@ -128,13 +93,16 @@ namespace commands {
 		}
 
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner) {
-			object.set_command(utf8::cvt<std::string>(object.value));
+		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
+			object.set_command(object.value);
 			std::string alias;
 			//if (object.alias == _T("default"))
 			// Pupulate default template!
 
 			nscapi::settings_helper::settings_registry settings(proxy);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			if (is_sample)
+				root_path.set_sample();
 
 			if (oneliner) {
 				std::string::size_type pos = object.path.find_last_of("/");
@@ -146,11 +114,11 @@ namespace commands {
 					return;
 				}
 			}
-			settings.path(object.path).add_path()
+			root_path.add_path()
 				("COMMAND DEFENITION", "Command definition for: " + object.alias)
 				;
 
-			settings.path(object.path).add_key()
+			root_path.add_key()
 				("command", sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
 				"COMMAND", "Command to execute")
 
@@ -163,6 +131,7 @@ namespace commands {
 				("is template", nscapi::settings_helper::bool_key(&object.is_template, false),
 				"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
+
 				("user", nscapi::settings_helper::string_key(&object.user),
 				"USER", "The user to run the command as", true)
 
@@ -171,6 +140,9 @@ namespace commands {
 
 				("password", nscapi::settings_helper::string_key(&object.password),
 				"PASSWORD", "The user to run the command as", true)
+
+				("encoding", nscapi::settings_helper::string_key(&object.encoding),
+				"ENCODING", "The encoding to parse the command as", true)
 
 				;
 
@@ -185,8 +157,7 @@ namespace commands {
 			import_string(object.domain, parent.domain);
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
-			if (object.arguments.empty() && !parent.arguments.empty())
-				object.arguments = parent.arguments;
+			import_string(object.encoding, parent.encoding);
 		}
 
 	};

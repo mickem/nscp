@@ -13,16 +13,21 @@ struct eventlog_wrapper {
 	eventlog_wrapper(const std::string &name);
 	~eventlog_wrapper();
 
-	void open(const std::string &name);
+	void open();
+	void reopen();
 	void close();
 	bool isOpen() {
 		return hLog != NULL;
 	}
 	std::string get_name() { return name; }
 
-	bool get_last_Record_number(DWORD* pdwRecordNumber);
+	bool get_last_record_number(DWORD* pdwRecordNumber);
+	bool get_first_record_number(DWORD* pdwRecordNumber);
 	bool notify(HANDLE &handle);
+	bool un_notify(HANDLE &handle);
+	bool re_notify(HANDLE &handle);
 	bool seek_end();
+	bool seek_start();
 	static std::string find_eventlog_name(std::string name);
 	DWORD read_record(DWORD dwRecordNumber, DWORD dwFlags);
 	EVENTLOGRECORD* read_record_with_buffer();

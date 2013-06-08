@@ -23,11 +23,12 @@
 #include <error.hpp>
 #include <execute_process.hpp>
 #include "commands.hpp"
+#include "alias.hpp"
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
 	commands::command_handler commands_;
-	commands::command_handler aliases_;
+	alias::command_handler aliases_;
 	unsigned int timeout;
 	std::string commands_path;
 	std::string aliases_path;
@@ -45,7 +46,12 @@ public:
 	bool unloadModule();
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
 
+
+
 private:
+
+	void handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
+	void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
 	void addAllScriptsFrom(std::wstring path);
 	void add_command(std::string key, std::string arg);
 	void add_alias(std::string key, std::string command);

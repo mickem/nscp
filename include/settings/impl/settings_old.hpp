@@ -181,9 +181,9 @@ namespace settings {
 			string_list list = get_keys("/includes");
 			BOOST_FOREACH(const std::string &key, list) {
 				if (key.length() > 5 && key.substr(key.length()-4,4) == ".ini" && key.find_first_of(":/\\") == std::string::npos)
-					add_child("old://${exe-path}/" + key);
+					add_child_unsafe("old://${exe-path}/" + key);
 				else
-					add_child(key);
+					add_child_unsafe(key);
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////

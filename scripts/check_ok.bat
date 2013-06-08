@@ -1,2 +1,2 @@
-@echo OK: Everything is going to be fine a
+@echo OK: Everything is going to be fine
 @exit 0

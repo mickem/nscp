@@ -166,9 +166,14 @@ public:
 			log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 		}
 	}
-	void configure() {
+	struct config_data {
+		std::string file;
+		std::string format;
+		std::size_t max_size;
+	};
+	config_data do_config(bool load_values = false) {
+		config_data ret;
 		try {
-			std::string file;
 
 			sh::settings_registry settings(settings_manager::get_proxy());
 			settings.set_alias("log/file");
@@ -181,23 +186,42 @@ public:
 
 
 			settings.add_key_to_settings("log")
-				("file name", sh::string_key(&file, "${exe-path}/nsclient.log"),
+				("file name", sh::string_key(&ret.file, "${exe-path}/nsclient.log"),
 				"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
 
-				("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
+				("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"),
 				"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 				;
 
 			settings.add_key_to_settings("log/file")
-				("max size", sh::size_key(&max_size_, 0),
+				("max size", sh::size_key(&ret.max_size, 0),
 				"MAXIMUM FILE SIZE", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
 				;
 
 			settings.register_all();
 			settings.notify();
 
-			file_ = settings_manager::get_proxy()->expand_path(file);
+		} catch (nscapi::nscapi_exception &e) {
+			log_fatal(std::string("Failed to register command: ") + e.what());
+		} catch (std::exception &e) {
+			log_fatal(std::string("Exception caught: ") + e.what());
+		} catch (...) {
+			log_fatal("Failed to register command.");
+		}
+		return ret;
+	}
+	void synch_configure() {
+		do_config(false);
+	}
+
+	void asynch_configure() {
+		try {
+			config_data config = do_config(true);
+
+			format_ = config.format;
+			max_size_ = config.max_size;
+			file_ = settings_manager::get_proxy()->expand_path(config.file);
 			if (file_.empty())
 				file_ = base_path() + "nsclient.log";
 			if (file_.find('\\') == std::string::npos && file_.find('/') == std::string::npos) {
@@ -229,7 +253,11 @@ public:
 			std::cout << render_console_message(data);
 		}
 	}
-	void configure() {
+	struct config_data {
+		std::string format;
+	};
+	config_data do_config(bool load_values = false) {
+		config_data ret;
 		try {
 			sh::settings_registry settings(settings_manager::get_proxy());
 			settings.set_alias("log/file");
@@ -247,6 +275,22 @@ public:
 			settings.register_all();
 			settings.notify();
 
+		} catch (nscapi::nscapi_exception &e) {
+			log_fatal(std::string("Failed to register command: ") + e.what());
+		} catch (std::exception &e) {
+			log_fatal(std::string("Exception caught: ") + e.what());
+		} catch (...) {
+			log_fatal("Failed to register command.");
+		}
+		return ret;
+	}
+	void synch_configure() {
+		do_config(false);
+	}
+	void asynch_configure() {
+		try {
+			config_data config = do_config(true);
+			format_ = config.format;
 		} catch (nscapi::nscapi_exception &e) {
 			log_fatal(std::string("Failed to register command: ") + e.what());
 		} catch (std::exception &e) {
@@ -298,7 +342,7 @@ public:
 					break;
 				} else if (data == CONFIGURE_MESSAGE) {
 					if (background_logger_)
-						background_logger_->configure();
+						background_logger_->asynch_configure();
 				} else {
 					if (background_logger_)
 						background_logger_->do_log(data);
@@ -312,8 +356,11 @@ public:
 		}
 	}
 
-	void configure() {
+	void asynch_configure() {
 		push(CONFIGURE_MESSAGE);
+	}
+	void synch_configure() {
+		background_logger_->synch_configure();
 	}
 	bool startup() {
 		if (nsclient::logging::logging_interface_impl::is_started())
@@ -412,7 +459,8 @@ bool nsclient::logging::logger::shutdown() {
 	return get_impl()->shutdown();
 }
 void nsclient::logging::logger::configure() {
-	return get_impl()->configure();
+	get_impl()->synch_configure();
+	get_impl()->asynch_configure();
 }
 
 void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {

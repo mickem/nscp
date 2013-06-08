@@ -162,14 +162,9 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
 			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
 		}
-		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, aliases_.object_list) {
+		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
 			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
 		}
-
-
-// 	} catch (nrpe::server::nrpe_exception &e) {
-// 		NSC_LOG_ERROR_STD(_T("Exception caught: ") + e.what());
-// 		return false;
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");
 		return false;
@@ -182,6 +177,9 @@ bool CheckExternalScripts::unloadModule() {
 
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
+		if (!allowArgs_ && arg.find("$ARG") != std::string::npos) {
+			NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
+		}
 		commands_.add(get_settings_proxy(), commands_path, key, arg, key == "default");
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
@@ -201,78 +199,85 @@ void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 
 
 void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	commands::optional_command_object cmd = commands_.find_object(request.command());
-	bool isAlias = !cmd;
-	if (!cmd)
-		cmd = aliases_.find_object(request.command());
-	if (!cmd)
-		return nscapi::protobuf::functions::set_response_bad(*response, "Command not found: " + request.command());
+		//nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 
-	const commands::command_object cd = *cmd;
+		commands::optional_command_object command_def = commands_.find_object(request.command());
+
+		std::list<std::string> args;
+		for (int i=0;i<request.arguments_size();++i) {
+			args.push_back(request.arguments(i));
+		}
+		if (command_def) {
+			handle_command(*command_def, args, response);
+			return;
+		}
+		alias::optional_command_object alias_def = aliases_.find_object(request.command());
+		if (alias_def) {
+			handle_alias(*alias_def, args, response);
+			return;
+		}
+		NSC_LOG_ERROR_STD("No command or alias found matching: " + request.command());
+		nscapi::protobuf::functions::set_response_bad(*response, "No command or alias found matching: " + request.command());
+	}
+
+
+
+void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response) {
+	std::string cmdline = cd.command;
+	if (allowArgs_) {
+		int i=1;
+		BOOST_FOREACH(const std::string &str, args) {
+			if (!allowNasty_ && str.find_first_of(NASTY_METACHARS) != std::string::npos) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
+				return;
+			}
+			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i++) + "$", str);
+		}
+	} else if (args.size() > 0) {
+		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
+		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed");
+		return;
+	}
+
+	std::string message, perf;
+
+	NSC_DEBUG_MSG("Command line: " + cmdline);
+
+	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding);
+	if (!cd.user.empty()) {
+		arg.user = cd.user;
+		arg.domain = cd.domain;
+		arg.password = cd.password;
+	}
+	int result = process::executeProcess(arg, message, perf);
+	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
+		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
+		return;
+	}
+	response->set_message(message);
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
+	nscapi::protobuf::functions::parse_performance_data(response, perf);
+}
+
+void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
-	bool first = true;
-	if (isAlias || allowArgs_) {
-		BOOST_FOREACH(std::string &arg, args) {
-			for(int i=0;i<request.arguments_size();i++) {
-				const std::string &replace_arg = request.arguments(i);
-				if (first && !isAlias && !allowNasty_) {
-					if (replace_arg.find_first_of(NASTY_METACHARS) != std::wstring::npos) {
-						return nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters!");
-					}
-				}
-				strEx::replace(arg, "$ARG" + strEx::s::xtos(i+1) + "$", replace_arg);
-			}
+	BOOST_FOREACH(std::string &arg, args) {
+		int i=1;
+		BOOST_FOREACH(const std::string &str, src_args) {
+			strEx::replace(arg, "$ARG" + strEx::s::xtos(i++) + "$", str);
 		}
-	} else if (!allowArgs_ && request.arguments_size() > 0) {
-		return nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 	}
-
-
-	std::string xargs;
-	BOOST_FOREACH(std::string s, args) {
-		if (!xargs.empty())
-			xargs += " ";
-		xargs += + "\"" + s + "\"";
+	std::string buffer;
+	int result = nscapi::core_helper::simple_query(cd.command, args, buffer);
+	if (result == NSCAPI::returnIgnored) {
+		nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.command);
+		return;
 	}
-
-	if (isAlias) {
-		std::wstring message;
-		try {
-			std::string buffer;
-			int result = nscapi::core_helper::simple_query(cd.command, args, buffer);
-			if (result == NSCAPI::returnIgnored)
-				return nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.command);
-			Plugin::QueryResponseMessage local_response;
-			local_response.ParseFromString(buffer);
-			if (local_response.payload_size() != 1)
-				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid return from: " + cd.command);
-			response->CopyFrom(local_response.payload(0));
-		} catch (boost::escaped_list_error &e) {
-			NSC_LOG_MESSAGE_STD("Failed to parse alias expression: " + e.what());
-			NSC_LOG_MESSAGE("We will now try parsing the old syntax instead...");
-			std::string buffer;
-			if (nscapi::core_helper::simple_query(cd.command, args, buffer) != NSCAPI::isSuccess) {
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute process: " + cd.command);
-			}
-			Plugin::QueryResponseMessage local_result;
-			local_result.ParseFromString(buffer);
-			if (local_result.payload_size() != 1) 
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute process (invalid response): " + cd.command);
-			response->CopyFrom(local_result.payload(0));
-		}
-	} else {
-		std::string message, perf;
-		process::exec_arguments args(root_, cd.command + " " + xargs, timeout);
-		if (!cd.user.empty()) {
-			args.user = cd.user;
-			args.domain = cd.domain;
-			args.password = cd.password;
-		}
-		int result = process::executeProcess(args, message, perf);
-		if (!nscapi::plugin_helper::isNagiosReturnCode(result))
-			return nscapi::protobuf::functions::set_response_bad(*response, "The command (" + args.command + ") returned an invalid return code: " + strEx::s::xtos(result));
-		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
-		response->set_message(message);
-		nscapi::protobuf::functions::parse_performance_data(response, perf);
+	Plugin::QueryResponseMessage tmp;
+	tmp.ParseFromString(buffer);
+	if (tmp.payload_size() != 1) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.command);
+		return;
 	}
+	response->CopyFrom(tmp.payload(0));
 }

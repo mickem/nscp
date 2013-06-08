@@ -113,7 +113,7 @@ namespace process {
 			dwAvail = 0;
 			if (::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL) && dwAvail > 0)
 				str += readFromFile(buffer, hChildOutR);
-			msg = str;
+			msg = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 			destroyBuffer(buffer);
 
 			if (dwstate == WAIT_TIMEOUT) {

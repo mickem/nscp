@@ -241,8 +241,8 @@ namespace settings {
 
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
-				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-					add_child("ini:///" + p.string());
+				BOOST_FOREACH(boost::filesystem::wpath const &p, std::make_pair(it, eod)) {
+					add_child_unsafe("ini:///" + p.string());
 				}
 			}
 			if (!file_exists()) {
@@ -256,10 +256,14 @@ namespace settings {
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to load file");
 
+			get_core()->register_path(-1, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(_T("/includes"), lst);
-			BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
-				add_child(utf8::cvt<std::string>(ini.GetValue(_T("/includes"), e.pItem)));
+			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+				std::string child = utf8::cvt<std::string>(ini.GetValue(_T("/includes"), (*cit).pItem));
+				get_core()->register_key(-1, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string, 
+					"INCLUDED FILE", child, child, false, false);
+				add_child_unsafe(child);
 			}
 			is_loaded_ = true;
 		}
@@ -283,6 +287,18 @@ namespace settings {
 					} else if (boost::filesystem::is_directory(filename_)) {
 					} else if (boost::filesystem::is_directory(filename_.substr(1))) {
 						filename_ = filename_.substr(1);
+					} else {
+						std::string tmp = core_->find_file("${exe-path}/" + filename_, "");
+						if (boost::filesystem::exists(tmp)) {
+							filename_ = tmp;
+						} else {
+							tmp = core_->find_file("${exe-path}/" + filename_.substr(1), "");
+							if (boost::filesystem::exists(tmp)) {
+								filename_ = tmp;
+							} else {
+								nsclient::logging::logger::get_logger()->info("settings", __FILE__, __LINE__, "Configuration file not found: " + filename_);
+							}
+						}
 					}
 				}
 			}

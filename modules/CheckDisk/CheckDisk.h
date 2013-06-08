@@ -37,6 +37,7 @@ public:
 	// Check commands
 	NSCAPI::nagiosReturn check_filesize(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn check_files(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	NSCAPI::nagiosReturn get_file_age(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	void check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
 };

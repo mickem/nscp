@@ -72,8 +72,12 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			("hostname", sh::string_key(&hostname_, "auto"),
 			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
 
+			("encoding", sh::string_key(&encoding_, ""),
+			"NSCA DATA ENCODING", "", true)
+
 			("channel", sh::string_key(&channel_, "NSCA"),
 			"CHANNEL", "The channel to listen to.")
+
 
 			("delay", sh::string_fun_key<std::wstring>(boost::bind(&NSCAClient::set_delay, this, _1), _T("0")),
 			"DELAY", "", true)
@@ -94,6 +98,9 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		} else if (hostname_ == "auto-lc") {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+		} else if (hostname_ == "auto-uc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
 			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
 
@@ -113,10 +120,16 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			} catch (const std::exception& e) {
 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
-
-
 			strEx::replace(hostname_, "${host}", dn.first);
 			strEx::replace(hostname_, "${domain}", dn.second);
+			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			strEx::replace(hostname_, "${host_uc}", dn.first);
+			strEx::replace(hostname_, "${domain_uc}", dn.second);
+			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			strEx::replace(hostname_, "${host_lc}", dn.first);
+			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
@@ -319,11 +332,11 @@ int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		std::wstring alias, msg, perf;
 		packet.code = nscapi::protobuf::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
 		if (alias != _T("host_check"))
-			packet.service = utf8::cvt<std::string>(alias);
+			packet.service = utf8::to_encoding(alias, con.encoding);
 		if (perf.empty())
-			packet.result = utf8::cvt<std::string>(msg);
+			packet.result = utf8::to_encoding(msg, con.encoding);
 		else
-			packet.result = utf8::cvt<std::string>(msg + _T("|") + perf);
+			packet.result = utf8::to_encoding(msg + _T("|") + perf, con.encoding);
 		list.push_back(packet);
 	}
 

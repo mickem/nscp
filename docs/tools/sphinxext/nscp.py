@@ -128,59 +128,6 @@ class AdaObject(ObjectDescription):
 		indextext = self._get_index_text(name)
 		if indextext:
 			self.indexnode['entries'].append(('single', indextext, fullname, ''))
-		#pieces = string.split(name, '.')
-		#if name not in self.state.document.ids:
-		#	signode['names'].append(name)
-		#	signode['ids'].append(name)
-		#	signode['first'] = (not self.names)
-		#	self.state.document.note_explicit_target(signode)
-		#	if self.objtype =='query':
-		#		qinv = self.env.domaindata['nscp']['queries']
-		#		self.env.temp_data['nscp:command'] = name
-		#		if name in qinv:
-		#			self.env.warn(
-		#				self.env.docname,
-		#				'duplicate NSClient++ query object description of %s, ' % name +
-		#				'other instance in ' + self.env.doc2path(qinv[name][0]),
-		#				self.lineno)
-		#		qinv[name] = (self.env.docname, self.objtype)
-		#	elif self.objtype == 'option':
-		#		finv = self.env.domaindata['nscp']['options']
-		#		fname, arity = name.split('/')
-		#		if '..' in arity:
-		#			first, last = map(int, arity.split('..'))
-		#		else:
-		#			first = last = int(arity)
-		#		for arity_index in range(first, last+1):
-		#			if fname in finv and arity_index in finv[fname]:
-		#				self.env.warn(
-		#					self.env.docname,
-		#					('duplicate Ada procedure description'
-		#					'of %s, ') % name +
-		#					'other instance in ' +
-		#					self.env.doc2path(finv[fname][arity_index][0]),
-		#					self.lineno)
-		#			arities = finv.setdefault(fname, {})
-		#			arities[arity_index] = (self.env.docname, name)
-		#	else:
-		#		oinv = self.env.domaindata['nscp']['objects']
-		#		if name in oinv:
-		#			self.env.warn(
-		#				self.env.docname,
-		#				'duplicate Ada object description of %s, ' % name +
-		#				'other instance in ' + self.env.doc2path(oinv[name][0]),
-		#				self.lineno)
-		#		oinv[name] = (self.env.docname, self.objtype)
-
-		#indextext = self._get_index_text(name)
-		#if indextext:
-		#	self.indexnode['entries'].append(('single', indextext, name, name))
-
-		#plain_name = pieces[-1]
-		#indextext = self._get_index_text(plain_name)
-		#if indextext:
-		#	self.indexnode['entries'].append(('single', indextext, name, plain_name))
-
 
 class AdaModule(Directive):
 	"""
