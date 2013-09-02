@@ -50,11 +50,11 @@ po::options_description add_exec_options(client::configuration::data_type comman
 po::options_description create_descriptor(const std::string &command, const std::string &default_command, const client::configuration &config) {
 	po::options_description desc = nscapi::program_options::create_desc(command);
 	desc.add(add_common_options(config.data));
-	if (command == "exec" || command.empty() && default_command == "exec") {
+	if (command == "exec" || (command.empty() && default_command == "exec") ) {
 		desc.add(add_exec_options(config.data));
-	} else if (command == "query" || command.empty() && default_command == "query") {
+	} else if (command == "query" || (command.empty() && default_command == "query") ) {
 		desc.add(add_query_options(config.data));
-	} else if (command == "submit" || command.empty() && default_command == "submit") {
+	} else if (command == "submit" || (command.empty() && default_command == "submit") ) {
 		desc.add(add_submit_options(config.data));
 	}
 	desc.add(config.local);
@@ -189,6 +189,26 @@ void client::command_manager::do_query(client::configuration &config, const ::Pl
 }
 
 void client::command_manager::forward_query(client::configuration &config, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
+	if (request.payload_size() == 1) {
+		const  ::Plugin::QueryRequestMessage::Request &req_payload = request.payload(0);
+		if (req_payload.arguments_size() > 0) {
+			for (int i=0;i<req_payload.arguments_size();++i) {
+				if (req_payload.arguments(i) == "--help" || req_payload.arguments(i) == "help") {
+					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
+					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
+					rsp_payload->set_command(req_payload.command());
+					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
+					return;
+				} else if (req_payload.arguments(i) == "--help-csv" || req_payload.arguments(i) == "help-csv") {
+					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
+					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
+					rsp_payload->set_command(req_payload.command());
+					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
+					return;
+				}
+			}
+		}
+	}
 	int ret = config.handler->query(config.data, request, response);
 	if (ret == NSCAPI::hasFailed) {
 		nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());

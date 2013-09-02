@@ -18,16 +18,11 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include <strEx.h>
-#include <checkHelpers.hpp>
-
 #include <protobuf/plugin.pb.h>
 
 class CheckDisk : public nscapi::impl::simple_plugin  {
 private:
 	bool show_errors_;
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
-	typedef checkHolders::MagicCheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 
 public:
 	CheckDisk();
@@ -37,7 +32,8 @@ public:
 	// Check commands
 	NSCAPI::nagiosReturn check_filesize(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn check_files(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn get_file_age(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	void check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+//	NSCAPI::nagiosReturn get_file_age(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	void check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
 };

@@ -20,111 +20,186 @@
 ***************************************************************************/
 #pragma once
 
-#include <psapi.h>
+//#include <psapi.h>
+#include <list>
 #include <string>
-#include <error.hpp>
+//#include <error.hpp>
+
+#define DEFAULT_BUFFER_SIZE 4096
+
+namespace process_helper {
+
+	struct int_var {
+		long long value;
+		int_var() : value(0) {}
+		long long get() const { return value; }
+		int_var& operator=(const long long v) {
+			value = v;
+			return *this;
+		}
+		operator long long() const {
+			return value;
+		}
+	};
+	struct bool_var {
+		bool value;
+		bool_var() : value(false) {}
+		bool get() const { return value; }
+		bool_var& operator=(const bool v) {
+			value = v;
+			return *this;
+		}
+		operator bool() const {
+			return value;
+		}
+	};
+	struct string_var {
+		std::string value;
+		string_var() {}
+		string_var(const std::string &s) : value(s) {}
+		std::string get() const { return value; }
+		string_var& operator=(const std::string &v) {
+			value = v;
+			return *this;
+		}
+		operator std::string() const {
+			return value;
+		}
+	};
+
+#define STR_GETTER(name) std::string get_ ## name() const { return name; }
+#define INT_GETTER(name) long long get_ ## name() const { return name; }
+#define BOL_GETTER(name) bool get_ ## name() const { return name; }
+
+	struct process_info {
+		string_var filename;
+		string_var command_line;
+		string_var exe;
+		STR_GETTER(filename);
+		STR_GETTER(command_line);
+		STR_GETTER(exe);
+
+		int_var pid;
+		INT_GETTER(pid);
+
+		bool started;
+		bool_var hung;
+		bool_var wow64;
+		bool_var has_error;
+		bool_var unreadable;
+		string_var error;
+		BOL_GETTER(started);
+		BOL_GETTER(hung);
+		BOL_GETTER(wow64);
+		BOL_GETTER(has_error);
+		BOL_GETTER(unreadable);
+
+		process_info() {}
+		process_info(const std::string s) : exe(s), started(false) {}
+
+		std::string get_state_s() const {
+			if (unreadable)
+				return "unreadable";
+			if (hung)
+				return "hung";
+			if (started)
+				return "started";
+			return "stopped";
+		}
+		bool get_stopped() const {
+			return !started;
+		}
 
 
-namespace ENUM_METHOD 
-{
-	const int NONE    = 0x0;
-	const int PSAPI   = 0x1;
-} 
+		// Handles
+		int_var handleCount;
+		int_var gdiHandleCount;
+		int_var userHandleCount;
+		INT_GETTER(handleCount);
+		INT_GETTER(gdiHandleCount);
+		INT_GETTER(userHandleCount);
 
-const int MAX_FILENAME = 256;
+		// TImes
+		int_var creation_time;
+		int_var kernel_time;
+		int_var user_time;
+		INT_GETTER(creation_time);
+		INT_GETTER(kernel_time);
+		INT_GETTER(user_time);
 
-#ifdef UNICODE
-// Functions loaded from PSAPI
-typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
-typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
-typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
-//typedef BOOL ( WINAPI *PROCESSENUMPROC )(DWORD dwProcessId,	DWORD dwAttributes,	LPARAM lpUserDefined	);
-typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
-typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
-typedef LONG (WINAPI *PFNtQueryInformationProcess)(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
+		// IO Counters
+		int_var readOperationCount;
+		int_var writeOperationCount;
+		int_var otherOperationCount;
+		int_var readTransferCount;
+		int_var writeTransferCount;
+		int_var otherTransferCount;
 
-#else
-// Functions loaded from PSAPI
-typedef BOOL (WINAPI *PFEnumProcesses)(DWORD * lpidProcess, DWORD cb, DWORD * cbNeeded);
-typedef BOOL (WINAPI *PFEnumProcessModules)(HANDLE hProcess, HMODULE * lphModule, DWORD cb, LPDWORD lpcbNeeded);
-typedef DWORD (WINAPI *PFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
-typedef BOOL ( WINAPI *TASKENUMPROCEX )(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
-typedef INT (WINAPI *PFVDMEnumTaskWOWEx)(DWORD dwProcessId, TASKENUMPROCEX fp, LPARAM lparam); 
-#endif
+		// Mem Counters
+		int_var PeakVirtualSize;
+		int_var VirtualSize;
+		int_var PageFaultCount;
+		int_var PeakWorkingSetSize;
+		int_var WorkingSetSize;
+		int_var QuotaPeakPagedPoolUsage;
+		int_var QuotaPagedPoolUsage;
+		int_var QuotaPeakNonPagedPoolUsage;
+		int_var QuotaNonPagedPoolUsage;
+		int_var PagefileUsage;
+		int_var PeakPagefileUsage;
+		INT_GETTER(PeakVirtualSize);
+		INT_GETTER(VirtualSize);
+		INT_GETTER(PageFaultCount);
+		INT_GETTER(PeakWorkingSetSize);
+		INT_GETTER(WorkingSetSize);
+		INT_GETTER(QuotaPeakPagedPoolUsage);
+		INT_GETTER(QuotaPagedPoolUsage);
+		INT_GETTER(QuotaPeakNonPagedPoolUsage);
+		INT_GETTER(QuotaNonPagedPoolUsage);
+		INT_GETTER(PagefileUsage);
+		INT_GETTER(PeakPagefileUsage);
 
-#define DEFAULT_BUFFER_SIZE 64*1024
+		void set_error(std::string msg) {
+			has_error = true;
+		}
 
-class CEnumProcess  
-{
-public:
+		static const long long state_started = 1;
+		static const long long state_stopped = 0;
+		static const long long state_unreadable = -1;
+		static const long long state_hung = -2;
+		static const long long state_unknown = -10;
+
+		long long get_state_i() const {
+			if (unreadable)
+				return state_unreadable;
+			if (hung)
+				return state_hung;
+			if (started)
+				return state_started;
+			return state_stopped;
+		}
+
+		static long long parse_state(const std::string &s) {
+			if (s == "started")
+				return state_started;
+			if (s=="stopped")
+				return state_stopped;
+			if (s=="hung")
+				return state_hung;
+			if (s=="unreadable")
+				return state_unreadable;
+			return state_unknown;
+		}
+
+	};
 
 	class error_reporter {
 	public:
 		virtual void report_error(std::string error) = 0;
 		virtual void report_warning(std::string error) = 0;
 		virtual void report_debug(std::string error) = 0;
-// 		virtual void report_debug_enter(std::string error) = 0;
-// 		virtual void report_debug_exit(std::string error) = 0;
-	};
-	class process_enumeration_exception {
-		std::string what_;
-		DWORD error_code_;
-	public:
-		process_enumeration_exception(std::string what) : what_(what) {}
-		process_enumeration_exception(DWORD error_code, std::string what) : what_(what), error_code_(error_code) {
-			what_ += error::lookup::last_error(error_code_);
-		}
-		std::string reason() {
-			return what_;
-		}
-		DWORD error_code() {
-			return error_code_;
-		}
 	};
 
-	struct CProcessEntry {
-		CProcessEntry() : hung(false), dwPID(0) {}
-		std::string filename;
-		std::string command_line;
-		DWORD  dwPID;
-		bool hung;
-	};
-
-	typedef std::list<CProcessEntry> process_list;
-	process_list enumerate_processes(bool expand_command_line, bool find_16bit = false, CEnumProcess::error_reporter *error_interface = NULL, unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
-	CProcessEntry describe_pid(DWORD pid, bool expand_command_line);
-
-	struct CModuleEntry
-	{
-		std::wstring sFilename;
-		PVOID pLoadBase;
-		PVOID pPreferredBase;
-		// Constructors/Destructors
-		CModuleEntry() : pLoadBase(NULL), pPreferredBase(NULL) {}
-		CModuleEntry(CModuleEntry &e) : pLoadBase(e.pLoadBase), pPreferredBase(e.pPreferredBase), sFilename(e.sFilename) {}
-		virtual ~CModuleEntry() {}
-	};
-
-	CEnumProcess();
-	virtual ~CEnumProcess();
-
-	std::wstring GetCommandLine(HANDLE hProcess);
-	void enable_token_privilege(LPTSTR privilege);
-	void disable_token_privilege(LPTSTR privilege);
-	std::vector<DWORD> find_crashed_pids(CEnumProcess::error_reporter * error_interface);
-	bool has_PSAPI() {
-		return PSAPI != NULL;
-	}
-
-private:
-
-	// PSAPI related members
-	HMODULE PSAPI;   //Handle to the module
-	HMODULE VDMDBG;
-	// PSAPI related functions
-	PFEnumProcesses       FEnumProcesses;           // Pointer to EnumProcess
-	PFEnumProcessModules  FEnumProcessModules; // Pointer to EnumProcessModules
-	PFGetModuleFileNameEx FGetModuleFileNameEx;// Pointer to GetModuleFileNameEx
-	PFVDMEnumTaskWOWEx FVDMEnumTaskWOWEx;
-};
-
+	typedef std::list<process_info> process_list;
+	process_list enumerate_processes(bool expand_command_line, bool find_16bit = false, error_reporter *error_interface = NULL, unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
+}

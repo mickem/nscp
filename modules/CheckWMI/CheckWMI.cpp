@@ -364,39 +364,39 @@ void CheckWMI::check_wmi_value(const Plugin::QueryRequestMessage::Request &reque
 }
 
 struct pad_handler {
-	std::vector<std::wstring::size_type> widths;
+	std::vector<std::string::size_type> widths;
 	int index;
 	pad_handler() : index(0) {}
 	void reset_index() {
 		index = 0;
 	}
-	void set_next(std::wstring::size_type size) {
+	void set_next(std::string::size_type size) {
 		set(index++, size);
 	}
-	void set(int col, std::wstring::size_type size) {
+	void set(int col, std::string::size_type size) {
 		if (col >= widths.size())
 			widths.resize(col+20, 0);
 		widths[col] = max(widths[col], size);
 	}
-	std::wstring pad_next(std::wstring str, wchar_t c = L' ') {
+	std::string pad_next(std::string str, char c = ' ') {
 		return pad(index++, str, c);
 	}
-	std::wstring pad_current(std::wstring str, wchar_t c = L' ') {
+	std::string pad_current(std::string str, char c = ' ') {
 		return pad(index, str, c);
 	}
-	std::wstring pad(int col, std::wstring str, wchar_t c = L' ') const {
-		std::wstring::size_type w = 0;
+	std::string pad(int col, std::string str, char c = ' ') const {
+		std::string::size_type w = 0;
 		if (widths.size() > col)
 			w = widths[col];
 		if (w > str.size())
 			w -= str.size();
 		else
 			w = 0;
-		return std::wstring(1, c) + str + std::wstring(w+1, c);
+		return std::string(1, c) + str + std::string(w+1, c);
 	}
 
 };
-void print_pretty_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
+void print_pretty_results(WMIQuery::result_type &rows, int limit, std::string & result) 
 {
 	pad_handler padder;
 	//NSC_DEBUG_MSG_STD("Query returned: " + strEx::s:::xtos(rows.size()) + " rows.");
@@ -418,29 +418,29 @@ void print_pretty_results(WMIQuery::result_type &rows, int limit, std::wstring &
 	rownum=0;
 	BOOST_FOREACH(const WMIQuery::wmi_row &row, rows) {
 		if (rownum++ == 0) {
-			std::wstring row1 = _T("|");
-			std::wstring row2 = _T("|");
+			std::string row1 = "|";
+			std::string row2 = "|";
 			padder.reset_index();
 			BOOST_FOREACH(const WMIQuery::wmi_row::list_type::value_type &val, row.results) {
-				row1 += padder.pad_current(val.first) + _T("|");
-				row2 += padder.pad_next(_T(""), L'-') + _T("|");
+				row1 += padder.pad_current(utf8::cvt<std::string>(val.first)) + "|";
+				row2 += padder.pad_next("", '-') + "|";
 			}
-			result += row1 + _T("\n");
-			result += row2 + _T("\n");
+			result += row1 + "\n";
+			result += row2 + "\n";
 		}
 
 		if (limit != -1 && rownum > limit)
 			break;
-		std::wstring row1 = _T("|");
+		std::string row1 = "|";
 		padder.reset_index();
 		BOOST_FOREACH(const WMIQuery::wmi_row::list_type::value_type &val, row.results) {
-			row1 += padder.pad_next(val.second.string) + _T("|");
+			row1 += padder.pad_next(val.second.get_string()) + "|";
 		}
-		result += row1 + _T("\n");
+		result += row1 + "\n";
 	}
 }
 
-void print_simple_results(WMIQuery::result_type &rows, int limit, std::wstring & result) 
+void print_simple_results(WMIQuery::result_type &rows, int limit, std::string & result) 
 {
 	int rownum=0;
 	BOOST_FOREACH(const WMIQuery::wmi_row &row, rows) {
@@ -451,13 +451,13 @@ void print_simple_results(WMIQuery::result_type &rows, int limit, std::wstring &
 			if (first) 
 				first = false;
 			else
-				result += _T(",");
-			result += val.second.string;
+				result += ",";
+			result += val.second.get_string();
 		}
-		result += _T("\n");
+		result += "\n";
 	}
 }
-void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result, bool simple)  {
+void print_results(WMIQuery::result_type &rows, int limit, std::string & result, bool simple)  {
 	if (simple)
 		print_simple_results(rows, limit, result);
 	else
@@ -465,7 +465,7 @@ void print_results(WMIQuery::result_type &rows, int limit, std::wstring & result
 }
 
 
-void list_ns_rec(std::wstring ns, std::wstring user, std::wstring password, std::wstring &result) {
+void list_ns_rec(std::wstring ns, std::wstring user, std::wstring password, std::string &result) {
 	try {
 		WMIQuery wmiQuery;
 		WMIQuery::result_type rows = wmiQuery.get_instances(ns, _T("__Namespace"), user, password);
@@ -473,19 +473,19 @@ void list_ns_rec(std::wstring ns, std::wstring user, std::wstring password, std:
 			const WMIQuery::WMIResult &res = row.results[std::wstring(_T("Name"))];
 			//const WMIQuery::wmi_row::list_type::value_type v = row.results[_T("Name")];
 			std::wstring name = res.string;
-			result += ns + _T("\\") + name + _T("\n");
+			result += utf8::cvt<std::string>(ns) + "\\" + utf8::cvt<std::string>(name) + "\n";
 			list_ns_rec(ns + _T("\\") + name, user, password, result);
 		}
 	} catch (const WMIException &e) {
 		NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-		result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+		result += "ERROR: " + e.reason();
 	}
 }
 
 
-NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result) {
+NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	try {
-		if (command == _T("wmi") || command == _T("help") || command.empty()) {
+		if (command == "wmi" || command == "help" || command.empty()) {
 
 			namespace po = boost::program_options;
 
@@ -511,16 +511,16 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 
 			boost::program_options::variables_map vm;
 
-			if (command == _T("help")) {
+			if (command == "help") {
 				std::stringstream ss;
 				ss << "wmi Command line syntax:" << std::endl;
 				ss << desc;
-				result = utf8::cvt<std::wstring>(ss.str());
+				result = ss.str();
 				return NSCAPI::isSuccess;
 			}
 
-			std::vector<std::wstring> args(arguments.begin(), arguments.end());
-			po::wparsed_options parsed = po::basic_command_line_parser<wchar_t>(args).options(desc).run();
+			std::vector<std::string> args(arguments.begin(), arguments.end());
+			po::parsed_options parsed = po::basic_command_line_parser<char>(args).options(desc).run();
 			po::store(parsed, vm);
 			po::notify(vm);
 
@@ -528,7 +528,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 				std::stringstream ss;
 				ss << "CheckWMI Command line syntax:" << std::endl;
 				ss << desc;
-				result = utf8::cvt<std::wstring>(ss.str());
+				result = ss.str();
 				return NSCAPI::isSuccess;
 			}
 			simple = vm.count("simple") > 0;
@@ -543,11 +543,11 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					rows = wmiQuery.execute(ns, query, user, password);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+					result += "ERROR: " + e.reason();
 					return NSCAPI::hasFailed;
 				}
 				if (rows.empty()) {
-					result += _T("No result");
+					result += "No result";
 					return NSCAPI::isSuccess;
 				} else {
 					print_results(rows, limit, result, simple);
@@ -559,7 +559,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+					result += "ERROR: " + e.reason();
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-instances")) {
@@ -569,7 +569,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+					result += "ERROR: " + e.reason();
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-ns")) {
@@ -579,7 +579,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					print_results(rows, limit, result, simple);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+					result += "ERROR: " + e.reason();
 					return NSCAPI::hasFailed;
 				}
 			} else if (vm.count("list-all-ns")) {
@@ -587,14 +587,14 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::wstring &command, std:
 					list_ns_rec(ns, user, password, result);
 				} catch (WMIException e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
-					result += _T("ERROR: ") + utf8::cvt<std::wstring>(e.reason());
+					result += "ERROR: " + e.reason();
 					return NSCAPI::hasFailed;
 				}
 			}
 		}
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		result += _T("ERROR: Failed to parse command line: ") + utf8::to_unicode(e.what());
+		result += "ERROR: Failed to parse command line: " + utf8::utf8_from_native(e.what());
 		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
 		return NSCAPI::hasFailed;
 	}

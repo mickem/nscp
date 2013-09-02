@@ -149,6 +149,11 @@ elseif(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-long-long -pedantic -Wno-unused-parameter")
 endif()
 
+if(MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+  message(STATUS "Added parallel build arguments to CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+endif()
+
 IF(NOT SHARED_LIBS)
   IF(WIN32)
     OPTION(SHARED_LIBS "Compile shared libraries" OFF)
@@ -265,8 +270,6 @@ SET(NSCP_FILTER_CPP)
 SET(NSCP_FILTER_HPP
 	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
 	${NSCP_INCLUDEDIR}/parsers/where.hpp
-	${NSCP_INCLUDEDIR}/parsers/filter/where_filter.hpp
-	${NSCP_INCLUDEDIR}/parsers/filter/where_filter_impl.hpp
 )
 SET(NSCP_FILTER_LIB
 	where_filter
@@ -299,7 +302,6 @@ ENDIF(BREAKPAD_FOUND)
 ADD_SUBDIRECTORY("service")
 ADD_SUBDIRECTORY("scripts")
 ADD_SUBDIRECTORY("files")
-ADD_SUBDIRECTORY("docs")
 
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
@@ -323,8 +325,10 @@ SET_TARGET_PROPERTIES(${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES
 
 IF(MSVC_IDE)
     # hack to get around the "Debug" and "Release" directories cmake tries to add on Windows
-    SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
+#    SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${ALL_INSTALLERS_DLLS_NAMES} PROPERTIES PREFIX "../")
 ENDIF(MSVC_IDE)
+
+ADD_SUBDIRECTORY("docs")
 
 #############################################################################
 #

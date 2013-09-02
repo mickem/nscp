@@ -242,7 +242,7 @@ void lua::lua_wrapper::push_string(std::string s) {
 	lua_pushstring(L, s.c_str());
 }
 void lua::lua_wrapper::push_boolean(bool b) {
-	lua_pushboolean(L, b?TRUE:FALSE);
+	lua_pushboolean(L, b?1:0);
 }
 void lua::lua_wrapper::push_int(int b) {
 	lua_pushinteger(L, b);

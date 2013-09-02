@@ -32,7 +32,7 @@ private:
 	unsigned int timeout;
 	std::string commands_path;
 	std::string aliases_path;
-	std::wstring scriptDirectory_;
+	std::string scriptDirectory_;
 	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
@@ -52,7 +52,7 @@ private:
 
 	void handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
 	void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
-	void addAllScriptsFrom(std::wstring path);
+	void addAllScriptsFrom(std::string path);
 	void add_command(std::string key, std::string arg);
 	void add_alias(std::string key, std::string command);
 	void add_wrapping(std::string key, std::string command) {

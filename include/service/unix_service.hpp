@@ -30,12 +30,12 @@
 
 namespace service_helper_impl {
 	class service_exception {
-		std::wstring what_;
+		std::string what_;
 	public:
-		service_exception(std::wstring what) : what_(what) {
-			std::wcout << _T("ERROR:") <<  what;
+		service_exception(std::string what) : what_(what) {
+			std::cout << "ERROR:" <<  what;
 		}
-		std::wstring what() {
+		std::string what() {
 			return what_;
 		}
 	};
@@ -74,11 +74,11 @@ namespace service_helper_impl {
 		}
 		virtual ~unix_service() {
 		}
-		inline void print_debug(const std::wstring s) {
-			std::wcout << s << std::endl;
+		inline void print_debug(const std::string s) {
+			std::cout << s << std::endl;
 		}
-		inline void print_debug(const wchar_t *s) {
-			std::wcout << s << std::endl;
+		inline void print_debug(const char *s) {
+			std::cout << s << std::endl;
 		}
 
 		static void handleSigTerm(int) {
@@ -92,22 +92,22 @@ namespace service_helper_impl {
 			is_running_ = true;
 
 			if (signal(SIGTERM, unix_service<TBase>::handleSigTerm) == SIG_ERR) 
-				handle_error(__LINE__, __FILEW__, _T("Failed to hook SIGTERM!"));
+				handle_error(__LINE__, __FILE__, L"Failed to hook SIGTERM!");
 			if (signal(SIGINT, unix_service<TBase>::handleSigInt) == SIG_ERR) 
-				handle_error(__LINE__, __FILEW__, _T("Failed to hook SIGTERM!"));
+				handle_error(__LINE__, __FILE__, L"Failed to hook SIGTERM!");
 
-			TBase::handle_startup(_T("TODO"));
+			TBase::handle_startup("TODO");
 
-			print_debug(_T("Service started waiting for termination event..."));
+			print_debug("Service started waiting for termination event...");
 			{
 				boost::unique_lock<boost::mutex> lock(stop_mutex_);
 				while(is_running_)
 					shutdown_condition_.wait(lock);
 			}
 
-			print_debug(_T("Shutting down..."));
-			TBase::handle_shutdown(_T("TODO"));
-			print_debug(_T("Shutting down (down)..."));
+			print_debug("Shutting down...");
+			TBase::handle_shutdown("TODO");
+			print_debug("Shutting down (down)...");
 		}
 		void stop_service() {
 			{
@@ -116,7 +116,7 @@ namespace service_helper_impl {
 			}
 			shutdown_condition_.notify_one();
 		}
-		static void handle_error(unsigned int line, const wchar_t *file, std::wstring message) {
+		static void handle_error(unsigned int line, const char *file, std::wstring message) {
 			TBase::get_global_instance()->handle_error(line, file, message);
 		}
 	};

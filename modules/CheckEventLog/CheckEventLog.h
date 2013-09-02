@@ -22,7 +22,7 @@
 
 #include <protobuf/plugin.pb.h>
 
-class real_time_thread;
+struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {
 private:
 	boost::shared_ptr<real_time_thread> thread_;
@@ -40,7 +40,7 @@ public:
 	void parse(std::wstring expr);
 
 	void check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
-	NSCAPI::nagiosReturn insert_eventlog(std::list<std::wstring> arguments, std::wstring &message);
+	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
+	NSCAPI::nagiosReturn insert_eventlog(const std::list<std::string> &arguments, std::string &message);
 
 };

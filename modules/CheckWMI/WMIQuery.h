@@ -27,7 +27,6 @@
 
 #include <strEx.h>
 #include <error.hpp>
-#include <filter_framework.hpp>
 #include <WbemCli.h>
 
 class ComError {
@@ -111,6 +110,10 @@ public:
 		void setBoth(long long n, std::wstring s) {
 			numeric = n;
 			set_raw_str(s);
+		}
+		std::string get_string() const {
+			return utf8::cvt<std::string>(string);
+
 		}
 	};
 	struct wmi_row {

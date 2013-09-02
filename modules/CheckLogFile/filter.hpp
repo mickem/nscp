@@ -6,26 +6,25 @@
 #include <parsers/where.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/bind.hpp>
+
 #include <error.hpp>
 
-#include <parsers/where/expression_ast.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/filter/where_filter.hpp>
-#include <parsers/filter/where_filter_impl.hpp>
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
 
 namespace logfile_filter {
 
-	struct filter_obj_handler;
 	struct filter_obj {
 		std::string filename;
 		std::string line;
 		std::vector<std::string> chunks;
-		long long count;
-		typedef parsers::where::expression_ast expression_ast_type;
-		filter_obj(std::string filename, std::string line, std::list<std::string> chunks, long long count) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()), count(count) {}
+		typedef parsers::where::node_type node_type;
+		filter_obj(std::string filename, std::string line, std::list<std::string> chunks) : filename(filename), line(line), chunks(chunks.begin(), chunks.end()) {}
 
-		std::string get_column(int col) const {
+		std::string get_column(std::size_t col) const {
 			if (col >= 1 && col <= chunks.size())
 				return chunks[col-1];
 			return "";
@@ -41,70 +40,14 @@ namespace logfile_filter {
 		std::string get_line() const {
 			return line;
 		}
-		long long get_count() const {
-			return count;
-		}
-		std::string get_count_str() const {
-			return strEx::s::xtos(count);
-		}
-		void matched() {
-			count++;
-		}
-		expression_ast_type get_column_fun(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject);
-		std::string render(std::string syntax);
+ 		node_type get_column_fun(parsers::where::value_type target_type, parsers::where::evaluation_context context, const node_type subject);
 	};
 
 
-
-	struct filter_obj_handler : public parsers::where::filter_handler_impl<filter_obj> {
-
-		typedef filter_obj object_type;
-		typedef boost::shared_ptr<object_type> object_instance_type;
-		typedef parsers::where::filter_handler_impl<object_type> base_handler;
-
-		typedef std::map<std::string,parsers::where::value_type> types_type;
-		typedef parsers::where::expression_ast expression_ast_type;
-
-
-		filter_obj_handler();
-		bool has_variable(std::string key);
-		parsers::where::value_type get_type(std::string key);
-		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-		base_handler::bound_string_type bind_simple_string(std::string key);
-		base_handler::bound_int_type bind_simple_int(std::string key);
-		bool has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
-
-	private:
-		types_type types;
-		static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
-
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+	struct filter_obj_handler : public native_context {
+ 		filter_obj_handler();
 	};
 
-
-	struct log_summary : public modern_filter::generic_summary<log_summary> {
-		std::string filename;
-
-		std::string get_filename() {
-			return filename;
-		}
-
-		static boost::function<std::string(log_summary*)> get_function(std::string key) {
-			if (key == "file" || key == "filename")
-				return &log_summary::get_filename;
-			return modern_filter::generic_summary<log_summary>::get_function(key);
-		}
-		bool add_performance_data_metric(const std::string metric) {
-			boost::function<std::string(log_summary*)> f = get_function(metric);
-			if (f) {
-				metrics[metric] = boost::bind(f,this);
-				return true;
-			}
-			return false;
-		}
-
-	};
-
-	typedef modern_filter::modern_filters<logfile_filter::filter_obj, logfile_filter::filter_obj_handler, log_summary> filter;
+	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }

@@ -24,7 +24,6 @@
 #include "filter_config_object.hpp"
 
 struct real_time_thread {
-	bool enabled_;
 	boost::shared_ptr<boost::thread> thread_;
 	filters::filter_config_handler filters_;
 	std::wstring logs_;
@@ -36,8 +35,9 @@ struct real_time_thread {
 #endif
 
 
-	bool cache_;
+	bool enabled_;
 	bool debug_;
+	bool cache_;
 	std::string filters_path_;
 
 	real_time_thread() : enabled_(false), debug_(false), cache_(false) {}

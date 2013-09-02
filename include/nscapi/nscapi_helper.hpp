@@ -48,9 +48,8 @@ namespace nscapi {
 		std::wstring to_string(unsigned int report);
 	}
 	namespace logging {
-		NSCAPI::log_level::level parse(std::wstring str);
 		NSCAPI::log_level::level parse(std::string str);
 		bool matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code);
-		std::wstring to_string(NSCAPI::log_level::level level);
+		std::string to_string(NSCAPI::log_level::level level);
 	}
 }

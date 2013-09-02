@@ -97,8 +97,9 @@ public:
 	}
 
 	static bool start(std::wstring command, unsigned long  dwSessionId) {
-		std::wstring cmdln = _T("\"") + command + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
-		return tray_starter::startTrayHelper(dwSessionId, command, cmdln);
+// 		std::wstring cmdln = _T("\"") + command + _T("\" -channel __") + strEx::itos(dwSessionId) + _T("__");
+// 		return tray_starter::startTrayHelper(dwSessionId, command, cmdln);
+		return false;
 	}
 
 	static bool startTrayHelper(unsigned long dwSessionId, std::wstring exe, std::wstring cmdline, bool startThread = true) {
@@ -209,17 +210,15 @@ public:
  * @param envp[] Environment array
  * @return exit status
  */
-int nscp_main(int argc, wchar_t* argv[]);
+int nscp_main(int argc, char* argv[]);
 
 #ifdef WIN32
-int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) { return nscp_main(argc, argv); }
-#else
-int main(int argc, char* argv[]) { 
-	wchar_t **wargv = new wchar_t*[argc];
+int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) { 
+	char **wargv = new char*[argc];
 	for (int i=0;i<argc;i++) {
-		std::wstring s = to_wstring(argv[i]);
-		wargv[i] = new wchar_t[s.length()+10];
-		wcscpy(wargv[i], s.c_str());
+		std::string s = utf8::cvt<std::string>(argv[i]);
+		wargv[i] = new char[s.length()+10];
+		strncpy(wargv[i], s.c_str(), s.size()+1);
 	}
 	int ret = nscp_main(argc, wargv); 
 	for (int i=0;i<argc;i++) {
@@ -228,9 +227,13 @@ int main(int argc, char* argv[]) {
 	delete [] wargv;
 	return ret;
 }
+#else
+int main(int argc, char* argv[]) { 
+	return nscp_main(argc, argv); 
+}
 #endif
 
-int nscp_main(int argc, wchar_t* argv[])
+int nscp_main(int argc, char* argv[])
 {
 	srand( (unsigned)time( NULL ) );
 	cli_parser parser(&mainClient);
@@ -262,7 +265,7 @@ NSClientT::~NSClientT() {
 	try {
 		nsclient::logging::logger::destroy();
 	} catch(...) {
-		std::wcerr << _T("UNknown exception raised: When destroying logger") << std::endl;
+		std::cerr << "UNknown exception raised: When destroying logger" << std::endl;
 	}
 }
 
@@ -334,13 +337,15 @@ void NSClientT::preboot_load_all_plugin_files() {
 			return;
 		}
 		BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins(false)) {
+			if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET")
+				continue;
 			try {
 				addPlugin(pluginPath / v.second, v.first);
 			} catch (const NSPluginException &e) {
 				if (e.file().find("FileLogger") != std::string::npos) {
 					LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
 				} else {
-					LOG_ERROR_CORE("Failed to register plugin: " + e.reason());
+					LOG_ERROR_CORE("Failed to register plugin " + v.second + ": " + e.reason());
 				}
 			} catch (...) {
 				LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
@@ -374,7 +379,7 @@ namespace sh = nscapi::settings_helper;
  * @return success
  * @author mickem
  */
-bool NSClientT::boot_init(std::string log_level) {
+bool NSClientT::boot_init(const bool override_log) {
 #ifdef WIN32
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
@@ -386,9 +391,7 @@ bool NSClientT::boot_init(std::string log_level) {
 	}
 
 	nsclient::logging::logger::configure();
-	bool cli_overrides_log = !log_level.empty();
-	if (!log_level.empty())
-		nsclient::logging::logger::set_log_level(log_level);
+
 
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " booting...");
 	LOG_DEBUG_CORE("Booted settings subsystem...");
@@ -396,7 +399,7 @@ bool NSClientT::boot_init(std::string log_level) {
 	bool crash_submit = false;
 	bool crash_archive = false;
 	bool crash_restart = false;
-	std::string crash_url, crash_folder, crash_target;
+	std::string crash_url, crash_folder, crash_target, log_level;
 	try {
 
 		sh::settings_registry settings(settings_manager::get_proxy());
@@ -413,7 +416,7 @@ bool NSClientT::boot_init(std::string log_level) {
 
 		settings.add_key_to_settings("log")
 			("level", sh::string_key(&log_level, "info"),
-			"LOG LEVEL", "Log level to use. Avalible levels are error,warning,info,debug,trace")
+			"LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
 			;
 
 		settings.add_key_to_settings("shared session")
@@ -447,7 +450,7 @@ bool NSClientT::boot_init(std::string log_level) {
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD("Could not find settings: " + e.reason());
 	}
-	if (!cli_overrides_log)
+	if (!override_log)
 		nsclient::logging::logger::set_log_level(log_level);
 
 #ifdef USE_BREAKPAD
@@ -606,7 +609,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		LOG_ERROR_CORE("Unknown exception loading plugins");
 		return false;
 	}
-	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME _T(" - ") CURRENT_SERVICE_VERSION _T(" Started!")));
+	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
 	return true;
 }
 
@@ -933,10 +936,14 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 			LOG_ERROR_CORE("No data retutned from command");
 			return NSCAPI::returnUNKNOWN;
 		}
-		nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
-		return ret;
+		return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 	}
 }
+
+struct command_chunk {
+	nsclient::commands::plugin_type plugin;
+	Plugin::QueryRequestMessage request;
+};
 
 /**
  * Inject a command into the plug-in stack.
@@ -956,10 +963,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		Plugin::QueryResponseMessage response_message;
 		request_message.ParseFromString(request);
 
-		struct command_chunk {
-			nsclient::commands::plugin_type plugin;
-			Plugin::QueryRequestMessage request;
-		};
 
 		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
 		command_chunk_type command_chunks;
@@ -975,8 +978,13 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 				}
 				command_chunks[id].request.add_payload()->CopyFrom(payload);
 			} else {
-				LOG_ERROR_CORE("No module for: " + payload.command());
+				LOG_ERROR_CORE("No module supports query: " + payload.command() + " avalible commands: " + commands_.to_string());
 			}
+		}
+
+		if (command_chunks.size() == 0) {
+			LOG_ERROR_CORE("No command to execute: giving up!");
+			return NSCAPI::hasFailed;
 		}
 
 		BOOST_FOREACH(command_chunk_type::value_type &v, command_chunks) {
@@ -998,11 +1006,12 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		response = response_message.SerializeAsString();
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::returnIgnored;
+		return NSCAPI::hasFailed;
 	} catch (...) {
 		LOG_ERROR_CORE("Failed to process command: ");
-		return NSCAPI::returnIgnored;
+		return NSCAPI::hasFailed;
 	}
+	return NSCAPI::isSuccess;
 }
 
 
@@ -1376,7 +1385,7 @@ boost::filesystem::path NSClientT::getTempPath() {
 NSClient* NSClientT::get_global_instance() {
 	return &mainClient;
 }
-void NSClientT::handle_startup(std::wstring service_name) {
+void NSClientT::handle_startup(std::string service_name) {
 	LOG_DEBUG_CORE("Starting: " + utf8::cvt<std::string>(service_name));
 	service_name_ = service_name;
 	boot_init();
@@ -1391,14 +1400,14 @@ void NSClientT::handle_startup(std::wstring service_name) {
 		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
 		*/
 }
-void NSClientT::handle_shutdown(std::wstring service_name) {
+void NSClientT::handle_shutdown(std::string service_name) {
 	stop_unload_plugins_pre();
 	stop_exit_pre();
 	stop_exit_post();
 }
 
 NSClientT::service_controller NSClientT::get_service_control() {
-	return service_controller(service_name_);
+	return service_controller(utf8::cvt<std::wstring>(service_name_));
 }
 
 void NSClientT::service_controller::stop() {

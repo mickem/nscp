@@ -129,7 +129,7 @@ public:
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
 private:
-	boost::tuple<int,std::wstring> send(connection_data data, const std::list<g_data> payload);
+	boost::tuple<int,std::string> send(connection_data data, const std::list<g_data> payload);
 	void add_options(po::options_description &desc, connection_data &command_data);
 	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
@@ -139,7 +139,7 @@ private:
 	void add_command(std::string key, std::string args);
 	void add_target(std::string key, std::string args);
 
-	void set_delay(std::wstring key) {
+	void set_delay(std::string key) {
 		time_delta_ = strEx::stol_as_time_sec(key, 1);
 	}
 

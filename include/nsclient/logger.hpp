@@ -23,10 +23,8 @@ namespace nsclient {
 
 			virtual bool should_log(NSCAPI::log_level::level level) const = 0;
 			virtual NSCAPI::log_level::level get_log_level() const = 0;
-			virtual void set_log_level(NSCAPI::log_level::level level) = 0;
-
-			virtual void set_console_log(bool value) = 0;
-			virtual bool get_console_log() const = 0;
+			virtual void set_log_level(const NSCAPI::log_level::level level) = 0;
+			virtual void set_config(const std::string &key) = 0;
 		};
 		class logger {
 		public:

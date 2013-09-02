@@ -96,38 +96,38 @@ namespace format {
 			lst += sep;
 		lst += append;
 	}
-	inline void append_list(std::wstring &lst, const std::wstring &append) {
-		append_list<std::wstring>(lst, append, _T(", "));
-	}
+// 	inline void append_list(std::wstring &lst, const std::wstring &append) {
+// 		append_list<std::wstring>(lst, append, _T(", "));
+// 	}
 	inline void append_list(std::string &lst, const std::string &append) {
 		append_list<std::string>(lst, append, ", ");
 	}
-	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
-		if (append.empty())
-			return;
-		if (!lst.empty())
-			lst += sep;
-		lst += append;
-	}
-	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
-		std::wstringstream ss;
-		std::wstring chars;
-		for (unsigned int i=0;i<len;i++) {
-			ss << std::hex << buf[i];
-			ss << _T(", ");
-			if (buf[i] >= ' ' && buf[i] <= 'z')
-				chars += buf[i];
-			else
-				chars += '?';
-			if (i%32==0) {
-				ss << chars;
-				ss << _T("\n");
-				chars = _T("");
-			}
-		}
-		ss << chars;
-		return ss.str();
-	}
+// 	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
+// 		if (append.empty())
+// 			return;
+// 		if (!lst.empty())
+// 			lst += sep;
+// 		lst += append;
+// 	}
+// 	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
+// 		std::wstringstream ss;
+// 		std::wstring chars;
+// 		for (unsigned int i=0;i<len;i++) {
+// 			ss << std::hex << buf[i];
+// 			ss << _T(", ");
+// 			if (buf[i] >= ' ' && buf[i] <= 'z')
+// 				chars += buf[i];
+// 			else
+// 				chars += '?';
+// 			if (i%32==0) {
+// 				ss << chars;
+// 				ss << _T("\n");
+// 				chars = _T("");
+// 			}
+// 		}
+// 		ss << chars;
+// 		return ss.str();
+// 	}
 	inline std::string format_buffer(const char* buf, std::string::size_type len) {
 		std::stringstream ss;
 		std::string chars;
@@ -192,28 +192,28 @@ namespace format {
 		std::string ss = date_ss.str();
 		return ss;
 	}
-#ifdef WIN32
-	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		TCHAR buf[51];
-
-		struct tm tmTime;
-		memset(&tmTime, 0, sizeof(tmTime));
-
-		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
-		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
-		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
-		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
-		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
-		tmTime.tm_year = time.wYear-1900; // years since 1900
-		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
-
-		size_t l = wcsftime(buf, 50, format.c_str(), &tmTime);
-		if (l <= 0 || l >= 50)
-			return _T("");
-		buf[l] = 0;
-		return buf;
-	}
-#endif
+// #ifdef WIN32
+// 	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
+// 		TCHAR buf[51];
+// 
+// 		struct tm tmTime;
+// 		memset(&tmTime, 0, sizeof(tmTime));
+// 
+// 		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
+// 		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
+// 		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
+// 		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
+// 		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
+// 		tmTime.tm_year = time.wYear-1900; // years since 1900
+// 		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
+// 
+// 		size_t l = wcsftime(buf, 50, format.c_str(), &tmTime);
+// 		if (l <= 0 || l >= 50)
+// 			return _T("");
+// 		buf[l] = 0;
+// 		return buf;
+// 	}
+// #endif
 	inline std::string format_date(std::time_t time, std::string format = "%Y-%m-%d %H:%M:%S") {
 		return format_date(boost::posix_time::from_time_t(time), format);
 	}
@@ -249,24 +249,43 @@ namespace format {
 		ss << std::hex << i;
 		return ss.str();
 	}
+// 	template<class T>
+// 	inline T decode_time(std::wstring time, unsigned int factor = 1) {
+// 		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
+// 		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
+// 		T value = boost::lexical_cast<T>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
+// 		if (p == std::wstring::npos)
+// 			return value * factor;
+// 		else if ( (time[p] == 's') || (time[p] == 'S') )
+// 			return value * factor;
+// 		else if ( (time[p] == 'm') || (time[p] == 'M') )
+// 			return value * 60 * factor;
+// 		else if ( (time[p] == 'h') || (time[p] == 'H') )
+// 			return value * 60 * 60 * factor;
+// 		else if ( (time[p] == 'd') || (time[p] == 'D') )
+// 			return value * 24 * 60 * 60 * factor;
+// 		else if ( (time[p] == 'w') || (time[p] == 'W') )
+// 			return value * 7 * 24 * 60 * 60 * factor;
+// 		return value * factor;
+// 	}
 	template<class T>
-	inline T decode_time(std::wstring time, unsigned int smallest_unit = 1000) {
-		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
-		T value = boost::lexical_cast<T>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
-		if (p == std::wstring::npos)
-			return value * smallest_unit;
+	inline T decode_time(std::string time, unsigned int factor = 1) {
+		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
+		std::string::size_type pend = time.find_first_not_of("0123456789");
+		T value = boost::lexical_cast<T>(pend==std::string::npos?time:time.substr(0,pend).c_str());
+		if (p == std::string::npos)
+			return value * factor;
 		else if ( (time[p] == 's') || (time[p] == 'S') )
-			return value * 1000;
+			return value * factor;
 		else if ( (time[p] == 'm') || (time[p] == 'M') )
-			return value * 60 * 1000;
+			return value * 60 * factor;
 		else if ( (time[p] == 'h') || (time[p] == 'H') )
-			return value * 60 * 60 * 1000;
+			return value * 60 * 60 * factor;
 		else if ( (time[p] == 'd') || (time[p] == 'D') )
-			return value * 24 * 60 * 60 * 1000;
+			return value * 24 * 60 * 60 * factor;
 		else if ( (time[p] == 'w') || (time[p] == 'W') )
-			return value * 7 * 24 * 60 * 60 * 1000;
-		return value * smallest_unit;
+			return value * 7 * 24 * 60 * 60 * factor;
+		return value * factor;
 	}
 
 #define WEEK	(7 * 24 * 60 * 60 * 1000)
@@ -274,29 +293,37 @@ namespace format {
 #define HOUR	(60 * 60 * 1000)
 #define MIN		(60 * 1000)
 #define SEC		(1000)
-	inline std::wstring itos_as_time(unsigned long long time) {
-		std::wstringstream ss;
+	inline std::string itos_as_time(unsigned long long time) {
+		std::stringstream ss;
 		if (time > WEEK) {
 			unsigned int w = static_cast<unsigned int>(time/WEEK);
 			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN);
-			ss << w << _T("w ") << d << _T("d ") << h << _T(":") << m;
+			ss << w;
+			ss << "w " << d << "d " ;
+			ss  << std::setfill('0') << std::setw(2);
+			ss << h << ":" << m;
 		}
 		else if (time > DAY) {
 			unsigned int d = static_cast<unsigned int>((time)/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MIN);
-			ss << d << _T("d ") << h << _T(":") << m;
+			ss << d;
+			ss << "d " ;
+			ss << std::setfill('0') << std::setw(2);
+			ss << h << ":" << m;
 		}
 		else if (time > HOUR) {
 			unsigned int h = static_cast<unsigned int>((time)/HOUR);
 			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MIN);
-			ss << h << _T(":") << m;
+			ss << std::setfill('0') << std::setw(2);
+			ss << h << ":" << m;
 		} else if (time > MIN) {
-			ss << _T("0:") << static_cast<unsigned int>(time/(60 * 1000));
+			ss << std::setfill('0') << std::setw(2);
+			ss << "0:" << static_cast<unsigned int>(time/(60 * 1000));
 		} else if (time > SEC)
-			ss << boost::lexical_cast<std::wstring>(static_cast<unsigned int>(time/(1000))) << _T("s");
+			ss << boost::lexical_cast<std::string>(static_cast<unsigned int>(time/(1000))) << "s";
 		else
 			ss << static_cast<unsigned int>(time);
 		return ss.str();
@@ -338,6 +365,34 @@ namespace format {
 		std::string ret = ss.str();
 		ret += postfix[idx];
 		return ret;
+	}
+	template<class T>
+	inline T convert_to_byte_units(T i) {
+		double cpy = static_cast<double>(i);
+		char postfix[] = BKMG_RANGE;
+		int idx = 0;
+		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
+			cpy/=1024;
+			idx++;
+		}
+		return static_cast<T>(cpy);
+	}
+	template<class T>
+	inline T convert_to_byte_units(T i, std::string unit) {
+		char postfix[] = BKMG_RANGE;
+		int idx = 0;
+		if (unit.length() != 1) {
+			i;
+		}
+		double cpy = static_cast<double>(i);
+		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
+			if (unit[0] == postfix[idx]) {
+				return static_cast<T>(cpy);
+			}
+			cpy/=1024;
+			idx++;
+		}
+		return static_cast<T>(cpy);
 	}
 	template<class T>
 	inline std::string format_byte_units(T i, std::string unit) {

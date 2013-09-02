@@ -10,43 +10,43 @@ const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;
 
-std::list<std::wstring> socket_helpers::connection_info::validate() {
+std::list<std::string> socket_helpers::connection_info::validate() {
 	return validate_ssl();
 }
 
-std::list<std::wstring> socket_helpers::connection_info::validate_ssl() {
-	std::list<std::wstring> list;
+std::list<std::string> socket_helpers::connection_info::validate_ssl() {
+	std::list<std::string> list;
 	if (!ssl.enabled)
 		return list;
 #ifndef USE_SSL
-	list.push_back(_T("SSL is not supported (not compiled with openssl)"));
+	list.push_back("SSL is not supported (not compiled with openssl)");
 #endif
 
 	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate))
-		list.push_back(_T("Certificate not found: ") + utf8::cvt<std::wstring>(ssl.certificate));
+		list.push_back("Certificate not found: " + ssl.certificate);
 	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
-		list.push_back(_T("Certificate key not found: ") + utf8::cvt<std::wstring>(ssl.certificate_key));
+		list.push_back("Certificate key not found: " + ssl.certificate_key);
 	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
-		list.push_back(_T("DH key not found: ") + utf8::cvt<std::wstring>(ssl.dh_key));
+		list.push_back("DH key not found: " + ssl.dh_key);
 	return list;
 }
 
-std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
-	std::wstring ret;
-	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
-		ip::address_v4 a(r.addr);
-		ip::address_v4 m(r.mask);
-		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
-		strEx::append_list(ret, s);
-	}
-	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
-		ip::address_v6 a(r.addr);
-		ip::address_v6 m(r.mask);
-		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
-		strEx::append_list(ret, s);
-	}
-	return ret;
-}
+// std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
+// 	std::wstring ret;
+// 	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
+// 		ip::address_v4 a(r.addr);
+// 		ip::address_v4 m(r.mask);
+// 		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
+// 		strEx::append_list(ret, s);
+// 	}
+// 	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
+// 		ip::address_v6 a(r.addr);
+// 		ip::address_v6 m(r.mask);
+// 		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
+// 		strEx::append_list(ret, s);
+// 	}
+// 	return ret;
+// }
 std::string socket_helpers::allowed_hosts_manager::to_string() {
 	std::string ret;
 	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
@@ -67,9 +67,9 @@ std::string socket_helpers::allowed_hosts_manager::to_string() {
 std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 	if (!mask.empty()) {
 		std::string::size_type p1 = mask.find_first_of("0123456789");
-		if (p1 != std::wstring::npos) {
+		if (p1 != std::string::npos) {
 			std::string::size_type p2 = mask.find_first_not_of("0123456789", p1);
-			if (p2 != std::wstring::npos)
+			if (p2 != std::string::npos)
 				masklen = strEx::s::stox<std::size_t>(mask.substr(p1, p2));
 			else
 				masklen = strEx::s::stox<std::size_t>(mask.substr(p1));
@@ -81,15 +81,15 @@ std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 template<class addr>
 addr calculate_mask(std::string mask_s) {
 	addr ret;
-	const unsigned int byte_size = 8;
-	const unsigned int largest_byte = 0xff;
-	unsigned int mask = extract_mask(mask_s, byte_size*ret.size());
-	unsigned int index = mask / byte_size;
-	unsigned int reminder = mask % byte_size;
+	const std::size_t byte_size = 8;
+	const std::size_t largest_byte = 0xff;
+	const std::size_t mask = extract_mask(mask_s, byte_size*ret.size());
+	std::size_t index = mask / byte_size;
+	std::size_t reminder = mask % byte_size;
 
-	unsigned int value = largest_byte - (largest_byte >> reminder);
+	std::size_t value = largest_byte - (largest_byte >> reminder);
 
-	for (unsigned int i=0;i<ret.size();i++) {
+	for (std::size_t i=0;i<ret.size();i++) {
 		if (i < index)
 			ret[i] = largest_byte;
 		else if (i == index)

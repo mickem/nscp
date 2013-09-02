@@ -95,7 +95,7 @@ private:
 	nsclient::channels channels_;
 	nsclient::routers routers_;
 	unsigned int next_plugin_id_;
-	std::wstring service_name_;
+	std::string service_name_;
 
 
 public:
@@ -105,7 +105,7 @@ public:
 	virtual ~NSClientT();
 
 	// Service helper functions
-	bool boot_init(std::string log_level = "");
+	bool boot_init(const bool override_log = false);
 	bool boot_load_all_plugins();
 	bool boot_load_plugin(std::string plugin);
 	bool boot_start_plugins(bool boot);
@@ -118,8 +118,8 @@ public:
 
 	// Service API
 	static NSClient* get_global_instance();
-	void handle_startup(std::wstring service_name);
-	void handle_shutdown(std::wstring service_name);
+	void handle_startup(std::string service_name);
+	void handle_shutdown(std::string service_name);
 #ifdef _WIN32
 	void handle_session_change(unsigned long dwSessionId, bool logon);
 #endif

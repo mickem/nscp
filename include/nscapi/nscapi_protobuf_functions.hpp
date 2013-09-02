@@ -121,12 +121,10 @@ namespace nscapi {
 			void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
 
+			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf);
  			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
  			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
 			NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string response);
-			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer);
-			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer);
-			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::wstring command, std::string msg, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
 			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
@@ -161,8 +159,7 @@ namespace nscapi {
 			decoded_simple_command_data parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message);
 			decoded_simple_command_data parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload);
 
-			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf);
-			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::string &perf);
+			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perf);
 			std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload);
 		}
 	}

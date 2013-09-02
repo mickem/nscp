@@ -18,7 +18,7 @@ public:
 
 	check_nt::packet handle(check_nt::packet packet);
 
-	check_nt::packet create_error(std::wstring msg) {
+	check_nt::packet create_error(std::string msg) {
 		return check_nt::packet("ERROR: Failed to parse");
 	}
 

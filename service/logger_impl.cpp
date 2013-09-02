@@ -59,40 +59,51 @@ std::string lpad(std::string str, std::size_t len) {
 		return str.substr(0, len);
 	return str + std::string(len-str.length(), ' ');
 }
-std::string render_console_message(const std::string &data) {
+std::pair<bool,std::string> render_console_message(const bool oneline, const std::string &data) {
 	std::stringstream ss;
+	bool is_error = false;
 	try {
 		Plugin::LogEntry message;
 		if (!message.ParseFromString(data)) {
 			log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
-			return ss.str();
+			return std::make_pair(true, "ERROR");
 		}
 
 		for (int i=0;i<message.entry_size();i++) {
-			Plugin::LogEntry::Entry msg = message.entry(i);
-			if (i > 0)
-				ss << _T(" -- ");
+			const Plugin::LogEntry::Entry &msg = message.entry(i);
 			std::string tmp = msg.message();
 			strEx::replace(tmp, "\n", "\n    -    ");
-			ss << lpad(render_log_level_short(msg.level()), 1)
-				<< " " << rpad(msg.sender(), 10)
-				<< " " + msg.message()
-				<< std::endl;
-			if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
-				ss << "                    "
-					<< msg.file()
-					<< ":"
-					<< msg.line() << std::endl;
-
+			if (oneline) {
+				ss << msg.file()
+					<< "("
+					<< msg.line() 
+					<< "): "
+					<< render_log_level_long(msg.level())
+					<< ": "
+					<< tmp
+					<< std::endl;
+			} else {
+				if (i > 0)
+					ss << " -- ";
+				ss << lpad(render_log_level_short(msg.level()), 1)
+					<< " " << rpad(msg.sender(), 10)
+					<< " " + msg.message()
+					<< std::endl;
+				if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
+					ss << "                    "
+						<< msg.file()
+						<< ":"
+						<< msg.line() << std::endl;
+				}
 			}
 		}
-		return utf8::to_encoding(utf8::cvt<std::wstring>(ss.str()), "oem");
+		return std::make_pair(is_error, utf8::to_encoding(utf8::cvt<std::wstring>(ss.str()), "oem"));
 	} catch (std::exception &e) {
 		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
 		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
 	}
-	return ss.str();
+	return std::make_pair(true, "ERROR");
 }
 
 namespace sh = nscapi::settings_helper;
@@ -249,8 +260,12 @@ public:
 	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {}
 
 	void do_log(const std::string data) {
-		if (get_console_log()) {
-			std::cout << render_console_message(data);
+		if (is_console()) {
+			std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
+			if (!is_no_std_err() && m.first)
+				std::cerr << m.second;
+			else
+				std::cout << m.second;
 		}
 	}
 	struct config_data {
@@ -269,7 +284,6 @@ public:
 			settings.add_key_to_settings("log")
 				("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
 				"DATEMASK", "The syntax of the dates in the log file.")
-
 				;
 
 			settings.register_all();
@@ -306,6 +320,7 @@ public:
 
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
 const static std::string CONFIGURE_MESSAGE = "$$CONFIGURE$$";
+const static std::string SET_CONFIG_MESSAGE = "$$SET_CONFIG$$";
 
 typedef boost::shared_ptr<nsclient::logging::logging_interface_impl> log_impl_type;
 
@@ -324,8 +339,12 @@ public:
 	}
 
 	void do_log(const std::string data) {
-		if (get_console_log()) {
-			std::cout << render_console_message(data);
+		if (is_console()) {
+			std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
+			if (!is_no_std_err() && m.first)
+				std::cerr << m.second;
+			else
+				std::cout << m.second;
 		}
 		push(data);
 	}
@@ -343,6 +362,8 @@ public:
 				} else if (data == CONFIGURE_MESSAGE) {
 					if (background_logger_)
 						background_logger_->asynch_configure();
+				} else if (data.size() > SET_CONFIG_MESSAGE.size() && data.substr(0, SET_CONFIG_MESSAGE.size()) == SET_CONFIG_MESSAGE) {
+					background_logger_->set_config(data.substr(SET_CONFIG_MESSAGE.size()));
 				} else {
 					if (background_logger_)
 						background_logger_->do_log(data);
@@ -391,9 +412,10 @@ public:
 		nsclient::logging::logging_interface_impl::set_log_level(level);
 		background_logger_->set_log_level(level);
 	}
-	virtual void set_console_log(bool console_log) {
-		nsclient::logging::logging_interface_impl::set_console_log(console_log);
-		background_logger_->set_console_log(console_log);
+	virtual void set_config(const std::string &key) {
+		nsclient::logging::logging_interface_impl::set_config(key);
+		std::string message = SET_CONFIG_MESSAGE + key;
+		push(message);
 	}
 };
 
@@ -417,10 +439,15 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 	}
 	nsclient::logging::logging_interface_impl *old = logger_impl_ ;
 	if (old != NULL && tmp != NULL) {
-		tmp->set_console_log(old->get_console_log());
-		tmp->set_log_level(old->get_log_level());
+		if (old->is_console())
+			tmp->set_config("console");
+		if (old->is_no_std_err())
+			tmp->set_config("no-std-err");
+		if (old->is_oneline())
+			tmp->set_config("oneline");
 		if (old->is_started())
 			tmp->startup();
+		tmp->set_log_level(old->get_log_level());
 	}
 	logger_impl_ = tmp;
 	logger_impl_->debug("log", __FILE__, __LINE__, "Creating logger: " + backend);
@@ -431,7 +458,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 
 #define DEFAULT_BACKEND THREADED_FILE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
-	if (logger_impl_  == NULL)
+	if (logger_impl_ == NULL)
 		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);
 	return logger_impl_ ;
 }
@@ -467,5 +494,9 @@ void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {
 	get_impl()->set_log_level(level);
 }
 void nsclient::logging::logger::set_log_level(std::string level) {
-	get_impl()->set_log_level(nscapi::logging::parse(level));
+	NSCAPI::log_level::level iLevel = nscapi::logging::parse(level);
+	if (iLevel == NSCAPI::log_level::unknown) {
+		get_impl()->set_config(level);
+	} else 
+		get_impl()->set_log_level(iLevel);
 }

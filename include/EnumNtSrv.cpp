@@ -1,296 +1,227 @@
-/*#############################################################################
-# ENUMNTSRV.CPP
-#
-# SCA Software International S.A.
-# http://www.scasoftware.com
-# scaadmin@scasoftware.com
-#
-# Copyright (c) 1999 SCA Software International S.A.
-#
-# Date: 05.12.1999.
-# Author: Zoran M.Todorovic
-#
-# This software is provided "AS IS", without a warranty of any kind.
-# You are free to use/modify this code but leave this header intact.
-#
-#############################################################################*/
-
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <WinSvc.h>
 #include <error.hpp>
 #include "EnumNtSrv.h"
 
-//=============================================================================
-// class TNtServiceInfo
-//
-//=============================================================================
+#include <buffer.hpp>
+#include <handle.hpp>
 
-TNtServiceInfo::TNtServiceInfo()
-{
-	m_strServiceName.clear();
-	m_strDisplayName.clear();
-	m_strBinaryPath.clear();
-	m_dwServiceType = 0;
-	m_dwStartType = 0;
-	m_dwErrorControl = 0;
-	m_dwCurrentState = 0;
-}
+#include <win_sysinfo/win_sysinfo.hpp>
 
-TNtServiceInfo::TNtServiceInfo(const TNtServiceInfo& source)
-{
-	*this = source;
-}
-
-TNtServiceInfo::~TNtServiceInfo()
-{
-}
-
-TNtServiceInfo& TNtServiceInfo::operator=(const TNtServiceInfo& source)
-{
-	m_strServiceName = source.m_strServiceName;
-	m_strDisplayName = source.m_strDisplayName;
-	m_strBinaryPath = source.m_strBinaryPath;
-	m_dwServiceType = source.m_dwServiceType;
-	m_dwStartType = source.m_dwStartType;
-	m_dwErrorControl = source.m_dwErrorControl;
-	m_dwCurrentState = source.m_dwCurrentState;
-	return *this;
-}
-
-// Return a service type as a string
-std::string TNtServiceInfo::GetServiceType(void)
-{
-	std::string str = "UNKNOWN";
-	if (m_dwServiceType & SERVICE_WIN32) {
-		if (m_dwServiceType & SERVICE_WIN32_OWN_PROCESS)
-			str = "WIN32_OWN_PROCESS";
-		else if (m_dwServiceType & SERVICE_WIN32_SHARE_PROCESS)
-			str = "WIN32_SHARE_PROCESS";
-		if (m_dwServiceType & SERVICE_INTERACTIVE_PROCESS)
-			str += " (INTERACTIVE_PROCESS)";
-	}
-	switch (m_dwServiceType) {
-	case SERVICE_KERNEL_DRIVER: 
-		str = "KERNEL_DRIVER";
-		break;
-	case SERVICE_FILE_SYSTEM_DRIVER: 
-		str = "FILE_SYSTEM_DRIVER";
-		break;
-	};
-	return str;
-}
-
-// Return a service start type as a string
-std::string TNtServiceInfo::GetStartType(void)
-{
-	char *types[] = {
-		"BOOT_START",		// 0
-			"SYSTEM_START", // 1
-			"AUTO_START",	// 2
-			"DEMAND_START", // 3
-			"DISABLED",		// 4
-			"DELAYED"		// 5
-	};
-	return types[m_dwStartType];
-}
-
-// Return this service error control as a string
-std::string TNtServiceInfo::GetErrorControl(void)
-{
-	if (m_dwErrorControl >= 4)
-		throw std::exception();
-	char *types[] = {
-		"ERROR_IGNORE",		// 0
-			"ERROR_NORMAL", // 1
-			"ERROR_SEVERE", // 2
-			"ERROR_CRITICAL"// 3
-	};
-	return types[m_dwErrorControl];
-}
-
-// Return this service current state as a string
-std::string TNtServiceInfo::GetCurrentState(void)
-{
-	if (m_dwErrorControl >= 8)
-		throw std::exception();
-	char *types[] = {
-		"UNKNOWN",
-			"STOPPED",			// 1
-			"START_PENDING",	// 2
-			"STOP_PENDING",		// 3
-			"RUNNING",			// 4
-			"CONTINUE_PENDING", // 5
-			"PAUSE_PENDING",	// 6
-			"PAUSED"			// 7
-	};
-	return types[m_dwCurrentState];
-}
-
-#ifndef SERVICE_CONFIG_DELAYED_AUTO_START_INFO
-#define SERVICE_CONFIG_DELAYED_AUTO_START_INFO 3
-#endif
-
-typedef struct NSCP_SERVICE_DELAYED_AUTO_START_INFO {
-	BOOL fDelayedAutostart;
-};
-
-template<class T>
-struct return_data {
-	TCHAR *buffer;
-	DWORD buffer_size;
-	T *object;
-
-	return_data() : buffer(NULL), object(NULL), buffer_size(0) {}
-	return_data(const return_data &other)  : buffer(NULL), object(NULL), buffer_size(other.buffer_size){
-		if (other.buffer_size > 0) {
-			buffer = new TCHAR[other.buffer_size];
-			memcpy(buffer, other.buffer, other.buffer_size);
-			object = reinterpret_cast<T*>(buffer);
+namespace services_helper {
+	DWORD parse_service_type(const std::string str) {
+		DWORD ret = 0;
+		BOOST_FOREACH(const std::string key, strEx::s::splitEx(str, std::string(","))) {
+			if (key == "driver" || key == "drv")
+				ret |= SERVICE_DRIVER;
+			else if (key == "file-system-driver" || key == "fs-drv")
+				ret |= SERVICE_FILE_SYSTEM_DRIVER;
+			else if (key == "kernel-driver" || key == "k-drv")
+				ret |= SERVICE_KERNEL_DRIVER;
+			else if (key == "service" || key == "svc")
+				ret |= SERVICE_WIN32;
+			else if (key == "service-own-process" || key == "svc-own")
+				ret |= SERVICE_WIN32_OWN_PROCESS;
+			else if (key == "service-share-process" || key == "svc-shr")
+				ret |= SERVICE_WIN32_SHARE_PROCESS;
+			else
+				throw nscp_exception("Invalid service type specified: " + key);
 		}
+		return ret;
 	}
-	return_data* operator= (const return_data &other) {
-		if (other.buffer_size > 0) {
-			buffer = new TCHAR[other.buffer_size];
-			memcpy(buffer, other.buffer, other.buffer_size);
-			buffer_size = other.buffer_size;
-			object = reinterpret_cast<T*>(buffer);
+	DWORD parse_service_state(const std::string str) {
+		DWORD ret = 0;
+		BOOST_FOREACH(const std::string key, strEx::s::splitEx(str, std::string(","))) {
+			if (key == "active")
+				ret |= SERVICE_ACTIVE;
+			else if (key == "inactive")
+				ret |= SERVICE_INACTIVE;
+			else if (key == "all")
+				ret |= SERVICE_STATE_ALL;
+			else
+				throw nscp_exception("Invalid service type specified: " + key);
 		}
-		return *this;
+		return ret;
 	}
-	~return_data() {
-		if (buffer)
-			delete [] buffer;
+
+	hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> queryServiceConfig(SC_HANDLE hService, std::string service) {
+		DWORD bytesNeeded = 0;
+		DWORD deErr = 0;
+
+		if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
+
+		hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> buf(bytesNeeded+10);
+		if (!QueryServiceConfig(hService, buf.get(), bytesNeeded, &bytesNeeded))
+			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
+		return buf;
 	}
-	void resize() {
-		if (buffer != NULL)
-			delete [] buffer;
-		buffer_size += 10;
-		buffer = new TCHAR[buffer_size];
-		object = reinterpret_cast<T*>(buffer);
+
+	hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> queryServiceStatusEx(SC_HANDLE hService, std::string service) {
+		DWORD bytesNeeded = 0;
+		DWORD deErr = 0;
+
+		if (windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
+
+		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> buf(bytesNeeded+10);
+		if (!windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, buf, bytesNeeded, &bytesNeeded))
+			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
+		return buf;
 	}
-	void clean() {
-		if (buffer != NULL)
-			delete [] buffer;
-		buffer = NULL;
-		object = NULL;
-		buffer_size = NULL;
-	}
-	bool has_data() const {
-		return buffer != NULL && object != NULL && buffer_size > 0;
-	}
-};
-template<class T>
-return_data<T> NSCP_QueryServiceConfig2(SC_HANDLE hService, DWORD dwInfoLevel) {
-	return_data<T> ret;
-	if (!QueryServiceConfig2(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, NULL, 0, &ret.buffer_size) && (GetLastError() == ERROR_INSUFFICIENT_BUFFER)) {
-		ret.resize();
-		if (QueryServiceConfig2(hService, dwInfoLevel, reinterpret_cast<LPBYTE>(&ret.buffer), ret.buffer_size, &ret.buffer_size)) {
-			return ret;
+
+	std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState) {
+		std::list<service_info> ret;
+		std::wstring comp = utf8::cvt<std::wstring>(computer);
+
+		hlp::service_handle<SC_HANDLE> sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
+		if (!sc) 
+			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
+
+		DWORD bytesNeeded = 0;
+		DWORD count = 0;
+		DWORD handle = 0;
+		BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, NULL, 0, &bytesNeeded, &count, &handle, NULL);
+		if (bRet || GetLastError() != ERROR_MORE_DATA)
+			throw nscp_exception("Failed to enumerate services");
+
+		hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS*> buf(bytesNeeded+10);
+		bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, NULL);
+		if (!bRet) 
+			throw nscp_exception("Failed to enumerate service: " + error::lookup::last_error());
+		ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
+		for (DWORD i=0; i<count;++i) {
+			service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
+			info.pid = data[i].ServiceStatusProcess.dwProcessId;
+			info.state = data[i].ServiceStatusProcess.dwCurrentState;
+			info.type = data[i].ServiceStatusProcess.dwServiceType;
+
+			hlp::service_handle<SC_HANDLE> hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
+			if (!hService)
+				throw nscp_exception("Failed to open service: " + info.name);
+
+			hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> qscData = queryServiceConfig(hService, info.name);
+			info.start_type = qscData.get()->dwStartType;
+			info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
+			info.error_control = qscData.get()->dwErrorControl;
+			ret.push_back(info);
 		}
+		return ret;
 	}
-	ret.clean();
-	return ret;
+
+	service_info get_service_info(const std::string computer, const std::string service) {
+		std::wstring comp = utf8::cvt<std::wstring>(computer);
+
+		hlp::service_handle<SC_HANDLE> sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
+		if (!sc) 
+			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
+
+		hlp::service_handle<SC_HANDLE> hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG);
+		if (!hService)
+			throw nscp_exception("Failed to open service: " + service);
+
+		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> ssp = queryServiceStatusEx(hService, service);
+
+		service_info info(service, "TODO");
+		info.pid = ssp.get()->dwProcessId;
+		info.state = ssp.get()->dwCurrentState;
+		info.type = ssp.get()->dwServiceType;
+
+		DWORD bytesNeeded2 = 0;
+		DWORD deErr = 0;
+		if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+			throw nscp_exception("Failed to open service " + info.name + ": " + error::lookup::last_error(deErr));
+		hlp::buffer<BYTE> buf2(bytesNeeded2+10);
+
+		if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG*>(buf2.get()), bytesNeeded2, &bytesNeeded2))
+			throw nscp_exception("Failed to open service: " + info.name);
+		QUERY_SERVICE_CONFIG *data2 = reinterpret_cast<QUERY_SERVICE_CONFIG*>(buf2.get());
+		info.start_type = data2->dwStartType;
+		info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
+		info.error_control = data2->dwErrorControl;
+		return info;
+	}
+
+
+	long long service_info::parse_start_type(const std::string &s) {
+		if (s == "auto")
+			return SERVICE_AUTO_START;
+		if (s == "boot")
+			return SERVICE_BOOT_START;
+		if (s == "demand")
+			return SERVICE_DEMAND_START;
+		if (s == "disabled")
+			return SERVICE_DISABLED;
+		if (s == "system")
+			return SERVICE_SYSTEM_START;
+		return 0;
+	}
+	long long service_info::parse_state(const std::string &s) {
+		if (s == "continuing")
+			return SERVICE_CONTINUE_PENDING;
+		if (s == "pausing")
+			return SERVICE_PAUSE_PENDING;
+		if (s == "paused")
+			return SERVICE_PAUSED;
+		if (s == "running")
+			return SERVICE_RUNNING;
+		if (s == "starting")
+			return SERVICE_START_PENDING;
+		if (s == "stopping")
+			return SERVICE_STOP_PENDING;
+		if (s == "stopped")
+			return SERVICE_STOPPED;
+		return 0;
+	}
+
+	std::string service_info::get_state_s() const {
+		if (state == SERVICE_CONTINUE_PENDING)
+			return "continuing";
+		if (state == SERVICE_PAUSE_PENDING)
+			return "pausing";
+		if (state == SERVICE_PAUSED)
+			return "paused";
+		if (state == SERVICE_RUNNING)
+			return "running";
+		if (state == SERVICE_START_PENDING)
+			return "starting";
+		if (state == SERVICE_RUNNING)
+			return "running";
+		if (state == SERVICE_STOP_PENDING)
+			return "stopping";
+		if (state == SERVICE_STOPPED)
+			return "stopped";
+		return "unknown";
+	}
+	std::string service_info::get_start_type_s() const {
+		if (start_type == SERVICE_AUTO_START)
+			return "auto";
+		if (start_type == SERVICE_BOOT_START)
+			return "boot";
+		if (start_type == SERVICE_DEMAND_START)
+			return "demand";
+		if (start_type == SERVICE_DISABLED)
+			return "disabled";
+		if (start_type == SERVICE_SYSTEM_START)
+			return "system";
+		return "unknown";
+	}
+	// Return a service type as a string
+	std::string service_info::get_type() const {
+		std::string str = "";
+		if (type&SERVICE_FILE_SYSTEM_DRIVER)
+			strEx::append_list(str, "system-driver");
+		if (type&SERVICE_KERNEL_DRIVER)
+			strEx::append_list(str, "kernel-driver");
+		if (type&SERVICE_WIN32_OWN_PROCESS)
+			strEx::append_list(str, "service-own-process");
+		if (type&SERVICE_WIN32_SHARE_PROCESS)
+			strEx::append_list(str, "service-shared-process");
+		if (type&SERVICE_WIN32)
+			strEx::append_list(str, "service");
+		if (type&SERVICE_INTERACTIVE_PROCESS)
+			strEx::append_list(str, "interactive");
+		return str;
+	}
+
 }
-
-// Enumerate services on this machine and return a pointer to an array of objects.
-// Caller is responsible to delete this pointer using delete [] ...
-// dwType = bit OR of SERVICE_WIN32, SERVICE_DRIVER
-// dwState = bit OR of SERVICE_ACTIVE, SERVICE_INACTIVE
-TNtServiceInfoList TNtServiceInfo::EnumServices(DWORD dwType, DWORD dwState, bool vista)
-{
-	TNtServiceInfoList ret;
-	// Maybe check if dwType and dwState have at least one constant specified
-	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
-	if (scman) {
-		ENUM_SERVICE_STATUS service, *lpservice;
-		BOOL rc;
-		DWORD bytesNeeded,servicesReturned,resumeHandle = 0;
-		rc = ::EnumServicesStatus(scman,dwType,dwState,&service,sizeof(service),
-			&bytesNeeded,&servicesReturned,&resumeHandle);
-		if ((rc == FALSE) && (::GetLastError() == ERROR_MORE_DATA)) {
-			DWORD bytes = bytesNeeded + sizeof(ENUM_SERVICE_STATUS);
-			lpservice = new ENUM_SERVICE_STATUS [bytes];
-			::EnumServicesStatus(scman,dwType,dwState,lpservice,bytes,
-				&bytesNeeded,&servicesReturned,&resumeHandle);
-			TCHAR Buffer[1024];				// Should be enough for service info
-			QUERY_SERVICE_CONFIG *lpqch = (QUERY_SERVICE_CONFIG*)Buffer;
-			for (DWORD ndx = 0; ndx < servicesReturned; ndx++) {
-				TNtServiceInfo info;
-				info.m_strServiceName = utf8::cvt<std::string>(lpservice[ndx].lpServiceName);
-				info.m_strDisplayName = utf8::cvt<std::string>(lpservice[ndx].lpDisplayName);
-				info.m_dwServiceType = lpservice[ndx].ServiceStatus.dwServiceType;
-				info.m_dwCurrentState = lpservice[ndx].ServiceStatus.dwCurrentState;
-				SC_HANDLE hService = ::OpenService(scman,lpservice[ndx].lpServiceName, SERVICE_QUERY_CONFIG);
-				if (::QueryServiceConfig(hService,lpqch,sizeof(Buffer),&bytesNeeded)) {
-					info.m_strBinaryPath = utf8::cvt<std::string>(lpqch->lpBinaryPathName);
-					info.m_dwStartType = lpqch->dwStartType;
-					info.m_dwErrorControl = lpqch->dwErrorControl;
-				}
-				if (info.m_dwStartType == SERVICE_AUTO_START && vista) {
-					return_data<NSCP_SERVICE_DELAYED_AUTO_START_INFO> delayed = NSCP_QueryServiceConfig2<NSCP_SERVICE_DELAYED_AUTO_START_INFO>(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO);
-					if (delayed.has_data() && delayed.object->fDelayedAutostart)
-						info.m_dwStartType = NSCP_SERVICE_DELAYED;
-				}
-				::CloseServiceHandle(hService);
-				ret.push_back(info);
-			}
-			delete [] lpservice;
-		}
-		::CloseServiceHandle(scman);
-	}
-	return ret;
-}
-
-
-#define SC_BUF_LEN 4096
-TNtServiceInfo TNtServiceInfo::GetService(std::string name)
-{
-	TNtServiceInfo info;
-	info.m_strServiceName = name;
-	SC_HANDLE scman = ::OpenSCManager(NULL,NULL,SC_MANAGER_ENUMERATE_SERVICE);
-	if (!scman) {
-		throw NTServiceException(name, "Could not open ServiceControl manager: " + error::lookup::last_error());
-	}
-	SC_HANDLE sh = ::OpenService(scman, utf8::cvt<std::wstring>(name).c_str(),SERVICE_QUERY_STATUS);
-	if (!sh) {
-		std::string short_name;
-		DWORD bufLen = SC_BUF_LEN;
-		TCHAR *buf = new TCHAR[bufLen+1];
-		if (GetServiceKeyName(scman, utf8::cvt<std::wstring>(name).c_str(), buf, &bufLen) == 0) {
-			short_name = name;
-		} else {
-			short_name = utf8::cvt<std::string>(buf);
-		}
-		delete [] buf;
-		sh = ::OpenService(scman,utf8::cvt<std::wstring>(short_name).c_str(),SERVICE_QUERY_STATUS);
-		if (sh == NULL) {
-			DWORD dwErr = GetLastError();
-			::CloseServiceHandle(scman);
-			if (dwErr == ERROR_SERVICE_DOES_NOT_EXIST) {
-				info.m_dwCurrentState = MY_SERVICE_NOT_FOUND;
-				info.m_dwServiceType = MY_SERVICE_NOT_FOUND;
-				return info;
-			} else {
-				throw NTServiceException(name, "OpenService: Could not open Service: " + error::lookup::last_error(dwErr));
-			}
-		}
-	}
-	SERVICE_STATUS state;
-	if (::QueryServiceStatus(sh, &state)) {
-		info.m_dwCurrentState = state.dwCurrentState;
-		info.m_dwServiceType = state.dwServiceType;
-	} else {
-		::CloseServiceHandle(sh);
-		::CloseServiceHandle(scman);
-		throw NTServiceException(name, "QueryServiceStatus: Could not query service status: " + error::lookup::last_error());
-	}
-	// TODO: Get more info here 
-	::CloseServiceHandle(sh);
-	::CloseServiceHandle(scman);
-	return info;
-}
-
-/*#############################################################################
-# End of file ENUMNTSRV.CPP
-#############################################################################*/

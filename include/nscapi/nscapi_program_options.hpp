@@ -7,8 +7,6 @@
 #include <boost/function/function1.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-#include <checkHelpers.hpp>
-
 namespace nscapi {
 	namespace program_options {
 
@@ -35,7 +33,7 @@ namespace nscapi {
 		};
 
 
-		std::vector<boost::program_options::option> option_parser_kvp(std::vector<std::string> &args) {
+		static std::vector<boost::program_options::option> option_parser_kvp(std::vector<std::string> &args) {
 			std::vector<boost::program_options::option> result;
 			BOOST_FOREACH(const std::string &s, args) {
 				boost::program_options::option opt;
@@ -93,7 +91,7 @@ namespace nscapi {
 			{}
 		};
 
-		po::options_description create_desc(const std::string command) {
+		static po::options_description create_desc(const std::string command) {
 			po::options_description desc("Allowed options for " + command);
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
@@ -101,10 +99,10 @@ namespace nscapi {
 				;
 			return desc;
 		}
-		po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
+		static po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
-		po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
+		static po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
 
@@ -117,10 +115,10 @@ namespace nscapi {
            line is no longer than 'line_length'.
                                       
         */
-        void format_paragraph(std::ostream& os,
+        static void format_paragraph(std::ostream& os,
                               std::string par,
-                              unsigned indent,
-                              unsigned line_length)
+                              std::size_t indent,
+                              std::size_t line_length)
         {                    
             // Through reminder of this function, 'line_length' will
             // be the length available for characters, not including
@@ -233,7 +231,7 @@ namespace nscapi {
                     {
                         os << '\n';
                 
-                        for(unsigned pad = indent; pad > 0; --pad)
+                        for(std::size_t pad = indent; pad > 0; --pad)
                         {
                             os.put(' ');
                         }                                                        
@@ -245,7 +243,7 @@ namespace nscapi {
             }          
         }                              
 
-		void format_description(std::ostream& os,
+		static void format_description(std::ostream& os,
 			const std::string& desc, 
 			std::size_t first_column_width,
 			unsigned line_length)
@@ -286,7 +284,7 @@ namespace nscapi {
 				{
 					os << '\n';
 
-					for(unsigned pad = first_column_width; pad > 0; --pad)
+					for(std::size_t pad = first_column_width; pad > 0; --pad)
 					{
 						os.put(' ');
 					}                    
@@ -294,7 +292,7 @@ namespace nscapi {
 			}  // paragraphs
 		}
 
-		std::string strip_default_value(const std::string &arg) {
+		static std::string strip_default_value(const std::string &arg) {
 			if (arg.size() > 3) {
 				std::string ret;
 				if (arg[arg.size()-1] == ')')
@@ -309,7 +307,7 @@ namespace nscapi {
 			}
 		}
 
-		std::string help(const boost::program_options::options_description &desc, const std::string &extra_info = "") {
+		static std::string help(const boost::program_options::options_description &desc, const std::string &extra_info = "") {
 			std::stringstream main_stream;
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
@@ -353,7 +351,7 @@ namespace nscapi {
 		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &command, const std::string &error, T &response) {
 			nscapi::protobuf::functions::set_response_bad(response, help(desc, error));
 		}
-		std::string make_csv(const std::string s) {
+		static std::string make_csv(const std::string s) {
 			std::string ret = s;
 			strEx::replace(ret, "\n", "\\n");
 			if (ret.find(',') != std::string::npos || ret.find('\"') != std::string::npos) {
@@ -362,7 +360,7 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		std::string help_csv(const boost::program_options::options_description &desc, const std::string &command) {
+		static std::string help_csv(const boost::program_options::options_description &desc, const std::string &command) {
 			std::stringstream main_stream;
 			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
 				main_stream << make_csv(op->long_name()) << ",";
@@ -474,7 +472,7 @@ namespace nscapi {
 			std::string value;
 		};
 		typedef std::list<alias_option> alias_map;
-		alias_map parse_legacy_alias(unrecognized_map unrecognized, std::string default_key) {
+		static alias_map parse_legacy_alias(unrecognized_map unrecognized, std::string default_key) {
 			alias_map result;
 			BOOST_FOREACH(const std::string &k, unrecognized) {
 				std::string::size_type pos = k.find("=");
@@ -495,20 +493,55 @@ namespace nscapi {
 			}
 			return result;
 		}
+
+
+
+
+		struct standard_filter_config {
+			std::string filter_string;
+			std::string warn_string;
+			std::string crit_string;
+			std::string ok_string;
+			std::string syntax_top;
+			std::string syntax_detail;
+			std::string empty_detail;
+			std::string empty_state;
+		};
+
+		static void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist, std::string default_syntax, std::string keylist) {
+			desc.add_options()
+				("filter", po::value<std::string>(&filter.filter_string),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but will be included in performance data and checked for critical and/or warning state. Anything not matching the filter will be ignored. Leaving the filter empty will include all applicable items")
+				("warning", po::value<std::string>(&filter.warn_string),			"Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")
+				("warn", po::value<std::string>(&filter.warn_string),				"Short alias for warning (see warning)")
+				("critical", po::value<std::string>(&filter.crit_string),			"Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.")
+				("crit", po::value<std::string>(&filter.crit_string),				"Short alias for critical (see critical).")
+				("ok", po::value<std::string>(&filter.ok_string),					"Filter which marks items which generates an ok state.\n"
+				"If anything matches this any previous state for this item will be reset to ok. Thus this overrides any previous warning or critical state already set (for a specific item)"
+				"Consider an item matching the following \"warning=foo > 500\" which escalates the item to warning status."
+				"If the same item also matches the following ok filter \"ok=500 > 1000\" this will override the previous escalation and revert the status to ok.")
+				("top-syntax", po::value<std::string>(&filter.syntax_top)->default_value(default_top_syntax), (std::string("Top level syntax.\n") + top_keylist).c_str())
+				("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvalible keys are: \n") + keylist).c_str())
+				("empty-syntax", po::value<std::string>(&filter.empty_detail)->default_value("CPULoad OK"), 
+				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+				("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"), 
+				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+				;
+		}
+/*
 		namespace legacy {
 
 
 
-			void add_nsclient(po::options_description &desc, bool &bOption) {
+			static void add_nsclient(po::options_description &desc, bool &bOption) {
 				desc.add_options()
 					("nsclient", po::bool_switch(&bOption)->implicit_value(true),"Do not check drives only return data compatible with the check_nt command.");
 			}
-			void add_ignore_perf_data(po::options_description &desc, bool &bOption) {
+			static void add_ignore_perf_data(po::options_description &desc, bool &bOption) {
 				desc.add_options()
 					("ignore-perf-data", po::bool_switch(&bOption)->implicit_value(false), "Do not return performance data.")
 				;
 			}
-			void add_perf_unit(po::options_description &desc) {
+			static void add_perf_unit(po::options_description &desc) {
 				desc.add_options()
 					("perf-unit", po::value<std::string>(), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
 					;
@@ -518,7 +551,7 @@ namespace nscapi {
 				if (vm.count("perf-unit"))
 					obj.perf_unit = vm["perf-unit"].as<std::string>();
 			}
-			void add_show_all(po::options_description &desc) {
+			static void add_show_all(po::options_description &desc) {
 				desc.add_options()
 					("ShowAll", po::value<std::string>()->implicit_value("short"), "Show all values not just problems.\nSome commands support setting this option to long or short to define how much information you want.")
 					("ShowFail", po::value<bool>(), "Show all values not just problems.\nSome commands support setting this option to long or short to define how much information you want.")
@@ -537,7 +570,7 @@ namespace nscapi {
 					obj.show = checkHolders::showProblems;
 				}
 			}
-			void add_disk_check(po::options_description &desc) {
+			static void add_disk_check(po::options_description &desc) {
 #define ARGTYPES "Possible values include either a percentage or a fixed value with a unit suffix. For instance ARG=23% for 23% or ARG=23M for 23Mega bytes or ARG=23k for 23 kilo bytes."
 				desc.add_options()
 					("MaxWarnFree", po::value<std::string>(), "Deprecated option.\nMaximum free size before a warning is returned. " ARGTYPES)
@@ -583,7 +616,7 @@ namespace nscapi {
 			}
 
 
-			void add_numerical_all(po::options_description &desc) {
+			static void add_numerical_all(po::options_description &desc) {
 				desc.add_options()
 					("MaxWarn", po::value<std::string>(), "Maximum number of matches before a warning is returned.")
 					("MaxCrit", po::value<std::string>(), "Maximum number of matches before a critical is returned.")
@@ -602,7 +635,7 @@ namespace nscapi {
 				if (vm.count("MinCrit"))
 					obj.crit.min_ = vm["MinCrit"].as<std::string>();
 			}
-			void add_exact_numerical_all(po::options_description &desc) {
+			static void add_exact_numerical_all(po::options_description &desc) {
 				desc.add_options()
 					("warn", po::value<std::string>(), "Expression which raises a warning status.")
 					("crit", po::value<std::string>(), "Expression which raises a critical status.")
@@ -617,5 +650,6 @@ namespace nscapi {
 			}
 
 		}
+*/
 	}
 }

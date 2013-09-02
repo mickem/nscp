@@ -26,7 +26,7 @@
 void generate_crc32_table(void);
 unsigned long calculate_crc32(const char *buffer, int buffer_size);
 unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
-
+/*
 #define MAP_OPTIONS_BEGIN(args) \
 	for (std::list<std::string>::const_iterator cit__=args.begin();cit__!=args.end();++cit__) { \
 	std::pair<std::string,std::string> p__ = strEx::split(*cit__,std::string("=")); if (false) {} else if (p__.first == "") {}
@@ -132,3 +132,4 @@ unsigned long calculate_crc32(const unsigned char *buffer, int buffer_size);
 	obj = p__.first; extra;}
 
 #define MAP_OPTIONS_SECONDARY_END() }
+*/

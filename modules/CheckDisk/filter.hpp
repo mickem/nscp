@@ -13,20 +13,26 @@
 #include <boost/filesystem.hpp>
 #include <error.hpp>
 
-#include <parsers/where/expression_ast.hpp>
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/filter/where_filter.hpp>
 
 #include "file_info.hpp"
 
 
 namespace file_filter {
-
-	struct filter_obj_handler;
 	struct file_object_exception : public std::exception {
-		file_object_exception(std::string what) : std::exception(what.c_str()) {}
-
+		std::string error_;
+	public:
+		file_object_exception(std::string error) : error_(error) {}
+		~file_object_exception() throw() {}
+		const char* what() const throw() {
+			return error_.c_str();
+		}
 	};
+
+
 	struct filter_obj {
 		filter_obj() 
 			: ullCreationTime(0)
@@ -56,7 +62,7 @@ namespace file_filter {
 		static filter_obj get(std::string file);
 
 		std::string get_filename() { return filename; }
-		std::string get_path() { return path.string(); }
+		std::string get_path(parsers::where::evaluation_context) { return path.string(); }
 
 		long long get_creation() {
 			return strEx::filetime_to_time(ullCreationTime);
@@ -69,7 +75,7 @@ namespace file_filter {
 		}
 		unsigned long long get_size() { return ullSize; }
 		std::string render(std::string syntax, std::string datesyntax);
-		std::string get_version(filter_obj_handler *handler);
+		std::string get_version();
 		unsigned long get_line_count();
 
 	public:
@@ -110,90 +116,12 @@ namespace file_filter {
 		boost::optional<std::string> cached_version;
 		boost::optional<unsigned long> cached_count;
 		DWORD attributes;
-
 	};
 
-	struct filter_obj_handler : public parsers::where::filter_handler_impl<filter_obj> {
-		typedef filter_obj object_type;
-		typedef boost::shared_ptr<filter_obj> object_instance_type;
-		typedef parsers::where::filter_handler_impl<object_type> base_handler;
 
-		static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
-
-		typedef parsers::where::filter_handler handler;
-		typedef parsers::where::expression_ast ast_expr_type;
-		typedef std::map<std::string,parsers::where::value_type> types_type;
-		typedef std::list<std::string> error_type;
-
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+	struct filter_obj_handler : public native_context {
 		filter_obj_handler();
-
-		base_handler::bound_string_type bind_simple_string(std::string key);
-		base_handler::bound_int_type bind_simple_int(std::string key);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, ast_expr_type *subject);
-		bool has_function(parsers::where::value_type to, std::string name, ast_expr_type *subject);
-
-		bool has_variable(std::string key);
-		parsers::where::value_type get_type(std::string key);
-		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-
-	public:
-		void error(std::string err) { errors.push_back(err); }
-		bool has_error() { return !errors.empty(); }
-		std::string get_error() { return format::join(errors, ", "); }
-	private:
-		std::list<std::string> errors;
-		object_instance_type object;
-
-	private:
-		types_type types;
-
 	};
-
-
-	struct file_finder_data_arguments : public where_filter::argument_interface {
-
-		typedef where_filter::argument_interface parent_type;
-		enum filter_types {
-			filter_plus = 1,
-			filter_minus = 2,
-			filter_normal = 3
-		};
-		bool bFilterAll;
-		bool bFilterIn;
-
-		int max_level;
-		int debugThreshold;
-
-		bool bShowDescriptions;
-		std::string pattern;
-		unsigned long long now;
-
-		file_finder_data_arguments(std::string pattern, int max_depth, parent_type::error_type error, std::string syntax, std::string datesyntax, bool debug = false);
-
-
-		bool is_valid_level(int current_level) {
-			return (max_level == -1) || (current_level <= max_level);
-		}
-	};
-	typedef where_filter::engine_interface<filter_obj> filter_engine_type;
-	typedef file_finder_data_arguments filter_argument_type;
-	typedef where_filter::result_counter_interface<filter_obj> filter_result_type;
-
-	struct filesize_engine_interface_type : public filter_engine_type {
-		virtual unsigned long long get_size() = 0;
-	};
-
-
-	typedef boost::shared_ptr<filter_engine_type> filter_engine;
-	typedef boost::shared_ptr<filesize_engine_interface_type> filesize_engine_interface;
-	typedef boost::shared_ptr<filter_argument_type> filter_argument;
-	typedef boost::shared_ptr<filter_result_type> filter_result;
-
-	struct factories {
-		static filter_engine create_engine(filter_argument arg);
- 		static filesize_engine_interface create_size_engine();
-		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::string pattern, int max_depth, std::string syntax, std::string datesyntax);
-	};
+	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }

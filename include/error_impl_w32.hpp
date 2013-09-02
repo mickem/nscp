@@ -3,6 +3,7 @@
 #include <string>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <tchar.h>
 #include <vector>
 
 #include <strEx.h>
@@ -40,7 +41,7 @@ namespace error {
 				return error::helpers::failed(dwError);
 			}
 			wchar_t *szBuf = new wchar_t[dwRet + 100];
-			wsprintf(szBuf, _T("%d: %s"), dwError, lpMsgBuf); 
+			wsprintf(szBuf, _T("%x: %s"), dwError, lpMsgBuf); 
 			std::string str = utf8::cvt<std::string>(std::wstring(szBuf));
 			delete [] szBuf;
 			LocalFree(lpMsgBuf);

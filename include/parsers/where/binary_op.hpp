@@ -1,21 +1,34 @@
 #pragma once
 
-#include <parsers/where/expression_ast.hpp>
+#include <parsers/where/node.hpp>
 
 namespace parsers {
 	namespace where {
-		struct binary_op {
+		struct binary_op : public any_node {
+			binary_op(operators op, node_type left, node_type right): op(op), left(left), right(right) {}
 
-			binary_op(operators op, expression_ast const& left, expression_ast const& right): op(op), left(left), right(right) {}
+			//virtual bool can_convert_to(value_type newtype) = 0;
+			//virtual void force_type(value_type newtype) = 0;
 
-			expression_ast evaluate(filter_handler handler, value_type type) const;
+			virtual std::string to_string() const;
+
+			virtual long long get_int_value(evaluation_context contxt) const;
+			virtual std::string get_string_value(evaluation_context contxt) const;
+			virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const;
+
+			virtual bool can_evaluate() const;
+			virtual node_type evaluate(evaluation_context contxt) const;
+			virtual bool bind(object_converter contxt);
+			virtual value_type infer_type(object_converter converter);
+			virtual value_type infer_type(object_converter converter, value_type suggestion);
+			virtual bool find_performance_data(evaluation_context context, performance_collector &collector);
+			virtual bool static_evaluate(evaluation_context contxt) const;
 
 		private:
 			binary_op() {}
-		public: // toido: change this!
 			operators op;
-			expression_ast left;
-			expression_ast right;
+			node_type left;
+			node_type right;
 		};
 	}
 }

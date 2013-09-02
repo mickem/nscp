@@ -139,7 +139,7 @@ namespace script_wrapper {
 		bool has_message_handler(const std::string command);
 		bool has_simple_message_handler(const std::string command);
 
-		std::wstring get_commands();
+		std::string get_commands();
 		tuple query(std::string request);
 	};
 	struct command_wrapper {

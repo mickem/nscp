@@ -75,7 +75,7 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		return false;
 	}
 #endif
-	NSC_LOG_ERROR_LISTW(info_.validate());
+	NSC_LOG_ERROR_LISTS(info_.validate());
 
 	std::list<std::string> errors;
 	info_.allowed_hosts.refresh(errors);

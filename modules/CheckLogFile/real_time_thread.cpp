@@ -9,27 +9,13 @@
 #include <vector>
 
 #include <boost/foreach.hpp>
-#include <boost/bind.hpp>
-#include <boost/assign.hpp>
-#include <boost/program_options.hpp>
-#include <boost/program_options/cmdline.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/thread.hpp>
-#include <boost/shared_ptr.hpp>
-
-#include <parsers/expression/expression.hpp>
 
 #include <time.h>
 #include <error.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-
-#include <parsers/where/unary_fun.hpp>
-#include <parsers/where/list_value.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/where/unary_op.hpp>
-#include <parsers/where/variable.hpp>
 
 #include <simple_timer.hpp>
 #include <settings/client/settings_client.hpp>
@@ -56,7 +42,7 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 	} else {
 		object.filter.returnCode = NSCAPI::returnOK;
 	}
-	object.filter.reset();
+	object.filter.start_match();
 
 	bool matched = false;
 	BOOST_FOREACH(filters::file_container &c, object.files) {
@@ -65,7 +51,6 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 		std::ifstream file(fname.c_str());
 		if (file.is_open()) {
 			std::string line;
-			object.filter.summary.filename = fname;
 			if (sz == c.size) {
 				continue;
 			} else if (sz > c.size) {
@@ -75,7 +60,7 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 				std::getline(file,line, '\n');
 				if (!object.column_split.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
-					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(object.filter.summary.filename, line, chunks, object.filter.summary.count_match));
+					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(fname, line, chunks));
 					boost::tuple<bool,bool> ret = object.filter.match(record);
 					if (ret.get<0>()) {
 						matched = true;
@@ -94,11 +79,9 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 		return;
 	}
 
-	std::string message;
-	if (object.filter.message.empty())
+	std::string message = object.filter.get_message();
+	if (message.empty())
 		message = "Nothing matched";
-	else
-		message = object.filter.message;
 	if (!object.command.empty())
 		command = object.command;
 	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.filter.returnCode, message, "", response)) {
@@ -109,24 +92,24 @@ void real_time_thread::process_object(filters::filter_config_object &object) {
 void real_time_thread::thread_proc() {
 
 	std::list<filters::filter_config_object> filters;
-	std::list<std::wstring> logs;
+	std::list<std::string> logs;
 
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
 		logfile_filter::filter filter;
 		std::string message;
 		if (!object.boot(message)) {
-			NSC_LOG_ERROR("Failed to load " + utf8::cvt<std::string>(object.alias) + ": " + message);
+			NSC_LOG_ERROR("Failed to load " + object.alias + ": " + message);
 			continue;
 		}
 		BOOST_FOREACH(const filters::file_container &fc, object.files) {
 			boost::filesystem::path path = utf8::cvt<std::string>(fc.file);
 #ifdef WIN32
 			if (boost::filesystem::is_directory(path)) {
-				logs.push_back(path.wstring());
+				logs.push_back(path.string());
 			} else {
 				path = path.remove_filename();
 				if (boost::filesystem::is_directory(path)) {
-					logs.push_back(path.wstring());
+					logs.push_back(path.string());
 				} else {
 					NSC_LOG_ERROR("Failed to find folder for " + utf8::cvt<std::string>(object.alias) + ": " + path.string());
 					continue;
@@ -134,7 +117,7 @@ void real_time_thread::thread_proc() {
 			}
 #else
 			if (boost::filesystem::is_regular(path)) {
-				logs.push_back(utf8::cvt<std::wstring>(path.string()));
+				logs.push_back(path.string());
 			} else {
 				NSC_LOG_ERROR("Failed to find folder for " + object.alias + ": " + fc.file);
 				continue;
@@ -146,13 +129,13 @@ void real_time_thread::thread_proc() {
 
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD("Scanning folders: " + utf8::cvt<std::string>(strEx::joinEx(logs, _T(", "))));
-	std::vector<std::wstring> files_list(logs.begin(), logs.end());
+	NSC_DEBUG_MSG_STD("Scanning folders: " + strEx::s::joinEx(logs, ", "));
+	std::vector<std::string> files_list(logs.begin(), logs.end());
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1+logs.size()];
 	handles[0] = stop_event_;
 	for (int i=0;i<files_list.size();i++) {
-		handles[i+1] = FindFirstChangeNotification(files_list[i].c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
+		handles[i+1] = FindFirstChangeNotification(utf8::cvt<std::wstring>(files_list[i]).c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
 	}
 #else
 
@@ -160,7 +143,7 @@ void real_time_thread::thread_proc() {
 
 	int *wds = new int[logs.size()];
 	for (int i=0;i<files_list.size();i++) {
-		wds[i] = inotify_add_watch(pollfds[0].fd, utf8::cvt<std::string>(files_list[i]).c_str(), IN_MODIFY);
+		wds[i] = inotify_add_watch(pollfds[0].fd, files_list[i].c_str(), IN_MODIFY);
 	}
 
 #endif
@@ -298,5 +281,3 @@ void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_pr
 		NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
 	}
 }
-
-

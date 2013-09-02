@@ -15,14 +15,16 @@
 		"check_cpu" : { 
 			"alias"		: "checkCPU",
 			"description" : "Check that the load of the CPU(s) are within bounds.",
-			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" },
-			"legacy"	: true
+			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" }
 			},
-		"check_uptime"	: { "legacy":true, "alias" : "checkUpTime", 			"desc" : "Check time since last server re-boot." },
-		"check_service"	: { "legacy":true, "alias" : "checkServiceState",		"desc" : "Check the state of one or more of the computer services." },
-		"check_process"	: { "legacy":true, "alias" : "checkProcState",			"desc" : "Check the state of one or more of the processes running on the computer." },
-		"check_memory"	: { "legacy":true, "alias" : "checkMem",				"desc" : "Check free/used memory on the system." },
-		"check_pdh" 	: { "legacy":true, "alias" : "checkCounter",			"desc" : "Check a PDH counter." }
+		"check_uptime"	: { "alias" : "checkUpTime", 		"desc" : "Check time since last server re-boot." },
+		"check_service"	: { "alias" : "checkServiceState",	"desc" : "Check the state of one or more of the computer services." },
+		"check_process"	: { "alias" : "checkProcState",		"desc" : "Check the state of one or more of the processes running on the computer." },
+		"check_memory"	: { "alias" : "checkMem",		"desc" : "Check free/used memory on the system." },
+		"check_pdh" 	: { 
+			"alias" : "checkCounter",			
+			"desc" : "Check a PDH counter." 
+			}
 	},
 
 	"command line exec" : "legacy",

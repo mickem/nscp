@@ -5,15 +5,14 @@
 
 #include "eventlog_wrapper.hpp"
 #include "eventlog_record.hpp"
-
-#include "filters.hpp"
+#include "filter_config_object.hpp"
 
 struct real_time_thread {
 	bool enabled_;
 	unsigned long long start_age_;
 	boost::shared_ptr<boost::thread> thread_;
 	HANDLE stop_event_;
-	filters::filter_config_handler filters_;
+	eventlog_filter::filter_config_handler filters_;
 	std::string logs_;
 
 	bool cache_;
@@ -43,8 +42,8 @@ struct real_time_thread {
 
 	void thread_proc();
 	//	void process_events(eventlog_filter::filter_engine engine, eventlog_wrapper &eventlog);
-	void process_no_events(const filters::filter_config_object &object);
-	void process_record(const filters::filter_config_object &object, const EventLogRecord &record);
+	void process_no_events(const eventlog_filter::filter_config_object &object);
+	void process_record(eventlog_filter::filter_config_object &object, const EventLogRecord &record);
 	void debug_miss(const EventLogRecord &record);
 	//	void process_event(eventlog_filter::filter_engine engine, const EVENTLOGRECORD* record);
 };

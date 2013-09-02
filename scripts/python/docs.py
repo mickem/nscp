@@ -533,6 +533,8 @@ Contents:
 		parser.add_option("--trac-path", help="The path to track (used for importing wikis)")
 		(options, args) = parser.parse_args(args=args)
 
+		if not options.format:
+			options.format = "rst"
 		#if options.format in ["trac"]:
 		#	self.generate_trac(options.output, options.trac_path)
 		if options.format in ["rst"]:

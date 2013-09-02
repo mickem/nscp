@@ -3,7 +3,7 @@
 #include <boost/shared_ptr.hpp>
 #include <NSCAPI.h>
 
-#pragma warning( disable : 4100 )
+//#pragma warning( disable : 4100 )
 
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
@@ -61,7 +61,7 @@
 
 #ifdef _WIN32
 #define NSC_WRAP_DLL() \
-	BOOL APIENTRY DllMain( HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) { return TRUE; } \
+	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; } \
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 #else
 #define NSC_WRAP_DLL() \
@@ -126,15 +126,15 @@
 		return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); }
 
 #define NSC_WRAPPERS_IGNORE_MSG_DEF() \
-	extern void NSHandleMessage(unsigned int id, const char* data, unsigned int len) {} \
-	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) { return NSCAPI::isfalse; }
+	extern void NSHandleMessage(unsigned int, const char*, unsigned int) {} \
+	extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int) { return NSCAPI::isfalse; }
 
 #define NSC_WRAPPERS_IGNORE_CMD_DEF() \
-	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {  return NSCAPI::returnIgnored; } \
-	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) { return NSCAPI::isfalse; }
+	extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int, const char*, const unsigned int, char**, unsigned int*) {  return NSCAPI::returnIgnored; } \
+	extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int) { return NSCAPI::isfalse; }
 
 #define NSC_WRAPPERS_IGNORE_NOTIFICATION_DEF() \
-	extern int NSHandleNotification(unsigned int id, const char* channel, const char* command, const char* result_buffer, unsigned int result_buffer_len) {} \
-	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) { return NSCAPI::isfalse; }
+	extern int NSHandleNotification(unsigned int, const char*, const char*, const char*, unsigned int) {} \
+	extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int) { return NSCAPI::isfalse; }
 
 #define GET_CORE() nscapi::plugin_singleton->get_core()

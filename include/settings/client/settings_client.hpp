@@ -18,8 +18,9 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <settings/client/settings_client_interface.hpp>
 
-
+#ifdef WIN32
 #pragma warning( disable : 4800 )
+#endif
 
 namespace boost
 {
@@ -282,16 +283,17 @@ namespace nscapi {
 		typedef typed_key_value<bool, typed_bool_value<bool> > bool_key_type;
 
 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val, std::wstring def);
-		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val);
+// 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val);
 		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def);
 		boost::shared_ptr<string_key_type> string_key(std::string *val);
 		boost::shared_ptr<int_key_type> int_key(int *val, int def = 0);
 		boost::shared_ptr<size_key_type> size_key(std::size_t *val, std::size_t def = 0);
 		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val, unsigned int def);
+		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val);
 		boost::shared_ptr<bool_key_type> bool_key(bool *val, bool def);
 		boost::shared_ptr<bool_key_type> bool_key(bool *val);
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def);
-		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val);
+//		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val);
 		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def);
 		boost::shared_ptr<path_key_type> path_key(std::string *val);
 		boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val, std::string def);

@@ -328,7 +328,7 @@ CLI_DELEGATOR_HPP_LEGACY = """
 	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
 	/*
 	Add the following to ${CLASS}
-	NSCAPI::nagiosReturn commandLineExec(const std::string &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
 	*/
 """
 CLI_DELEGATOR_HPP_FALSE = ""
@@ -463,16 +463,45 @@ LOG_DELEGATOR_DEF_CPP_FALSE = "NSC_WRAPPERS_IGNORE_MSG_DEF()"
 
 CLI_DELEGATOR_CPP_LEGACY = """
 NSCAPI::nagiosReturn ${CLASS}Module::commandRAWLineExec(const std::string &request, std::string &response) {
-	nscapi::protobuf::types::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request(request);
-	std::wstring result;
-	std::list<std::wstring> args;
-	BOOST_FOREACH(const std::string &s, data.args)
-		args.push_back(utf8::cvt<std::wstring>(s));
-	NSCAPI::nagiosReturn ret = impl_->commandLineExec(utf8::cvt<std::wstring>(data.command), args, result);
-	if (ret == NSCAPI::returnIgnored)
+	try {
+		Plugin::ExecuteRequestMessage request_message;
+		Plugin::ExecuteResponseMessage response_message;
+		request_message.ParseFromString(request);
+		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
+
+		bool found = false;
+		for (int i=0;i<request_message.payload_size();i++) {
+			const Plugin::ExecuteRequestMessage::Request &request_payload = request_message.payload(i);
+			if (!impl_) {
+				nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Internal error"), response);
+				return NSCAPI::isSuccess;
+			} else {
+				Plugin::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
+				response_payload->set_command(request_payload.command());
+				std::string output;
+				std::list<std::string> args;
+				for (int j=0;j<request_payload.arguments_size();++j)
+					args.push_back(request_payload.arguments(j));
+				int ret = impl_->commandLineExec(request_payload.command(), args, output);
+				if (ret != NSCAPI::returnIgnored) {
+					found = true;
+					response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
+					response_payload->set_message(output);
+				}
+			}
+		}
+		if (found) {
+			response_message.SerializeToString(&response);
+			return NSCAPI::isSuccess;
+		}
 		return NSCAPI::returnIgnored;
-	nscapi::protobuf::functions::create_simple_exec_response(data.command, ret, utf8::cvt<std::string>(result), response);
-	return ret;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Failed to process command: ") + utf8::utf8_from_native(e.what()), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", "Failed to process command", response);
+		return NSCAPI::isSuccess;
+	}
 }
 """
 CLI_DELEGATOR_CPP_PASS_THROUGH = """
@@ -682,9 +711,11 @@ ${COMMAND_INSTANCES_CPP}
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
-		return nscapi::protobuf::functions::create_simple_query_response_unknown("", std::string("Failed to process command : ") + e.what(), response);
+		nscapi::protobuf::functions::create_simple_query_response_unknown("", std::string("Failed to process command : ") + e.what(), response);
+		return NSCAPI::isSuccess;
 	} catch (...) {
-		return nscapi::protobuf::functions::create_simple_query_response_unknown("", "Failed to process command", response);
+		nscapi::protobuf::functions::create_simple_query_response_unknown("", "Failed to process command", response);
+		return NSCAPI::isSuccess;
 	}
 }
 
@@ -743,7 +774,6 @@ ${LOAD_DELEGATOR}
 		NSC_LOG_ERROR_EX("Failed to load ${CLASS}: ");
 		return false;
 	}
-	return true;
 }
 
 bool ${CLASS}Module::unloadModule() {

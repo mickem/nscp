@@ -118,7 +118,7 @@ namespace socket_helpers {
 			}
 			return false;
 		}
-		std::wstring to_wstring();
+//		std::wstring to_wstring();
 		std::string to_string();
 	};
 
@@ -148,8 +148,8 @@ namespace socket_helpers {
 		}
 
 
-		std::list<std::wstring> validate_ssl();
-		std::list<std::wstring> validate();
+		std::list<std::string> validate_ssl();
+		std::list<std::string> validate();
 
 		std::string address;
 		int back_log;
@@ -219,9 +219,6 @@ namespace socket_helpers {
 		std::string get_address() const { return address; }
 		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
-		}
-		std::wstring get_endpoint_wstring() const {
-			return utf8::cvt<std::wstring>(get_endpoint_string());
 		}
 	};
 

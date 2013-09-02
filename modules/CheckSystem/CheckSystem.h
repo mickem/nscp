@@ -20,21 +20,37 @@
 ***************************************************************************/
 #pragma once
 
-#include <pdh.hpp>
-#include "PDHCollector.h"
+//#include <pdh.hpp>
+#include "pdh_thread.hpp"
 #include <CheckMemory.h>
+#include <protobuf/plugin.pb.h>
 
+#include "check_pdh.hpp"
+
+
+#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/settings_object.hpp>
+
+namespace sh = nscapi::settings_helper;
+
+
+template<class T>
+inline void import_string(T &object, T &parent) {
+	if (object.empty() && !parent.empty())
+		object = parent;
+}
 class CheckSystem : public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;
-	PDHCollector pdh_collector;
+	pdh_thread collector;
 
 	typedef std::map<std::string,std::string> counter_map_type;
 	counter_map_type counters;
 
-public:
-	std::map<DWORD,std::string> lookups_;
+//	std::map<DWORD,std::string> lookups_;
 
+	check_pdh::check pdh_checker;
 
 public:
 	CheckSystem() {}
@@ -43,13 +59,14 @@ public:
 	virtual bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	virtual bool unloadModule();
 
-	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
 
-	NSCAPI::nagiosReturn check_service(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn check_memory(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn check_pdh(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn check_process(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn check_cpu(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
-	NSCAPI::nagiosReturn check_uptime(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
+	void check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_pdh(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query);
 
 };

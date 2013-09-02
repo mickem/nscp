@@ -8,6 +8,7 @@
 #include "reporter.h"
 #ifdef WIN32
 #include <ServiceCmd.h>
+#include <tchar.h>
 #endif
 #include <iostream>
 #include <file_helpers.hpp>
@@ -60,11 +61,11 @@ int nscp_main(int argc, wchar_t* argv[]) {
 			return send_dump_ui(argv[2], argv[3], argv[4], argv[5], argv[6]);
 		}
 	}
-	std::wcout << _T("Usage: ") << argv[0] << _T("archive|send|send-gui [options]") << std::endl;
-	std::wcout << _T("    archive <file> <archive path>") << std::endl;
-	std::wcout << _T("    send <file> <product> <version> <date>") << std::endl;
-	std::wcout << _T("    send-gui <file> <product> <version> <date>") << std::endl;
-	std::wcout << _T("    restart <service>") << std::endl;
+	std::wcout << L"Usage: " << argv[0] << L"archive|send|send-gui [options]" << std::endl;
+	std::wcout << L"    archive <file> <archive path>" << std::endl;
+	std::wcout << L"    send <file> <product> <version> <date>" << std::endl;
+	std::wcout << L"    send-gui <file> <product> <version> <date>" << std::endl;
+	std::wcout << L"    restart <service>" << std::endl;
 	return -1;
 }
 
@@ -105,21 +106,21 @@ int archive_dump(std::wstring file, std::wstring application, std::wstring versi
 	try {
 		if (!file_helpers::checks::exists(target)) {
 			if (!boost::filesystem::create_directories(target)) {
-				std::wcout << _T("Failed to create directory: ") << target << std::endl;
+				std::wcout << L"Failed to create directory: " << target << std::endl;
 				return -1;
 			}
-			std::wcout << _T("Created folder: ") << target << std::endl;
+			std::wcout << L"Created folder: " << target << std::endl;
 		}
 		if (!file_helpers::checks::is_directory(target)) {
-			std::wcout << _T("Target is not a folder: ") << target << std::endl;
+			std::wcout << L"Target is not a folder: " << target << std::endl;
 			return -1;
 		}
 
-		std::wstring fname = file.substr(file.find_last_of(_T("/\\")));
+		std::wstring fname = file.substr(file.find_last_of(L"/\\"));
 		boost::filesystem::copy_file(file, target + fname);
-		std::wstring descfile = target + fname + _T(".txt");
+		std::wstring descfile = target + fname + L".txt";
 		if (!write_desc(utf8::cvt<std::string>(descfile), utf8::cvt<std::string>(application), utf8::cvt<std::string>(version), utf8::cvt<std::string>(date))) {
-			std::wcout << _T("Failed to write description: ") << target << fname << _T(".txt") << std::endl;
+			std::wcout << L"Failed to write description: " << target << fname << L".txt" << std::endl;
 			return -1;
 		}
 		return 0;
@@ -131,10 +132,10 @@ int archive_dump(std::wstring file, std::wstring application, std::wstring versi
 int send_dump_ui(std::wstring file, std::wstring application, std::wstring version, std::wstring date, std::wstring url) {
 	std::wstring err;
 	if (!SendMinidump(file, application, version, date, url, err)) {
-		std::wstring msg = _T("Failed sending report to server: ") + application + _T(", ") + version + _T("\nFile: ") + file + _T("\nUrl: ") + url;
+		std::wstring msg = L"Failed sending report to server: " + application + L", " + version + L"\nFile: " + file + L"\nUrl: " + url;
 #ifdef WIN32
-		MessageBox(NULL, msg.c_str(), _T("NSClient++ Crash report"), MB_OK);
-		while (MessageBox(NULL, (std::wstring(_T("Failed to send crash report to report server: ")) + err).c_str(), _T("NSClient++ Crash report"), MB_RETRYCANCEL|MB_ICONERROR) == IDRETRY) {
+		MessageBox(NULL, msg.c_str(), L"NSClient++ Crash report", MB_OK);
+		while (MessageBox(NULL, (std::wstring(L"Failed to send crash report to report server: ") + err).c_str(), L"NSClient++ Crash report", MB_RETRYCANCEL|MB_ICONERROR) == IDRETRY) {
 			if (SendMinidump(file, application, version, date, url, err))
 				break;
 		}
@@ -148,7 +149,7 @@ int send_dump_ui(std::wstring file, std::wstring application, std::wstring versi
 int send_dump(std::wstring file, std::wstring application, std::wstring version, std::wstring date, std::wstring url) {
 	std::wstring err;
 	if (!SendMinidump(file, application, version, date, url, err)) {
-		std::wcout << _T("Failed sending report to server: ") << err << std::endl;
+		std::wcout << L"Failed sending report to server: " << err << std::endl;
 		return -1;
 	}
 	return 0;
@@ -158,20 +159,20 @@ int send_dump(std::wstring file, std::wstring application, std::wstring version,
 
 bool SendMinidump(std::wstring file, std::wstring product, std::wstring version, std::wstring date, std::wstring url, std::wstring &err) {
 #ifdef HAVE_BREAKPAD
-	google_breakpad::CrashReportSender sender(_T(""));
-	//std::wstring url = _T("http://crash.nsclient.org/submit");
+	google_breakpad::CrashReportSender sender(L"");
+	//std::wstring url = L"http://crash.nsclient.org/submit";
 	std::map<std::wstring,std::wstring> params;
 	std::wstring ret;
-	params[_T("ProductName")] = product;
-	params[_T("Version")] = version;
-	params[_T("Date")] = date;
+	params[L"ProductName"] = product;
+	params[L"Version"] = version;
+	params[L"Date"] = date;
 
 
 	google_breakpad::ReportResult result = sender.SendCrashReport(url, params, file, &ret);
 	err = ret;
 	return result == google_breakpad::RESULT_SUCCEEDED;
 #else
-	std::wcerr << _T("Not compiled with protocol buffer support...\n");
+	std::wcerr << L"Not compiled with protocol buffer support...\n";
 	return false;
 #endif
 }

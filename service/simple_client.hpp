@@ -17,8 +17,8 @@ namespace nsclient {
 		inline void info(unsigned int line, const std::string &message) {
 			get_logger()->info("client", __FILE__, line, message);
 		}
-		void start(std::string log) {
-			if (!core_->boot_init(log)) {
+		void start() {
+			if (!core_->boot_init(true)) {
 				error(__LINE__, "Service failed to init");
 				return;
 			}
@@ -36,7 +36,6 @@ namespace nsclient {
 
 			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
 			info(__LINE__, "Enter command to inject or exit to terminate...");
-			std::wstring s = _T("");
 
 			while (true) {
 				std::string s;
@@ -73,11 +72,11 @@ namespace nsclient {
 						if (ret == NSCAPI::returnIgnored) {
 							info(__LINE__, "No handler for command: " + t.first);
 						} else {
-							if (msg.size() > 4096) {
+							if (msg.size() > 8096) {
 								info(__LINE__, "Command returned too much data (result truncated)");
-								msg = msg.substr(0, 4096);
+								msg = msg.substr(0, 8096);
 							}
-							info(__LINE__, nscapi::plugin_helper::translateReturn(ret) + ":" + msg);
+							info(__LINE__, nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
 							if (!perf.empty())
 								info(__LINE__, " Performance data: " + perf);
 						}

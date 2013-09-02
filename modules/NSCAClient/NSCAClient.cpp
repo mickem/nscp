@@ -79,7 +79,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"CHANNEL", "The channel to listen to.")
 
 
-			("delay", sh::string_fun_key<std::wstring>(boost::bind(&NSCAClient::set_delay, this, _1), _T("0")),
+			("delay", sh::string_fun_key<std::string>(boost::bind(&NSCAClient::set_delay, this, _1), "0"),
 			"DELAY", "", true)
 			;
 
@@ -312,9 +312,9 @@ int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, c
 		list.push_back(packet);
 	}
 
-	boost::tuple<int,std::wstring> ret = instance->send(con, list);
+	boost::tuple<int,std::string> ret = instance->send(con, list);
 
-	nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()), "");
+	nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>(), "");
 	return NSCAPI::isSuccess;
 }
 
@@ -329,19 +329,19 @@ int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, 
 
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		nsca::packet packet(con.sender_hostname, con.buffer_length, con.time_delta);
-		std::wstring alias, msg, perf;
+		std::string alias, msg, perf;
 		packet.code = nscapi::protobuf::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
-		if (alias != _T("host_check"))
+		if (alias != "host_check")
 			packet.service = utf8::to_encoding(alias, con.encoding);
 		if (perf.empty())
 			packet.result = utf8::to_encoding(msg, con.encoding);
 		else
-			packet.result = utf8::to_encoding(msg + _T("|") + perf, con.encoding);
+			packet.result = utf8::to_encoding(msg + "|" + perf, con.encoding);
 		list.push_back(packet);
 	}
 
-	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = instance->send(con, list);
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -361,8 +361,8 @@ int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		//packet.result = data.;
 		list.push_back(packet);
 	}
-	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = instance->send(con, list);
+	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -394,7 +394,7 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-boost::tuple<int,std::wstring> NSCAClient::send(connection_data con, const std::list<nsca::packet> packets) {
+boost::tuple<int,std::string> NSCAClient::send(connection_data con, const std::list<nsca::packet> packets) {
 	try {
 		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
@@ -406,18 +406,18 @@ boost::tuple<int,std::wstring> NSCAClient::send(connection_data con, const std::
 			client.process_request(packet);
 		}
 		client.shutdown();
-		return boost::make_tuple(NSCAPI::isSuccess, _T(""));
+		return boost::make_tuple(NSCAPI::isSuccess, "");
 	} catch (const nscp::encryption::encryption_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::hasFailed, _T("NSCA error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, "NSCA error: " + utf8::utf8_from_native(e.what()));
 	} catch (const std::runtime_error &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::hasFailed, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::hasFailed, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::hasFailed, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to send");
-		return boost::make_tuple(NSCAPI::hasFailed, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::hasFailed, "Unknown error -- REPORT THIS!");
 	}
 }

@@ -80,18 +80,19 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 #endif
-	if (handler_->get_payload_length() != 1024)
-		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(handler_->get_payload_length()));
-	NSC_LOG_ERROR_LISTW(info_.validate());
-
-	std::list<std::string> errors;
-	info_.allowed_hosts.refresh(errors);
-	NSC_LOG_ERROR_LISTS(errors);
-	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
-
-	boost::asio::io_service io_service_;
-
 	if (mode == NSCAPI::normalStart) {
+
+		if (handler_->get_payload_length() != 1024)
+			NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(handler_->get_payload_length()));
+		NSC_LOG_ERROR_LISTS(info_.validate());
+
+		std::list<std::string> errors;
+		info_.allowed_hosts.refresh(errors);
+		NSC_LOG_ERROR_LISTS(errors);
+		NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
+
+		boost::asio::io_service io_service_;
+
 		server_.reset(new nrpe::server::server(info_, handler_));
 		if (!server_) {
 			NSC_LOG_ERROR_STD("Failed to create server instance!");

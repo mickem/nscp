@@ -320,13 +320,13 @@ namespace service_helper_impl {
 				return;
 			}
 
-			TBase::handle_startup(name_);
+			TBase::handle_startup(utf8::cvt<std::string>(name_));
 
 			stop_mutex_.lock();
 
 
 			print_debug(_T("Shutting down: ") + name_);
-			TBase::handle_shutdown(name_);
+			TBase::handle_shutdown(utf8::cvt<std::string>(name_));
 		}
 
 

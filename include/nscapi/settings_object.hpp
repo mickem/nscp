@@ -9,6 +9,7 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <boost/optional.hpp>
 
 #include <unicode_char.hpp>
 #include <strEx.h>

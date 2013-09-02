@@ -24,46 +24,69 @@
 #include <atlbase.h>
 
 #include <error_com.hpp>
+#include <error.hpp>
 
-//#include <objidl.h>
 #include <map>
 #include <comdef.h>
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")
 
-#include <parsers/where/unary_fun.hpp>
-#include <parsers/where/list_value.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/where/unary_op.hpp>
-#include <parsers/where/variable.hpp>
+void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive);
 
-void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
+
+void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive) {
 	CComPtr<ITaskService> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, reinterpret_cast<void**>(&taskSched));
+	HRESULT hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
 		throw Exception(_T("CoCreateInstance for CLSID_CTaskScheduler failed!"), hr);
 	}
 
-	taskSched->Connect(_variant_t(), _variant_t(),
-		_variant_t(), _variant_t());
+	
+	taskSched->Connect(_variant_t(utf8::cvt<std::wstring>(computer).c_str()), _variant_t(utf8::cvt<std::wstring>(user).c_str()), 
+		_variant_t(utf8::cvt<std::wstring>(domain).c_str()), _variant_t(utf8::cvt<std::wstring>(password).c_str()));
 
-	ITaskFolder *pRootFolder = NULL;
-	hr = taskSched->GetFolder( _bstr_t( L"\\") , &pRootFolder );
+	do_get(taskSched, filter, folder, recursive);
+}
+
+
+void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive) {
+	CComPtr<ITaskFolder> pRootFolder;
+	HRESULT hr = taskSched->GetFolder( _bstr_t(utf8::cvt<std::wstring>(folder).c_str()) , &pRootFolder);
 	if (FAILED(hr)) {
-		throw Exception(_T("Failed to get root folder!"), hr);
+		throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
+	}
+
+	if (recursive) {
+		CComPtr<ITaskFolderCollection> folders; 
+		if (FAILED(pRootFolder->GetFolders(0, &folders)))
+			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
+		LONG count = 0;
+		if (FAILED(folders->get_Count(&count)))
+			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
+		std::vector<std::string> sub_folders;
+		for(LONG i=0; i < count; ++i) {
+			CComPtr<ITaskFolder> inst;
+			if (FAILED(folders->get_Item(_variant_t(i+1), &inst)))
+				throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
+			BSTR str;
+			if (FAILED(inst->get_Path(&str)))
+				throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
+			_bstr_t sstr(str, FALSE);
+			sub_folders.push_back(utf8::cvt<std::string>(std::wstring(sstr)));
+		}
 	}
 
 	CComPtr<IRegisteredTaskCollection> pTaskCollection;
 	hr = pRootFolder->GetTasks(NULL, &pTaskCollection);
 	if (FAILED(hr)) {
-		throw Exception(_T("Failed to enum work items failed!"), hr);
+		throw nscp_exception("Failed to enum work items failed: " + error::com::get());
 	}
 
 	LONG numTasks = 0;
 	hr = pTaskCollection->get_Count(&numTasks);
 	if (FAILED(hr)) {
-		throw Exception(_T("Failed to get count!"), hr);
+		throw nscp_exception("Failed to get count: " + error::com::get());
 	}
 
 	if( numTasks == 0 ) {
@@ -76,8 +99,11 @@ void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter
 		CComPtr<IRegisteredTask> pRegisteredTask = NULL;
 		hr = pTaskCollection->get_Item(_variant_t(i+1), &pRegisteredTask);
 		if(SUCCEEDED(hr)) {
-			boost::shared_ptr<tasksched_filter::filter_obj> arg = boost::shared_ptr<tasksched_filter::filter_obj>(new tasksched_filter::filter_obj((IRegisteredTask*)pRegisteredTask));
-			result->process(arg, engine->match(arg));
+			boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::filter_obj(folder, (IRegisteredTask*)pRegisteredTask));
+			boost::tuple<bool,bool> ret = filter.match(record);
+			if (ret.get<1>()) {
+				break;
+			}
 		}
 	}
 }

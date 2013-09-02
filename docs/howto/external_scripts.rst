@@ -221,7 +221,7 @@ Please note that the actual arguments here are hardcoded as we do not allow argu
     [/settings/NRPE/server]
     allow arguments=true
 
-    [/settings/external scripts/server]
+    [/settings/external scripts]
     allow arguments=false
 
     [/settings/external scripts/scripts]
@@ -244,7 +244,7 @@ one (as before) for the NRPEServer and once again for the CheckExternalScripts m
     [/settings/NRPE/server]
     allow arguments=true
 
-    [/settings/external scripts/server]
+    [/settings/external scripts]
     allow arguments=true
 
     [/settings/external scripts/scripts]

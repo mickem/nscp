@@ -1,83 +1,43 @@
-/*#############################################################################
-# ENUMNTSRV.H
-#
-# SCA Software International S.A.
-# http://www.scasoftware.com
-# scaadmin@scasoftware.com
-#
-# Copyright (c) 1999 SCA Software International S.A.
-#
-# Date: 05.12.1999.
-# Author: Zoran M.Todorovic
-#
-# This software is provided "AS IS", without a warranty of any kind.
-# You are free to use/modify this code but leave this header intact.
-#
-#############################################################################*/
-
-#ifndef __ENUMNTSRV_H__
-#define __ENUMNTSRV_H__
-
-#if _MSC_VER > 1000
 #pragma once
-#endif // _MSC_VER > 1000
 
 #include <list>
 #include <string>
-#include <strEx.h>
 
-class TNtServiceInfo;
+namespace services_helper {
+	struct service_info {
+		std::string name;
+		std::string displayname;
+		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0) {}
+		service_info(const service_info &other) 
+			: name(other.name), displayname(other.displayname)
+			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type)
+			, binary_path(other.binary_path)
+		{}
+		
 
-typedef std::list<TNtServiceInfo> TNtServiceInfoList;
+		DWORD pid;
+		DWORD state;
+		DWORD start_type;
+		DWORD error_control;
+		DWORD type;
 
-#define NSCP_SERVICE_DELAYED 5
-//=============================================================================
-// class TNtServiceInfo
-//
-//=============================================================================
+		std::string binary_path;
 
-class NTServiceException : public std::exception {
-private:
-	std::string name_;
-	std::string msg_;
-public:
-	NTServiceException(std::string name,std::string msg) : name_(name), msg_(msg) {};
-	~NTServiceException() throw() {}
+		std::string get_state_s() const;
+		std::string get_start_type_s() const;
+		long long get_state_i() const { return state; } 
+		long long get_start_type_i() const { return start_type; } 
+		std::string get_type() const;
+		std::string get_name() const { return name; }
+		std::string get_desc() const { return displayname; }
+		long long get_pid() const { return pid; }
 
-	const char* what() const throw() {
-		return std::string("Service: '" + name_ + "' caused: " + msg_).c_str();
-	}
-};
-#define MY_SERVICE_NOT_FOUND                        0xffff0000
+		static long long parse_start_type(const std::string &s);
+		static long long parse_state(const std::string &s);
+	};
 
-class TNtServiceInfo {
-public:
-	std::string m_strServiceName;
-	std::string m_strDisplayName;
-	std::string m_strBinaryPath;
-	DWORD m_dwServiceType;
-	DWORD m_dwStartType;
-	DWORD m_dwErrorControl;
-	DWORD m_dwCurrentState;
-
-public:
-	TNtServiceInfo();
-	TNtServiceInfo(const TNtServiceInfo& source);
-	TNtServiceInfo& operator=(const TNtServiceInfo& source);
-	virtual ~TNtServiceInfo();
-
-	std::string GetServiceType();
-	std::string GetStartType();
-	std::string GetErrorControl();
-	std::string GetCurrentState();
-
-	static TNtServiceInfoList EnumServices(DWORD dwType, DWORD dwState, bool vista);
-	//static void EnumServices(DWORD dwType, DWORD dwState, TNtServiceInfoList *pList);
-	static TNtServiceInfo GetService(std::string);
-};
-
-#endif
-
-/*#############################################################################
-# End of file ENUMNTSRV.H
-#############################################################################*/
+	DWORD parse_service_type(const std::string str = "service");
+	DWORD parse_service_state(const std::string str = "all");
+	std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState);
+	service_info get_service_info(const std::string computer, const std::string service);
+}

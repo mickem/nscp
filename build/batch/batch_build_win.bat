@@ -1,16 +1,19 @@
 @ECHO OFF
-SET ROOT=d:\source\nscp\build
+SET ROOT=D:\source\build\vs2012
+SET SOURCE=D:\source\nscp\master\nscp
 
 mkdir %ROOT%
 mkdir %ROOT%\x64
 mkdir %ROOT%\w32
+mkdir %ROOT%\x64\dist
+mkdir %ROOT%\w32\dist
 
-cd %ROOT%\x64
+cd %ROOT%\x64\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
-cmake -D INCREASE_BUILD=1 -G "Visual Studio 8 2005 Win64" ../../trunk
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005 Win64" ../../trunk
+cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" %SOURCE%
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building x64 
@@ -25,12 +28,12 @@ title Postbuild x64
 postbuild.py
 if %ERRORLEVEL% == 1 goto :error
 
-cd %ROOT%\w32
+cd %ROOT%\w32\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating w32
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005" ../../trunk
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 8 2005" ../../trunk
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" %SOURCE%
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building w32

@@ -18,7 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include <socket_helpers.hpp>
 #include <check_nt/server/protocol.hpp>
 
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {
@@ -31,7 +30,7 @@ public:
 
 	check_nt::packet handle(check_nt::packet packet);
 
-	check_nt::packet create_error(std::wstring msg) {
+	check_nt::packet create_error(std::string msg) {
 		return check_nt::packet("ERROR: Failed to parse");
 	}
 

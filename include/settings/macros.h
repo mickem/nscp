@@ -1,5 +1,6 @@
 #pragma once
 
+/*
 #include <unicode_char.hpp>
 
 #define DEFINE_SETTING_S(name, path, key, value) \
@@ -56,11 +57,14 @@
 
 
 // Main Registry ROOT
-#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
-#define NS_REG_ROOT _T("SOFTWARE\\NSClient++")
 
 namespace setting_keys {
-#define MAIN_MODULES_SECTION "/modules"
 #define CHECK_SYSTEM_SECTION "/settings/system"
 #define CHECK_SYSTEM_COUNTERS_SECTION "/settings/system/PDH counters"
 }
+
+*/
+
+#define MAIN_MODULES_SECTION "/modules"
+#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
+#define NS_REG_ROOT _T("SOFTWARE\\NSClient++")

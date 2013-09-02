@@ -19,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <socket_helpers.hpp>
 #include <nsca/server/protocol.hpp>
 
 class NSCAServer : public nscapi::impl::simple_plugin {

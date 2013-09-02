@@ -7,158 +7,86 @@
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>
-#include <parsers/filter/where_filter.hpp>
-#include <parsers/filter/where_filter_impl.hpp>
-
-#include <parsers/where/unary_fun.hpp>
-#include <parsers/where/list_value.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/where/unary_op.hpp>
-#include <parsers/where/variable.hpp>
 
 #include <simple_timer.hpp>
 #include <strEx.h>
 #include "filter.hpp"
 
-//#include <config.h>
-
-using namespace boost::assign;
-using namespace parsers::where;
-
-eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_severity(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
-	return expression_ast_type(parsers::where::int_value(convert_severity(subject->get_string(handler))));
-}
-eventlog_filter::filter_obj::expression_ast_type eventlog_filter::filter_obj::fun_convert_type(parsers::where::value_type target_type, parsers::where::filter_handler handler, const expression_ast_type *subject) {
-	return expression_ast_type(parsers::where::int_value(convert_type(subject->get_string(handler))));
-}
-
-std::string eventlog_filter::filter_obj::render(const std::string syntax, const std::string datesyntax) {
-	return record.render(true, syntax, datesyntax);
-}
 
 
-//////////////////////////////////////////////////////////////////////////
+namespace eventlog_filter {
 
-
-
-eventlog_filter::filter_obj_handler::filter_obj_handler() {
-	using namespace boost::assign;
 	using namespace parsers::where;
-	insert(types)
-		("id", (type_int))
-		("source", (type_string))
-		("file", (type_string))
-		("log", (type_string))
-		("type", (type_custom_type))
-		("level", (type_custom_type))
-		("severity", (type_custom_severity))
-		("category", (type_int))
-		("qualifier", (type_int))
-		("facility", (type_int))
-		("customer", (type_int))
-		("rawid", (type_int))
-		("message", (type_string))
-		("strings", (type_string))
-		("computer", (type_string))
-		("written", (type_date))
-		("generated", (type_date));
-}
 
-bool eventlog_filter::filter_obj_handler::has_variable(std::string key) {
-	return types.find(key) != types.end();
-}
-parsers::where::value_type eventlog_filter::filter_obj_handler::get_type(std::string key) {
-	types_type::const_iterator cit = types.find(key);
-	if (cit == types.end())
-		return parsers::where::type_invalid;
-	return cit->second;
-}
-bool eventlog_filter::filter_obj_handler::can_convert(parsers::where::value_type from, parsers::where::value_type to) {
-	if ((from == parsers::where::type_string)&&(to == type_custom_severity))
-		return true;
-	if ((from == parsers::where::type_string)&&(to == type_custom_type))
-		return true;
-	return false;
-}
-eventlog_filter::filter_obj_handler::base_handler::bound_string_type eventlog_filter::filter_obj_handler::bind_simple_string(std::string key) {
-	base_handler::bound_string_type ret;
-	if (key == "source")
-		ret = &filter_obj::get_source;
-	else if (key == "message")
-		ret = &filter_obj::get_message;
-	else if (key == "strings")
-		ret = &filter_obj::get_strings;
-	else if (key == "computer")
-		ret = &filter_obj::get_computer;
-	else if (key == "log")
-		ret = &filter_obj::get_log;
-	else if (key == "file")
-		ret = &filter_obj::get_log;
-	else
-		NSC_DEBUG_MSG_STD("Failed to bind (string): " + key);
-	return ret;
-}
-eventlog_filter::filter_obj_handler::base_handler::bound_int_type eventlog_filter::filter_obj_handler::bind_simple_int(std::string key) {
-	base_handler::bound_int_type ret;
-	if (key == "id")
-		ret = &filter_obj::get_id;
-	else if (key == "type")
-		ret = &filter_obj::get_el_type;
-	else if (key == "level")
-		ret = &filter_obj::get_el_type;
-	else if (key == "severity")
-		ret = &filter_obj::get_severity;
-	else if (key == "generated")
-		ret = &filter_obj::get_generated;
-	else if (key == "written")
-		ret = &filter_obj::get_written;
-	else if (key == "category")
-		ret = &filter_obj::get_category;
-	else if (key == "qualifier")
-		ret = &filter_obj::get_facility;
-	else if (key == "facility")
-		ret = &filter_obj::get_facility;
-	else if (key == "customer")
-		ret = &filter_obj::get_customer;
-	else if (key == "rawid")
-		ret = &filter_obj::get_raw_id;
-	else
-		NSC_DEBUG_MSG_STD("Failed to bind (int): " + key);
-	return ret;
-}
+	int convert_severity(std::string str) {
+		if (str == "success" || str == "ok")
+			return 0;
+		if (str == "informational" || str == "info")
+			return 1;
+		if (str == "warning" || str == "warn")
+			return 2;
+		if (str == "error" || str == "err")
+			return 3;
+		return strEx::s::stox<int>(str);
+	}
+	int convert_type(parsers::where::evaluation_context context, std::string str) {
+		if (str == "error")
+			return EVENTLOG_ERROR_TYPE;
+		if (str == "warning")
+			return EVENTLOG_WARNING_TYPE;
+		if (str == "info")
+			return EVENTLOG_INFORMATION_TYPE;
+		if (str == "success")
+			return EVENTLOG_SUCCESS;
+		if (str == "auditSuccess")
+			return EVENTLOG_AUDIT_SUCCESS;
+		if (str == "auditFailure")
+			return EVENTLOG_AUDIT_FAILURE;
+		try {
+			return strEx::s::stox<int>(str);
+		} catch (const std::exception &e) {
+			context->error("Failed to convert: " + str);
+			return EVENTLOG_ERROR_TYPE;
+		}
+	}
 
-bool eventlog_filter::filter_obj_handler::has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject) {
-	if (to == type_custom_severity)
-		return true;
-	if (to == type_custom_type)
-		return true;
-	return false;
+	parsers::where::node_type fun_convert_severity(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		return parsers::where::factory::create_int(convert_severity(subject->get_string_value(context)));
+	}
+	parsers::where::node_type fun_convert_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		return parsers::where::factory::create_int(convert_type(context, subject->get_string_value(context)));
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+
+	filter_obj_handler::filter_obj_handler() {
+
+		registry_.add_string()
+			("source", boost::bind(&filter_obj::get_source, _1), "Source system.")
+			("message", boost::bind(&filter_obj::get_message, _1), "The message renderd as a string.")
+			("strings", boost::bind(&filter_obj::get_strings, _1), "The message content. Significantly faster than message yet yields similar results.")
+			("computer", boost::bind(&filter_obj::get_computer, _1), "Which computer generated the message")
+			("log", boost::bind(&filter_obj::get_log, _1), "alias for file")
+			("file", boost::bind(&filter_obj::get_log, _1), "The logfile name")
+			;
+
+		registry_.add_int()
+			("id", boost::bind(&filter_obj::get_id, _1), "Eventlog id")
+			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "alias for level (old)")
+			("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+			("severity", type_custom_severity, boost::bind(&filter_obj::get_severity, _1), "Probably not what you want.This is the technical severity of the mseesage often level is what you are looking for.")
+			("generated", type_date, boost::bind(&filter_obj::get_generated, _1), "When the message was generated")
+			("written", type_date, boost::bind(&filter_obj::get_written, _1), "When the message was written to file")
+			("category", boost::bind(&filter_obj::get_category, _1), "TODO")
+			("qualifier", boost::bind(&filter_obj::get_facility, _1), "TODO")
+			("facility", boost::bind(&filter_obj::get_facility, _1), "TODO")
+			("customer", boost::bind(&filter_obj::get_customer, _1), "TODO")
+			("rawid", boost::bind(&filter_obj::get_raw_id, _1), "Raw message id (contains many other fields all baked into a single number)")
+			;
+
+		registry_.add_converter()
+	 			(type_custom_severity, &fun_convert_severity)
+	 			(type_custom_type, &fun_convert_type)
+	 			;
+	}
 }
-eventlog_filter::filter_obj_handler::base_handler::bound_function_type eventlog_filter::filter_obj_handler::bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject) {
-	base_handler::bound_function_type ret;
-	if (to == type_custom_severity)
-		ret = &filter_obj::fun_convert_severity;
-	else if (to == type_custom_type)
-		ret = &filter_obj::fun_convert_type;
-	else
-		NSC_DEBUG_MSG_STD("Failed to bind (function): " + name);
-	return ret;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-eventlog_filter::filter_engine eventlog_filter::factories::create_engine(eventlog_filter::filter_argument arg) {
-	return filter_engine(new filter_engine_type(arg));
-}
-eventlog_filter::filter_argument eventlog_filter::factories::create_argument(std::string syntax, std::string datesyntax) {
-	return filter_argument(new eventlog_filter::filter_argument_type(eventlog_filter::filter_argument_type::error_type(new where_filter::nsc_error_handler(GET_CORE())), syntax, datesyntax));
-}
-
-eventlog_filter::filter_result eventlog_filter::factories::create_result(eventlog_filter::filter_argument arg) {
-	return filter_result(new where_filter::simple_count_result<filter_obj>(arg));
-}
-
-
-
-
-

@@ -254,7 +254,7 @@ tuple script_wrapper::function_wrapper::query(std::string request) {
 		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Query failed");
-		return make_tuple(false,_T(""));
+		return boost::python::make_tuple(false,std::wstring());
 	}
 }
 
@@ -495,15 +495,13 @@ bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string comm
 	return functions::get()->simple_cmdline.find(command) != functions::get()->simple_cmdline.end();
 }
 
-std::wstring script_wrapper::function_wrapper::get_commands() {
-	std::wstring str;
+std::string script_wrapper::function_wrapper::get_commands() {
+	std::string str;
 	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->normal_functions) {
-		std::wstring tmp = utf8::cvt<std::wstring>(i.first);
-		strEx::append_list(str, tmp, _T(", "));
+		strEx::append_list(str, i.first, ", ");
 	}
 	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->simple_functions) {
-		std::wstring tmp = utf8::cvt<std::wstring>(i.first);
-		strEx::append_list(str, tmp, _T(", "));
+		strEx::append_list(str, i.first, ", ");
 	}
 	return str;
 }
@@ -658,6 +656,6 @@ tuple script_wrapper::settings_wrapper::query(std::string request) {
 		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Query failed");
-		return make_tuple(false,_T(""));
+		return boost::python::make_tuple(false,std::wstring());
 	}
 }

@@ -64,16 +64,18 @@ bool NSCPServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 #endif
-	NSC_LOG_ERROR_LISTW(info_.validate());
-
-	std::list<std::string> errors;
-	info_.allowed_hosts.refresh(errors);
-	NSC_LOG_ERROR_LISTS(errors);
-	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
 
 	boost::asio::io_service io_service_;
 
 	if (mode == NSCAPI::normalStart) {
+
+		NSC_LOG_ERROR_LISTS(info_.validate());
+
+		std::list<std::string> errors;
+		info_.allowed_hosts.refresh(errors);
+		NSC_LOG_ERROR_LISTS(errors);
+		NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
+
 		server_.reset(new nscp::server::server(info_, handler_));
 		if (!server_) {
 			NSC_LOG_ERROR_STD("Failed to create server instance!");

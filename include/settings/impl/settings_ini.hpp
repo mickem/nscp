@@ -107,7 +107,7 @@ namespace settings {
 				ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(comment).c_str());
 			} catch (KeyNotFoundException e) {
-				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), _T("; Undocumented key"));
+				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), L"; Undocumented key");
 			} catch (settings_exception e) {
 				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Failed to write key: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
@@ -123,7 +123,7 @@ namespace settings {
 					ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
 				}
 			} catch (KeyNotFoundException e) {
-				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, _T("; Undocumented section"));
+				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
 			} catch (settings_exception e) {
 				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Failed to write section: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
@@ -212,7 +212,7 @@ namespace settings {
 				std::string path = utf8::cvt<std::string>(ePath.pItem);
 				try {
 					get_core()->get_registred_path(path);
-				} catch (const KeyNotFoundException &e) {
+				} catch (const KeyNotFoundException &) {
 					ret.push_back(std::string("Invalid path: ") + path);
 				}
 				CSimpleIni::TNamesDepend keys;
@@ -221,7 +221,7 @@ namespace settings {
 					std::string key = utf8::cvt<std::string>(eKey.pItem);
 					try {
 						get_core()->get_registred_key(path, key);
-					} catch (const KeyNotFoundException &e) {
+					} catch (const KeyNotFoundException &) {
 						ret.push_back(std::string("Invalid key: ") + settings::key_to_string(path, key));
 					}
 				}
@@ -241,7 +241,7 @@ namespace settings {
 
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
-				BOOST_FOREACH(boost::filesystem::wpath const &p, std::make_pair(it, eod)) {
+				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
 					add_child_unsafe("ini:///" + p.string());
 				}
 			}
@@ -256,12 +256,12 @@ namespace settings {
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to load file");
 
-			get_core()->register_path(-1, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
+			get_core()->register_path(999, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
 			CSimpleIni::TNamesDepend lst;
-			ini.GetAllKeys(_T("/includes"), lst);
+			ini.GetAllKeys(L"/includes", lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
-				std::string child = utf8::cvt<std::string>(ini.GetValue(_T("/includes"), (*cit).pItem));
-				get_core()->register_key(-1, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string, 
+				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
+				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string, 
 					"INCLUDED FILE", child, child, false, false);
 				add_child_unsafe(child);
 			}

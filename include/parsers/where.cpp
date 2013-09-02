@@ -2,22 +2,16 @@
 #include <iostream> 
 #include <sstream>
 
-#include <boost/spirit/include/qi.hpp>
-#include <boost/spirit/include/phoenix_core.hpp>
-#include <boost/spirit/include/phoenix_operator.hpp>
-#include <boost/spirit/include/phoenix_object.hpp>
-#include <boost/fusion/include/adapt_struct.hpp>
-#include <boost/fusion/include/io.hpp>
-#include <boost/function.hpp>
-
-#include <strEx.h>
+// #include <boost/spirit/include/qi.hpp>
+// #include <boost/spirit/include/phoenix_core.hpp>
+// #include <boost/spirit/include/phoenix_operator.hpp>
+// #include <boost/spirit/include/phoenix_object.hpp>
+// #include <boost/fusion/include/adapt_struct.hpp>
+// #include <boost/fusion/include/io.hpp>
+// #include <boost/function.hpp>
 
 #include <parsers/where.hpp>
-#include <parsers/where/expression_ast.hpp>
-#include <parsers/where/ast_type_inference.hpp>
-#include <parsers/where/ast_static_eval.hpp>
-#include <parsers/where/ast_bind.hpp>
-#include <parsers/where/ast_perf_collector.hpp>
+#include <parsers/where/node.hpp>
 
 #include <parsers/helpers.hpp>
 #include <parsers/where/grammar/grammar.hpp>
@@ -25,14 +19,13 @@
 namespace parsers {
 	namespace where {
 
-		bool parser::parse(std::string expr) {
+		bool parser::parse(object_factory factory, std::string expr) {
 			constants::reset();
-			typedef where_grammar grammar;
 
-			grammar calc;
+			where_grammar calc(factory);
 
-			grammar::iterator_type iter = expr.begin();
-			grammar::iterator_type end = expr.end();
+			where_grammar::iterator_type iter = expr.begin();
+			where_grammar::iterator_type end = expr.end();
 			if (phrase_parse(iter, end, calc, ascii::space, resulting_tree)) {
 				rest = std::string(iter, end);
 				return rest.empty();
@@ -41,62 +34,66 @@ namespace parsers {
 			return false;
 		}
 
-		bool parser::derive_types(filter_handler handler) {
+		bool parser::derive_types(object_converter converter) {
 			try {
-				ast_type_inference resolver(handler);
-				resolver(resulting_tree);
+				resulting_tree->infer_type(converter);
 				return true;
 			} catch (...) {
-				handler->error("Unhandled exception resolving types: " + result_as_tree());
+				converter->error("Unhandled exception resolving types: " + result_as_tree());
 				return false;
 			}
 		}
 
-		bool parser::static_eval(filter_handler handler) {
+		bool parser::static_eval(evaluation_context context) {
 			try {
-				ast_static_eval evaluator(handler);
-				evaluator(resulting_tree);
+				resulting_tree->static_evaluate(context);
 				return true;
+			} catch (const std::exception &e) {
+				context->error(std::string("Unhandled exception static eval: ") + e.what());
+				return false;
 			} catch (...) {
-				handler->error("Unhandled exception static eval: " + result_as_tree());
+				context->error("Unhandled exception static eval: " + result_as_tree());
 				return false;
 			}
 		}
-		bool parser::collect_perfkeys(std::map<std::string,std::string> &boundries, filter_handler handler) {
+		bool parser::collect_perfkeys(evaluation_context context, performance_collector &boundries) {
 			try {
-				ast_perf_collector evaluator(handler);
-				evaluator(resulting_tree);
-				boundries.insert(evaluator.boundries.begin(), evaluator.boundries.end());
+				resulting_tree->find_performance_data(context, boundries);
 				return true;
 			} catch (...) {
-				handler->error("Unhandled exception collecting performance data eval: " + result_as_tree());
+				context->error("Unhandled exception collecting performance data eval: " + result_as_tree());
 				return false;
 			}
 		}
 		
-		bool parser::bind(filter_handler handler) {
+		bool parser::bind(object_converter context) {
 			try {
-				ast_bind binder(handler);
-				binder(resulting_tree);
+				resulting_tree->bind(context);
 				return true;
+			} catch (const std::exception &e) {
+				context->error(std::string("Unhandled exception bind: ") + e.what());
+				return false;
 			} catch (...) {
-				handler->error("Unhandled exception static eval: " + result_as_tree());
+				context->error("Unhandled exception bind: " + result_as_tree());
 				return false;
 			}
 		}
 
-		bool parser::evaluate(filter_handler handler) {
+		bool parser::evaluate(evaluation_context context) {
 			try {
-				expression_ast ast = resulting_tree.evaluate(handler);
-				return ast.get_int(handler) == 1;
+				node_type result = resulting_tree->evaluate(context);
+				return result->get_int_value(context) == 1;
+			} catch (const std::exception &e) {
+				context->error(std::string("Unhandled exception evaluate: ") + e.what());
+				return false;
 			} catch (...) {
-				handler->error("Unhandled exception static eval: " + result_as_tree());
+				context->error("Unhandled exception evaluate: " + result_as_tree());
 				return false;
 			}
 		}
 
 		std::string parser::result_as_tree() const {
-			return resulting_tree.to_string();
+			return resulting_tree->to_string();
 		}
 	}
 }

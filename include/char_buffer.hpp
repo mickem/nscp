@@ -5,29 +5,29 @@
 
 //typedef buffer<TCHAR> char_buffer;
 
-class tchar_buffer : public buffer<TCHAR> {
-public:
-	tchar_buffer(std::wstring str) : buffer<TCHAR>(str.length()+2) {
-		wcsncpy(unsafe_get_buffer(), str.c_str(), str.length());
-	}
-	tchar_buffer(unsigned int len) : buffer<TCHAR>(len) {}
-	tchar_buffer() : buffer<TCHAR>() {}
-	void zero() {
-		if (length() > 1)
-			ZeroMemory(unsafe_get_buffer(), length());
-	}
-};
+namespace hlp {
+	class tchar_buffer : public hlp::buffer<wchar_t> {
+	public:
+		tchar_buffer(std::wstring str) : hlp::buffer<wchar_t>(str.length()+2) {
+			wcsncpy(get(), str.c_str(), str.length());
+		}
+		tchar_buffer(std::size_t len) : buffer<wchar_t>(len) {}
+		void zero() {
+			if (size() > 1)
+				memset(get(), 0, size());
+		}
+	};
 
-class char_buffer : public buffer<char> {
-public:
-	char_buffer(std::string str) : buffer<char>(str.length()+2) {
-		strncpy(unsafe_get_buffer(), str.c_str(), str.length());
-	}
-	char_buffer(unsigned int len) : buffer<char>(len) {}
-	char_buffer() : buffer<char>() {}
-	void zero() {
-		if (length() > 1)
-			ZeroMemory(unsafe_get_buffer(), length());
-	}
-};
+	class char_buffer : public buffer<char> {
+	public:
+		char_buffer(std::string str) : buffer<char>(str.length()+2) {
+			strncpy(get(), str.c_str(), str.length());
+		}
+		char_buffer(unsigned int len) : buffer<char>(len) {}
+		void zero() {
+			if (size() > 1)
+				memset(get(), 0, size());
+		}
+	};
 
+}

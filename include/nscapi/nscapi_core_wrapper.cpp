@@ -286,7 +286,7 @@ std::wstring nscapi::core_wrapper::Encrypt(std::wstring str, unsigned int algori
 		delete [] buf;
 		return ret;
 	}
-	return _T("");
+	return std::wstring();
 }
 std::wstring nscapi::core_wrapper::Decrypt(std::wstring str, unsigned int algorithm) {
 	if (!fNSAPIDecrypt)
@@ -302,7 +302,7 @@ std::wstring nscapi::core_wrapper::Decrypt(std::wstring str, unsigned int algori
 		delete [] buf;
 		return ret;
 	}
-	return _T("");
+	return std::wstring();
 }
 
 bool nscapi::core_wrapper::checkLogMessages(int type) {

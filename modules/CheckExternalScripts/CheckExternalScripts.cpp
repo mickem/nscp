@@ -40,8 +40,8 @@ namespace sh = nscapi::settings_helper;
 CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
-void CheckExternalScripts::addAllScriptsFrom(std::wstring str_path) {
-	boost::filesystem::path path = utf8::cvt<std::string>(str_path);
+void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
+	boost::filesystem::path path(str_path);
 	if (path.has_relative_path())
 		path = get_base_path() / path;
 	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
@@ -117,11 +117,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			add_alias("alias_process_hung", "checkProcState MaxWarnCount=1 MaxCritCount=1 \"$ARG1$=hung\"");
 			add_alias("alias_event_log", "CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 \"filter=generated gt -2d AND severity NOT IN ('success', 'informational') AND source != 'SideBySide'\" truncate=800 unique descriptions \"syntax=%severity%: %source%: %message% (%count%)\"");
 			add_alias("alias_file_size", "CheckFiles \"filter=size > $ARG2$\" \"path=$ARG1$\" MaxWarn=1 MaxCrit=1 \"syntax=%filename% %size%\" max-dir-depth=10");
-			add_alias("alias_file_age", "checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\"");
+//			add_alias("alias_file_age", "checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\"");
 			add_alias("alias_sched_all", "CheckTaskSched \"filter=exit_code ne 0\" \"syntax=%title%: %exit_code%\" warn=>0");
 			add_alias("alias_sched_long", "CheckTaskSched \"filter=status = 'running' AND most_recent_run_time < -$ARG1$\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
 			add_alias("alias_sched_task", "CheckTaskSched \"filter=title eq '$ARG1$' AND exit_code ne 0\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
-			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
+//			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
 		}
 
 		settings.alias().add_path_to_settings()
@@ -145,7 +145,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			("allow nasty characters", sh::bool_key(&allowNasty_, false),
 			"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-			("script path", sh::wstring_key(&scriptDirectory_),
+			("script path", sh::string_key(&scriptDirectory_),
 			"SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)")
 			;
 
@@ -235,7 +235,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		}
 	} else if (args.size() > 0) {
 		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
-		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed");
+		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");
 		return;
 	}
 

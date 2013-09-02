@@ -20,7 +20,6 @@
 			"desc"	: "Check the size (free-space) of a drive or volume." 
 		},
 		"check_files" : { 
-			"legacy"	:true, 
 			"alias"		: "CheckFiles",
 			"desc"		: "Check various aspects of a file and/or folder." 
 		}

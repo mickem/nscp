@@ -100,7 +100,7 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
 
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
+NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t*, unsigned int, wchar_t*, unsigned int*) {
 	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
@@ -143,7 +143,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer
 	return NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen) {
+NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t*, unsigned int, wchar_t*, unsigned int *) {
 	if (algorithm != NSCAPI::encryption_xor) {
 		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
@@ -243,11 +243,12 @@ LPVOID NSAPILoader(const char* buffer) {
 		return reinterpret_cast<LPVOID>(&NSAPISettingsQuery);
 	if (strcmp(buffer, "NSAPIRegistryQuery") == 0)
 		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
+#ifdef HAVE_JSON_SPIRIT
 	if (strcmp(buffer, "NSCAPIJson2Protobuf") == 0)
 		return reinterpret_cast<LPVOID>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
 		return reinterpret_cast<LPVOID>(&NSCAPIProtobuf2Json);
-
+#endif
 	LOG_ERROR_STD("Function not found: " + buffer);
 	return NULL;
 }

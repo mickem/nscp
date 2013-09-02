@@ -19,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <socket_helpers.hpp>
 #include <nscp/server/protocol.hpp>
 #include "handler_impl.hpp"
 

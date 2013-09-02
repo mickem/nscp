@@ -10,7 +10,6 @@ namespace nsclient {
 	class settings_client {
 		bool started_;
 		NSClient* core_;
-		std::string log_;
 		bool default_;
 		bool remove_default_;
 		bool load_all_;
@@ -18,8 +17,8 @@ namespace nsclient {
 		std::string filter_;
 
 	public:
-		settings_client(NSClient* core, std::string log, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) 
-			: started_(false), core_(core), log_(log), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples), filter_(filter) 
+		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) 
+			: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples), filter_(filter) 
 		{
 			startup();
 		}
@@ -32,26 +31,26 @@ namespace nsclient {
 		void startup() {
 			if (started_)
 				return;
-			if (!core_->boot_init(log_)) {
-				std::wcout << _T("boot::init failed") << std::endl;
+			if (!core_->boot_init(true)) {
+				std::cout << "boot::init failed" << std::endl;
 				return;
 			}
 			if (load_all_)
 				core_->preboot_load_all_plugin_files();
 
 			if (!core_->boot_load_all_plugins()) {
-				std::wcout << _T("boot::load_all_plugins failed!") << std::endl;
+				std::cout << "boot::load_all_plugins failed!" << std::endl;
 				return;
 			}
 			if (!core_->boot_start_plugins(false)) {
-				std::wcout << _T("boot::start_plugins failed!") << std::endl;
+				std::cout << "boot::start_plugins failed!" << std::endl;
 				return;
 			}
 			if (default_) {
 				settings_manager::get_core()->update_defaults();
 			}
 			if (remove_default_) {
-				std::wcout << _T("Removing default values") << std::endl;
+				std::cout << "Removing default values" << std::endl;
 				settings_manager::get_core()->remove_defaults();
 			}
 			started_ = true;

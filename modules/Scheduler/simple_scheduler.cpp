@@ -66,7 +66,7 @@ namespace scheduler {
 			if (instance) {
 				boost::posix_time::time_duration off = now() - (*instance).time;
 				if (off.total_seconds() > error_threshold_) {
-					log_error(_T("NOONE IS HANDLING scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
+					log_error("NOONE IS HANDLING scheduled item " + strEx::s::xtos(instance->schedule_id) + " " + strEx::s::xtos(off.total_seconds()) + " seconds to late from thread " + strEx::s::xtos(id));
 				}
 // 			} else {
 // 				log_error(_T("Nothing is scheduled to run"));
@@ -92,20 +92,20 @@ namespace scheduler {
 				try {
 					boost::posix_time::time_duration off = now() - (*instance).time;
 					if (off.total_seconds() > error_threshold_) {
-						log_error(_T("Ran scheduled item ") + to_wstring((*instance).schedule_id) + _T(" ") + to_wstring(off.total_seconds()) + _T(" seconds to late from thread ") + to_wstring(id));
+						log_error("Ran scheduled item " + strEx::s::xtos(instance->schedule_id) + " " + strEx::s::xtos(off.total_seconds()) + " seconds to late from thread " + strEx::s::xtos(id));
 					}
 					boost::thread::sleep((*instance).time);
 				} catch (boost::thread_interrupted  &e) {
 					if (!queue_.push(*instance))
-						log_error(_T("ERROR"));
+						log_error("ERROR");
 					if (stop_requested_) {
-						log_error(_T("Terminating thread: ") + to_wstring(id));
+						log_error("Terminating thread: " + strEx::s::xtos(id));
 						return;
 					}
 					continue;
 				} catch (...) {
 					if (!queue_.push(*instance))
-						log_error(_T("ERROR"));
+						log_error("ERROR");
 					continue;
 				}
 
@@ -117,17 +117,17 @@ namespace scheduler {
 							handler_->handle_schedule(*item);
 						reschedule(*item,now_time);
 					} catch (...) {
-						log_error(_T("UNKNOWN ERROR RUNING TASK: "));
+						log_error("UNKNOWN ERROR RUNING TASK: ");
 						reschedule(*item);
 					}
 				} else {
-					log_error(_T("Task not found: ") + to_wstring((*instance).schedule_id));
+					log_error("Task not found: " + strEx::s::xtos(instance->schedule_id));
 				}
 			}
 		} catch (const std::exception &e) {
-			log_error(_T("Exception in scheduler thread (thread will be killed): ") + utf8::to_unicode(e.what()));
+			log_error("Exception in scheduler thread (thread will be killed): " + utf8::utf8_from_native(e.what()));
 		} catch (...) {
-			log_error(_T("Exception in scheduler thread (thread will be killed)"));
+			log_error("Exception in scheduler thread (thread will be killed)");
 		}
 
 	}
@@ -146,16 +146,12 @@ namespace scheduler {
 		instance.schedule_id = id;
 		instance.time = next;
 		if (!queue_.push(instance)) {
-			log_error(_T("ERROR"));
+			log_error("ERROR");
 		}
 		idle_thread_cond_.notify_one();
 	}
 
 
-	void simple_scheduler::log_error(std::wstring err) {
-		if (handler_)
-			handler_->on_error(utf8::cvt<std::string>(err));
-	}
 	void simple_scheduler::log_error(std::string err) {
 		if (handler_)
 			handler_->on_error(err);

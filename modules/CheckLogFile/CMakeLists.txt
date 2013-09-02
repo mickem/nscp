@@ -10,6 +10,7 @@ SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
 	real_time_thread.cpp
+	filter_config_object.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}

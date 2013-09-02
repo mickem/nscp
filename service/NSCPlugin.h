@@ -142,7 +142,7 @@ public:
 	bool hasNotificationHandler(void);
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
-	NSCAPI::nagiosReturn handleCommand(std::string &request, std::string &reply);
+	NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);
@@ -196,18 +196,18 @@ public:
 	}
 	static bool is_module(const boost::filesystem::path file) {
 #ifdef WIN32
-	return boost::ends_with(file.string(), _T(".dll"));
+	return boost::ends_with(file.string(), ".dll");
 #else
-	return boost::ends_with(file.string(), _T(".so"));
+	return boost::ends_with(file.string(), ".so");
 #endif
 	}
 	static std::string file_to_module(const boost::filesystem::path &file) {
 		const std::string str = file.string();
 #ifdef WIN32
-		if (boost::ends_with(str, _T(".dll"))) 
+		if (boost::ends_with(str, ".dll")) 
 			return str.substr(0, str.size()-4);
 #else
-		if (boost::ends_with(file.string(), _T(".so"))) 
+		if (boost::ends_with(file.string(), ".so")) 
 			return str.substr(0, str.size()-3);
 #endif
 		return str;

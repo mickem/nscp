@@ -98,7 +98,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::string path, string_list &list) {
+		virtual void get_real_sections(std::string, string_list &) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
@@ -128,7 +128,7 @@ namespace settings {
 
 		public:
 			virtual void real_clear_cache() {}
-			static bool context_exists(settings::settings_core *core, std::string key) {
+			static bool context_exists(settings::settings_core*, std::string) {
 				return true;
 			}
 	};

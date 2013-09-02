@@ -114,7 +114,24 @@ public:
 			return EVENTLOG_AUDIT_SUCCESS;
 		if (sType == _T("auditFailure"))
 			return EVENTLOG_AUDIT_FAILURE;
-		return strEx::stoi(sType);
+		return static_cast<WORD>(strEx::stoi(sType));
+	}
+	static WORD translateType(std::string sType) {
+		if (sType.empty())
+			return EVENTLOG_ERROR_TYPE;
+		if (sType == "error")
+			return EVENTLOG_ERROR_TYPE;
+		if (sType == "warning")
+			return EVENTLOG_WARNING_TYPE;
+		if (sType == "success")
+			return EVENTLOG_SUCCESS;
+		if (sType == "info")
+			return EVENTLOG_INFORMATION_TYPE;
+		if (sType == "auditSuccess")
+			return EVENTLOG_AUDIT_SUCCESS;
+		if (sType == "auditFailure")
+			return EVENTLOG_AUDIT_FAILURE;
+		return strEx::s::stox<WORD>(sType);
 	}
 	static std::wstring translateType(WORD dwType) {
 		if (dwType == EVENTLOG_ERROR_TYPE)
@@ -142,7 +159,20 @@ public:
 			return 2;
 		if (sType == _T("error"))
 			return 3;
-		return strEx::stoi(sType);
+		return static_cast<WORD>(strEx::stoi(sType));
+	}
+	static WORD translateSeverity(std::string sType) {
+		if (sType.empty())
+			return 0;
+		if (sType == "success")
+			return 0;
+		if (sType == "informational")
+			return 1;
+		if (sType == "warning")
+			return 2;
+		if (sType == "error")
+			return 3;
+		return strEx::s::stox<WORD>(sType);
 	}
 	static std::wstring translateSeverity(WORD dwType) {
 		if (dwType == 0)
@@ -281,38 +311,7 @@ public:
 	SYSTEMTIME get_time_written() const {
 		return get_time(pevlr_->TimeWritten);
 	}
-	inline std::string get_log() {
+	inline std::string get_log() const {
 		return file_;
-	}
-
-	std::string render(const bool propper, const std::string syntax_s, const std::string date_format = DATE_FORMAT_S, const DWORD langId = 0) const {
-		std::wstring syntax = utf8::cvt<std::wstring>(syntax_s);
-		if (propper) {
-			// To obtain the appropriate message string from the message file, load the message file with the LoadLibrary function and use the FormatMessage function
-			strEx::replace(syntax, _T("%message%"), render_message(langId));
-		} else {
-			strEx::replace(syntax, _T("%message%"), _T("%message% needs the descriptions flag set!"));
-		}
-
-		strEx::replace(syntax, _T("%source%"), get_source());
-		strEx::replace(syntax, _T("%computer%"), get_computer());
-		strEx::replace(syntax, _T("%generated%"), strEx::format_date(get_time_generated(), utf8::cvt<std::wstring>(date_format)));
-		strEx::replace(syntax, _T("%written%"), strEx::format_date(get_time_written(), utf8::cvt<std::wstring>(date_format)));
-		strEx::replace(syntax, _T("%generated-raw%"), strEx::itos(pevlr_->TimeGenerated));
-		strEx::replace(syntax, _T("%written-raw%"), strEx::itos(pevlr_->TimeWritten));
-		strEx::replace(syntax, _T("%type%"), translateType(eventType()));
-		strEx::replace(syntax, _T("%category%"), strEx::itos(pevlr_->EventCategory));
-		strEx::replace(syntax, _T("%facility%"), strEx::itos(facility()));
-		strEx::replace(syntax, _T("%qualifier%"), strEx::itos(facility()));
-		strEx::replace(syntax, _T("%customer%"), strEx::itos(customer()));
-		strEx::replace(syntax, _T("%rawid%"), strEx::itos(raw_id()));
-		strEx::replace(syntax, _T("%severity%"), translateSeverity(severity()));
-		strEx::replace(syntax, _T("%strings%"), enumStrings());
-		strEx::replace(syntax, _T("%level%"), translateType(eventType()));
-		strEx::replace(syntax, _T("%log%"), utf8::cvt<std::wstring>(file_));
-		strEx::replace(syntax, _T("%file%"), utf8::cvt<std::wstring>(file_));
-		strEx::replace(syntax, _T("%id%"), strEx::itos(eventID()));
-		strEx::replace(syntax, _T("%user%"), userSID());
-		return utf8::cvt<std::string>(syntax);
 	}
 };

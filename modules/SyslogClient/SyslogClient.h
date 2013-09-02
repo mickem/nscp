@@ -163,7 +163,7 @@ public:
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
 private:
-	boost::tuple<int,std::wstring> send(connection_data con, std::list<std::string> messages);
+	boost::tuple<int,std::string> send(connection_data con, std::list<std::string> messages);
 	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:

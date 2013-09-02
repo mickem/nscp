@@ -38,16 +38,34 @@ public:
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for target path '") + path + _T("': ") + last_werror());
 		len++;
-		tchar_buffer buffer(len);
+		hlp::tchar_buffer buffer(len);
 		if (MsiGetTargetPath(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get target path '") + path + _T("': ") + last_werror());
 		}
 		std::wstring value = buffer;
 		return value;
 	}
+
+	inline std::wstring trim_right(const std::wstring &source , const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase( str.find_last_not_of(t) + 1);
+	}
+
+	inline std::wstring trim_left( const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return str.erase(0 , source.find_first_not_of(t) );
+	}
+
+	inline std::wstring trim(const std::wstring& source, const std::wstring& t = _T(" "))
+	{
+		std::wstring str = source;
+		return trim_left( trim_right( str , t) , t );
+	}
 	bool isChangedProperyAndOld(std::wstring str) {
-		std::wstring cval = strEx::trim(getPropery(str));
-		std::wstring oval = strEx::trim(getPropery(str + _T("_OLD")));
+		std::wstring cval = trim(getPropery(str));
+		std::wstring oval = trim(getPropery(str + _T("_OLD")));
 		logMessage(_T("Comparing property: ") + str + _T("; ") + cval + _T("=?=") + oval);
 		if (oval == MY_EMPTY)
 			oval = _T("");
@@ -65,21 +83,21 @@ public:
 		if (MsiGetProperty(hInstall_ ,path.c_str(), tmpBuf, &len) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + last_werror());
 		len++;
-		tchar_buffer buffer(len);
+		hlp::tchar_buffer buffer(len);
 		if (MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + last_werror());
 		}
 		std::wstring value = buffer;
 		return value;
 	}
-	tchar_buffer getProperyRAW(std::wstring path) {
+	hlp::tchar_buffer getProperyRAW(std::wstring path) {
 		wchar_t emptyString[MAX_PATH];
 		DWORD len = 0;
 		UINT er;
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), emptyString, &len)) != ERROR_MORE_DATA)
 			throw installer_exception(_T("Failed to get size for property '") + path + _T("': ") + last_werror(er));
 		len+=2;
-		tchar_buffer buffer(len);
+		hlp::tchar_buffer buffer(len);
 		if ((er = MsiGetProperty(hInstall_ ,path.c_str(), buffer, &len)) != ERROR_SUCCESS) {
 			throw installer_exception(_T("Failed to get property '") + path + _T("': ") + last_werror(er));
 		}
@@ -260,7 +278,6 @@ public:
 	{
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
-		tchar_buffer buffer;
 
 		HRESULT hr = S_OK;
 		UINT er;
@@ -271,7 +288,7 @@ public:
 		if (ERROR_MORE_DATA != er && ERROR_SUCCESS != er) {
 			throw installer_exception(_T("get_record_string:: Failed to get length of string: ") + last_werror(er));
 		}
-		buffer.realloc(++cch);
+		hlp::tchar_buffer buffer(++cch);
 
 		er = ::MsiRecordGetStringW(hRec, uiField, buffer, (DWORD*)&cch);
 		if (er != ERROR_SUCCESS)
@@ -289,13 +306,12 @@ public:
 	{
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
-		char_buffer buffer;
 
 		HRESULT hr = S_OK;
 		UINT er;
 
 		unsigned int size = MsiRecordDataSize(hRec, uiField);
-		buffer.realloc(size+5);
+		hlp::char_buffer buffer(size+5);
 
 		er = ::MsiRecordReadStream(hRec, uiField, buffer, (DWORD*)&size);
 		if (er != ERROR_SUCCESS)
@@ -309,7 +325,7 @@ public:
 	/********************************************************************
 	HideNulls() - internal helper function to escape [~] in formatted strings
 	********************************************************************/
-	void _hide_nulls(tchar_buffer wzData) {
+	void _hide_nulls(hlp::tchar_buffer wzData) {
 		LPWSTR pwz = wzData;
 		while(*pwz) {
 			if (pwz[0] == L'[' && pwz[1] == L'~' && pwz[2] == L']') // found a null [~] 
@@ -326,7 +342,7 @@ public:
 	/********************************************************************
 	RevealNulls() - internal helper function to unescape !$! in formatted strings
 	********************************************************************/
-	void _reveal_nulls(tchar_buffer wzData) {
+	void _reveal_nulls(hlp::tchar_buffer wzData) {
 		LPWSTR pwz = wzData;
 		while(*pwz)	{
 			if (pwz[0] == L'!' && pwz[1] == L'$' && pwz[2] == L'!') // found the fake null !$!
@@ -377,7 +393,7 @@ public:
 		UINT er;
 
 		// get the format string
-		tchar_buffer tmp = get_record_string(hRec, uiField);
+		hlp::tchar_buffer tmp = get_record_string(hRec, uiField);
 		std::wstring t = tmp;
 		if (t.length() == 0)
 			return _T("");
@@ -397,7 +413,7 @@ public:
 		if (ERROR_MORE_DATA != er && ERROR_SUCCESS != er) {
 			throw installer_exception(_T("get_record_formatted_string:: Failed to get length of string: ") + last_werror(er));
 		}
-		tchar_buffer buffer(++cch);
+		hlp::tchar_buffer buffer(++cch);
 
 		er = ::MsiFormatRecordW(hInstall_, hRecFormat, buffer, (DWORD*)&cch);
 		if (er != ERROR_SUCCESS) {

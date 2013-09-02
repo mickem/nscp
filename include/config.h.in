@@ -23,41 +23,37 @@
 #include "../version.hpp"
 #include <string>
 
-#ifndef WSTR
-#define WSTR(x) _T(x)
-#endif
-
-#define APPLICATION_NAME WSTR("NSClient++")
+#define APPLICATION_NAME "NSClient++"
 
 #if defined(_M_IX86)
-#define SZARCH WSTR("w32")
+#define SZARCH "w32"
 #elif defined(_M_X64)
-#define SZARCH WSTR("x64")
+#define SZARCH "x64"
 #elif defined(_M_IA64)
-#define SZARCH WSTR("ia64")
+#define SZARCH "ia64"
 #else
-#define SZARCH WSTR("unknown")
+#define SZARCH "unknown"
 #endif
 
 // internal name of the service
-#define DEFAULT_SERVICE_NAME        WSTR("NSClientpp")
+#define DEFAULT_SERVICE_NAME        "NSClientpp"
 
 // Description of service
-#define DEFAULT_SERVICE_DESC WSTR("Windows Monitoring Agent (Provides performance data for monitoring solutions like Nagios)")
+#define DEFAULT_SERVICE_DESC "Monitoring Agent (Provides performance data for monitoring solutions like Nagios)"
 
 // displayed name of the service
-#define SERVICE_NAME APPLICATION_NAME WSTR(" ") CURRENT_SERVICE_VERSION WSTR(" ") SZARCH
+#define SERVICE_NAME APPLICATION_NAME " " CURRENT_SERVICE_VERSION " " SZARCH
 
 // Display version
-#define CURRENT_SERVICE_VERSION WSTR(STRPRODUCTVER) WSTR(" ") WSTR(STRPRODUCTDATE)
+#define CURRENT_SERVICE_VERSION STRPRODUCTVER " " STRPRODUCTDATE
 
 // list of service dependencies - "dep1\0dep2\0\0"
-#define DEFAULT_SERVICE_DEPS       _T("")
+#define DEFAULT_SERVICE_DEPS       ""
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
-#define NASTY_METACHARS_W       _T("|`&><'\"\\[]{}")
+//#define NASTY_METACHARS_W       _T("|`&><'\"\\[]{}")
 
-#define DATE_FORMAT _T("%#c")
+//#define DATE_FORMAT _T("%#c")
 #define DATE_FORMAT_S "%#c"
 
 #define CRASH_SUBMIT_URL "http://crash.nsclient.org/submit"

@@ -237,7 +237,7 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* dataBuffer, unsigned i
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception in handleCommand.");
 	}
 }
-NSCAPI::nagiosReturn NSCPlugin::handleCommand(std::string &request, std::string &reply) {
+NSCAPI::nagiosReturn NSCPlugin::handleCommand(const std::string request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
 	NSCAPI::nagiosReturn ret = handleCommand(request.c_str(), request.size(), &buffer, &len);

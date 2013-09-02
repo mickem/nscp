@@ -9,9 +9,8 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-	filter.cpp
 	real_time_thread.cpp
-
+	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
 	eventlog_wrapper.cpp
@@ -23,15 +22,13 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
+		real_time_thread.hpp
 
-		eventlog_filter.hpp
 		eventlog_record.hpp
 		eventlog_wrapper.hpp
 		simple_registry.hpp
 		filter.hpp
-		real_time_thread.hpp
-
-		filters.hpp
+		filter_config_object.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
@@ -42,12 +39,13 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_REGEX_LIBRARY}
+	${Boost_THREAD_LIBRARY}
 	${Boost_DATE_TIME_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
-	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${NSCP_FILTER_LIB}
+	expression_parser
 	version.lib
 )
-
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

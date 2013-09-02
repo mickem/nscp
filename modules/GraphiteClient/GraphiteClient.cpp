@@ -278,8 +278,8 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 		}
 	}
 
-	boost::tuple<int,std::wstring> ret = instance->send(con, list);
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = instance->send(con, list);
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -293,7 +293,7 @@ int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data
 // Protocol implementations
 //
 
-boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const std::list<g_data> payload) {
+boost::tuple<int,std::string> GraphiteClient::send(connection_data data, const std::list<g_data> payload) {
 	try {
 		boost::asio::io_service io_service;
 		boost::asio::ip::tcp::resolver resolver(io_service);
@@ -320,15 +320,15 @@ boost::tuple<int,std::wstring> GraphiteClient::send(connection_data data, const 
 			socket.send(boost::asio::buffer(msg));
 		}
 		//socket.shutdown();
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "");
 	} catch (const std::runtime_error &e) {
 		NSC_LOG_ERROR_EXR("Socket error", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("sending data", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("sending data");
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }

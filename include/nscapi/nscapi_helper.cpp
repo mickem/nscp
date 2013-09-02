@@ -55,48 +55,48 @@ bool nscapi::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 		);
 }
 
-std::wstring nscapi::report::to_string(unsigned int report) {
-	std::wstring ret;
-	if ((report&REPORT_OK)!=0) {
-		if (!ret.empty())	ret += _T(",");
-		ret += _T("ok");
-	}
-	if ((report&REPORT_WARNING)!=0) {
-		if (!ret.empty())	ret += _T(",");
-		ret += _T("warning");
-	}
-	if ((report&REPORT_ERROR)!=0) {
-		if (!ret.empty())	ret += _T(",");
-		ret += _T("critical");
-	}
-	if ((report&REPORT_UNKNOWN)!=0) {
-		if (!ret.empty())	ret += _T(",");
-		ret += _T("unknown");
-	}
-	return ret;
-}
+// std::wstring nscapi::report::to_string(unsigned int report) {
+// 	std::wstring ret;
+// 	if ((report&REPORT_OK)!=0) {
+// 		if (!ret.empty())	ret += _T(",");
+// 		ret += _T("ok");
+// 	}
+// 	if ((report&REPORT_WARNING)!=0) {
+// 		if (!ret.empty())	ret += _T(",");
+// 		ret += _T("warning");
+// 	}
+// 	if ((report&REPORT_ERROR)!=0) {
+// 		if (!ret.empty())	ret += _T(",");
+// 		ret += _T("critical");
+// 	}
+// 	if ((report&REPORT_UNKNOWN)!=0) {
+// 		if (!ret.empty())	ret += _T(",");
+// 		ret += _T("unknown");
+// 	}
+// 	return ret;
+// }
 
-NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
-	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-	if (_T("all") == str) {
-		return NSCAPI::log_level::trace;
-	} else if (_T("error") == str) {
-		return NSCAPI::log_level::error;
-	} else if (_T("critical") == str) {
-		return NSCAPI::log_level::critical;
-	} else if (_T("debug") == str) {
-		return NSCAPI::log_level::debug;
-	} else if (_T("trace") == str) {
-		return NSCAPI::log_level::trace;
-	} else if (_T("info") == str) {
-		return NSCAPI::log_level::info;
-	} else if (_T("warning") == str) {
-		return NSCAPI::log_level::warning;
-	} else if (_T("off") == str) {
-		return NSCAPI::log_level::off;
-	}
-	return NSCAPI::log_level::error;
-}
+// NSCAPI::log_level::level nscapi::logging::parse(std::wstring str) {
+// 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+// 	if (_T("all") == str) {
+// 		return NSCAPI::log_level::trace;
+// 	} else if (_T("error") == str) {
+// 		return NSCAPI::log_level::error;
+// 	} else if (_T("critical") == str) {
+// 		return NSCAPI::log_level::critical;
+// 	} else if (_T("debug") == str) {
+// 		return NSCAPI::log_level::debug;
+// 	} else if (_T("trace") == str) {
+// 		return NSCAPI::log_level::trace;
+// 	} else if (_T("info") == str) {
+// 		return NSCAPI::log_level::info;
+// 	} else if (_T("warning") == str) {
+// 		return NSCAPI::log_level::warning;
+// 	} else if (_T("off") == str) {
+// 		return NSCAPI::log_level::off;
+// 	}
+// 	return NSCAPI::log_level::error;
+// }
 NSCAPI::log_level::level nscapi::logging::parse(std::string str) {
 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 	if ("all" == str) {
@@ -116,30 +116,30 @@ NSCAPI::log_level::level nscapi::logging::parse(std::string str) {
 	} else if ("off" == str) {
 		return NSCAPI::log_level::off;
 	}
-	return NSCAPI::log_level::error;
+	return NSCAPI::log_level::unknown;
 }
 bool nscapi::logging::matches(NSCAPI::log_level::level level, NSCAPI::nagiosReturn code) {
 	return code <= level;
 }
 
-std::wstring nscapi::logging::to_string(NSCAPI::log_level::level level) {
+std::string nscapi::logging::to_string(NSCAPI::log_level::level level) {
 	switch (level) {
 	case NSCAPI::log_level::trace:
-		return _T("trace");
+		return "trace";
 	case NSCAPI::log_level::error:
-		return _T("error");
+		return "error";
 	case NSCAPI::log_level::critical:
-		return _T("critical");
+		return "critical";
 	case NSCAPI::log_level::debug:
-		return _T("debug");
+		return "debug";
 	case NSCAPI::log_level::info:
-		return _T("info");
+		return "info";
 	case NSCAPI::log_level::warning:
-		return _T("warning");
+		return "warning";
 	case NSCAPI::log_level::off:
-		return _T("off");
+		return "off";
 	}
-	return strEx::itos(level);
+	return "unknown";
 }
 
 /**
@@ -187,23 +187,23 @@ void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &curren
 * @param msgType The message type
 * @return A string representing the message type
 */
-std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes msgType) {
-	switch (msgType) {
-	case NSCAPI::log_level::error:
-		return _T("error");
-	case NSCAPI::log_level::critical:
-		return _T("critical");
-	case NSCAPI::log_level::warning:
-		return _T("warning");
-	case NSCAPI::log_level::info:
-		return _T("info");
-	case NSCAPI::log_level::trace:
-		return _T("trace");
-	case NSCAPI::log_level::debug:
-		return _T("debug");
-	}
-	return _T("unknown");
-}
+// std::wstring nscapi::plugin_helper::translateMessageType(NSCAPI::messageTypes msgType) {
+// 	switch (msgType) {
+// 	case NSCAPI::log_level::error:
+// 		return _T("error");
+// 	case NSCAPI::log_level::critical:
+// 		return _T("critical");
+// 	case NSCAPI::log_level::warning:
+// 		return _T("warning");
+// 	case NSCAPI::log_level::info:
+// 		return _T("info");
+// 	case NSCAPI::log_level::trace:
+// 		return _T("trace");
+// 	case NSCAPI::log_level::debug:
+// 		return _T("debug");
+// 	}
+// 	return _T("unknown");
+// }
 /**
 * Translate a return code into the corresponding string
 * @param returnCode

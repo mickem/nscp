@@ -110,7 +110,11 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 		CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
 		return NSCAPI::returnUNKNOWN;
 	}
-	return get_core()->query(request, result);
+	NSCAPI::nagiosReturn retC = get_core()->query(request, result);
+	if (retC != NSCAPI::isSuccess) {
+		CORE_LOG_ERROR("Failed to execute command: " + command);
+	}
+	return retC;
 }
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) 
 {

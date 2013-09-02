@@ -20,13 +20,9 @@
 ***************************************************************************/
 #pragma once
 
-#include <settings/macros.h>
-#include <strEx.h>
-#include <checkHelpers.hpp>
-
 #include <protobuf/plugin.pb.h>
 
-class real_time_thread;
+struct real_time_thread;
 class CheckLogFile : public nscapi::impl::simple_plugin {
 private:
 	boost::shared_ptr<real_time_thread> thread_;

@@ -26,7 +26,6 @@
 #include <map>
 #include <strEx.h>
 #include <error.hpp>
-#include <filter_framework.hpp>
 //#include <taskschd.h>
 
 #include "filter.hpp"
@@ -45,6 +44,6 @@ public:
 		}
 	};
 
-	void findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine);
+	void findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive);
 
 };

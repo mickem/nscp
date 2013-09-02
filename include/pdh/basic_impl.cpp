@@ -6,6 +6,7 @@ namespace PDH {
 	NativeExternalPDH::fpPdhExpandCounterPath NativeExternalPDH::pPdhExpandCounterPath = NULL;
 	NativeExternalPDH::fpPdhGetCounterInfo NativeExternalPDH::pPdhGetCounterInfo = NULL;
 	NativeExternalPDH::fpPdhAddCounter NativeExternalPDH::pPdhAddCounter = NULL;
+	NativeExternalPDH::fpPdhAddEnglishCounter NativeExternalPDH::pPdhAddEnglishCounter = NULL;
 	NativeExternalPDH::fpPdhRemoveCounter NativeExternalPDH::pPdhRemoveCounter = NULL;
 	NativeExternalPDH::fpPdhGetFormattedCounterValue NativeExternalPDH::pPdhGetFormattedCounterValue = NULL;
 	NativeExternalPDH::fpPdhOpenQuery NativeExternalPDH::pPdhOpenQuery = NULL;
@@ -14,5 +15,6 @@ namespace PDH {
 	NativeExternalPDH::fpPdhValidatePath NativeExternalPDH::pPdhValidatePath = NULL;
 	NativeExternalPDH::fpPdhEnumObjects NativeExternalPDH::pPdhEnumObjects = NULL;
 	NativeExternalPDH::fpPdhEnumObjectItems NativeExternalPDH::pPdhEnumObjectItems = NULL;
+	NativeExternalPDH::fpPdhExpandWildCardPath NativeExternalPDH::pPdhExpandWildCardPath = NULL;
 	HMODULE NativeExternalPDH::PDH_ = NULL;
 }

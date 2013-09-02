@@ -21,38 +21,15 @@
 
 #include "stdafx.h"
 
-#include <map>
-#include <vector>
-
-#include <boost/foreach.hpp>
-#include <boost/bind.hpp>
-#include <boost/assign.hpp>
 #include <boost/program_options.hpp>
-#include <boost/program_options/cmdline.hpp>
-#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
-#include <parsers/expression/expression.hpp>
-
-#include <time.h>
-#include <error.hpp>
-
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-
-#include <parsers/where/unary_fun.hpp>
-#include <parsers/where/list_value.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/where/unary_op.hpp>
-#include <parsers/where/variable.hpp>
-
-#include <simple_timer.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/filter/cli_helper.hpp>
 #include <settings/client/settings_client.hpp>
 
 #include "CheckLogFile.h"
 #include "real_time_thread.hpp"
-#include "filter.hpp"
-#include "filter_config_object.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -73,9 +50,6 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
 		"REALTIME FILTERS", "A set of filters to use in real-time mode")
 		;
-
-//	settings.alias().add_key_to_settings()
-//		;
 
 	settings.alias().add_key_to_settings("real-time")
 
@@ -102,96 +76,65 @@ bool CheckLogFile::unloadModule() {
 }
 
 void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	std::string tmp_msg;
-
+	typedef logfile_filter::filter filter_type;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response);
 	std::string regexp, line_split, column_split;
-	std::string filter_string, warn_string, crit_string, ok_string;
-	std::string syntax_top, syntax_detail, empty_detail, empty_state;
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string mode;
 
-	po::options_description desc = nscapi::program_options::create_desc(request);
-	desc.add_options()
+	filter_type filter;
+	filter_helper.add_options();
+	filter_helper.add_syntax(
+		"${count}/${total} (${problem_list})", filter.get_opts(), "${column1}", "${column1}", 
+		"${line}    The entire line\n"
+		"${column1} (to ${column9})Data in column identified by the number. First column is 1.\n"
+		"${file}    The name of the file"
+		);
+	filter_helper.get_desc().add_options()
 //		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"), 
-																	"Character string to split a file into lines")
+																	"Character string used to split a file into several lines (default \\n)")
 		("column-split", po::value<std::string>(&column_split)->default_value("\\t"),
-																	"Character string to split a line into columns")
-		("split", po::value<std::string>(&column_split),			"Short alias for split-column")
-		("filter", po::value<std::string>(&filter_string),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but they are checked use this to filter out unwanted items.")
-		("warning", po::value<std::string>(&warn_string),			"Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")
-		("warn", po::value<std::string>(&warn_string),				"Short alias for warning")
-		("critical", po::value<std::string>(&crit_string),			"Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.")
-		("crit", po::value<std::string>(&crit_string),				"Short alias for critical.")
-		("ok", po::value<std::string>(&ok_string),					"Filter which marks items which generates an ok state.\n"
-																	"If anything matches this any previous state for this item will be reset to ok. "
-																	"Consider a line which contains \"aaa,1000,1\" and you set warning to \"warning=column_int2 > 500\"."
-																	"Setting ok to \"ok=column_int3=1\" will override the warning state and ignore escalation for this line.")
-		("top-syntax", po::value<std::string>(&syntax_top)->default_value("${file}: ${count} (${problem_list})"), 
-																	"Top level syntax.\n"
-																	"Used to format the message to return can include strings as well as special keywords such as:\n"
-																	"${count}          Number of matching lines (for filter)\n"
-																	"${warning_count}  Number of warning lines found\n"
-																	"${critical_count} Number of critical lines found\n"
-																	"${problem_count}  Number of either warning or critical lines found\n"
-																	"${list}           A list of all lines matching filter (to format the list use the syntax option)\n"
-																	"${warning_list}   A list of all lines matching warning (to format the list use the syntax option)\n"
-																	"${critical_list}  A list of all lines matching critical (to format the list use the syntax option)\n"
-																	"${problem_list}   A list of all lines matching either warning or critical (to format the list use the syntax option)\n"
-																	"${file}           The name of the file"
-																	)
-		("detail-syntax", po::value<std::string>(&syntax_detail)->default_value("${column1}"), 
-																	"Detail level syntax.\n"
-																	"This is the syntax of each item in the list of top-syntax (see above).\n"
-																	"Possible values are:\n"
-																	"${line}    The entire line\n"
-																	"${column1} (to ${column9})Data in column identified by the number. First column is 1.\n"
-																	"${file}    The name of the file"
-																	)
-		("empty-syntax", po::value<std::string>(&empty_detail)->default_value("No matches"), 
-																	"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-		("empty-state", po::value<std::string>(&empty_state)->default_value("unknown"), 
-																	"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
-																	"In other words if one file contains an error the entire check will result in error.")
-//		("files", po::value<std::string>(&files_string),			"A comma separated list of files to scan")
+																	"Character string to split a line into several columns (default \\t)")
+		("split", po::value<std::string>(&column_split),			"Alias for split-column")
+		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\n"
+																	"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
+																	"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
+		("files", po::value<std::string>(&files_string),			"A comma separated list of files to scan (same as file except a list)")
 //		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
 		;
 
-	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!files_string.empty())
+		boost::split(file_list, files_string, boost::is_any_of(","));
+
+	if (!filter_helper.parse_options())
 		return;
-	if (filter_string.empty() && file_list.empty())
-		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing filter (filter=...)", *response);
+
 	if (column_split.empty())
 		return nscapi::protobuf::functions::set_response_bad(*response, "No column-split specified");
 	if (line_split.empty())
 		return nscapi::protobuf::functions::set_response_bad(*response, "No line-split specified");
 
-	logfile_filter::filter filter;
-	if (!filter.build_syntax(syntax_top, syntax_detail, tmp_msg))
-		return nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
-	if (!filter.build_engines(filter_string, ok_string, warn_string, crit_string, tmp_msg)) 
-		return nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
+	if (file_list.empty())
+		return nscapi::protobuf::functions::set_response_bad(*response, "Need to specify at least one file: file=foo.txt");
 
 	strEx::replace(column_split, "\\t", "\t");
 	strEx::replace(column_split, "\\n", "\n");
+	strEx::replace(line_split, "\\t", "\t");
+	strEx::replace(line_split, "\\n", "\n");
 
-	if (!filter.validate(tmp_msg))
-		return nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
-
-	filter.reset();
+	if (!filter_helper.build_filter(filter))
+		return;
 
 	BOOST_FOREACH(const std::string &filename, file_list) {
 		std::ifstream file(filename.c_str());
 		if (file.is_open()) {
 			std::string line;
-			filter.summary.filename = filename;
 			while (file.good()) {
 				std::getline(file,line, '\n');
 				std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
-				boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks, filter.summary.count_match));
+				boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
 				boost::tuple<bool,bool> ret = filter.match(record);
 				if (ret.get<1>()) {
 					break;
@@ -202,13 +145,6 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
 		}
 	}
-
-	if (!filter.has_matched) {
-		response->set_message(empty_detail);
-		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(empty_state)));
-		return;
-	}
-	filter.fetch_perf();
-	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.returnCode));
-	response->set_message(filter.message);
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
 }

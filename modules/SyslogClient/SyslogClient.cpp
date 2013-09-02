@@ -283,8 +283,8 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 
 		messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
 	}
-	boost::tuple<int,std::wstring> ret = instance->send(con, messages);
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = instance->send(con, messages);
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -313,7 +313,7 @@ std::string	SyslogClient::parse_priority(std::string severity, std::string facil
 // Protocol implementations
 //
 
-boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list<std::string> messages) {
+boost::tuple<int,std::string> SyslogClient::send(connection_data con, std::list<std::string> messages) {
 	try {
 		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
@@ -329,15 +329,15 @@ boost::tuple<int,std::wstring> SyslogClient::send(connection_data con, std::list
 			NSC_DEBUG_MSG_STD("Sending data: " + msg);
 			socket.send_to(boost::asio::buffer(msg), receiver_endpoint);
 		}
-		return boost::make_tuple(NSCAPI::returnOK, _T("OK"));
+		return boost::make_tuple(NSCAPI::returnOK, "OK");
 	} catch (std::runtime_error &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Socket error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to send");
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }

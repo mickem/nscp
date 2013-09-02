@@ -37,8 +37,6 @@
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <checkHelpers.hpp>
-#include <filter_framework.hpp>
 
 #include <atlbase.h>
 //#include <atlcom.h>

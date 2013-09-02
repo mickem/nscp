@@ -25,15 +25,9 @@
 #include <objidl.h>
 #include <map>
 
-#include <parsers/where/unary_fun.hpp>
-#include <parsers/where/list_value.hpp>
-#include <parsers/where/binary_op.hpp>
-#include <parsers/where/unary_op.hpp>
-#include <parsers/where/variable.hpp>
-
 #define TASKS_TO_RETRIEVE 5
 
-void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine) {
+void TaskSched::findAll(tasksched_filter::filter &filter) {
 	CComPtr<ITaskScheduler> taskSched;
 	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
@@ -54,9 +48,11 @@ void TaskSched::findAll(tasksched_filter::filter_result result, tasksched_filter
 			std::string title = utf8::cvt<std::string>(lpwszNames[--dwFetchedTasks]);
 			taskSched->Activate(lpwszNames[dwFetchedTasks], IID_ITask, reinterpret_cast<IUnknown**>(&task));
 			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
-			boost::shared_ptr<tasksched_filter::filter_obj> arg = boost::shared_ptr<tasksched_filter::filter_obj>(new tasksched_filter::filter_obj((ITask*)task, title));
-			result->process(arg, engine->match(arg));
-
+			boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::filter_obj((ITask*)task, title));
+			boost::tuple<bool,bool> ret = filter.match(record);
+			if (ret.get<1>()) {
+				break;
+			}
 		}
 		CoTaskMemFree(lpwszNames);
 	}

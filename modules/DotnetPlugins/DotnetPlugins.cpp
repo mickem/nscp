@@ -32,6 +32,8 @@
 #include "json.h"
 #include "block_allocator.h"
 
+#include <tchar.h>
+
 extern nscapi::helper_singleton* nscapi::plugin_singleton;
 
 
@@ -348,7 +350,7 @@ void DotnetPlugins::load(std::string key, std::string val) {
 		std::wstring plugin = utf8::cvt<std::wstring>(val);
 		if (val == "enabled") {
 			plugin = alias;
-			alias = _T("");
+			alias = std::wstring();
 		}
 		if (val.empty())
 			plugin = alias;

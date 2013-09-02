@@ -27,7 +27,6 @@
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 
-//#include <checkHelpers.hpp>
 #include "WMIQuery.h"
 
 
@@ -98,7 +97,7 @@ public:
 
 	void check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void check_wmi_value(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	NSCAPI::nagiosReturn commandLineExec(const std::wstring &command, std::list<std::wstring> &arguments, std::wstring &result);
+	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
 
 private:
 	target_helper targets;

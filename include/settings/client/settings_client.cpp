@@ -1,5 +1,6 @@
 
 #include <settings/client/settings_client.hpp>
+//#include <tchar.h>
 
 namespace nscapi {
 	namespace settings_helper {
@@ -14,18 +15,18 @@ namespace nscapi {
 			boost::shared_ptr<wstring_key_type> r(new wstring_key_type(val, def, true));
 			return r;
 		}
-		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val) {
-			boost::shared_ptr<wstring_key_type> r(new wstring_key_type(val, _T(""), false));
-			return r;
-		}
+// 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val) {
+// 			boost::shared_ptr<wstring_key_type> r(new wstring_key_type(val, _T(""), false));
+// 			return r;
+// 		}
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def) {
 			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, def, true));
 			return r;
 		}
-		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val) {
-			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, _T(""), false));
-			return r;
-		}
+// 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val) {
+// 			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, _T(""), false));
+// 			return r;
+// 		}
 		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def) {
 			boost::shared_ptr<path_key_type> r(new path_key_type(val, def, true));
 			return r;
@@ -64,6 +65,10 @@ namespace nscapi {
 		}
 		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val, unsigned int def) {
 			boost::shared_ptr<uint_key_type> r(new uint_key_type(val, def, true));
+			return r;
+		}
+		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val) {
+			boost::shared_ptr<uint_key_type> r(new uint_key_type(val, 0, false));
 			return r;
 		}
 		boost::shared_ptr<bool_key_type> bool_key(bool *val, bool def) {

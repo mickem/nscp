@@ -24,7 +24,6 @@
 #include <map>
 #include <strEx.h>
 #include <error.hpp>
-#include <filter_framework.hpp>
 #include <Mstask.h>
 
 #include "filter.hpp"
@@ -43,6 +42,6 @@ public:
 		}
 	};
 
-	void findAll(tasksched_filter::filter_result result, tasksched_filter::filter_argument args, tasksched_filter::filter_engine engine);
+	void findAll(tasksched_filter::filter &filter);
 
 };

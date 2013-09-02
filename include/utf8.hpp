@@ -203,6 +203,7 @@ namespace utf8 {
 #endif
 	}
 
+
 	inline std::string to_system(std::wstring const & str) {
 #ifdef WIN32
 		// figure out how many narrow characters we are going to get
@@ -334,6 +335,9 @@ namespace utf8 {
 
 	inline std::string utf8_from_native(std::string const & str) {
 		return cvt<std::string>(to_unicode(str));
+	}
+	inline std::string to_encoding(std::string const & str, const std::string & encoding) {
+		return to_encoding(cvt<std::wstring>(str), encoding);
 	}
 }
 

@@ -114,7 +114,7 @@ namespace nsclient {
 			if (!have_plugin(plugin_id))
 				throw command_exception("Failed to find plugin: " + ::to_string(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			if (commands_.find(lc) != commands_.end()) {
-				log_error(__FILE__,__LINE__, "Duplicate command", cmd);
+				log_info(__FILE__,__LINE__, "Duplicate command", cmd);
 			}
 			descriptions_[lc].description = desc;
 			descriptions_[lc].plugin_id = plugin_id;
@@ -226,11 +226,13 @@ public:
 			}
 			std::string lc = make_key(command);
 			command_list_type::iterator cit = commands_.find(lc);
-			if (cit == commands_.end()) {
-				std::wcout << _T("NOT FOUND") << std::endl;
-				return plugin_type();
-			}
-			return (*cit).second;
+			if (cit != commands_.end())
+				return (*cit).second;
+			cit = aliases_.find(lc);
+			if (cit != aliases_.end())
+				return (*cit).second;
+			std::cout << "NOT FOUND" << std::endl;
+			return plugin_type();
 		}
 
 		std::string to_string() {
@@ -256,6 +258,9 @@ public:
 		}
 		void log_error(const char* file, int line, std::string error, std::string command) {
 			nsclient::logging::logger::get_logger()->error("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+		}
+		void log_info(const char* file, int line, std::string error, std::string command) {
+			nsclient::logging::logger::get_logger()->info("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

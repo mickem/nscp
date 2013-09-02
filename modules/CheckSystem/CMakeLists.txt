@@ -9,16 +9,26 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-	"PDHCollector.cpp"
+	filter.cpp
+	counter_filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
-	
+	${NSCP_FILTER_CPP}
+
+	pdh_thread.cpp
+	check_pdh.cpp
+
 	${NSCP_INCLUDEDIR}/pdh/basic_impl.cpp
-	${NSCP_INCLUDEDIR}/pdh/core.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_collectors.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_counters.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_enumerations.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_interface.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_query.cpp
+	${NSCP_INCLUDEDIR}/pdh/pdh_resolver.cpp
+	${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
 
 	${NSCP_INCLUDEDIR}/EnumProcess.cpp
 	${NSCP_INCLUDEDIR}/EnumNtSrv.cpp
 	${NSCP_INCLUDEDIR}/sysinfo.cpp
-	
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -27,22 +37,27 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"PDHCollector.h"
+		filter.hpp
+		counter_filter.hpp
 
 		${NSCP_INCLUDEDIR}/EnumProcess.h
 		${NSCP_INCLUDEDIR}/EnumNtSrv.h
 		${NSCP_INCLUDEDIR}/sysinfo.h
 
+		pdh_thread.hpp
+		check_pdh.hpp
+
 		${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
-		${NSCP_INCLUDEDIR}/pdh/collectors.hpp
-		${NSCP_INCLUDEDIR}/pdh/core.hpp
-		${NSCP_INCLUDEDIR}/pdh/counters.hpp
-		${NSCP_INCLUDEDIR}/pdh/enumerations.hpp
-		${NSCP_INCLUDEDIR}/pdh/query.hpp
-		${NSCP_INCLUDEDIR}/pdh/resolver.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_collectors.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_counters.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_enumerations.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_interface.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_query.hpp
+		${NSCP_INCLUDEDIR}/pdh/pdh_resolver.hpp
 		${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
-		
+
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_FILTER_HPP}
 	)
 ENDIF(WIN32)
 
@@ -54,5 +69,10 @@ target_link_libraries(${TARGET}
 	${Boost_THREAD_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+	${NSCP_FILTER_LIB}
+	expression_parser
+	winsys_info
+	psapi
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
+SOURCE_GROUP("pdh" REGULAR_EXPRESSION .*include/pdh/.*)

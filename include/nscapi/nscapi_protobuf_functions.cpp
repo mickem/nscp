@@ -35,18 +35,18 @@ namespace nscapi {
 				static const T get_replace_perf_coma_tgt();
 			};
 
-			template<>
-			struct perf_data_consts<std::wstring> {
-				static const std::wstring get_valid_perf_numbers() {
-					return _T("0123456789,.-");
-				}
-				static const std::wstring get_replace_perf_coma_src() {
-					return _T(",");
-				}
-				static const std::wstring get_replace_perf_coma_tgt() {
-					return _T(".");
-				}
-			};
+// 			template<>
+// 			struct perf_data_consts<std::wstring> {
+// 				static const std::wstring get_valid_perf_numbers() {
+// 					return _T("0123456789,.-");
+// 				}
+// 				static const std::wstring get_replace_perf_coma_src() {
+// 					return _T(",");
+// 				}
+// 				static const std::wstring get_replace_perf_coma_tgt() {
+// 					return _T(".");
+// 				}
+// 			};
 			template<>
 			struct perf_data_consts<std::string> {
 				static const std::string get_valid_perf_numbers() {
@@ -515,58 +515,57 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		template<class T>
-		struct tokenizer_data {
-			T perf_lable_enclosure;						// '
-			T perf_separator;							// ' '
-			T perf_item_splitter;						// ;
-			T perf_equal_sign;							// =
-			T perf_valid_number;						// 0123456789.,
-		};
+		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perff) {
+			std::string perf = perff;
+			// TODO: make this work with const!
 
-		template<class T>
-		void parse_performance_data_(Plugin::QueryResponseMessage::Response *payload, T &perf, tokenizer_data<T> tokenizer_data) {
+			const std::string perf_separator = " ";
+			const std::string perf_lable_enclosure = "'";
+			const std::string perf_equal_sign = "=";
+			const std::string perf_item_splitter = ";";
+			const std::string perf_valid_number = "0123456789,.-";
+
 			while (true) {
 				if (perf.size() == 0)
 					return;
-				typename T::size_type p = 0;
-				p = perf.find_first_not_of(tokenizer_data.perf_separator, p);
+				std::string::size_type p = 0;
+				p = perf.find_first_not_of(perf_separator, p);
 				if (p != 0)
 					perf = perf.substr(p);
-				if (perf[0] == tokenizer_data.perf_lable_enclosure[0]) {
-					p = perf.find(tokenizer_data.perf_lable_enclosure[0], 1)+1;
-					if (p == T::npos)
+				if (perf[0] == perf_lable_enclosure[0]) {
+					p = perf.find(perf_lable_enclosure[0], 1)+1;
+					if (p == std::string::npos)
 						return;
 				}
-				p = perf.find(tokenizer_data.perf_separator, p);
+				p = perf.find(perf_separator, p);
 				if (p == 0)
 					return;
-				T chunk;
-				if (p == T::npos) {
+				std::string chunk;
+				if (p == std::string::npos) {
 					chunk = perf;
-					perf = T();
+					perf = std::string();
 				} else {
 					chunk = perf.substr(0, p);
-					p = perf.find_first_not_of(tokenizer_data.perf_separator, p);
-					if (p == T::npos)
-						perf = T();
+					p = perf.find_first_not_of(perf_separator, p);
+					if (p == std::string::npos)
+						perf = std::string();
 					else
 						perf = perf.substr(p);
 				}
-				std::vector<T> items = strEx::splitV(chunk, tokenizer_data.perf_item_splitter);
+				std::vector<std::string> items = strEx::splitV(chunk, perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
 					perfData->set_type(Plugin::Common_DataType_STRING);
-					std::pair<T,T> fitem = strEx::split(T(), tokenizer_data.perf_equal_sign);
+					std::pair<std::string,std::string> fitem = strEx::split(std::string(), perf_equal_sign);
 					perfData->set_alias("invalid");
 					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");
 					break;
 				}
 
-				std::pair<T,T> fitem = strEx::split(items[0], tokenizer_data.perf_equal_sign);
-				T alias = fitem.first;
-				if (alias.size() > 0 && alias[0] == tokenizer_data.perf_lable_enclosure[0] && alias[alias.size()-1] == tokenizer_data.perf_lable_enclosure[0])
+				std::pair<std::string,std::string> fitem = strEx::split(items[0], perf_equal_sign);
+				std::string alias = fitem.first;
+				if (alias.size() > 0 && alias[0] == perf_lable_enclosure[0] && alias[alias.size()-1] == perf_lable_enclosure[0])
 					alias = alias.substr(1, alias.size()-2);
 
 				if (alias.empty())
@@ -576,15 +575,15 @@ namespace nscapi {
 				perfData->set_alias(utf8::cvt<std::string>(alias));
 				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
 
-				typename T::size_type pstart = fitem.second.find_first_of(tokenizer_data.perf_valid_number);
-				if (pstart == T::npos) {
+				std::string::size_type pstart = fitem.second.find_first_of(perf_valid_number);
+				if (pstart == std::string::npos) {
 					floatPerfData->set_value(0);
 					continue;
 				}
 				if (pstart != 0)
 					fitem.second = fitem.second.substr(pstart);
-				typename T::size_type pend = fitem.second.find_first_not_of(tokenizer_data.perf_valid_number);
-				if (pend == T::npos) {
+				std::string::size_type pend = fitem.second.find_first_not_of(perf_valid_number);
+				if (pend == std::string::npos) {
 					floatPerfData->set_value(trim_to_double(fitem.second));
 				} else {
 					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend)));
@@ -599,24 +598,6 @@ namespace nscapi {
 				if (items.size() >= 5 && items[4].size() > 0)
 					floatPerfData->set_maximum(trim_to_double(items[4]));
 			}
-		}
-		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::wstring &perf) {
-			tokenizer_data<std::wstring> data;
-			data.perf_separator = _T(" ");
-			data.perf_lable_enclosure = _T("'");
-			data.perf_equal_sign = _T("=");
-			data.perf_item_splitter = _T(";");
-			data.perf_valid_number = _T("0123456789,.-");
-			parse_performance_data_<std::wstring>(payload, perf, data);
-		}
-		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, std::string &perf) {
-			tokenizer_data<std::string> data;
-			data.perf_separator = " ";
-			data.perf_lable_enclosure = "'";
-			data.perf_equal_sign = "=";
-			data.perf_item_splitter = ";";
-			data.perf_valid_number = "0123456789,.-";
-			parse_performance_data_<std::string>(payload, perf, data);
 		}
 
 		std::string functions::build_performance_data(Plugin::QueryResponseMessage::Response const &payload) {
@@ -656,6 +637,31 @@ namespace nscapi {
 					ss << ";";
 					if (fval.has_maximum())
 						ss << strEx::s::itos_non_sci(fval.maximum());
+				} else if (perfData.has_int_value()) {
+					Plugin::Common_PerformanceData_IntValue fval = perfData.int_value();
+					ss << fval.value();
+					if (fval.has_unit())
+						ss << fval.unit();
+					if (!fval.has_warning() && !fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
+						continue;
+					ss << ";";
+					if (fval.has_warning())
+						ss << fval.warning();
+					if (!fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
+						continue;
+					ss << ";";
+					if (fval.has_critical())
+						ss << fval.critical();
+					if (!fval.has_minimum() && !fval.has_maximum())
+						continue;
+					ss << ";";
+					if (fval.has_minimum())
+						ss << fval.minimum();
+					if (!fval.has_maximum())
+						continue;
+					ss << ";";
+					if (fval.has_maximum())
+						ss << fval.maximum();
 				}
 			}
 			return ss.str();
@@ -722,6 +728,14 @@ namespace nscapi {
 			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
 			return gbp_to_nagios_status(payload.result());
 		}
+		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf) {
+			alias = payload.alias();
+			if (alias.empty())
+				alias = payload.command();
+			message = payload.message();
+			perf = build_performance_data(payload);
+			return gbp_to_nagios_status(payload.result());
+		}
 		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message) {
 			alias = utf8::cvt<std::wstring>(payload.alias());
 			if (alias.empty())
@@ -729,35 +743,5 @@ namespace nscapi {
 			message = utf8::cvt<std::wstring>(payload.message());
 			return gbp_to_nagios_status(payload.result());
 		}
-		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::wstring perf, std::string &buffer) {
-			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header());
-
-			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
-			payload->set_command(utf8::cvt<std::string>(command));
-			payload->set_message(utf8::cvt<std::string>(msg));
-			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
-		
-			parse_performance_data(payload, perf);
-
-			message.SerializeToString(&buffer);
-			return NSCAPI::returnUNKNOWN;
-		}
-		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::wstring command, std::wstring msg, std::string &buffer) {
-			create_simple_query_response_unknown(command, utf8::cvt<std::string>(msg), buffer);
-			return NSCAPI::returnUNKNOWN;
-		}
-		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::wstring command, std::string msg, std::string &buffer) {
-			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header());
-
-			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
-			payload->set_command(utf8::cvt<std::string>(command));
-			payload->set_message(utf8::cvt<std::string>(msg));
-			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
-
-			message.SerializeToString(&buffer);
-			return NSCAPI::returnUNKNOWN;
-		}
-	}
+ 	}
 }

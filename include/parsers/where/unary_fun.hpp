@@ -1,26 +1,46 @@
 #pragma once
 
-#include <parsers/where/expression_ast.hpp>
+#include <boost/enable_shared_from_this.hpp>
+
+#include <parsers/where/node.hpp>
 #include <parsers/operators.hpp>
 
 namespace parsers {
 	namespace where {
 
-		struct unary_fun {
+		struct unary_fun : public any_node, boost::enable_shared_from_this<unary_fun> {
+		private:
 			std::string name;
-			expression_ast subject;
-			unsigned int function_id;
-			boost::shared_ptr<binary_function_impl> i_fn;
+			node_type subject;
+			boost::shared_ptr<binary_function_impl> function;
 
-			unary_fun(std::string name, expression_ast const& subject) : name(name), subject(subject), function_id(0) {}
+		public:
+			unary_fun(std::string name, node_type const subject) : name(name), subject(subject) {}
 
-			expression_ast evaluate(filter_handler handler, value_type type) const;
+			virtual std::string to_string() const;
 
-			bool bind(value_type type, filter_handler handler);
-			bool is_transparent(value_type type);
+			virtual long long get_int_value(evaluation_context context) const;
+			virtual std::string get_string_value(evaluation_context context) const;
+			virtual std::list<node_type> get_list_value(evaluation_context errors) const;
+
+			virtual bool can_evaluate() const;
+			virtual node_type evaluate(evaluation_context context) const;
+			virtual bool bind(object_converter context);
+			virtual value_type infer_type(object_converter converter, value_type) {
+				return infer_type(converter);
+			}
+			virtual value_type infer_type(object_converter converter) {
+				return type_tbd;
+			}
+			virtual bool find_performance_data(evaluation_context context, performance_collector &collector);
+			virtual bool static_evaluate(evaluation_context context) const;
+
+
+ 		private:
+			bool is_transparent(value_type type) const;
 			bool is_bound() const;
 		private:
-			unary_fun() : function_id(0) {}
+			unary_fun() {}
 		};
 	}
 }

@@ -47,9 +47,6 @@
 #include <boost/date_time.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
-//#include <boost/date_time/local_time/local_date_time.hpp>
-//#include <boost/date_time/gregorian/conversion.hpp>
-//boost::local_time::local_date_time
 
 #ifdef _DEBUG
 #include <iostream>
@@ -79,6 +76,16 @@ namespace strEx {
 			}
 			if (lpos < str.size())
 				ret.push_back(str.substr(lpos));
+			return ret;
+		}
+		template<class T>
+		std::string joinEx(const T &lst, const std::string key) {
+			std::string ret;
+			BOOST_FOREACH(const std::string &s, lst) {
+				if (!ret.empty())
+					ret += key;
+				ret += s;
+			}
 			return ret;
 		}
 
@@ -138,13 +145,6 @@ namespace strEx {
 		}
 	}
 
-	inline void append_list(std::wstring &lst, const std::wstring &append, const std::wstring sep = _T(", ")) {
-		if (append.empty())
-			return;
-		if (!lst.empty())
-			lst += sep;
-		lst += append;
-	}
 	inline void append_list(std::string &lst, const std::string &append, const std::string sep = ", ") {
 		if (append.empty())
 			return;
@@ -152,85 +152,11 @@ namespace strEx {
 			lst += sep;
 		lst += append;
 	}
-	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
-		if (append.empty())
-			return;
-		if (!lst.empty())
-			lst += sep;
-		lst += append;
-	}
-
-	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
-		std::wstringstream ss;
-		std::wstring chars;
-		for (unsigned int i=0;i<len;i++) {
-			ss << std::hex << buf[i];
-			ss << _T(", ");
-			if (buf[i] >= ' ' && buf[i] <= 'z')
-				chars += buf[i];
-			else
-				chars += '?';
-			if (i%32==0) {
-				ss << chars;
-				ss << _T("\n");
-				chars = _T("");
-			}
-		}
-		ss << chars;
-		return ss.str();
-	}
-
-	inline std::wstring format_date(boost::posix_time::ptime date, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		std::locale locale_local ("");
-
-		boost::gregorian::wdate_facet *date_output = new boost::gregorian::wdate_facet();
-		std::locale locale_adjusted (locale_local, date_output);
-
-		std::wstringstream date_ss;
-		date_ss.imbue(locale_adjusted);
-
-		date_output->format(format.c_str());
-		date_ss << date;
-
-		std::wstring ss = date_ss.str();
-		return ss;
-	}
-#ifdef WIN32
-	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		TCHAR buf[51];
-
-		struct tm tmTime;
-		memset(&tmTime, 0, sizeof(tmTime));
-
-		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
-		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
-		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
-		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
-		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
-		tmTime.tm_year = time.wYear-1900; // years since 1900
-		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
-
-		size_t l = wcsftime(buf, 50, format.c_str(), &tmTime);
-		if (l <= 0 || l >= 50)
-			return _T("");
-		buf[l] = 0;
-		return buf;
-	}
-#endif
-
-	inline std::wstring format_date(std::time_t time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		return format_date(boost::posix_time::from_time_t(time), format);
-	}
 
 	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
 	static const long long SECS_TO_100NS = 10000000;
 	inline unsigned long long filetime_to_time(unsigned long long filetime) {
 		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
-	}
-	inline std::wstring format_filetime(unsigned long long filetime, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-		if (filetime == 0)
-			return _T("ZERO");
-		return format_date(static_cast<time_t>(filetime_to_time(filetime)), format);
 	}
 
 	inline void replace(std::wstring &string, const std::wstring replace, const std::wstring with) {
@@ -317,24 +243,6 @@ namespace strEx {
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
-	inline unsigned stoui_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
-		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
-		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
-		if (p == std::wstring::npos)
-			return value * smallest_unit;
-		else if ( (time[p] == L's') || (time[p] == L'S') )
-			return value;
-		else if ( (time[p] == L'm') || (time[p] == L'M') )
-			return value * 60;
-		else if ( (time[p] == L'h') || (time[p] == L'H') )
-			return value * 60 * 60;
-		else if ( (time[p] == L'd') || (time[p] == L'D') )
-			return value * 24 * 60 * 60;
-		else if ( (time[p] == L'w') || (time[p] == L'W') )
-			return value * 7 * 24 * 60 * 60;
-		return value * smallest_unit;
-	}
 	inline unsigned stoui_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		std::string::size_type pend = time.find_first_not_of("0123456789");
@@ -354,11 +262,11 @@ namespace strEx {
 			return value * 7 * 24 * 60 * 60;
 		return value * smallest_unit;
 	}
-	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
-		if (time.length() > 1 && time[0] == L'-')
-			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
-		return stoui_as_time_sec(time, smallest_unit);
-	}
+// 	inline long stol_as_time_sec(std::wstring time, unsigned int smallest_unit = 1) {
+// 		if (time.length() > 1 && time[0] == L'-')
+// 			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
+// 		return stoui_as_time_sec(time, smallest_unit);
+// 	}
 	inline long stol_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
 		if (time.length() > 1 && time[0] == '-')
 			return -(long)stoui_as_time_sec(time.substr(1), smallest_unit);
@@ -448,23 +356,6 @@ namespace strEx {
 		return ret;
 	}
 
-	inline std::wstring trim_right(const std::wstring &source , const std::wstring& t = _T(" "))
-	{
-		std::wstring str = source;
-		return str.erase( str.find_last_not_of(t) + 1);
-	}
-
-	inline std::wstring trim_left( const std::wstring& source, const std::wstring& t = _T(" "))
-	{
-		std::wstring str = source;
-		return str.erase(0 , source.find_first_not_of(t) );
-	}
-
-	inline std::wstring trim(const std::wstring& source, const std::wstring& t = _T(" "))
-	{
-		std::wstring str = source;
-		return trim_left( trim_right( str , t) , t );
-	}
 	template<class T>
 	inline std::pair<T,T> split(T str, T key) {
 		typename T::size_type pos = str.find(key);
@@ -473,23 +364,7 @@ namespace strEx {
 		return std::pair<T,T>(str.substr(0, pos), str.substr(pos+key.length()));
 	}
 	typedef std::pair<std::wstring,std::wstring> token;
-	// foo bar "foo \" bar" foo -> foo, bar "foo \" bar" foo -> bar, "foo \" bar" foo ->
-	//
-	inline token getToken(std::wstring buffer, wchar_t split, bool escape = false) {
-		std::wstring::size_type pos = std::wstring::npos;
-		if ((escape) && (buffer[0] == '\"')) {
-			do {
-				pos = buffer.find('\"');
-			}
-			while (((pos != std::wstring::npos)&&(pos > 1))&&(buffer[pos-1] == '\\'));
-		} else
-			pos = buffer.find(split);
-		if (pos == std::wstring::npos)
-			return token(buffer, _T(""));
-		if (pos == buffer.length()-1)
-			return token(buffer.substr(0, pos), _T(""));
-		return token(buffer.substr(0, pos), buffer.substr(pos+1));
-	}
+
 
 #define MK_FORMAT_FTD(min, key, val) \
 	if (mtm->tm_year > min) \
@@ -527,7 +402,7 @@ namespace strEx {
 		return format_time_delta(static_cast<time_t>(filetime), format);
 	}
 #endif
-
+	/*
 #ifdef _DEBUG
 	inline void test_getToken(std::wstring in1, char in2, std::wstring out1, std::wstring out2) {
 		token t = getToken(in1, in2);
@@ -564,7 +439,7 @@ namespace strEx {
 	}
 
 #endif
-
+	*/
 	template<typename T>
 	inline void parse_command(T &cmd_line, std::list<T> &args) {
 		boost::tokenizer<boost::escaped_list_separator<wchar_t>, typename T::const_iterator, T > tok(cmd_line, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
@@ -585,14 +460,6 @@ namespace strEx {
 			}
 		}
 	}
-	/*
-	template<typename T = std::string>
-	inline void parse_command(T &string, std::list<T> &list) {
-	boost::tokenizer<boost::escaped_list_separator<char>, T::const_iterator, T > tok(string, boost::escaped_list_separator<char>('\\', ' ', '\"'));
-	BOOST_FOREACH(T s, tok)
-	list.push_back(s);
-	}
-	*/
 }
 
 namespace nscp {
@@ -619,7 +486,7 @@ namespace nscp {
 				return boost::lexical_cast<std::wstring>(arg) ;
 			}
 			catch(...) {
-				return _T("");
+				return std::wstring();
 			}
 		}
 		template <typename T> std::wstring to_wstring(const std::wstring& arg) {

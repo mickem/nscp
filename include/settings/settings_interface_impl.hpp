@@ -74,7 +74,7 @@ namespace settings {
 					if (type==settings_core::key_bool)
 						return int_val==1?1:0;
 					return -1;
-				} catch (std::exception &e) {
+				} catch (const std::exception&) {
 					return -1;
 				}
 			}

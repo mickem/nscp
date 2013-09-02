@@ -13,23 +13,16 @@
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-
 #include <error.hpp>
 
-#include <parsers/where.hpp>
-#include <parsers/where/expression_ast.hpp>
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/filter/where_filter.hpp>
-#include <parsers/filter/where_filter_impl.hpp>
-
 
 namespace tasksched_filter {
 
-	struct filter_obj_handler;
 	struct filter_obj {
-
-		typedef parsers::where::expression_ast expression_ast_type;
-
 
 		struct task_sched_date {
 			unsigned long long date_;
@@ -57,6 +50,7 @@ namespace tasksched_filter {
 		typedef boost::optional<unsigned short> op_word;
 		typedef boost::optional<long> op_long;
 		typedef boost::optional<task_sched_date> op_date;
+		typedef boost::optional<bool> op_bool;
 
 #define DECLARE_GET_STRING(variable) op_string variable; std::string get_ ## variable();
 #define DECLARE_GET_DWORD(variable) op_dword variable; unsigned long get_ ## variable();
@@ -64,20 +58,22 @@ namespace tasksched_filter {
 #define DECLARE_GET_WORD(variable) op_word variable; unsigned short get_ ## variable();
 #define DECLARE_GET_HRESULT(variable) op_long variable; long get_ ## variable();
 #define DECLARE_GET_DATE(variable) op_date variable; task_sched_date get_ ## variable();
+#define DECLARE_GET_BOOL(variable) op_bool variable; bool get_ ## variable();
 
  		DECLARE_GET_STRING(title);
 		DECLARE_GET_HRESULT(exit_code);
  		DECLARE_GET_WORD(status);
- 		DECLARE_GET_DATE(most_recent_run_time);
+		DECLARE_GET_DATE(most_recent_run_time);
+		DECLARE_GET_BOOL(enabled);
 
 		IRegisteredTask* task;
-		filter_obj(IRegisteredTask* task) : task(task) {}
+		std::string folder;
+		filter_obj(std::string folder, IRegisteredTask* task) : folder(folder), task(task) {}
 		filter_obj() : task(NULL) {}
 
-		expression_ast_type fun_convert_status(parsers::where::value_type target_type, parsers::where::filter_handler handler, expression_ast_type const& subject);
-
-		static long convert_status(std::string key);
-		static std::string convert_status(long status);
+		std::string get_folder() const {
+			return folder;
+		}
 
 		static unsigned long long systemtime_to_ullFiletime(SYSTEMTIME time) {
 			FILETIME localFileTime, fileTime;
@@ -106,6 +102,13 @@ namespace tasksched_filter {
 			static void cleanup(TTarget obj) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
 			static TReturn convert(HRESULT hr, TTarget value) { return value; }
+		};
+		template<typename TTarget, typename TReturn>
+		struct bool_fetch_traits : public fetch_traits<TTarget, TReturn> {
+			static TReturn get_default() { return false; }
+			static void cleanup(TTarget obj) {}
+			static bool has_failed(HRESULT hr) { return FAILED(hr); }
+			static TReturn convert(HRESULT hr, TTarget value) { return value==VARIANT_TRUE; }
 		};
 		struct date_fetch_traits : public fetch_traits<DATE, task_sched_date> {
 			typedef DATE TTarget;
@@ -159,58 +162,21 @@ namespace tasksched_filter {
 		fetcher<word_fetch_traits<DWORD, unsigned long> > dword_fetcher;
 		fetcher<word_fetch_traits<WORD, unsigned short> > word_fetcher;
 		fetcher<word_fetch_traits<TASK_STATE, unsigned short> > state_fetcher;
-		fetcher<date_fetch_traits > date_fetcher;
-
-		std::string render(std::string format, std::string dateformat);
+		fetcher<date_fetch_traits> date_fetcher;
+		fetcher<bool_fetch_traits<VARIANT_BOOL, bool> > bool_fetcher;
 
 
 	};
 
-	struct filter_obj_handler : public parsers::where::filter_handler_impl<filter_obj> {
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+	struct filter_obj_handler : public native_context {
 
 		static const parsers::where::value_type type_custom_hresult = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
 
-		typedef filter_obj object_type;
-		typedef boost::shared_ptr<object_type> object_instance_type;
-		typedef parsers::where::filter_handler_impl<object_type> base_handler;
-
-		typedef std::map<std::string,parsers::where::value_type> types_type;
-		typedef parsers::where::expression_ast expression_ast_type;
-
-
 		filter_obj_handler();
-		bool has_variable(std::string key);
-		parsers::where::value_type get_type(std::string key);
-		bool can_convert(parsers::where::value_type from, parsers::where::value_type to);
-		base_handler::bound_string_type bind_simple_string(std::string key);
-		base_handler::bound_int_type bind_simple_int(std::string key);
-		bool has_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
-		base_handler::bound_function_type bind_simple_function(parsers::where::value_type to, std::string name, expression_ast_type *subject);
-
-	private:
-		types_type types;
-
 	};
 
-	struct data_arguments : public where_filter::argument_interface {
-		typedef where_filter::argument_interface parent_type;
-		data_arguments(parent_type::error_type error, std::string syntax, std::string datesyntax, bool debug = false) : where_filter::argument_interface(error, syntax, datesyntax) {}
 
-	};
-
-	typedef data_arguments filter_argument_type;
-	typedef where_filter::engine_impl<filter_obj, filter_obj_handler, boost::shared_ptr<filter_argument_type> > filter_engine_type;
-	typedef where_filter::result_counter_interface<filter_obj> filter_result_type;
-
-	typedef boost::shared_ptr<filter_engine_type> filter_engine;
-	typedef boost::shared_ptr<filter_argument_type> filter_argument;
-	typedef boost::shared_ptr<filter_result_type> filter_result;
-
-	struct factories {
-		static filter_engine create_engine(filter_argument arg);
-		static filter_result create_result(filter_argument arg);
-		static filter_argument create_argument(std::string syntax, std::string datesyntax);
-	};
-
+	typedef modern_filter::modern_filters<tasksched_filter::filter_obj, tasksched_filter::filter_obj_handler> filter;
 }

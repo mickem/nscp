@@ -9,94 +9,94 @@ namespace nsclient {
 #ifdef _WIN32
 		class service_manager {
 		private:
-			std::wstring service_name_;
+			std::string service_name_;
 
 		public:
-			service_manager(std::wstring service_name) : service_name_(service_name) {}
+			service_manager(std::string service_name) : service_name_(service_name) {}
 
-			static std::wstring get_default_service_name() {
+			static std::string get_default_service_name() {
 				return DEFAULT_SERVICE_NAME;
 			}
-			static std::wstring get_default_service_desc() {
+			static std::string get_default_service_desc() {
 				return DEFAULT_SERVICE_DESC;
 			}
-			static std::wstring get_default_service_deps() {
+			static std::string get_default_service_deps() {
 				return DEFAULT_SERVICE_DEPS;
 			}
-			static std::wstring get_default_arguments() {
-				return _T("service --run");
+			static std::string get_default_arguments() {
+				return "service --run";
 			}
-			inline void print_msg(std::wstring str) {
-				std::wcout << str << std::endl;
+			inline void print_msg(std::string str) {
+				std::cout << str << std::endl;
 			}
-			inline void print_error(std::wstring str) {
-				std::wcerr << _T("ERROR: ") << str << std::endl;
+			inline void print_error(std::string str) {
+				std::cerr << "ERROR: " << str << std::endl;
 			}
 		public:
-			int install(std::wstring service_description) {
+			int install(std::string service_description) {
 				try {
-					std::wstring args = get_default_arguments();
+					std::string args = get_default_arguments();
 					if (service_name_ != get_default_service_name())
-						args += _T(" --name ") + service_name_;
-					serviceControll::Install(service_name_, service_description, get_default_service_deps(), SERVICE_WIN32_OWN_PROCESS, args);
+						args += " --name " + service_name_;
+					serviceControll::Install(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description), utf8::cvt<std::wstring>(get_default_service_deps()), SERVICE_WIN32_OWN_PROCESS, utf8::cvt<std::wstring>(args));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service installation failed of '") + service_name_ + _T("' failed: ") + utf8::cvt<std::wstring>(e.error_));
+					print_error("Service installation failed of '" + service_name_ + "' failed: " + e.error_);
 					return -1;
 				}
 				try {
-					serviceControll::SetDescription(service_name_, service_description);
+					serviceControll::SetDescription(utf8::cvt<std::wstring>(service_name_), utf8::cvt<std::wstring>(service_description));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Couldn't set service description: ") + utf8::cvt<std::wstring>(e.error_));
+					print_error("Couldn't set service description: " + e.error_);
 				}
-				print_msg(_T("Service installed successfully!"));
+				print_msg("Service installed successfully!");
 				return 0;
 			}
 			int uninstall() {
 				try {
-					serviceControll::Uninstall(service_name_);
+					serviceControll::Uninstall(utf8::cvt<std::wstring>(service_name_));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service de-installation (") + service_name_ + _T(") failed; ") + utf8::cvt<std::wstring>(e.error_) + _T("\nMaybe the service was not previously installed properly?"));
+					print_error("Service de-installation (" + service_name_ + ") failed; " + e.error_ + "\nMaybe the service was not previously installed properly?");
 					return 0;
 				}
-				print_msg(_T("Service uninstalled successfully!"));
+				print_msg("Service deinstalled successfully!");
 				return 0;
 			}
 			int start() {
 				try {
-					serviceControll::Start(service_name_);
+					serviceControll::Start(utf8::cvt<std::wstring>(service_name_));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service failed to start: ") + utf8::cvt<std::wstring>(e.error_));
+					print_error("Service failed to start: " + e.error_);
 					return -1;
 				}
 				return 0;
 			}
 			int stop() {
 				try {
-					serviceControll::Stop(service_name_);
+					serviceControll::Stop(utf8::cvt<std::wstring>(service_name_));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Service failed to stop: ") + utf8::cvt<std::wstring>(e.error_));
+					print_error("Service failed to stop: " + e.error_);
 					return -1;
 				}
 				return 0;
 			}
-			std::wstring info() {
+			std::string info() {
 				try {
-					return serviceControll::get_exe_path(service_name_);
+					return utf8::cvt<std::string>(serviceControll::get_exe_path(utf8::cvt<std::wstring>(service_name_)));
 				} catch (const serviceControll::SCException& e) {
-					print_error(_T("Failed to find service: ") + utf8::cvt<std::wstring>(e.error_));
-					return _T("");
+					print_error("Failed to find service: " + e.error_);
+					return "";
 				}
 			}
 		};
 #else
 		class service_manager {
 		public:
-			service_manager(std::wstring service_name) {}
+			service_manager(std::string service_name) {}
 			int unsupported() {
-				std::wcout << _T("Service management is not supported on non Windows operating systems...") << std::endl;
+				std::cout << "Service management is not supported on non Windows operating systems..." << std::endl;
 				return -1;
 			}
-			int install(std::wstring service_description) {
+			int install(std::string service_description) {
 				return unsupported();
 			}
 			int uninstall() {
@@ -108,10 +108,10 @@ namespace nsclient {
 			int stop() {
 				return unsupported();
 			}
-			std::wstring info() {
-				return _T("");
+			std::string info() {
+				return "";
 			}
-			static std::wstring get_default_service_name() {
+			static std::string get_default_service_name() {
 				return DEFAULT_SERVICE_NAME;
 			}
 		};
