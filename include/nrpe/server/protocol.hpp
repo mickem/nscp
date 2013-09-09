@@ -10,6 +10,8 @@
 #include <socket/socket_helpers.hpp>
 #include <socket/server.hpp>
 
+
+#include <string/simple.hpp>
 #include "handler.hpp"
 #include "parser.hpp"
 
@@ -60,12 +62,12 @@ namespace nrpe {
 			current_state_ = new_state;
 		}
 
-		bool on_accept(boost::asio::ip::tcp::socket& socket) {
+		bool on_accept(boost::asio::ip::tcp::socket& socket, int count) {
 			std::list<std::string> errors;
 			parser_.reset();
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
-				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s);
+				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count="+ss::xtos(count));
 				return true;
 			} else {
 				BOOST_FOREACH(const std::string &e, errors) {

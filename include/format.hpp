@@ -19,9 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <unicode_char.hpp>
-#include <types.hpp>
-
 #include <string>
 #include <sstream>
 #include <iomanip>
@@ -53,6 +50,7 @@
 #include <locale>
 
 namespace format {
+
 	inline std::wstring strip_ctrl_chars(std::wstring str) {
 		std::wstring ret; ret.reserve(str.size());
 		BOOST_FOREACH(wchar_t c, str)
@@ -96,38 +94,9 @@ namespace format {
 			lst += sep;
 		lst += append;
 	}
-// 	inline void append_list(std::wstring &lst, const std::wstring &append) {
-// 		append_list<std::wstring>(lst, append, _T(", "));
-// 	}
 	inline void append_list(std::string &lst, const std::string &append) {
 		append_list<std::string>(lst, append, ", ");
 	}
-// 	inline void append_list_ex(std::wstring &lst, std::wstring append, std::wstring sep = _T(", ")) {
-// 		if (append.empty())
-// 			return;
-// 		if (!lst.empty())
-// 			lst += sep;
-// 		lst += append;
-// 	}
-// 	inline std::wstring format_buffer(const wchar_t* buf, unsigned int len) {
-// 		std::wstringstream ss;
-// 		std::wstring chars;
-// 		for (unsigned int i=0;i<len;i++) {
-// 			ss << std::hex << buf[i];
-// 			ss << _T(", ");
-// 			if (buf[i] >= ' ' && buf[i] <= 'z')
-// 				chars += buf[i];
-// 			else
-// 				chars += '?';
-// 			if (i%32==0) {
-// 				ss << chars;
-// 				ss << _T("\n");
-// 				chars = _T("");
-// 			}
-// 		}
-// 		ss << chars;
-// 		return ss.str();
-// 	}
 	inline std::string format_buffer(const char* buf, std::string::size_type len) {
 		std::stringstream ss;
 		std::string chars;
@@ -192,28 +161,6 @@ namespace format {
 		std::string ss = date_ss.str();
 		return ss;
 	}
-// #ifdef WIN32
-// 	inline std::wstring format_date(const SYSTEMTIME &time, std::wstring format = _T("%Y-%m-%d %H:%M:%S")) {
-// 		TCHAR buf[51];
-// 
-// 		struct tm tmTime;
-// 		memset(&tmTime, 0, sizeof(tmTime));
-// 
-// 		tmTime.tm_sec = time.wSecond; // seconds after the minute - [0,59]
-// 		tmTime.tm_min = time.wMinute; // minutes after the hour - [0,59]
-// 		tmTime.tm_hour = time.wHour;  // hours since midnight - [0,23]
-// 		tmTime.tm_mday = time.wDay;  // day of the month - [1,31]
-// 		tmTime.tm_mon = time.wMonth-1; // months since January - [0,11]
-// 		tmTime.tm_year = time.wYear-1900; // years since 1900
-// 		tmTime.tm_wday = time.wDayOfWeek; // days since Sunday - [0,6]
-// 
-// 		size_t l = wcsftime(buf, 50, format.c_str(), &tmTime);
-// 		if (l <= 0 || l >= 50)
-// 			return _T("");
-// 		buf[l] = 0;
-// 		return buf;
-// 	}
-// #endif
 	inline std::string format_date(std::time_t time, std::string format = "%Y-%m-%d %H:%M:%S") {
 		return format_date(boost::posix_time::from_time_t(time), format);
 	}
@@ -249,25 +196,6 @@ namespace format {
 		ss << std::hex << i;
 		return ss.str();
 	}
-// 	template<class T>
-// 	inline T decode_time(std::wstring time, unsigned int factor = 1) {
-// 		std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));
-// 		std::wstring::size_type pend = time.find_first_not_of(_T("0123456789"));
-// 		T value = boost::lexical_cast<T>(pend==std::wstring::npos?time:time.substr(0,pend).c_str());
-// 		if (p == std::wstring::npos)
-// 			return value * factor;
-// 		else if ( (time[p] == 's') || (time[p] == 'S') )
-// 			return value * factor;
-// 		else if ( (time[p] == 'm') || (time[p] == 'M') )
-// 			return value * 60 * factor;
-// 		else if ( (time[p] == 'h') || (time[p] == 'H') )
-// 			return value * 60 * 60 * factor;
-// 		else if ( (time[p] == 'd') || (time[p] == 'D') )
-// 			return value * 24 * 60 * 60 * factor;
-// 		else if ( (time[p] == 'w') || (time[p] == 'W') )
-// 			return value * 7 * 24 * 60 * 60 * factor;
-// 		return value * factor;
-// 	}
 	template<class T>
 	inline T decode_time(std::string time, unsigned int factor = 1) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");

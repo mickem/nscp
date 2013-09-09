@@ -38,7 +38,6 @@
 #include <boost/foreach.hpp>
 
 #include "config.h"
-#include <types.hpp>
 #include <charEx.h>
 #include <error.hpp>
 #include <NSCAPI.h>

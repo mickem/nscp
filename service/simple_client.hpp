@@ -72,10 +72,6 @@ namespace nsclient {
 						if (ret == NSCAPI::returnIgnored) {
 							info(__LINE__, "No handler for command: " + t.first);
 						} else {
-							if (msg.size() > 8096) {
-								info(__LINE__, "Command returned too much data (result truncated)");
-								msg = msg.substr(0, 8096);
-							}
 							info(__LINE__, nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
 							if (!perf.empty())
 								info(__LINE__, " Performance data: " + perf);

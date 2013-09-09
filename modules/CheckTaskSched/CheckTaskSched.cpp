@@ -70,34 +70,47 @@ bool CheckTaskSched::unloadModule() {
 
 void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef tasksched_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	std::vector<std::string> file_list;
 	std::string files_string;
-	std::string mode;
-
-	filter_helper.add_options();
-	filter_helper.add_syntax("${problem_list}", "TODO", "${drive} > ${used}", "${drive}", "TODO");
-	filter_helper.get_desc().add_options()
-		;
-	filter_helper.parse_options();
-
-	if (filter_helper.empty())
-		filter_helper.set_default("used > 80%", "used > 90%");
+	std::string computer, user, domain, password, folder;
+	bool recursive;
 
 	filter_type filter;
+	filter_helper.add_options(filter.get_filter_syntax(), "All stats ok");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}");
+	filter_helper.get_desc().add_options()
+		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")
+		("user", po::value<std::string>(&user), "The user name that is used during the connection to the computer.")
+		("domain", po::value<std::string>(&domain), "The domain of the user specified in the user parameter.")
+		("password", po::value<std::string>(&password), "The password that is used to connect to the computer. If the user name and password are not specified, then the current token is used.")
+		("folder", po::value<std::string>(&folder), "The folder in which the tasks to check reside.")
+		("recursive", po::value<bool>(&recursive), "Recurse subfolder (defaults to true).")
+		;
+
+	if (!filter_helper.parse_options())
+		return;
+
+	if (filter_helper.empty()) {
+		if (data.filter_string.empty()) {
+			data.filter_string = "enabled = 1";
+		}
+		filter_helper.set_default("exit_code != 0", "exit_code < 0");
+	}
+
 	if (!filter_helper.build_filter(filter))
 		return;
 
 	try {
 		TaskSched query;
-		query.findAll(filter);
-	} catch (TaskSched::Exception e) {
+		query.findAll(filter, computer, user, domain, password, folder, recursive);
+	} catch (const nscp_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
-
-	//	scale_perfdata scaler(response);
-	//	filter_helper.post_process(filter, &scaler);
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
 }
 
 int CheckTaskSched::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {

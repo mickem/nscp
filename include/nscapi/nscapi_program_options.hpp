@@ -99,6 +99,12 @@ namespace nscapi {
 				;
 			return desc;
 		}
+		static void add_help(po::options_description &desc) {
+			desc.add_options()
+				("help",		"Show help screen (this screen)")
+				("help-csv",	"Show help screen as a comma separated list. \nThis is useful for parsing the output in scripts and generate documentation etc")
+				;
+		}
 		static po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}

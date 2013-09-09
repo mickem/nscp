@@ -148,3 +148,44 @@ namespace check_proc_filter {
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
+
+namespace os_version_filter {
+
+	struct filter_obj {
+		long long major_version;
+		long long minor_version;
+		long long build;
+		long long plattform;
+		std::string version_s;
+		long long version_i;
+
+		filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0) {}
+
+		long long get_major() const {
+			return major_version;
+		}
+		long long get_minor() const {
+			return minor_version;
+		}
+		long long get_build() const {
+			return build;
+		}
+		long long get_plattform() const {
+			return plattform;
+		}
+		std::string get_version_s() const {
+			return version_s;
+		}
+		long long get_version_i() const {
+			return version_i;
+		}
+	};
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+
+	struct filter_obj_handler : public native_context {
+		filter_obj_handler();
+	};
+
+
+	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}

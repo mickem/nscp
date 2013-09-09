@@ -7,7 +7,7 @@ namespace services_helper {
 	struct service_info {
 		std::string name;
 		std::string displayname;
-		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0) {}
+		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0), delayed(false) {}
 		service_info(const service_info &other) 
 			: name(other.name), displayname(other.displayname)
 			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type)
@@ -20,6 +20,7 @@ namespace services_helper {
 		DWORD start_type;
 		DWORD error_control;
 		DWORD type;
+		bool delayed;
 
 		std::string binary_path;
 
@@ -31,6 +32,7 @@ namespace services_helper {
 		std::string get_name() const { return name; }
 		std::string get_desc() const { return displayname; }
 		long long get_pid() const { return pid; }
+		long long get_delayed() const { return delayed?1:0; }
 
 		static long long parse_start_type(const std::string &s);
 		static long long parse_state(const std::string &s);

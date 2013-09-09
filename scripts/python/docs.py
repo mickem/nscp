@@ -19,11 +19,11 @@ def key2link(str):
 	str = str.replace(' ', '_')
 	return str
 	
-def indent(numSpaces, s):
+def indent(numSpaces, s, prefix=''):
 	ret = ''
 	for line in s.split('\n'):
 		if line != '\n':
-			ret += (numSpaces * ' ') + line + '\n'
+			ret += (numSpaces * ' ') + prefix + line + '\n'
 		else:
 			ret += line + '\n'
 	return ret
@@ -347,7 +347,7 @@ class DocumentationHelper(object):
 		
 		for (path,pinfo) in paths.iteritems():
 			if not module or module in pinfo.info.plugin:
-				string = renderer.title(2, ':confpath:`%s <%s>`'%(path.replace('/', '\u200B/'), path))
+				string = renderer.title(2, ':confpath:`%s <%s>`'%(path, path))
 				string += renderer.obj_anchor('confpath', path, pinfo.info.description)
 
 				regular_keys = []
@@ -419,9 +419,9 @@ class DocumentationHelper(object):
 					if len(row) < 3:
 						continue
 					link = renderer.obj_link('option', row[0])
-					table.append([link, 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2], row[3].split('\n')[0]])
-					details += renderer.obj_anchor('option', row[0], row[3])
-					details += renderer.para(indent(4, row[3]))
+					table.append([link, 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2], row[3].split('\\n')[0]])
+					details += renderer.obj_anchor('option', row[0], row[3].split('\\n')[0])
+					details += renderer.para(indent(4, row[3].replace('\\n', '\n'), prefix='| '))
 				if table:
 					table.insert(0, ['Option', 'Default value', 'Description'])
 					string += renderer.table(table)

@@ -93,7 +93,6 @@ namespace modern_filter {
 		typedef boost::shared_ptr<parsers::where::engine> filter_engine;
 		typedef parsers::where::performance_collector::boundries_type boundries_type;
 		typedef boost::shared_ptr<Tobject> object_type;
-		//typedef boost::shared_ptr<parsers::where::generic_summary<object_type> > summary_type;
 
 		filter_text_renderer<Tfactory> renderer_top;
 		filter_text_renderer<Tfactory> renderer_detail;
@@ -129,8 +128,11 @@ namespace modern_filter {
 			context->set_summary(&summary);
 		}
 
-		std::string get_opts() const {
-			return context->get_opts() + summary.get_opts();
+		std::string get_filter_syntax() const {
+			return context->get_filter_syntax() + summary.get_filter_syntax();
+		}
+		std::string get_format_syntax() const {
+			return context->get_filter_syntax() + summary.get_format_syntax();
 		}
 		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, std::string &gerror) {
 			std::string lerror;

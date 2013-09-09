@@ -104,6 +104,17 @@ namespace services_helper {
 			info.start_type = qscData.get()->dwStartType;
 			info.binary_path = utf8::cvt<std::string>(qscData.get()->lpBinaryPathName);
 			info.error_control = qscData.get()->dwErrorControl;
+
+
+			SERVICE_DELAYED_AUTO_START_INFO delayed;
+// 			typedef struct _SERVICE_DELAYED_AUTO_START_INFO {
+// 				BOOL fDelayedAutostart;
+// 			} SERVICE_DELAYED_AUTO_START_INFO, *LPSERVICE_DELAYED_AUTO_START_INFO;
+			
+			DWORD size=sizeof(SERVICE_DELAYED_AUTO_START_INFO);
+			if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size) != 0) {
+				info.delayed = delayed.fDelayedAutostart;
+			}
 			ret.push_back(info);
 		}
 		return ret;
@@ -116,7 +127,7 @@ namespace services_helper {
 		if (!sc) 
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
-		hlp::service_handle<SC_HANDLE> hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG);
+		hlp::service_handle<SC_HANDLE> hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
 		if (!hService)
 			throw nscp_exception("Failed to open service: " + service);
 

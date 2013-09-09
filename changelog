@@ -1,8 +1,17 @@
-TODO: 
- * Process times and similar ?
- * Fix configuration GUI (low priority)
- * Fix dependonservice LanManWorkStation (old win)
- * Fix RtlStringFromGUID problem on NT4
+2013-09-09 MickeM
+ * Fixed check_multi
+ * added new options to check_multi (suffic, prefix and separator) to better control the output
+ * starting services (auto-start) is now a warning state.
+ 
+2013-09-08 MickeM
+ * Brand new filters
+ * Modernised check_cpu
+ * Modernised check_process
+ * Modernised check_service
+ * Modernised check_uptime
+ * Modernised check_tasksched
+ * Merged CheckTaskSched1 and CheckTaskSched2 into CheckTaskSched
+ * Added check_os_version
 
 2013-05-05 MickeM
  * Fixed a bug in the check_logfile which made filtering bail-out after the first hit.

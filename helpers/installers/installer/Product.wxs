@@ -147,10 +147,7 @@
 							<File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
 							<File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
-<!--
 							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
--->
-							<File Id="ModCheckTaskSched2.dll" Name="CheckTaskSched2.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched2.dll" Vital="no" />
               <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
               <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
               <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />

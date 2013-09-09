@@ -60,7 +60,7 @@ namespace nscp {
 				parser_.reset();
 		}
 
-		bool on_accept(boost::asio::ip::tcp::socket& socket) {
+		bool on_accept(boost::asio::ip::tcp::socket& socket, int count) {
 			std::list<std::string> errors;
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {

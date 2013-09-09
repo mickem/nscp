@@ -179,8 +179,15 @@ void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &requ
 void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	std::vector<std::string> arguments;
+	std::string separator;
+	std::string prefix;
+	std::string suffix;
 	desc.add_options()
-		("arguments,a",	po::value<std::vector<std::string> >(&arguments), "List of commands with arguments to run")
+		("command",	po::value<std::vector<std::string> >(&arguments), "Commands to run (can be used multiple times)")
+		("arguments",	po::value<std::vector<std::string> >(&arguments), "Deprecated alias for command")
+		("separator",	po::value<std::string>(&separator)->default_value(", "), "Separator between messages")
+		("prefix",	po::value<std::string>(&prefix), "Message prefix")
+		("suffix",	po::value<std::string>(&suffix), "Message suffix")
 		;
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
@@ -191,21 +198,24 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 	Plugin::Common_ResultCode result = Plugin::Common_ResultCode_OK;
 
 	BOOST_FOREACH(std::string arg, arguments) {
-		std::list<std::string> args = strEx::s::splitEx(arg, std::string(" "));
-		if (args.empty()) {
+		std::list<std::string> tmp = strEx::s::splitEx(arg, std::string(" "));
+		if (tmp.empty()) {
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 		}
-		std::string command = args.front(); args.pop_front();
+		std::string command = tmp.front(); 
+		std::vector<std::string> args(++(tmp.begin()), tmp.end());
 		Plugin::QueryResponseMessage::Response local_response;
-		if (!simple_query(command, arguments, &local_response))
-			return;
+		if (!simple_query(command, args, &local_response)) 
+			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
 		for (int j=0;j<local_response.perf_size();j++) {
 			response->add_perf()->CopyFrom(local_response.perf(j));
 		}
 		escalate_result(response, local_response.result());
+		if (!message.empty())
+			message += separator;
 		message += local_response.message();
 	}
-	response->set_message(message);
+	response->set_message(prefix + message + suffix);
 }
 
 struct worker_object {

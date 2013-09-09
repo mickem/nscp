@@ -4,6 +4,7 @@
 #include <string>
 
 #include <MSTask.h>
+#include <taskschd.h>
 
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
@@ -16,10 +17,7 @@
 
 namespace tasksched_filter {
 
-	struct filter_obj {
-
-		long long count;
-
+	namespace helpers {
 		struct task_sched_date {
 			unsigned long long date_;
 			bool never_;
@@ -46,93 +44,85 @@ namespace tasksched_filter {
 		typedef boost::optional<unsigned short> op_word;
 		typedef boost::optional<long> op_long;
 		typedef boost::optional<task_sched_date> op_date;
+		typedef boost::optional<bool> op_bool;
 
-#define DECLARE_GET_STRING(variable) op_string variable; std::string get_ ## variable();
-#define DECLARE_GET_DWORD(variable) op_dword variable; unsigned long get_ ## variable();
-#define DECLARE_GET_WORD(variable) op_word variable; unsigned short get_ ## variable();
-#define DECLARE_GET_WORD(variable) op_word variable; unsigned short get_ ## variable();
-#define DECLARE_GET_HRESULT(variable) op_long variable; long get_ ## variable();
-#define DECLARE_GET_DATE(variable) op_date variable; task_sched_date get_ ## variable();
 
-		DECLARE_GET_STRING(account_name);
-		DECLARE_GET_STRING(application_name);
-		DECLARE_GET_STRING(comment);
-		DECLARE_GET_STRING(creator);
-		DECLARE_GET_STRING(parameters);
-		DECLARE_GET_STRING(working_directory);
-
-		DECLARE_GET_WORD(error_retry_count);
-		DECLARE_GET_WORD(error_retry_interval);
-		//DECLARE_GET_WORD(idle_wait);
-		DECLARE_GET_DWORD(exit_code);
-		DECLARE_GET_DWORD(flags);
-		DECLARE_GET_DWORD(max_run_time);
-		DECLARE_GET_DWORD(priority);
-
-		DECLARE_GET_HRESULT(status);
-
-		DECLARE_GET_DATE(most_recent_run_time);
-
-		ITask* task;
-		filter_obj(ITask* task, std::string title) : task(task), title(title) {
-		}
-		filter_obj() : task(NULL) {}
-
-		std::string get_title() { return title; }
-
-		static unsigned long long systemtime_to_ullFiletime(SYSTEMTIME time) {
-			FILETIME localFileTime, fileTime;
-			SystemTimeToFileTime(&time, &localFileTime);
-			LocalFileTimeToFileTime(&localFileTime, &fileTime);
-			return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)fileTime.dwLowDateTime);
-		}
-
-		template<typename TTarget, typename TReturn>
+		template<typename TRawType, typename TType, typename TObject>
 		struct fetch_traits {
-			typedef typename TTarget raw_type;
-			typedef typename TReturn data_type;
-			typedef typename boost::optional<TReturn> client_type;
-			typedef HRESULT (__stdcall ITask::*fun_ptr_type)(raw_type*);
+			typedef typename TRawType raw_type;
+			typedef typename TType data_type;
+			typedef typename TObject object_type;
+			typedef HRESULT (__stdcall TObject::*fun_ptr_type)(TRawType*);
 		};
-		struct string_fetch_traits : public fetch_traits<LPWSTR, std::string> {
+		template<typename TObject>
+		struct lpwstr_traits : public fetch_traits<LPWSTR, std::string, TObject> {
 			static std::string get_default() { return ""; }
-			static void cleanup(LPWSTR obj) {CoTaskMemFree(obj); }
+			static void cleanup(LPWSTR obj) { CoTaskMemFree(obj); }
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
 			static std::string convert(HRESULT hr, LPWSTR value) { return utf8::cvt<std::string>(value); }
 		};
-
-		template<typename TTarget, typename TReturn>
-		struct word_fetch_traits : public fetch_traits<TTarget, TReturn> {
+		template<typename TObject>
+		struct bstr_traits : public fetch_traits<BSTR, std::string, TObject> {
+			static std::string get_default() { return ""; }
+			static void cleanup(LPWSTR obj) { /*CoTaskMemFree(obj);*/ }
+			static bool has_failed(HRESULT hr) { return FAILED(hr); }
+			static std::string convert(HRESULT hr, LPWSTR value) { return utf8::cvt<std::string>(value); }
+		};
+		template<typename TTarget, typename TReturn, typename TObject>
+		struct word_traits : public fetch_traits<TTarget, TReturn, TObject> {
 			static TReturn get_default() { return 0; }
 			static void cleanup(TTarget obj) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
 			static TReturn convert(HRESULT hr, TTarget value) { return value; }
 		};
-		struct date_fetch_traits : public fetch_traits<SYSTEMTIME, task_sched_date> {
-			typedef SYSTEMTIME TTarget;
+		template<typename TRawType, typename TObject>
+		struct date_traits : public fetch_traits<TRawType, task_sched_date, TObject> {
 			typedef task_sched_date TReturn;
 			static TReturn get_default() { return task_sched_date(); }
-			static void cleanup(TTarget obj) {}
+			static void cleanup(TRawType obj) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr) && hr != SCHED_S_TASK_HAS_NOT_RUN; }
-			static TReturn convert(HRESULT hr, TTarget &value) {
+
+			static unsigned long long convert_time(const SYSTEMTIME &time) {
+				FILETIME localFileTime, fileTime;
+				SystemTimeToFileTime(&time, &localFileTime);
+				LocalFileTimeToFileTime(&localFileTime, &fileTime);
+				return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)fileTime.dwLowDateTime);
+			}
+			static unsigned long long convert_time(const DATE &time) {
+				return 0;
+			}
+
+			static TReturn convert(HRESULT hr, TRawType &value) {
 				if (hr == SCHED_S_TASK_HAS_NOT_RUN)
 					return task_sched_date(true);
-				return task_sched_date(systemtime_to_ullFiletime(value)); 
+				return task_sched_date(convert_time(value)); 
 			}
+		};
+		template<typename TTarget, typename TReturn, typename TObject>
+		struct bool_traits : public fetch_traits<TTarget, TReturn, TObject> {
+			static TReturn get_default() { return false; }
+			static void cleanup(TTarget obj) {}
+			static bool has_failed(HRESULT hr) { return FAILED(hr); }
+			static TReturn convert(HRESULT hr, TTarget value) { return value==VARIANT_TRUE; }
 		};
 
 		template<typename traits>
-		struct fetcher {
+		struct com_variable {
 			typedef typename traits::fun_ptr_type fun_ptr_type;
 			typedef typename traits::data_type data_type;
 			typedef typename traits::raw_type raw_type;
-			typedef typename traits::client_type client_type;
+			typedef typename traits::object_type object_type;
 
-			bool inline fetch_data(filter_obj *parent, fun_ptr_type f, data_type &data) {
+			boost::optional<data_type> data_;
+			fun_ptr_type fun_;
+
+			com_variable(fun_ptr_type fun) : fun_(fun) {}
+
+			bool inline fetch_data(object_type *object, data_type &data) {
 				raw_type tmp;
-				HRESULT hr = (parent->task->*f)(&tmp);
+				HRESULT hr = (object->*fun_)(&tmp);
 				if (traits::has_failed(hr)) {
-					throw filter_exception("ERROR: " + ::error::format::from_system(hr));
+					throw nscp_exception("ERROR: " + ::error::format::from_system(hr));
 				} else {
 					data = traits::convert(hr, tmp);
 					traits::cleanup(tmp);
@@ -140,45 +130,173 @@ namespace tasksched_filter {
 				}
 			}
 
-			data_type inline fetch(filter_obj *parent, fun_ptr_type f, client_type &client) {
-				if (!client) {
-					client.reset(traits::get_default());
+			data_type operator() (object_type *object) {
+				if (!data_) {
 					data_type tmp;
-					if (fetch_data(parent, f, tmp))
-						client.reset(tmp);
+					if (fetch_data(object, tmp))
+						data_.reset(tmp);
+					else
+						data_.reset(traits::get_default());
 				}
-				return *client;
+				return *data_;
 			}
+
 		};
 
-		long long get_count() const {
-			return count;
-		}
-		std::string get_count_str() const {
-			return strEx::s::xtos(count);
-		}
-		void matched() {
-			count++;
-		}
+	}
+	
+	
+	
+	struct filter_obj {
 
+		virtual bool is_new() = 0;
 
-		fetcher<string_fetch_traits> string_fetcher;
-		fetcher<word_fetch_traits<HRESULT, long> > hresult_fetcher;
-		fetcher<word_fetch_traits<DWORD, unsigned long> > dword_fetcher;
-		fetcher<word_fetch_traits<WORD, unsigned short> > word_fetcher;
-		fetcher<date_fetch_traits > date_fetcher;
+		virtual std::string get_folder() = 0;
+		virtual std::string get_title() = 0;
 
+		virtual std::string get_account_name() = 0;
+		virtual std::string get_application_name() = 0;
+		virtual std::string get_comment() = 0;
+		virtual std::string get_creator() = 0;
+		virtual std::string get_parameters() = 0;
+		virtual std::string get_working_directory() = 0;
+
+		virtual long long get_exit_code() = 0;
+		virtual long long get_flags() = 0;
+		virtual long long get_max_run_time() = 0;
+		virtual long long get_priority() = 0;
+
+		virtual long long is_enabled() = 0;
+		virtual long long get_status() = 0;
+		virtual long long get_most_recent_run_time() = 0;
+
+	};
+
+	
+	struct old_filter_obj : public filter_obj {
+
+		typedef helpers::com_variable<helpers::lpwstr_traits<ITask> > string_variable;
+		typedef helpers::com_variable<helpers::word_traits<WORD, long, ITask> > word_variable;
+		typedef helpers::com_variable<helpers::word_traits<DWORD, long long, ITask> > dword_variable;
+		typedef helpers::com_variable<helpers::word_traits<HRESULT, long long, ITask> > hresult_variable;
+		typedef helpers::com_variable<helpers::date_traits< SYSTEMTIME, ITask> > date_variable;
+
+		ITask* task;
 		std::string title;
+		string_variable account_name;
+		string_variable application_name;
+		string_variable comment;
+		string_variable creator;
+		string_variable parameters;
+		string_variable working_directory;
+
+		dword_variable exit_code;
+		dword_variable flags;
+		dword_variable max_run_time;
+		dword_variable priority;
+
+		hresult_variable status;
+		date_variable most_recent_run_time;
+
+
+
+		old_filter_obj(ITask* task, std::string title);
+
+		bool is_new() { return false; }
+
+		std::string get_title() { return title; }
+		std::string get_folder() { return "/"; }
+
+		long long is_enabled() { return (get_status()&SCHED_S_TASK_DISABLED==SCHED_S_TASK_DISABLED)?0:1; }
+
+		std::string get_account_name() { return account_name(task); }
+		std::string get_application_name() { return application_name(task); }
+		std::string get_comment() { return comment(task); }
+		std::string get_creator() { return creator(task); }
+		std::string get_parameters() { return parameters(task); }
+		std::string get_working_directory() { return working_directory(task); }
+
+		long long get_exit_code() { return exit_code(task); }
+		long long get_flags() { return flags(task); }
+		long long get_max_run_time() { return max_run_time(task); }
+		long long get_priority() { return priority(task); }
+
+		long long get_status() { return status(task); }
+		long long get_most_recent_run_time() { return most_recent_run_time(task); }
+	};
+
+
+	struct new_filter_obj : public filter_obj {
+
+		typedef helpers::com_variable<helpers::bstr_traits<IRegisteredTask> > string_variable;
+		typedef helpers::com_variable<helpers::word_traits<WORD, long, IRegisteredTask> > word_variable;
+		typedef helpers::com_variable<helpers::word_traits<LONG, long, IRegisteredTask> > long_variable;
+		typedef helpers::com_variable<helpers::word_traits<DWORD, long long, IRegisteredTask> > dword_variable;
+		typedef helpers::com_variable<helpers::word_traits<TASK_STATE, long long, IRegisteredTask> > state_variable;
+		typedef helpers::com_variable<helpers::word_traits<HRESULT, long long, IRegisteredTask> > hresult_variable;
+		typedef helpers::com_variable<helpers::date_traits<DATE, IRegisteredTask> > date_variable;
+		typedef helpers::com_variable<helpers::bool_traits<VARIANT_BOOL, bool, IRegisteredTask> > bool_variable;
+		typedef helpers::com_variable<helpers::bstr_traits<IRegistrationInfo> > info_string_variable;
+		typedef helpers::com_variable<helpers::word_traits<int, long long, ITaskSettings> > settings_int_variable;
+		typedef helpers::com_variable<helpers::bstr_traits<ITaskSettings> > settings_string_variable;
+		
+
+		IRegisteredTask* task;
+		CComPtr<IRegistrationInfo> reginfo;
+		CComPtr<ITaskSettings> settings;
+		CComPtr<ITaskDefinition> def;
+
+		std::string folder;
+		string_variable title;
+		long_variable exit_code;
+		state_variable status;
+		bool_variable enabled;
+		date_variable most_recent_run_time;
+		info_string_variable comment;
+		info_string_variable creator;
+		settings_int_variable priority;
+		settings_string_variable max_run_time;
+
+
+		new_filter_obj(IRegisteredTask* task, std::string folder);
+
+		bool is_new() { return true; }
+
+
+		CComPtr<IRegistrationInfo> get_reginfo();
+		CComPtr<ITaskSettings> get_settings();
+		CComPtr<ITaskDefinition> get_def();
+
+		std::string get_folder() { return folder; }
+
+		long long is_enabled() { return enabled(task); }
+
+
+		std::string get_title() { return title(task); }
+		std::string get_account_name() { throw nscp_exception("account_name is not supported"); }
+		std::string get_application_name() { throw nscp_exception("application_name is not supported"); }
+		std::string get_comment() { return comment(get_reginfo()); }
+		std::string get_creator() { return creator(get_reginfo()); }
+
+		std::string get_parameters() { throw nscp_exception("get_parameters is not supported"); }
+		std::string get_working_directory() { throw nscp_exception("working_directory is not supported"); }
+
+		long long get_exit_code() { return exit_code(task); }
+		long long get_flags() { throw nscp_exception("flags is not supported"); }
+		long long get_max_run_time() { return convert_runtime(max_run_time(get_settings())); }
+		long long get_priority() { return priority(get_settings()); }
+
+		long long get_status() { return status(task); }
+		long long get_most_recent_run_time() { return most_recent_run_time(task); }
+
+		long long convert_runtime(std::string &v) {
+			return 0;
+		}
 	};
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
-
-		static const parsers::where::value_type type_custom_hresult = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
-
 		filter_obj_handler();
 	};
-
 	typedef modern_filter::modern_filters<tasksched_filter::filter_obj, tasksched_filter::filter_obj_handler> filter;
 }

@@ -24,6 +24,9 @@
 		"check_pdh" 	: { 
 			"alias" : "checkCounter",			
 			"desc" : "Check a PDH counter." 
+			},
+		"check_os_version" : { 
+			"description" : "Check the version of the underlaying OS."
 			}
 	},
 

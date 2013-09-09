@@ -26,6 +26,7 @@
 #include <buffer.hpp>
 #include <handle.hpp>
 #include <error.hpp>
+#include <win_sysinfo/win_defines.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
 #include "EnumProcess.h"
@@ -157,6 +158,7 @@ namespace process_helper {
 	process_info describe_pid(DWORD pid, bool deep_scan) {
 		process_info entry;
 		entry.pid = pid;
+		entry.started = true;
 		// Open process to get filename
 		DWORD openArgs = PROCESS_QUERY_INFORMATION|PROCESS_VM_READ;
  		if (deep_scan)

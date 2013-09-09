@@ -55,7 +55,7 @@ namespace nsca {
 			current_state_ = new_state;
 		}
 
-		bool on_accept(boost::asio::ip::tcp::socket& socket) {
+		bool on_accept(boost::asio::ip::tcp::socket& socket, int count) {
 			std::list<std::string> errors;
 			parser_.reset();
 			std::string s = socket.remote_endpoint().address().to_string();

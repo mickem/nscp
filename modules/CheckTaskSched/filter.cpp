@@ -3,19 +3,12 @@
 #include <map>
 #include <list>
 
-#include <boost/bind.hpp>
-#include <boost/assign.hpp>
+#include <parsers/where/node.hpp>
 
-#include <parsers/where.hpp>
-
-#include <strEx.h>
-#include <format.hpp>
 #include "filter.hpp"
+#include <error_com.hpp>
 
-#define DATE_FORMAT _T("%#c")
-using namespace boost::assign;
 using namespace parsers::where;
-
 
 long convert_status(std::string status) {
 	if (status == "ready")
@@ -57,33 +50,29 @@ node_type fun_convert_status(const value_type target_type, evaluation_context co
 	return factory::create_int(convert_status(subject->get_string_value(context)));
 }
 
-
-
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
 
 	registry_.add_string()
-//		("line", &filter_obj::get_line, "Match the content of an entire line")
+		("folder", boost::bind(&filter_obj::get_folder, _1), "The task folder")
 		("title", boost::bind(&filter_obj::get_title, _1), "The task title")
-		("account", boost::bind(&filter_obj::get_account_name, _1), "TODO")
-		("application", boost::bind(&filter_obj::get_application_name, _1), "TODO")
-		("comment", boost::bind(&filter_obj::get_comment, _1), "TODO")
-		("creator", boost::bind(&filter_obj::get_creator, _1), "TODO")
-		("parameters", boost::bind(&filter_obj::get_parameters, _1), "TODO")
-		("working_directory", boost::bind(&filter_obj::get_working_directory, _1), "TODO")
+//		("account", boost::bind(&filter_obj::get_account_name, _1), "Retrieves the account name for the work item.")
+ 		("application", boost::bind(&filter_obj::get_application_name, _1), "Retrieves the name of the application that the task is associated with.")
+ 		("comment", boost::bind(&filter_obj::get_comment, _1), "Retrieves the comment or description for the work item.")
+ 		("creator", boost::bind(&filter_obj::get_creator, _1), "Retrieves the creator of the work item.")
+ 		("parameters", boost::bind(&filter_obj::get_parameters, _1), "Retrieves the command-line parameters of a task.")
+ 		("working_directory", boost::bind(&filter_obj::get_working_directory, _1), "Retrieves the working directory of the task.")
 		;
 
 	registry_.add_int()
-		("error_retry_count", boost::bind(&filter_obj::get_error_retry_count, _1), "TODO")
-		("error_retry_interval", boost::bind(&filter_obj::get_error_retry_interval, _1), "TODO")
-		("exit_code", boost::bind(&filter_obj::get_exit_code, _1), "TODO")
-		("flags", boost::bind(&filter_obj::get_flags, _1), "TODO")
-		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "TODO")
-		("priority", boost::bind(&filter_obj::get_priority, _1), "TODO")
-		("status", boost::bind(&filter_obj::get_status, _1), "TODO")
-		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time, _1), "TODO")
+		("exit_code", boost::bind(&filter_obj::get_exit_code, _1), "Retrieves the work item's last exit code.")
+		("enabled", boost::bind(&filter_obj::is_enabled, _1), "TODO.")
+// 		("flags", boost::bind(&filter_obj::get_flags, _1), "TODO")
+ 		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "Retrieves the maximum length of time the task can run.")
+ 		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
+ 		("status", boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
+ 		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
 		;
 
-// TODO: Add types!
 // 	registr_.add_conversions()
 // 		(parsers::where::type_string, type_custom_hresult, &fun_convert_status)
 // 		(parsers::where::type_int, type_custom_hresult, &fun_convert_status)
@@ -96,33 +85,63 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 
 }
 
-//////////////////////////////////////////////////////////////////////////
+namespace tasksched_filter {
 
-#define DEFINE_GET_EX(type, variable, helper, func) type tasksched_filter::filter_obj::get_ ## variable() { return helper.fetch(this, &ITask::func, variable); }
+	CComPtr<IRegistrationInfo> new_filter_obj::get_reginfo() {
+		if (reginfo)
+			return reginfo;
+		if (!SUCCEEDED(get_def()->get_RegistrationInfo(&reginfo)))
+			throw nscp_exception("Failed to get IRegistrationInfo: " + error::com::get());
+		return reginfo;
+	}
 
-#define DEFINE_GET_STRING(variable, helper, func) DEFINE_GET_EX(std::string, variable, helper, func)
-#define DEFINE_GET_DWORD(variable, helper, func) DEFINE_GET_EX(unsigned long, variable, helper, func)
-#define DEFINE_GET_WORD(variable, helper, func) DEFINE_GET_EX(unsigned short, variable, helper, func)
-#define DEFINE_GET_DATE(variable, helper, func) DEFINE_GET_EX(tasksched_filter::filter_obj::task_sched_date, variable, helper, func)
-#define DEFINE_GET_HRESULT(variable, helper, func) DEFINE_GET_EX(long, variable, helper, func)
+	CComPtr<ITaskDefinition> new_filter_obj::get_def() {
+		if (def)
+			return def;
+		if (!SUCCEEDED(task->get_Definition(&def)))
+			throw nscp_exception("Failed to get ITaskDefinition: " + error::com::get());
+		return def;
+	}
 
-DEFINE_GET_STRING(account_name, string_fetcher, GetAccountInformation);
-DEFINE_GET_STRING(application_name, string_fetcher, GetApplicationName);
-DEFINE_GET_STRING(comment, string_fetcher, GetComment);
-DEFINE_GET_STRING(creator, string_fetcher, GetCreator);
-DEFINE_GET_STRING(parameters, string_fetcher, GetParameters);
-DEFINE_GET_STRING(working_directory, string_fetcher, GetWorkingDirectory);
+	CComPtr<ITaskSettings> new_filter_obj::get_settings() {
+		if (settings)
+			return settings;
+		if (!SUCCEEDED(get_def()->get_Settings(&settings)))
+			throw nscp_exception("Failed to get ITaskSettings: " + error::com::get());
+		return settings;
 
-DEFINE_GET_WORD(error_retry_count, word_fetcher, GetErrorRetryCount);
-DEFINE_GET_WORD(error_retry_interval, word_fetcher, GetErrorRetryInterval);
-DEFINE_GET_DWORD(exit_code, dword_fetcher, GetExitCode);
-DEFINE_GET_DWORD(flags, dword_fetcher, GetFlags);
-DEFINE_GET_DWORD(max_run_time, dword_fetcher, GetMaxRunTime);
-DEFINE_GET_DWORD(priority, dword_fetcher, GetPriority);
-//DEFINE_GET_WORD(idle_wait, word_fetcher, GetIdleWait);
+	}
 
 
-DEFINE_GET_HRESULT(status, hresult_fetcher, GetStatus);
+	old_filter_obj::old_filter_obj(ITask* task, std::string title) 
+		: task(task)
+		, title(title)
+		, account_name(&ITask::GetAccountInformation)
+		, application_name(&ITask::GetApplicationName)
+		, comment(&ITask::GetComment)
+		, creator(&ITask::GetCreator)
+		, parameters(&ITask::GetParameters)
+		, working_directory(&ITask::GetWorkingDirectory)
+		, exit_code(&ITask::GetExitCode)
+		, flags(&ITask::GetFlags)
+		, max_run_time(&ITask::GetMaxRunTime)
+		, priority(&ITask::GetPriority)
+		, status(&ITask::GetStatus)
+		, most_recent_run_time(&ITask::GetMostRecentRunTime)
+	{}
 
-DEFINE_GET_DATE(most_recent_run_time, date_fetcher, GetMostRecentRunTime);
-// FETCH_TASK_SIMPLE_TIME(nextRunTime,GetNextRunTime);
+	new_filter_obj::new_filter_obj(IRegisteredTask* task, std::string folder) 
+		: task(task)
+		, folder(folder)
+		, title(&IRegisteredTask::get_Name)
+		, exit_code(&IRegisteredTask::get_LastTaskResult)
+		, status(&IRegisteredTask::get_State)
+		, enabled(&IRegisteredTask::get_Enabled)
+		, most_recent_run_time(&IRegisteredTask::get_LastRunTime)
+		, comment(&IRegistrationInfo::get_Description)
+		, creator(&IRegistrationInfo::get_Author)
+		, priority(&ITaskSettings::get_Priority)
+		, max_run_time(&ITaskSettings::get_ExecutionTimeLimit)
+	{}
+
+}

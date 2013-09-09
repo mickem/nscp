@@ -190,15 +190,16 @@ inline long long parse_time(std::string time) {
 
 void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef eventlog_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string mode;
 	std::string scan_range;
 
 	filter_type filter;
-	filter_helper.add_options();
-	filter_helper.add_syntax("${file}: ${count} (${problem_list})", filter.get_opts(), "${file} ${source} (${message})", "${file}_${source}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax());
+	filter_helper.add_syntax("${file}: ${count} (${problem_list})", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}");
 	filter_helper.get_desc().add_options()
 		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
 		"In other words if one file contains an error the entire check will result in error.")
@@ -208,9 +209,8 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		return;
 
 	if (filter_helper.empty()) {
-		filter_helper.filter_string = "level not in ('info', 'success', 'auditSuccess')";
-		filter_helper.warn_string = "count > 0";
-		filter_helper.crit_string = "count > 5";
+		data.filter_string = "level not in ('info', 'success', 'auditSuccess')";
+		filter_helper.set_default("count > 0", "count > 5");
 		scan_range = "-24h";
 	}
 	if (file_list.empty()) {

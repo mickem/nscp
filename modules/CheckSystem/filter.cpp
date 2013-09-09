@@ -87,7 +87,7 @@ namespace check_mem_filter {
 
 namespace check_svc_filter {
 
-	bool check_state_is_ok(DWORD state, DWORD start_type) {
+	bool check_state_is_perfect(DWORD state, DWORD start_type) {
 		if (start_type == SERVICE_BOOT_START)
 			return state == SERVICE_RUNNING;
 		if (start_type == SERVICE_SYSTEM_START)
@@ -101,11 +101,35 @@ namespace check_svc_filter {
 		return false;
 	}
 
+	bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed) {
+		if (
+			(state == SERVICE_START_PENDING) &&
+			(start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
+			)
+			return true;
+		if (delayed) {
+			if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
+				return true;
+		}
+		return check_state_is_perfect(state, start_type);
+	}
+
 	node_type state_is_ok(const value_type target_type, evaluation_context context, const node_type subject) {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
-		if (check_state_is_ok(state, start_type))
+		bool delayed = n_context->get_object()->delayed;
+		if (check_state_is_ok(state, start_type, delayed))
+			return factory::create_true();
+		else
+			return factory::create_false();
+	}
+
+	node_type state_is_perfect(const value_type target_type, evaluation_context context, const node_type subject) {
+		native_context* n_context = reinterpret_cast<native_context*>(context.get());
+		DWORD state = n_context->get_object()->state;
+		DWORD start_type = n_context->get_object()->start_type;
+		if (check_state_is_perfect(state, start_type))
 			return factory::create_true();
 		else
 			return factory::create_false();
@@ -129,13 +153,14 @@ namespace check_svc_filter {
 			;
 		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
-			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), boost::bind(&filter_obj::get_state_s, _1), "The current state ()")
+			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), boost::bind(&filter_obj::get_state_s, _1), "The current state ()").add_perf("","")
 			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1),boost::bind(&filter_obj::get_start_type_s, _1),  "The configured start type ()")
+			("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, _1),  "If the service is delayed")
 			;
 
 		registry_.add_int_fun()
-			("state_is_ok", &state_is_ok, "Check if the state is ok, i.e. all running services are running")
-			("state_is_perfect", &state_is_ok, "Check if the state is ok, i.e. all running services are running")
+			("state_is_perfect",  parsers::where::type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
+			("state_is_ok",  parsers::where::type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
 			;
 
 		registry_.add_converter()
@@ -216,3 +241,15 @@ namespace check_proc_filter {
 
 	}
 }
+
+namespace os_version_filter {
+	filter_obj_handler::filter_obj_handler() {
+		registry_.add_int()
+			("major", boost::bind(&filter_obj::get_major, _1), "Major version number").add_perf("")
+			("version", boost::bind(&filter_obj::get_version_i, _1), boost::bind(&filter_obj::get_version_s, _1), "The system version").add_perf("")
+			("minor", boost::bind(&filter_obj::get_minor, _1), "Minor version number").add_perf("")
+			("build", boost::bind(&filter_obj::get_build, _1), "Build version number").add_perf("")
+			;
+	}
+}
+

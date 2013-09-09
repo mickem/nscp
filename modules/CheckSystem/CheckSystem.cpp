@@ -474,12 +474,13 @@ int CheckSystem::commandLineExec(const std::string &command, const std::list<std
 
 void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_cpu_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options("CPU Load ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${core}>${load}%", "${core} ${time}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "CPU Load ok");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${core}>${load}%", "${core} ${time}");
 	filter_helper.get_desc().add_options()
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
 		;
@@ -488,7 +489,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 		return;
 
 	if (filter_helper.empty()) {
-		filter_helper.filter_string = "core = 'total'";
+		data.filter_string = "core = 'total'";
 		filter_helper.set_default("load > 80", "load > 90");
 	}
 
@@ -533,12 +534,13 @@ BOOL nscpGetTickCount64() {
 
 void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_uptime_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options("Uptime ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "uptime: -${uptime}, boot: ${boot} (UCT)", "uptime", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: -${uptime}, boot: ${boot} (UCT)", "uptime");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -571,6 +573,41 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.post_process(filter, &scaler);
 }
 
+void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	typedef os_version_filter::filter filter_type;
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+
+	filter_type filter;
+	filter_helper.add_options(filter.get_filter_syntax(), "Version ok");
+	filter_helper.add_syntax("${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version");
+
+	if (!filter_helper.parse_options())
+		return;
+
+	if (filter_helper.empty()) {
+		filter_helper.set_default("version > 50", "version > 50");
+	}
+
+	if (!filter_helper.build_filter(filter))
+		return;
+
+
+	boost::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
+	OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
+	record->major_version = info->dwMajorVersion;
+	record->minor_version = info->dwMinorVersion;
+	record->build = info->dwBuildNumber;
+	record->plattform = info->dwPlatformId;
+	record->version_s = windows::system_info::get_version_string();
+	record->version_i = windows::system_info::get_version();
+
+	boost::tuple<bool,bool> ret = filter.match(record);
+
+	modern_filter::perf_writer scaler(response);
+	filter_helper.post_process(filter, &scaler);
+}
+
 
 /**
  * Retrieve the service state of one or more services (by name).
@@ -596,15 +633,16 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
  */
 void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_svc_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> services;
 	std::string type;
 	std::string state;
 	std::string computer;
 
 	filter_type filter;
-	filter_helper.add_options("OK all services are ok.");
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${name}=${state} (${start_type})", "${name}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -616,7 +654,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 		return;
 
 	if (filter_helper.empty()) {
-		filter_helper.set_default("not state_is_ok()", "not state_is_ok()");
+		filter_helper.set_default("not state_is_perfect()", "not state_is_ok()");
 	}
 
 	if (services.empty()) {
@@ -654,12 +692,13 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
  */
 void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_mem_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> types;
 
 	filter_type filter;
-	filter_helper.add_options("OK memory within bounds.");
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${type} > ${used}", "${type}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${type} > ${used}", "${type}");
 	filter_helper.get_desc().add_options()
 		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check")
 		;
@@ -679,9 +718,9 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	CheckMemory::memData data;
+	CheckMemory::memData mem_data;
 	try {
-		data = memoryChecker.getMemoryStatus();
+		mem_data = memoryChecker.getMemoryStatus();
 	} catch (CheckMemoryException e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
 	}
@@ -689,14 +728,14 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	BOOST_FOREACH(const std::string &type, types) {
 		unsigned long long used(0), total(0);
 		if (type == "page") {
-			used = data.pageFile.total-data.pageFile.avail;
-			total = data.pageFile.total;
+			used = mem_data.pageFile.total-mem_data.pageFile.avail;
+			total = mem_data.pageFile.total;
 		} else if (type == "physical") {
-			used = data.phys.total-data.phys.avail;
-			total = data.phys.total;
+			used = mem_data.phys.total-mem_data.phys.avail;
+			total = mem_data.phys.total;
 		} else if (type == "virtual") {
-			used = data.virtualMem.total-data.virtualMem.avail;
-			total = data.virtualMem.total;
+			used = mem_data.virtualMem.total-mem_data.virtualMem.avail;
+			total = mem_data.virtualMem.total;
 		} else {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
 		}
@@ -723,14 +762,15 @@ class NSC_error : public process_helper::error_reporter {
 
 void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_proc_filter::filter filter_type;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> processes;
 	bool deep_scan = true;
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options("OK all services are ok.");
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${exe}=${state}", "${exe}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 		("deep-scan", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
@@ -740,8 +780,8 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		return;
 
 	if (filter_helper.empty()) {
-		if (filter_helper.filter_string.empty())
-			filter_helper.filter_string = "state != 'unreadable'";
+		if (data.filter_string.empty())
+			data.filter_string = "state != 'unreadable'";
 		filter_helper.set_default("state not in ('started')", "state = 'stopped'");
 	}
 

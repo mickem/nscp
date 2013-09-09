@@ -377,7 +377,7 @@ namespace parsers {
 				}
 				node_type evaluate(value_type type, evaluation_context errors, const node_type subject) const {
 					if (type == type_bool)
-						return subject->get_int_value(errors)?factory::create_true():factory::create_false();
+						return subject->get_int_value(errors)?factory::create_false():factory::create_true();
 					if (type == type_int)
 						return  factory::create_int(-subject->get_int_value(errors));
 					if (type == type_date) {

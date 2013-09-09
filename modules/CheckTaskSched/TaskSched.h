@@ -28,20 +28,6 @@
 
 #include "filter.hpp"
 
-class TaskSched
-{
-public:
-	class Exception {
-		std::string message_;
-	public:
-		Exception(std::wstring str, HRESULT code) {
-			message_ = utf8::cvt<std::string>(str) + ":" + error::format::from_system(code);
-		}
-		std::string reason() {
-			return message_;
-		}
-	};
-
-	void findAll(tasksched_filter::filter &filter);
-
+struct TaskSched {
+	void findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive);
 };

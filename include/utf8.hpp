@@ -19,15 +19,15 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <unicode_char.hpp>
-#include <types.hpp>
-
 #include <string>
 #include <locale>
 #include <cctype>
 
 #include <boost/lexical_cast.hpp>
-
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
 #ifndef WIN32
 #include <stdio.h>
 #include <string.h>

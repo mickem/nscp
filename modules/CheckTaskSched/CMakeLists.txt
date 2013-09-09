@@ -23,7 +23,7 @@ SET(SRCS ${SRCS}
 	stdafx.h
 	"${TARGET}.h"
 	TaskSched.h
-	filter.hpp	
+	filter.hpp
 
 	${NSCP_DEF_PLUGIN_HPP}
 	${NSCP_FILTER_HPP}

@@ -118,13 +118,13 @@ struct filter_obj_handler : public native_context {
 			("drive", &filter_obj::get_drive, "Technical name of drive")
 			;
 		registry_.add_int()
-			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
- 			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
- 			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
+			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)").add_scaled_byte(std::string(""), " free")
+ 			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes").add_scaled_byte(std::string(""), " free")
+ 			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)").add_scaled_byte(std::string(""), " user free")
  			("size", &filter_obj::get_drive_size, "Total size of drive")
- 			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
- 			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
- 			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)")
+ 			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes").add_scaled_byte(std::string(""), " used")
+ 			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes").add_scaled_byte(std::string(""), " used")
+ 			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)").add_scaled_byte(std::string(""), " user used")
 			("type", type_custom_type, &filter_obj::get_type, "Type of drive")
 			;
 
@@ -303,15 +303,15 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 void add_custom_options(po::options_description desc) {}
 
 void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-
-	modern_filter::cli_helper<filter_type> filter_helper(request, response);
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> drives;
 	bool ignore_unreadable = false;
 	double magic;
 
 	filter_type filter;
-	filter_helper.add_options();
-	filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${drive} > ${used}", "${drive}", filter.get_opts());
+	filter_helper.add_options(filter.get_filter_syntax(), "All drives ok");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${drive} > ${used}", "${drive}");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives), 
 		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")

@@ -55,6 +55,7 @@ namespace socket_helpers {
 			boost::asio::ip::tcp::acceptor acceptor_v6;
 			boost::asio::strand accept_strand_;
 			socket_helpers::connection_info info_;
+			int threads_;
 			typename protocol_type::handler_type handler_;
 			boost::shared_ptr<protocol_type> logger_;
 #ifdef USE_SSL
@@ -66,6 +67,7 @@ namespace socket_helpers {
 		public:
 			server(socket_helpers::connection_info info, typename protocol_type::handler_type handler)
 				: info_(info)
+				, threads_(0)
 				, handler_(handler)
 				, acceptor_v4(io_service_)
 				, acceptor_v6(io_service_)
@@ -189,7 +191,7 @@ namespace socket_helpers {
 			void handle_accept(bool ipv6, const boost::system::error_code& e) {
 				if (!e) {
 					std::list<std::string> errors;
-					if (logger_->on_accept(new_connection_->get_socket())) {
+					if (logger_->on_accept(new_connection_->get_socket(), threads_--)) {
 						new_connection_->start();
 					} else {
 						new_connection_->on_done(false);
@@ -214,6 +216,7 @@ namespace socket_helpers {
 			}
 
 			connection_type* create_connection() {
+				threads_++;
 #ifdef USE_SSL
 				if (info_.ssl.enabled) {
 					return new ssl_connection_type(io_service_, context_, protocol_type::create(info_, handler_));

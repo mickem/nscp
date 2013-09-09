@@ -122,7 +122,8 @@ namespace check_pdh {
 
 	void check::check_pdh(pdh_thread &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
-		modern_filter::cli_helper<filter_type> filter_helper(request, response);
+		modern_filter::data_container data;
+		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 		std::vector<std::string> counters;
 		bool expand_index = false;
 		bool reload = false;
@@ -132,8 +133,8 @@ namespace check_pdh {
 		std::string time;
 
 		filter_type filter;
-		filter_helper.add_options("Everything looks good");
-		filter_helper.add_syntax("${problem_list}", filter.get_opts(), "${counter} = ${value}", "${counter}", filter.get_opts());
+		filter_helper.add_options(filter.get_filter_syntax(), "Everything looks good");
+		filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${counter} = ${value}", "${counter}");
 		filter_helper.get_desc().add_options()
 			("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
 			("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")

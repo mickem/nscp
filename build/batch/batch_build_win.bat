@@ -12,8 +12,8 @@ cd %ROOT%\x64\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
-cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" %SOURCE%
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" %SOURCE%
+cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building x64 
@@ -32,8 +32,8 @@ cd %ROOT%\w32\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating w32
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" %SOURCE%
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" %SOURCE%
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" -T v110_xp %SOURCE%
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building w32

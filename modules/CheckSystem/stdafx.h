@@ -24,21 +24,15 @@
 // Windows Header Files:
 #include <windows.h>
 
-#define COMPILE_NEWAPIS_STUBS
-#define WANT_GETLONGPATHNAME_WRAPPER
-//#include <NewAPIs.h>
-
 #include <iostream>
 #include <string>
 #include <hash_map>
 #include <list>
 
 #include <common.hpp>
-#include <tchar.h>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-//#include <config.h>
 #include <utils.h>
 #include <error.hpp>
 

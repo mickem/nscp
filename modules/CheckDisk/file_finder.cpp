@@ -47,7 +47,6 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 				)
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
-			// boost::make_shared<eventlog_filter::filter_obj>(record, filter.summary.count_match)
 			boost::tuple<bool,bool> ret = filter.match(info);
 			FindClose(hFind);
 			if (ret.get<1>()) {

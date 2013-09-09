@@ -55,74 +55,48 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	check_drive::check(request, response);
 }
 
-std::wstring CheckDisk::get_filter(unsigned int drvType) {
-	if (drvType==DRIVE_FIXED)
-		return _T("FIXED");
-	if (drvType==DRIVE_NO_ROOT_DIR)
-		return _T("NO_ROOT_DIR");
-	if (drvType==DRIVE_CDROM)
-		return _T("CDROM");
-	if (drvType==DRIVE_REMOTE)
-		return _T("REMOTE");
-	if (drvType==DRIVE_REMOVABLE)
-		return _T("REMOVABLE");
-	return _T("unknown: ") + strEx::itos(drvType);
-}
-
 void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-
-	modern_filter::cli_helper<file_filter::filter> filter_helper(request, response);
-	std::string regexp, line_split, column_split;
+	modern_filter::data_container data;
+	modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string mode;
-	std::list<std::string> paths;
 	bool ignoreError = false;
 
-	filter_helper.add_options();
-	filter_helper.add_syntax("${file}: ${count} (${problem_list})", "TODO", "${column1}", "${column1}", "TODO");
+	file_filter::filter filter;
+	filter_helper.add_options(filter.get_filter_syntax(), "All files ok");
+	filter_helper.add_syntax("${count} files (${problem_list})", filter.get_format_syntax(), "${name}", "${name}");
 	filter_helper.get_desc().add_options()
-		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
-		("line-split", po::value<std::string>(&line_split)->default_value("\\n"), 
-		"Character string to split a file into lines")
-		("column-split", po::value<std::string>(&column_split)->default_value("\\t"),
-		"Character string to split a line into columns")
-		("split", po::value<std::string>(&column_split),			"Short alias for split-column")
-		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
-		"In other words if one file contains an error the entire check will result in error.")
-		//		("files", po::value<std::string>(&files_string),			"A comma separated list of files to scan")
-		//		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
+		("path", po::value<std::vector<std::string> >(&file_list),	"The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
+		"In other words if one path contains an error the entire check will result in error.")
+		("file", po::value<std::vector<std::string> >(&file_list),	"Alias for path.")
+		("paths", po::value<std::string>(&files_string),			"A comma separated list of paths to scan")
 		;
 
-	// 			MAP_OPTIONS_PUSH("path", paths)
-	// 			MAP_OPTIONS_PUSH("file", paths)
 	// 			MAP_OPTIONS_BOOL_TRUE("ignore-errors", ignoreError)
 	// 			MAP_OPTIONS_STR2INT("max-dir-depth", fargs->max_level)
 	// 			MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 
 
-	filter_helper.parse_options();
 
+	if (!filter_helper.parse_options())
+		return;
 
-	if (paths.empty())
-		return nscapi::protobuf::functions::set_response_bad(*response, "No column-split specified");
+	if (!files_string.empty())
+		boost::split(file_list, files_string, boost::is_any_of(","));
 
-	file_filter::filter filter;
+	if (file_list.empty())
+		return nscapi::protobuf::functions::set_response_bad(*response, "No path specified");
+
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	//file_filter::filter_result result = file_filter::factories::create_result(fargs);
 	file_finder::scanner_context context;
-	BOOST_FOREACH(const std::string &path, paths) {
+	BOOST_FOREACH(const std::string &path, file_list) {
 		file_finder::recursive_scan(filter, context, path);
-// 		if (!ignoreError && fargs->error->has_error()) {
-// 			if (show_errors_)
-// 				msg = fargs->error->get_error();
-// 			else
-// 				msg = "Check contains error. Check log for details (or enable show_errors in nsc.ini)";
-// 			return NSCAPI::returnUNKNOWN;
-// 		}
+ 		//if (!ignoreError && fargs->error->has_error())
+		//	return nscapi::protobuf::functions::set_response_bad(*response, fargs->error->get_error());
 	}
-
-	filter_helper.post_process(filter, NULL);
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
 }

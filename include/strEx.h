@@ -20,7 +20,6 @@
 ***************************************************************************/
 #pragma once
 #include <unicode_char.hpp>
-#include <types.hpp>
 
 #include <string>
 #include <sstream>

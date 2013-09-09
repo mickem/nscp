@@ -77,7 +77,9 @@ namespace windows {
 
 
 
+		static std::string get_version_string();
 		static unsigned long get_version();
+		static OSVERSIONINFOEX* get_versioninfo();
 		static long get_numberOfProcessorscores();
 
 		static cpu_load get_cpu_load();
@@ -86,139 +88,6 @@ namespace windows {
 	};
 
 	namespace winapi {
-
-
-		typedef struct _UNICODE_STRING {
-			USHORT Length;
-			USHORT MaximumLength;
-			PWSTR Buffer;
-		} UNICODE_STRING, *PUNICODE_STRING;
-
-		struct NSCP_SERVICE_DELAYED_AUTO_START_INFO {
-			BOOL fDelayedAutostart;
-		};
-
-		typedef enum _PROCESSINFOCLASS
-		{
-			ProcessBasicInformation, // 0, q: PROCESS_BASIC_INFORMATION, PROCESS_EXTENDED_BASIC_INFORMATION
-			ProcessQuotaLimits, // qs: QUOTA_LIMITS, QUOTA_LIMITS_EX
-			ProcessIoCounters, // q: IO_COUNTERS
-			ProcessVmCounters, // q: VM_COUNTERS, VM_COUNTERS_EX
-			ProcessTimes, // q: KERNEL_USER_TIMES
-			ProcessBasePriority, // s: KPRIORITY
-			ProcessRaisePriority, // s: ULONG
-			ProcessDebugPort, // q: HANDLE
-			ProcessExceptionPort, // s: HANDLE
-			ProcessAccessToken, // s: PROCESS_ACCESS_TOKEN
-			ProcessLdtInformation, // 10
-			ProcessLdtSize,
-			ProcessDefaultHardErrorMode, // qs: ULONG
-			ProcessIoPortHandlers, // (kernel-mode only)
-			ProcessPooledUsageAndLimits, // q: POOLED_USAGE_AND_LIMITS
-			ProcessWorkingSetWatch, // q: PROCESS_WS_WATCH_INFORMATION[]; s: void
-			ProcessUserModeIOPL,
-			ProcessEnableAlignmentFaultFixup, // s: BOOLEAN
-			ProcessPriorityClass, // qs: PROCESS_PRIORITY_CLASS
-			ProcessWx86Information,
-			ProcessHandleCount, // 20, q: ULONG, PROCESS_HANDLE_INFORMATION
-			ProcessAffinityMask, // s: KAFFINITY
-			ProcessPriorityBoost, // qs: ULONG
-			ProcessDeviceMap, // qs: PROCESS_DEVICEMAP_INFORMATION, PROCESS_DEVICEMAP_INFORMATION_EX
-			ProcessSessionInformation, // q: PROCESS_SESSION_INFORMATION
-			ProcessForegroundInformation, // s: PROCESS_FOREGROUND_BACKGROUND
-			ProcessWow64Information, // q: ULONG_PTR
-			ProcessImageFileName, // q: UNICODE_STRING
-			ProcessLUIDDeviceMapsEnabled, // q: ULONG
-			ProcessBreakOnTermination, // qs: ULONG
-			ProcessDebugObjectHandle, // 30, q: HANDLE
-			ProcessDebugFlags, // qs: ULONG
-			ProcessHandleTracing, // q: PROCESS_HANDLE_TRACING_QUERY; s: size 0 disables, otherwise enables
-			ProcessIoPriority, // qs: ULONG
-			ProcessExecuteFlags, // qs: ULONG
-			ProcessResourceManagement,
-			ProcessCookie, // q: ULONG
-			ProcessImageInformation, // q: SECTION_IMAGE_INFORMATION
-			ProcessCycleTime, // q: PROCESS_CYCLE_TIME_INFORMATION
-			ProcessPagePriority, // q: ULONG
-			ProcessInstrumentationCallback, // 40
-			ProcessThreadStackAllocation, // qs: PROCESS_STACK_ALLOCATION_INFORMATION
-			ProcessWorkingSetWatchEx, // q: PROCESS_WS_WATCH_INFORMATION_EX[]
-			ProcessImageFileNameWin32, // q: UNICODE_STRING
-			ProcessImageFileMapping, // q: HANDLE (input)
-			ProcessAffinityUpdateMode, // qs: PROCESS_AFFINITY_UPDATE_MODE
-			ProcessMemoryAllocationMode, // qs: PROCESS_MEMORY_ALLOCATION_MODE
-			ProcessGroupInformation, // q: USHORT[]
-			ProcessTokenVirtualizationEnabled, // s: ULONG
-			ProcessConsoleHostProcess, // q: ULONG_PTR
-			ProcessWindowInformation, // 50, q: PROCESS_WINDOW_INFORMATION
-			ProcessHandleInformation, // q: PROCESS_HANDLE_SNAPSHOT_INFORMATION // since WIN8
-			ProcessMitigationPolicy, // s: PROCESS_MITIGATION_POLICY_INFORMATION
-			ProcessDynamicFunctionTableInformation,
-			ProcessHandleCheckingMode,
-			ProcessKeepAliveCount, // q: PROCESS_KEEPALIVE_COUNT_INFORMATION
-			ProcessRevokeFileHandles, // s: PROCESS_REVOKE_FILE_HANDLES_INFORMATION
-			MaxProcessInfoClass
-		} PROCESSINFOCLASS;
-
-		typedef struct _PROCESS_BASIC_INFORMATION
-		{
-			LONG ExitStatus;
-			LPVOID PebBaseAddress;
-			ULONG_PTR AffinityMask;
-			LONG BasePriority;
-			HANDLE UniqueProcessId;
-			HANDLE InheritedFromUniqueProcessId;
-		} PROCESS_BASIC_INFORMATION, *PPROCESS_BASIC_INFORMATION;
-
-		typedef struct _PROCESS_EXTENDED_BASIC_INFORMATION
-		{
-			SIZE_T Size; // set to sizeof structure on input
-			PROCESS_BASIC_INFORMATION BasicInfo;
-			union
-			{
-				ULONG Flags;
-				struct
-				{
-					ULONG IsProtectedProcess : 1;
-					ULONG IsWow64Process : 1;
-					ULONG IsProcessDeleting : 1;
-					ULONG IsCrossSessionCreate : 1;
-					ULONG SpareBits : 28;
-				};
-			};
-		} PROCESS_EXTENDED_BASIC_INFORMATION, *PPROCESS_EXTENDED_BASIC_INFORMATION;
-
-		typedef struct _VM_COUNTERS
-		{
-			SIZE_T PeakVirtualSize;
-			SIZE_T VirtualSize;
-			ULONG PageFaultCount;
-			SIZE_T PeakWorkingSetSize;
-			SIZE_T WorkingSetSize;
-			SIZE_T QuotaPeakPagedPoolUsage;
-			SIZE_T QuotaPagedPoolUsage;
-			SIZE_T QuotaPeakNonPagedPoolUsage;
-			SIZE_T QuotaNonPagedPoolUsage;
-			SIZE_T PagefileUsage;
-			SIZE_T PeakPagefileUsage;
-		} VM_COUNTERS, *PVM_COUNTERS;
-
-		typedef struct _KERNEL_USER_TIMES
-		{
-			LARGE_INTEGER CreateTime;
-			LARGE_INTEGER ExitTime;
-			LARGE_INTEGER KernelTime;
-			LARGE_INTEGER UserTime;
-		} KERNEL_USER_TIMES, *PKERNEL_USER_TIMES;
-
-		// private
-		typedef struct _PROCESS_CYCLE_TIME_INFORMATION
-		{
-			ULONGLONG AccumulatedCycles;
-			ULONGLONG CurrentCycleCount;
-		} PROCESS_CYCLE_TIME_INFORMATION, *PPROCESS_CYCLE_TIME_INFORMATION;
-
-
 		typedef BOOL (*tTASKENUMPROCEX)(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
 
 		BOOL EnumServicesStatusEx(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName);

@@ -585,8 +585,17 @@ bool NSClientT::boot_load_plugin(std::string plugin) {
 		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::path file = pluginPath / plugin_file;
 		if (boost::filesystem::is_regular(file)) {
-			plugin_type plugin_inst = addPlugin(file, "");
+			addPlugin(file, "");
 		} else {
+			if (plugin_file == "CheckTaskSched1.dll" || plugin_file == "CheckTaskSched2.dll") {
+				LOG_ERROR_CORE_STD("Your loading the CheckTaskSched1/2 which has been renamed into CheckTaskSched, please update your config");
+				plugin_file = "CheckTaskSched.dll";
+				boost::filesystem::path file = pluginPath / plugin_file;
+				if (boost::filesystem::is_regular(file)) {
+					addPlugin(file, "");
+					return true;
+				}
+			} 
 			LOG_ERROR_CORE_STD("Failed to load: " + plugin);
 			return false;
 		}

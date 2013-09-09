@@ -25,19 +25,19 @@ using namespace parsers::where;
 file_filter::filter_obj_handler::filter_obj_handler() {
 
 	registry_.add_string()
-		("path", &filter_obj::get_path, "TODO")
-		("version", boost::bind(&filter_obj::get_version, _1), "TODO")
+		("path", &filter_obj::get_path, "Path of file")
+		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
 		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		;
 
 	registry_.add_int()
-		("size", boost::bind(&filter_obj::get_size, _1), "File size")
-		("line_count", boost::bind(&filter_obj::get_line_count, _1), "Number of lines matching filter")
-		("access", type_date, boost::bind(&filter_obj::get_access, _1), "Number of lines matching filter")
-		("creation", type_date, boost::bind(&filter_obj::get_creation, _1), "Number of lines matching filter")
-		("written", type_date, boost::bind(&filter_obj::get_write, _1), "Number of lines matching filter")
+		("size", boost::bind(&filter_obj::get_size, _1), "File size").add_scaled_byte(std::string(""), " size")
+		("line_count", boost::bind(&filter_obj::get_line_count, _1), "Number of lines in the file (text files)")
+		("access", type_date, boost::bind(&filter_obj::get_access, _1), "Last access time")
+		("creation", type_date, boost::bind(&filter_obj::get_creation, _1), "When file was created")
+		("written", type_date, boost::bind(&filter_obj::get_write, _1), "WHen file was last written to")
 		;
 
 }

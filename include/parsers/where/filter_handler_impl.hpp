@@ -7,6 +7,7 @@
 
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/variable.hpp>
+#include <parsers/where/helpers.hpp>
 
 namespace parsers {
 	namespace where {
@@ -168,6 +169,13 @@ namespace parsers {
 				boost::shared_ptr<filter_function> var(new filter_function(key));
 				var->function = fun;
 				var->type = type;
+				add_functions(var);
+				return *this;
+			}
+			registry_adders_function& operator()(std::string key,value_type type_,  typename filter_function::generic_fun_type fun, std::string description) {
+				boost::shared_ptr<filter_function> var(new filter_function(key));
+				var->function = fun;
+				var->type = type_;
 				add_functions(var);
 				return *this;
 			}
@@ -365,19 +373,28 @@ namespace parsers {
 			long long get_count_total() {
 				return count_total;
 			}
-			std::string get_opts() const {
+			std::string get_format_syntax() const {
+				return 
+					"${count}\tNumber of items matching the filter\n"
+					"${total}\t Total number of items\n"
+					"${ok_count}\t Number of items matched the ok criteria\n"
+					"${warn_count}\t Number of items matched the warning criteria\n"
+					"${crit_count}\t Number of items matched the critical criteria\n"
+					"${problem_count}\t Number of items matched either warning or critical criteria\n"
+					"${list}\t A list of all items which matched the filter\n"
+					"${ok_list}\t A list of all items which matched the ok criteria\n"
+					"${warn_list}\t A list of all items which matched the warning criteria\n"
+					"${crit_list}\t A list of all items which matched the critical criteria\n"
+					"${problem_list}\t A list of all items which matched either the critical or the warning criteria\n";
+			}
+			std::string get_filter_syntax() const {
 				return 
 					"count\tNumber of items matching the filter\n"
-					"total\tTotal number of items\n"
-					"ok_count\tNumber of items matched the ok criteria\n"
-					"warn_count\tNumber of items matched the warning criteria\n"
-					"crit_count\tNumber of items matched the critical criteria\n"
-					"problem_count\tNumber of items matched either warning or critical criteria\n"
-					"list\tA list of all items which matched the filter\n"
-					"ok_list\tA list of all items which matched the ok criteria\n"
-					"warn_list\tA list of all items which matched the warning criteria\n"
-					"crit_list\tA list of all items which matched the critical criteria\n"
-					"problem_list\tA list of all items which matched either the critical or the warning criteria\n";
+					"total\t Total number of items\n"
+					"ok_count\t Number of items matched the ok criteria\n"
+					"warn_count\t Number of items matched the warning criteria\n"
+					"crit_count\t Number of items matched the critical criteria\n"
+					"problem_count\t Number of items matched either warning or critical criteria\n";
 			}
 
 			bool has_variable(const std::string &name) {
@@ -398,10 +415,17 @@ namespace parsers {
 
 			registry_type registry_;
 
-			std::string get_opts() {
+			std::string get_format_syntax() const {
 				std::stringstream ss;
 				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
-					ss << "${" << var.first << "}: " << var.second->description << "\n";
+					ss << "${" << var.first << "}\t" << var.second->description << "\n";
+				}
+				return ss.str();
+			}
+			std::string get_filter_syntax() const {
+				std::stringstream ss;
+				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
+					ss << var.first << "\t" << var.second->description << "\n";
 				}
 				return ss.str();
 			}
@@ -451,7 +475,7 @@ namespace parsers {
 					return parsers::where::factory::create_false();
 				boost::shared_ptr<filter_function> var = registry_.get_function(name);
 				if (var) {
-					if (var->type == type_int) {
+					if (helpers::type_is_int(var->type)) {
 						if (var->function)
 							return node_type(new custom_function_node(name, var->function, subject, var->type));
 					}
