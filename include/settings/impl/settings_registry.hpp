@@ -8,10 +8,22 @@
 #include <settings/settings_core.hpp>
 #include <error.hpp>
 #include <settings/macros.h>
+
+#include <handle.hpp>
+#include <buffer.hpp>
+
 #define BUFF_LEN 4096
 
 
 namespace settings {
+
+	struct registry_closer {
+		static void close(HKEY hKey) {
+			RegCloseKey(hKey);
+		}
+	};
+	typedef hlp::handle<HKEY, registry_closer> reg_handle;
+	typedef hlp::buffer<wchar_t> reg_buffer;
 	class REGSettings : public settings::SettingsInterfaceImpl {
 	private:
 		struct reg_key {
@@ -150,64 +162,35 @@ namespace settings {
 		reg_key get_reg_key(settings_core::key_path_type key) {
 			return get_reg_key(key.first);
 		}
-		reg_key get_reg_key(std::string path) {
+		static reg_key get_reg_key(std::string path) {
 			reg_key ret;
-			strEx::replace(path, "/", "\\");
-			ret.path = NS_REG_ROOT;
-			if (path[0] != '\\')
-				ret.path += _T("\\");
-			ret.path += utf8::cvt<std::wstring>(path);
-			ret.hKey = NS_HKEY_ROOT;
+			net::url url = net::parse(path);
+			std::string file = url.path;
+			strEx::replace(file, "/", "\\");
+			if (url.host == "HKEY_LOCAL_MACHINE" || url.host == "HKLM") {
+				ret.hKey = HKEY_LOCAL_MACHINE;
+			} else {
+				ret.hKey = NS_HKEY_ROOT;
+			}
+			if (!file.empty()) {
+				if (file[0] == '\\')
+					file = file.substr(1);
+				ret.path = utf8::cvt<std::wstring>(file);
+			} else
+				ret.path = NS_REG_ROOT;
 			return ret;
 		}
-		struct reg_buffer {
-			wchar_t *buf;
-			std::string::size_type len;
-			reg_buffer(std::string::size_type len) : buf(new wchar_t[len]), len(len) {}
-			reg_buffer(std::string str) : buf(new wchar_t[str.length()+1]), len(str.length()+1) {
-				copy_from(str);
-			}
-			~reg_buffer() {
-				delete [] buf;
-			}
-			TCHAR* operator* () {
-				return buf;
-			}
-			TCHAR& operator[] (int i) {
-				return buf[i];
-			}
-			int str_len() {
-				return (wcslen(buf)+1)*sizeof(wchar_t);
-			}
-			void copy_from(const std::wstring &src) {
-				if (src.length() > len)
-					resize(src.length()+1);
-				wcsncpy(buf, src.c_str(), src.length()+1);
-				buf[src.length()] = 0;
-			}
-			void copy_from(const std::string &src) {
-				if (src.length() > len)
-					resize(src.length()+1);
-				wcsncpy(buf, utf8::cvt<std::wstring>(src).c_str(), src.length()+1);
-				buf[src.length()] = 0;
-			}
-			void resize(unsigned int len) {
-				wchar_t *tmp = buf;
-				buf = new wchar_t[len+1];
-				delete [] tmp;
-			}
-		};
 
 		struct tmp_reg_key {
-			HKEY hTemp;
-			tmp_reg_key(HKEY hKey, std::string path) : hTemp(NULL) {
+			reg_handle hTemp;
+			tmp_reg_key(HKEY hKey, std::string path) {
 				open(hKey, utf8::cvt<std::wstring>(path));
 			}
-			tmp_reg_key(HKEY hKey, std::wstring path) : hTemp(NULL) {
+			tmp_reg_key(HKEY hKey, std::wstring path) {
 				open(hKey, path);
 			}
 			void open(HKEY hKey, std::wstring path) {
-				DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hTemp, NULL);
+				DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hTemp.ref(), NULL);
 				if (err != ERROR_SUCCESS) {
 					throw settings_exception("Failed to open key " + utf8::cvt<std::string>(path) + ": " + error::lookup::last_error(err));
 				}
@@ -215,17 +198,13 @@ namespace settings {
 			HKEY operator*() {
 				return hTemp;
 			}
-			~tmp_reg_key() {
-				if (hTemp)
-					RegCloseKey(hTemp);
-			}
-
 		};
 
 		static void setString_(reg_key path, std::string key, std::string value) {
 			tmp_reg_key hTemp(path.hKey, path.path);
-			reg_buffer buffer(value);
-			DWORD err = RegSetValueExW(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.str_len());
+			std::wstring wvalue = utf8::cvt<std::wstring>(value);
+			reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
+			DWORD err = RegSetValueExW(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.size());
 			if (err != ERROR_SUCCESS) {
 				throw settings_exception("Failed to write string " + path.to_string() + "." + key + ": " + error::lookup::last_error(err));
 			}
@@ -240,31 +219,25 @@ namespace settings {
 		}
 
 		static std::string getString_(reg_key path, std::string key) {
-			HKEY hTemp;
-			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, &hTemp) != ERROR_SUCCESS) 
+			reg_handle hTemp;
+			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, hTemp.ref()) != ERROR_SUCCESS) 
 				throw KeyNotFoundException("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error());
 			DWORD type;
 			const DWORD data_length = 2048;
 			DWORD cbData = data_length;
-			BYTE *bData = new BYTE[cbData];
-			LONG lRet = RegQueryValueEx(hTemp, utf8::cvt<std::wstring>(key).c_str(), NULL, &type, bData, &cbData);
-			RegCloseKey(hTemp);
+			hlp::buffer<BYTE> bData(cbData);
+			LONG lRet = RegQueryValueEx(hTemp, utf8::cvt<std::wstring>(key).c_str(), NULL, &type, bData.get(), &cbData);
 			if (lRet == ERROR_SUCCESS) {
 				if (type == REG_SZ || type == REG_EXPAND_SZ) {
-					if (cbData == 0) {
-						delete [] bData;
+					if (cbData == 0)
 						return "";
-					}
 					if (cbData < data_length-1) {
 						bData[cbData] = 0;
-						const TCHAR *ptr = reinterpret_cast<TCHAR*>(bData);
-						std::wstring ret = ptr;
-						delete [] bData;
-						return utf8::cvt<std::string>(std::wstring(ret));
+						return utf8::cvt<std::string>(std::wstring(reinterpret_cast<TCHAR*>(bData.get())));
 					}
 					throw settings_exception("String to long: " + path.to_string());
 				} else if (type == REG_DWORD) {
-					DWORD dw = *(reinterpret_cast<DWORD*>(bData));
+					DWORD dw = *(reinterpret_cast<DWORD*>(bData.get()));
 					return strEx::s::xtos(dw);
 				}
 				throw settings_exception("Unsupported key type: " + path.to_string());
@@ -275,29 +248,25 @@ namespace settings {
 		static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
 			DWORD ret = def;
 			LONG bRet;
-			HKEY hTemp;
-			if ((bRet = RegOpenKeyEx(hKey, lpszPath, 0, KEY_READ, &hTemp)) != ERROR_SUCCESS) {
+			reg_handle hTemp;
+			if ((bRet = RegOpenKeyEx(hKey, lpszPath, 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS) {
 				return def;
 			}
 			DWORD type;
 			DWORD cbData = sizeof(DWORD);
 			DWORD buffer;
-			//BYTE *bData = new BYTE[cbData+1];
 			bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData );
-			if (type != REG_DWORD) {
-				bRet = -1;
-			}
-			RegCloseKey(hTemp);
+			if (type != REG_DWORD)
+				throw settings_exception("Unsupported key type: ");
 			if (bRet == ERROR_SUCCESS) {
 				ret = buffer;
 			}
-			//delete [] bData;
 			return ret;
 		}
 		static void getValues_(reg_key path, string_list &list) {
 			LONG bRet;
-			HKEY hTemp;
-			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, &hTemp)) != ERROR_SUCCESS)
+			reg_handle hTemp;
+			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS)
 				return;
 			DWORD cValues=0;
 			DWORD cMaxValLen=0;
@@ -305,23 +274,25 @@ namespace settings {
 			bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,NULL,NULL,NULL,&cValues,&cMaxValLen,NULL,NULL,NULL);
 			cMaxValLen++;
 			if ((bRet == ERROR_SUCCESS)&&(cValues>0)) {
-				TCHAR *lpValueName = new TCHAR[cMaxValLen+1];
+				hlp::buffer<wchar_t> lpValueName(cMaxValLen+1);
 				for (unsigned int i=0; i<cValues; i++) {
 					DWORD len = cMaxValLen;
-					bRet = RegEnumValue(hTemp, i, lpValueName, &len, NULL, NULL, NULL, NULL);
-					if (bRet != ERROR_SUCCESS) {
-						delete [] lpValueName;
+					bRet = RegEnumValue(hTemp, i, lpValueName.get(), &len, NULL, NULL, NULL, NULL);
+					if (bRet != ERROR_SUCCESS)
 						throw settings_exception("Failed to enumerate: " + path.to_string() + ": " + error::lookup::last_error());
-					}
 					list.push_back(utf8::cvt<std::string>(std::wstring(lpValueName)));
 				}
-				delete [] lpValueName;
 			}
+		}
+		static bool has_key(reg_key path) {
+			reg_handle hTemp;
+			DWORD status = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref());
+			return status == ERROR_SUCCESS;
 		}
 		static void getSubKeys_(reg_key path, string_list &list) {
 			LONG bRet;
-			HKEY hTemp;
-			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, &hTemp)) != ERROR_SUCCESS) 
+			reg_handle hTemp;
+			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS) 
 				return;
 			DWORD cSubKeys=0;
 			DWORD cMaxKeyLen;
@@ -329,17 +300,14 @@ namespace settings {
 			bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
 			cMaxKeyLen++;
 			if ((bRet == ERROR_SUCCESS)&&(cSubKeys>0)) {
-				TCHAR *lpValueName = new TCHAR[cMaxKeyLen+1];
+				hlp::buffer<wchar_t> lpValueName(cMaxKeyLen+1);
 				for (unsigned int i=0; i<cSubKeys; i++) {
 					DWORD len = cMaxKeyLen;
 					bRet = RegEnumKey(hTemp, i, lpValueName, len);
-					if (bRet != ERROR_SUCCESS) {
-						delete [] lpValueName;
+					if (bRet != ERROR_SUCCESS)
 						throw settings_exception("Failed to enumerate: " + path.to_string() + ": " + error::lookup::last_error());
-					}
 					list.push_back(utf8::cvt<std::string>(std::wstring(lpValueName)));
 				}
-				delete [] lpValueName;
 			}
 		}
 		settings::error_list validate() {
@@ -352,8 +320,7 @@ namespace settings {
 		}
 public:
 		static bool context_exists(settings::settings_core *core, std::string key) {
-			// @todo: Fix this
-			return false;
+			return has_key(get_reg_key(key));
 		}
 		virtual void real_clear_cache() {}
 

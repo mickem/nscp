@@ -8,6 +8,10 @@ namespace hlp {
 		buffer(std::size_t size) : size_(size) {
 			data = new T[size];
 		}
+		buffer(std::size_t size, const T* srcdata) : size_(size) {
+			data = new T[size];
+			memcpy(data, srcdata, size);
+		}
 		buffer(const buffer<T,U> &other) : size_(other.size_) {
 			data = new T[size_];
 			memcpy(data, other.data, size_);

@@ -1,3 +1,6 @@
+2013-09-19 MickeM
+ * Fixed issue with skipping registry
+ 
 2013-09-17 MickeM
  * Added very CRUDE initial eventlog support for "modern" eventlog API.
    This means NSClient++ can FINALLY! check all eventlogs on windows 2008 and windows 2012!
