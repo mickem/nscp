@@ -8,6 +8,13 @@
 
 #include <win_sysinfo/win_sysinfo.hpp>
 
+
+struct service_closer  {
+	static void close(SC_HANDLE handle) {
+		CloseServiceHandle(handle);
+	}
+};
+typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
 namespace services_helper {
 	DWORD parse_service_type(const std::string str) {
 		DWORD ret = 0;
@@ -74,7 +81,7 @@ namespace services_helper {
 		std::list<service_info> ret;
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-		hlp::service_handle<SC_HANDLE> sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
+		service_handle sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
 		if (!sc) 
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
@@ -96,7 +103,7 @@ namespace services_helper {
 			info.state = data[i].ServiceStatusProcess.dwCurrentState;
 			info.type = data[i].ServiceStatusProcess.dwServiceType;
 
-			hlp::service_handle<SC_HANDLE> hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
+			service_handle hService = OpenService(sc, data[i].lpServiceName, SERVICE_QUERY_CONFIG);
 			if (!hService)
 				throw nscp_exception("Failed to open service: " + info.name);
 
@@ -123,11 +130,11 @@ namespace services_helper {
 	service_info get_service_info(const std::string computer, const std::string service) {
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-		hlp::service_handle<SC_HANDLE> sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
+		service_handle sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
 		if (!sc) 
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
-		hlp::service_handle<SC_HANDLE> hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
+		service_handle hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
 		if (!hService)
 			throw nscp_exception("Failed to open service: " + service);
 

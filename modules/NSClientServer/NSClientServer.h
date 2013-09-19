@@ -18,6 +18,8 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 #include <check_nt/server/protocol.hpp>
 
 class NSClientServer : public nscapi::impl::simple_plugin, public check_nt::server::handler {

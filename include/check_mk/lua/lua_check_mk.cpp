@@ -23,7 +23,6 @@ int check_mk::check_mk_lua_wrapper::client_callback(lua_State *L) {
 			return lua_instance.error("Invalid object");
 	}
 	info->register_command("check_mk", "c_callback", "", fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int check_mk::check_mk_lua_wrapper::server_callback(lua_State *L) {
@@ -44,7 +43,6 @@ int check_mk::check_mk_lua_wrapper::server_callback(lua_State *L) {
 			return lua_instance.error("Invalid object");
 	}
 	info->register_command("check_mk", "s_callback", "", fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 const char check_mk::check_mk_lua_wrapper::className[] = "check_mk";

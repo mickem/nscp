@@ -4,17 +4,14 @@
 #include <list>
 #include <string>
 
-#include <boost/any.hpp>
-#include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
-#include <unicode_char.hpp>
-#include <strEx.h>
-
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+
 #include <settings/client/settings_client_interface.hpp>
 
 namespace nscapi {

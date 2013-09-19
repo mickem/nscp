@@ -17,5 +17,5 @@
 			"desc"	: "Check for errors in the event log."
 		}
 	},
-	"command line exec" : "legacy"
+	"command line exec" : true
 }

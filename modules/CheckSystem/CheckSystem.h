@@ -30,10 +30,8 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/settings_object.hpp>
-
-namespace sh = nscapi::settings_helper;
-
 
 template<class T>
 inline void import_string(T &object, T &parent) {

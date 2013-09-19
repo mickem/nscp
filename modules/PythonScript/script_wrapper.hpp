@@ -5,6 +5,8 @@
 
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 
 namespace script_wrapper {
 	using namespace boost::python;

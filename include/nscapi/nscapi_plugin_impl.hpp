@@ -26,10 +26,6 @@ namespace nscapi {
 			inline boost::shared_ptr<nscapi::command_proxy> get_command_proxy() {
 				return boost::shared_ptr<nscapi::command_proxy>(new nscapi::command_proxy(id_, get_core()));
 			}
-// 			void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
-// 			void settings_register_key(std::string path, std::string key, NSCAPI::settings_type type, std::string title, std::string description, std::string defaultValue, bool advanced);
-// 			void settings_register_path(std::string path, std::string title, std::string description, bool advanced);
-
 			std::string get_base_path() const;
 		};
 	}

@@ -5,6 +5,7 @@
 #include "plugin_instance.hpp"
 
 #include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 using namespace System;
 using namespace System::IO;

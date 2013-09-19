@@ -22,6 +22,8 @@
 #include <sysinfo.h>
 #include "settings.hpp"
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 pdh_thread::pdh_thread() {
 }
 

@@ -38,61 +38,6 @@
 #include <strEx.h>
 
 namespace nscapi {
-	class plugin_wrapper {
-	public:
-		struct module_version {
-			int major;
-			int minor;
-			int revision;
-		};
-
-		plugin_wrapper() /*: hModule_(NULL)*/ {}
-		int wrapReturnString(wchar_t *buffer, unsigned int bufLen, std::wstring str, int defaultReturnCode);
-
-#ifdef WIN32
-	private:
-		//HINSTANCE hModule_;
-	public:
-		//int wrapDllMain(HANDLE hModule, DWORD ul_reason_for_call);
-		//HINSTANCE getModule() {
-		//	hModule_;
-		//}
-#else
-		//void* hModule_;
-#endif
-		int wrapModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
-		NSCAPI::errorReturn wrapGetModuleName(wchar_t* buf, unsigned int buflen, std::wstring str);
-		int wrapLoadModule(bool success);
-		NSCAPI::errorReturn wrapGetModuleVersion(int *major, int *minor, int *revision, module_version version);
-		NSCAPI::boolReturn wrapHasCommandHandler(bool has);
-		NSCAPI::boolReturn wrapHasMessageHandler(bool has);
-		NSCAPI::boolReturn wrapHasRoutingHandler(bool has);
-		NSCAPI::boolReturn wrapHasNotificationHandler(bool has);
-		NSCAPI::nagiosReturn wrapHandleNotification(NSCAPI::nagiosReturn retResult);
-		int wrapUnloadModule(bool success);
-		NSCAPI::nagiosReturn wrapHandleCommand(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
-		NSCAPI::nagiosReturn wrapCommandLineExec(NSCAPI::nagiosReturn retResult, const std::string &reply, char **reply_buffer, unsigned int *size);
-		NSCAPI::nagiosReturn wrapRouteMessage(NSCAPI::nagiosReturn retResult);
-		
-		void wrapDeleteBuffer(char**buffer);
-
-	};
-
-	class helper_singleton {
-		core_wrapper* core_;
-		plugin_wrapper *plugin_;
-	public:
-		helper_singleton();
-		core_wrapper* get_core() const {
-			return core_;
-		}
-		plugin_wrapper* get_plugin() const {
-			return plugin_;
-		}
-	};
-
-	extern helper_singleton* plugin_singleton;
-
 	template<class impl_type>
 	struct plugin_instance_data {
 		typedef std::map<unsigned int, boost::shared_ptr<impl_type> > plugin_list_type;

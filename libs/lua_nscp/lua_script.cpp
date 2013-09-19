@@ -6,7 +6,7 @@
 #include <boost/thread.hpp>
 
 //#include <nscapi/functions.hpp>
-#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
@@ -30,15 +30,13 @@ int lua::core_wrapper::simple_query(lua_State *L) {
 	try {
 		std::list<std::string> arguments;
 		int arg_count = lua_instance.size();
-		if (arg_count < 1)
-			return lua_instance.error("Incorrect syntax: simple_query(command, [arg1], [arg2], [...])");
-		for (int i=0;i<arg_count-1;i++) {
-			if (lua_instance.is_table()) {
-				std::list<std::string> table = lua_instance.pop_array();
-				arguments.insert(arguments.begin(), table.begin(), table.end());
-			} else {
-				arguments.push_front(lua_instance.pop_string());
-			}
+		if (arg_count < 2)
+			return lua_instance.error("Incorrect syntax: simple_query(command, args)");
+		if (lua_instance.is_table()) {
+			std::list<std::string> table = lua_instance.pop_array();
+			arguments.insert(arguments.begin(), table.begin(), table.end());
+		} else {
+			arguments.push_front(lua_instance.pop_string());
 		}
 		std::string command = lua_instance.pop_string();
 		std::string message;
@@ -47,7 +45,6 @@ int lua::core_wrapper::simple_query(lua_State *L) {
 		lua_instance.push_code(ret);
 		lua_instance.push_string(message);
 		lua_instance.push_string(perf);
-		lua_instance.assert_lua_return(3);
 		return lua_instance.size();
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
@@ -56,14 +53,13 @@ int lua::core_wrapper::simple_query(lua_State *L) {
 int lua::core_wrapper::query(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	try {
-		if (lua_instance.size() != 1)
+		if (lua_instance.size() < 1)
 			return lua_instance.error("Incorrect syntax: query(data)");
 		std::string data = lua_instance.pop_string();
 		std::string response;
 		NSCAPI::nagiosReturn ret = get()->query(data, response);
 		lua_instance.push_code(ret);
 		lua_instance.push_raw_string(response);
-		lua_instance.assert_lua_return(2);
 		return lua_instance.size();
 	} catch (...) {
 		return lua_instance.error("Unknown exception in: simple_query");
@@ -72,7 +68,7 @@ int lua::core_wrapper::query(lua_State *L) {
 int lua::core_wrapper::simple_exec(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	try {
-		if (lua_instance.size() != 3)
+		if (lua_instance.size() < 3)
 			return lua_instance.error("Incorrect syntax: simple_exec(target, command, arguments)");
 		std::list<std::string> arguments = lua_instance.pop_array();
 		std::string command = lua_instance.pop_string();
@@ -81,7 +77,6 @@ int lua::core_wrapper::simple_exec(lua_State *L) {
 		NSCAPI::nagiosReturn ret = get()->exec_simple_command(target, command, arguments, result);
 		lua_instance.push_code(ret);
 		lua_instance.push_array(result);
-		lua_instance.assert_lua_return(2);
 		return lua_instance.size();
 	} catch (...) {
 		return lua_instance.error("Unknown exception in: simple_query");
@@ -95,7 +90,7 @@ int lua::core_wrapper::exec(lua_State *L) {
 int lua::core_wrapper::simple_submit(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	try {
-		if (lua_instance.size() != 5)
+		if (lua_instance.size() < 5)
 			return lua_instance.error("Incorrect syntax: simple_submit(channel, command, code, message, perf)");
 		std::string perf = lua_instance.pop_string();
 		std::string message = lua_instance.pop_string();
@@ -106,7 +101,6 @@ int lua::core_wrapper::simple_submit(lua_State *L) {
 		NSCAPI::nagiosReturn ret = get()->submit_simple_message(channel, command, code, message, perf, result);
 		lua_instance.push_code(ret);
 		lua_instance.push_string(result);
-		lua_instance.assert_lua_return(2);
 		return lua_instance.size();
 	} catch (...) {
 		return lua_instance.error("Unknown exception in: simple_query");
@@ -119,27 +113,20 @@ int lua::core_wrapper::submit(lua_State *L) {
 }
 int lua::core_wrapper::reload(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	if (lua_instance.size() > 1)
+	if (lua_instance.size() < 1)
 		return lua_instance.error("Incorrect syntax: reload([<module>]);");
 	std::string module = "module";
-	if (lua_instance.size() == 1)
-		module = lua_instance.pop_string();
-	get()->reload(module);
-	lua_instance.assert_lua_return(0);
+	get()->reload(lua_instance.pop_string());
 	return lua_instance.size();
 }
 int lua::core_wrapper::log(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	// log([level], message)
-	if (lua_instance.size() > 2 || lua_instance.size() < 1)
-		return lua_instance.error("Incorrect syntax: log([<level>], <message>);");
-	std::string level = "info";
-	std::string message;
-	message = lua_instance.pop_string();
-	if (lua_instance.size() > 0)
-		level = lua_instance.pop_string();
+	if (lua_instance.size() < 2)
+		return lua_instance.error("Incorrect syntax: log(<level>, <message>);");
+	std::string message = lua_instance.pop_string();
+	std::string level = lua_instance.pop_string();
 	get()->log(nscapi::logging::parse(level), __FILE__, __LINE__, message);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 boost::shared_ptr<lua::core_provider> lua::core_wrapper::get() {
@@ -204,7 +191,6 @@ int lua::registry_wrapper::register_function(lua_State *L) {
 	if (description.empty()) 
 		description = "Lua script: " + command;
 	info->register_command(scripts::nscp::tags::query_tag, command, description, fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::registry_wrapper::register_simple_function(lua_State *L) {
@@ -219,7 +205,6 @@ int lua::registry_wrapper::register_simple_function(lua_State *L) {
 	if (description.empty()) 
 		description = "Lua script: " + command;
 	info->register_command(scripts::nscp::tags::simple_query_tag, command, description, fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::registry_wrapper::register_cmdline(lua_State *L) {
@@ -235,7 +220,6 @@ int lua::registry_wrapper::register_simple_cmdline(lua_State *L) {
 	if (error)
 		return *error;
 	info->register_command(scripts::nscp::tags::simple_exec_tag, command, description, fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::registry_wrapper::subscription(lua_State *L) {
@@ -251,7 +235,6 @@ int lua::registry_wrapper::simple_subscription(lua_State *L) {
 	if (error)
 		return *error;
 	info->register_command("simple_submit", command, description, fundata);
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 
@@ -279,7 +262,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() > 1)
+	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_section([section])");
 
 	std::string v;
@@ -290,18 +273,15 @@ int lua::settings_wrapper::get_section(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(1);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::get_string(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() < 2 && lua_instance.size() > 3)
-		return lua_instance.error("Invalid syntax: get_string(section, key, [value])");
-	std::string v;
-	if (lua_instance.size() > 2)
-		v = lua_instance.pop_string();
+	if (lua_instance.size() < 3)
+		return lua_instance.error("Invalid syntax: get_string(section, key, value)");
+	std::string v = lua_instance.pop_string();
 	std::string k = lua_instance.pop_string();
 	std::string s = lua_instance.pop_string();
 	try {
@@ -309,14 +289,13 @@ int lua::settings_wrapper::get_string(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(1);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::set_string(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() != 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_string(section, key, value)");
 	std::string v = lua_instance.pop_string();
 	std::string k = lua_instance.pop_string();
@@ -326,18 +305,15 @@ int lua::settings_wrapper::set_string(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::get_bool(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() < 2 && lua_instance.size() > 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: get_bool(section, key, [value])");
-	bool v = false;
-	if (lua_instance.size() > 2)
-		v = lua_instance.pop_boolean();
+	bool v = lua_instance.pop_boolean();
 	std::string k = lua_instance.pop_string();
 	std::string s = lua_instance.pop_string();
 	try {
@@ -345,14 +321,13 @@ int lua::settings_wrapper::get_bool(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(1);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::set_bool(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() != 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_bool(section, key, value)");
 	bool v = lua_instance.pop_boolean();
 	std::string k = lua_instance.pop_string();
@@ -362,18 +337,15 @@ int lua::settings_wrapper::set_bool(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::get_int(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() < 2 && lua_instance.size() > 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: get_int(section, key, [value])");
-	int v = 0;
-	if (lua_instance.size() > 2)
-		v = lua_instance.pop_int();
+	int v = lua_instance.pop_int();
 	std::string k = lua_instance.pop_string();
 	std::string s = lua_instance.pop_string();
 	try {
@@ -381,14 +353,13 @@ int lua::settings_wrapper::get_int(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(1);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::set_int(lua_State *L) {
 	lua_wrapper lua_instance(L);
 	if (info == NULL) 
 		return lua_instance.error("Invalid core");
-	if (lua_instance.size() != 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_int(section, key, value)");
 	int v = lua_instance.pop_int();
 	std::string k = lua_instance.pop_string();
@@ -398,7 +369,6 @@ int lua::settings_wrapper::set_int(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::save(lua_State *L) {
@@ -410,12 +380,11 @@ int lua::settings_wrapper::save(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 int lua::settings_wrapper::register_path(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (lua_instance.size() != 3)
+	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: register_path(path, title, description)");
 	std::string description = lua_instance.pop_string();
 	std::string title = lua_instance.pop_string();
@@ -425,14 +394,13 @@ int lua::settings_wrapper::register_path(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 
 int lua::settings_wrapper::register_key(lua_State *L) {
 	lua_wrapper lua_instance(L);
 
-	if (lua_instance.size() != 5)
+	if (lua_instance.size() < 5)
 		return lua_instance.error("Invalid syntax: register_key(path, key, type, title, description, default)");
 	std::string defaultValue = lua_instance.pop_string();
 	std::string description = lua_instance.pop_string();
@@ -445,7 +413,6 @@ int lua::settings_wrapper::register_key(lua_State *L) {
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
-	lua_instance.assert_lua_return(0);
 	return lua_instance.size();
 }
 boost::shared_ptr<lua::settings_provider> lua::settings_wrapper::get() {

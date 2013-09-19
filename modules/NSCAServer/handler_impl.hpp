@@ -2,11 +2,11 @@
 
 #include <boost/tuple/tuple.hpp>
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 #include <nsca/nsca_packet.hpp>
 #include <cryptopp/cryptopp.hpp>
 #include <nsca/server/handler.hpp>
-
-#include <unicode_char.hpp>
 
 class nsca_handler_impl : public nsca::server::handler {
 	unsigned int payload_length_;

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 #include <check_nt/packet.hpp>
 #include <check_nt/server/handler.hpp>
 #include <boost/tuple/tuple.hpp>

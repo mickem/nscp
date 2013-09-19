@@ -52,8 +52,8 @@ public:
 	typedef struct {
 		unsigned long dwMemoryLoad;  
 		memType phys;
-		memType pageFile;
-		memType virtualMem;
+		memType commited;
+		memType virt;
 		double availExtendedVirtual;
 	} memData;
 
@@ -100,10 +100,10 @@ public:
 				throw CheckMemoryException("CheckMemory", "GlobalMemoryStatusEx failed: " + error::lookup::last_error());
 			ret.phys.total = buffer.ullTotalPhys;
 			ret.phys.avail = buffer.ullAvailPhys;
-			ret.virtualMem.total = buffer.ullTotalVirtual;
-			ret.virtualMem.avail = buffer.ullAvailVirtual;
-			ret.pageFile.total = buffer.ullTotalPageFile;
-			ret.pageFile.avail = buffer.ullAvailPageFile;
+			ret.virt.total = buffer.ullTotalVirtual;
+			ret.virt.avail = buffer.ullAvailVirtual;
+			ret.commited.total = buffer.ullTotalPageFile;
+			ret.commited.avail = buffer.ullAvailPageFile;
 		} else if (method_ == CheckMemMethod::Normal) {
 			MEMORYSTATUS buffer;
 			buffer.dwLength = sizeof(buffer);
@@ -111,10 +111,10 @@ public:
 				throw CheckMemoryException("CheckMemory", "GlobalMemoryStatus failed: " + error::lookup::last_error());
 			ret.phys.total = buffer.dwTotalPhys;
 			ret.phys.avail = buffer.dwAvailPhys;
-			ret.virtualMem.total = buffer.dwTotalVirtual;
-			ret.virtualMem.avail = buffer.dwAvailVirtual;
-			ret.pageFile.total = buffer.dwTotalPageFile;
-			ret.pageFile.avail = buffer.dwAvailPageFile;
+			ret.virt.total = buffer.dwTotalVirtual;
+			ret.virt.avail = buffer.dwAvailVirtual;
+			ret.commited.total = buffer.dwTotalPageFile;
+			ret.commited.avail = buffer.dwAvailPageFile;
 		}
 		return ret;
 	}

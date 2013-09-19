@@ -6,6 +6,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <error.hpp>
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 namespace smtp { 
 	namespace client {
 		void smtp_client::send_mail(const std::string sender, const std::list<std::string> &recipients, std::string message) {

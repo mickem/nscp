@@ -1,7 +1,7 @@
 #pragma once
-#include <unicode_char.hpp>
-#include <boost/shared_ptr.hpp>
-#include <NSCAPI.h>
+//#include <unicode_char.hpp>
+//#include <boost/shared_ptr.hpp>
+//#include <NSCAPI.h>
 
 //#pragma warning( disable : 4100 )
 

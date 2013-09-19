@@ -30,6 +30,7 @@
 #include <file_helpers.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 #include "script_wrapper.hpp"
 

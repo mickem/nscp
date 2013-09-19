@@ -23,14 +23,18 @@ namespace hlp {
 		~buffer() {
 			delete [] data;
 		}
-		operator T*() {
+		operator T*() const {
 			return data;
 		}
-		std::size_t size() {
+		std::size_t size() const {
 			return size_;
 		}
-		U get() {
+		U get() const {
 			return reinterpret_cast<U>(data);
+		}
+		template<class V>
+		V get_t() const {
+			return reinterpret_cast<V>(data);
 		}
 		void resize(std::size_t size) {
 			size_ = size;

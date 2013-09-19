@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 NSC_WRAPPERS_MAIN();
 

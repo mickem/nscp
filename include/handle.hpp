@@ -1,63 +1,37 @@
 #pragma once
 
 namespace hlp {
-	template<class T>
-	struct service_handle {
-		T handle;
-		service_handle() : handle(NULL) {}
-		service_handle(T handle) : handle(handle) {}
-		~service_handle() {
+	template<class THandle, class TCloser>
+	struct handle {
+		THandle handle_;
+		handle() : handle_(NULL) {}
+		handle(THandle handle) : handle_(handle) {}
+		~handle() {
 			close();
 		}
 		void close() {
-			if (handle != NULL)
-				CloseServiceHandle(handle);
-			handle = NULL;
+			if (handle_ != NULL)
+				TCloser::close(handle_);
+			handle_ = NULL;
 		}
-		T get() {
-			return handle;
+		THandle get() {
+			return handle_;
 		}
-		operator T() {
-			return handle;
+		THandle* ref() {
+			return &handle_;
+		}
+		operator THandle() {
+			return handle_;
 		}
 		operator bool() {
-			return handle != NULL;
+			return handle_ != NULL;
 		}
-		const service_handle<T>* operator = (const T &handle_) {
+		const handle<THandle, TCloser>& operator = (const THandle &other) {
 			close();
-			handle = handle_;
+			handle_ = other;
+			return *this;
 		}
 	};
 
-	template<class T=HANDLE>
-	struct generic_handle {
-		T handle;
-		generic_handle() : handle(NULL) {}
-		generic_handle(T handle) : handle(handle) {}
-		~generic_handle() {
-			close();
-		}
-		void close() {
-			if (handle != NULL)
-				CloseHandle(handle);
-			handle = NULL;
-		}
-		T get() {
-			return handle;
-		}
-		T* ref() {
-			return &handle;
-		}
-		operator T() {
-			return handle;
-		}
-		operator bool() {
-			return handle != NULL;
-		}
-		const generic_handle<T>* operator = (const T &handle_) {
-			close();
-			handle = handle_;
-			return this;
-		}
-	};
+
 }

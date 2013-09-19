@@ -30,6 +30,7 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 #include <settings/client/settings_client.hpp>
 

@@ -29,6 +29,7 @@
 
 #include <nscp/client/nscp_client_protocol.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 namespace sh = nscapi::settings_helper;
 

@@ -5,6 +5,7 @@
 #include "PythonScript.h"
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 #include <boost/thread.hpp>
 
 using namespace boost::python;

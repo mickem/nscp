@@ -27,6 +27,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 #include "CheckLogFile.h"
 #include "real_time_thread.hpp"

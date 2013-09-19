@@ -34,9 +34,6 @@
 
 #include <tchar.h>
 
-extern nscapi::helper_singleton* nscapi::plugin_singleton;
-
-
 NSC_WRAPPERS_MAIN_DEF(DotnetPlugins, "dotnet");
 NSC_WRAPPERS_IGNORE_MSG_DEF();
 NSC_WRAPPERS_HANDLE_CMD_DEF();

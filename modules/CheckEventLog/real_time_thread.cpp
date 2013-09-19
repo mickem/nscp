@@ -5,8 +5,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-
-#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 void real_time_thread::process_no_events(const eventlog_filter::filter_config_object &object) {
 	std::string response;
@@ -31,7 +30,7 @@ void real_time_thread::process_record(eventlog_filter::filter_config_object &obj
 	object.filter.start_match();
 	bool matched = false;
 
-	boost::tuple<bool,bool> ret = object.filter.match(boost::make_shared<eventlog_filter::filter_obj>(record));
+	boost::tuple<bool,bool> ret = object.filter.match(boost::make_shared<eventlog_filter::old_filter_obj>(record));
 	if (!ret.get<0>()) {
 		if (ret.get<1>()) {
 			return;
@@ -180,7 +179,7 @@ void real_time_thread::thread_proc() {
 					current_time = boost::posix_time::ptime();
 
 					bool matched = false;
-					boost::tuple<bool,bool> ret = object.filter.match(boost::make_shared<eventlog_filter::filter_obj>(elr));
+					boost::tuple<bool,bool> ret = object.filter.match(boost::make_shared<eventlog_filter::old_filter_obj>(elr));
 					if (!ret.get<0>()) {
 						matched = true;
 						if (ret.get<1>()) {

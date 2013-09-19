@@ -3,8 +3,6 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(copy_docs)
 
 SET(ALL_FILES)
-copy_single_file(ALL_FILES "Nagios Usage Guide.pdf" docs)
-copy_single_file(ALL_FILES "NSClient++ Reference Manual.pdf" docs)
 copy_single_file(ALL_FILES "conf.py" docs)
 #copy_single_file(ALL_FILES "license.txt" .)
 #copy_single_file(ALL_FILES "../changelog" .)
@@ -60,5 +58,14 @@ IF(SPHINX_FOUND)
 		"${CMAKE_CURRENT_BINARY_DIR}/source"
 		"${CMAKE_CURRENT_BINARY_DIR}/epub"
 		DEPENDS build_doc_sources copy_docs
-		COMMENT "Building HTML documentation with Sphinx")
+		COMMENT "Building ePub documentation with Sphinx")
+
+	ADD_CUSTOM_TARGET(build_docs_pdf ALL
+		${SPHINX_EXECUTABLE}
+		-q -b pdf
+		-d "${CMAKE_CURRENT_BINARY_DIR}/_cache"
+		"${CMAKE_CURRENT_BINARY_DIR}/source"
+		"${BUILD_TARGET_EXE_PATH}"
+		DEPENDS build_doc_sources copy_docs
+		COMMENT "Building PDF documentation with Sphinx")
 ENDIF(SPHINX_FOUND)

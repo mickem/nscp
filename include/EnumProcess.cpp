@@ -35,8 +35,15 @@
 
 const int MAX_FILENAME = 256;
 
+struct generic_closer  {
+	static void close(HANDLE handle) {
+		CloseHandle(handle);
+	}
+};
+typedef hlp::handle<HANDLE, generic_closer> generic_handle;
+
 void enable_token_privilege(LPTSTR privilege) {
-	hlp::generic_handle<> token;
+	generic_handle token;
 	TOKEN_PRIVILEGES token_privileges;
 	DWORD dwSize;
 	ZeroMemory(&token_privileges, sizeof(token_privileges));
@@ -53,7 +60,7 @@ void enable_token_privilege(LPTSTR privilege) {
 }
 
 void disable_token_privilege(LPTSTR privilege) {
-	hlp::generic_handle<> token;
+	generic_handle token;
 	TOKEN_PRIVILEGES token_privileges;                 
 	DWORD dwSize;                       
 	ZeroMemory (&token_privileges, sizeof (token_privileges));
@@ -166,7 +173,7 @@ namespace process_helper {
 
 		unsigned long ReturnLength = 0;
 
-		hlp::generic_handle<> handle(OpenProcess(openArgs, FALSE, pid));
+		generic_handle handle(OpenProcess(openArgs, FALSE, pid));
 		if (!handle) {
 			handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
 			if (!handle) {

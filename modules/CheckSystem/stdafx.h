@@ -20,23 +20,23 @@
 ***************************************************************************/
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
-#include <windows.h>
-
-#include <iostream>
-#include <string>
-#include <hash_map>
-#include <list>
-
-#include <common.hpp>
-#include <NSCAPI.h>
-#include <nscapi/plugin.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <utils.h>
-#include <error.hpp>
-
-
-#ifdef MEMCHECK
-#include <vld.h>
-#endif
+// #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+// // Windows Header Files:
+// #include <windows.h>
+// 
+// #include <iostream>
+// #include <string>
+// #include <hash_map>
+// #include <list>
+// 
+// #include <common.hpp>
+// #include <NSCAPI.h>
+// #include <nscapi/plugin.hpp>
+// #include <nscapi/nscapi_plugin_wrapper.hpp>
+// #include <utils.h>
+// #include <error.hpp>
+// 
+// 
+// #ifdef MEMCHECK
+// #include <vld.h>
+// #endif

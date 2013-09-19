@@ -35,6 +35,8 @@
 #include <Mstask.h>
 #include <taskschd.h>
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")

@@ -41,13 +41,14 @@ namespace nrpe {
 		static const short responsePacket = 2;
 		static const short version2 = 2;
 
+		static const std::size_t buffer_offset = 10;
+
 		typedef struct packet {
 			int16_t   packet_version;
 			int16_t   packet_type;
 			u_int32_t crc32_value;
 			int16_t   result_code;
-//			char      *buffer;
-		} packet;
+		};
 
 	};
 
@@ -163,14 +164,19 @@ namespace nrpe {
 		static packet make_request(std::string payload, unsigned int buffer_length) {
 			return packet(nrpe::data::queryPacket, nrpe::data::version2, -1, payload, buffer_length);
 		}
-
+		static char* payload_offset(nrpe::data::packet *p) {
+			return &reinterpret_cast<char*>(p)[nrpe::data::buffer_offset];
+		}
+		static const char* payload_offset(const nrpe::data::packet *p) {
+			return &reinterpret_cast<const char*>(p)[nrpe::data::buffer_offset];
+		}
 		static void update_payload(nrpe::data::packet *p, const std::string &payload) {
-			char *data = reinterpret_cast<char*>(p)+sizeof(nrpe::data::packet);
+			char *data = payload_offset(p);
 			strncpy(data, payload.c_str(), payload.length());
 			data[payload.length()] = 0;
 		}
 		static std::string fetch_payload(const nrpe::data::packet *p) {
-			const char *data = reinterpret_cast<const char*>(p)+sizeof(nrpe::data::packet);
+			const char *data = payload_offset(p);
 			return std::string(data);
 		}
 

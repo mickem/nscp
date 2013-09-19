@@ -365,8 +365,7 @@ LOG_DELEGATOR_HPP_FALSE = ""
 MODULE_HPP = """#pragma once
 #include <boost/shared_ptr.hpp>
 
-#include <nscapi/macros.hpp>
-#include <NSCAPI.h>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 NSC_WRAPPERS_MAIN();
 ${LOG_DELEGATOR_HPP_DEF}
@@ -743,7 +742,6 @@ UNLOAD_DELEGATOR_TRUE = "		ret = impl_->unloadModule();"
 UNLOAD_DELEGATOR_FALSE = "		ret = true;"
 
 MODULE_CPP = """
-#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 

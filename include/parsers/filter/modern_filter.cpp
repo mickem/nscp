@@ -1,7 +1,5 @@
 #include <parsers/filter/modern_filter.hpp>
-
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 namespace modern_filter {
 

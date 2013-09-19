@@ -20,7 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include <unicode_char.hpp>
+//#include <unicode_char.hpp>
 #include <string>
 //#include <strEx.h>
 

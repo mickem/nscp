@@ -32,6 +32,7 @@
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace ip = boost::asio::ip;

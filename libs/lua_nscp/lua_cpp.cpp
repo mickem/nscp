@@ -7,7 +7,7 @@ extern "C" {
 #include "luna.h"
 
 #include <strEx.h>
-#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
 lua::Lua_State::Lua_State() : L(lua_open()) { }
@@ -264,13 +264,6 @@ int lua::lua_wrapper::size() {
 }
 bool lua::lua_wrapper::empty() {
 	return size() == 0;
-}
-
-void lua::lua_wrapper::assert_lua_return(int expected_size) {
-	int real_size = size();
-	if (real_size != expected_size) {
-		NSC_LOG_ERROR_STD("Invalid return size: " + strEx::s::xtos(expected_size) + " != " + strEx::s::xtos(real_size))
-	}
 }
 
 void lua::lua_wrapper::log_stack() {

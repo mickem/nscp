@@ -137,14 +137,6 @@ namespace lua {
 		int checkint(int pos);
 		int gc(int what, int data);
 
-		void assert_lua_return(int expected_size);
-		/*
-		void newmetatable(const std::string &name);
-		void register(const std::string &name, const luaL_Reg *arraylib);
-		*/
-
-
-
 		template<class T>
 		T* newuserdata() {
 			return reinterpret_cast<T*>(lua_newuserdata(L, sizeof(T)));

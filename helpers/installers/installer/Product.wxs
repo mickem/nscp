@@ -97,16 +97,10 @@
 						<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
 						<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 					</Component>
-					<Component Id="NagiosDocumentation" Guid="DE136675-CBBD-49c4-B3DB-B3D5DA90BDD1" Win64="$(var.Win64)">
-						<File Id="doc.usage.nagios" Name="Nagios Usage Guide.pdf" DiskId="1" Source="$(var.Source)/docs/Nagios Usage Guide.pdf" Vital="no" KeyPath="yes">
-							<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="Nagios Usage Guide" Advertise="yes"
-									  WorkingDirectory="INSTALLDIR" Description="Nagios Usage Guide"/>
-						</File>
-					</Component>
-					<Component Id="ReferenceDocumentation" Guid="C1F07CBC-2D5A-49c1-8A52-A48FFBDD692B" Win64="$(var.Win64)">
-						<File Id="doc.reference" Name="NSClient++ Reference Manual.pdf" DiskId="1" Source="$(var.Source)/docs/NSClient++ Reference Manual.pdf" Vital="no" KeyPath="yes">
-							<Shortcut Id="Startmenu.doc.ref" Directory="ProgramMenuDir" Name="NSClient++ Reference Manual" Advertise="yes"
-									  WorkingDirectory="INSTALLDIR" Description="NSClient++ Reference Manual"/>
+					<Component Id="NSCPDocumentation" Guid="DE136675-CBBD-49c4-B3DB-B3D5DA90BDD1" Win64="$(var.Win64)">
+						<File Id="doc.usage.nagios" Name="NSCP.pdf" DiskId="1" Source="$(var.Source)/NSCP.pdf" Vital="no" KeyPath="yes">
+							<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="NSClient++ Documentation" Advertise="yes"
+									  WorkingDirectory="INSTALLDIR" Description="NSClient++ Documentation"/>
 						</File>
 					</Component>
 					<Directory Id="INSTALLLOCATION_SECURITY" Name="security">
@@ -256,8 +250,7 @@
         </Feature>
       </Feature>
 			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
-				<ComponentRef Id="NagiosDocumentation" />
-				<ComponentRef Id="ReferenceDocumentation" />
+				<ComponentRef Id="NSCPDocumentation" />
 			</Feature>
 			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">

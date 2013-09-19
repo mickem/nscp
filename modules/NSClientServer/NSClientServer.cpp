@@ -30,6 +30,7 @@
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 namespace sh = nscapi::settings_helper;
 

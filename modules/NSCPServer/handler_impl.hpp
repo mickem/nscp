@@ -1,8 +1,11 @@
 #pragma once
 
+#include <boost/tuple/tuple.hpp>
+
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 #include <nscp/packet.hpp>
 #include <nscp/server/handler.hpp>
-#include <boost/tuple/tuple.hpp>
 
 class handler_impl : public nscp::server::handler {
 	bool allowArgs_;

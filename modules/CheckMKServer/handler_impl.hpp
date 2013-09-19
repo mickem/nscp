@@ -2,6 +2,8 @@
 
 #include <boost/tuple/tuple.hpp>
 
+#include <nscapi/nscapi_plugin_interface.hpp>
+
 #include <check_mk/data.hpp>
 #include <check_mk/server/server_handler.hpp>
 #include <check_mk/lua/lua_check_mk.hpp>

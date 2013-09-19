@@ -711,7 +711,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	}
 
 	if (types.empty()) {
-		types.push_back("page");
+		types.push_back("commited");
 		types.push_back("physical");
 	}
 
@@ -727,15 +727,15 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	BOOST_FOREACH(const std::string &type, types) {
 		unsigned long long used(0), total(0);
-		if (type == "page") {
-			used = mem_data.pageFile.total-mem_data.pageFile.avail;
-			total = mem_data.pageFile.total;
+		if (type == "commited" || type == "page") {
+			used = mem_data.commited.total-mem_data.commited.avail;
+			total = mem_data.commited.total;
 		} else if (type == "physical") {
 			used = mem_data.phys.total-mem_data.phys.avail;
 			total = mem_data.phys.total;
 		} else if (type == "virtual") {
-			used = mem_data.virtualMem.total-mem_data.virtualMem.avail;
-			total = mem_data.virtualMem.total;
+			used = mem_data.virt.total-mem_data.virt.avail;
+			total = mem_data.virt.total;
 		} else {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
 		}
