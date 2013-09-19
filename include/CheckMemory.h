@@ -54,6 +54,7 @@ public:
 		memType phys;
 		memType commited;
 		memType virt;
+		memType page;
 		double availExtendedVirtual;
 	} memData;
 
@@ -104,6 +105,8 @@ public:
 			ret.virt.avail = buffer.ullAvailVirtual;
 			ret.commited.total = buffer.ullTotalPageFile;
 			ret.commited.avail = buffer.ullAvailPageFile;
+			ret.page.total = buffer.ullTotalPageFile-buffer.ullTotalPhys;
+			ret.page.avail = buffer.ullAvailPageFile-buffer.ullAvailPhys;
 		} else if (method_ == CheckMemMethod::Normal) {
 			MEMORYSTATUS buffer;
 			buffer.dwLength = sizeof(buffer);

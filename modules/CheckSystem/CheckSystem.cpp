@@ -700,7 +700,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
 	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${type} > ${used}", "${type}");
 	filter_helper.get_desc().add_options()
-		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check")
+		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), commited = total memory (RAM+PAGE), page = pagefile")
 		;
 
 	if (!filter_helper.parse_options())
@@ -713,6 +713,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	if (types.empty()) {
 		types.push_back("commited");
 		types.push_back("physical");
+		types.push_back("page");
 	}
 
 	if (!filter_helper.build_filter(filter))
@@ -727,9 +728,12 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	BOOST_FOREACH(const std::string &type, types) {
 		unsigned long long used(0), total(0);
-		if (type == "commited" || type == "page") {
+		if (type == "commited") {
 			used = mem_data.commited.total-mem_data.commited.avail;
 			total = mem_data.commited.total;
+		} else if (type == "page") {
+			used = mem_data.page.total-mem_data.page.avail;
+			total = mem_data.page.total;
 		} else if (type == "physical") {
 			used = mem_data.phys.total-mem_data.phys.avail;
 			total = mem_data.phys.total;

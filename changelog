@@ -1,5 +1,6 @@
 2013-09-19 MickeM
  * Fixed issue with skipping registry
+ * Added page (commited - physical) memory metric
  
 2013-09-17 MickeM
  * Added very CRUDE initial eventlog support for "modern" eventlog API.
