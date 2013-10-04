@@ -27,6 +27,9 @@
 			},
 		"check_os_version" : { 
 			"description" : "Check the version of the underlaying OS."
+			},
+		"check_pagefile" : { 
+			"description" : "Check the size of the system pagefile(s)."
 			}
 	},
 

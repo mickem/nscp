@@ -39,7 +39,6 @@
 #include <simple_registry.hpp>
 #include <settings/client/settings_client.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
-//#include <config.h>
 
 #include <pdh/pdh_enumerations.hpp>
 
@@ -310,6 +309,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 
 int CheckSystem::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	if (command == "pdh" || command == "help" || command.empty()) {
+
 		namespace po = boost::program_options;
 
 		std::string lookup, counter, list_string, computer, username, password;
@@ -679,6 +679,38 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	filter_helper.post_process(filter, &writer);
 }
 
+
+void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	typedef check_page_filter::filter filter_type;
+	modern_filter::data_container data;
+	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
+
+	filter_type filter;
+	filter_helper.add_options(filter.get_filter_syntax(), "OK pagefile within bounds.");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}");
+
+	if (!filter_helper.parse_options())
+		return;
+
+	if (filter_helper.empty()) {
+		filter_helper.set_default("used > 60%", "used > 80%");
+	}
+
+	if (!filter_helper.build_filter(filter))
+		return;
+
+	windows::system_info::pagefile_info total("total");
+	BOOST_FOREACH(const windows::system_info::pagefile_info &info, windows::system_info::get_pagefile_info()) {
+		boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
+		boost::tuple<bool,bool> ret = filter.match(record);
+		total.add(info);
+	}
+	boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
+	boost::tuple<bool,bool> ret = filter.match(record);
+
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
+}
 /**
  * Check available memory and return various check results
  * Example: checkMem showAll maxWarn=50 maxCrit=75
@@ -700,7 +732,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
 	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${type} > ${used}", "${type}");
 	filter_helper.get_desc().add_options()
-		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), commited = total memory (RAM+PAGE), page = pagefile")
+		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), commited = total memory (RAM+PAGE)")
 		;
 
 	if (!filter_helper.parse_options())
@@ -713,7 +745,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	if (types.empty()) {
 		types.push_back("commited");
 		types.push_back("physical");
-		types.push_back("page");
 	}
 
 	if (!filter_helper.build_filter(filter))
@@ -731,9 +762,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 		if (type == "commited") {
 			used = mem_data.commited.total-mem_data.commited.avail;
 			total = mem_data.commited.total;
-		} else if (type == "page") {
-			used = mem_data.page.total-mem_data.page.avail;
-			total = mem_data.page.total;
 		} else if (type == "physical") {
 			used = mem_data.phys.total-mem_data.phys.avail;
 			total = mem_data.phys.total;

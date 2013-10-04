@@ -190,3 +190,48 @@ To resolve this please update your configuration:
   ; ALLOWED HOSTS - A coma separated list of hosts which are allowed to connect. You can use netmasks (/ syntax) or * to create ranges.
   allowed hosts = <ADD YOUR NAGIOS 1 IP HERE>,<ADD YOUR NAGIOS 2 IP HERE>,10.11.12.0/24
 
+3.3 Timeout issues
+*******************
+
+Configuring timeouts can some times be a problem and cause strange errors.
+It is important to understand that timeouts are cascading this means if you have all timeouts set to 60 seconds they will all miss fire.
+
+.. image:: images/timeouts.png
+
+The nagios server timeout will fire after exactly 60 seconds but the script timeouts will be started m,aybe 1 second after the nagios service check timeout this means once we reach 60 seconds the nagios service timeout will fire first and 1 second after the script will timeout. This you always have to set each timeout slightly less to accomodate this drift.
+
+If your command takes 60 seconds you need to set the timeouts like this:
+
+1. Script timeout: 60s
+
+.. code-block:: ini
+  
+  [/settings/external scripts/wrappings]
+  vbs = cscript.exe //T:120 //NoLogo scripts\\lib\\wrapper.vbs %SCRIPT% %ARGS%
+
+2. External script timeout: 65 seconds
+
+.. code-block:: ini
+  
+  [/settings/external scripts]
+  timeout = 65
+
+3. NRPE/server timeout: 70s
+
+.. code-block:: ini
+  
+  [settings/NPRE/server]
+  timeout = 70
+
+4. check_nrpe timeout: 75s
+
+.. code-block:: sh
+  
+  check_nrpe -t 75
+
+5. nagios service check timeout: 80s
+
+.. code-block:: ini
+
+  service_check_timeout=80
+

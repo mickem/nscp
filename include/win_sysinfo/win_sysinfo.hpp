@@ -75,6 +75,22 @@ namespace windows {
 			memory_entry virtual_memory;
 		};
 
+		struct pagefile_info {
+			long long size;
+			long long usage;
+			long long peak_usage;
+			std::string name;
+			pagefile_info(const std::string name = "") : size(0), usage(0), peak_usage(0), name(name) {}
+			void add(const pagefile_info &other) {
+				size += other.size;
+				usage += other.usage;
+				peak_usage += other.peak_usage;
+			}
+		};
+
+
+
+		static std::vector<pagefile_info> get_pagefile_info();
 
 
 		static std::string get_version_string();
@@ -96,6 +112,7 @@ namespace windows {
 		bool IsWow64(HANDLE hProcess, bool def = false);
 		DWORD GetProcessImageFileName(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
 		LONG NtQueryInformationProcess(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
+
 		INT VDMEnumTaskWOWEx(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam);
 	};
 

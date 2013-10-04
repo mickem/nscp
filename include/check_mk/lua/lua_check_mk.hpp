@@ -28,7 +28,7 @@ namespace check_mk {
 
 	class check_mk_packet_wrapper {
 	public:
-		check_mk_packet_wrapper(lua_State *L, bool fromLua) {}
+		check_mk_packet_wrapper(lua_State *, bool) {}
 
 		static const char className[];
 		static const Luna<check_mk_packet_wrapper>::PropertyType Properties[];
@@ -47,7 +47,7 @@ namespace check_mk {
 
 	class check_mk_section_wrapper {
 	public:
-		check_mk_section_wrapper(lua_State *L, bool fromLua) {}
+		check_mk_section_wrapper(lua_State *, bool) {}
 
 		static const char className[];
 		static const Luna<check_mk_section_wrapper>::PropertyType Properties[];

@@ -1,11 +1,20 @@
+2013-09-24 MickeM
+ * Fixed issue with performance data and byte based units
+ * Added total to check_pagefile
+
+2013-09-23 MickeM
+ * Removed page (since it often is wrong)
+ * Added check_pagefile (to check pagefile usage)
+ * removed nobp (wince it was for NT4 and we dont support nt4)
+ * Removed debug symbols (since breakpad symbols work)
+
 2013-09-19 MickeM
  * Fixed issue with skipping registry
  * Added page (commited - physical) memory metric
  
 2013-09-17 MickeM
- * Added very CRUDE initial eventlog support for "modern" eventlog API.
+ * Added support for new eventlog API.
    This means NSClient++ can FINALLY! check all eventlogs on windows 2008 and windows 2012!
-   Please be aware that this is a proof of concept and the very first build so it is not "complete" yet (I will fix that in the next few days).
 
 2013-09-16 MickeM
  * Fixed NRPE issue
@@ -14,7 +23,6 @@
  * Fixed check_multi
  * added new options to check_multi (suffic, prefix and separator) to better control the output
  * starting services (auto-start) is now a warning state.
-
  
 2013-09-08 MickeM
  * Brand new filters

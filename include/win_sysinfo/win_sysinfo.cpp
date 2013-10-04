@@ -5,10 +5,7 @@
 
 #include <boost/scoped_array.hpp>
 #include <error.hpp>
-
-
-
-
+#include <buffer.hpp>
 
 namespace windows {
 
@@ -366,6 +363,39 @@ namespace windows {
 	CheckMemory g_memory_checker;
 	system_info::memory_usage system_info::get_memory() {
 		return g_memory_checker.getMemoryStatus();
+	}
+
+
+#define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
+#define STATUS_INFO_LENGTH_MISMATCH             ((NTSTATUS)0xC0000004L)
+#define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
+	std::vector<system_info::pagefile_info> system_info::get_pagefile_info() {
+		std::vector<system_info::pagefile_info> ret;
+		hlp::buffer<BYTE,LPVOID> buffer(4096);
+		DWORD retLen = 0;
+		NTSTATUS status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
+		if (status == STATUS_INFO_LENGTH_MISMATCH) {
+			buffer.resize(retLen+10);
+			status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
+		}
+		if (status != STATUS_SUCCESS)
+			throw nscp_exception("Failed to get pagefile info");
+		ULONG offset = 0;
+		while (true) {
+			windows::winapi::SYSTEM_PAGEFILE_INFORMATION *info = buffer.get_t<windows::winapi::SYSTEM_PAGEFILE_INFORMATION*>(offset);
+			system_info::pagefile_info data(utf8::cvt<std::string>(std::wstring(info->PageFileName.Buffer)));
+			data.peak_usage = info->PeakUsage;
+			data.usage = info->TotalInUse;
+			data.size = info->TotalSize;
+			data.peak_usage*=8*1024;
+			data.usage*=8*1024;
+			data.size*=8*1024;
+			ret.push_back(data);
+			if (info->NextEntryOffset == 0)
+				break;
+			offset += info->NextEntryOffset;
+		}
+		return ret;
 	}
 
 

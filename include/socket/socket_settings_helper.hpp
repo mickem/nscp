@@ -14,8 +14,7 @@ namespace socket_helpers {
 				;
 		}
 
-
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string certificate = "${certificate-path}/certificate.pem", std::string key = "${certificate-path}/certificate_key.pem", std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
@@ -24,10 +23,10 @@ namespace socket_helpers {
 				("certificate", nscapi::settings_helper::path_key(&info_.ssl.dh_key, "${certificate-path}/nrpe_dh_512.pem"),
 				"DH KEY", "", true)
 
-				("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, "${certificate-path}/certificate.pem"),
+				("certificate", nscapi::settings_helper::path_key(&info_.ssl.certificate, certificate),
 				"SSL CERTIFICATE", "", true)
 
-				("certificate key", nscapi::settings_helper::path_key(&info_.ssl.certificate_key, "${certificate-path}/certificate_key.pem"),
+				("certificate key", nscapi::settings_helper::path_key(&info_.ssl.certificate_key, key),
 				"SSL CERTIFICATE", "", true)
 
 				("certificate format", nscapi::settings_helper::string_key(&info_.ssl.certificate_format, "PEM"),

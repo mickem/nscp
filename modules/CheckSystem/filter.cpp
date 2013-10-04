@@ -84,6 +84,59 @@ namespace check_mem_filter {
 	}
 }
 
+namespace check_page_filter {
+
+	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		std::list<parsers::where::node_type> list = subject->get_list_value(context);
+		if (list.size() != 2) {
+			context->error("Invalid list value");
+			return parsers::where::factory::create_false();
+		}
+		std::list<parsers::where::node_type>::const_iterator cit = list.begin();
+		parsers::where::node_type amount = *cit;
+		++cit;
+		parsers::where::node_type unit = *cit;
+
+		long long percentage = amount->get_int_value(context);
+		long long value = (object->get_total()*percentage)/100;
+		return parsers::where::factory::create_int(value);
+	}
+
+	long long get_zero() {
+		return 0;
+	}
+
+	filter_obj_handler::filter_obj_handler() {
+		static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
+		static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
+
+		registry_.add_string()
+			("name", boost::bind(&filter_obj::get_name, _1), "The name of the page file (location)")
+			;
+		registry_.add_int()
+			("size", boost::bind(&filter_obj::get_total, _1), "Total size of pagefile")
+			("free", type_custom_free, boost::bind(&filter_obj::get_free, _1), "Free memory in bytes (g,m,k,b) or percentages %")
+			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
+			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+
+			("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
+			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
+			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+			;
+		registry_.add_human_string()
+			("size", boost::bind(&filter_obj::get_total_human, _1), "")
+			("free", boost::bind(&filter_obj::get_free_human, _1), "")
+			("used", boost::bind(&filter_obj::get_used_human, _1), "")
+			;
+
+		registry_.add_converter()
+			(type_custom_free, &calculate_free)
+			(type_custom_used, &calculate_free)
+			;
+
+	}
+}
+
 
 namespace check_svc_filter {
 

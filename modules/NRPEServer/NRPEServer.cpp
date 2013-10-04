@@ -61,7 +61,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "ADH");
+	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
 
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()

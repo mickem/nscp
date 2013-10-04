@@ -99,6 +99,47 @@ namespace check_mem_filter {
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
 
+namespace check_page_filter {
+
+	struct filter_obj {
+		const windows::system_info::pagefile_info &info;
+
+		filter_obj(const windows::system_info::pagefile_info &info) : info(info) {}
+
+		long long get_peak() const {
+			return info.peak_usage;
+		}
+		long long get_total() const {
+			return info.size;
+		}
+		long long get_used() const {
+			return info.usage;
+		}
+		long long get_free() const {
+			return info.size-info.usage;
+		}
+		std::string get_name() const {
+			return info.name;
+		}
+
+		std::string get_total_human() const {
+			return format::format_byte_units(get_total());
+		}
+		std::string get_used_human() const {
+			return format::format_byte_units(get_used());
+		}
+		std::string get_free_human() const {
+			return format::format_byte_units(get_free());
+		}
+	};
+
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+	struct filter_obj_handler : public native_context {
+		filter_obj_handler();
+	};
+	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+}
+
 
 
 namespace check_svc_filter {

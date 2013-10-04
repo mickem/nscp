@@ -310,10 +310,10 @@ namespace format {
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
 		if (unit.length() != 1) {
-			i;
+			return i;
 		}
 		double cpy = static_cast<double>(i);
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
+		while (idx<BKMG_SIZE) {
 			if (unit[0] == postfix[idx]) {
 				return static_cast<T>(cpy);
 			}

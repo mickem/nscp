@@ -32,7 +32,7 @@ IF(SPHINX_FOUND)
 	ADD_CUSTOM_TARGET(build_doc_sources
 		COMMAND ${CMAKE_BINARY_DIR}/nscp py --no-stderr --settings dummy --load-all --log error --log oneline -- --script docs --format rst --output docs/source
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-		DEPENDS nscp copy_scripts ${ALL_MODULE_NAMES}
+		DEPENDS nscp copy_scripts copy_files ${ALL_MODULE_NAMES}
 		COMMENT "Generate RST files")
 	
 	if(NOT DEFINED SPHINX_THEME)
