@@ -368,7 +368,8 @@ namespace parsers {
 				return get_type();
 			}
 			bool find_performance_data(evaluation_context context, performance_collector &collector) {
-				collector.set_candidate_variable(name_);
+				if (get_type() != type_string)
+					collector.set_candidate_variable(name_);
 				return false;
 			}
 

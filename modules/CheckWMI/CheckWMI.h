@@ -96,11 +96,8 @@ public:
 	bool unloadModule();
 
 	void check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void check_wmi_value(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	NSCAPI::nagiosReturn commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result);
 
 private:
 	target_helper targets;
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinBoundsDiscSize> PathContainer;
-	typedef checkHolders::CheckContainer<checkHolders::MaxMinPercentageBoundsDiskSize> DriveContainer;
 };

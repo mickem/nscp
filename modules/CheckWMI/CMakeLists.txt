@@ -9,9 +9,10 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
+	WMIQuery.cpp
 	
 	${NSCP_DEF_PLUGIN_CPP}
-	WMIQuery.cpp
+	${NSCP_FILTER_CPP}
 )
 
 
@@ -24,6 +25,7 @@ SET(SRCS ${SRCS}
 	WMIQuery.h
 
 	${NSCP_DEF_PLUGIN_HPP}
+	${NSCP_FILTER_HPP}
 )
 ENDIF(WIN32)
 
@@ -31,7 +33,10 @@ add_library(${TARGET} MODULE ${SRCS})
 
 target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
+	${Boost_REGEX_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${NSCP_FILTER_LIB}
+	expression_parser
 	Wbemuuid.lib
 )
 

@@ -1,3 +1,8 @@
+2013-10-10 MickeM
+ * Added back CheckWMI based on new filters.
+ * Fixed issues with building on Linux
+ * Added support for WMI and float types (type 4 and 5)
+
 2013-09-24 MickeM
  * Fixed issue with performance data and byte based units
  * Added total to check_pagefile

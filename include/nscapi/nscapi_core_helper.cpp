@@ -23,14 +23,15 @@
 
 #include <nscapi/macros.hpp>
 
+#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
+
+#include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
-#include <protobuf/plugin.pb.h>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);

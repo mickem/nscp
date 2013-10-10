@@ -19,9 +19,9 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
+#include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
 
 nscapi::helper_singleton::helper_singleton() : core_(new nscapi::core_wrapper()), plugin_(new nscapi::plugin_wrapper()) {}
 /**

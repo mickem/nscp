@@ -22,6 +22,7 @@
 
 #include <string>
 #include <list>
+#include <vector>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 

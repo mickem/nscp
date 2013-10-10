@@ -6,11 +6,11 @@ IF (PROTOC_GEN_LUA_FOUND AND HAVE_LUA)
 
 	SET(lua_pb_SOURCES
 		${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.cc
-		${PROJECT_BINARY_DIR}/libs/lua_pb/Plugin.pb-lua.cc
+		${PROJECT_BINARY_DIR}/libs/lua_pb/plugin.pb-lua.cc
 	)
 	SET(lua_pb_HEADERS
 		${PROJECT_BINARY_DIR}/libs/lua_pb/lua-protobuf.h
-		${PROJECT_BINARY_DIR}/libs/lua_pb/Plugin.pb-lua.h
+		${PROJECT_BINARY_DIR}/libs/lua_pb/plugin.pb-lua.h
 	)
 	
 	INCLUDE_DIRECTORIES(${LUA_INCLUE_DIR})
