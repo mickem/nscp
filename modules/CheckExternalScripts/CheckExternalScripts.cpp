@@ -55,7 +55,7 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 #ifdef WIN32
 			std::string name = itr->path().leaf().string();
 #else
-			std::string name = itr->path().leaf();
+			std::string name = itr->path().leaf().string();
 #endif
 			if (regex_match(name, pattern))
 				add_command(name, (split_path.first / name).string());

@@ -101,7 +101,7 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 			// TODO: FIXME: This needs to be fixed somehow...
 			last_crash = p.filename().string();
 #else
-			last_crash = p.filename();
+			last_crash = p.filename().string();
 #endif
 		}
 	}
