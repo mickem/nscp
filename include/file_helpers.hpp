@@ -41,7 +41,7 @@ namespace file_helpers {
 #ifdef WIN32
 			return utf8::cvt<std::wstring>(path.leaf().string());
 #else
-			return utf8::cvt<std::wstring>(path.leaf());
+			return utf8::cvt<std::wstring>(path.leaf().string());
 #endif
 		}
 		static std::wstring get_path(std::wstring file) {
