@@ -41,7 +41,7 @@ namespace dll {
 				mod = boost::filesystem::path(module.string() + get_extension());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
-				mod = mod.branch_path() / boost::filesystem::path(std::string("lib") + mod.leaf());
+				mod = mod.branch_path() / boost::filesystem::path(std::string("lib") + mod.leaf().string());
 				if (boost::filesystem::is_regular(mod))
 					return mod;
 				return module;
@@ -108,7 +108,7 @@ namespace dll {
 
 			bool is_loaded() const { return handle_!=NULL; }
 			boost::filesystem::path get_file() const { return module_; }
-			std::string get_filename() const { return module_.leaf(); }
+			std::string get_filename() const { return module_.leaf().string(); }
 			std::string get_module_name() {
 				std::string ext = get_extension();
 				std::size_t l = ext.length();
