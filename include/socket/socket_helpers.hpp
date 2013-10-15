@@ -123,39 +123,6 @@ namespace socket_helpers {
 	};
 
 	struct connection_info {
-		static const int backlog_default;
-		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30) {}
-
-		connection_info(const connection_info &other) 
-			: address(other.address)
-			, back_log(other.back_log)
-			, port_(other.port_)
-			, thread_pool_size(other.thread_pool_size)
-			, timeout(other.timeout)
-			, ssl(other.ssl)
-			, allowed_hosts(other.allowed_hosts)
-			{
-			}
-		connection_info& operator=(const connection_info &other) {
-			address = other.address;
-			port_ = other.port_;
-			thread_pool_size = other.thread_pool_size;
-			back_log = other.back_log;
-			ssl = other.ssl;
-			timeout = other.timeout;
-			allowed_hosts = other.allowed_hosts;
-			return *this;
-		}
-
-
-		std::list<std::string> validate_ssl();
-		std::list<std::string> validate();
-
-		std::string address;
-		int back_log;
-		std::string port_;
-		unsigned int thread_pool_size;
-		unsigned int timeout;
 
 		struct ssl_opts {
 			ssl_opts() : enabled(false) {}
@@ -212,9 +179,47 @@ namespace socket_helpers {
 			boost::asio::ssl::context::file_format get_certificate_key_format();
 #endif
 		};
+
+		static const int backlog_default;
+		std::string address;
+		int back_log;
+		std::string port_;
+		unsigned int thread_pool_size;
+		unsigned int timeout;
+		bool reuse;
 		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;
 
+		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30), reuse(true) {}
+
+		connection_info(const connection_info &other) 
+			: address(other.address)
+			, back_log(other.back_log)
+			, port_(other.port_)
+			, thread_pool_size(other.thread_pool_size)
+			, timeout(other.timeout)
+			, reuse(other.reuse)
+			, ssl(other.ssl)
+			, allowed_hosts(other.allowed_hosts)
+			{
+			}
+		connection_info& operator=(const connection_info &other) {
+			address = other.address;
+			back_log = other.back_log;
+			port_ = other.port_;
+			thread_pool_size = other.thread_pool_size;
+			timeout = other.timeout;
+			reuse = other.reuse;
+			ssl = other.ssl;
+			allowed_hosts = other.allowed_hosts;
+			return *this;
+		}
+
+
+		std::list<std::string> validate_ssl();
+		std::list<std::string> validate();
+
+		bool get_reuse() const { return reuse; }
 		std::string get_port() const { return port_; }
 		std::string get_address() const { return address; }
 		std::string get_endpoint_string() const {

@@ -82,6 +82,34 @@ namespace socket_helpers {
 
 			}
 
+			bool setup_endpoint(ip::tcp::endpoint &endpoint, const bool reopen, bool reuse) {
+				std::stringstream ss;
+				ss << endpoint;
+				if (endpoint.address().is_v4()) {
+					ss << "(ipv4)";
+					logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
+					return setup_acceptor(acceptor_v4, endpoint, reopen, reuse);
+				} else if (endpoint.address().is_v6()) {
+					ss << "(ipv6)";
+					logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
+					return setup_acceptor(acceptor_v6, endpoint, reopen, reuse);
+				} else {
+					logger_->log_error(__FILE__, __LINE__, "Invalid protocol (ignoring): " + ss.str());
+					return false;
+				}
+			}
+			bool setup_endpoint_retry(ip::tcp::endpoint &endpoint, int retries, bool reuse) {
+				for (int count=0;count<retries;count++) {
+					if (count > 0) {
+						logger_->log_debug(__FILE__, __LINE__, "Retrying " + strEx::s::xtos(count));
+						boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(1));
+					}
+					if (setup_endpoint(endpoint, true, reuse))
+						return true;
+				}
+				return false;
+			}
+
 			bool start() {
 				boost::system::error_code er;
 				ip::tcp::resolver resolver(io_service_);
@@ -116,34 +144,14 @@ namespace socket_helpers {
 				int count = 0;
 				for (;endpoint_iterator != end;++endpoint_iterator) {
 					ip::tcp::endpoint endpoint = *endpoint_iterator;
-
-					std::stringstream ss;
-					ss << endpoint;
-					if (endpoint.address().is_v4()) {
-						ss << "(ipv4)";
-						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
-						if (!setup_acceptor(acceptor_v4, endpoint)) {
-							if (count > 0)
-								logger_->log_debug(__FILE__, __LINE__, "Failed to bind to: " + ss.str());
-							else
-								return false;
-						} else 
-							count++;
-					} else if (endpoint.address().is_v6()) {
-						ss << "(ipv6)";
-						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
-						if (setup_acceptor(acceptor_v6, endpoint)) {
-							if (count > 0)
-								logger_->log_debug(__FILE__, __LINE__, "Failed to bind to: " + ss.str());
-							else
-								return false;
-						} else
-							count++;
-					} else {
-						logger_->log_error(__FILE__, __LINE__, "Invalid protocol (ignoring): " + ss.str());
-						continue;
-					}
-					ss << endpoint;
+					if (!setup_endpoint_retry(endpoint, count>0?1:3, info_.get_reuse()))
+						logger_->log_error(__FILE__, __LINE__, "Failed to setup endpoint");
+					else 
+						count++;
+				}
+				if (count == 0) {
+					logger_->log_error(__FILE__, __LINE__, "NO endpoints available");
+					return false;
 				}
 
 				if (acceptor_v4.is_open())
@@ -161,28 +169,43 @@ namespace socket_helpers {
 				return true;
 			}
 
-			bool setup_acceptor(boost::asio::ip::tcp::acceptor &acceptor, ip::tcp::endpoint &endpoint) {
+			bool setup_acceptor(boost::asio::ip::tcp::acceptor &acceptor, ip::tcp::endpoint &endpoint, bool reopen, bool reuse) {
 				boost::system::error_code er;
 				if (acceptor.is_open()) {
-					logger_->log_error(__FILE__, __LINE__, "Acceptor is already open (cant bind multiple interfaces)");
-					return true;
+					if (reopen)
+						acceptor.close();
+					else {
+						logger_->log_error(__FILE__, __LINE__, "Acceptor is already open (cant bind multiple interfaces)");
+						return true;
+					}
 				}
 				acceptor.open(endpoint.protocol(), er);
 				if (er) {
-					logger_->log_error(__FILE__, __LINE__, "Failed to set reuse on socket: " + er.message());
+					logger_->log_error(__FILE__, __LINE__, "Failed to open socket: " + er.message());
 					return false;
+				}
+				if (reuse) {
+					boost::asio::socket_base::reuse_address option(true);
+					acceptor.set_option(option, er);
+					if (er) {
+						logger_->log_error(__FILE__, __LINE__, "Failed to open socket: " + er.message());
+						acceptor.close();
+						return false;
+					}
 				}
 
 				logger_->log_debug(__FILE__, __LINE__, "Attempting to bind to: " + info_.get_endpoint_string());
 				acceptor.bind(endpoint, er);
 				if (er) {
 					logger_->log_error(__FILE__, __LINE__, "Failed to bind: " + er.message());
+					acceptor.close();
 					return false;
 				}
 
 				acceptor.listen(info_.back_log, er);
 				if (er) {
 					logger_->log_error(__FILE__, __LINE__, "Failed to open: " + er.message());
+					acceptor.close();
 					return false;
 				}
 				return true;
@@ -195,6 +218,8 @@ namespace socket_helpers {
 // 				return "test";
 // 			}
 			void stop() {
+				acceptor_v4.close();
+				acceptor_v6.close();
 				io_service_.stop();
 				thread_group_.join_all();
 			}

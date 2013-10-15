@@ -19,7 +19,7 @@ namespace nsca {
 			typedef const nsca::packet request_type;
 			typedef bool response_type;
 			typedef handler_type client_handler;
-			static const bool debug_trace = true;
+			static const bool debug_trace = false;
 
 		private:
 			std::vector<char> iv_buffer_;

@@ -19,7 +19,7 @@ namespace nsca {
 	static const int socket_bufer_size = 8096;
 //	static const bool debug_trace = true;
 	struct read_protocol : public boost::noncopyable {
-		static const bool debug_trace = true;
+		static const bool debug_trace = false;
 
 		typedef std::string outbound_buffer_type;
 		typedef boost::shared_ptr<nsca::server::handler> handler_type;
