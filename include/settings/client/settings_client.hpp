@@ -86,7 +86,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != dummy) {
 					try {
 						T value = boost::lexical_cast<T>(data);
-						update_target(&value);
+						this->update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -103,7 +103,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != "$$DUMMY_VALUE_DO_NOT_USE$$") {
 					try {
 						T value = boost::lexical_cast<T>(data);
-						update_target(&value);
+						this->update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -125,7 +125,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != dummy) {
 					try {
 						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::string>(data)));
-						update_target(&value);
+						this->update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -143,7 +143,7 @@ namespace nscapi {
 				if (typed_key<T>::has_default_ || data != tag) {
 					try {
 						T value = utf8::cvt<TString>(core_->expand_path(utf8::cvt<std::string>(data)));
-						update_target(&value);
+						this->update_target(&value);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -175,13 +175,13 @@ namespace nscapi {
 						return;
 				}
 				T value = static_cast<T>(val);
-				update_target(&value);
+				this->update_target(&value);
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				if (typed_key<T>::has_default_) {
 					T default_value = static_cast<T>(core_->get_int(parent, key, default_value_as_int_));
 					T value = static_cast<T>(core_->get_int(path, key, default_value));
-					update_target(&value);
+					this->update_target(&value);
 				} else {
 					int dummy = -1;
 					int defval = core_->get_int(path, key, dummy);
@@ -191,7 +191,7 @@ namespace nscapi {
 					}
 					if (defval != dummy) {
 						T value = static_cast<T>(core_->get_int(path, key, defval));
-						update_target(&value);
+						this->update_target(&value);
 					}
 					dummy = -1;
 					int val = core_->get_int(path, key, dummy);
@@ -202,7 +202,7 @@ namespace nscapi {
 							return;
 					}
 					T value = static_cast<T>(val);
-					update_target(&value);
+					this->update_target(&value);
 				}
 			}
 		protected:
@@ -218,12 +218,12 @@ namespace nscapi {
 			// TODO: FIXME: Add support for has_default
 			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
 				T value = static_cast<T>(core_->get_bool(path, key, typed_int_value<T>::default_value_as_int_==1));
-				update_target(&value);
+				this->update_target(&value);
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				T default_value = static_cast<T>(core_->get_bool(parent, key, typed_int_value<T>::default_value_as_int_==1));
 				T value = static_cast<T>(core_->get_bool(path, key, default_value));
-				update_target(&value);
+				this->update_target(&value);
 			}
 		};
 
