@@ -113,6 +113,7 @@ namespace socket_helpers {
 				}
 				new_connection_.reset(create_connection());
 
+				int count = 0;
 				for (;endpoint_iterator != end;++endpoint_iterator) {
 					ip::tcp::endpoint endpoint = *endpoint_iterator;
 
@@ -121,13 +122,23 @@ namespace socket_helpers {
 					if (endpoint.address().is_v4()) {
 						ss << "(ipv4)";
 						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
-						if (!setup_acceptor(acceptor_v4, endpoint))
-							return false;
+						if (!setup_acceptor(acceptor_v4, endpoint)) {
+							if (count > 0)
+								logger_->log_debug(__FILE__, __LINE__, "Failed to bind to: " + ss.str());
+							else
+								return false;
+						} else 
+							count++;
 					} else if (endpoint.address().is_v6()) {
 						ss << "(ipv6)";
 						logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
-						if (!setup_acceptor(acceptor_v6, endpoint))
-							return false;
+						if (setup_acceptor(acceptor_v6, endpoint)) {
+							if (count > 0)
+								logger_->log_debug(__FILE__, __LINE__, "Failed to bind to: " + ss.str());
+							else
+								return false;
+						} else
+							count++;
 					} else {
 						logger_->log_error(__FILE__, __LINE__, "Invalid protocol (ignoring): " + ss.str());
 						continue;
@@ -147,6 +158,7 @@ namespace socket_helpers {
 				for (std::size_t i = 0; i < info_.thread_pool_size; ++i) {
 					thread_group_.create_thread(boost::bind(&boost::asio::io_service::run, &io_service_));
 				}
+				return true;
 			}
 
 			bool setup_acceptor(boost::asio::ip::tcp::acceptor &acceptor, ip::tcp::endpoint &endpoint) {
@@ -189,6 +201,8 @@ namespace socket_helpers {
 
 		private:
 			void handle_accept(bool ipv6, const boost::system::error_code& e) {
+				if (protocol_type::debug_trace) 
+					logger_->log_debug(__FILE__, __LINE__, std::string("handle_accept: ") + (ipv6?"v6":"v4") + ", " + utf8::utf8_from_native(e.message()));
 				if (!e) {
 					std::list<std::string> errors;
 					if (logger_->on_accept(new_connection_->get_socket(), threads_--)) {

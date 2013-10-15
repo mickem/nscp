@@ -39,26 +39,6 @@ namespace filters {
 		return ss.str();
 	}
 
-	bool filter_config_object::boot(std::string &error) {
-		if (!filter.build_syntax(utf8::cvt<std::string>(syntax_top), utf8::cvt<std::string>(syntax_detail), "perf", error)) {
-			return false;
-		}
-		if (!filter.build_engines(debug, utf8::cvt<std::string>(filter_string), utf8::cvt<std::string>(filter_ok), utf8::cvt<std::string>(filter_warn), utf8::cvt<std::string>(filter_crit))) {
-			return false;
-		}
-
-		if (!column_split.empty()) {
-			strEx::replace(column_split, "\\t", "\t");
-			strEx::replace(column_split, "\\n", "\n");
-		}
-
-		if (!filter.validate()) {
-			error = "Failed to validate filter, se log for details";
-			return false;
-		}
-		return true;
-	}
-
 	void filter_config_object::set_severity(std::string severity_) {
 		severity = nscapi::plugin_helper::translateReturn(severity_);
 	}
@@ -67,36 +47,14 @@ namespace filters {
 			return;
 		files.clear();
 		BOOST_FOREACH(const std::string &s, strEx::s::splitEx(file_string, std::string(","))) {
-			file_container fc;
-			fc.file = s;
-			fc.size = boost::filesystem::file_size(fc.file);
-			files.push_back(fc);
+			files.push_back(s);
 		}
 	}
 	void filter_config_object::set_file(std::string file_string) {
 		if (file_string.empty())
 			return;
 		files.clear();
-		file_container fc;
-		fc.file = file_string;
-		fc.size = boost::filesystem::file_size(fc.file);
-		files.push_back(fc);
-	}
-
-	void filter_config_object::touch(boost::posix_time::ptime now) {
-		if (max_age)
-			next_ok_ = now+ (*max_age);
-		BOOST_FOREACH(file_container &fc, files) {
-			fc.size = boost::filesystem::file_size(fc.file);
-		}
-	}
-
-	bool filter_config_object::has_changed() {
-		BOOST_FOREACH(const file_container &fc, files) {
-			if (fc.size != boost::filesystem::file_size(fc.file))
-				return true;
-		}
-		return false;
+		files.push_back(file_string);
 	}
 
 	boost::posix_time::time_duration filter_config_object::parse_time(std::string time) {

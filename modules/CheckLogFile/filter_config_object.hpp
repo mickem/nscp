@@ -43,17 +43,16 @@ namespace filters {
 		std::string filter_ok;
 		std::string filter_warn;
 		std::string filter_crit;
+		std::string perf_data;
 		NSCAPI::nagiosReturn severity;
 		std::string command;
 		boost::optional<boost::posix_time::time_duration> max_age;
 		std::string target;
 		std::string empty_msg;
 		std::string column_split;
+		std::string line_split;
 
-		// Runtime items
-		logfile_filter::filter filter;
-		boost::posix_time::ptime next_ok_;
-		std::list<file_container> files;
+		std::list<std::string> files;
 
 
 		std::string to_string() const;

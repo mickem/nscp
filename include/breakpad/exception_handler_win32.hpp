@@ -78,39 +78,39 @@ public:
 	boolean is_restart() {
 		return !service_.empty();
 	}
-	std::wstring url() {
+	std::string url() {
 		return url_;
 	}
-	std::wstring target() {
+	std::string target() {
 		return target_;
 	}
-	std::wstring application() {
+	std::string application() {
 		return application_;
 	}
-	std::wstring version() {
+	std::string version() {
 		return version_;
 	}
-	std::wstring date() {
+	std::string date() {
 		return date_;
 	}
-	std::wstring service() {
+	std::string service() {
 		return service_;
 	}
 
 
-	void setup_restart(std::wstring service);
-	void setup_submit(boolean ui, std::wstring url);
-	void setup_archive(std::wstring target);
-	void setup_app(std::wstring application, std::wstring version, std::wstring date);
+	void setup_restart(std::string service);
+	void setup_submit(boolean ui, std::string url);
+	void setup_archive(std::string target);
+	void setup_app(std::string application, std::string version, std::string date);
 
 private:
 	bool ui_;
-	std::wstring url_;
-	std::wstring target_;
-	std::wstring application_;
-	std::wstring version_;
-	std::wstring date_;
-	std::wstring service_;
+	std::string url_;
+	std::string target_;
+	std::string application_;
+	std::string version_;
+	std::string date_;
+	std::string service_;
 	static ExceptionManager *instance_;
 
 	bool catch_entire_process_;

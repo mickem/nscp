@@ -65,7 +65,7 @@ public:
    //  Constructor, calls first receive automatically
    zmsg(zmq::socket_t &socket) {
 	   if (!recv(socket)) {
-		   std::wcout << _T("-------------------- DAMN -------------------") << std::endl;
+		   std::cout << "-------------------- DAMN -------------------" << std::endl;
 	   }
    }
 

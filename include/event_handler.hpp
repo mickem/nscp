@@ -31,7 +31,7 @@ class event_exception {
 public:
 	event_exception(std::wstring what) : what_(what) {
 #ifdef _DEBUG
-		std::wcout << _T("EventHandler throw an exception: ") << what << std::endl;
+		std::cout << _T("EventHandler throw an exception: ") << what << std::endl;
 #endif
 
 	}

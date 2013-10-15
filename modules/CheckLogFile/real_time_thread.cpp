@@ -24,86 +24,21 @@
 #include "real_time_thread.hpp"
 #include "filter.hpp"
 
-void real_time_thread::process_timeout(const filters::filter_config_object &object) {
-	std::string response;
-	std::string command = object.alias;
-	if (!object.command.empty())
-		command = object.command;
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, NSCAPI::returnOK, object.empty_msg, "", response)) {
-		NSC_LOG_ERROR("Failed to submit result: " + response);
-	}
-}
+#include "realtime_data.hpp"
+#include <parsers/filter/realtime_helper.hpp>
 
-void real_time_thread::process_object(filters::filter_config_object &object) {
-	std::string response;
-	int severity = object.severity;
-	std::string command = object.alias;
-	if (severity != -1) {
-		object.filter.returnCode = severity;
-	} else {
-		object.filter.returnCode = NSCAPI::returnOK;
-	}
-	object.filter.start_match();
-
-	bool matched = false;
-	BOOST_FOREACH(filters::file_container &c, object.files) {
-		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
-		std::string fname = utf8::cvt<std::string>(c.file);
-		std::ifstream file(fname.c_str());
-		if (file.is_open()) {
-			std::string line;
-			if (sz == c.size) {
-				continue;
-			} else if (sz > c.size) {
-				file.seekg(c.size);
-			}
-			while (file.good()) {
-				std::getline(file,line, '\n');
-				if (!object.column_split.empty()) {
-					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(object.column_split));
-					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(fname, line, chunks));
-					boost::tuple<bool,bool> ret = object.filter.match(record);
-					if (ret.get<0>()) {
-						matched = true;
-						if (ret.get<1>()) {
-							break;
-						}
-					}
-				}
-			}
-			file.close();
-		} else {
-			NSC_LOG_ERROR("Failed to open file: " + fname);
-		}
-	}
-	if (!matched) {
-		return;
-	}
-
-	std::string message = object.filter.get_message();
-	if (message.empty())
-		message = "Nothing matched";
-	if (!object.command.empty())
-		command = object.command;
-	if (!nscapi::core_helper::submit_simple_message(object.target, command, object.filter.returnCode, message, "", response)) {
-		NSC_LOG_ERROR("Failed to submit '" + message);
-	}
-}
+typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 
 void real_time_thread::thread_proc() {
 
-	std::list<filters::filter_config_object> filters;
+	filter_helper helper;
 	std::list<std::string> logs;
 
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
-		logfile_filter::filter filter;
-		std::string message;
-		if (!object.boot(message)) {
-			NSC_LOG_ERROR("Failed to load " + object.alias + ": " + message);
-			continue;
-		}
-		BOOST_FOREACH(const filters::file_container &fc, object.files) {
-			boost::filesystem::path path = utf8::cvt<std::string>(fc.file);
+		runtime_data data;
+		data.set_split(object.line_split, object.column_split);
+		BOOST_FOREACH(const std::string &file, object.files) {
+			boost::filesystem::path path = file;
 #ifdef WIN32
 			if (boost::filesystem::is_directory(path)) {
 				logs.push_back(path.string());
@@ -120,17 +55,17 @@ void real_time_thread::thread_proc() {
 			if (boost::filesystem::is_regular(path)) {
 				logs.push_back(path.string());
 			} else {
-				NSC_LOG_ERROR("Failed to find folder for " + object.alias + ": " + fc.file);
+				NSC_LOG_ERROR("Failed to find folder for " + object.alias + ": " + path.string());
 				continue;
 			}
 #endif
 		}
-		filters.push_back(object);
+		helper.add_item(object, data);
 	}
 
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD("Scanning folders: " + strEx::s::joinEx(logs, ", "));
+	NSC_DEBUG_MSG_STD("Subscribing to folders: " + strEx::s::joinEx(logs, ", "));
 	std::vector<std::string> files_list(logs.begin(), logs.end());
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1+logs.size()];
@@ -149,32 +84,14 @@ void real_time_thread::thread_proc() {
 
 #endif
 
-	boost::posix_time::ptime current_time;
-	BOOST_FOREACH(filters::filter_config_object &object, filters) {
-		object.touch(current_time);
-	}
+	helper.touch_all();
+
 	while (true) {
-		bool first = true;
-		boost::posix_time::ptime minNext;
-		BOOST_FOREACH(const filters::filter_config_object &object, filters) {
-			if (object.max_age && (first || object.next_ok_ < minNext) ) {
-				first = false;
-				minNext = object.next_ok_;
-			}
-		}
-
-		boost::posix_time::time_duration dur;
-		if (first) {
-			NSC_DEBUG_MSG("Next miss time is in: no timeout specified");
-		} else {
-			dur = minNext - boost::posix_time::ptime();
-			NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
-		}
-
+		filter_helper::op_duration dur = helper.find_minimum_timeout();
 #ifdef WIN32
 		DWORD dwWaitTime = INFINITE;
-		if (!first)
-			dwWaitTime = dur.total_milliseconds();
+		if (dur)
+			dwWaitTime = dur->total_milliseconds();
 		DWORD dwWaitReason = WaitForMultipleObjects(logs.size()+1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			// we take care of this below...
@@ -190,16 +107,13 @@ void real_time_thread::thread_proc() {
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
 		int timeout = 1000*60;
-		if (!first)
-			timeout = dur.total_milliseconds();
+		if (dur)
+			timeout = dur->total_milliseconds();
 		char buffer[BUF_LEN];
 		int length = poll(pollfds, 2, timeout);
-		if( !length )
-		{
+		if(!length) {
 			continue;
-		}
-		else if( length < 0 )
-		{
+		} else if(length < 0) {
 			NSC_LOG_ERROR("read failed!");
 			continue;
 		}
@@ -216,26 +130,7 @@ void real_time_thread::thread_proc() {
 			NSC_LOG_ERROR("Strange, please report this...");
 		}
 #endif
-
-		current_time = boost::posix_time::ptime();
-
-		BOOST_FOREACH(filters::filter_config_object &object, filters) {
- 			if (object.has_changed()) {
- 				process_object(object);
-				object.touch(current_time);
- 			}
-		}
-
-		//current_time = boost::posix_time::ptime() + boost::posix_time::seconds(1);
-		BOOST_FOREACH(filters::filter_config_object &object, filters) {
-			if (object.max_age && object.next_ok_ < current_time) {
-				process_timeout(object);
-				object.touch(current_time);
-			} else {
-				NSC_DEBUG_MSG_STD("missing: " + strEx::s::xtos(object.next_ok_));
-			}
-		}
-
+		helper.process_objects();
 	}
 
 #ifdef WIN32

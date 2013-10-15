@@ -8,7 +8,8 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
 	stdafx.cpp
-	"${TARGET}.cpp"
+	${TARGET}.cpp
+	realtime_data.cpp
 	real_time_thread.cpp
 	filter_config_object.cpp
 	filter.cpp
@@ -23,6 +24,7 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		real_time_thread.hpp
+		realtime_data.hpp
 
 		filter.hpp
 		filter_config_object.hpp

@@ -18,6 +18,7 @@ namespace nrpe {
 			typedef nrpe::packet request_type;
 			typedef nrpe::packet response_type;
 			typedef socket_helpers::client::client_handler client_handler;
+			static const bool debug_trace = false;
 
 		private:
 			std::vector<char> buffer_;

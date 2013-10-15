@@ -754,7 +754,6 @@ namespace nscapi {
 			void register_all() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					if (v->key) {
-						//std::wcout << _T("Setting: ") << v->key_name << _T(" ===> ") << v->parent << std::endl;
 						if (v->has_parent()) {
 							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default_as_string(), v->description.advanced, v->is_sample);
 							std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";

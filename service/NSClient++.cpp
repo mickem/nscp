@@ -458,21 +458,21 @@ bool NSClientT::boot_init(const bool override_log) {
 	if (!g_exception_manager) {
 		g_exception_manager = new ExceptionManager(false);
 
-		g_exception_manager->setup_app(utf8::cvt<std::wstring>(APPLICATION_NAME), utf8::cvt<std::wstring>(STRPRODUCTVER), utf8::cvt<std::wstring>(STRPRODUCTDATE));
+		g_exception_manager->setup_app(APPLICATION_NAME, STRPRODUCTVER, STRPRODUCTDATE);
 
 		if (crash_restart) {
 			LOG_DEBUG_CORE("On crash: restart: " + crash_target);
-			g_exception_manager->setup_restart(utf8::cvt<std::wstring>(crash_target));
+			g_exception_manager->setup_restart(crash_target);
 		}
 
 		bool crashHandling = false;
 		if (crash_submit) {
-			g_exception_manager->setup_submit(false, utf8::cvt<std::wstring>(crash_url));
+			g_exception_manager->setup_submit(false, crash_url);
 			LOG_DEBUG_CORE("Submitting crash dumps to central server: " + crash_url);
 			crashHandling = true;
 		}
 		if (crash_archive) {
-			g_exception_manager->setup_archive(utf8::cvt<std::wstring>(crash_folder));
+			g_exception_manager->setup_archive(crash_folder);
 			LOG_DEBUG_CORE("Archiving crash dumps in: " + crash_folder);
 			crashHandling = true;
 		}
@@ -483,7 +483,7 @@ bool NSClientT::boot_init(const bool override_log) {
 		}
 	}
 #else
-//	LOG_ERROR_CORE(_T("Warning Not compiled with google breakpad support!"));
+//	LOG_ERROR_CORE("Warning Not compiled with google breakpad support!");
 #endif
 
 

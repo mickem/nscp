@@ -266,9 +266,13 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 )
 
-SET(NSCP_FILTER_CPP)
+SET(NSCP_FILTER_CPP
+	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+)
 SET(NSCP_FILTER_HPP
 	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
+	${NSCP_INCLUDEDIR}/parsers/filter/realtime_helper.hpp
+	${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.hpp
 	${NSCP_INCLUDEDIR}/parsers/where.hpp
 )
 SET(NSCP_FILTER_LIB

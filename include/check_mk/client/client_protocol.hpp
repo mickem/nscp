@@ -19,6 +19,7 @@ namespace check_mk {
 			typedef std::string request_type;
 			typedef check_mk::packet response_type;
 			typedef socket_helpers::client::client_handler client_handler;
+			static const bool debug_trace = false;
 
 		private:
 			enum state {

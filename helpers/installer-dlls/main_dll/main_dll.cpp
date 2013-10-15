@@ -22,7 +22,7 @@ bool uninstall(msi_helper &h, std::wstring service_name);
 
 
 void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
-	if (file_helpers::checks::exists(source)) {
+	if (boost::filesystem::is_regular(utf8::cvt<std::string>(source))) {
 		h.logMessage(_T("Copying: ") + source + _T(" to ") + target);
 		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
 			h.errorMessage(_T("Failed to copy file: ") + utf8::cvt<std::wstring>(error::lookup::last_error()));
@@ -175,7 +175,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
- 		if (!file_helpers::checks::exists(target)) {
+ 		if (!boost::filesystem::is_regular(utf8::cvt<std::string>(target))) {
  			h.logMessage(_T("Target folder not found: ") + target);
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
  			h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));

@@ -149,4 +149,5 @@ public:
 
 private:
 	void thread_proc();
+
 };

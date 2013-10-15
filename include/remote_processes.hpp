@@ -8,7 +8,7 @@ namespace remote_processes {
 	public:
 		rp_exception(std::wstring what) : what_(what) {
 #ifdef _DEBUG
-			std::wcout << _T("SharedMemorHandler throw an exception: ") << what << std::endl;
+			std::cout << _T("SharedMemorHandler throw an exception: ") << what << std::endl;
 #endif
 
 		}

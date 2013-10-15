@@ -152,9 +152,9 @@ namespace service_helper_impl {
 			try {
 				service_ctrl_dispatch_ex(dwCtrlCode, 0, NULL, NULL);
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error: ") + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
 			} catch (...) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error!"));
+				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}
 		}
 		static DWORD WINAPI service_ctrl_dispatch_ex(DWORD dwCtrlCode, DWORD dwEventType, LPVOID lpEventData, LPVOID lpContext) {
@@ -189,9 +189,9 @@ namespace service_helper_impl {
 				TBase::get_global_instance()->_report_status_to_SCMgr();
 				return 0;
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error: ") + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
 			} catch (...) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error!"));
+				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}
 			return 0;
 		}
@@ -199,9 +199,9 @@ namespace service_helper_impl {
 			try {
 				TBase::get_global_instance()->_service_main(dwArgc, lpszArgv);
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error: ") + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
 			} catch (...) {
-				handle_error(__LINE__, __FILE__, _T("Unknown service error!"));
+				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}
 		}
 	private:
@@ -212,9 +212,9 @@ namespace service_helper_impl {
 		inline void print_debug(wchar_t *s) {
 			OutputDebugString(s);
 		}
-		static void handle_error(const int line, const char* file, std::wstring message) {
-			OutputDebugString(message.c_str());
-			nsclient::logging::logger::get_logger()->error("service", file, line, utf8::cvt<std::string>(message));
+		static void handle_error(const int line, const char* file, std::string message) {
+			OutputDebugString(utf8::cvt<std::wstring>(message).c_str());
+			nsclient::logging::logger::get_logger()->error("service", file, line, message);
 		}
 
 		bool StartServiceCtrlDispatcher() {

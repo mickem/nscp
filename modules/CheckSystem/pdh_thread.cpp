@@ -30,6 +30,32 @@ pdh_thread::pdh_thread() {
 pdh_thread::~pdh_thread() {
 
 }
+struct trigger {
+	enum trigger_type {
+		type_cpu, type_memory
+	};
+	trigger_type type;
+	std::string alias;
+//	typedef check_cpu_filter::filter filter_type;
+
+//	filter_type filter;
+
+};
+
+// 
+// void pdh_thread::process_cpu_trigger(const trigger &t) {
+// }
+// void pdh_thread::process_triggers() {
+// 	BOOST_FOREACH(const trigger &t, triggers) {
+// 		if (t.type == trigger::type_cpu)
+// 			process_cpu_trigger(t);
+// 		else if (t.type == trigger::type_memory)
+// 			process_mem_trigger(t);
+// 		else
+// 			NSC_LOG_ERROR("Invalid trigger type: " + t.alias);
+// 
+// 	}
+// }
 
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
@@ -83,14 +109,6 @@ void pdh_thread::thread_proc() {
 					NSC_DEBUG_MSG("Loading counter: " + c->get_name() + " = " + c->get_counter());
 					pdh.addCounter(c);
 				}
-//				c.set_default_buffer_size(default_buffer_length);
-//				collector_ptr collector = c.create(check_intervall_);
-// 				if (collector) {
-// 					counters_[c.alias] = collector;
-// 					pdh.addCounter(c.path, collector);
-// 				} else {
-// 					NSC_LOG_ERROR_WA("Failed to load counter: " + c.alias + " = ",  c.path);
-// 				}
 			} catch (...) {
 				NSC_LOG_ERROR_WA("EXCEPTION: Failed to load counter: " + c->get_name() + " = ", c->get_counter());
 			}
@@ -104,9 +122,12 @@ void pdh_thread::thread_proc() {
 	}
 
 
+	int min_threshold = 100;
+
 
 	DWORD waitStatus = 0;
 	bool first = true;
+	int i = 0;
 	do {
 		std::list<std::string>	errors;
 		{
@@ -118,6 +139,11 @@ void pdh_thread::thread_proc() {
 					cpu.push(windows::system_info::get_cpu_load());
 					if (check_pdh)
 						pdh.gatherData();
+
+					if (i > min_threshold) {
+						i = 0;
+						//process_triggers();
+					}
 				} catch (const PDH::pdh_exception &e) {
 					if (first) {
 						// If this is the first run an error will be thrown since the data is not yet available

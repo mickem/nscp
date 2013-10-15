@@ -10,7 +10,6 @@ using boost::asio::ip::tcp;
 namespace socket_helpers {
 	namespace client {
 
-		static const bool debug_trace = false;
 
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
@@ -186,7 +185,7 @@ namespace socket_helpers {
 			// Internal helper functions
 			//
 			inline void trace(std::string msg) const {
-				if (debug_trace && handler_) 
+				if (protocol_type::debug_trace && handler_) 
 					handler_->log_debug(__FILE__, __LINE__, msg);
 			}
 			inline void log_error(std::string file, int line, std::string msg) const {

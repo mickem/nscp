@@ -242,14 +242,6 @@ namespace eventlog_filter {
 			else
 				dwLang = MAKELANGID(wLang, SUBLANG_NEUTRAL);
 		}
-		bool has_changed() {
-			return true;
-// 			BOOST_FOREACH(const file_container &fc, files) {
-// 				if (fc.size != boost::filesystem::file_size(fc.file))
-// 					return true;
-// 			}
-// 			return false;
-		}
 
 		inline boost::posix_time::time_duration parse_time(std::wstring time) {
 			std::wstring::size_type p = time.find_first_of(_T("sSmMhHdDwW"));

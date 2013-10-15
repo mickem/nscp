@@ -4,18 +4,18 @@
 
 class simple_timer {
 	boost::posix_time::ptime start_time;
-	std::wstring text;
+	std::string text;
 	bool log;
 public:
 	simple_timer() {
 		start();
 	}
-	simple_timer(std::wstring text, bool log) : text(text), log(log) {
+	simple_timer(std::string text, bool log) : text(text), log(log) {
 		start();
 	}
 	~simple_timer() {
 		if (log)
-			std::wcout << text << stop() << std::endl;;
+			std::cout << text << stop() << std::endl;;
 	}
 
 	void start() {

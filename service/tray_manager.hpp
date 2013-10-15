@@ -8,7 +8,7 @@ namespace tray_manager {
 	public:
 		tray_exception(std::wstring what) : what_(what) {
 #ifdef _DEBUG
-			std::wcout << _T("TrayManager throw an exception: ") << what << std::endl;
+			std::cout << _T("TrayManager throw an exception: ") << what << std::endl;
 #endif
 
 		}

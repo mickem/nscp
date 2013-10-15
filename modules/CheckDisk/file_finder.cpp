@@ -2,6 +2,22 @@
 
 #include "file_finder.hpp"
 
+
+#ifndef INVALID_FILE_ATTRIBUTES
+#define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
+#endif
+#ifndef FILE_ATTRIBUTE_DIRECTORY
+#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
+#endif
+bool is_directory(unsigned long dwAttr) {
+	if (dwAttr == INVALID_FILE_ATTRIBUTES) {
+ 		return false;
+	} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
+ 		return true;
+ 	}
+ 	return false;
+}
+
 void file_finder::recursive_scan(file_filter::filter filter, scanner_context &context, boost::filesystem::path dir, bool recursive, int current_level) {
 	if (!context.is_valid_level(current_level)) {
 		if (context.debug) context.report_debug("Level death exhausted: " + strEx::s::xtos(current_level));
@@ -17,7 +33,7 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 	}
 	if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + strEx::s::xtos(fileAttr));
 
-	if (!file_helpers::checks::is_directory(fileAttr)) {
+	if (!is_directory(fileAttr)) {
 		if (context.debug) context.report_debug("Found a file won't do recursive scan: " + dir.string());
 		// It is a file check it an return (don't check recursively)
 		file_helpers::patterns::pattern_type single_path = file_helpers::patterns::split_path_ex(dir.string());
@@ -41,10 +57,7 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 	HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (
-				file_helpers::checks::is_directory(wfd.dwFileAttributes)
-				&& ( wcscmp(wfd.cFileName, _T(".")) != 0 || wcscmp(wfd.cFileName, _T("..")) != 0)
-				)
+			if (is_directory(wfd.dwFileAttributes) && ( wcscmp(wfd.cFileName, _T(".")) != 0 || wcscmp(wfd.cFileName, _T("..")) != 0))
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
 			boost::tuple<bool,bool> ret = filter.match(info);
@@ -60,7 +73,7 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 	hFind = FindFirstFile(utf8::cvt<std::wstring>(dir_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (file_helpers::checks::is_directory(wfd.dwFileAttributes)) {
+			if (is_directory(wfd.dwFileAttributes)) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
 					recursive_scan(filter, context, dir / wfd.cFileName, true, current_level+1);
 			}

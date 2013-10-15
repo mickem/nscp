@@ -25,6 +25,7 @@
 #include <file_helpers.hpp>
 #include <unicode_char.hpp>
 #include <format.hpp>
+#include <file_helpers.hpp>
 
 #include <config.h>
 
@@ -86,23 +87,12 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 	time_t last_write;
 	boost::filesystem::directory_iterator begin(root), end;
 	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
-#ifdef WIN32
-		// TODO: FIXME: This needs to be fixed somehow...
-		if(boost::filesystem::is_regular_file(p) && p.has_extension() && p.extension().string() == "txt")
+		if(boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")
 			count++;
-#else
-		if(boost::filesystem::is_regular_file(p) && p.extension() == "txt")
-			count++;
-#endif
 		time_t lw = boost::filesystem::last_write_time(p);
 		if (lw > last_write) {
 			last_write = lw;
-#ifdef WIN32
-			// TODO: FIXME: This needs to be fixed somehow...
-			last_crash = p.filename().string();
-#else
-			last_crash = p.filename().string();
-#endif
+			last_crash = file_helpers::meta::get_filename(p);
 		}
 	}
 	return count;

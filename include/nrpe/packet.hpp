@@ -224,7 +224,6 @@ namespace nrpe {
 			p2->crc32_value = 0;
 			calculatedCRC32_ = calculate_crc32(tb, get_packet_length());
 			delete [] tb;
-// 			std::wcout << _T("Just read: ") << to_string() << std::endl;
 			if (crc32_ != calculatedCRC32_) 
 				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + strEx::s::xtos(crc32_) + "!=" + strEx::s::xtos(calculatedCRC32_));
 			// Verify CRC32 end

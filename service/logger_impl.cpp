@@ -97,7 +97,11 @@ std::pair<bool,std::string> render_console_message(const bool oneline, const std
 				}
 			}
 		}
+#ifdef WIN32
 		return std::make_pair(is_error, utf8::to_encoding(utf8::cvt<std::wstring>(ss.str()), "oem"));
+#else
+		return std::make_pair(is_error, ss.str());
+#endif
 	} catch (std::exception &e) {
 		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
@@ -456,7 +460,8 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 }
 
 
-#define DEFAULT_BACKEND THREADED_FILE_BACKEND
+//#define DEFAULT_BACKEND THREADED_FILE_BACKEND
+#define DEFAULT_BACKEND CONSOLE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
 	if (logger_impl_ == NULL)
 		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);
@@ -495,8 +500,8 @@ void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {
 }
 void nsclient::logging::logger::set_log_level(std::string level) {
 	NSCAPI::log_level::level iLevel = nscapi::logging::parse(level);
-	if (iLevel == NSCAPI::log_level::unknown) {
+	if (iLevel == NSCAPI::log_level::unknown)
 		get_impl()->set_config(level);
-	} else 
+	else 
 		get_impl()->set_log_level(iLevel);
 }

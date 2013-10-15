@@ -34,7 +34,6 @@ namespace nsclient {
 			if (core_->get_service_control().is_started())
 				info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");
 
-			//std::wcout << _T("Using settings from: ") << settings_manager::get_core()->get_settings_type_desc() << std::endl;
 			info(__LINE__, "Enter command to inject or exit to terminate...");
 
 			while (true) {

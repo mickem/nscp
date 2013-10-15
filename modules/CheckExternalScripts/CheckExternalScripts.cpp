@@ -33,6 +33,8 @@
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#include <file_helpers.hpp>
+
 #include <config.h>
 
 namespace sh = nscapi::settings_helper;
@@ -52,17 +54,12 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
 	for ( boost::filesystem::directory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
 		if ( !is_directory(itr->status()) ) {
-#ifdef WIN32
-			std::string name = itr->path().leaf().string();
-#else
-			std::string name = itr->path().leaf().string();
-#endif
+			std::string name = file_helpers::meta::get_filename(itr->path());
 			if (regex_match(name, pattern))
 				add_command(name, (split_path.first / name).string());
 		}
 	}
 }
-
 
 bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {

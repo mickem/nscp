@@ -19,6 +19,7 @@ namespace nscp {
 			typedef nscp::packet request_type;
 			typedef nscp::packet response_type;
 			typedef socket_helpers::client::client_handler client_handler;
+			static const bool debug_trace = false;
 
 		private:
 			enum state {

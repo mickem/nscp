@@ -74,7 +74,7 @@ namespace serviceControll {
 			}
 			throw SCException("Unable to install service." + error::lookup::last_error(err));
 		}
-		std::wcout << _T("Service ") << szName << _T(" (") << bin << _T(") installed...") << std::endl;;
+		std::cout << "Service " << utf8::cvt<std::string>(szName) << " (" << utf8::cvt<std::string>(bin) << ") installed..." << std::endl;;
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 	}
@@ -160,11 +160,11 @@ namespace serviceControll {
 		if (schService) {
 			// try to stop the service
 			if ( StartService(schService,0,NULL) ) {
-				std::wcout << _T("Starting ") << name;
+				std::cout << "Starting " << utf8::cvt<std::string>(name);
 				Sleep( 1000 );
 				while( QueryServiceStatus( schService, &ssStatus ) ) {
 					if ( ssStatus.dwCurrentState == SERVICE_START_PENDING ) {
-						std::wcout << _T(".");
+						std::cout << ".";
 						Sleep( 1000 );
 					} else
 						break;
@@ -318,16 +318,16 @@ namespace serviceControll {
 		if (schService) {
 			// try to stop the service
 			if ( ControlService( schService, SERVICE_CONTROL_STOP, &ssStatus ) ) {
-				std::wcout << _T("Stopping service.");
+				std::cout << "Stopping service.";
 				Sleep( 1000 );
 				while( QueryServiceStatus( schService, &ssStatus ) ) {
 					if ( ssStatus.dwCurrentState == SERVICE_STOP_PENDING ) {
-						std::wcout << _T(".");
+						std::cout << ".";
 						Sleep( 1000 );
 					} else
 						break;
 				}
-				std::wcout << std::endl;
+				std::cout << std::endl;
 				if ( ssStatus.dwCurrentState != SERVICE_STOPPED ) {
 					CloseServiceHandle(schService);
 					CloseServiceHandle(schSCManager);

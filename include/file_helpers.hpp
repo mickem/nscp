@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <unicode_char.hpp>
 #include <utf8.hpp>
@@ -7,53 +8,36 @@
 namespace file_helpers {
 	class checks {
 	public:
-#ifdef WIN32
-#ifndef INVALID_FILE_ATTRIBUTES
-#define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
-#endif
-#ifndef FILE_ATTRIBUTE_DIRECTORY
-#define FILE_ATTRIBUTE_DIRECTORY 0x00000010
-#endif
-		static bool is_directory(unsigned long dwAttr) {
-			if (dwAttr == INVALID_FILE_ATTRIBUTES) {
- 				return false;
-			} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
- 				return true;
- 			}
- 			return false;
- 		}
-#endif
-		static bool is_directory(std::wstring path) {
+		static bool is_directory(std::string path) {
 			return boost::filesystem::is_directory(path);
 		}
-		static bool is_file(std::wstring path) {
+		static bool is_file(std::string path) {
 			return boost::filesystem::is_regular(path);
-		}
-		static bool exists(std::wstring path) {
-			return boost::filesystem::exists(path);
 		}
 	};
 
 	class meta {
 	public:
-		static std::wstring get_filename(boost::filesystem::path path) {
-	// TOD: IMPORTATN!! Fix this!!!
-#ifdef WIN32
-			return utf8::cvt<std::wstring>(path.leaf().string());
+		static std::string get_filename(const boost::filesystem::path &path) {
+#if BOOST_VERSION >= 104600
+			return path.filename().string();
 #else
-			return utf8::cvt<std::wstring>(path.leaf().string());
+			return path.filename(); 
 #endif
-		}
-		static std::wstring get_path(std::wstring file) {
-			boost::filesystem::path path(utf8::cvt<std::string>(file));
-			return utf8::cvt<std::wstring>(path.parent_path().string());
 		}
 		static std::string get_path(std::string file) {
 			boost::filesystem::path path(file);
 			return path.parent_path().string();
 		}
-		static std::wstring get_filename(std::wstring file) {
-			return get_filename(boost::filesystem::path(utf8::cvt<std::string>(file)));
+		static std::string get_filename(std::string file) {
+			return get_filename(boost::filesystem::path(file));
+		}
+		static std::string get_extension(const boost::filesystem::path &path) {
+#if BOOST_VERSION >= 104600
+			return path.extension().string();
+#else
+			return path.extension(); 
+#endif
 		}
 	};
 

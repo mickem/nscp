@@ -111,7 +111,6 @@ public:
 			;
 
 		test.add_options()
-			("log-to-file", "Enable file logger (defaults is console only)")
 			;
 
 	}
@@ -289,17 +288,19 @@ public:
 			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
-			if (log_level.empty())
+			std::cout << "ll: " << log_level.size() << std::endl;
+			BOOST_FOREACH(const std::string &s, log_level) {
+				std::cout << s << std::endl;
+			}
+			if (log_level.empty()) {
 				log_level.push_back("debug");
-			init_logger();
+				log_level.push_back("console");
+			}
 
 			if (process_common_options("test", all))
 				return 1;
 
-			if (vm.count("log-to-file") == 0) {
-				nsclient::logging::logger::set_backend("console");
-			}
-
+			std::cout << "TADA" << std::endl;
 			nsclient::simple_client client(core_);
 			client.start();
 			return 0;

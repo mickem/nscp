@@ -4,16 +4,16 @@
 
 namespace service_helper {
 	class service_exception {
-		std::wstring what_;
+		std::string what_;
 	public:
-		service_exception(std::wstring what) : what_(what) {
+		service_exception(std::string what) : what_(what) {
 #ifdef _WIN32
-			OutputDebugString((std::wstring(_T("ERROR:")) + what).c_str());
+			OutputDebugString(utf8::cvt<std::wstring>(std::string("ERROR:") + what).c_str());
 #else
-			std::wcout << what << std::endl;
+			std::cout << what << std::endl;
 #endif
 		}
-		std::wstring what() {
+		std::string what() {
 			return what_;
 		}
 	};

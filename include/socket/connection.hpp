@@ -103,10 +103,12 @@ namespace socket_helpers {
 			// Socket state machine (assumed all sockets are simple connect-read-write-disconnect
 
 			void do_process() {
+				trace("s - do_process()");
 				try {
 					if (protocol_->wants_data()) {
 						start_read_request();
 					} else if (protocol_->has_data()) {
+						trace("s - has_data() == true");
 						//std::vector<boost::asio::const_buffer> buffers;
 						//buffers.push_back();
 						start_write_request(buf(protocol_->get_outbound()));

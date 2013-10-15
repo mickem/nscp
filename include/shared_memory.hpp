@@ -31,7 +31,7 @@ class shared_memory_exception {
 public:
 	shared_memory_exception(std::wstring what) : what_(what) {
 #ifdef _DEBUG
-		std::wcout << _T("SharedMemorHandler throw an exception: ") << what << std::endl;
+		std::cout << "SharedMemorHandler throw an exception: " << what << std::endl;
 #endif
 
 	}

@@ -49,6 +49,8 @@
 #include <breakpad/exception_handler_win32.hpp>
 #include <client/windows/handler/exception_handler.h>
 
+#include <boost/foreach.hpp>
+
 // Some simple string typedefs
 #define STRING16(x) reinterpret_cast<const char16*>(x)
 
@@ -117,46 +119,46 @@ static bool FilterCallback(void *context, EXCEPTION_POINTERS *exinfo, MDRawAsser
 }
 
 
-std::wstring modulePath() {
+std::string modulePath() {
 	unsigned int buf_len = 4096;
 	TCHAR* buffer = new TCHAR[buf_len+1];
 	GetModuleFileName(NULL, buffer, buf_len);
-	std::wstring path = buffer;
+	std::string path = utf8::cvt<std::string>(buffer);
 	delete [] buffer;
-	std::wstring::size_type pos = path.rfind('\\');
+	std::string::size_type pos = path.rfind('\\');
 	return path.substr(0, pos);
 }
 
-void report_error(std::wstring err) {
-	std::wcout << _T("E") << err << std::endl;
+void report_error(std::string err) {
+	std::cout << "ERR: " << err << std::endl;
 }
-void report_info(std::wstring err) {
-	std::wcout << _T("I") << err << std::endl;
+void report_info(std::string err) {
+	std::cout << "INF: " << err << std::endl;
 }
 
-std::wstring build_commandline(std::vector<std::wstring> &commands) {
-	std::wstring command_line;
-	for(std::vector<std::wstring>::const_iterator cit = commands.begin(); cit != commands.end(); ++cit) {
+std::string build_commandline(std::vector<std::string> &commands) {
+	std::string command_line;
+	BOOST_FOREACH(const std::string &s, commands) {
 		if (!command_line.empty())
-			command_line += _T(" ");
-		command_line += _T("\"") + *cit + _T("\"");
+			command_line += " ";
+		command_line += "\"" + s + "\"";
 	}
 	return command_line;
 }
 
-void run_proc(std::wstring command_line) {
-	report_info(_T("Running: ") + command_line);
+void run_proc(std::string command_line) {
+	report_info("Running: " + command_line);
 	// execute the process
 	STARTUPINFO startup_info = {0};
 	startup_info.cb = sizeof(startup_info);
 	PROCESS_INFORMATION process_info = {0};
-	CreateProcessW(NULL, const_cast<char16 *>(command_line.c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &startup_info, &process_info);
+	CreateProcessW(NULL, const_cast<char16 *>(utf8::cvt<std::wstring>(command_line).c_str()), NULL, NULL, FALSE, 0, NULL, NULL, &startup_info, &process_info);
 	CloseHandle(process_info.hProcess);
 	CloseHandle(process_info.hThread);
 }
 
-void run_command(ExceptionManager* this_ptr, std::wstring exe, std::wstring command, std::wstring minidump, std::wstring target) {
-	std::vector<std::wstring> commands;
+void run_command(ExceptionManager* this_ptr, std::string exe, std::string command, std::string minidump, std::string target) {
+	std::vector<std::string> commands;
 	commands.push_back(exe);
 	commands.push_back(command);
 	commands.push_back(minidump);
@@ -171,61 +173,64 @@ void run_command(ExceptionManager* this_ptr, std::wstring exe, std::wstring comm
 
 static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *minidump_id, void *context, EXCEPTION_POINTERS *exinfo, MDRawAssertionInfo *assertion, bool succeeded) {
 	ExceptionManager* this_ptr = reinterpret_cast<ExceptionManager*>(context);
-	report_info(_T("Detected crash..."));
+	report_info("Detected crash...");
 
-	wchar_t minidump_path[MAX_PATH];
-	_snwprintf(minidump_path, sizeof(minidump_path), L"%s\\%s.dmp", minidump_folder, minidump_id);
-	if (!file_helpers::checks::exists(minidump_path)) {
-		report_error(_T("Failed to create mini dump please check that you have a proper version of dbghlp.dll"));
+	std::string minidump_path = utf8::cvt<std::string>(minidump_folder) + "\\" + utf8::cvt<std::string>(minidump_id) + ".dmp";
+	if (minidump_path.length() >= MAX_PATH) {
+		report_error("Path to long");
+		return false;
+	}
+	if (!boost::filesystem::is_regular(minidump_path)) {
+		report_error("Failed to create mini dump please check that you have a proper version of dbghlp.dll");
 		return false;
 	}
 
-	std::wstring path = modulePath() + _T("\\reporter.exe");
+	std::string path = modulePath() + "\\reporter.exe";
 	if (path.length() >= MAX_PATH) {
-		report_error(_T("Path to long"));
+		report_error("Path to long");
 		return false;
 	}
 	
-	if (!file_helpers::checks::exists(path)) {
-		report_error(_T("Failed to find reporter.exe"));
+	if (!boost::filesystem::is_regular(path)) {
+		report_error("Failed to find reporter.exe");
 		return false;
 	}
 	if (this_ptr->is_archive()) {
-		run_command(this_ptr, path, _T("archive"), minidump_path, this_ptr->target());
+		run_command(this_ptr, path, "archive", minidump_path, this_ptr->target());
 	}
 	if (this_ptr->is_send()) {
 		if (this_ptr->is_send_ui())
-			run_command(this_ptr, path, _T("send-gui"), minidump_path, this_ptr->target());
+			run_command(this_ptr, path, "send-gui", minidump_path, this_ptr->target());
 		else
-			run_command(this_ptr, path, _T("send"), minidump_path, this_ptr->target());
+			run_command(this_ptr, path, "send", minidump_path, this_ptr->target());
 	}
 
 	if (this_ptr->is_restart()) {
-		std::vector<std::wstring> commands;
+		std::vector<std::string> commands;
 		commands.push_back(path);
-		commands.push_back(_T("restart"));
+		commands.push_back("restart");
 		commands.push_back(this_ptr->service());
 		run_proc(build_commandline(commands));
 	}
 	return true;
 }
 
-void ExceptionManager::setup_restart(std::wstring service) {
+void ExceptionManager::setup_restart(std::string service) {
 	service_ = service;
 }
 
-void ExceptionManager::setup_submit(boolean ui, std::wstring url) {
+void ExceptionManager::setup_submit(boolean ui, std::string url) {
 	ui_ = ui;
 	url_ = url;
 }
 
-void ExceptionManager::setup_app(std::wstring application, std::wstring version, std::wstring date) {
+void ExceptionManager::setup_app(std::string application, std::string version, std::string date) {
 	application_ = application;
 	version_ = version;
 	date_ = date;
 }
 
-void ExceptionManager::setup_archive(std::wstring target) {
+void ExceptionManager::setup_archive(std::string target) {
 	target_ = target;
 }
 

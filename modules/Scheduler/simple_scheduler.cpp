@@ -50,7 +50,6 @@ namespace scheduler {
 		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
 			for (int i=0;i<missing_threads;i++) {
-				//std::wcout << _T("***START_THREAD: ") << threads_.size() << std::endl;
 				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
 			}
 		}
