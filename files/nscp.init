@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+#       /etc/rc.d/init.d/nscp
+#
+#       Daemon for starting and stopping nscp (nsclient++)
+#       
+#
+
+NAME=nscp
+BIN=/usr/sbin/nscp
+LOCKFILE=/var/lock/subsys/nscp
+
+# Source function library.
+. /etc/init.d/functions
+
+start() {
+        echo -n "Starting $NAME: "
+        daemon $BIN service --run &
+	RESULT=$?
+	echo
+        touch $LOCKFILE
+        return $RESULT
+}
+
+stop() {
+        echo -n "Shutting down $NAME: "
+	killproc $NAME
+	echo
+        rm -f $LOCKFILE
+        return 0
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+	exit 1
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    reload)
+	restart
+        ;;
+    condrestart)
+        [ -f $LOCKFILE ] && restart || :
+        ;;
+    *)
+        echo "Usage: $NAME {start|stop|status|reload|restart"
+        exit 1
+        ;;
+esac
+exit $?
+
