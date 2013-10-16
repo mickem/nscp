@@ -38,7 +38,7 @@ case "$1" in
         stop
         ;;
     status)
-	exit 1
+	status $NAME
         ;;
     restart)
         stop
