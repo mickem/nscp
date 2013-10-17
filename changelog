@@ -1,3 +1,8 @@
+2013-10-17 MickeM
+ * A lot of Linux fixes
+ * Refactored real-time stuff to make it easier to add in new places
+ * NSCA/NRPE fixes
+ 
 2013-10-10 MickeM
  * Added back CheckWMI based on new filters.
  * Fixed issues with building on Linux

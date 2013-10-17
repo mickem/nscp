@@ -19,6 +19,7 @@ IF(WIN32)
 		stdafx.h
 		"${TARGET}.h"
 		commands.hpp
+		alias.hpp
 
 		${NSCP_INCLUDEDIR}/execute_process_unix.hpp
 		${NSCP_INCLUDEDIR}/execute_process_w32.hpp

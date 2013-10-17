@@ -28,7 +28,7 @@
 #include <protobuf/plugin.pb.h>
 
 #include <client/command_line_parser.hpp>
-#include <nscapi/targets.hpp>
+#include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
 

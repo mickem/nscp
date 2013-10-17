@@ -128,7 +128,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			"EXTERNAL SCRIPT SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>")
 
 			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
-			"EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION", "A list of wrappped scripts (ie. using the template mechanism)")
+			"EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. using the template mechanism)")
 
 			;
 
@@ -157,10 +157,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
+			core.register_command(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
 		}
 		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			core.register_command(o.second.alias, "Alias for: " + o.second.alias);
+			core.register_command(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");
@@ -248,7 +248,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	}
 	int result = process::executeProcess(arg, message, perf);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
+		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.tpl.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
 		return;
 	}
 	response->set_message(message);

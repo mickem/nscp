@@ -4,6 +4,7 @@
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/bind.hpp>
 
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/variable.hpp>

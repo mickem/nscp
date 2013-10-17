@@ -189,7 +189,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		BOOST_FOREACH(const check_pdh::counter_config_object &object, pdh_checker.counters_.get_object_list()) {
 			PDH::pdh_object counter;
-			counter.alias = object.alias;
+			counter.alias = object.tpl.alias;
 			counter.path = object.counter;
 
 			counter.set_strategy(object.collection_strategy);

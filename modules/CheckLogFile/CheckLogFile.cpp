@@ -30,7 +30,7 @@
 #include <nscapi/nscapi_plugin_interface.hpp>
 
 #include "CheckLogFile.h"
-#include "real_time_thread.hpp"
+#include "realtime_thread.hpp"
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

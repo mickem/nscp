@@ -9,7 +9,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/settings_object.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
@@ -18,43 +18,9 @@ namespace sh = nscapi::settings_helper;
 namespace schedules {
 	struct schedule_object {
 
-		schedule_object() : is_template(false), report(0), id(0) {}
-		schedule_object(const schedule_object &other) 
-			: path(other.path)
-			, alias(other.alias)
-			, value(other.value)
-			, parent(other.parent)
-			, is_template(other.is_template)
-			, target_id(other.target_id)
-			, duration(other.duration)
-			, channel(other.channel)
-			, report(other.report)
-			, command(other.command)
-			, arguments(other.arguments)
-			, id(other.id)
-		{}
-		const schedule_object& operator =(const schedule_object &other) {
-			path = other.path;
-			alias = other.alias;
-			value = other.value;
-			parent = other.parent;
-			target_id = other.target_id;
-			duration = other.duration;
-			channel = other.channel;
-			report = other.report;
-			command = other.command;
-			arguments = other.arguments;
-			id = other.id;
-			is_template = other.is_template;
-			return *this;
-		}
-	
-		// Object keys (managed by object handler)
-		std::string path;
-		std::string alias;
-		std::string value;
-		std::string parent;
-		bool is_template;
+		schedule_object() : report(0), id(0) {}
+
+		nscapi::settings_objects::template_object tpl;
 
 		// Schedule keys
 		std::string target_id;
@@ -80,10 +46,9 @@ namespace schedules {
 		}
 
 		std::string to_string() const {
-
 			std::stringstream ss;
-			ss << alias << "[" << id << "] = "
-				<< "{alias: " << alias
+			ss << tpl.alias << "[" << id << "] = "
+				<< "{tpl: " << tpl.to_string()
 				<< ", command: " << command 
 				<< ", channel: " << channel 
 				<< ", target_id: " << target_id 
@@ -94,13 +59,6 @@ namespace schedules {
 	};
 	typedef boost::optional<schedule_object> optional_schedule_object;
 
-	template<class T>
-	inline void import_string(T &object, T &parent) {
-		if (object.empty() && !parent.empty())
-			object = parent;
-	}
-
-
 	struct schedule_reader {
 		typedef schedule_object object_type;
 
@@ -108,8 +66,9 @@ namespace schedules {
 
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
-			object.set_command(object.value);
-			if (object.alias == "default") {
+			object.set_command(object.tpl.value);
+			bool is_def = object.tpl.is_default();
+			if (is_def) {
 				object.set_duration("5m");
 				object.set_report("all");
 				object.channel = "NSCA";
@@ -117,33 +76,24 @@ namespace schedules {
 			std::string alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 			if (is_sample)
 				root_path.set_sample();
 
 			root_path.add_path()
-				("SCHEDULE DEFENITION", "Schedule definition for: " + object.alias)
+				("SCHEDULE DEFENITION", "Schedule definition for: " + object.tpl.alias)
 				;
 
 			root_path.add_key()
 
 				("command", sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
-				"SCHEDULE COMMAND", "Command to execute", object.alias == "default")
-
-				("alias", sh::string_key(&alias),
-				"SCHEDULE ALIAS", "The alias (service name) to report to server", object.alias == "default")
+				"SCHEDULE COMMAND", "Command to execute", is_def)
 
 				("target", sh::string_key(&object.target_id),
 				"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
 
-				("parent", nscapi::settings_helper::string_key(&object.parent, "default"),
-				"TARGET PARENT", "The parent the target inherits from", object.alias == "default")
-
-				("is template", nscapi::settings_helper::bool_key(&object.is_template, false),
-				"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
-
 				;
-			if (object.alias == "default") {
+			if (is_def) {
 				root_path.add_key()
 
 					("channel", sh::string_key(&object.channel, "NSCA"),
@@ -171,21 +121,17 @@ namespace schedules {
 
 			}
 
+			object.tpl.read_object(root_path);
+
 			settings.register_all();
 			settings.notify();
 
 			if (!alias.empty())
-				object.alias = alias;
-			/*
-			BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
-				if (!object.has_option(kvp.first))
-					object.options[kvp.first] = kvp.second;
-			}
-			*/
-
+				object.tpl.alias = alias;
 		}
 
 		static void apply_parent(object_type &object, object_type &parent) {
+			using namespace nscapi::settings_objects;
 			import_string(object.target_id, parent.target_id);
 			import_string(object.command, parent.command);
 			//import_string(object.arguments, parent.arguments);
@@ -194,13 +140,6 @@ namespace schedules {
 			import_string(object.channel, parent.channel);
 			if (object.report == 0 && parent.report != 0)
 				object.report = parent.report;
-			/*
-			object.address.import(parent.address);
-			BOOST_FOREACH(object_type::options_type::value_type i, parent.options) {
-				if (object.options.find(i.first) == object.options.end())
-					object.options[i.first] = i.second;
-			}
-			*/
 		}
 
 	};

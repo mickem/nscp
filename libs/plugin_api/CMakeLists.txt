@@ -19,9 +19,11 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.cpp
 	${NSCP_INCLUDEDIR}/nscapi/command_client.cpp
-	
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
+
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 )
 	
@@ -40,11 +42,12 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp
-
-		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_filter.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_proxy.hpp
 		${NSCP_INCLUDEDIR}/nscapi/macros.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 
+		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 	)
 ENDIF(WIN32)
 

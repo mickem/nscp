@@ -58,7 +58,7 @@ namespace po = boost::program_options;
 
 #include "simple_registry.hpp"
 #include "eventlog_record.hpp"
-#include "real_time_thread.hpp"
+#include "realtime_thread.hpp"
 
 struct parse_exception {
 	parse_exception(std::wstring) {}

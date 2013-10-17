@@ -85,11 +85,11 @@ Notice that enabled can also be 1 as well as some other syntax's which we wont c
 Adding a script
 ---------------
 
-Adding a script is equally simple just add a line under the /settings/external script/scripts section like so:
+Adding a script is equally simple just add a line under the /settings/external scripts/scripts section like so:
 
 .. code-block:: ini
 
-  [/settings/external script/scripts]
+  [/settings/external scripts/scripts]
   foo=scripts\foo.bat
 
 
@@ -99,7 +99,7 @@ IN essence you create a binding between the script and the command. The names do
 
 .. code-block:: ini
 
-  [/settings/external script/scripts]
+  [/settings/external scripts/scripts]
   bar=scripts\foo.bat
 
 
@@ -107,7 +107,7 @@ Also please note that the script does not have to be a script it can be any vali
 
 .. code-block:: ini
 
-  [/settings/external script/scripts]
+  [/settings/external scripts/scripts]
   list_file=cmd /c "dir c:\\"
 
 

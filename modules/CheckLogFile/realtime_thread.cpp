@@ -21,7 +21,7 @@
 #include <simple_timer.hpp>
 #include <settings/client/settings_client.hpp>
 
-#include "real_time_thread.hpp"
+#include "realtime_thread.hpp"
 #include "filter.hpp"
 
 #include "realtime_data.hpp"
@@ -39,6 +39,7 @@ void real_time_thread::thread_proc() {
 		data.set_split(object.line_split, object.column_split);
 		BOOST_FOREACH(const std::string &file, object.files) {
 			boost::filesystem::path path = file;
+			data.add_file(path);
 #ifdef WIN32
 			if (boost::filesystem::is_directory(path)) {
 				logs.push_back(path.string());
@@ -47,7 +48,7 @@ void real_time_thread::thread_proc() {
 				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.string());
 				} else {
-					NSC_LOG_ERROR("Failed to find folder for " + utf8::cvt<std::string>(object.alias) + ": " + path.string());
+					NSC_LOG_ERROR("Failed to find folder for " + utf8::cvt<std::string>(object.tpl.alias) + ": " + path.string());
 					continue;
 				}
 			}
@@ -55,7 +56,7 @@ void real_time_thread::thread_proc() {
 			if (boost::filesystem::is_regular(path)) {
 				logs.push_back(path.string());
 			} else {
-				NSC_LOG_ERROR("Failed to find folder for " + object.alias + ": " + path.string());
+				NSC_LOG_ERROR("Failed to find folder for " + object.tpl.alias + ": " + path.string());
 				continue;
 			}
 #endif
@@ -90,7 +91,9 @@ void real_time_thread::thread_proc() {
 		filter_helper::op_duration dur = helper.find_minimum_timeout();
 #ifdef WIN32
 		DWORD dwWaitTime = INFINITE;
-		if (dur)
+		if (dur && dur->total_milliseconds() < 0)
+			dwWaitTime = 0;
+		else if (dur)
 			dwWaitTime = dur->total_milliseconds();
 		DWORD dwWaitReason = WaitForMultipleObjects(logs.size()+1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
@@ -130,7 +133,7 @@ void real_time_thread::thread_proc() {
 			NSC_LOG_ERROR("Strange, please report this...");
 		}
 #endif
-		helper.process_objects();
+		helper.process_items(0);
 	}
 
 #ifdef WIN32

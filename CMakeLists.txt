@@ -264,6 +264,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/utils.h
 	${NSCP_INCLUDEDIR}/NSCAPI.h
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 )
 
 SET(NSCP_FILTER_CPP

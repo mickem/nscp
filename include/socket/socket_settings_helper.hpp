@@ -70,7 +70,7 @@ namespace socket_helpers {
 
 		template<class object_type>
 		static void add_core_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 			if (is_sample)
 				root_path.set_sample();
 			root_path.add_key()
@@ -81,7 +81,7 @@ namespace socket_helpers {
 		}
 		template<class object_type>
 		static void add_ssl_client_opts(nscapi::settings_helper::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 			if (is_sample)
 				root_path.set_sample();
 			root_path.add_key()
