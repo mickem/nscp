@@ -62,12 +62,14 @@
 
 #ifdef WIN32
 #define DEFAULT_CONF_LOCATION "old"
+#define DEFAULT_CONF_INI_LOCATION "ini://${shared-path}/nsclient.ini"
 #else
 #define DEFAULT_CONF_LOCATION "ini"
+#define DEFAULT_CONF_INI_LOCATION "ini:///etc/nsclient/nsclient.ini"
 #endif
+
 #define BOOT_CONF_LOCATION "${exe-path}/boot.ini"
 #define DEFAULT_CONF_OLD_LOCATION "old://${exe-path}/nsc.ini"
-#define DEFAULT_CONF_INI_LOCATION "ini://${shared-path}/nsclient.ini"
 #define DEFAULT_CONF_REG_LOCATION "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
 
 #define DEFAULT_CACHE_PATH "${shared-path}/cache"
