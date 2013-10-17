@@ -1,0 +1,13 @@
+language: cpp
+compiler:
+  - gcc
+# Change this to your needs
+script: mkdir -p tmp && pushd tmp && cmake .. && make
+before_install:
+  - sudo apt-get install -y git 
+  - sudo apt-get install -y build-essential
+  - sudo apt-get install -y cmake
+  - sudo apt-get install -y python
+  - sudo apt-get install -y libssl-dev libboost-all-dev python-dev libprotobuf-dev
+  - sudo apt-get install -y protobuf-compiler 
+  - sudo apt-get install -y rst2pdf  
