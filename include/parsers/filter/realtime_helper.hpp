@@ -16,11 +16,13 @@ namespace parsers {
 		struct realtime_filter_helper {
 
 			typedef typename runtime_data::filter_type filter_type;
+			typedef typename runtime_data::transient_data_type transient_data_type;
 			typedef boost::optional<boost::posix_time::time_duration> op_duration;
 			struct container {
 				std::string alias;
 				std::string target;
 				std::string command;
+				std::string timeout_msg;
 				NSCAPI::nagiosReturn severity;
 				runtime_data data;
 				filter_type filter;
@@ -34,102 +36,107 @@ namespace parsers {
 				}
 
 				bool has_timedout(const boost::posix_time::ptime &now) const {
-					return max_age && next_ok_ < now;
+					return max_age && next_ok_ <= now;
 				}
 
 			};
 
-			std::list<container> items;
+			typedef boost::shared_ptr<container> container_type;
+
+			std::list<container_type> items;
 
 			bool add_item(const config_object &object, const runtime_data &source_data) {
-				container item;
-				item.alias = object.alias;
-				item.data = source_data;
-				item.target = object.target;
-				item.command = item.alias;
-				item.severity = object.severity;
-				if (!object.command.empty())
-					item.command = object.command;
+				container_type item(new container);
+				item->alias = object.tpl.alias;
+				item->data = source_data;
+				item->target = object.filter.target;
+				item->command = item->alias;
+				item->timeout_msg = object.filter.timeout_msg;
+				item->severity = object.filter.severity;
+				item->max_age = object.filter.max_age;
+				if (!object.filter.command.empty())
+					item->command = object.filter.command;
 				std::string message;
 
-				if (!item.filter.build_syntax(object.syntax_top, object.syntax_detail, object.perf_data, message)) {
-					NSC_LOG_ERROR("Failed to build strings " + object.alias + ": " + message);
+				if (!item->filter.build_syntax(object.filter.syntax_top, object.filter.syntax_detail, object.filter.perf_data, message)) {
+					NSC_LOG_ERROR("Failed to build strings " + object.tpl.alias + ": " + message);
 					return false;
 				}
-				if (!item.filter.build_engines(object.debug, object.filter_string, object.filter_ok, object.filter_warn, object.filter_crit)) {
-					NSC_LOG_ERROR("Failed to build filters: " + object.alias);
+				if (!item->filter.build_engines(object.filter.debug, object.filter.filter_string, object.filter.filter_ok, object.filter.filter_warn, object.filter.filter_crit)) {
+					NSC_LOG_ERROR("Failed to build filters: " + object.tpl.alias);
 					return false;
 				}
 
-				if (!item.filter.validate()) {
-					NSC_LOG_ERROR("Failed validate: " + object.alias);
+				if (!item->filter.validate()) {
+					NSC_LOG_ERROR("Failed validate: " + object.tpl.alias);
 					return false;
 				}
-				item.data.boot();
+				item->data.boot();
 				items.push_back(item);
 				return true;
 			}
 
-			void process_timeout(const container &item) {
+			void process_timeout(const container_type item) {
 				std::string response;
-				if (!nscapi::core_helper::submit_simple_message(item.target, item.command, NSCAPI::returnOK, "TODO" /*object.empty_msg*/, "", response)) {
+				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
 					NSC_LOG_ERROR("Failed to submit result: " + response);
 				}
 			}
 
-			void process_object(container &item) {
+			void process_item(container_type item, transient_data_type data) {
 				std::string response;
-				item.filter.start_match();
-				if (item.severity != -1)
-					item.filter.returnCode = item.severity;
+				item->filter.start_match();
+				if (item->severity != -1)
+					item->filter.returnCode = item->severity;
 
-				if (!item.data.process_item(item.filter))
+				if (!item->data.process_item(item->filter, data))
 					return;
 
-				std::string message = item.filter.get_message();
+				std::string message = item->filter.get_message();
 				if (message.empty())
 					message = "Nothing matched";
-				if (!nscapi::core_helper::submit_simple_message(item.target, item.command, item.filter.returnCode, message, "", response)) {
+				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, item->filter.returnCode, message, "", response)) {
 					NSC_LOG_ERROR("Failed to submit '" + message);
 				}
 			}
 
 
 			void touch_all() {
-				boost::posix_time::ptime current_time = boost::posix_time::ptime();
-				BOOST_FOREACH(container &item, items) {
-					item.touch(current_time);
+				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+				BOOST_FOREACH(container_type item, items) {
+					item->touch(current_time);
 				}
 			}
 
-			void process_objects() {
-				boost::posix_time::ptime current_time = boost::posix_time::ptime();
+			void process_items(transient_data_type data) {
+				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 
 				// Process all items matching this event
-				BOOST_FOREACH(container &item, items) {
-					if (item.data.has_changed()) {
-						process_object(item);
-						item.touch(current_time);
+				BOOST_FOREACH(container_type item, items) {
+					if (item->data.has_changed(data)) {
+						process_item(item, data);
+						item->touch(current_time);
 					}
 				}
 
 				// Match any stale items and process timeouts
-				BOOST_FOREACH(container &item, items) {
-					if (item.has_timedout(current_time)) {
+				BOOST_FOREACH(container_type item, items) {
+					if (item->has_timedout(current_time)) {
 						process_timeout(item);
-						item.touch(current_time);
+						item->touch(current_time);
 					}
 				}
 			}
 
 			op_duration find_minimum_timeout() {
 				op_duration ret;
-				boost::posix_time::ptime minNext;
+				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+				boost::posix_time::ptime minNext = current_time;;
 				bool first = true;
-				BOOST_FOREACH(const container &item, items) {
-					if (item.max_age && (first || item.next_ok_ < minNext) ) {
+				BOOST_FOREACH(const container_type item, items) {
+					if (item->max_age && (first || item->next_ok_ < minNext) ) {
 						first = false;
-						minNext = item.next_ok_;
+						minNext = item->next_ok_;
 					}
 				}
 
@@ -137,7 +144,7 @@ namespace parsers {
 				if (first) {
 					NSC_DEBUG_MSG("Next miss time is in: no timeout specified");
 				} else {
-					boost::posix_time::time_duration dur = minNext - boost::posix_time::ptime();
+					boost::posix_time::time_duration dur = minNext - current_time;
 					NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
 					ret = dur;
 				}

@@ -10,7 +10,7 @@ SET(SRCS ${SRCS}
 	stdafx.cpp
 	${TARGET}.cpp
 	realtime_data.cpp
-	real_time_thread.cpp
+	realtime_thread.cpp
 	filter_config_object.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
@@ -23,7 +23,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		real_time_thread.hpp
+		realtime_thread.hpp
 		realtime_data.hpp
 
 		filter.hpp

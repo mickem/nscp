@@ -9,7 +9,7 @@
 
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/settings_object.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
 #include <net/net.hpp>
@@ -18,25 +18,19 @@ namespace nscapi {
 	namespace targets {
 		struct target_object {
 
-			std::string path;
-			std::string alias;
-			std::string value;
-			std::string parent;
-			bool is_template;
-
+			nscapi::settings_objects::template_object tpl;
 			net::url address;
 			typedef std::map<std::string,std::string> options_type;
 			options_type options;
 
 			std::string to_string() const {
 				std::stringstream ss;
-				ss << "Target: " << alias;
+				ss << "{tpl: " << tpl.to_string();
 				ss << ", address: " << get_address();
-				ss << ", parent: " << parent;
-				ss << ", is_template: " << is_template;
 				BOOST_FOREACH(options_type::value_type o, options) {
 					ss << ", option[" << o.first << "]: " << o.second;
 				}
+				ss << "}";
 				return ss.str();
 			}
 			std::string get_address() const {
@@ -73,8 +67,8 @@ namespace nscapi {
 
 			nscapi::protobuf::types::destination_container to_destination_container() const {
 				nscapi::protobuf::types::destination_container ret;
-				if (!alias.empty())
-					ret.id = alias;
+				if (!tpl.alias.empty())
+					ret.id = tpl.alias;
 				ret.address.apply(address);
 				BOOST_FOREACH(const options_type::value_type &kvp, options) {
 					ret.data[kvp.first] = kvp.second;
@@ -107,20 +101,20 @@ namespace nscapi {
 			}
 
 			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample = false) {
-				object.address = net::parse(object.value, 0);
-				if (object.alias == "default")
+				object.address = net::parse(object.tpl.value, 0);
+				if (object.tpl.is_default())
 					custom_reader::init_default(object);
 
 				nscapi::settings_helper::settings_registry settings(proxy);
 
-				nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+				nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 				if (is_sample)
 					root_path.set_sample();
 
 				object_type::options_type options;
 				root_path.add_path()
 					(nscapi::settings_helper::string_map_path(&options), 
-					"TARGET DEFENITION", "Target definition for: " + object.alias)
+					"TARGET DEFENITION", "Target definition for: " + object.tpl.alias)
 
 					;
 
@@ -135,17 +129,10 @@ namespace nscapi {
 					("port", sh::int_fun_key<int>(boost::bind(&object_type::set_port, &object, _1)),
 					"TARGET PORT", "The target server port", true)
 
-					("alias", nscapi::settings_helper::string_key(&object.alias, object.alias),
-					"TARGET ALIAS", "The alias for the target", true)
-
-					("parent", nscapi::settings_helper::string_key(&object.parent, "default"),
-					"TARGET PARENT", "The parent the target inherits from", true)
-
-					("is template", nscapi::settings_helper::bool_key(&object.is_template, false),
-					"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
-
 					;
 				custom_reader::add_custom_keys(settings, proxy, object, is_sample);
+
+				object.tpl.read_object(root_path);
 
 				settings.register_all();
 				settings.notify();

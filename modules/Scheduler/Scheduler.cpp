@@ -94,7 +94,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 		if (code == NSCAPI::returnIgnored) {
 			NSC_LOG_ERROR_WA("Command was not found: ", item.command);
 			if (item.channel.empty()) {
-				NSC_LOG_ERROR_WA("No channel specified for ", item.alias);
+				NSC_LOG_ERROR_WA("No channel specified for ", item.tpl.alias);
 				return;
 			}
 			//make_submit_from_query(response, item.channel, item.alias);
@@ -103,16 +103,16 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			get_core()->submit_message(item.channel, response, result);
 		} else if (nscapi::report::matches(item.report, code)) {
 			if (item.channel.empty()) {
-				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.alias) + " mssage will not be sent.");
+				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.tpl.alias) + " mssage will not be sent.");
 				return;
 			}
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
-			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id);
+			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.tpl.alias, item.target_id);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
 		} else {
-			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported");
+			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.tpl.alias) + " so nothing is reported");
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
@@ -121,7 +121,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 		NSC_LOG_ERROR_EXR("Exception: ", e);
 		scheduler_.remove_task(item.id);
 	} catch (...) {
-		NSC_LOG_ERROR_EX(utf8::cvt<std::string>(item.alias));
+		NSC_LOG_ERROR_EX(item.tpl.alias);
 		scheduler_.remove_task(item.id);
 	}
 }

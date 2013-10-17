@@ -25,7 +25,7 @@
 #include <protobuf/plugin.pb.h>
 
 #include <client/command_line_parser.hpp>
-#include <nscapi/targets.hpp>
+#include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
 namespace po = boost::program_options;
@@ -55,7 +55,7 @@ private:
 		}
 
 		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 			if (is_sample)
 				root_path.set_sample();
 			root_path.add_key()

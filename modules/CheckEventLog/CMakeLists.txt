@@ -8,8 +8,10 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
 	stdafx.cpp
-	"${TARGET}.cpp"
-	real_time_thread.cpp
+	${TARGET}.cpp
+	realtime_data.cpp
+	realtime_thread.cpp
+	filter_config_object.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
@@ -23,7 +25,8 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		real_time_thread.hpp
+		realtime_thread.hpp
+		realtime_data.hpp
 
 		eventlog_record.hpp
 		eventlog_wrapper.hpp

@@ -41,10 +41,10 @@ namespace po = boost::program_options;
 namespace check_pdh {
 
 	void command_reader::read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
-		if (!object.value.empty())
-			object.counter = object.value;
+		if (!object.tpl.value.empty())
+			object.counter = object.tpl.value;
 		std::string alias;
-		bool is_default = object.alias == "default";
+		bool is_default = object.tpl.is_default();
 		if (is_default) {
 			object.collection_strategy = "static";
 			object.instances = "none";
@@ -52,23 +52,23 @@ namespace check_pdh {
 		}
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(object.path);
+		nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
 		if (is_sample)
 			root_path.set_sample();
 
 		if (oneliner) {
-			std::string::size_type pos = object.path.find_last_of("/");
+			std::string::size_type pos = object.tpl.path.find_last_of("/");
 			if (pos != std::string::npos) {
-				std::string path = object.path.substr(0, pos);
-				std::string key = object.path.substr(pos+1);
-				proxy->register_key(path, key, NSCAPI::key_string, object.alias, "Counter " + object.alias + ". To configure this item add a section called: " + object.path, "", false, is_sample);
-				proxy->set_string(path, key, object.value);
+				std::string path = object.tpl.path.substr(0, pos);
+				std::string key = object.tpl.path.substr(pos+1);
+				proxy->register_key(path, key, NSCAPI::key_string, object.tpl.alias, "Counter " + object.tpl.alias + ". To configure this item add a section called: " + object.tpl.path, "", false, is_sample);
+				proxy->set_string(path, key, object.tpl.value);
 				return;
 			}
 		}
 
 		root_path.add_path()
-			("COUNTER", "Definition for counter: " + object.alias)
+			("COUNTER", "Definition for counter: " + object.tpl.alias)
 			;
 
 		root_path.add_key()
@@ -82,16 +82,14 @@ namespace check_pdh {
 			"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
 			("type", sh::string_key(&object.type),
 			"COUNTER TYPE", "The type of counter to use long, large and double")
-			("parent", sh::string_key(&object.parent, "default"),
-			"PARENT", "The parent the target inherits from", true)
-			("is template", nscapi::settings_helper::bool_key(&object.is_template, false),
-			"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 			;
+
+		object.tpl.read_object(root_path);
 
 		settings.register_all();
 		settings.notify();
 		if (!alias.empty())
-			object.alias = alias;
+			object.tpl.alias = alias;
 	}
 
 	void command_reader::apply_parent(object_type &object, object_type &parent) {

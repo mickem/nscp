@@ -13,7 +13,7 @@ void runtime_data::touch(boost::posix_time::ptime now) {
 	}
 }
 
-bool runtime_data::has_changed() const {
+bool runtime_data::has_changed(transient_data_type) const {
 	BOOST_FOREACH(const file_container &fc, files) {
 		if (fc.size != boost::filesystem::file_size(fc.file))
 			return true;
@@ -21,46 +21,29 @@ bool runtime_data::has_changed() const {
 	return false;
 }
 
-void runtime_data::set_files(std::string file_string) {
-	if (file_string.empty())
-		return;
-	files.clear();
-	BOOST_FOREACH(const std::string &s, strEx::s::splitEx(file_string, std::string(","))) {
-		file_container fc;
-		fc.file = s;
-		fc.size = boost::filesystem::file_size(fc.file);
-		files.push_back(fc);
-	}
-}
-
-void runtime_data::set_file(std::string file_string) {
-	if (file_string.empty())
-		return;
-	files.clear();
+void runtime_data::add_file(const boost::filesystem::path &path) {
 	file_container fc;
-	fc.file = file_string;
+	fc.file = path;
 	fc.size = boost::filesystem::file_size(fc.file);
 	files.push_back(fc);
 }
 
-bool runtime_data::process_item(filter_type filter) {
+bool runtime_data::process_item(filter_type &filter, transient_data_type) {
 	bool matched = false;
 	BOOST_FOREACH(file_container &c, files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
-		std::string fname = utf8::cvt<std::string>(c.file);
-		std::ifstream file(fname.c_str());
+		if (sz == c.size)
+			continue;
+		std::ifstream file(c.file.string().c_str());
 		if (file.is_open()) {
 			std::string line;
-			if (sz == c.size) {
-				continue;
-			} else if (sz > c.size) {
+			if (sz > c.size)
 				file.seekg(c.size);
-			}
 			while (file.good()) {
 				std::getline(file,line, '\n');
-				if (!column_split.empty()) {
+				if (!line.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(column_split));
-					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(fname, line, chunks));
+					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
 					boost::tuple<bool,bool> ret = filter.match(record);
 					if (ret.get<0>()) {
 						matched = true;
@@ -72,7 +55,7 @@ bool runtime_data::process_item(filter_type filter) {
 			}
 			file.close();
 		} else {
-			NSC_LOG_ERROR("Failed to open file: " + fname);
+			NSC_LOG_ERROR("Failed to open file: " + c.file.string());
 		}
 	}
 	return matched;

@@ -24,7 +24,7 @@
 #include <boost/filesystem.hpp>
 
 #include <client/command_line_parser.hpp>
-#include <nscapi/targets.hpp>
+#include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
 #include <nscp/packet.hpp>

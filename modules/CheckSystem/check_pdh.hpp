@@ -2,7 +2,7 @@
 
 #include <protobuf/plugin.pb.h>
 
-#include <nscapi/settings_object.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
 
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
@@ -13,26 +13,10 @@
 
 namespace check_pdh {
 
-	template<class T>
-	inline void import_string(T &object, T &parent) {
-		if (object.empty() && !parent.empty())
-			object = parent;
-	}
-
 	struct counter_config_object {
 
-		counter_config_object() : is_template(false) {}
-
-		// Object keys (managed by object handler)
-		std::string path;
-		std::string alias;
-		std::string value;
-		std::string parent;
-		bool is_template;
-
-		// Command keys
+		nscapi::settings_objects::template_object tpl;
 		bool debug;
-
 		std::string collection_strategy;
 		std::string counter;
 		std::string instances;
@@ -43,8 +27,7 @@ namespace check_pdh {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << alias << "[" << alias << "] = " 
-				<< "{counter: " << counter << ", "  << collection_strategy << ", "  << type << "}";
+			ss << tpl.to_string() << "{counter: " << counter << ", "  << collection_strategy << ", "  << type << "}";
 			return ss.str();
 		}
 	};
