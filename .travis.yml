@@ -11,3 +11,4 @@ before_install:
   - sudo apt-get install -y libssl-dev libboost-all-dev python-dev libprotobuf-dev
   - sudo apt-get install -y protobuf-compiler 
   - sudo apt-get install -y rst2pdf  
+  - sudo apt-get install -y libzmq-dev
