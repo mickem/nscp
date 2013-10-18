@@ -19,6 +19,7 @@ BuildRequires:  python-devel
 BuildRequires:  protobuf-devel
 BuildRequires:  protobuf-compiler
 BuildRequires:  rst2pdf 
+BuildRequires:  zeromq-devel 
 
 
 
