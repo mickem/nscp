@@ -23,39 +23,12 @@
 #include "settings.hpp"
 
 #include <nscapi/nscapi_plugin_interface.hpp>
+#include <parsers/filter/realtime_helper.hpp>
+#include "realtime_data.hpp"
 
-pdh_thread::pdh_thread() {
-}
+typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::filter_config_object> cpu_filter_helper;
+typedef parsers::where::realtime_filter_helper<check_mem_filter::runtime_data, filters::filter_config_object> mem_filter_helper;
 
-pdh_thread::~pdh_thread() {
-
-}
-struct trigger {
-	enum trigger_type {
-		type_cpu, type_memory
-	};
-	trigger_type type;
-	std::string alias;
-//	typedef check_cpu_filter::filter filter_type;
-
-//	filter_type filter;
-
-};
-
-// 
-// void pdh_thread::process_cpu_trigger(const trigger &t) {
-// }
-// void pdh_thread::process_triggers() {
-// 	BOOST_FOREACH(const trigger &t, triggers) {
-// 		if (t.type == trigger::type_cpu)
-// 			process_cpu_trigger(t);
-// 		else if (t.type == trigger::type_memory)
-// 			process_mem_trigger(t);
-// 		else
-// 			NSC_LOG_ERROR("Invalid trigger type: " + t.alias);
-// 
-// 	}
-// }
 
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
@@ -87,6 +60,7 @@ void pdh_thread::thread_proc() {
 	}
 
 	PDH::PDHQuery pdh;
+	CheckMemory memchecker;
 
 	bool check_pdh = !counters_.empty();
 
@@ -121,10 +95,29 @@ void pdh_thread::thread_proc() {
 		}
 	}
 
+	bool has_realtime = !filters_.empty();
+	cpu_filter_helper cpu_helper;
+	mem_filter_helper mem_helper;
+	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
+		if (object.check == "memory") {
+			check_mem_filter::runtime_data data;
+			BOOST_FOREACH(const std::string &d, object.data) {
+				data.add(d);
+			}
+			mem_helper.add_item(object, data);
+		} else {
+			check_cpu_filter::runtime_data data;
+			BOOST_FOREACH(const std::string &d, object.data) {
+				data.add(d);
+			}
+			cpu_helper.add_item(object, data);
+		}
+	}
 
-	int min_threshold = 100;
+	cpu_helper.touch_all();
+	mem_helper.touch_all();
 
-
+	int min_threshold = 10;
 	DWORD waitStatus = 0;
 	bool first = true;
 	int i = 0;
@@ -140,10 +133,6 @@ void pdh_thread::thread_proc() {
 					if (check_pdh)
 						pdh.gatherData();
 
-					if (i > min_threshold) {
-						i = 0;
-						//process_triggers();
-					}
 				} catch (const PDH::pdh_exception &e) {
 					if (first) {
 						// If this is the first run an error will be thrown since the data is not yet available
@@ -156,6 +145,13 @@ void pdh_thread::thread_proc() {
 					errors.push_back("Failed to query performance counters: ");
 				}
 			} 
+		}
+		if (has_realtime) {
+			if (i++ > min_threshold) {
+				cpu_helper.process_items(this);
+				mem_helper.process_items(&memchecker);
+				i = 0;
+			}
 		}
 		BOOST_FOREACH(const std::string &s, errors) {
 			NSC_LOG_ERROR(s);
@@ -286,3 +282,12 @@ void pdh_thread::add_counter(const PDH::pdh_object &counter) {
 	configs_.push_back(counter);
 }
 
+void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+	try {
+		filters_.add(proxy, filters_path_, key, query, key == "default");
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
+	}
+}

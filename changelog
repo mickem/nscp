@@ -1,3 +1,8 @@
+2013-10-20 MickeM
+ * Added real-time checks for cpu and memory (CheckSystem)
+ * Refactored client handling a bit to make it simpler to create stand alone clients.
+ * Added check_nrpe client
+
 2013-10-17 MickeM
  * A lot of Linux fixes
  * Refactored real-time stuff to make it easier to add in new places

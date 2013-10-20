@@ -54,7 +54,7 @@ namespace commands {
 		static void post_process_object(object_type &object) {
 			std::transform(object.tpl.alias.begin(), object.tpl.alias.end(), object.tpl.alias.begin(), ::tolower);
 		}
-
+		static void init_default(object_type& object) {}
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 			object.set_command(object.tpl.value);

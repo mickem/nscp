@@ -99,12 +99,12 @@ namespace nscapi {
 			static void post_process_object(object_type &object) {
 				custom_reader::post_process_target(object);
 			}
+			static void init_default(object_type &object) {
+				custom_reader::init_default(object);
+			}
 
 			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample = false) {
 				object.address = net::parse(object.tpl.value, 0);
-				if (object.tpl.is_default())
-					custom_reader::init_default(object);
-
 				nscapi::settings_helper::settings_registry settings(proxy);
 
 				nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);

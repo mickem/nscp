@@ -95,6 +95,7 @@ private:
 	syslog_map severities;
 	std::string hostname_;
 
+public:
 	struct connection_data {
 		std::string severity;
 		std::string facility;
@@ -132,8 +133,15 @@ private:
 		}
 	};
 
-	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
+	struct target_handler : public client::target_lookup_interface {
+		target_handler(const nscapi::targets::handler<custom_reader> &targets) : targets_(targets) {}
+		nscapi::protobuf::types::destination_container lookup_target(std::string &id) const;
+		bool apply(nscapi::protobuf::types::destination_container &dst, const std::string key);
+		bool has_object(std::string alias) const;
+		const nscapi::targets::handler<custom_reader> &targets_;
+	};
 
+	struct clp_handler_impl : public client::clp_handler {
 		SyslogClient *instance;
 		clp_handler_impl(SyslogClient *instance) : instance(instance) {}
 
@@ -141,13 +149,7 @@ private:
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
-			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
-			if (opt)
-				return opt->to_destination_container();
-			nscapi::protobuf::types::destination_container ret;
-			return ret;
-		}
+		boost::tuple<int,std::string> send(connection_data con, std::list<std::string> messages);
 	};
 
 
@@ -161,10 +163,6 @@ public:
 	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
 	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
-
-private:
-	boost::tuple<int,std::string> send(connection_data con, std::list<std::string> messages);
-	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);

@@ -15,17 +15,6 @@ namespace nscapi {
 
 	public:
 		settings_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
-		/*
-		inline settings::settings_core* get_core() {
-			return core_;
-		}
-		inline settings::instance_ptr get_impl() {
-			return core_->get();
-		}
-		inline settings::settings_handler_impl* get_handler() {
-			return core_;
-		}
-		*/
 
 		typedef std::list<std::string> string_list;
 

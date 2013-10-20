@@ -127,9 +127,6 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 	boost::program_options::variables_map vm;
 	std::string real_command;
 	try {
-
-		//po::positional_options_description p;
-		//p.add("arguments", -1);
 		command_type::const_iterator cit = commands.find(cmd);
 		boost::program_options::variables_map vm;
 		if (cit == commands.end()) {
@@ -165,6 +162,25 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 		return nscapi::protobuf::functions::set_response_bad(response, "Paradigm shift currently not supported");
 	} else if (real_command == "submit" || (real_command.empty() && default_command == "submit")) {
 		return nscapi::protobuf::functions::set_response_bad(response, "Paradigm shift currently not supported");
+	} else {
+		return nscapi::protobuf::functions::set_response_bad(response, "Invalid command: "  +real_command);
+	}
+}
+
+void client::command_manager::parse_query(client::configuration &config, const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response) {
+	boost::program_options::variables_map vm;
+	std::string real_command = "query";
+	try {
+			po::options_description desc = create_descriptor(real_command, real_command, config);
+			if (!nscapi::program_options::process_arguments_from_vector(vm, desc, real_command, args, response)) 
+				return;
+	} catch (const std::exception &e) {
+		return nscapi::protobuf::functions::set_response_bad(response, "Exception processing command line: " + utf8::utf8_from_native(e.what()));
+	}
+
+	if (real_command == "query") {
+		const ::Plugin::Common::Header header;
+		do_query(config, header, response);
 	} else {
 		return nscapi::protobuf::functions::set_response_bad(response, "Invalid command: "  +real_command);
 	}

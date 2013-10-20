@@ -73,6 +73,17 @@ namespace nscapi {
 				return !object_list.empty();
 			}
 
+			void ensure_default(std::string path) {
+				if (has_object("default"))
+					return;
+				add_dont_read(path, "default", "", true);
+			}
+			void ensure_default(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path) {
+				if (has_object("default"))
+					return;
+				add(proxy, path, "default", "", true);
+			}
+
 			t_object_type add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string alias, std::string value, bool is_template = false) {
 				optional_object previous = find_object(alias);
 				if (previous) {
@@ -87,6 +98,8 @@ namespace nscapi {
 				object.tpl.is_template = false;
 
 				std::list<std::string> keys = proxy->get_keys(object.tpl.path);
+				if (object.tpl.is_default())
+					object_reader::init_default(object);
 				object_reader::read_object(proxy, object, keys.empty(), false);
 
 
@@ -95,6 +108,39 @@ namespace nscapi {
 					optional_object tmp = find_object(object.tpl.parent);
 					if (!tmp) {
 						parent = add(proxy, path, object.tpl.parent, "", true);
+					} else {
+						parent = *tmp;
+					}
+					object_reader::apply_parent(object, parent);
+				}
+				if (is_template || object.tpl.is_template)
+					add_template(object);
+				else
+					add_object(object);
+				return object;
+			}
+
+			t_object_type add_dont_read(std::string path, std::string alias, std::string value, bool is_template = false) {
+				optional_object previous = find_object(alias);
+				if (previous) {
+					t_object_type p = *previous;
+					return p;
+				}
+				t_object_type object;
+				object.tpl.alias = alias;
+				object.tpl.value = value;
+				object.tpl.path = path + "/" + alias;
+				object.tpl.parent = "default";
+				object.tpl.is_template = false;
+
+				if (object.tpl.is_default())
+					object_reader::init_default(object);
+
+				if (!object.tpl.parent.empty() && object.tpl.parent != alias && object.tpl.parent != object.tpl.alias) {
+					t_object_type parent;
+					optional_object tmp = find_object(object.tpl.parent);
+					if (!tmp) {
+						parent = add_dont_read(path, object.tpl.parent, "", true);
 					} else {
 						parent = *tmp;
 					}
@@ -191,6 +237,7 @@ namespace nscapi {
 
 
 			void read_object(nscapi::settings_helper::path_extension &root_path);
+			void add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample);
 			std::string to_string() const;
 		};
 	}

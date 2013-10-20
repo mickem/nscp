@@ -166,19 +166,19 @@ bool SyslogClient::unloadModule() {
 }
 
 void SyslogClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 bool SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void SyslogClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
 }
@@ -216,35 +216,41 @@ void SyslogClient::add_local_options(po::options_description &desc, client::conf
 }
 
 void SyslogClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
 	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient)) {
+	if (!targets.has_object(recipient))
 		recipient = "default";
-	}
-	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
-
-	if (opt) {
-		nscapi::targets::target_object t = *opt;
-		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.apply(def);
-	}
+	config.target_lookup->apply(config.data->recipient, recipient);
 	config.data->host_self.id = "self";
 	config.data->host_self.address.host = hostname_;
-
-	config.target_lookup = handler;
-	config.handler = handler;
 }
 
-SyslogClient::connection_data SyslogClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+SyslogClient::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::protobuf::functions::destination_container recipient;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient, data->recipient);
+	return SyslogClient::connection_data(recipient, data->recipient);
 }
 
+nscapi::protobuf::types::destination_container SyslogClient::target_handler::lookup_target(std::string &id) const {
+	nscapi::targets::optional_target_object opt = targets_.find_object(id);
+	if (opt)
+		return opt->to_destination_container();
+	nscapi::protobuf::types::destination_container ret;
+	return ret;
+}
+
+bool SyslogClient::target_handler::has_object(std::string alias) const {
+	return targets_.has_object(alias);
+}
+bool SyslogClient::target_handler::apply(nscapi::protobuf::types::destination_container &dst, const std::string key) {
+	nscapi::targets::optional_target_object opt = targets_.find_object(key);
+	if (opt)
+		dst.apply(opt->to_destination_container());
+	return opt;
+}
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
 //
@@ -284,7 +290,7 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 
 		messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
 	}
-	boost::tuple<int,std::string> ret = instance->send(con, messages);
+	boost::tuple<int,std::string> ret = send(con, messages);
 	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
@@ -314,7 +320,7 @@ std::string	SyslogClient::parse_priority(std::string severity, std::string facil
 // Protocol implementations
 //
 
-boost::tuple<int,std::string> SyslogClient::send(connection_data con, std::list<std::string> messages) {
+boost::tuple<int,std::string> SyslogClient::clp_handler_impl::send(connection_data con, std::list<std::string> messages) {
 	try {
 		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 
@@ -332,13 +338,10 @@ boost::tuple<int,std::string> SyslogClient::send(connection_data con, std::list<
 		}
 		return boost::make_tuple(NSCAPI::returnOK, "OK");
 	} catch (std::runtime_error &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to send");
 		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }

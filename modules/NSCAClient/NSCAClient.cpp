@@ -190,19 +190,19 @@ bool NSCAClient::unloadModule() {
 }
 
 void NSCAClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 bool NSCAClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void NSCAClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
 }
@@ -264,36 +264,42 @@ void NSCAClient::add_local_options(po::options_description &desc, client::config
 }
 
 void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	boost::shared_ptr<clp_handler_impl> handler(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
 	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient)) {
+	if (!targets.has_object(recipient))
 		recipient = "default";
-	}
-	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
-
-	if (opt) {
-		nscapi::targets::target_object t = *opt;
-		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.apply(def);
-	}
+	config.target_lookup->apply(config.data->recipient, recipient);
 	config.data->host_self.id = "self";
 	config.data->host_self.address.host = hostname_;
-
-	config.target_lookup = handler;
-	config.handler = handler;
 }
 
-NSCAClient::connection_data NSCAClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+NSCAClient::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::protobuf::functions::destination_container recipient, sender;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
-	return connection_data(recipient, data->recipient, sender);
+	return NSCAClient::connection_data(recipient, data->recipient, sender);
 }
 
+nscapi::protobuf::types::destination_container NSCAClient::target_handler::lookup_target(std::string &id) const {
+	nscapi::targets::optional_target_object opt = targets_.find_object(id);
+	if (opt)
+		return opt->to_destination_container();
+	nscapi::protobuf::types::destination_container ret;
+	return ret;
+}
+
+bool NSCAClient::target_handler::has_object(std::string alias) const {
+	return targets_.has_object(alias);
+}
+bool NSCAClient::target_handler::apply(nscapi::protobuf::types::destination_container &dst, const std::string key) {
+	nscapi::targets::optional_target_object opt = targets_.find_object(key);
+	if (opt)
+		dst.apply(opt->to_destination_container());
+	return opt;
+}
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
 //
@@ -313,7 +319,7 @@ int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, c
 		list.push_back(packet);
 	}
 
-	boost::tuple<int,std::string> ret = instance->send(con, list);
+	boost::tuple<int,std::string> ret = send(con, list);
 
 	nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>(), "");
 	return NSCAPI::isSuccess;
@@ -322,7 +328,6 @@ int NSCAClient::clp_handler_impl::query(client::configuration::data_type data, c
 int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
-	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
 	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
@@ -341,7 +346,7 @@ int NSCAClient::clp_handler_impl::submit(client::configuration::data_type data, 
 		list.push_back(packet);
 	}
 
-	boost::tuple<int,std::string> ret = instance->send(con, list);
+	boost::tuple<int,std::string> ret = send(con, list);
 	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
@@ -362,7 +367,7 @@ int NSCAClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		//packet.result = data.;
 		list.push_back(packet);
 	}
-	boost::tuple<int,std::string> ret = instance->send(con, list);
+	boost::tuple<int,std::string> ret = send(con, list);
 	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
@@ -395,30 +400,23 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-boost::tuple<int,std::string> NSCAClient::send(connection_data con, const std::list<nsca::packet> packets) {
+boost::tuple<int,std::string> NSCAClient::clp_handler_impl::send(connection_data con, const std::list<nsca::packet> packets) {
 	try {
-		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
-
 		socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::shared_ptr<client_handler>(new client_handler(con)));
 		client.connect();
 
 		BOOST_FOREACH(const nsca::packet &packet, packets) {
-			NSC_DEBUG_MSG_STD("Sending (data): " + packet.to_string());
 			client.process_request(packet);
 		}
 		client.shutdown();
 		return boost::make_tuple(NSCAPI::isSuccess, "");
 	} catch (const nscp::encryption::encryption_exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::hasFailed, "NSCA error: " + utf8::utf8_from_native(e.what()));
 	} catch (const std::runtime_error &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::hasFailed, "Socket error: " + utf8::utf8_from_native(e.what()));
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
 		return boost::make_tuple(NSCAPI::hasFailed, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to send");
 		return boost::make_tuple(NSCAPI::hasFailed, "Unknown error -- REPORT THIS!");
 	}
 }

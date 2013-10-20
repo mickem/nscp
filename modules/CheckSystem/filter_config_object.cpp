@@ -29,34 +29,30 @@ namespace filters {
 		return ss.str();
 	}
 
-	void filter_config_object::set_files(std::string file_string) {
+	void filter_config_object::set_datas(std::string file_string) {
 		if (file_string.empty())
 			return;
-		files.clear();
+		data.clear();
 		BOOST_FOREACH(const std::string &s, strEx::s::splitEx(file_string, std::string(","))) {
-			files.push_back(s);
+			data.push_back(s);
 		}
 	}
-	void filter_config_object::set_file(std::string file_string) {
+	void filter_config_object::set_data(std::string file_string) {
 		if (file_string.empty())
 			return;
-		files.clear();
-		files.push_back(file_string);
+		data.clear();
+		data.push_back(file_string);
 	}
-
 	void command_reader::init_default(object_type& object) {
 		// Populate default template!
 		object.filter.debug = false;
-		object.filter.syntax_top = "${file}: ${count} (${list})";
-		object.filter.syntax_detail = "${column1}, ${column2}, ${column3}";
 		object.filter.target = "NSCA";
-		object.column_split = "\\t";
 	}
 
 	void command_reader::read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 		if (!object.tpl.value.empty())
 			object.filter.filter_string = object.tpl.value;
-		std::string alias;
+
 		bool is_default = object.tpl.is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
@@ -64,45 +60,60 @@ namespace filters {
 		if (is_sample)
 			root_path.set_sample();
 
-		if (oneliner) {
-			std::string::size_type pos = object.tpl.path.find_last_of("/");
-			if (pos != std::string::npos) {
-				std::string path = object.tpl.path.substr(0, pos);
-				std::string key = object.tpl.path.substr(pos+1);
-				proxy->register_key(path, key, NSCAPI::key_string, object.tpl.alias, "Filter for " + object.tpl.alias + ". To configure this item add a section called: " + object.tpl.path, "", false, is_sample);
-				proxy->set_string(path, key, object.tpl.value);
-				return;
-			}
-		}
+		object.tpl.add_oneliner_hint(proxy, oneliner, is_sample);
 
 		root_path.add_path()
 			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + object.tpl.alias)
 			;
-
 		root_path.add_key()
-			("file", sh::string_fun_key<std::string>(boost::bind(&object_type::set_file, &object, _1)),
-			"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
-
-			("files", sh::string_fun_key<std::string>(boost::bind(&object_type::set_files, &object, _1)),
-			"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
-
-			("column split", nscapi::settings_helper::string_key(&object.column_split), 
-			"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
-
+			("check", sh::string_key(&object.check, "cpu"),
+			"TYPE OF CHECK", "The type of check cpu or memory", false)
 			;
+
 		object.tpl.read_object(root_path);
 		object.filter.read_object(root_path, is_default);
 
 		settings.register_all();
 		settings.notify();
-		if (!alias.empty())
-			object.tpl.alias = alias;
+
+		if (object.check == "memory") {
+			if (is_default) {
+				// Populate default values!
+				object.filter.syntax_top = "${list}";
+				object.filter.syntax_detail = "${type} > ${used}";
+			}
+
+			root_path.add_key()
+				("type", sh::string_fun_key<std::string>(boost::bind(&object_type::set_data, &object, _1)),
+				"TIME", "The time to check", false)
+
+				("types", sh::string_fun_key<std::string>(boost::bind(&object_type::set_datas, &object, _1)),
+				"FILES", "A list of times to check (soma separated)", true)
+				;
+
+		} else {
+			if (is_default) {
+				// Populate default values!
+				object.filter.syntax_top = "${list}";
+				object.filter.syntax_detail = "${core}>${load}%";
+				object.filter.filter_string = "core = 'total'";
+			}
+
+			root_path.add_key()
+				("time", sh::string_fun_key<std::string>(boost::bind(&object_type::set_data, &object, _1)),
+				"TIME", "The time to check", false)
+
+				("times", sh::string_fun_key<std::string>(boost::bind(&object_type::set_datas, &object, _1)),
+				"FILES", "A list of times to check (soma separated)", true)
+				;
+		}
+		object.tpl.read_object(root_path);
+		object.filter.read_object(root_path, is_default);
+		settings.register_all();
+		settings.notify();
 	}
 	void command_reader::apply_parent(object_type &object, object_type &parent) {
-		using namespace nscapi::settings_objects;
 		object.filter.apply_parent(parent.filter);
-		import_string(object.column_split, parent.column_split);
-		import_string(object.line_split, parent.line_split);
 	}
 }
 

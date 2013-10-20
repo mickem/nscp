@@ -40,16 +40,15 @@ namespace po = boost::program_options;
 
 namespace check_pdh {
 
+	void command_reader::init_default(object_type& object) {
+		object.collection_strategy = "static";
+		object.instances = "none";
+		object.type = "large";
+	}
 	void command_reader::read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 		if (!object.tpl.value.empty())
 			object.counter = object.tpl.value;
 		std::string alias;
-		bool is_default = object.tpl.is_default();
-		if (is_default) {
-			object.collection_strategy = "static";
-			object.instances = "none";
-			object.type = "large";
-		}
 
 		nscapi::settings_helper::settings_registry settings(proxy);
 		nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);

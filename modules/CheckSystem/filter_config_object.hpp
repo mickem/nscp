@@ -30,20 +30,19 @@ namespace filters {
 
 		nscapi::settings_objects::template_object tpl;
 		nscapi::settings_filters::filter_object filter;
-		std::string column_split;
-		std::string line_split;
-		std::list<std::string> files;
+		std::string check;
+		std::list<std::string> data;
 
 		std::string to_string() const;
-		void set_files(std::string file_string);
-		void set_file(std::string file_string);
+		void set_datas(std::string file_string);
+		void set_data(std::string file_string);
 	};
 	typedef boost::optional<filter_config_object> optional_filter_config_object;
 
 	struct command_reader {
 		typedef filter_config_object object_type;
 		static void post_process_object(object_type&) {}
-		static void init_default(object_type&);
+		static void command_reader::init_default(object_type& object);
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample);
 		static void apply_parent(object_type &object, object_type &parent);
 	};

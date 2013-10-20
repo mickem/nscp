@@ -56,7 +56,9 @@ namespace client {
 	struct clp_handler;
 
 	struct target_lookup_interface {
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) = 0;
+		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) const = 0;
+		virtual bool apply(nscapi::protobuf::types::destination_container &dst, const std::string key) = 0;
+		virtual bool has_object(std::string alias) const = 0;
 	};
 	struct configuration : public boost::noncopyable {
 		typedef boost::shared_ptr<nscp_cli_data> data_type;
@@ -71,6 +73,11 @@ namespace client {
 		target_lookup_type target_lookup;
 
 		configuration(std::string caption) : data(data_type(new nscp_cli_data())), local("Common options for " + caption) {}
+		configuration(std::string caption, handler_type handler, target_lookup_type target_lookup) 
+			: data(data_type(new nscp_cli_data())), local("Common options for " + caption) 
+			, handler(handler)
+			, target_lookup(target_lookup)
+		{}
 
 		bool validate() {
 			if (!data) return false;
@@ -119,6 +126,11 @@ namespace client {
 		void parse_query(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response &response, const Plugin::QueryRequestMessage &request_message);
 		bool parse_exec(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response &response, const Plugin::ExecuteRequestMessage &request_message);
 		void parse_submit(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response &response, const Plugin::SubmitRequestMessage &request_message);
+
+		// Wrappers based on source (for command line clients)
+		void parse_query(client::configuration &config, const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response);
+//		bool parse_exec(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response &response, const Plugin::ExecuteRequestMessage &request_message);
+//		void parse_submit(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response &response, const Plugin::SubmitRequestMessage &request_message);
 
 		// Actual execution
 		void do_query(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::QueryResponseMessage::Response &response);

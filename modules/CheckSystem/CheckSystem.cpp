@@ -135,6 +135,8 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 // 		load_counters(counters, settings);
 // 	}
 
+	collector.filters_path_ = settings.alias().get_settings_path("real-time/checks");
+
 	settings.alias().add_path_to_settings()
 		("WINDOWS CHECK SYSTEM", "Section for system checks and system settings")
 
@@ -142,6 +144,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, get_settings_proxy(), counter_path, _1, _2)), 
 		"COUNTERS", "Add counters to check")
+
+		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
+
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, &collector, get_settings_proxy(), _1, _2)),  
+		"REALTIME FILTERS", "A set of filters to use in real-time mode")
+
 		;
 
 	settings.alias().add_key_to_settings()
@@ -184,6 +192,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
+		filters::filter_config_handler::add_samples(get_settings_proxy(), collector.filters_path_);
 		
 	if (mode == NSCAPI::normalStart) {
 
@@ -199,10 +208,6 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 			collector.add_counter(counter);
 		}
-	}
-
-
-	if (mode == NSCAPI::normalStart) {
 		collector.start();
 	}
 

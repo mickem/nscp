@@ -30,8 +30,6 @@
 
 namespace sh = nscapi::settings_helper;
 
-const std::string command_prefix("nrpe");
-const std::string default_command("query");
 /**
  * Default c-tor
  * @return 
@@ -73,7 +71,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		targets.add_samples(get_settings_proxy(), target_path);
-		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		targets.ensure_default(get_settings_proxy(), target_path);
 		core.register_channel(channel_);
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("loading", e);
@@ -83,14 +81,6 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 	return true;
-}
-
-std::string get_command(std::string alias, std::string command = "") {
-	if (!alias.empty())
-		return alias; 
-	if (!command.empty())
-		return command; 
-	return "_NRPE_CHECK";
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -129,164 +119,6 @@ bool NRPEClient::unloadModule() {
 	return true;
 }
 
-void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix);
-	setup(config, request_message.header());
-	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
-}
-
-void NRPEClient::nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
-	client::configuration config(command_prefix);
-	setup(config, request.header());
-	commands.forward_query(config, request, *response);
-}
-
-bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix);
-	setup(config, request_message.header());
-	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
-}
-
-void NRPEClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix);
-	setup(config, request_message.header());
-	commands.forward_submit(config, request_message, *response_message);
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-// Parser setup/Helpers
-//
-
-void NRPEClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
- 	desc.add_options()
- 		("no-ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "no ssl", _1)), 
-		"Do not initial an ssl handshake with the server, talk in plain-text.")
-
-		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
-		"Length of payload (has to be same as on the server)")
-
-		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
-		"The pre-generated DH key (if ADH is used this will be your 'key' though it is not a secret key)")
-
-		("certificate-key", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
-		"Client certificate to use")
-
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
-		"Client certificate format (default is PEM)")
-
-		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
-		"A file representing the Certificate authority used to validate peer certificates")
-
-		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
-		"Which verification mode to use: none: no verification, peer: that peer has a certificate, peer-cert: that peer has a valid certificate, ...")
-
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
-		"Which ciphers are allowed for legacy reasons this defaults to ADH which is not secure preferably set this to DEFAULT which is better or a an even stronger cipher")
-
-		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-		"Length of payload (has to be same as on the server)")
-
-		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-		"Same as payload-length (used for legacy reasons)")
-
- 		("ssl", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
-		"Initial an ssl handshake with the server.")
- 		;
-}
-
-void NRPEClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
-	add_local_options(config.local, config.data);
-
-	config.data->recipient.id = header.recipient_id();
-	config.default_command = default_command;
-	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient)) {
-		recipient = "default";
-	}
-	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
-
-	if (opt) {
-		nscapi::targets::target_object t = *opt;
-		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.apply(def);
-	}
-	config.data->host_self.id = "self";
-	//config.data->host_self.host = hostname_;
-
-	config.target_lookup = handler;
-	config.handler = handler;
-}
-
-NRPEClient::connection_data NRPEClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::protobuf::functions::destination_container recipient;
-	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient, data->recipient);
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Parser implementations
-//
-
-int NRPEClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
-	const ::Plugin::Common_Header& request_header = request_message.header();
-	connection_data con = parse_header(request_header, data);
-
-	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-
-	for (int i=0;i<request_message.payload_size();i++) {
-		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
-		std::string data = command;
-		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
-			data += "!" + request_message.payload(i).arguments(a);
-		}
-		boost::tuple<int,std::string> ret = instance->send(con, data);
-		strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
-		nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
-	}
-	return NSCAPI::isSuccess;
-}
-
-int NRPEClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-	const ::Plugin::Common_Header& request_header = request_message.header();
-	connection_data con = parse_header(request_header, data);
-	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
-	
-	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-
-	for (int i=0;i<request_message.payload_size();++i) {
-		std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
-		std::string data = command;
-		for (int a=0;a<request_message.payload(i).arguments_size();a++) {
-			data += "!" + request_message.payload(i).arguments(i);
-		}
-		boost::tuple<int,std::string> ret = instance->send(con, data);
-		nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
-	}
-	return NSCAPI::isSuccess;
-}
-
-int NRPEClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
-	const ::Plugin::Common_Header& request_header = request_message.header();
-	connection_data con = parse_header(request_header, data);
-
-	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-
-	for (int i=0;i<request_message.payload_size();i++) {
-		std::string command = get_command(request_message.payload(i).command());
-		std::string data = command;
-		for (int a=0;a<request_message.payload(i).arguments_size();a++)
-			data += "!" + request_message.payload(i).arguments(a);
-		boost::tuple<int,std::string> ret = instance->send(con, data);
-		nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
-	}
-	return NSCAPI::isSuccess;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Protocol implementations
-//
 struct client_handler : public socket_helpers::client::client_handler {
 	void log_debug(std::string file, int line, std::string msg) const {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
@@ -300,31 +132,40 @@ struct client_handler : public socket_helpers::client::client_handler {
 	}
 };
 
-boost::tuple<int,std::string> NRPEClient::send(connection_data con, const std::string data) {
-	try {
-		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
-		if (con.ssl.enabled) {
-#ifndef USE_SSL
-			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
-			return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("SSL support not available (compiled without USE_SSL)"));
-#endif
-		}
-		nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
-		socket_helpers::client::client<nrpe::client::protocol> client(con, boost::shared_ptr<client_handler>(new client_handler()));
-		client.connect();
-		nrpe::packet response = client.process_request(packet);
-		client.shutdown();
-		return boost::make_tuple(static_cast<int>(response.getResult()), response.getPayload());
-	} catch (nrpe::nrpe_exception &e) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, std::string("NRPE Packet errro: ") + e.what());
-	} catch (std::runtime_error &e) {
-		NSC_LOG_ERROR_EXR("failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
-	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("failed to send", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		NSC_LOG_ERROR_EX("failed to send");
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
-	}
+void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+	client::configuration config(nrpe_client::command_prefix, 
+		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
+		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
+	nrpe_client::setup(config, request_message.header());
+	commands.parse_query(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
 }
+
+void NRPEClient::nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
+	client::configuration config(nrpe_client::command_prefix, 
+		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
+		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
+	nrpe_client::setup(config, request.header());
+	commands.forward_query(config, request, *response);
+}
+
+bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	client::configuration config(nrpe_client::command_prefix, 
+		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
+		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
+	nrpe_client::setup(config, request_message.header());
+	return commands.parse_exec(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
+}
+
+void NRPEClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+	client::configuration config(nrpe_client::command_prefix);
+	config.target_lookup = boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)); 
+	config.handler = boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler())));
+	nrpe_client::setup(config, request_message.header());
+	commands.forward_submit(config, request_message, *response_message);
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+// Parser setup/Helpers
+//
+

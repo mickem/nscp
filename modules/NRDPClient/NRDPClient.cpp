@@ -52,7 +52,6 @@ NRDPClient::~NRDPClient() {}
 
 bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
-	std::wstring template_string, sender, recipient;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NRDP", alias, "client");
@@ -173,19 +172,19 @@ bool NRDPClient::unloadModule() {
 }
 
 void NRDPClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 bool NRDPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void NRDPClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
 }
@@ -214,34 +213,41 @@ void NRDPClient::add_local_options(po::options_description &desc, client::config
 }
 
 void NRDPClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
 	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient)) {
+	if (!targets.has_object(recipient))
 		recipient = "default";
-	}
-	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
-
-	if (opt) {
-		nscapi::targets::target_object t = *opt;
-		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.apply(def);
-	}
+	config.target_lookup->apply(config.data->recipient, recipient);
 	config.data->host_self.id = "self";
 	config.data->host_self.address.host = hostname_;
-
-	config.target_lookup = handler;
-	config.handler = handler;
 }
 
-NRDPClient::connection_data NRDPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+NRDPClient::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::protobuf::functions::destination_container recipient, sender;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
-	return connection_data(recipient, data->recipient, sender);
+	return NRDPClient::connection_data(recipient, data->recipient, sender);
+}
+
+nscapi::protobuf::types::destination_container NRDPClient::target_handler::lookup_target(std::string &id) const {
+	nscapi::targets::optional_target_object opt = targets_.find_object(id);
+	if (opt)
+		return opt->to_destination_container();
+	nscapi::protobuf::types::destination_container ret;
+	return ret;
+}
+
+bool NRDPClient::target_handler::has_object(std::string alias) const {
+	return targets_.has_object(alias);
+}
+bool NRDPClient::target_handler::apply(nscapi::protobuf::types::destination_container &dst, const std::string key) {
+	nscapi::targets::optional_target_object opt = targets_.find_object(key);
+	if (opt)
+		dst.apply(opt->to_destination_container());
+	return opt;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -256,23 +262,22 @@ int NRDPClient::clp_handler_impl::query(client::configuration::data_type data, c
 int NRDPClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	connection_data con = parse_header(request_header, data);
-	std::wstring channel = utf8::cvt<std::wstring>(request_message.channel());
 
 	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
 	nrdp::data nrdp_data;
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
-		std::wstring alias, msg, perf;
+		std::string alias, msg, perf;
 		NSCAPI::nagiosReturn result = nscapi::protobuf::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
-		if (alias == _T("host_check"))
-			nrdp_data.add_host(con.sender_hostname, result, utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+		if (alias == "host_check")
+			nrdp_data.add_host(con.sender_hostname, result, msg, perf);
 		else
-			nrdp_data.add_service(con.sender_hostname, utf8::cvt<std::string>(alias), result, utf8::cvt<std::string>(msg), utf8::cvt<std::string>(perf));
+			nrdp_data.add_service(con.sender_hostname, alias, result, msg, perf);
 	}
 
-	boost::tuple<int,std::wstring> ret = instance->send(con, nrdp_data);
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = send(con, nrdp_data);
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -288,8 +293,8 @@ int NRDPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 		nscapi::protobuf::functions::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request_payload(request_message.payload(i));
 		//nrdp_data.add_command(data.command, data.args);
 	}
-	boost::tuple<int,std::wstring> ret = instance->send(con, nrdp_data);
-	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), utf8::cvt<std::string>(ret.get<1>()));
+	boost::tuple<int,std::string> ret = send(con, nrdp_data);
+	nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), "TODO", ret.get<0>(), ret.get<1>());
 	return NSCAPI::isSuccess;
 }
 
@@ -297,7 +302,7 @@ int NRDPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 // Protocol implementations
 //
 
-boost::tuple<int,std::wstring> NRDPClient::send(connection_data data, const nrdp::data &nrdp_data) {
+boost::tuple<int,std::string> NRDPClient::clp_handler_impl::send(connection_data data, const nrdp::data &nrdp_data) {
 	try {
 		NSC_DEBUG_MSG_STD("Connection details: " + data.to_string());
 		http::client c;
@@ -312,12 +317,10 @@ boost::tuple<int,std::wstring> NRDPClient::send(connection_data data, const nrdp
 		NSC_DEBUG_MSG_STD(request.payload);
 		http::client::response_type response = c.execute(data.host, data.port, "/nrdp/server/", request);
 		NSC_DEBUG_MSG_STD(response.payload);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T(""));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "");
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Sending NSCA data", e);
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Error: ") + utf8::to_unicode(e.what()));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Sending NSCA data");
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, _T("Unknown error -- REPORT THIS!"));
+		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 	}
 }

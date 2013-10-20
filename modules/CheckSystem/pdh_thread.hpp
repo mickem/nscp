@@ -29,6 +29,9 @@
 #include <pdh/pdh_query.hpp>
 
 #include <win_sysinfo/win_sysinfo.hpp>
+#include "filter_config_object.hpp"
+
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <error.hpp>
 
@@ -133,9 +136,9 @@ public:
 
 	std::string subsystem;
 	std::string default_buffer_size;
+	std::string filters_path_;
+
 public:
-	pdh_thread();
-	virtual ~pdh_thread();
 
 	void add_counter(const PDH::pdh_object &counter);
 
@@ -147,7 +150,11 @@ public:
 	bool start();
 	bool stop();
 
+	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+
 private:
+	filters::filter_config_handler filters_;
+
 	void thread_proc();
 
 };

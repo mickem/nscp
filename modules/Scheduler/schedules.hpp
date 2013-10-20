@@ -64,15 +64,15 @@ namespace schedules {
 
 		static void post_process_object(object_type &object) {}
 
+		static void init_default(object_type& object) {
+			object.set_duration("5m");
+			object.set_report("all");
+			object.channel = "NSCA";
+		}
 
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
 			object.set_command(object.tpl.value);
 			bool is_def = object.tpl.is_default();
-			if (is_def) {
-				object.set_duration("5m");
-				object.set_report("all");
-				object.channel = "NSCA";
-			}
 			std::string alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);

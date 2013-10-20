@@ -8,6 +8,7 @@
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
 
 namespace parsers {
 	namespace where {
@@ -83,14 +84,14 @@ namespace parsers {
 				}
 			}
 
-			void process_item(container_type item, transient_data_type data) {
+			bool process_item(container_type item, transient_data_type data) {
 				std::string response;
 				item->filter.start_match();
 				if (item->severity != -1)
 					item->filter.returnCode = item->severity;
 
 				if (!item->data.process_item(item->filter, data))
-					return;
+					return false;
 
 				std::string message = item->filter.get_message();
 				if (message.empty())
@@ -98,6 +99,7 @@ namespace parsers {
 				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, item->filter.returnCode, message, "", response)) {
 					NSC_LOG_ERROR("Failed to submit '" + message);
 				}
+				return true;
 			}
 
 
@@ -109,22 +111,26 @@ namespace parsers {
 			}
 
 			void process_items(transient_data_type data) {
-				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
+				try {
+					boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 
-				// Process all items matching this event
-				BOOST_FOREACH(container_type item, items) {
-					if (item->data.has_changed(data)) {
-						process_item(item, data);
-						item->touch(current_time);
+					// Process all items matching this event
+					BOOST_FOREACH(container_type item, items) {
+						if (item->data.has_changed(data)) {
+							if (process_item(item, data))
+								item->touch(current_time);
+						}
 					}
-				}
 
-				// Match any stale items and process timeouts
-				BOOST_FOREACH(container_type item, items) {
-					if (item->has_timedout(current_time)) {
-						process_timeout(item);
-						item->touch(current_time);
+					// Match any stale items and process timeouts
+					BOOST_FOREACH(container_type item, items) {
+						if (item->has_timedout(current_time)) {
+							process_timeout(item);
+							item->touch(current_time);
+						}
 					}
+				} catch (...) {
+					NSC_DEBUG_MSG("Realtime processing faillure");
 				}
 			}
 

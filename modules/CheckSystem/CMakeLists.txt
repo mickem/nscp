@@ -16,6 +16,8 @@ SET(SRCS ${SRCS}
 
 	pdh_thread.cpp
 	check_pdh.cpp
+	filter_config_object.cpp
+	realtime_data.cpp
 
 	${NSCP_INCLUDEDIR}/pdh/basic_impl.cpp
 	${NSCP_INCLUDEDIR}/pdh/pdh_collectors.cpp
@@ -29,6 +31,7 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/EnumProcess.cpp
 	${NSCP_INCLUDEDIR}/EnumNtSrv.cpp
 	${NSCP_INCLUDEDIR}/sysinfo.cpp
+
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -46,6 +49,8 @@ IF(WIN32)
 
 		pdh_thread.hpp
 		check_pdh.hpp
+		filter_config_object.hpp
+		realtime_data.hpp
 
 		${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
 		${NSCP_INCLUDEDIR}/pdh/pdh_collectors.hpp

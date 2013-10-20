@@ -137,19 +137,19 @@ bool SMTPClient::unloadModule() {
 }
 
 void SMTPClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 bool SMTPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
 void SMTPClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix);
+	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
 }
@@ -174,33 +174,41 @@ void SMTPClient::add_local_options(po::options_description &desc, client::config
 }
 
 void SMTPClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	boost::shared_ptr<clp_handler_impl> handler = boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this));
 	add_local_options(config.local, config.data);
 
 	config.data->recipient.id = header.recipient_id();
 	config.default_command = default_command;
 	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient)) {
+	if (!config.target_lookup->has_object(recipient))
 		recipient = "default";
-	}
-	nscapi::targets::optional_target_object opt = targets.find_object(recipient);
-
-	if (opt) {
-		nscapi::targets::target_object t = *opt;
-		nscapi::protobuf::functions::destination_container def = t.to_destination_container();
-		config.data->recipient.apply(def);
-	}
+	config.target_lookup->apply(config.data->recipient, recipient);
 	config.data->host_self.id = "self";
 	//config.data->host_self.host = hostname_;
-
-	config.target_lookup = handler;
-	config.handler = handler;
 }
 
-SMTPClient::connection_data SMTPClient::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+SMTPClient::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 	nscapi::protobuf::functions::destination_container recipient;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return connection_data(recipient, data->recipient);
+	return SMTPClient::connection_data(recipient, data->recipient);
+}
+
+
+nscapi::protobuf::types::destination_container SMTPClient::target_handler::lookup_target(std::string &id) const {
+	nscapi::targets::optional_target_object opt = targets_.find_object(id);
+	if (opt)
+		return opt->to_destination_container();
+	nscapi::protobuf::types::destination_container ret;
+	return ret;
+}
+
+bool SMTPClient::target_handler::has_object(std::string alias) const {
+	return targets_.has_object(alias);
+}
+bool SMTPClient::target_handler::apply(nscapi::protobuf::types::destination_container &dst, const std::string key) {
+	nscapi::targets::optional_target_object opt = targets_.find_object(key);
+	if (opt)
+		dst.apply(opt->to_destination_container());
+	return opt;
 }
 
 //////////////////////////////////////////////////////////////////////////

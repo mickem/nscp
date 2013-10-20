@@ -102,10 +102,6 @@ public:
 
 		}
 
-		std::wstring to_wstring() const {
-			return utf8::cvt<std::wstring>(to_string());
-		}
-
 		std::string to_string() const {
 			std::stringstream ss;
 			ss << "host: " << get_endpoint_string();
@@ -114,25 +110,23 @@ public:
 		}
 	};
 
-	struct clp_handler_impl : public client::clp_handler, client::target_lookup_interface {
+	struct target_handler : public client::target_lookup_interface {
+		target_handler(const nscapi::targets::handler<custom_reader> &targets) : targets_(targets) {}
+		nscapi::protobuf::types::destination_container lookup_target(std::string &id) const;
+		bool apply(nscapi::protobuf::types::destination_container &dst, const std::string key);
+		bool has_object(std::string alias) const;
+		const nscapi::targets::handler<custom_reader> &targets_;
+	};
 
-		NSCPClient *instance;
-		clp_handler_impl(NSCPClient *instance) : instance(instance) {}
+	struct clp_handler_impl : public client::clp_handler {
 
 		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
 
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) {
-			nscapi::targets::optional_target_object opt = instance->targets.find_object(id);
-			if (opt)
-				return opt->to_destination_container();
-			nscapi::protobuf::types::destination_container ret;
-			return ret;
-		}
-
 	private:
 		int send(connection_data &con, ::NSCPIPC::Common_MessageTypes type, const std::string &request_message, std::string &response_message);
+		nscp::packet send(connection_data con, nscp::packet &packet);
 	};
 
 
@@ -148,13 +142,8 @@ public:
 	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
 
 private:
-	nscp::packet send(connection_data con, nscp::packet &packet);
-
-
 	NSCAPI::nagiosReturn query_nscp(std::list<std::wstring> &arguments, std::wstring &message, std::wstring perf);
 	bool submit_nscp(std::list<std::wstring> &arguments, std::wstring &result);
-
-	static connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);
