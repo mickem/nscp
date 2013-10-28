@@ -310,12 +310,14 @@ namespace parsers {
 			std::string list_crit;
 			std::string list_warn;
 			std::string list_problem;
+			NSCAPI::nagiosReturn returnCode;
 
-			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_problem(0), count_total(0) {}
+			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_problem(0), count_total(0), returnCode(NSCAPI::returnOK) {}
 
 			void reset() {
 				count_match = count_ok = count_warn = count_crit = count_problem = count_total = 0;
 				list_match = list_ok = list_warn = list_crit = "";
+				returnCode = NSCAPI::returnOK;
 			}
 			void count() {
 				count_total++;
@@ -340,6 +342,10 @@ namespace parsers {
 				format::append_list(list_crit, line);
 				format::append_list(list_problem, line);
 				count_crit++;
+			}
+
+			std::string get_status() {
+				return nscapi::plugin_helper::translateReturn(returnCode);
 			}
 			std::string get_list_match() {
 				return list_match;
@@ -400,7 +406,8 @@ namespace parsers {
 
 			bool has_variable(const std::string &name) {
 				return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count"
-					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list";
+					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list"
+					|| name == "status";
 			}
 
 			node_type create_variable(const std::string &name, bool human_readable = false);
@@ -519,6 +526,8 @@ namespace parsers {
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_crit, _1)));
 			if (key == "problem_list")
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_problem, _1)));
+			if (key == "status")
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, _1)));
 			return parsers::where::factory::create_false();
 		}
 

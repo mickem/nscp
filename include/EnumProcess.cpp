@@ -162,7 +162,7 @@ namespace process_helper {
 	}
 
 
-	process_info describe_pid(DWORD pid, bool deep_scan) {
+	process_info describe_pid(DWORD pid, bool deep_scan, bool ignore_unreadable) {
 		process_info entry;
 		entry.pid = pid;
 		entry.started = true;
@@ -177,8 +177,10 @@ namespace process_helper {
 		if (!handle) {
 			handle = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, pid);
 			if (!handle) {
-				entry.set_error("Failed to open process " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
+				DWORD err = GetLastError();
 				entry.unreadable = true;
+				if (!ignore_unreadable || err != ERROR_ACCESS_DENIED)
+					entry.set_error("Failed to open process " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
 				return entry;
 			}
 		}
@@ -297,7 +299,7 @@ namespace process_helper {
 		return entry;
 	}
 
-	process_list enumerate_processes(bool expand_command_line, bool find_16bit, error_reporter *error_interface, unsigned int buffer_size) {
+	process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size) {
 		try {
 			enable_token_privilege(SE_DEBUG_NAME);
 		} catch (nscp_exception &e) {
@@ -313,7 +315,7 @@ namespace process_helper {
 			delete [] dwPIDs;
 			if (error_interface!=NULL)
 				error_interface->report_debug("Need larger buffer: " + strEx::s::xtos(buffer_size));
-			return enumerate_processes(expand_command_line, find_16bit, error_interface, buffer_size * 10); 
+			return enumerate_processes(ignore_unreadable, find_16bit, deep_scan, error_interface, buffer_size * 10); 
 		}
 		if (!OK) {
 			delete [] dwPIDs;
@@ -327,21 +329,20 @@ namespace process_helper {
 			entry.hung = false;
 			try {
 				try {
-					entry = describe_pid(dwPIDs[i], expand_command_line);
+					entry = describe_pid(dwPIDs[i], deep_scan, ignore_unreadable);
 				} catch (const nscp_exception &e) {
-					if (error_interface!=NULL)
-						error_interface->report_debug(e.reason());
-					if (expand_command_line) {
+					if (deep_scan) {
 						try {
-					entry = describe_pid(dwPIDs[i], false);
+							entry = describe_pid(dwPIDs[i], false, ignore_unreadable);
 						} catch (const nscp_exception &e) {
 							if (error_interface!=NULL)
 								error_interface->report_debug(e.reason());
 						}
+					} else {
+						if (error_interface!=NULL)
+							error_interface->report_debug(e.reason());
 					}
 				}
-	// 			if (error_interface!=NULL)
-	// 				error_interface->report_debug_exit(_T("describe_pid"));
 				if (find_16bit) {
 					if(stricmp(entry.filename.get().substr(0,9).c_str(), "NTVDM.EXE") == 0) {
 						find_16bit_container container;
@@ -350,6 +351,8 @@ namespace process_helper {
 						windows::winapi::VDMEnumTaskWOWEx(container.pid, (windows::winapi::tTASKENUMPROCEX)&Enum16Proc, (LPARAM) &container);
 					}
 				}
+				if (ignore_unreadable && entry.unreadable)
+					continue;
 				ret.push_back(entry);
 			} catch (const nscp_exception &e) {
 				if (error_interface!=NULL)

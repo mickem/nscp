@@ -1,3 +1,9 @@
+2013-10-28 MickeM
+ * Compatiblity layer added for most "old" checks.
+   The way this works is that CheckCpu is the old check and check_cpu is the new.
+ * Fixed a lot of check related bugs
+ * Added a bunch of check related options such as exclude and so on and so forth.
+
 2013-10-20 MickeM
  * Added real-time checks for cpu and memory (CheckSystem)
  * Refactored client handling a bit to make it simpler to create stand alone clients.

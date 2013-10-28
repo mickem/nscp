@@ -15,13 +15,11 @@
 		}
 	},
 	"commands" : {
-		"check_drivesize" : { 
-			"alias"	: "CheckDriveSize",
-			"desc"	: "Check the size (free-space) of a drive or volume." 
-		},
+		"check_drivesize" : "Check the size (free-space) of a drive or volume.",
 		"check_files" : { 
 			"alias"		: "CheckFiles",
 			"desc"		: "Check various aspects of a file and/or folder." 
-		}
+		},
+		"checkDriveSize"	:	"Legacy version of check_drivesize"
 	}
 }

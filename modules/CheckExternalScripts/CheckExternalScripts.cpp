@@ -98,21 +98,21 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		if (aliases_.empty()) {
 			NSC_DEBUG_MSG("No aliases found (adding default)");
 
-			add_alias("alias_cpu", "check_cpu warn=80 crit=90 time=5m time=1m time=30s");
-			add_alias("alias_cpu_ex", "checkCPU warn=$ARG1$ crit=$ARG2$ time=5m time=1m time=30s");
-			add_alias("alias_mem", "checkMem MaxWarn=80% MaxCrit=90% ShowAll=long type=physical type=virtual type=paged type=page");
-			add_alias("alias_up", "checkUpTime MinWarn=1d MinWarn=1h");
+			add_alias("alias_cpu", "check_cpu");
+			add_alias("alias_cpu_ex", "check_cpu \"warn=load > $ARG1$\" \"crit=load > $ARG2$\" time=5m time=1m time=30s");
+			add_alias("alias_mem", "check_memory");
+			add_alias("alias_up", "check_uptime");
 			add_alias("alias_disk", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED");
 			add_alias("alias_disk_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED ignore-unreadable");
 			add_alias("alias_volumes", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED");
 			add_alias("alias_volumes_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED ignore-unreadable ");
-			add_alias("alias_service", "checkServiceState CheckAll");
-			add_alias("alias_service_ex", "checkServiceState CheckAll \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
-			add_alias("alias_process", "checkProcState \"$ARG1$=started\"");
-			add_alias("alias_process_stopped", "checkProcState \"$ARG1$=stopped\"");
-			add_alias("alias_process_count", "checkProcState MaxWarnCount=$ARG2$ MaxCritCount=$ARG3$ \"$ARG1$=started\"");
-			add_alias("alias_process_hung", "checkProcState MaxWarnCount=1 MaxCritCount=1 \"$ARG1$=hung\"");
-			add_alias("alias_event_log", "CheckEventLog file=application file=system MaxWarn=1 MaxCrit=1 \"filter=generated gt -2d AND severity NOT IN ('success', 'informational') AND source != 'SideBySide'\" truncate=800 unique descriptions \"syntax=%severity%: %source%: %message% (%count%)\"");
+			add_alias("alias_service", "check_service");
+			add_alias("alias_service_ex", "check_service \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
+			add_alias("alias_process", "check_process \"process=$ARG1$\" \"crit=state != 'started'\"");
+			add_alias("alias_process_stopped", "check_process \"process=$ARG1$\" \"crit=state != 'stopped'\"");
+			add_alias("alias_process_count", "check_process \"process=$ARG1$\" \"warn=count > $ARG2$\" \"crit=count > $ARG3$\"");
+			add_alias("alias_process_hung", "check_process \"filter=is_hung\" \"crit=count>0\"");
+			add_alias("alias_event_log", "check_eventlog");
 			add_alias("alias_file_size", "CheckFiles \"filter=size > $ARG2$\" \"path=$ARG1$\" MaxWarn=1 MaxCrit=1 \"syntax=%filename% %size%\" max-dir-depth=10");
 //			add_alias("alias_file_age", "checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\"");
 			add_alias("alias_sched_all", "CheckTaskSched \"filter=exit_code ne 0\" \"syntax=%title%: %exit_code%\" warn=>0");

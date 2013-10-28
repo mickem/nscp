@@ -44,16 +44,20 @@ namespace check_pdh {
 
 
 	struct filter_obj {
+		std::string alias;
 		std::string counter;
 		unsigned long long value;
 
-		filter_obj(std::string counter, unsigned long long value) : counter(counter), value(value) {}
+		filter_obj(std::string alias, std::string counter, unsigned long long value) : alias(alias), counter(counter), value(value) {}
 
 		long long get_value() const {
 			return value;
 		}
 		std::string get_counter() const {
 			return counter;
+		}
+		std::string get_alias() const {
+			return alias;
 		}
 	};
 

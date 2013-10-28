@@ -102,7 +102,6 @@ namespace modern_filter {
 		filter_engine engine_crit;
 		filter_engine engine_ok;
 		parsers::where::generic_summary<object_type> summary;
-		NSCAPI::nagiosReturn returnCode;
 		bool has_matched;
 		//std::string message;
 		boost::shared_ptr<Tfactory> context;
@@ -221,7 +220,7 @@ namespace modern_filter {
 		}
 
 		void start_match() {
-			returnCode = NSCAPI::returnOK;
+			summary.returnCode = NSCAPI::returnOK;
 			has_matched = false;
 			summary.reset();
 		}
@@ -243,11 +242,11 @@ namespace modern_filter {
 				summary.matched(current);
 				if (engine_crit && engine_crit->match(context)) {
 					summary.matched_crit(current);
-					nscapi::plugin_helper::escalteReturnCodeToCRIT(returnCode);
+					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 					matched = true;
 				} else if (engine_warn && engine_warn->match(context)) {
 					summary.matched_warn(current);
-					nscapi::plugin_helper::escalteReturnCodeToWARN(returnCode);
+					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 					matched = true;
 				} else if (engine_ok && engine_ok->match(context)) {
 					// TODO: Unsure of this, should this not re-set matched?

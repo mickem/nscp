@@ -13,27 +13,30 @@
 
 	"commands" : {
 		"check_cpu" : { 
-			"alias"		: "checkCPU",
 			"description" : "Check that the load of the CPU(s) are within bounds.",
 			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" }
 			},
-		"check_uptime"	: { "alias" : "checkUpTime", 		"desc" : "Check time since last server re-boot." },
-		"check_service"	: { "alias" : "checkServiceState",	"desc" : "Check the state of one or more of the computer services." },
-		"check_process"	: { "alias" : "checkProcState",		"desc" : "Check the state of one or more of the processes running on the computer." },
-		"check_memory"	: { "alias" : "checkMem",		"desc" : "Check free/used memory on the system." },
-		"check_pdh" 	: { 
-			"alias" : "checkCounter",			
-			"desc" : "Check a PDH counter." 
-			},
-		"check_os_version" : { 
-			"description" : "Check the version of the underlaying OS."
-			},
-		"check_pagefile" : { 
-			"description" : "Check the size of the system pagefile(s)."
-			}
+		"check_uptime"		: "Check time since last server re-boot." ,
+		"check_service"		: "Check the state of one or more of the computer services.",
+		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
+		"check_memory"		: "Check free/used memory on the system.",
+		"check_pdh" 		: {	"alias" : [ "check_counter" ],
+								"desc"	: "Check the value of a performance (PDH) counter."
+							},
+		"check_os_version"	: "Check the version of the underlaying OS.",
+		"check_pagefile"	: "Check the size of the system pagefile(s).",
+		
+		"checkServiceState"	: "Legacy version of check_service",
+		"checkCpu"			: "Legacy version of check_cpu",
+		"checkUptime"		: "Legacy version of check_uptime",
+		"checkMem"			: "Legacy version of check_mem",
+		"checkProcState"	: "Legacy version of check_process",
+		"checkCounter"		: "Legacy version of check_pdh"
 	},
 
 	"command line exec" : "legacy",
 	
 	"log messages" : false
+
+	
 }

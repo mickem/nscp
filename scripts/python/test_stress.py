@@ -9,10 +9,10 @@ is_windows = False
 if os.name == 'nt':
 	is_windows = True
 
-check_per_second = 1
-time_to_run = 'infinate'
-#time_to_run = 60		# in seconds
-use_threads = 10
+check_per_second = 1000
+#time_to_run = 'infinate'
+time_to_run = 60		# in seconds
+use_threads = 100
 
 route_via_nsca = True
 route_via_nrpe = True
@@ -20,7 +20,6 @@ route_via_python = False
 
 prefix = 'stress'
 
-core = Core.get()
 
 class StressTest(BasicTest):
 
@@ -69,7 +68,7 @@ class StressTest(BasicTest):
 			else:
 				check = self.get_random_check()
 			self.check_count = self.check_count + 1
-			return core.simple_query(check[0], check[1])
+			return self.core.simple_query(check[0], check[1])
 		else:
 			return (status.OK, 'Got call %d'%(self.check_count), '')
 
@@ -91,19 +90,16 @@ class StressTest(BasicTest):
 		return 'StressTest tests'
 
 	def setup(self, plugin_id, prefix):
-		self.reg = Registry.get(plugin_id)
 		self.reg.simple_function(self.command, StressTest.random_check_handler, 'This is a simple noop command')
 		self.reg.simple_subscription(self.python_channel, StressTest.on_stress_handler)
-		conf = Settings.get()
-		conf.set_string(self.sched_base_path, 'threads', '%d'%use_threads)
-		core.reload(self.sched_alias)
+		self.conf.set_string(self.sched_base_path, 'threads', '%d'%use_threads)
+		self.core.reload('%s,delayed'%self.sched_alias)
 		
 
 	def teardown(self):
 		if not self.background:
-			conf = Settings.get()
-			conf.set_string(self.sched_base_path, 'threads', '0')
-			core.reload(self.sched_alias)
+			self.conf.set_string(self.sched_base_path, 'threads', '0')
+			self.core.reload(self.sched_alias)
 
 	def run_test(self):
 		global time_to_run, check_per_second
@@ -141,59 +137,58 @@ class StressTest(BasicTest):
 
 	def install(self, arguments):
 		global is_windows, route_via_python, route_via_nsca, use_threads
-		conf = Settings.get()
 
 		# Configure required modules
-		conf.set_string('/modules', 'pytest', 'PythonScript')
-		conf.set_string('/modules', self.sched_alias, 'Scheduler')
+		self.conf.set_string('/modules', 'pytest', 'PythonScript')
+		self.conf.set_string('/modules', self.sched_alias, 'Scheduler')
 		if is_windows:
-			conf.set_string('/modules', 'CheckSystem', 'enabled')
-		conf.set_string('/modules', 'CheckHelpers', 'enabled')
+			self.conf.set_string('/modules', 'CheckSystem', 'enabled')
+		self.conf.set_string('/modules', 'CheckHelpers', 'enabled')
 
 		if route_via_nsca:
-			conf.set_string('/modules', self.nsca_server_alias, 'NSCAServer')
-			conf.set_string('/modules', self.nsca_client_alias, 'NSCAClient')
+			self.conf.set_string('/modules', self.nsca_server_alias, 'NSCAServer')
+			self.conf.set_string('/modules', self.nsca_client_alias, 'NSCAClient')
 			
 			# Configure NSCA Server
-			conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'port', '%d'%self.nsca_port)
-			conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'inbox', self.python_channel)
-			conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'encryption', 'xor')
-			conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'password', 'HelloWorld')
+			self.conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'port', '%d'%self.nsca_port)
+			self.conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'inbox', self.python_channel)
+			self.conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'encryption', 'xor')
+			self.conf.set_string('/settings/NSCA/%s'%self.nsca_server_alias, 'password', 'HelloWorld')
 
 			# Configure NSCA Client
-			conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'address', 'nsca://127.0.0.1:%d'%self.nsca_port)
-			conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'encryption', 'xor')
-			conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'password', 'HelloWorld')
-			conf.set_string('/settings/NSCA/%s'%self.nsca_client_alias, 'channel', self.nsca_channel)
+			self.conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'address', 'nsca://127.0.0.1:%d'%self.nsca_port)
+			self.conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'encryption', 'xor')
+			self.conf.set_string('/settings/NSCA/%s/targets/default'%self.nsca_client_alias, 'password', 'HelloWorld')
+			self.conf.set_string('/settings/NSCA/%s'%self.nsca_client_alias, 'channel', self.nsca_channel)
 
 		if route_via_nrpe:
-			conf.set_string('/modules', self.nrpe_server_alias, 'NRPEServer')
-			conf.set_string('/modules', self.nrpe_client_alias, 'NRPEClient')
+			self.conf.set_string('/modules', self.nrpe_server_alias, 'NRPEServer')
+			self.conf.set_string('/modules', self.nrpe_client_alias, 'NRPEClient')
 			
 			# Configure NRPE Server
-			conf.set_string('/settings/NRPE/%s'%self.nrpe_server_alias, 'port', '%d'%self.nrpe_port)
-			conf.set_string('/settings/NRPE/%s'%self.nrpe_server_alias, 'allow arguments', 'true')
+			self.conf.set_string('/settings/NRPE/%s'%self.nrpe_server_alias, 'port', '%d'%self.nrpe_port)
+			self.conf.set_string('/settings/NRPE/%s'%self.nrpe_server_alias, 'allow arguments', 'true')
 
 			# Configure NRPE Client
-			conf.set_string('/settings/NRPE/%s/targets/default'%self.nsca_client_alias, 'address', 'nrpe://127.0.0.1:%d'%self.nrpe_port)
+			self.conf.set_string('/settings/NRPE/%s/targets/default'%self.nsca_client_alias, 'address', 'nrpe://127.0.0.1:%d'%self.nrpe_port)
 			
 		# Configure python
-		conf.set_string('/settings/pytest/scripts', 'test_stress', 'test_stress.py')
+		self.conf.set_string('/settings/pytest/scripts', 'test_stress', 'test_stress.py')
 		
 		# Configure Scheduler
 		if route_via_python:
-			conf.set_string(self.sched_base_path, 'threads', '0')
+			self.conf.set_string(self.sched_base_path, 'threads', '0')
 		else:
-			conf.set_string(self.sched_base_path, 'threads', '50')
+			self.conf.set_string(self.sched_base_path, 'threads', '50')
 
 		default_path = '%s/schedules/default'%self.sched_base_path
 		if route_via_nsca:
-			conf.set_string(default_path, 'channel', self.nsca_channel)
+			self.conf.set_string(default_path, 'channel', self.nsca_channel)
 		else:
-			conf.set_string(default_path, 'channel', self.python_channel)
+			self.conf.set_string(default_path, 'channel', self.python_channel)
 
-		conf.set_string(default_path, 'alias', 'stress')
-		#conf.set_string(default_path, 'target', 'stress_001')
+		self.conf.set_string(default_path, 'alias', 'stress')
+		#self.conf.set_string(default_path, 'target', 'stress_001')
 		
 		use_command = self.command
 		if not route_via_python:
@@ -202,15 +197,15 @@ class StressTest(BasicTest):
 			else:
 				use_command = 'CheckOK'
 		
-		conf.set_string(default_path, 'command', use_command)
-		conf.set_string(default_path, 'interval', '5s')
+		self.conf.set_string(default_path, 'command', use_command)
+		self.conf.set_string(default_path, 'interval', '5s')
 		log_debug('Adding %d checks'%int(check_per_second*5))
 		for i in range(1, int(check_per_second*5)+1):
 			
 			alias = 'stress_python_%i'%i
-			conf.set_string('%s/schedules'%(self.sched_base_path), alias, use_command)
+			self.conf.set_string('%s/schedules'%(self.sched_base_path), alias, use_command)
 
-		conf.save()
+		self.conf.save()
 
 	def uninstall(self):
 		None
@@ -218,7 +213,10 @@ class StressTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
+	def init(self, plugin_id, prefix):
+		self.reg = Registry.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
+		self.core = Core.get(plugin_id)
 		None
 
 	def shutdown(self):
@@ -231,7 +229,7 @@ setup_singleton(StressTest)
 
 all_tests = [StressTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):

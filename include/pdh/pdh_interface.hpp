@@ -124,6 +124,9 @@ namespace PDH {
 		void set_counter(std::string counter) {
 			path = counter;
 		}
+		void set_alias(std::string alias_) {
+			alias = alias_;
+		}
 
 		pdh_object() : buffer_size(0), flags_(format_double), strategy_(types::static_value) {}
 

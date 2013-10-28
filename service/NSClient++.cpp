@@ -977,17 +977,18 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		command_chunk_type command_chunks;
 
 		for (int i=0;i<request_message.payload_size(); i++) {
-			const ::Plugin::QueryRequestMessage::Request &payload = request_message.payload(i);
-			nsclient::commands::plugin_type plugin = commands_.get(payload.command());
+			::Plugin::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
+			payload->set_command(commands_.make_key(payload->command()));
+			nsclient::commands::plugin_type plugin = commands_.get(payload->command());
 			if (plugin) {
 				unsigned int id = plugin->get_id();
 				if (command_chunks.find(id) == command_chunks.end()) {
 					command_chunks[id].plugin = plugin;
 					command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
 				}
-				command_chunks[id].request.add_payload()->CopyFrom(payload);
+				command_chunks[id].request.add_payload()->CopyFrom(*payload);
 			} else {
-				LOG_ERROR_CORE("No module supports query: " + payload.command() + " avalible commands: " + commands_.to_string());
+				LOG_ERROR_CORE("No module supports query: " + payload->command() + " avalible commands: " + commands_.to_string());
 			}
 		}
 

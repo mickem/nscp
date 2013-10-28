@@ -88,7 +88,7 @@ namespace parsers {
 				std::string response;
 				item->filter.start_match();
 				if (item->severity != -1)
-					item->filter.returnCode = item->severity;
+					item->filter.summary.returnCode = item->severity;
 
 				if (!item->data.process_item(item->filter, data))
 					return false;
@@ -96,7 +96,7 @@ namespace parsers {
 				std::string message = item->filter.get_message();
 				if (message.empty())
 					message = "Nothing matched";
-				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, item->filter.returnCode, message, "", response)) {
+				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, item->filter.summary.returnCode, message, "", response)) {
 					NSC_LOG_ERROR("Failed to submit '" + message);
 				}
 				return true;

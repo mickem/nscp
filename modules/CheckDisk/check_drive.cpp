@@ -306,7 +306,7 @@ void add_custom_options(po::options_description desc) {}
 void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-	std::vector<std::string> drives;
+	std::vector<std::string> drives, excludes;
 	bool ignore_unreadable = false;
 	double magic;
 
@@ -319,6 +319,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
 		"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
+		("exclude", po::value<std::vector<std::string>>(&excludes), 
+		"A list of drives not to check")
 		;
 	add_custom_options(filter_helper.get_desc());
 
@@ -334,13 +336,16 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		drives.push_back("*");
 
 	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
+		if (std::find(excludes.begin(), excludes.end(), drive.drive)!=excludes.end()
+			|| std::find(excludes.begin(), excludes.end(), drive.name)!=excludes.end())
+			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
 		boost::tuple<bool,bool> ret = filter.match(obj);
 		if (ret.get<1>()) {
 			break;
 		}
 		if (filter.has_errors())
-			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (se log for details)");
+			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 	}
 
 	modern_filter::perf_writer writer(response);

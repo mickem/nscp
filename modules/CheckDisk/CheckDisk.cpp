@@ -50,6 +50,95 @@ namespace po = boost::program_options;
 CheckDisk::CheckDisk() : show_errors_(false) {
 }
 
+void log_args(const Plugin::QueryRequestMessage::Request &request) {
+	std::stringstream ss;
+	for (int i=0;i<request.arguments_size();i++) {
+		if (i>0)
+			ss << " ";
+		ss << request.arguments(i);
+	}
+	NSC_DEBUG_MSG("Created command: " + ss.str());
+}
+
+void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> times;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
+		("CheckAll", po::value<std::string>()->implicit_value("true"), "Checks all drives.")
+		("CheckAllOthers", po::value<std::string>()->implicit_value("true"), "Checks all drives turns the drive option into an exclude option.")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("MaxWarnFree", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCritFree", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarnFree", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCritFree", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("MaxWarnUsed", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCritUsed", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarnUsed", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCritUsed", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("Drive", po::value<std::vector<std::string>>(&times), "The drives to check")
+		;
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=used > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=used > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "free=used < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "free=used < " + vm["MinCrit"].as<std::string>();
+	if (vm.count("MaxWarnUsed"))
+		warn = "warn=used > " + vm["MaxWarnUsed"].as<std::string>();
+	if (vm.count("MaxCritUsed"))
+		crit = "crit=used > " + vm["MaxCritUsed"].as<std::string>();
+	if (vm.count("MinWarnUsed"))
+		warn = "warn=used < " + vm["MinWarnUsed"].as<std::string>();
+	if (vm.count("MinCritUsed"))
+		crit = "crit=used < " + vm["MinCritUsed"].as<std::string>();
+	if (vm.count("MaxWarnFree"))
+		warn = "warn=free > " + vm["MaxWarnFree"].as<std::string>();
+	if (vm.count("MaxCritFree"))
+		crit = "crit=free > " + vm["MaxCritFree"].as<std::string>();
+	if (vm.count("MinWarnFree"))
+		warn = "warn=free < " + vm["MinWarnFree"].as<std::string>();
+	if (vm.count("MinCritFree"))
+		crit = "crit=free < " + vm["MinCritFree"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (vm.count("CheckAll"))
+		request.add_arguments("drive=*");
+	bool exclude = false;
+	if (vm.count("CheckAllOthers")) {
+		request.add_arguments("drive=*");
+		exclude = true;
+	}
+	if (vm.count("ShowAll")) {
+		if (vm["ShowAll"].as<std::string>() == "long")
+			request.add_arguments("filter=none");
+		request.add_arguments("top-syntax=${status}: ${list}");
+	}
+	BOOST_FOREACH(const std::string &t, times) {
+		if (exclude)
+			request.add_arguments("exclude=" + t);
+		else
+			request.add_arguments("drive=" + t);
+	}
+	log_args(request);
+	check_drive::check(request, response);
+}
 
 void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	check_drive::check(request, response);

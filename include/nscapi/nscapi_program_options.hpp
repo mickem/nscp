@@ -414,10 +414,13 @@ namespace nscapi {
 			}
 		}
 		template<class T, class U>
-		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response) {
+		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, bool allow_unknown = false, std::vector<std::string> &extra = std::vector<std::string>()) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
+				if (allow_unknown)
+					cmd.allow_unregistered();
+
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
@@ -435,6 +438,10 @@ namespace nscapi {
 				if (vm.count("help")) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
+				}
+				if (allow_unknown) {
+					std::vector<std::string> extra2 = po::collect_unrecognized(parsed.options, po::include_positional);
+					extra.insert(extra.begin(), extra2.begin(), extra2.end());
 				}
 				return true;
 			} catch (const std::exception &e) {

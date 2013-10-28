@@ -75,13 +75,25 @@ namespace modern_filter {
 				return false;
 			return true;
 		}
+		bool parse_options(std::vector<std::string> &extra) {
+			boost::program_options::variables_map vm;
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+				return false;
+			return true;
+		}
 
 		bool empty() const {
 			return data.warn_string.empty() && data.crit_string.empty();
 		}
 		void set_default(const std::string warn, const std::string crit) {
-			data.warn_string = warn;
-			data.crit_string = crit;
+			if (data.warn_string.empty())
+				data.warn_string = warn;
+			if (data.crit_string.empty())
+				data.crit_string = crit;
+		}
+		void set_default_filter(const std::string filter) {
+			if (data.filter_string.empty())
+				data.filter_string = filter;
 		}
 		bool build_filter(T &filter) {
 			std::string tmp_msg;
@@ -137,7 +149,7 @@ namespace modern_filter {
 			}
 			std::string msg = filter.get_message();
 			if (msg.empty()) msg = data.empty_detail;
-			response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.returnCode));
+			response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
 			response->set_message(msg);
 		}
 

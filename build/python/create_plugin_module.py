@@ -226,6 +226,7 @@ class Command:
 			alias_lst = ''
 		return dict(module_data.items() + {
 			'COMMAND_NAME': self.name,
+			'COMMAND_NAME_LC': self.name.lower(),
 			'ALIAS': alias,
 			'ALIAS_LST': alias_lst,
 			'COMMAND_DESCRIPTION': self.description
@@ -625,7 +626,7 @@ void ${CLASS}Module::handleMessageRAW(std::string data) {
 }
 """
 
-COMMAND_INSTANCE_CPP = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
+COMMAND_INSTANCE_CPP = """			} else if (request_payload.command() == "${COMMAND_NAME_LC}") {
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->${COMMAND_NAME}(request_payload, response_payload);

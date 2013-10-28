@@ -477,6 +477,67 @@ int CheckSystem::commandLineExec(const std::string &command, const std::list<std
 	return 0;
 }
 
+void log_args(const Plugin::QueryRequestMessage::Request &request) {
+	std::stringstream ss;
+	for (int i=0;i<request.arguments_size();i++) {
+		if (i>0)
+			ss << " ";
+		ss << request.arguments(i);
+	}
+	NSC_DEBUG_MSG("Created command: " + ss.str());
+}
+
+void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> times;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("time", po::value<std::vector<std::string>>(&times), "The time to check")
+		;
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=load > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=load > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("warn"))
+		warn = "warn=load > " + vm["warn"].as<std::string>();
+	if (vm.count("crit"))
+		crit = "crit=load > " + vm["crit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=load < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=load > " + vm["MinCrit"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (vm.count("ShowAll")) {
+		if (vm["ShowAll"].as<std::string>() == "long")
+			request.add_arguments("filter=none");
+		request.add_arguments("top-syntax=CPU Load: ${list}");
+	}
+	BOOST_FOREACH(const std::string &t, times) {
+		request.add_arguments("time=" + t);
+	}
+	log_args(request);
+	check_cpu(request, response);
+
+}
+
 void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_cpu_filter::filter filter_type;
 	modern_filter::data_container data;
@@ -493,10 +554,8 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 	if (!filter_helper.parse_options())
 		return;
 
-	if (filter_helper.empty()) {
-		data.filter_string = "core = 'total'";
-		filter_helper.set_default("load > 80", "load > 90");
-	}
+	filter_helper.set_default("load > 80", "load > 90");
+	filter_helper.set_default_filter("core = 'total'");
 
 	if (times.empty()) {
 		times.push_back("5m");
@@ -536,6 +595,53 @@ BOOL nscpGetTickCount64() {
 	}
 	return pGetTickCount64();
 }
+
+void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		;
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=uptime > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=uptime > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("warn"))
+		warn = "warn=uptime > " + vm["warn"].as<std::string>();
+	if (vm.count("crit"))
+		crit = "crit=uptime > " + vm["crit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=uptime < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=uptime > " + vm["MinCrit"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (vm.count("ShowAll")) {
+		if (vm["ShowAll"].as<std::string>() == "long")
+			request.add_arguments("filter=none");
+		request.add_arguments("top-syntax=Uptime: ${list}");
+	}
+	log_args(request);
+	check_uptime(request, response);
+
+}
+
 
 void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_uptime_filter::filter filter_type;
@@ -614,33 +720,60 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 }
 
 
-/**
- * Retrieve the service state of one or more services (by name).
- * Parse a list with a service names and verify that all named services are running.
- * <pre>
- * Syntax:
- * request: checkServiceState <option> [<option> [...]]
- * Return: <return state>&<service1> : <state1> - <service2> : <state2> - ...
- * Available options:
- *		<name>=<state>	Check if a service has a specific state
- *			State can be wither started or stopped
- *		ShowAll			Show the state of all listed service. If not set only critical services are listed.
- * Examples:
- * checkServiceState showAll myService MyService
- *</pre>
- *
- * @param command Command to execute
- * @param argLen The length of the argument buffer
- * @param **char_args The argument buffer
- * @param &msg String to put message in
- * @param &perf String to put performance data in 
- * @return The status of the command
- */
+
+void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+	std::vector<std::string> excludes;
+
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("CheckAll", po::value<std::string>()->implicit_value("true"), "Check all services.")
+		("ShowAll", po::value<std::string>()->implicit_value("long"), "Show status for all services.")
+		("exclude", po::value<std::vector<std::string> >(&excludes), "Exclude services")
+		;
+
+	boost::program_options::variables_map vm;
+	std::vector<std::string> extra;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+		return;
+	std::string filter, crit;
+
+	request.clear_arguments();
+	if (vm.count("ShowAll"))
+		request.add_arguments("top-syntax=${state}: ${list}");
+	else 
+		request.add_arguments("top-syntax=${state}: ${problem_list}");
+	request.add_arguments("detail-syntax=${name} : ${state}");
+	BOOST_FOREACH(const std::string &s, extra) {
+		std::string::size_type pos = s.find('=');
+		if (pos != std::string::npos) {
+			request.add_arguments("service=" + s.substr(0, pos));
+			strEx::append_list(crit, "name = '" + s.substr(0, pos) + "' and state = '" + s.substr(pos+1) +"'", " AND ");
+		} else {
+			request.add_arguments("service=" + s);
+			strEx::append_list(crit, "'" + s + "' = 'started'", " AND ");
+		}
+	}
+	BOOST_FOREACH(const std::string &s, excludes) {
+		strEx::append_list(filter, "name != '" + s + "'", " AND ");
+	}
+	if (!crit.empty())
+		request.add_arguments("crit=" + crit);
+	if (!filter.empty())
+		request.add_arguments("filter=" + filter);
+
+	log_args(request);
+	check_service(request, response);
+
+}
+
+
+
 void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_svc_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-	std::vector<std::string> services;
+	std::vector<std::string> services, excludes;
 	std::string type;
 	std::string state;
 	std::string computer;
@@ -651,6 +784,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
+		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly usefull in combination with service=*)")
 		("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
 		("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
 		;
@@ -671,6 +805,10 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	BOOST_FOREACH(const std::string &service, services) {
 		if (service == "*") {
 			BOOST_FOREACH(const services_helper::service_info &info, services_helper::enum_services(computer, services_helper::parse_service_type(type), services_helper::parse_service_state(state))) {
+				if (std::find(excludes.begin(), excludes.end(), info.get_name())!=excludes.end()
+					|| std::find(excludes.begin(), excludes.end(), info.get_desc())!=excludes.end()
+					)
+					continue;
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
 				boost::tuple<bool,bool> ret = filter.match(record);
 			}
@@ -716,6 +854,57 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);
 }
+
+
+void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> types;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("type", po::value<std::vector<std::string>>(&types), "The types to check")
+		;
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=used > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=used > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=used < " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=used > " + vm["MaxWarn"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (vm.count("ShowAll"))
+		request.add_arguments("top-syntax=${status}: ${list}");
+	else
+		request.add_arguments("top-syntax=${status}: ${problem_list}");
+	BOOST_FOREACH(const std::string &t, types) {
+		if (t == "page" || t == "paged")
+			request.add_arguments("type=commited");
+		else
+			request.add_arguments("type=" + t);
+	}
+	log_args(request);
+	check_memory(request, response);
+
+}
+
 /**
  * Check available memory and return various check results
  * Example: checkMem showAll maxWarn=50 maxCrit=75
@@ -797,20 +986,80 @@ class NSC_error : public process_helper::error_reporter {
 	}
 };
 
+
+void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+	std::vector<std::string> excludes;
+
+	// MinCritCount
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("MaxWarnCount", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCritCount", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarnCount", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCritCount", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("ShowAll", po::value<std::string>()->implicit_value("long"), "Show more/all status all services.")
+		;
+
+	boost::program_options::variables_map vm;
+	std::vector<std::string> extra;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+		return;
+	std::string filter, warn, crit;
+
+	request.clear_arguments();
+
+	if (vm.count("MaxWarnCount"))
+		warn = "count > " + vm["MaxWarnCount"].as<std::string>();
+	if (vm.count("MaxCritCount"))
+		crit = "count > " + vm["MaxCritCount"].as<std::string>();
+	if (vm.count("MinWarnCount"))
+		warn = "count < " + vm["MinWarnCount"].as<std::string>();
+	if (vm.count("MinCritCount"))
+		crit = "count > " + vm["MinCritCount"].as<std::string>();
+
+	if (vm.count("ShowAll"))
+		request.add_arguments("top-syntax=${state}: ${list}");
+	else 
+		request.add_arguments("top-syntax=${state}: ${problem_list}");
+	request.add_arguments("detail-syntax=${exe} : ${state}");
+	BOOST_FOREACH(const std::string &s, extra) {
+		std::string::size_type pos = s.find('=');
+		if (pos != std::string::npos) {
+			request.add_arguments("process=" + s.substr(0, pos));
+			strEx::append_list(crit, "(exe like '" + s.substr(0, pos) + "' and state != '" + s.substr(pos+1) +"')", " or ");
+		} else {
+			request.add_arguments("process=" + s);
+			strEx::append_list(crit, "(exe like '" + s + "' and state != 'started')", " or ");
+		}
+	}
+	if (!crit.empty())
+		request.add_arguments("crit=" + crit);
+	if (!filter.empty())
+		request.add_arguments("filter=" + filter);
+
+	log_args(request);
+	check_process(request, response);
+
+}
 void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_proc_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> processes;
 	bool deep_scan = true;
+	bool vdm_scan = false;
+	bool unreadable_scan = true;
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
+	filter_helper.add_options(filter.get_filter_syntax(), "OK all processes are ok.");
 	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
-		("deep-scan", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
+		("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
+		("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
+		("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
 		;
 
 	if (!filter_helper.parse_options())
@@ -837,15 +1086,19 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 			procs.insert(process);
 	}
 
-	BOOST_FOREACH(const process_helper::process_info &info, process_helper::enumerate_processes(true, true, &err)) {
+	std::vector<std::string> matched;
+	BOOST_FOREACH(const process_helper::process_info &info, process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err)) {
 		bool wanted = procs.count(info.exe);
 		if (all || wanted) {
 			boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
 			boost::tuple<bool,bool> ret = filter.match(record);
 		}
 		if (wanted) {
-			procs.erase(info.exe);
+			matched.push_back(info.exe);
 		}
+	}
+	BOOST_FOREACH(const std::string &proc, matched) {
+		procs.erase(proc);
 	}
 	BOOST_FOREACH(const std::string proc, procs) {
 		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
@@ -855,18 +1108,60 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	filter_helper.post_process(filter, &writer);
 }
 
-/**
- * Check a counter and return the value
- *
- * @param command Command to execute
- * @param argLen The length of the argument buffer
- * @param **char_args The argument buffer
- * @param &msg String to put message in
- * @param &perf String to put performance data in 
- * @return The status of the command
- *
- * @todo add parsing support for NRPE
- */
+void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> counters;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("Counter", po::value<std::vector<std::string>>(&counters), "The time to check")
+		;
+
+	boost::program_options::variables_map vm;
+	std::vector<std::string> extra;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=value > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=value > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=value < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=value > " + vm["MinCrit"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (vm.count("ShowAll")) {
+		request.add_arguments("top-syntax=${status}: ${list}");
+	}
+
+	BOOST_FOREACH(const std::string &s, extra) {
+		if ((s.size() > 8) && (s.substr(0,8) == "Counter:")) {
+			std::string::size_type pos = s.find('=');
+			if (pos != std::string::npos) {
+				request.add_arguments("counter:" +  s.substr(8));
+			}
+		}
+	}
+
+	BOOST_FOREACH(const std::string &t, counters) {
+		request.add_arguments("counter=" + t);
+	}
+	log_args(request);
+	check_pdh(request, response);
+
+}
+
 void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	pdh_checker.check_pdh(collector, request, response);
 }
