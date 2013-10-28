@@ -414,7 +414,36 @@ namespace nscapi {
 			}
 		}
 		template<class T, class U>
-		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, bool allow_unknown = false, std::vector<std::string> &extra = std::vector<std::string>()) {
+		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response) {
+			try {
+				basic_command_line_parser cmd(request);
+				cmd.options(desc);
+				if (request.arguments_size() > 0) {
+					std::string a = request.arguments(0);
+					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
+						cmd.extra_style_parser(nscapi::program_options::option_parser_kvp);
+				}
+
+				po::parsed_options parsed = cmd.run();
+				po::store(parsed, vm);
+				po::notify(vm);
+
+				if (vm.count("help-csv")) {
+					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+					return false;
+				}
+				if (vm.count("help")) {
+					nscapi::protobuf::functions::set_response_good(response, help(desc));
+					return false;
+				}
+				return true;
+			} catch (const std::exception &e) {
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
+				return false;
+			}
+		}
+		template<class T, class U>
+		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, bool allow_unknown, std::vector<std::string> &extra) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
