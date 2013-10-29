@@ -1,32 +1,16 @@
 
 #include <settings/client/settings_client.hpp>
-//#include <tchar.h>
 
 namespace nscapi {
 	namespace settings_helper {
-/*
-		template<typename T>
-		typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* wstring_vector_key(T *val, typename T::key_type key, std::wstring def) {
-			typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >* r = new typed_key_entry_in_vector<std::wstring, T, typed_string_value<std::wstring> >(val, key, def);
-			return r;
-		}
-*/
 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val, std::wstring def) {
 			boost::shared_ptr<wstring_key_type> r(new wstring_key_type(val, def, true));
 			return r;
 		}
-// 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val) {
-// 			boost::shared_ptr<wstring_key_type> r(new wstring_key_type(val, _T(""), false));
-// 			return r;
-// 		}
 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def) {
 			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, def, true));
 			return r;
 		}
-// 		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val) {
-// 			boost::shared_ptr<wpath_key_type> r(new wpath_key_type(val, _T(""), false));
-// 			return r;
-// 		}
 		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def) {
 			boost::shared_ptr<path_key_type> r(new path_key_type(val, def, true));
 			return r;

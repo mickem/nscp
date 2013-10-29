@@ -127,35 +127,35 @@ namespace nsclient {
 							std::string name = core_->get_plugin_module_name(i);
 							if (match_filter(name))
 								include = true;
-							json_plugins.push_back(json_spirit::Pair(strEx::s::xtos(i), name));
+							json_plugins.insert(json_spirit::Object::value_type(strEx::s::xtos(i), name));
 						}
 						if (!include)
 							continue;
 
 						json_spirit::Object json_path;
-						json_path.push_back(json_spirit::Pair("path", path));
-						json_path.push_back(json_spirit::Pair("title", desc.title));
-						json_path.push_back(json_spirit::Pair("description", desc.description));
-						json_path.push_back(json_spirit::Pair("plugins", json_plugins));
-						json_path.push_back(json_spirit::Pair("advanced", desc.advanced));
+						json_path.insert(json_spirit::Object::value_type("path", path));
+						json_path.insert(json_spirit::Object::value_type("title", desc.title));
+						json_path.insert(json_spirit::Object::value_type("description", desc.description));
+						json_path.insert(json_spirit::Object::value_type("plugins", json_plugins));
+						json_path.insert(json_spirit::Object::value_type("advanced", desc.advanced));
 						if (use_samples_)
-							json_path.push_back(json_spirit::Pair("sample", desc.is_sample));
+							json_path.insert(json_spirit::Pair("sample", desc.is_sample));
 
 						json_spirit::Object json_keys;
 						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, use_samples_)) {
 							settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 							json_spirit::Object json_key;
-							json_key.push_back(json_spirit::Pair("key", key));
-							json_key.push_back(json_spirit::Pair("title", desc.title));
-							json_key.push_back(json_spirit::Pair("description", desc.description));
-							json_key.push_back(json_spirit::Pair("default value", desc.defValue));
-							json_key.push_back(json_spirit::Pair("advanced", desc.advanced));
+							json_key.insert(json_spirit::Object::value_type("key", key));
+							json_key.insert(json_spirit::Object::value_type("title", desc.title));
+							json_key.insert(json_spirit::Object::value_type("description", desc.description));
+							json_key.insert(json_spirit::Object::value_type("default value", desc.defValue));
+							json_key.insert(json_spirit::Object::value_type("advanced", desc.advanced));
 							if (use_samples_)
-								json_key.push_back(json_spirit::Pair("sample", desc.is_sample));
-							json_keys.push_back(json_spirit::Pair(key, json_key));
+								json_key.insert(json_spirit::Object::value_type("sample", desc.is_sample));
+							json_keys.insert(json_spirit::Object::value_type(key, json_key));
 						}
-						json_path.push_back(json_spirit::Pair("keys", json_keys));
-						json_root.push_back(json_spirit::Pair(path, json_path));
+						json_path.insert(json_spirit::Object::value_type("keys", json_keys));
+						json_root.insert(json_spirit::Object::value_type(path, json_path));
 					}
 					if (target == "json-compact")
 						write(json_root, std::cout);

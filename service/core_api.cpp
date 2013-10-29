@@ -291,28 +291,28 @@ ROOT Level
 }
 */
 
-#define SET_STR(obj, src, tag) if (src.value_.type() == json_spirit::str_type && src.name_ == # tag) { obj->set_ ## tag(src.value_.get_str()); continue; }
-#define SET_BOOL(obj, src, tag) if (src.value_.type() == json_spirit::bool_type && src.name_ == # tag) { obj->set_ ## tag(src.value_.get_bool()); continue; }
-#define SET_STR_LIST(obj, src, tag) if (src.value_.type() == json_spirit::str_type && src.name_ == # tag) { obj->add_ ## tag(src.value_.get_str()); continue; } \
-	if (src.value_.type() == json_spirit::array_type && src.name_ == # tag) { BOOST_FOREACH(const json_spirit::Value &s, src.value_.get_array()) { if (s.type() == json_spirit::str_type) { obj->add_ ## tag(s.get_str());}} continue; }
-#define SET_INT64(obj, src, tag) if (src.value_.type() == json_spirit::int_type && src.name_ == # tag) { obj->set_ ## tag(src.value_.get_int64()); continue; }
-#define SET_INT(obj, src, tag) if (src.value_.type() == json_spirit::int_type && src.name_ == # tag) { obj->set_ ## tag(src.value_.get_int()); continue; }
-#define DELEGATE_OBJ(obj, src, tag, fun) if (src.value_.type() == json_spirit::obj_type && src.name_ == # tag) { fun(obj->mutable_ ## tag(), src.value_.get_obj()); continue; }
+#define SET_STR(obj, src, tag) if (src.second.isString() && src.first == # tag) { obj->set_ ## tag(src.second.getString()); continue; }
+#define SET_BOOL(obj, src, tag) if (src.second.isBool() && src.first == # tag) { obj->set_ ## tag(src.second.getBool()); continue; }
+#define SET_STR_LIST(obj, src, tag) if (src.second.isString() && src.first == # tag) { obj->add_ ## tag(src.second.getString()); continue; } \
+	if (src.second.isArray() && src.first == # tag) { BOOST_FOREACH(const json_spirit::Value &s, src.second.getArray()) { if (s.isString()) { obj->add_ ## tag(s.getString());}} continue; }
+#define SET_INT64(obj, src, tag) if (src.second.isInt64() && src.first == # tag) { obj->set_ ## tag(src.second.getInt64()); continue; }
+#define SET_INT(obj, src, tag) if (src.second.isInt() && src.first == # tag) { obj->set_ ## tag(src.second.getInt()); continue; }
+#define DELEGATE_OBJ(obj, src, tag, fun) if (src.second.isObject() && src.first == # tag) { fun(obj->mutable_ ## tag(), src.second.getObject()); continue; }
 
 
 void parse_json_header(Plugin::Common_Header* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
-		if (node.value_.type() == json_spirit::str_type) {
-			if (node.name_ == "version") {
-				if (node.value_.get_str() == "1")
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
+		if (node.second.type() == json_spirit::Value::STRING_TYPE) {
+			if (node.first == "version") {
+				if (node.second.getString() == "1")
 					gpb->set_version(Plugin::Common_Version_VERSION_1);
 				else
-					LOG_ERROR_STD("Invalid version: " + node.value_.get_str());
-			} else if (node.name_ == "max_supported_version") {
-				if (node.value_.get_str() == "1")
+					LOG_ERROR_STD("Invalid version: " + node.second.getString());
+			} else if (node.first == "max_supported_version") {
+				if (node.second.getString() == "1")
 					gpb->set_max_supported_version(Plugin::Common_Version_VERSION_1);
 				else
-					LOG_ERROR_STD("Invalid max_supported_version: " + node.value_.get_str());
+					LOG_ERROR_STD("Invalid max_supported_version: " + node.second.getString());
 			}
 		}
 		SET_STR(gpb, node, source_id);
@@ -327,7 +327,7 @@ void parse_json_header(Plugin::Common_Header* gpb, const json_spirit::Object &js
 }
 
 void parse_json_settings_common_node(Plugin::Settings::Node* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_STR(gpb, node, path);
 		SET_STR(gpb, node, key);
 	}
@@ -335,42 +335,42 @@ void parse_json_settings_common_node(Plugin::Settings::Node* gpb, const json_spi
 
 template<class T>
 void parse_json_settings_common_type(T* gpb, const json_spirit::Pair &node, const std::string &alias) {
-	if (node.value_.type() == json_spirit::str_type && node.name_ == alias) {
-		if (node.value_ == "INT")
+	if (node.second.isString() && node.first == alias) {
+		if (node.second == "INT")
 			gpb->set_type(Plugin::Common_DataType_INT);
-		else if (node.value_ == "STRING")
+		else if (node.second == "STRING")
 			gpb->set_type(Plugin::Common_DataType_STRING);
-		else if (node.value_ == "FLOAT")
+		else if (node.second == "FLOAT")
 			gpb->set_type(Plugin::Common_DataType_FLOAT);
-		else if (node.value_ == "BOOL")
+		else if (node.second == "BOOL")
 			gpb->set_type(Plugin::Common_DataType_BOOL);
-		else if (node.value_ == "LIST")
+		else if (node.second == "LIST")
 			gpb->set_type(Plugin::Common_DataType_LIST);
 	}
 }
 
 template<class T>
 void parse_json_registry_common_type(T* gpb, const json_spirit::Pair &node, const std::string &alias) {
-	if (node.value_.type() == json_spirit::str_type && node.name_ == alias) {
-		if (node.value_ == "QUERY")
+	if (node.second.isString() && node.first == alias) {
+		if (node.second == "QUERY")
 			gpb->set_type(Plugin::Registry::QUERY);
-		else if (node.value_ == "COMMAND")
+		else if (node.second == "COMMAND")
 			gpb->set_type(Plugin::Registry::COMMAND);
-		else if (node.value_ == "HANDLER")
+		else if (node.second == "HANDLER")
 			gpb->set_type(Plugin::Registry::HANDLER);
-		else if (node.value_ == "PLUGIN")
+		else if (node.second == "PLUGIN")
 			gpb->set_type(Plugin::Registry::PLUGIN);
-		else if (node.value_ == "QUERY_ALIAS")
+		else if (node.second == "QUERY_ALIAS")
 			gpb->set_type(Plugin::Registry::QUERY_ALIAS);
-		else if (node.value_ == "ROUTER")
+		else if (node.second == "ROUTER")
 			gpb->set_type(Plugin::Registry::ROUTER);
-		else if (node.value_ == "ALL")
+		else if (node.second == "ALL")
 			gpb->set_type(Plugin::Registry::ALL);
 	}
 }
 
 void parse_json_common_any_data(Plugin::Common::AnyDataType* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		parse_json_settings_common_type(gpb, node, "type");
 		SET_STR(gpb, node, string_data);
 		SET_INT64(gpb, node, int_data);
@@ -382,7 +382,7 @@ void parse_json_common_any_data(Plugin::Common::AnyDataType* gpb, const json_spi
 }
 
 void parse_json_settings_common_info(Plugin::Settings::Information* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_STR(gpb, node, title);
 		SET_STR(gpb, node, description);
 		DELEGATE_OBJ(gpb, node, default_value, parse_json_common_any_data);
@@ -396,7 +396,7 @@ void parse_json_settings_common_info(Plugin::Settings::Information* gpb, const j
 }
 
 void parse_json_registry_common_info(Plugin::Registry::Information* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_STR(gpb, node, title);
 		SET_STR(gpb, node, description);
 		// TODO: metadata
@@ -408,13 +408,13 @@ void parse_json_registry_common_info(Plugin::Registry::Information* gpb, const j
 }
 
 void parse_json_settings_payload_registration(Plugin::SettingsRequestMessage::Request::Registration* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		DELEGATE_OBJ(gpb, node, node, parse_json_settings_common_node);
 		DELEGATE_OBJ(gpb, node, info, parse_json_settings_common_info);
 	}
 }
 void parse_json_registry_payload_registration(Plugin::RegistryRequestMessage::Request::Registration* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_INT(gpb, node, plugin_id);
 		parse_json_registry_common_type(gpb, node, "type");
 		SET_STR(gpb, node, name);
@@ -423,7 +423,7 @@ void parse_json_registry_payload_registration(Plugin::RegistryRequestMessage::Re
 	}
 }
 void parse_json_settings_payload_query(Plugin::SettingsRequestMessage::Request::Query* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		DELEGATE_OBJ(gpb, node, node, parse_json_settings_common_node);
 		// TODO:; QUery
 		SET_BOOL(gpb, node, recursive);
@@ -432,14 +432,14 @@ void parse_json_settings_payload_query(Plugin::SettingsRequestMessage::Request::
 	}
 }
 void parse_json_settings_payload_update(Plugin::SettingsRequestMessage::Request::Update* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		DELEGATE_OBJ(gpb, node, node, parse_json_settings_common_node);
 		DELEGATE_OBJ(gpb, node, value, parse_json_common_any_data);
 	}
 }
 
 void parse_json_settings_payload(Plugin::SettingsRequestMessage_Request* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_INT64(gpb, node, id);
 		SET_INT(gpb, node, plugin_id);
 		DELEGATE_OBJ(gpb, node, registration, parse_json_settings_payload_registration);
@@ -449,7 +449,7 @@ void parse_json_settings_payload(Plugin::SettingsRequestMessage_Request* gpb, co
 }
 
 void parse_json_registry_payload(Plugin::RegistryRequestMessage_Request* gpb, const json_spirit::Object &json) {
-	BOOST_FOREACH(const json_spirit::Pair &node, json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_INT64(gpb, node, id);
 		//SET_INT(gpb, node, plugin_id);
 		DELEGATE_OBJ(gpb, node, registration, parse_json_registry_payload_registration);
@@ -486,14 +486,14 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		std::string object_type;
 		json_spirit::Object header;
 		std::list<json_spirit::Object> payloads;
-		json_spirit::Object o = root.get_obj();
+		json_spirit::Object o = root.getObject();
 		BOOST_FOREACH(const json_spirit::Pair &p, o) {
-			if (p.name_ == "type" && p.value_.type() == json_spirit::str_type)
-				object_type = p.value_.get_str();
-			if (p.name_ == "payload" && p.value_.type() == json_spirit::obj_type)
-				payloads.push_back(p.value_.get_obj());
-			if (p.name_ == "header" && p.value_.type() == json_spirit::obj_type)
-				header = p.value_.get_obj();
+			if (p.first == "type" && p.second.type() == json_spirit::Value::STRING_TYPE)
+				object_type = p.second.getString();
+			if (p.first == "payload" && p.second.isObject())
+				payloads.push_back(p.second.getObject());
+			if (p.first == "header" && p.second.isObject())
+				header = p.second.getObject();
 		}
 		std::string response;
 		if (object_type.empty() || payloads.size() == 0) {
@@ -514,31 +514,31 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			*response_buffer = new char[*response_buffer_len + 10];
 			memcpy(*response_buffer, response.c_str(), *response_buffer_len);
 		}
-	} catch (const json_spirit::Error_position &e) {
+	} catch (const json_spirit::ParseError &e) {
 		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
 }
 
-#define SET_JSON_VALUE(gpb, node, tag) if (gpb.has_##tag()) { node.push_back(json_spirit::Pair(#tag, gpb.tag())); }
-#define SET_JSON_VALUE_LIST(gpb, node, tag) if (gpb.tag ## _size() > 0) { json_spirit::Array arr; for (int i=0;i<gpb.tag ## _size();++i) { arr.push_back(json_spirit::Value(gpb.tag(i)));} node.push_back(json_spirit::Pair(#tag, arr)); }
-#define SET_JSON_NILL(gpb, node, tag) if (gpb.has_##tag()) { node.push_back(json_spirit::Pair(#tag, json_spirit::Object())); }
-#define SET_JSON_DELEGATE(gpb, node, tag, fun) if (gpb.has_##tag()) { node.push_back(json_spirit::Pair(#tag, fun(gpb.tag()))); }
+#define SET_JSON_VALUE(gpb, node, tag) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, gpb.tag())); }
+#define SET_JSON_VALUE_LIST(gpb, node, tag) if (gpb.tag ## _size() > 0) { json_spirit::Array arr; for (int i=0;i<gpb.tag ## _size();++i) { arr.push_back(json_spirit::Value(gpb.tag(i)));} node.insert(json_spirit::Object::value_type(#tag, arr)); }
+#define SET_JSON_NILL(gpb, node, tag) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, json_spirit::Object())); }
+#define SET_JSON_DELEGATE(gpb, node, tag, fun) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, fun(gpb.tag()))); }
 
 json_spirit::Object build_json_header(const ::Plugin::Common_Header& gpb) {
 	json_spirit::Object node;
-// 	if (node.value_.type() == json_spirit::str_type) {
-// 		if (node.name_ == "version") {
-// 			if (node.value_.get_str() == "1")
+// 	if (node.second.type() == json_spirit::Value::STRING_TYPE) {
+// 		if (node.first == "version") {
+// 			if (node.second.getString() == "1")
 // 				gpb->set_version(Plugin::Common_Version_VERSION_1);
 // 			else
-// 				LOG_ERROR_STD("Invalid version: " + node.value_.get_str());
-// 		} else if (node.name_ == "max_supported_version") {
-// 			if (node.value_.get_str() == "1")
+// 				LOG_ERROR_STD("Invalid version: " + node.second.getString());
+// 		} else if (node.first == "max_supported_version") {
+// 			if (node.second.getString() == "1")
 // 				gpb->set_max_supported_version(Plugin::Common_Version_VERSION_1);
 // 			else
-// 				LOG_ERROR_STD("Invalid max_supported_version: " + node.value_.get_str());
+// 				LOG_ERROR_STD("Invalid max_supported_version: " + node.second.getString());
 // 		}
 // 	}
 	SET_JSON_VALUE(gpb, node, source_id);
@@ -613,22 +613,22 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 		if (obj == "SettingsResponseMessage") {
 			Plugin::SettingsResponseMessage message;
 			message.ParseFromString(request);
-			root.push_back(json_spirit::Pair("type", obj));
-			root.push_back(json_spirit::Pair("header", build_json_header(message.header())));
+			root.insert(json_spirit::Object::value_type("type", obj));
+			root.insert(json_spirit::Object::value_type("header", build_json_header(message.header())));
 			if (message.payload_size() != 1) {
 				LOG_ERROR_STD("Invalid size: " + obj);
 			} else {
-				root.push_back(json_spirit::Pair("payload", build_json_settings_response_payload(message.payload(0))));
+				root.insert(json_spirit::Object::value_type("payload", build_json_settings_response_payload(message.payload(0))));
 			}
 		} else if (obj == "RegistryResponseMessage") {
 			Plugin::RegistryResponseMessage message;
 			message.ParseFromString(request);
-			root.push_back(json_spirit::Pair("type", obj));
-			root.push_back(json_spirit::Pair("header", build_json_header(message.header())));
+			root.insert(json_spirit::Object::value_type("type", obj));
+			root.insert(json_spirit::Object::value_type("header", build_json_header(message.header())));
 			if (message.payload_size() != 1) {
 				LOG_ERROR_STD("Invalid size: " + obj);
 			} else {
-				root.push_back(json_spirit::Pair("payload", build_json_query_response_payload(message.payload(0))));
+				root.insert(json_spirit::Pair("payload", build_json_query_response_payload(message.payload(0))));
 			}
 		} else {
 			LOG_ERROR_STD("Invalid type: " + obj);
@@ -642,7 +642,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			*response_buffer = new char[*response_buffer_len + 10];
 			memcpy(*response_buffer, response.c_str(), *response_buffer_len);
 		}
-	} catch (const json_spirit::Error_position &e) {
+	} catch (const json_spirit::ParseError &e) {
 		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
 		return NSCAPI::hasFailed;
 	}
