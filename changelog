@@ -1,3 +1,7 @@
+2013-10-29 MickeM
+ * Added json_sprit as a submodule to see if this works better.
+ * Changed so json_sprit now builds using their own cmake file which means it should hopefully be better ready for future versions.
+
 2013-10-28 MickeM
  * Compatiblity layer added for most "old" checks.
    The way this works is that CheckCpu is the old check and check_cpu is the new.

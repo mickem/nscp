@@ -1,0 +1,3 @@
+[submodule "ext/json-spirit"]
+	path = ext/json-spirit
+	url = https://github.com/sirikata/json-spirit.git

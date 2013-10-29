@@ -168,7 +168,6 @@ INCLUDE_DIRECTORIES("${PROJECT_BINARY_DIR}")
 add_definitions(-DUNICODE -D_UNICODE)
 
 IF(WIN32)
-  SET(LIB_INSTALL_DIR "lib" CACHE STRING "Default path for libraries within ${CMAKE_INSTALL_PREFIX}")
   SET(RUNDIR "c:/nscp" CACHE PATH "Not really used in WIN32")
 ELSE(WIN32)
   SET(USERLIB_ROOT /usr CACHE PATH "Other installation prefix for dependent libraries")
@@ -235,6 +234,9 @@ INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
 # Build all included and required libraries
 #
 #############################################################################
+IF(JSON_SPIRIT_CMAKE)
+	ADD_SUBDIRECTORY(${JSON_SPIRIT_CMAKE})
+ENDIF(JSON_SPIRIT_CMAKE)
 
 SET(ALL_LIB_NAMES)
 MESSAGE(STATUS "Adding libraries")
