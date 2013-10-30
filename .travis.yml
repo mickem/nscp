@@ -15,9 +15,7 @@ before_install:
   - sudo apt-get install -y python-sphinx
   - sudo apt-get install -y libcrypto++-dev libcrypto++
   - sudo apt-get install -y liblua5.1-0-dev
-# Seems gtest on debian lacks libs :(
-#  - sudo apt-get install -y libgtest-dev
-# Fix for google protobuffer crappy instakll script (strange that googles stuff is always broken?)
+  - sudo apt-get install -y libgtest-dev
   - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
   - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
 
