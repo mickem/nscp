@@ -13,3 +13,4 @@ before_install:
   - sudo apt-get install -y rst2pdf  
   - sudo apt-get install -y python-sphinx
   - sudo apt-get install -y libcrypto++-dev libcrypto++
+  - sudo apt-get install -y liblua5.1-0-dev

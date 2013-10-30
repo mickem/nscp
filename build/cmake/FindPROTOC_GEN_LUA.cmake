@@ -7,6 +7,7 @@ FIND_PROGRAM(PROTOC_GEN_LUA_BIN
 	NAMES
 		${EXE_NAME}
 	PATHS 
+		${CMAKE_SOURCE_DIR}/ext/lua-protobuf
 		${PROTOC_GEN_LUA}
 		/usr/local/bin/
 		/usr/bin/

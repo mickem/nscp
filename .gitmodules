@@ -4,3 +4,6 @@
 [submodule "ext/tinyxml2"]
 	path = ext/tinyxml2
 	url = https://github.com/leethomason/tinyxml2.git
+[submodule "ext/lua-protobuf"]
+	path = ext/lua-protobuf
+	url = git@github.com:mickem/lua-protobuf.git
