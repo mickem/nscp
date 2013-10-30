@@ -139,7 +139,7 @@ namespace nsclient {
 						json_path.insert(json_spirit::Object::value_type("plugins", json_plugins));
 						json_path.insert(json_spirit::Object::value_type("advanced", desc.advanced));
 						if (use_samples_)
-							json_path.insert(json_spirit::Pair("sample", desc.is_sample));
+							json_path.insert(json_spirit::Object::value_type("sample", desc.is_sample));
 
 						json_spirit::Object json_keys;
 						BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, use_samples_)) {
