@@ -334,7 +334,7 @@ void parse_json_settings_common_node(Plugin::Settings::Node* gpb, const json_spi
 }
 
 template<class T>
-void parse_json_settings_common_type(T* gpb, const json_spirit::Pair &node, const std::string &alias) {
+void parse_json_settings_common_type(T* gpb, const json_spirit::Object::value_type &node, const std::string &alias) {
 	if (node.second.isString() && node.first == alias) {
 		if (node.second == "INT")
 			gpb->set_type(Plugin::Common_DataType_INT);
@@ -350,7 +350,7 @@ void parse_json_settings_common_type(T* gpb, const json_spirit::Pair &node, cons
 }
 
 template<class T>
-void parse_json_registry_common_type(T* gpb, const json_spirit::Pair &node, const std::string &alias) {
+void parse_json_registry_common_type(T* gpb, const json_spirit::Object::value_type &node, const std::string &alias) {
 	if (node.second.isString() && node.first == alias) {
 		if (node.second == "QUERY")
 			gpb->set_type(Plugin::Registry::QUERY);
@@ -487,7 +487,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		json_spirit::Object header;
 		std::list<json_spirit::Object> payloads;
 		json_spirit::Object o = root.getObject();
-		BOOST_FOREACH(const json_spirit::Pair &p, o) {
+		BOOST_FOREACH(const json_spirit::Object::value_type &p, o) {
 			if (p.first == "type" && p.second.type() == json_spirit::Value::STRING_TYPE)
 				object_type = p.second.getString();
 			if (p.first == "payload" && p.second.isObject())
@@ -628,7 +628,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			if (message.payload_size() != 1) {
 				LOG_ERROR_STD("Invalid size: " + obj);
 			} else {
-				root.insert(json_spirit::Pair("payload", build_json_query_response_payload(message.payload(0))));
+				root.insert(json_spirit::Object::value_type("payload", build_json_query_response_payload(message.payload(0))));
 			}
 		} else {
 			LOG_ERROR_STD("Invalid type: " + obj);
