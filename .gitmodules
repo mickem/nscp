@@ -6,4 +6,4 @@
 	url = https://github.com/leethomason/tinyxml2.git
 [submodule "ext/lua-protobuf"]
 	path = ext/lua-protobuf
-	url = git@github.com:mickem/lua-protobuf.git
+	url = https://github.com/mickem/lua-protobuf.git
