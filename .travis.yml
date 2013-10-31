@@ -20,7 +20,7 @@ before_install:
 script:
   - mkdir -p tmp
   - pushd tmp
-  - cmake
+  - cmake ..
   - make
 after_success:
   - make test
