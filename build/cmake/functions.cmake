@@ -58,6 +58,7 @@ IF (LUA_FOUND)
 			unit
 			--language lua
 			--script ${script}.lua
+			--log error
 		)
 ELSE (LUA_FOUND)
 	MESSAGE(STATUS "Skipping test ${name} since lua is not avalible")
