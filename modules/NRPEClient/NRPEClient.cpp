@@ -140,7 +140,7 @@ void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &requ
 	commands.parse_query(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
 }
 
-void NRPEClient::nrpe_forward(const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
+void NRPEClient::nrpe_forward(const std::string &command, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
 	client::configuration config(nrpe_client::command_prefix, 
 		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
 		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));

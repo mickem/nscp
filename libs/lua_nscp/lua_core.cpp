@@ -21,54 +21,46 @@ void lua::lua_runtime::register_subscription(const std::string &channel, const s
 void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message)
 {
 	lua_wrapper lua(prep_function(information, function));
+	int args = 2;
+	if (function.object_ref != 0)
+		args = 3;
 	if (simple) {
-		int args = 2;
-		if (function.object_ref != 0)
-			args = 3;
 		std::list<std::string> argslist;
 		for (int i=0;i<request.arguments_size();i++)
 			argslist.push_back(request.arguments(i));
 		lua.push_string(command);
 		lua.push_array(argslist);
-		std::string msg, perf;
-		if (lua.pcall(args, LUA_MULTRET, 0) != 0)
+		if (lua.pcall(args, 3, 0) != 0)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
 		NSCAPI::nagiosReturn ret = NSCAPI::returnUNKNOWN;
-		int arg_count = lua.size();
-		if (arg_count > 3) {
+		if (lua.size() < 3) {
 			NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
+			nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::returnUNKNOWN, "Invalid return", "");
+			return;
 		}
-		if (arg_count > 2)
-			perf = lua.pop_string();
-		if (arg_count > 1)
-			msg = lua.pop_string();
-		if (arg_count > 0)
-			ret = lua.pop_code();
+		std::string msg, perf;
+		perf = lua.pop_string();
+		msg = lua.pop_string();
+		ret = lua.pop_code();
 		lua.gc(LUA_GCCOLLECT, 0);
 		nscapi::protobuf::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
 	} else {
-		int args = 2;
-		if (function.object_ref != 0)
-			args = 3;
 		lua.push_string(command);
 		lua.push_raw_string(request_message.SerializeAsString());
-		if (lua.pcall(args, LUA_MULTRET, 0) != 0)
+		if (lua.pcall(args, 1, 0) != 0)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
-		int arg_count = lua.size();
-		if (arg_count > 2)
-			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid return: " + lua.dump_stack());
-		if (arg_count > 1) {
-			Plugin::QueryResponseMessage local_response;
-			local_response.ParseFromString(lua.pop_string());
-			if (local_response.payload_size() != 1)
-				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + command);
-			response->CopyFrom(local_response.payload(0));
+		if (lua.size() < 1) {
+			NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
+			nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::returnUNKNOWN, "Invalid return", "");
+			return;
 		}
+		Plugin::QueryResponseMessage local_response;
+		local_response.ParseFromString(lua.pop_string());
+		if (local_response.payload_size() != 1)
+			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + command);
+		response->CopyFrom(local_response.payload(0));
 		lua.gc(LUA_GCCOLLECT, 0);
-		if (arg_count > 0)
-			lua.pop_code();
 	}
-	return nscapi::protobuf::functions::set_response_bad(*response, "No arguments returned from script.");
 }
 
 NSCAPI::nagiosReturn lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response)

@@ -29,16 +29,18 @@ namespace client {
 		std::string message;
 		std::string result;
 		std::vector<std::string> arguments;
+		int retry;
 
 		nscapi::protobuf::types::destination_container host_self;
 		nscapi::protobuf::types::destination_container recipient;
 
 		int timeout;
 
-		nscp_cli_data() : timeout(10) {}
+		nscp_cli_data() : timeout(10), retry(2) {}
 		std::string to_string() {
 			std::stringstream ss;
 			ss << "Timeout: " << timeout;
+			ss << ", retry: " << retry;
 			ss << ", command: " << command;
 			ss << ", target: " << target_id;
 			ss << ", self: {" << host_self.to_string() << "}";
@@ -137,7 +139,7 @@ namespace client {
 		void do_exec(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::ExecuteResponseMessage::Response &response);
 		void do_submit(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::SubmitResponseMessage::Response &response);
 		
-		void forward_query(client::configuration &config, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
+		void forward_query(client::configuration &config, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 		void forward_exec(client::configuration &config, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage::Response &response);
 		void forward_submit(client::configuration &config, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
 	};

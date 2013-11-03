@@ -62,6 +62,7 @@ namespace nrpe_client {
 			ssl.dh_key = arguments.get_string_data("dh");
 			ssl.verify_mode = arguments.get_string_data("verify mode");
 			timeout = arguments.get_int_data("timeout", 30);
+			retry = arguments.get_int_data("retry", 2);
 			buffer_length = arguments.get_int_data("payload length", 1024);
 
 			if (arguments.has_data("no ssl"))

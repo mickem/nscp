@@ -346,8 +346,8 @@ bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 		response->set_message(result);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 	}
-	if (request.command() != "execute-and-load-python" && request.command() != "execute-python" && request.command() != "python-script"
-		&& request.command() != "run" && request.command() != "execute" && request.command() != "exec" && request.command() != "") {
+	if (request.command() != "python-script" && request.command() != "python-run" 
+		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
 			return false;
 	}
 

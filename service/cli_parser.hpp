@@ -577,10 +577,10 @@ public:
 					args.mode = client_arguments::combined;
 					args.module = "PythonScript";
 				} else if (lang == "lua") {
-						args.command = "LUAScript.run";
-						args.combined_query = "lua_unittest";
-						args.mode = client_arguments::combined;
-						args.module = "LuaScript";
+					args.command = "lua-script";
+					args.combined_query = "lua_unittest";
+					args.mode = client_arguments::combined;
+					args.module = "LuaScript";
 				} else {
 					std::cerr << "Unknown language: " << lang << std::endl;
 					return 1;

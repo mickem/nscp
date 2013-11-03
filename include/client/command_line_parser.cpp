@@ -16,6 +16,7 @@ po::options_description add_common_options(client::configuration::data_type comm
 		"The address (host:port) of the host running the server")
 		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
 		("target,t", po::value<std::string>(&command_data->target_id), "Target to use (lookup connection info from config)")
+		("retry", po::value<int>(&command_data->retry), "Number of times ti retry a failed connection attempt (default=2)")
 		;
 	return desc;
 }
@@ -131,9 +132,19 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 		boost::program_options::variables_map vm;
 		if (cit == commands.end()) {
 			real_command = parse_command(cmd, prefix);
-			po::options_description desc = create_descriptor(real_command, default_command, config);
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
-				return;
+			if (real_command == "forward") {
+				for (int i=0;i<request_message.header().metadata_size();i++) {
+					if (request_message.header().metadata(i).key() == "command")
+						config.data->command = request_message.header().metadata(i).value();
+				}
+				for (int i=0;i<request.arguments_size();i++) {
+					config.data->arguments.push_back(request.arguments(i));
+				}
+			} else {
+				po::options_description desc = create_descriptor(real_command, default_command, config);
+				if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
+					return;
+			}
 		} else {
 			std::vector<std::string> args;
 			real_command = parse_command(cit->second.command, prefix);
@@ -204,26 +215,34 @@ void client::command_manager::do_query(client::configuration &config, const ::Pl
 	response.CopyFrom(local_response.payload(0));
 }
 
-void client::command_manager::forward_query(client::configuration &config, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
-	if (request.payload_size() == 1) {
-		const  ::Plugin::QueryRequestMessage::Request &req_payload = request.payload(0);
-		if (req_payload.arguments_size() > 0) {
-			for (int i=0;i<req_payload.arguments_size();++i) {
-				if (req_payload.arguments(i) == "--help" || req_payload.arguments(i) == "help") {
+void client::command_manager::forward_query(client::configuration &config, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
+	std::string command;
+	for (int i=0;i<request.header().metadata_size();i++) {
+		if (request.header().metadata(i).key() == "command")
+			command = request.header().metadata(i).value();
+		if (request.header().metadata(i).key() == "retry")
+			config.data->recipient.get_string_data(request.header().metadata(i).value());
+	}
+	for (int i=0;i<request.payload_size();i++) {
+		::Plugin::QueryRequestMessage::Request *req_payload = request.mutable_payload(0);
+		if (req_payload->arguments_size() > 0) {
+			for (int i=0;i<req_payload->arguments_size();++i) {
+				if (req_payload->arguments(i) == "--help" || req_payload->arguments(i) == "help") {
 					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
 					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
-					rsp_payload->set_command(req_payload.command());
+					rsp_payload->set_command(req_payload->command());
 					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
 					return;
-				} else if (req_payload.arguments(i) == "--help-csv" || req_payload.arguments(i) == "help-csv") {
+				} else if (req_payload->arguments(i) == "--help-csv" || req_payload->arguments(i) == "help-csv") {
 					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
 					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
-					rsp_payload->set_command(req_payload.command());
+					rsp_payload->set_command(req_payload->command());
 					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
 					return;
 				}
 			}
 		}
+		req_payload->set_command(command);
 	}
 	int ret = config.handler->query(config.data, request, response);
 	if (ret == NSCAPI::hasFailed) {

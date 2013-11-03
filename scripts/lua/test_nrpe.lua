@@ -137,10 +137,13 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 		enc:set_key("timeout")
 		enc:set_value('10')
 	end
+	meta = hdr:add_metadata()
+	meta:set_key("command")
+	meta:set_value('check_py_nrpe_test_s')
 
 	uid = string.random(12)
 	payload = msg:add_payload()
-	payload:set_command('check_py_nrpe_test_s')
+	payload:set_command('nrpe_forward')
 	payload:set_arguments(1, uid)
 	if payload_length ~= 0 then
 		payload:set_arguments(2, payload_length)
@@ -151,7 +154,7 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 	rmsg.perfdata = perf
 	self:set_request(rmsg)
 	serialized = msg:serialized()
-	result_code, response = core:query('nrpe_forward', serialized)
+	result_code, response = core:query(serialized)
 	response_message = protobuf.Plugin.QueryResponseMessage.parsefromstring(response)
 
 
@@ -168,8 +171,8 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 				result:assert_equals(pl:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
 			else
 				max_len = payload_length
-				if max_len > length-1 then
-					max_len = length -1
+				if max_len >= length then
+					max_len = length - 1
 				end
 				result:assert_equals(string.len(pl:get_message()), max_len, 'Verify that message length is correct ' .. max_len .. ': ' ..tag)
 			end
@@ -178,7 +181,7 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 			found = true
 			break
 		else
-			core:log(string.format('Waiting for %s (%s/%s)', uid,tag,target))
+			core:log('info', string.format('Waiting for %s (%s/%s)', uid,tag,target))
 			--nscp.sleep(500)
 		end
 	end
@@ -259,10 +262,16 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 	host = hdr:add_hosts()
 	host:set_address("127.0.0.1:15666")
 	host:set_id('test')
+	meta = hdr:add_metadata()
+	meta:set_key("command")
+	meta:set_value('check_py_nrpe_test_s')
+	meta = hdr:add_metadata()
+	meta:set_key("retry")
+	meta:set_value('0')
 
 	uid = string.random(12)
 	payload = msg:add_payload()
-	payload:set_command('check_py_nrpe_test_s')
+	payload:set_command('nrpe_forward')
 	payload:set_arguments(1, uid)
 	rmsg = self:get_request(uid)
 	rmsg.status = 'ok'
@@ -270,7 +279,7 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 	rmsg.perfdata = ''
 	self:set_request(rmsg)
 	serialized = msg:serialized()
-	result_code, response = core:query('nrpe_forward', serialized)
+	result_code, response = core:query(serialized)
 	response_message = protobuf.Plugin.QueryResponseMessage.parsefromstring(response)
 
 
@@ -283,7 +292,7 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 			found = true
 			break
 		else
-			core:log(string.format('Timeout waiting for %s', uid))
+			core:log('error', string.format('Timeout waiting for %s', uid))
 			--sleep(500)
 		end
 	end

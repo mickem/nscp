@@ -1,3 +1,10 @@
+2013-11-03 MickeM
+ * Fixed so lua script are now loaded with a missing .lua extension
+ * Fixed Lua some remaining invalid lua functio issues.
+ * Fixed unit test for Lua scripts.
+ * Fixed forwarding (for clients)
+ * Fixed test_nrpe (lua)
+
 2013-10-29 MickeM
  * Added json_sprit as a submodule to see if this works better.
  * Changed so json_sprit now builds using their own cmake file which means it should hopefully be better ready for future versions.

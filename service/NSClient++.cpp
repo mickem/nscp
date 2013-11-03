@@ -1092,7 +1092,7 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 	std::list<std::string> responses;
 	std::list<std::string> errors;
 	std::string module;
-	std::string::size_type pos = command.find(L'.');
+	std::string::size_type pos = command.find('.');
 	if (pos != std::string::npos) {
 		module = command.substr(0, pos);
 		command = command.substr(pos+1);

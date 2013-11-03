@@ -348,11 +348,11 @@ namespace socket_helpers {
 				return new tcp_connection_type(io_service_, timeout, handler_);
 			}
 
-			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet, int retries = 3) {
+			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
 				boost::optional<typename protocol_type::response_type> response = connection_->process_request(packet);
 				if (!response) {
-					for (int i=0;i<retries;i++) {
-						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(retries));
+					for (int i=0;i<info_.retry;i++) {
+						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(info_.retry));
 						connect();
 						response = connection_->process_request(packet);
 						if (response)
@@ -371,28 +371,8 @@ namespace socket_helpers {
 		};
 
 		struct client_handler : private boost::noncopyable {
-/*
-			std::string host_;
-			std::string port_;
-			long timeout_;
-			bool ssl_;
-			std::string dh_key_;
-			*/
-
-			client_handler()
-// 				: host_(host)
-// 				, port_(port)
-// 				, timeout_(timeout)
-// 				, ssl_(ssl)
-// 				, dh_key_(dh_key)
-			{}
+			client_handler() {}
 			virtual ~client_handler() {}
-
-// 			bool use_ssl() { return ssl_; }
-// 			std::string get_host() { return host_; }
-// 			std::string get_port() { return port_; }
-// 			boost::posix_time::time_duration get_timeout() { return boost::posix_time::seconds(timeout_); }
-
 
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;

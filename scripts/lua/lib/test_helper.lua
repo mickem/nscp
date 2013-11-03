@@ -43,7 +43,7 @@ function status_to_int(status)
 	elseif status == 'unknown' then
 		return 3
 	else
-		core:log("Unknown status: "..status)
+		core:log('error', "Unknown status: "..status)
 		return 3
 	end
 end

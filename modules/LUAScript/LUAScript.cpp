@@ -109,14 +109,14 @@ void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &reque
 		cmd = scripts_->find_command(scripts::nscp::tags::simple_query_tag, request.command());
 		if (!cmd)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to find command: " + request.command());
-		lua_runtime_->on_query(request.command(), cmd->information, cmd->function, true, request, response, request_message);
+		return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, true, request, response, request_message);
 	}
 	return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
 }
 
 bool LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	if (request.command() != "lua-execute" && request.command() != "lua-run"
-		&& request.command() != "run" && request.command() != "execute" && request.command() != "exec" && request.command() != "") {
+	if (request.command() != "lua-script" && request.command() != "lua-run"
+		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
 		return false;
 	}
 
@@ -138,6 +138,7 @@ bool LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &re
 			return true;
 		}
 		scripts_->add_and_load("exec", utf8::cvt<std::string>((*ofile).string()));
+		nscapi::protobuf::functions::set_response_good(*response, "Script executed successfully");
 		return true;
 	} catch (const std::exception &e) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));

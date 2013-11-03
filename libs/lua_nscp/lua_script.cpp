@@ -60,7 +60,7 @@ int lua::core_wrapper::query(lua_State *L) {
 		NSCAPI::nagiosReturn ret = get()->query(data, response);
 		lua_instance.push_code(ret);
 		lua_instance.push_raw_string(response);
-		return lua_instance.size();
+		return 2;
 	} catch (...) {
 		return lua_instance.error("Unknown exception in: simple_query");
 	}
@@ -117,7 +117,7 @@ int lua::core_wrapper::reload(lua_State *L) {
 		return lua_instance.error("Incorrect syntax: reload([<module>]);");
 	std::string module = "module";
 	get()->reload(lua_instance.pop_string());
-	return lua_instance.size();
+	return 0;
 }
 int lua::core_wrapper::log(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
@@ -127,7 +127,7 @@ int lua::core_wrapper::log(lua_State *L) {
 	std::string message = lua_instance.pop_string();
 	std::string level = lua_instance.pop_string();
 	get()->log(nscapi::logging::parse(level), __FILE__, __LINE__, message);
-	return lua_instance.size();
+	return 0;
 }
 boost::shared_ptr<lua::core_provider> lua::core_wrapper::get() {
 	return info->get_core_provider();
@@ -161,17 +161,15 @@ boost::optional<int> read_registration(lua::lua_wrapper &lua_instance, std::stri
 	// ...(name, instance, function, description)
 	std::string funname;
 	int count = lua_instance.size();
-	if (count < 2 && count > 4)
-		return lua_instance.error("Invalid number of arguments: " + strEx::s::xtos(lua_instance.size()) + " expected 2-4 arguments");
-	if (count > 2 && !lua_instance.pop_string(description)) {
+	if (count < 3)
+		return lua_instance.error("Incorrect syntax: ...(name, [instance], function, description);");
+	if (!lua_instance.pop_string(description))
 		return lua_instance.error("Invalid description");
-	}
-	if (lua_instance.pop_string(funname)) {
+	if (lua_instance.pop_string(funname))
 		lua_instance.getglobal(funname);
-	}
 	if (!lua_instance.pop_function_ref(fun.function_ref))
 		return lua_instance.error("Invalid function");
-	if (count > 3) {
+	if (!lua_instance.is_string()) {
 		if (!lua_instance.pop_instance_ref(fun.object_ref))
 			return lua_instance.error("Invalid object");
 	}
@@ -265,9 +263,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
 	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_section([section])");
 
-	std::string v;
-	if (lua_instance.size() > 0)
-		v = lua_instance.pop_string();
+	std::string v = lua_instance.pop_string();
 	try {
 		lua_instance.push_array(get()->get_section(v));
 	} catch (...) {
@@ -441,13 +437,11 @@ const Luna<lua::settings_wrapper>::PropertyType lua::settings_wrapper::Propertie
 static int log_any(lua_State *L, int mode) {
 	lua::lua_wrapper lua_instance(L);
 	lua::lua_wrapper::stack_trace trace = lua_instance.get_stack_trace();
-	int nargs = lua_instance.size();
-	std::string str;
-	for (int i=0;i<nargs;i++) {
-		str += lua_instance.pop_string();
-	}
+	if (lua_instance.size() < 1)
+		return lua_instance.error("Invalid syntax: log(message)");
+	std::string str = lua_instance.pop_string();
 	GET_CORE()->log(mode, trace.first, trace.second, str);
-	return lua_instance.size();
+	return 0;
 }
 static int info (lua_State *L) {
 	return log_any(L, NSCAPI::log_level::info);
@@ -496,6 +490,8 @@ boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::fil
 	BOOST_FOREACH(boost::filesystem::path c, checks) {
 		if (boost::filesystem::exists(c))
 			return boost::optional<boost::filesystem::path>(c);
+		if (boost::filesystem::exists(c.string() + ".lua"))
+			return boost::optional<boost::filesystem::path>(c.string() + ".lua");
 	}
 	return boost::optional<boost::filesystem::path>();
 }

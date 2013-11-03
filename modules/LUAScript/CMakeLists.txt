@@ -9,7 +9,7 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -19,6 +19,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -26,11 +27,6 @@ ENDIF(WIN32)
 INCLUDE_DIRECTORIES(${LUA_INCLUE_DIR})
 
 add_library(${TARGET} MODULE ${SRCS})
-
-SET(LUA_PB)
-IF (PROTOC_GEN_LUA_FOUND)
-	SET(LUA_PB lua_pb)
-ENDIF()
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}

@@ -186,11 +186,12 @@ namespace socket_helpers {
 		std::string port_;
 		unsigned int thread_pool_size;
 		unsigned int timeout;
+		int retry;
 		bool reuse;
 		ssl_opts ssl;
 		allowed_hosts_manager allowed_hosts;
 
-		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30), reuse(true) {}
+		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30), retry(2), reuse(true) {}
 
 		connection_info(const connection_info &other) 
 			: address(other.address)
@@ -198,6 +199,7 @@ namespace socket_helpers {
 			, port_(other.port_)
 			, thread_pool_size(other.thread_pool_size)
 			, timeout(other.timeout)
+			, retry(other.retry)
 			, reuse(other.reuse)
 			, ssl(other.ssl)
 			, allowed_hosts(other.allowed_hosts)
@@ -209,6 +211,7 @@ namespace socket_helpers {
 			port_ = other.port_;
 			thread_pool_size = other.thread_pool_size;
 			timeout = other.timeout;
+			retry = other.retry;
 			reuse = other.reuse;
 			ssl = other.ssl;
 			allowed_hosts = other.allowed_hosts;
