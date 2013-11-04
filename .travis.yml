@@ -8,7 +8,8 @@ script:
   - cmake .. 
   - make
 after_success:
-  - make test
+  - make test | tee testresults.log
+  - grep -q FAILED && exit 1
 before_install:
   - sudo apt-get install -y git 
   - sudo apt-get install -y build-essential
