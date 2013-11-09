@@ -163,6 +163,9 @@ namespace check_uptime_filter {
 		long long get_uptime() const {
 			return uptime;
 		}
+		long long get_uptime_delta() const {
+			return now-uptime;
+		}
 		std::string get_uptime_s() const {
 			return format::itos_as_time((now-get_uptime())*1000);
 		}

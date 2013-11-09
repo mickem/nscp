@@ -161,6 +161,9 @@ namespace nscapi {
 
 			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perf);
 			std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload);
+
+			std::string extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf);
+			std::string extract_perf_maximum_as_string(const ::Plugin::Common_PerformanceData &perf);
 		}
 	}
 }

@@ -31,6 +31,9 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include <protobuf/plugin.pb.h>
 
 namespace sh = nscapi::settings_helper;
 
@@ -149,11 +152,26 @@ bool NSClientServer::isPasswordOk(std::string remotePassword)  {
 	return false;
 }
 
-void split_to_list(std::list<std::string> &list, std::string str) {
-	std::list<std::string> add = strEx::s::splitEx(str, std::string("&"));
-	list.insert(list.begin(), add.begin(), add.end());
+void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
+	BOOST_FOREACH(const std::string &s, strEx::s::splitEx(str, std::string("&"))) {
+		list.push_back(key + "=" + s);
+	}
 }
 
+void log_bad_command(const std::string &cmd) {
+	if (cmd == "check_cpu" || cmd == "check_uptime" || cmd == "check_memory") {
+		NSC_LOG_ERROR(cmd + " failed to execute have you loaded CheckSystem? ([/modules] CheckSystem=enabled)");
+	} else {
+		NSC_LOG_ERROR("Unknown command: " + cmd);
+	}
+}
+
+inline std::string extract_perf_value(const ::Plugin::Common_PerformanceData &perf) {
+	return nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+}
+inline std::string extract_perf_total(const ::Plugin::Common_PerformanceData &perf) {
+	return nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
+}
 
 std::string list_instance(std::string counter) {
 	std::list<std::string> exeresult;
@@ -212,78 +230,75 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	// prefix various commands
 	switch (c) {
 		case REQ_CPULOAD:
-			cmd.first = "checkCPU";
-			split_to_list(args, cmd.second);
-			args.push_back("nsclient");
+			cmd.first = "check_cpu";
+			split_to_list(args, cmd.second, "time");
 			break;
 		case REQ_UPTIME:
-			cmd.first = "checkUpTime";
-			args.push_back("nsclient");
+			cmd.first = "check_uptime";
+			args.push_back("warn=uptime_delta<0");
 			break;
 		case REQ_USEDDISKSPACE:
-			cmd.first = "CheckDriveSize";
-			split_to_list(args, cmd.second);
-			args.push_back("nsclient");
+			cmd.first = "check_drivesize";
+			split_to_list(args, cmd.second, "drive");
 			break;
 		case REQ_CLIENTVERSION:
-			return nscapi::plugin_singleton->get_core()->getApplicationName() + " " + nscapi::plugin_singleton->get_core()->getApplicationVersionString();
+			return check_nt::packet(nscapi::plugin_singleton->get_core()->getApplicationName() + " " + nscapi::plugin_singleton->get_core()->getApplicationVersionString());
 		case REQ_SERVICESTATE:
-			cmd.first = "checkServiceState";
-			split_to_list(args, cmd.second);
-			args.push_back("nsclient");
+			cmd.first = "check_service";
+			split_to_list(args, cmd.second, "service");
 			break;
 		case REQ_PROCSTATE:
-			cmd.first = "checkProcState";
-			split_to_list(args, cmd.second);
-			args.push_back("nsclient");
+			cmd.first = "check_process";
+			split_to_list(args, cmd.second, "process");
 			break;
 		case REQ_MEMUSE:
-			cmd.first = "checkMem";
-			args.push_back("nsclient");
+			cmd.first = "check_memory";
 			break;
 		case REQ_COUNTER:
-			cmd.first = "checkCounter";
-			args.push_back("Counter=" + cmd.second);
-			args.push_back("nsclient");
+			cmd.first = "check_pdh";
+			args.push_back("counter=" + cmd.second);
 			break;
 		case REQ_FILEAGE:
 			cmd.first = "getFileAge";
 			args.push_back("path=" + cmd.second);
 			break;
 		case REQ_INSTANCES:
-			return list_instance(cmd.second);
-
-
+			return check_nt::packet(list_instance(cmd.second));
 		default:
-			split_to_list(args, cmd.second);
+			return check_nt::packet("ERROR: Unknown command.");
 	}
 
-	std::string message, perf;
-	NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first, args, message, perf);
-	if (!nscapi::plugin_helper::isNagiosReturnCode(ret)) {
-		if (message.empty())
-			return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
-		return check_nt::packet("ERROR: " + message);
+	std::string response;
+	NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first, args, response);
+	if (ret != NSCAPI::isSuccess) {
+		log_bad_command(cmd.first);
+		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
 	}
+
+	::Plugin::QueryResponseMessage message;
+	if (!message.ParseFromString(response) || message.payload_size() != 1) {
+		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
+	}
+	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
+
 	switch (c) {
-		case REQ_UPTIME:		// Some check_nt commands has no return code syntax
-		case REQ_MEMUSE:
-		case REQ_CPULOAD:
-		case REQ_CLIENTVERSION:
-		case REQ_USEDDISKSPACE:
+		case REQ_CPULOAD:		// Return the first performance data value
+		case REQ_UPTIME:
 		case REQ_COUNTER:
+			if (payload.perf_size() < 1)
+				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
+			return check_nt::packet(extract_perf_value(payload.perf(0)));
+
+		case REQ_MEMUSE:
+		case REQ_USEDDISKSPACE:
+			return check_nt::packet(extract_perf_total(payload.perf(0)) + "&" + extract_perf_value(payload.perf(0)));
 		case REQ_FILEAGE:
-			return check_nt::packet(message);
+			return check_nt::packet(payload.message());
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 		case REQ_PROCSTATE:
-			return check_nt::packet(strEx::s::xtos(nscapi::plugin_helper::nagios2int(ret)) + "& " + message);
-
-		default:				// "New" check_nscp also returns performance data
-			if (perf.empty())
-				return check_nt::packet(nscapi::plugin_helper::translateReturn(ret) + "&" + message);
-			return check_nt::packet(nscapi::plugin_helper::translateReturn(ret) + "&" + message + "&" + perf);
+			return check_nt::packet(strEx::s::xtos(payload.result()) + "& " + payload.message());
 	}
 
-	return check_nt::packet("FOO");
+	return check_nt::packet("ERROR: Unknown command " + cmd.first);
 }

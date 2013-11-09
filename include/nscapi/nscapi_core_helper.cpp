@@ -80,7 +80,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 			return NSCAPI::returnUNKNOWN;
 		}
 	}
-	return ret;
+	return NSCAPI::returnUNKNOWN;
 }
 /**
 * Inject a request command in the core (this will then be sent to the plug-in stack for processing)

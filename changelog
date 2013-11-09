@@ -1,3 +1,7 @@
+2013-11-07 MickeM
+ * Fixed issue with NSCA hostname (NSCAClient load).
+ * Fixed check_nt commands
+ 
 2013-11-03 MickeM
  * Fixed so lua script are now loaded with a missing .lua extension
  * Fixed Lua some remaining invalid lua functio issues.

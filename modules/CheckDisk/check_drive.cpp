@@ -67,6 +67,8 @@ struct filter_obj {
 		ULARGE_INTEGER totalNumberOfFreeBytes;
 		std::string error;
 		std::wstring drv = utf8::cvt<std::wstring>(drive);
+		if (drv.size() == 1)
+			drv = drv + L":\\";
 		if (!GetDiskFreeSpaceEx(drv.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
 			DWORD err = GetLastError();
 			if (err == ERROR_NOT_READY) {
@@ -78,6 +80,7 @@ struct filter_obj {
 			}
 			context->error("Failed to get size for: " + name + error::lookup::last_error(err));
 			unreadable = err == ERROR_ACCESS_DENIED;
+			has_size = true;
 			return;
 		}
 		has_size = true;

@@ -232,6 +232,7 @@ namespace check_uptime_filter {
 			;
 		registry_.add_int()
 			("uptime", parsers::where::type_date, boost::bind(&filter_obj::get_uptime, _1), boost::bind(&filter_obj::get_uptime_s, _1), "System uptime")
+			("uptime_delta", parsers::where::type_int, boost::bind(&filter_obj::get_uptime_delta, _1), "System uptime (seconds since last boot)")
 			;
 	}
 }

@@ -288,7 +288,6 @@ public:
 			po::store(do_parse(argc, argv, all), vm);
 			po::notify(vm);
 
-			std::cout << "ll: " << log_level.size() << std::endl;
 			BOOST_FOREACH(const std::string &s, log_level) {
 				std::cout << s << std::endl;
 			}
@@ -300,7 +299,6 @@ public:
 			if (process_common_options("test", all))
 				return 1;
 
-			std::cout << "TADA" << std::endl;
 			nsclient::simple_client client(core_);
 			client.start();
 			return 0;

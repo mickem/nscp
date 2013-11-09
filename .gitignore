@@ -8,3 +8,6 @@ version.hpp
 
 # Python
 *.pyc
+
+# Vagrant
+**/.vagrant

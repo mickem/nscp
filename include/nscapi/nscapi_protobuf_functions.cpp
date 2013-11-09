@@ -515,6 +515,54 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
+		long long get_multiplier(const std::string &unit) {
+			if (unit.empty())
+				return 1;
+			if (unit[0] == 'K')
+				return 1024;
+			if (unit[0] == 'M')
+				return 1024*1024;
+			if (unit[0] == 'G')
+				return 1024*1024*1024;
+			if (unit[0] == 'T')
+				return 1024*1024*1024*1024;
+			return 1;
+		}
+		std::string functions::extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf) {
+			if (perf.has_int_value()) {
+				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
+				if (val.has_unit())
+					return strEx::s::itos_non_sci(val.value()*get_multiplier(val.unit()));
+				 return strEx::s::itos_non_sci(val.value());
+			} else if (perf.has_bool_value()) {
+				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
+				return val.value()?"true":"false";
+			} else if (perf.has_float_value()) {
+				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
+				return strEx::s::itos_non_sci(val.value()*get_multiplier(val.unit()));
+			} else if (perf.has_string_value()) {
+				const Plugin::Common::PerformanceData::StringValue& val = perf.string_value();
+				return val.value();
+			}
+			return "unknown";
+		}
+		std::string functions::extract_perf_maximum_as_string(const ::Plugin::Common_PerformanceData &perf) {
+			if (perf.has_int_value()) {
+				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
+				if (val.has_unit())
+					return strEx::s::itos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return strEx::s::itos_non_sci(val.maximum());
+			} else if (perf.has_bool_value() || perf.has_string_value()) {
+				return "";
+			} else if (perf.has_float_value()) {
+				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
+				if (val.has_unit())
+					return strEx::s::itos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return strEx::s::itos_non_sci(val.maximum());
+			}
+			return "unknown";
+		}
+
 		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perff) {
 			std::string perf = perff;
 			// TODO: make this work with const!
