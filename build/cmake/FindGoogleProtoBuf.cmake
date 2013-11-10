@@ -27,9 +27,9 @@ IF (PROTOBUF_LIBRARY AND PROTOBUF_INCLUDE_DIR AND PROTOBUF_PROTOC_EXECUTABLE)
 ELSE (PROTOBUF_LIBRARY AND PROTOBUF_INCLUDE_DIR AND PROTOBUF_PROTOC_EXECUTABLE)
 	FIND_PATH(PROTOBUF_INCLUDE_DIR 
 		stubs/common.h
-		google/protobuf/package_info.h
 		PATHS
 			/usr/include/google/protobuf
+			/usr/local/include/google/protobuf
 			${PROTOBUF_ROOT}
 			${PROTOBUF_ROOT}/src
 	)

@@ -13,13 +13,18 @@ package { "libcrypto++-dev": ensure => present }
 package { "liblua5.1-0-dev": ensure => present }
 package { "libgtest-dev": ensure => present }
 
-file { "/usr/share/pyshared/google/protobuf/compiler/__init__.py": ensure => present }
-file { "/usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py": ensure => present }
-file { "/home/vagrant/build": ensure => directory }
+file { "/usr/share/pyshared/google/protobuf/compiler/__init__.py": 
+	ensure    => present, 
+	subscribe => Package['python-protobuf']
+}
+file { "/usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py": 
+	ensure    => present,
+	subscribe => Package['python-protobuf']
+}
 file { "/home/vagrant/build.sh":
-    ensure  => "present",
-    mode    => 755,
-	source  => "/etc/puppet/files/build.sh"
+    ensure    => "present",
+    mode      => 755,
+	source    => "/etc/puppet/files/build.sh",
 }
 
 

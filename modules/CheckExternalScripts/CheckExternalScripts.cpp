@@ -236,8 +236,6 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		return;
 	}
 
-	std::string message, perf;
-
 	NSC_DEBUG_MSG("Command line: " + cmdline);
 
 	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding);
@@ -246,14 +244,32 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		arg.domain = cd.domain;
 		arg.password = cd.password;
 	}
-	int result = process::executeProcess(arg, message, perf);
+	std::string output;
+	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.tpl.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
 		return;
 	}
-	response->set_message(message);
+	std::string message, perf;
+	std::string::size_type pos = output.find_last_not_of("\n\r ");
+	if (pos != std::string::npos) {
+		if (pos == output.size())
+			output = output.substr(0,pos);
+		else
+			output = output.substr(0,pos+1);
+	}
+	if (output.empty())
+		output = "No output available from command (" + cd.command + ").";
+
+
+	pos = output.find('|');
+	if (pos != std::string::npos) {
+		response->set_message(output.substr(0, pos));
+		nscapi::protobuf::functions::parse_performance_data(response, output.substr(pos+1));
+	} else {
+		response->set_message(output.substr(0, pos));
+	}
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
-	nscapi::protobuf::functions::parse_performance_data(response, perf);
 }
 
 void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {

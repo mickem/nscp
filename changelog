@@ -1,5 +1,10 @@
 2013-11-08 MickeM
  * Finally fixed broken unit test on "linux" (Which was a case error as always, damn you ntfs!!)
+ * Fixed some dependencies in the vagrant puppet conf
+ * Added oracle linux vagrant profile (but doesn't seem to work :(
+ * Added support for external script (Linux side)
+   WARNING: No timeout handling (yet)
+ * Added test cases for external script to ctest
 
 2013-11-07 MickeM
  * Fixed issue with NSCA hostname (NSCAClient load).

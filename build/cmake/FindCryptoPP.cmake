@@ -16,6 +16,7 @@ FIND_PATH(CRYPTOPP_INCLUDE_DIR
 	PATHS
 		${CRYPTOPP_DIR}
 		/usr/include/crypto++
+		/usr/include/cryptopp
 		/usr/include
 )
 
@@ -28,16 +29,18 @@ ENDIF(CMAKE_CL_64)
 
 MESSAGE(STATUS "${CRYPTOPP_LIB_ROOT} -- ")
 FIND_LIBRARY(CRYPTOPP_LIBRARIES_RELEASE
-	NAMES crypto++ cryptlib
+	NAMES crypto++ cryptlib cryptopp
 	PATHS
 		${CRYPTOPP_LIB_ROOT}/release
 		${CRYPTOPP_LIB_ROOT}
+		/usr/lib/
 )
 FIND_LIBRARY(CRYPTOPP_LIBRARIES_DEBUG
-	NAMES crypto++ cryptlib
+	NAMES crypto++ cryptlib cryptopp
 	PATHS
 		${CRYPTOPP_LIB_ROOT}/debug
 		${CRYPTOPP_LIB_ROOT}
+		/usr/lib/
 )
 
 IF(CMAKE_TRACE)

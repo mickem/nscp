@@ -20,11 +20,17 @@ IF(WIN32)
 		"${TARGET}.h"
 		commands.hpp
 		alias.hpp
-
-		${NSCP_INCLUDEDIR}/execute_process_unix.hpp
-		${NSCP_INCLUDEDIR}/execute_process_w32.hpp
+		${NSCP_INCLUDEDIR}/process/execute_process.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
+	)
+	SET(SRCS ${SRCS}
+		${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp
+	)
+ELSE(WIN32)
+	SET(EXTRA_LIBS ${EXTRA_LIBS} pthread)
+	SET(SRCS ${SRCS}
+		${NSCP_INCLUDEDIR}/process/execute_process_unix.cpp
 	)
 ENDIF(WIN32)
 
@@ -34,6 +40,7 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_REGEX_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
+	${EXTRA_LIBS}
 )
 
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

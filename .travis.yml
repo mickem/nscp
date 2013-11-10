@@ -1,7 +1,6 @@
 language: cpp
 compiler:
   - gcc
-# Change this to your needs
 script: 
   - mkdir -p tmp
   - pushd tmp 
@@ -24,12 +23,11 @@ before_install:
   - sudo apt-get install -y libgtest-dev
   - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
   - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
-
 notifications:
  irc:
   channels:
     - irc.freenode.net#nsclient
-  on_success: change
+  on_success: always
   on_failure: always
   use_notice: true
   skip_join: true

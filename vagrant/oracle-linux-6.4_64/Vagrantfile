@@ -6,9 +6,9 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-  config.vm.box = "precise32"
-  config.vm.box_url = "http://files.vagrantup.com/precise32.box"
-  config.vm.hostname = "precise32.build.nscp.org"
+  config.vm.box = "oracle64_64"
+  config.vm.box_url = "https://dl.dropbox.com/sh/yim9oyqajopoiqs/cx4lB6NnZU/oracle64-32.box"
+  config.vm.hostname = "ora64x64.build.nscp.org"
 
 
   config.vm.provider :virtualbox do |vb|
@@ -18,10 +18,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.provision :puppet do |puppet|
-    puppet.manifests_path = "../debian/manifests"
+    puppet.manifests_path = "../redhat/manifests"
     puppet.manifest_file  = "base.pp"
   end
 
+  config.vm.provision "shell", inline: "su - vagrant -c ./build-protobuf.sh"
+  config.vm.provision "shell", inline: "su - vagrant -c ./build-cryptopp.sh"
   config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
 
   config.vm.synced_folder "../files", "/etc/puppet/files"
