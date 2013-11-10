@@ -20,7 +20,7 @@ function TestNRPE:install(arguments)
 	
 	conf:set_string('/modules', 'test_nrpe_server', 'NRPEServer')
 	conf:set_string('/modules', 'test_nrpe_client', 'NRPEClient')
-	conf:set_string('/modules', 'luatest', 'LuaScript')
+	conf:set_string('/modules', 'luatest', 'LUAScript')
 
 	conf:set_string('/settings/luatest/scripts', 'test_nrpe', 'test_nrpe.lua')
 	

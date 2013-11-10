@@ -172,7 +172,7 @@ public:
 		aliases["eventlog"] = "CheckEventLog";
 		aliases["python"] = "PythonScript";
 		aliases["py"] = "PythonScript";
-		aliases["lua"] = "LuaScript";
+		aliases["lua"] = "LUAScript";
 		aliases["syslog"] = "SyslogClient";
 		aliases["sys"] = "CheckSystem";
 		aliases["wmi"] = "CheckWMI";
@@ -578,7 +578,7 @@ public:
 					args.command = "lua-script";
 					args.combined_query = "lua_unittest";
 					args.mode = client_arguments::combined;
-					args.module = "LuaScript";
+					args.module = "LUAScript";
 				} else {
 					std::cerr << "Unknown language: " << lang << std::endl;
 					return 1;

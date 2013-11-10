@@ -9,7 +9,6 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -19,7 +18,6 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

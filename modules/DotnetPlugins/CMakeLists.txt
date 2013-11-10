@@ -7,12 +7,9 @@ PROJECT(${TARGET})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-	${NSCP_DEF_PLUGIN_CPP}
 	plugin_instance.cpp
-
 	block_allocator.cpp
 	json.cpp
-
 	json_writer.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
@@ -34,7 +31,14 @@ IF(WIN32)
 		json.h
 		json_writer.h
 
-		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_INCLUDEDIR}/utf8.hpp
+		${NSCP_INCLUDEDIR}/format.hpp
+		${NSCP_INCLUDEDIR}/strEx.h
+		${NSCP_INCLUDEDIR}/config.h
+		${NSCP_INCLUDEDIR}/utils.h
+		${NSCP_INCLUDEDIR}/NSCAPI.h
+		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 	)
 ENDIF(WIN32)
 

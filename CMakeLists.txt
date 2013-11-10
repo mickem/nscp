@@ -261,7 +261,9 @@ ADD_SUBDIRECTORY("helpers/where_filter")
 #
 #############################################################################
 
-SET(NSCP_DEF_PLUGIN_CPP)
+SET(NSCP_DEF_PLUGIN_CPP
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
+)
 SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/utf8.hpp
 	${NSCP_INCLUDEDIR}/format.hpp
@@ -271,6 +273,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/NSCAPI.h
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
 )
 
 SET(NSCP_FILTER_CPP

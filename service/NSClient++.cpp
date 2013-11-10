@@ -596,7 +596,7 @@ bool NSClientT::boot_load_plugin(std::string plugin) {
 					return true;
 				}
 			} 
-			LOG_ERROR_CORE_STD("Failed to load: " + plugin);
+			LOG_ERROR_CORE_STD("Failed to load: " + plugin + "File not found: " + file.string());
 			return false;
 		}
 	} catch (const NSPluginException &e) {

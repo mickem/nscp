@@ -87,7 +87,7 @@ void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
 	BOOST_FOREACH(lua::lua_runtime_plugin_type &plugin, plugins) {
 		plugin->load(lua_instance);
 	}
-	lua_instance.append_path(base_path + "\\scripts\\lua\\lib\\?.lua;" + base_path + "scripts\\lua\\?;");
+	lua_instance.append_path(base_path + "/scripts/lua/lib/?.lua;" + base_path + "scripts/lua/?;");
 	if (lua_instance.loadfile(info->script) != 0)
 		throw lua::lua_exception("Failed to load script: " + info->script + ": " + lua_instance.pop_string());
 	if (lua_instance.pcall(0, 0, 0) != 0)
