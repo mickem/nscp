@@ -10,4 +10,4 @@ version.hpp
 *.pyc
 
 # Vagrant
-**/.vagrant
+*/.vagrant

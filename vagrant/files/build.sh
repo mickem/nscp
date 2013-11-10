@@ -1,14 +1,14 @@
 function test {
-    "$@"
+    "$@" | tee build.log
     status=$?
     if [ $status -ne 0 ]; then
-        echo "error with $1"
+        echo "Error with $1 from $@"
     fi
     return $status
 }
 
-test git clone --recursive https://github.com/mickem/nscp.git
+test mkdir build
 test pushd build
-test cmake ../nscp
+test cmake /source/nscp
 test make
 test ctest --output-on-failure

@@ -18,13 +18,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   config.vm.provision :puppet do |puppet|
-    puppet.manifests_path = "manifests"
+    puppet.manifests_path = "../debian/manifests"
     puppet.manifest_file  = "base.pp"
   end
 
-  config.vm.provision "shell", inline: "./build.sh"
+  config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
 
-  #config.vm.synced_folder "files", "/etc/puppet/files"
+  config.vm.synced_folder "../files", "/etc/puppet/files"
+  config.vm.synced_folder "../../", "/source/nscp"
   config.ssh.forward_agent = true
   
 end

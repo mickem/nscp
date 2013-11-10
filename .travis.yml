@@ -8,7 +8,7 @@ script:
   - cmake .. 
   - make
 after_success:
-  - ctest --output-on-failure
+  - ctest --output-on-failure || exit 1
 before_install:
   - sudo apt-get install -y git 
   - sudo apt-get install -y build-essential
@@ -25,3 +25,11 @@ before_install:
   - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
   - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
 
+notifications:
+ irc:
+  channels:
+    - irc.freenode.net#nsclient
+  on_success: change
+  on_failure: always
+  use_notice: true
+  skip_join: true
