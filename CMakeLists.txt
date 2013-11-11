@@ -352,7 +352,7 @@ ELSE(WIN32)
 ENDIF(WIN32)
 add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
-add_nscp_py_test(python test_external_script)
+add_nscp_py_test(external_script test_external_script)
 IF(WIN32)
 # Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
 #	add_nscp_py_test(eventlog test_eventlog)
