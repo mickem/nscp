@@ -42,6 +42,35 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 	INSTALL(FILES ${target_file} DESTINATION ${destDir})
 ENDMACRO(copy_single_file)
 
+MACRO(copy_single_file_755 _TARGET_LIST src destDir)
+	GET_FILENAME_COMPONENT(TARGET ${src} NAME)
+	SET(source_file ${CMAKE_CURRENT_SOURCE_DIR}/${src})
+	IF(${destDir} STREQUAL ".")
+		SET(target_file ${CMAKE_BINARY_DIR}/${TARGET})
+	ELSE(${destDir} STREQUAL ".")
+		SET(target_file ${CMAKE_BINARY_DIR}/${destDir}/${TARGET})
+	ENDIF(${destDir} STREQUAL ".")
+	#MESSAGE(STATUS " - Copying ${source_file} to ${target_file}...")
+IF(WIN32)
+	ADD_CUSTOM_COMMAND(
+		OUTPUT ${target_file}
+		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMENT Copying ${source_file} to ${target_file}
+		DEPENDS ${source_file}
+		)
+ELSE(WIN32)
+	ADD_CUSTOM_COMMAND(
+		OUTPUT ${target_file}
+		COMMAND cmake ARGS -E copy "${source_file}" "${target_file}"
+		COMMAND chmod ARGS 755 "${target_file}"
+		COMMENT Copying ${source_file} to ${target_file}
+		DEPENDS ${source_file}
+		)
+ENDIF(WIN32)
+	SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
+	INSTALL(FILES ${target_file} DESTINATION ${destDir})
+ENDMACRO(copy_single_file_755)
+
 MACRO(add_nscp_py_test name script)
 	ADD_TEST("${name}"
 		nscp 

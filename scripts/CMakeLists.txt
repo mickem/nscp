@@ -19,7 +19,7 @@ SET(ALL_FILES)
 FOREACH(file ${script_ALL})
 	get_filename_component(filename ${file} NAME)
 	#MESSAGE(STATUS " + ${filename} (${file})")
-	copy_single_file(ALL_FILES ${filename} scripts)
+	copy_single_file_755(ALL_FILES ${filename} scripts)
 ENDFOREACH(file ${script_ALL})
 
 
