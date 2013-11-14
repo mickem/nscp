@@ -147,14 +147,17 @@ namespace check_pdh {
 		if (!filter_helper.parse_options(extra))
 			return;
 
-		if (filter_helper.empty())
-			return nscapi::protobuf::functions::set_response_bad(*response, "No checks specified add warn/crit boundries");
+		if (filter_helper.empty() && data.syntax_top == "${problem_list}")
+			data.syntax_top = "${list}";
 
 		if (counters.empty() && extra.empty())
 			return nscapi::protobuf::functions::set_response_bad(*response, "No counters specified: add counter=<name of counter>");
 
 		if (!filter_helper.build_filter(filter))
 			return;
+		if (filter_helper.empty()) {
+			filter.add_manual_perf("value");
+		}
 
 		PDH::PDHQuery pdh;
 		std::list<PDH::pdh_instance> free_counters;

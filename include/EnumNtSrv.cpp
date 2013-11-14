@@ -203,12 +203,27 @@ namespace services_helper {
 			return "running";
 		if (state == SERVICE_START_PENDING)
 			return "starting";
-		if (state == SERVICE_RUNNING)
-			return "running";
 		if (state == SERVICE_STOP_PENDING)
 			return "stopping";
 		if (state == SERVICE_STOPPED)
 			return "stopped";
+		return "unknown";
+	}
+	std::string service_info::get_legacy_state_s() const {
+		if (state == SERVICE_CONTINUE_PENDING)
+			return "Continuing";
+		if (state == SERVICE_PAUSE_PENDING)
+			return "Pausing";
+		if (state == SERVICE_PAUSED)
+			return "Paused";
+		if (state == SERVICE_RUNNING)
+			return "Started";
+		if (state == SERVICE_START_PENDING)
+			return "Starting";
+		if (state == SERVICE_STOP_PENDING)
+			return "Stopping";
+		if (state == SERVICE_STOPPED)
+			return "Stopped";
 		return "unknown";
 	}
 	std::string service_info::get_start_type_s() const {

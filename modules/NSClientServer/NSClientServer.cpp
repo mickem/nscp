@@ -175,7 +175,7 @@ inline std::string extract_perf_total(const ::Plugin::Common_PerformanceData &pe
 
 std::string list_instance(std::string counter) {
 	std::list<std::string> exeresult;
-	nscapi::core_helper::exec_simple_command("*", "pdh", boost::assign::list_of(std::string("--list"))("--porcelain")("--counter")(counter)("--no-counters"), exeresult);
+	nscapi::core_helper::exec_simple_command("CheckSystem", "pdh", boost::assign::list_of(std::string("--list"))("--porcelain")("--counter")(counter)("--no-counters"), exeresult);
 	std::string result;
 
 	typedef std::basic_istringstream<char> wistringstream;
@@ -246,10 +246,26 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		case REQ_SERVICESTATE:
 			cmd.first = "check_service";
 			split_to_list(args, cmd.second, "service");
+			if (args.size() > 0 && *args.begin() == "service=ShowFail")
+				args.erase(args.begin());
+			if (args.size() > 0 && *args.begin() == "service=ShowAll") {
+				args.erase(args.begin());
+				args.push_back("top-syntax=${list}");
+			}
+			args.push_back("detail-syntax=${name}: ${legacy_state}");
+			args.push_back("empty-syntax=OK: All services are in their appropriate state.");
 			break;
 		case REQ_PROCSTATE:
 			cmd.first = "check_process";
 			split_to_list(args, cmd.second, "process");
+			if (args.size() > 0 && *args.begin() == "process=ShowFail")
+				args.erase(args.begin());
+			if (args.size() > 0 && *args.begin() == "process=ShowAll") {
+				args.erase(args.begin());
+				args.push_back("top-syntax=${list}");
+			}
+			args.push_back("detail-syntax=${exe}: ${legacy_state}");
+			args.push_back("empty-syntax=OK: All processes are running.");
 			break;
 		case REQ_MEMUSE:
 			cmd.first = "check_memory";

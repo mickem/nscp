@@ -1176,7 +1176,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 		BOOST_FOREACH(plugin_type p, plugins_) {
 			if (p && p->has_command_line_exec()) {
 				try {
-					if (match_all || match_any || p->get_alias() == target) {
+					if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
 						std::string respbuffer;
 						NSCAPI::nagiosReturn r = p->commandLineExec(request, respbuffer);
 						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {

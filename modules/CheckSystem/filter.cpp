@@ -203,6 +203,7 @@ namespace check_svc_filter {
 		registry_.add_string()
 			("name", boost::bind(&filter_obj::get_name, _1), "Service name")
 			("desc", boost::bind(&filter_obj::get_desc, _1), "Service description")
+			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get legacy state (deprecated and only used by check_nt)")
 			;
 		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
@@ -254,6 +255,7 @@ namespace check_proc_filter {
 			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
 			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
 			("command_line", boost::bind(&filter_obj::get_command_line, _1), "Command line of process (not always available)")
+			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get process status (for legacy use via check_nt only)")
  			;
  		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")

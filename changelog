@@ -1,4 +1,8 @@
 2013-11-08 MickeM
+ * Improved check_nt compatiblity
+ * Added back lines as alias for list in top syntaxes.
+
+2013-11-08 MickeM
  * Finally fixed broken unit test on "linux" (Which was a case error as always, damn you ntfs!!)
  * Fixed some dependencies in the vagrant puppet conf
  * Added oracle linux vagrant profile (but doesn't seem to work :(

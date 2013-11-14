@@ -25,6 +25,7 @@ namespace services_helper {
 		std::string binary_path;
 
 		std::string get_state_s() const;
+		std::string get_legacy_state_s() const;
 		std::string get_start_type_s() const;
 		long long get_state_i() const { return state; } 
 		long long get_start_type_i() const { return start_type; } 

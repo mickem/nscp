@@ -106,6 +106,15 @@ namespace process_helper {
 				return "started";
 			return "stopped";
 		}
+		std::string get_legacy_state_s() const {
+			if (unreadable)
+				return "unreadable";
+			if (hung)
+				return "hung";
+			if (started)
+				return "Running";
+			return "not running";
+		}
 		bool get_stopped() const {
 			return !started;
 		}

@@ -218,6 +218,16 @@ namespace modern_filter {
 				leaf_performance_data[node.variable] = entry;
 			}
 		}
+		void add_manual_perf(std::string key) {
+			if (!context->has_variable(key)) {
+				error_handler->log_error("Failed to register for performance data");
+				return;
+			}
+			perf_entry entry;
+			entry.current_value = context->create_variable(key, false);
+			entry.label = key;
+			leaf_performance_data[key] = entry;
+		}
 
 		void start_match() {
 			summary.returnCode = NSCAPI::returnOK;

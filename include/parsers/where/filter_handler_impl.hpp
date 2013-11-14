@@ -406,7 +406,7 @@ namespace parsers {
 
 			bool has_variable(const std::string &name) {
 				return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count"
-					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list"
+					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list" || name == "lines"
 					|| name == "status";
 			}
 
@@ -516,7 +516,7 @@ namespace parsers {
 				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_crit, _1)));
 			if (key == "problem_count")
 				return node_type(new summary_int_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_count_problem, _1)));
-			if (key == "list" || key == "match_list")
+			if (key == "list" || key == "match_list" || key == "lines")
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_match, _1)));
 			if (key == "ok_list")
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_ok, _1)));
