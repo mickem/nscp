@@ -1,21 +1,19 @@
 {
 	"module"		: {
 		"title"			: "Event log Checker",
-		"description"	: "Check for errors and warnings in the event log.",
+		"description"		: "Check for errors and warnings in the event log.",
 		"name"			: "CheckEventLog",
 		"alias"			: "eventlog",
 		"version"		: "auto"
 	},
 	
 	"settings"		: {
-		"default_alias"	: "task schedule"
+		"default_alias"	: "eventlog"
 	},
 
 	"commands" : {
-		"check_eventlog"	: {
-			"alias"	: "CheckEventLog",
-			"desc"	: "Check for errors in the event log."
-		}
+		"check_eventlog"	: "Check for errors in the event log.",
+		"CheckEventLog"		: "Legacy version of check_eventlog"
 	},
 	"command line exec" : true
 }

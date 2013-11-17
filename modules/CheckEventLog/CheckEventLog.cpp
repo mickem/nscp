@@ -38,6 +38,7 @@
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string/replace.hpp>
 
 #include "filter.hpp"
 
@@ -367,6 +368,92 @@ void check_modern(const std::string &logfile, std::string &scan_range, eventlog_
 	} 
 }
 
+void log_args(const Plugin::QueryRequestMessage::Request &request) {
+	std::stringstream ss;
+	for (int i=0;i<request.arguments_size();i++) {
+		if (i>0)
+			ss << " ";
+		ss << request.arguments(i);
+	}
+	NSC_DEBUG_MSG("Created command: " + ss.str());
+}
+
+
+void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+	bool debug = false;
+	std::string filter, syntax;
+	std::vector<std::string> times;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("filter", po::value<std::string>(&filter), "The filter to use.")
+		("file", po::value<std::vector<std::string>>(&times), "The file to check")
+		("debug", po::value<bool>(&debug), "The file to check")
+		("truncate", po::value<std::string>(), "Deprecated and has no meaning")
+		("descriptions", po::value<bool>(), "Deprecated and has no meaning")
+		("unique", po::value<bool>(), "TODO: Currently not supported")
+		 
+		("display", po::value<std::string>(&syntax)->default_value("%source%, %strings%"), "The syntax string")
+		;
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=count > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=count > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("warn"))
+		warn = "warn=count > " + vm["warn"].as<std::string>();
+	if (vm.count("crit"))
+		crit = "crit=count > " + vm["crit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=count < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=count > " + vm["MinCrit"].as<std::string>();
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	BOOST_FOREACH(const std::string &t, times) {
+		request.add_arguments("file=" + t);
+	}
+	if (debug)
+		request.add_arguments("debug");
+	if (!filter.empty())
+		request.add_arguments("filter="+filter);
+	boost::replace_all(syntax, "%message%", "${message}");
+	boost::replace_all(syntax, "%source%", "${source}");
+	boost::replace_all(syntax, "%computer%", "${computer}");
+	boost::replace_all(syntax, "%generated%", "${generated}");
+	boost::replace_all(syntax, "%written%", "${written}");
+	boost::replace_all(syntax, "%type%", "${type}");
+	boost::replace_all(syntax, "%category%", "${category}");
+	boost::replace_all(syntax, "%facility%", "${facility}");
+	boost::replace_all(syntax, "%qualifier%", "${qualifier}");
+	boost::replace_all(syntax, "%customer%", "${customer}");
+	boost::replace_all(syntax, "%severity%", "${severity}");
+	boost::replace_all(syntax, "%strings%", "${message}");
+	boost::replace_all(syntax, "%level%", "${level}");
+	boost::replace_all(syntax, "%log%", "${file}");
+	boost::replace_all(syntax, "%file%", "${file}");
+	boost::replace_all(syntax, "%id%", "${id}");
+	boost::replace_all(syntax, "%user%", "${user}");
+	request.add_arguments("detail-syntax="+syntax);
+	log_args(request);
+	check_eventlog(request, response);
+}
+
+
 void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef eventlog_filter::filter filter_type;
 	modern_filter::data_container data;
@@ -439,130 +526,6 @@ bool CheckEventLog::commandLineExec(const Plugin::ExecuteRequestMessage::Request
 	}
 	return false;
 }
-
-
-void PrintEventSystemData(eventlog::evt_handle &hEvent) {
-	hlp::buffer<wchar_t, PVOID> buffer(1024);
-	DWORD dwBufferSize = 0;
- 	DWORD dwPropertyCount = 0;
-// 	LPWSTR pwsSid = NULL;
-// 	ULONGLONG ullTimeStamp = 0;
-// 	ULONGLONG ullNanoseconds = 0;
-// 	SYSTEMTIME st;
-// 	FILETIME ft;
-
-	eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
-	if (!hContext)
-		throw nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
-
-	if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, buffer.size(), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
-		DWORD status = GetLastError();
-		if (status == ERROR_INSUFFICIENT_BUFFER) {
-			buffer.resize(dwBufferSize);
-			if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, buffer.size(), buffer.get(), &dwBufferSize, &dwPropertyCount))
-				throw nscp_exception("EvtRender failed: " + error::lookup::last_error());
-		}
-	}
-	eventlog::api::PEVT_VARIANT pRenderedValues = buffer.get_t<eventlog::api::PEVT_VARIANT>();
-	NSC_DEBUG_MSG("Provider Name: " + utf8::cvt<std::string>(pRenderedValues[eventlog::api::EvtSystemProviderName].StringVal));
-// 	if (pRenderedValues[eventlog::api::EvtSystemProviderGuid].GuidVal != NULL)
-// 	{
-// 		WCHAR wsGuid[50];
-// 		StringFromGUID2(*(pRenderedValues[eventlog::api::EvtSystemProviderGuid].GuidVal), wsGuid, sizeof(wsGuid)/sizeof(WCHAR));
-// 		NSC_DEBUG_MSG("Provider Guid: " + utf8::cvt<std::string>(wsGuid));
-// 	}
-
-	DWORD EventID = pRenderedValues[eventlog::api::EvtSystemEventID].UInt16Val;
-	if (pRenderedValues[eventlog::api::EvtSystemQualifiers].Type != eventlog::api::EvtVarTypeNull)
-		NSC_DEBUG_MSG("EventID: " + strEx::s::xtos(MAKELONG(pRenderedValues[eventlog::api::EvtSystemEventID].UInt16Val, pRenderedValues[eventlog::api::EvtSystemQualifiers].UInt16Val)));
-
-// 	wprintf(L"Version: %u\n", (api::EvtVarTypeNull == pRenderedValues[api::EvtSystemVersion].Type) ? 0 : pRenderedValues[api::EvtSystemVersion].ByteVal);
-// 	wprintf(L"Level: %u\n", (api::EvtVarTypeNull == pRenderedValues[api::EvtSystemLevel].Type) ? 0 : pRenderedValues[api::EvtSystemLevel].ByteVal);
-// 	wprintf(L"Task: %hu\n", (api::EvtVarTypeNull == pRenderedValues[api::EvtSystemTask].Type) ? 0 : pRenderedValues[api::EvtSystemTask].UInt16Val);
-// 	wprintf(L"Opcode: %u\n", (api::EvtVarTypeNull == pRenderedValues[api::EvtSystemOpcode].Type) ? 0 : pRenderedValues[api::EvtSystemOpcode].ByteVal);
-// 	wprintf(L"Keywords: 0x%I64x\n", pRenderedValues[api::EvtSystemKeywords].UInt64Val);
-
-// 	ullTimeStamp = pRenderedValues[api::EvtSystemTimeCreated].FileTimeVal;
-// 	ft.dwHighDateTime = (DWORD)((ullTimeStamp >> 32) & 0xFFFFFFFF);
-// 	ft.dwLowDateTime = (DWORD)(ullTimeStamp & 0xFFFFFFFF);
-// 
-// 	FileTimeToSystemTime(&ft, &st);
-// 	ullNanoseconds = (ullTimeStamp % 10000000) * 100; // Display nanoseconds instead of milliseconds for higher resolution
-// 	wprintf(L"TimeCreated SystemTime: %02d/%02d/%02d %02d:%02d:%02d.%I64u)\n", 
-// 		st.wMonth, st.wDay, st.wYear, st.wHour, st.wMinute, st.wSecond, ullNanoseconds);
-// 
-// 	wprintf(L"EventRecordID: %I64u\n", pRenderedValues[api::EvtSystemEventRecordId].UInt64Val);
-// 
-// 	if (api::EvtVarTypeNull != pRenderedValues[api::EvtSystemActivityID].Type)
-// 	{
-// 		StringFromGUID2(*(pRenderedValues[api::EvtSystemActivityID].GuidVal), wsGuid, sizeof(wsGuid)/sizeof(WCHAR));
-// 		wprintf(L"Correlation ActivityID: %s\n", wsGuid);
-// 	}
-// 
-// 	if (api::EvtVarTypeNull != pRenderedValues[api::EvtSystemRelatedActivityID].Type)
-// 	{
-// 		StringFromGUID2(*(pRenderedValues[api::EvtSystemRelatedActivityID].GuidVal), wsGuid, sizeof(wsGuid)/sizeof(WCHAR));
-// 		wprintf(L"Correlation RelatedActivityID: %s\n", wsGuid);
-// 	}
-// 
-// 	wprintf(L"Execution ProcessID: %lu\n", pRenderedValues[api::EvtSystemProcessID].UInt32Val);
-// 	wprintf(L"Execution ThreadID: %lu\n", pRenderedValues[api::EvtSystemThreadID].UInt32Val);
-// 	wprintf(L"Channel: %s\n", (api::EvtVarTypeNull == pRenderedValues[api::EvtSystemChannel].Type) ? L"" : pRenderedValues[api::EvtSystemChannel].StringVal);
-// 	wprintf(L"Computer: %s\n", pRenderedValues[api::EvtSystemComputer].StringVal);
-// 
-// 	if (api::EvtVarTypeNull != pRenderedValues[api::EvtSystemUserID].Type)
-// 	{
-// 		if (ConvertSidToStringSid(pRenderedValues[api::EvtSystemUserID].SidVal, &pwsSid))
-// 		{
-// 			wprintf(L"Security UserID: %s\n", pwsSid);
-// 			LocalFree(pwsSid);
-// 		}
-// 	}
-
-// 	evt_handle hMetadata = EvtOpenPublisherMetadata(NULL, pRenderedValues[api::EvtSystemProviderName].StringVal, NULL, 0, 0);
-// 	if (!hMetadata)
-// 		throw nscp_exception("EvtOpenPublisherMetadata failed: " + error::lookup::last_error());
-// 
-// 
-// 	if (!EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, api::EvtFormatMessageEvent, buffer.size(), buffer.get_t<LPWSTR>(), &dwBufferSize)) {
-// 		DWORD status = GetLastError();
-// 		if (status == ERROR_INSUFFICIENT_BUFFER) {
-// 			buffer.resize(dwBufferSize);
-// 			if (!EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, api::EvtFormatMessageEvent, buffer.size(), buffer.get_t<LPWSTR>(), &dwBufferSize))
-// 				throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error());
-// 		}
-// 		else if (status != ERROR_EVT_MESSAGE_NOT_FOUND  && ERROR_EVT_MESSAGE_ID_NOT_FOUND != status)
-// 			throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
-// 	}
-// 	NSC_DEBUG_MSG("==> " + utf8::cvt<std::string>(buffer.get_t<wchar_t*>()));
-}
-
-void PrintResults(eventlog::api::EVT_HANDLE hResults, DWORD batch_size) {
-	DWORD status = ERROR_SUCCESS;
-	hlp::buffer<eventlog::api::EVT_HANDLE> hEvents(batch_size);
-	DWORD dwReturned = 0;
-
-	while (true) {
-		if (!eventlog::EvtNext(hResults, batch_size, hEvents, 100, 0, &dwReturned)) {
-			status = GetLastError();
-			if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT)
-				return;
-			else if (status != ERROR_SUCCESS)
-				throw nscp_exception("EvtNext failed: " + error::lookup::last_error(status));
-		}
-		for (DWORD i = 0; i < dwReturned; i++) {
-			eventlog::evt_handle handle(hEvents[i]);
-			try {
-				PrintEventSystemData(handle);
-			} catch (const nscp_exception &e) {
-				NSC_LOG_ERROR("Failed to describe event: " + e.reason());
-			} catch (...) {
-				NSC_LOG_ERROR("Failed to describe event");
-			}
-		}
-	}
-}
-
 
 void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	try {

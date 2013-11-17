@@ -292,24 +292,15 @@ namespace format {
 		ss << cpy;
 		std::string ret = ss.str();
 		ret += postfix[idx];
+		if (idx > 0)
+			ret += "B";
 		return ret;
-	}
-	template<class T>
-	inline T convert_to_byte_units(T i) {
-		double cpy = static_cast<double>(i);
-		char postfix[] = BKMG_RANGE;
-		int idx = 0;
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
-			idx++;
-		}
-		return static_cast<T>(cpy);
 	}
 	template<class T>
 	inline T convert_to_byte_units(T i, std::string unit) {
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
-		if (unit.length() != 1) {
+		if (unit.size() == 0) {
 			return i;
 		}
 		double cpy = static_cast<double>(i);
@@ -327,7 +318,7 @@ namespace format {
 		std::stringstream ss;
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
-		if (unit.length() != 1) {
+		if (unit.size() == 0) {
 			ss << cpy;
 			return ss.str();
 		}
@@ -354,7 +345,10 @@ namespace format {
 			cpy/=1024;
 			idx++;
 		}
-		return std::string(1, postfix[idx]);
+		std::string ret = std::string(1, postfix[idx]);
+		if (idx > 0)
+			ret += "B";
+		return ret;
 	}
 
 	typedef std::list<std::wstring> splitList;

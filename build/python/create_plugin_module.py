@@ -224,8 +224,13 @@ class Command:
 		else:
 			alias = ''
 			alias_lst = ''
+		cmd_name = self.name
+		print '---> %s == %s'%(cmd_name, module_data['CLASS'])
+		if cmd_name == module_data['CLASS']:
+			cmd_name += "_"
 		return dict(module_data.items() + {
-			'COMMAND_NAME': self.name,
+			'COMMAND_NAME': cmd_name,
+			'COMMAND_NAME_ORG': self.name,
 			'COMMAND_NAME_LC': self.name.lower(),
 			'ALIAS': alias,
 			'ALIAS_LST': alias_lst,
@@ -658,7 +663,7 @@ COMMAND_INSTANCE_CPP_LEGACY = """			} else if (request_payload.command() == "${C
 COMMAND_REGISTRATION_ALIAS_CPP = """		("${COMMAND_NAME}", "${ALIAS}",
 		"${COMMAND_DESCRIPTION}")
 """
-COMMAND_REGISTRATION_CPP = """		("${COMMAND_NAME}",
+COMMAND_REGISTRATION_CPP = """		("${COMMAND_NAME_ORG}",
 		"${COMMAND_DESCRIPTION}")
 """
 RAW_COMMAND_INSTANCE_CPP = """			} else if (request_payload.command() == "${COMMAND_NAME}") {
