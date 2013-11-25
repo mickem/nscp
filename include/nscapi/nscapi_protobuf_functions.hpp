@@ -109,7 +109,7 @@ namespace nscapi {
 			void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
 			bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
 
-			void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "");
+			void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "", const std::string source = "");
 			void make_query_from_exec(std::string &data);
 			void make_query_from_submit(std::string &data);
 			void make_exec_from_submit(std::string &data);

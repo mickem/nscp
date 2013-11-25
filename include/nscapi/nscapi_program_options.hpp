@@ -126,6 +126,7 @@ namespace nscapi {
                               std::size_t indent,
                               std::size_t line_length)
         {                    
+			bool extra_indent = false; // true if we want to add a tab char
             // Through reminder of this function, 'line_length' will
             // be the length available for characters, not including
             // indent.
@@ -138,20 +139,17 @@ namespace nscapi {
             std::string::size_type par_indent = par.find('\t');
 
             if (par_indent == std::string::npos)
-            {
                 par_indent = 0;
-            }
-            else
-            {
+            else {
+				extra_indent = true;
+
                 // only one tab per paragraph allowed
                 if (count(par.begin(), par.end(), '\t') > 1)
-                {
                     boost::throw_exception(boost::program_options::error(
                         "Only one tab per paragraph is allowed in the options description"));
-                }
           
                 // erase tab from string
-                par.erase(par_indent, 1);
+                //par.erase(par_indent, 1);
 
                 // this assert may fail due to user error or 
                 // environment conditions!
@@ -159,21 +157,16 @@ namespace nscapi {
 
                 // ignore tab if not on first line
                 if (par_indent >= line_length)
-                {
                     par_indent = 0;
-                }            
             }
           
             if (par.size() < line_length)
-            {
                 os << par;
-            }
-            else
-            {
+            else {
                 std::string::const_iterator       line_begin = par.begin();
                 const std::string::const_iterator par_end = par.end();
 
-                bool first_line = true; // of current paragraph!        
+                bool first_line = true; // of current paragraph!  
             
                 while (line_begin < par_end)  // paragraph lines
                 {
@@ -219,7 +212,7 @@ namespace nscapi {
                             {
                                 line_end = last_space;
                             }
-                        }                                                
+                        }
                     } // prevent chopped words
              
                     // write line to stream
@@ -238,16 +231,16 @@ namespace nscapi {
                         os << '\n';
                 
                         for(std::size_t pad = indent; pad > 0; --pad)
-                        {
                             os.put(' ');
-                        }                                                        
+    					if (extra_indent)
+							os.put('\t');
                     }
               
                     // next line starts after of this line
                     line_begin = line_end;              
                 } // paragraph lines
-            }          
-        }                              
+            }
+        }
 
 		static void format_description(std::ostream& os,
 			const std::string& desc, 

@@ -91,13 +91,13 @@ namespace parsers {
 				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::simple_int_performance_generator<T>(unit, prefix, suffix)));
 				return *this;
 			}
-			typedef boost::function<long long(T)> maxfun_type;
+			typedef boost::function<long long(T, evaluation_context)> maxfun_type;
 			registry_adders_variables_int& add_percentage(maxfun_type maxfun, std::string prefix = "", std::string suffix = "") {
 				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::percentage_int_performance_generator<T>(maxfun, prefix, suffix)));
 				return *this;
 			}
 
-			typedef boost::function<long long(T)> scale_type;
+			typedef boost::function<long long(T, evaluation_context)> scale_type;
 			registry_adders_variables_int& add_scaled_byte(std::string prefix = "", std::string suffix = "") {
 				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(prefix, suffix)));
 				return *this;

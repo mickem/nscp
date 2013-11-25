@@ -60,7 +60,7 @@ namespace nscapi {
 			}
 
 			void set_max_age(std::string age) {
-				if (age != "none" && age != "infinite" && age != "false")
+				if (age != "none" && age != "infinite" && age != "false" && age != "off")
 					max_age = parse_time(age);
 			}
 

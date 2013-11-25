@@ -231,7 +231,6 @@ public:
 			cit = aliases_.find(lc);
 			if (cit != aliases_.end())
 				return (*cit).second;
-			std::cout << "NOT FOUND" << std::endl;
 			return plugin_type();
 		}
 

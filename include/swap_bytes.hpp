@@ -23,7 +23,10 @@ namespace swap_bytes {
 
 		return out.value;
 	}
-
+#ifdef WIN32
+#pragma warning( push )
+#pragma warning( disable : 4127 )
+#endif
 	template<EEndian from, EEndian to, class T>
 	inline T EndianSwapBytes(T value) {
 		BOOST_STATIC_ASSERT(sizeof(T) == 2 || sizeof(T) == 4 || sizeof(T) == 8);
@@ -41,5 +44,7 @@ namespace swap_bytes {
 	inline T hton(T value) {
 		return EndianSwapBytes<HOST_ENDIAN_ORDER, BIG_ENDIAN_ORDER, T >(value);
 	}
-
+#ifdef WIN32
+#pragma warning( pop )
+#endif
 }

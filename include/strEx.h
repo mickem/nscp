@@ -248,8 +248,7 @@ namespace strEx {
 		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
 		if (p == std::string::npos)
 			return value * smallest_unit;
-		else if ( (time[p
-		] == 's') || (time[p] == 'S') )
+		else if ( (time[p] == 's') || (time[p] == 'S') )
 		return value;
 		else if ( (time[p] == 'm') || (time[p] == 'M') )
 			return value * 60;

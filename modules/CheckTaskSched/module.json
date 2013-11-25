@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Task shedule checker",
-		"description"		: "Check status of your scheduled jobs.\nThere are two versions of this plugin this onw is only intended to be used on Windows XP and below",
+		"description"		: "Check status of your scheduled jobs.",
 		"name"			: "CheckTaskSched",
 		"alias"			: "tasksched",
 		"version"		: "auto"
@@ -12,10 +12,8 @@
 	},
 
 	"commands" : {
-		"check_tasksched"	: {
-			"alias"	: "CheckTaskSched",
-			"desc"	: "Check status of scheduled jobs."
-		}
+		"check_tasksched"	: "Check status of scheduled jobs.",
+		"CheckTaskSched"	: "Legacy version of check_tasksched"
 	},
 	"command line exec" : "legacy"
 }

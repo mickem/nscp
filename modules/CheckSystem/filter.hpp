@@ -163,14 +163,14 @@ namespace check_uptime_filter {
 		long long get_uptime() const {
 			return uptime;
 		}
-		long long get_uptime_delta() const {
+		long long get_boot() const {
 			return now-uptime;
 		}
-		std::string get_uptime_s() const {
-			return format::itos_as_time((now-get_uptime())*1000);
-		}
-		std::string get_boottime_s() const {
+		std::string get_boot_s() const {
 			return format::format_date(boot);
+		}
+		std::string get_uptime_s() const {
+			return format::itos_as_time(get_uptime()*1000);
 		}
 	};
 

@@ -23,6 +23,7 @@ namespace schedules {
 		nscapi::settings_objects::template_object tpl;
 
 		// Schedule keys
+		std::string source_id;
 		std::string target_id;
 		boost::posix_time::time_duration duration;
 		std::string  channel;
@@ -51,6 +52,7 @@ namespace schedules {
 				<< "{tpl: " << tpl.to_string()
 				<< ", command: " << command 
 				<< ", channel: " << channel 
+				<< ", source_id: " << source_id
 				<< ", target_id: " << target_id 
 				<< ", duration: " << duration.total_seconds()
 				<< "}";
@@ -91,6 +93,8 @@ namespace schedules {
 
 				("target", sh::string_key(&object.target_id),
 				"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
+				("source", sh::string_key(&object.source_id),
+				"SOURCE", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
 
 				;
 			if (is_def) {
@@ -133,6 +137,7 @@ namespace schedules {
 		static void apply_parent(object_type &object, object_type &parent) {
 			using namespace nscapi::settings_objects;
 			import_string(object.target_id, parent.target_id);
+			import_string(object.source_id, parent.source_id);
 			import_string(object.command, parent.command);
 			//import_string(object.arguments, parent.arguments);
 			if (object.duration.total_seconds() == 0 && parent.duration.total_seconds() != 0)

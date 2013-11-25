@@ -64,6 +64,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	boost::program_options::options_description desc;
 
 	std::vector<std::string> times;
+	std::vector<std::string> types;
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
 		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
@@ -82,6 +83,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 		("MinWarnUsed", po::value<std::string>(), "Minimum value before a warning is returned.")
 		("MinCritUsed", po::value<std::string>(), "Minimum value before a critical is returned.")
 		("Drive", po::value<std::vector<std::string>>(&times), "The drives to check")
+		("FilterType", po::value<std::vector<std::string>>(&types), "The type of drives to check fixed, remote, cdrom, ramdisk, removable")
 		;
 
 	boost::program_options::variables_map vm;
@@ -95,9 +97,9 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	if (vm.count("MaxCrit"))
 		crit = "crit=used > " + vm["MaxCrit"].as<std::string>();
 	if (vm.count("MinWarn"))
-		warn = "free=used < " + vm["MinWarn"].as<std::string>();
+		warn = "warn=free < " + vm["MinWarn"].as<std::string>();
 	if (vm.count("MinCrit"))
-		crit = "free=used < " + vm["MinCrit"].as<std::string>();
+		crit = "crit=free < " + vm["MinCrit"].as<std::string>();
 	if (vm.count("MaxWarnUsed"))
 		warn = "warn=used > " + vm["MaxWarnUsed"].as<std::string>();
 	if (vm.count("MaxCritUsed"))
@@ -125,9 +127,9 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 		request.add_arguments("drive=*");
 		exclude = true;
 	}
+	request.add_arguments("detail-syntax=${drive}: Total: ${size} - Used: ${used} - Free: ${free}");
 	if (vm.count("ShowAll")) {
-		if (vm["ShowAll"].as<std::string>() == "long")
-			request.add_arguments("filter=none");
+		//if (vm["ShowAll"].as<std::string>() == "long")
 		request.add_arguments("top-syntax=${status}: ${list}");
 	}
 	BOOST_FOREACH(const std::string &t, times) {
@@ -135,6 +137,15 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 			request.add_arguments("exclude=" + t);
 		else
 			request.add_arguments("drive=" + t);
+	}
+	if (!types.empty()) {
+		std::string type_list = "";
+		BOOST_FOREACH(const std::string &s, types) {
+			if (!type_list.empty())
+				type_list += ", ";
+			type_list += "'" + s + "'";
+		}
+		request.add_arguments("filter=type in (" + type_list +")");
 	}
 	log_args(request);
 	check_drive::check(request, response);

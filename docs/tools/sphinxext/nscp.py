@@ -28,6 +28,7 @@ class AdaObject(ObjectDescription):
 
 	option_spec = {
 		'synopsis': lambda x: x,
+		'module': lambda x: x,
 	}
 	doc_field_types = [
 	#    TypedField('synopsis', label=l_('Synopsis'), names=('title', 'subject', 'desc', 'description'),),
@@ -43,11 +44,23 @@ class AdaObject(ObjectDescription):
 	def handle_signature(self, sig, signode):
 		#synopsis = unicodedata.normalize('NFD', self.options.get('synopsis'))
 		synopsis = self.options.get('synopsis')
-		module = self.env.temp_data.get('nscp:module')
+		module = self.options.get('module')
+		if not module:
+			module = self.env.temp_data.get('nscp:module')
+		else:
+			self.env.temp_data['nscp:module'] = module
+			
 		confpath = self.env.temp_data.get('nscp:confpath')
 		command = self.env.temp_data.get('nscp:command')
 		fullname = 'TODO'
-		if self.objtype == 'query':
+		if self.objtype == 'module':
+			fullname = '%s'%(sig)
+			signode['fullname'] = fullname
+			#signode += addnodes.desc_addname(module, module)
+			signode += addnodes.desc_name(sig, sig)
+			signode += addnodes.desc_content('')
+			signode += addnodes.compact_paragraph(synopsis, synopsis)
+		elif self.objtype == 'query':
 			fullname = '%s.%s'%(module, sig)
 			signode['fullname'] = fullname
 			signode += addnodes.desc_addname(module, module)
@@ -55,19 +68,19 @@ class AdaObject(ObjectDescription):
 			signode += addnodes.desc_content('')
 			signode += addnodes.compact_paragraph(synopsis, synopsis)
 		elif self.objtype == 'option':
-			fullname = '%s.%s:%s'%(module, command, sig)
+			fullname = '%s.%s.%s'%(module, command, sig)
 			signode['fullname'] = fullname
 			ann = ' (%s, %s)'%(module, command)
 			signode += addnodes.desc_name(sig, sig)
 			signode += addnodes.desc_annotation(ann, ann)
 		elif self.objtype == 'confpath':
-			fullname = '%s:%s'%(module, sig)
+			fullname = '%s.%s'%(module, sig)
 			signode['fullname'] = fullname
 			ann = ' (%s)'%(module)
 			signode += addnodes.desc_name(sig, sig)
 			signode += addnodes.desc_annotation(ann, ann)
 		elif self.objtype == 'confkey':
-			fullname = '%s:%s:%s'%(module, confpath, sig)
+			fullname = '%s.%s.%s'%(module, confpath, sig)
 			signode['fullname'] = fullname
 			ann = ' (%s, %s)'%(module, confpath)
 			signode += addnodes.desc_name(sig, sig)
@@ -77,7 +90,9 @@ class AdaObject(ObjectDescription):
 
 	def _get_index_text(self, name):
 		#print "_get_index_text %s, %s" % (name, self.objtype)
-		if self.objtype == 'query':
+		if self.objtype == 'module':
+			return _('%s') % (name[1])
+		elif self.objtype == 'query':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
 		elif self.objtype == 'exec':
 			return _('%s (%s)') % (name[1], self.env.temp_data['nscp:module'])
@@ -93,13 +108,17 @@ class AdaObject(ObjectDescription):
 
 	def add_target_and_index(self, name, sig, signode):
 		#print 'add_target_and_index(%s, %s, %s)'%(name, sig, signode)
-		if self.objtype == 'query':
+		if self.objtype == 'module':
+			self.env.temp_data['nscp:module'] = name[1]
+			fullname = name[0]
+			domain = 'objects'
+		elif self.objtype == 'query':
 			self.env.temp_data['nscp:command'] = name[1]
 			fullname = name[0]
-			domain = 'queries'
+			domain = 'objects'
 		elif self.objtype == 'option':
 			fullname = name[0]
-			domain = 'options'
+			domain = 'objects'
 		elif self.objtype == 'confpath':
 			self.env.temp_data['nscp:confpath'] = name[1]
 			fullname = name[0]
@@ -140,6 +159,7 @@ class AdaModule(Directive):
 	final_argument_whitespace = False
 	option_spec = {
 		'synopsis': lambda x: x,
+		'module': lambda x: x,
 		'noindex': directives.flag,
 		'deprecated': directives.flag,
 	}
@@ -195,7 +215,7 @@ class AdaXRefRole(XRefRole):
 			# parts of the contents
 			if title[0:1] == '~':
 				title = title[1:]
-				colon = title.rfind(':')
+				colon = title.rfind('.')
 				if colon != -1:
 					title = title[colon+1:]
 		return title, target
@@ -239,17 +259,17 @@ class NSClientDomain(Domain):
 
 	object_types = {
 		'query':  ObjType(l_('query'), 'query'),
+		'module':  ObjType(l_('module'), 'module'),
 		'exec':   ObjType(l_('exec'),  'exe'),
-		'module': ObjType(l_('module'),'m'),
 		'confkey': ObjType(l_('confkey'),'confkey'),
 	}
 
 	# TODO: Keywords .. query:: ... ?
 	directives = {
 		'query':         AdaObject,
+		'module':         AdaObject,
 		'exec':          AdaObject,
 		'option':        AdaObject,
-		'module':        AdaModule,
 		'confpath':      AdaObject,
 		'confkey':       AdaObject,
 		'currentmodule': AdaCurrentModule,
@@ -257,8 +277,8 @@ class NSClientDomain(Domain):
 	# TODO: ?
 	roles = {
 		'query':    AdaXRefRole(),
-		'exe':      AdaXRefRole(),
 		'module':   AdaXRefRole(),
+		'exe':      AdaXRefRole(),
 		'option':   AdaXRefRole(),
 		'confkey':  AdaXRefRole(),
 		'confpath': AdaXRefRole(),
@@ -269,7 +289,7 @@ class NSClientDomain(Domain):
 		'options': {},     # fullname -> docname, objtype
 		'queries' : {},    # fullname -> (docname, objtype)
 		'procedures' : {}, # fullname -> arity -> (targetname, docname)
-		'modules': {},     # modname -> docname, synopsis, platform, deprecated
+		'modules': {},     # modname -> docname, synopsis, deprecated
 	}
 	indices = [
 		AdaModuleIndex,
@@ -282,7 +302,7 @@ class NSClientDomain(Domain):
 		for modname, (fn, _, _) in self.data['modules'].items():
 			if fn == docname:
 				del self.data['modules'][modname]
-		for fullname, (fn, _) in self.data['queries'].items():
+		for fullname, (fn, _, _) in self.data['queries'].items():
 			if fn == docname:
 				del self.data['queries'][fullname]
 		for fullname, funcs in self.data['procedures'].items():
@@ -314,13 +334,13 @@ class NSClientDomain(Domain):
 			if tname in self.data['queries']:
 				docname, objtype = self.data['queries'][tname]
 				return tname, docname
-			print "_find_obj: QUERY: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['queries'].keys())
+			#print "_find_obj: QUERY: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['queries'].keys())
 			return None, None
 
 		elif objtype == 'confpath':
 			if name in self.data['objects']:
 				return name, self.data['objects'][name]
-			tname = '%s:%s'%(modname, name)
+			tname = '%s.%s'%(modname, name)
 			if tname in self.data['objects']:
 				docname, objtype = self.data['objects'][tname]
 				return tname, docname
@@ -331,9 +351,9 @@ class NSClientDomain(Domain):
 			if name in self.data['objects']:
 				return name, self.data['objects'][name]
 			if confpath:
-				tname = '%s:%s:%s'%(modname, confpath, name)
+				tname = '%s.%s.%s'%(modname, confpath, name)
 			elif modname:
-				tname = '%s:%s'%(modname, name)
+				tname = '%s.%s'%(modname, name)
 			else:
 				tname = name
 			if tname in self.data['objects']:
@@ -345,14 +365,14 @@ class NSClientDomain(Domain):
 		elif objtype == 'option':
 			if name in self.data['options']:
 				return name, self.data['options'][name]
-			tname = '%s.%s:%s'%(modname, commandname, name)
+			tname = '%s.%s.%s'%(modname, commandname, name)
 			if tname in self.data['options']:
 				docname, objtype = self.data['options'][tname]
 				return tname, docname
-			print "_find_obj: OPTION: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['options'].keys())
+			#print "_find_obj: OPTION: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['options'].keys())
 			return None, None
 
-		print "_find_obj: NOTHING: modname: %s, commandname: %s, name: %s, objtype: %s => NONE" % (modname, commandname, name, objtype)
+		#print "_find_obj: NOTHING: modname: %s, commandname: %s, name: %s, objtype: %s => NONE" % (modname, commandname, name, objtype)
 		#if name in self.data['objects']:
 		#	return name, self.data['objects'][name]
 		#tname = '%s.%s'%(modname, name)

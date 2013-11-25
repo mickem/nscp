@@ -97,7 +97,6 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 				NSC_LOG_ERROR_WA("No channel specified for ", item.tpl.alias);
 				return;
 			}
-			//make_submit_from_query(response, item.channel, item.alias);
 			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, "Command was not found: " + item.command, "", response);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
@@ -108,7 +107,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			}
 			// @todo: allow renaming of commands here item.alias, 
 			// @todo this is broken, fix this (uses the wrong message)
-			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.tpl.alias, item.target_id);
+			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.tpl.alias, item.target_id, item.source_id);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
 		} else {

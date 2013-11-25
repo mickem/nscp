@@ -576,7 +576,7 @@ bool NSClientT::boot_load_all_plugins() {
 	return true;
 }
 
-bool NSClientT::boot_load_plugin(std::string plugin) {
+bool NSClientT::boot_load_plugin(std::string plugin, bool boot) {
 	try {
 		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == ".dll")
 			plugin = plugin.substr(0, plugin.length()-4);
@@ -584,32 +584,42 @@ bool NSClientT::boot_load_plugin(std::string plugin) {
 		std::string plugin_file = NSCPlugin::get_plugin_file(plugin);
 		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::path file = pluginPath / plugin_file;
+		NSClientT::plugin_type instance;
 		if (boost::filesystem::is_regular(file)) {
-			addPlugin(file, "");
+			instance = addPlugin(file, "");
 		} else {
 			if (plugin_file == "CheckTaskSched1.dll" || plugin_file == "CheckTaskSched2.dll") {
 				LOG_ERROR_CORE_STD("Your loading the CheckTaskSched1/2 which has been renamed into CheckTaskSched, please update your config");
 				plugin_file = "CheckTaskSched.dll";
 				boost::filesystem::path file = pluginPath / plugin_file;
 				if (boost::filesystem::is_regular(file)) {
-					addPlugin(file, "");
-					return true;
+					instance = addPlugin(file, "");
 				}
-			} 
-			LOG_ERROR_CORE_STD("Failed to load: " + plugin + "File not found: " + file.string());
-			return false;
+			} else {
+				LOG_ERROR_CORE_STD("Failed to load: " + plugin + "File not found: " + file.string());
+				return false;
+			}
 		}
+		if (boot) {
+			try {
+				if (!instance->load_plugin(NSCAPI::normalStart)) {
+					LOG_ERROR_CORE_STD("Plugin refused to load: " + instance->get_description());
+				}
+			} catch (NSPluginException e) {
+				LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
+			} catch (...) {
+				LOG_ERROR_CORE_STD("Could not load plugin: " + instance->get_description());
+			}
+		}
+		return true;
 	} catch (const NSPluginException &e) {
 		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
-		return false;
 	} catch(const std::exception &e) {
 		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
-		return false;
 	} catch(...) {
 		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
-		return false;
 	}
-	return true;
+	return false;
 }
 bool NSClientT::boot_start_plugins(bool boot) {
 	try {
@@ -868,9 +878,9 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::string alias) {
 	{
 		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD("addPlugin(" + file.string() + " without alias)");
+			LOG_DEBUG_CORE_STD("adding " + file.string());
 		} else {
-			LOG_DEBUG_CORE_STD("addPlugin(" + file.string() + " as " + alias + ")");
+			LOG_DEBUG_CORE_STD("adding " + file.string() + " (" + alias + ")");
 		}
 		// Check if this is a duplicate plugin (if so return that instance)
 		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(10));
@@ -941,8 +951,11 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 		std::string request, response;
 		nscapi::protobuf::functions::create_simple_query_request(command, args, request);
 		NSCAPI::nagiosReturn ret = injectRAW(request, response);
-		if (response.empty()) {
-			LOG_ERROR_CORE("No data retutned from command");
+		if (ret == NSCAPI::hasFailed && response.empty()) {
+			msg = "Failed to execute: " + command;
+			return NSCAPI::returnUNKNOWN;
+		} else if (response.empty()) {
+			msg = "No data returned from: " + command;
 			return NSCAPI::returnUNKNOWN;
 		}
 		return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
@@ -976,6 +989,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
 		command_chunk_type command_chunks;
 
+		std::string commands;
 		for (int i=0;i<request_message.payload_size(); i++) {
 			::Plugin::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
 			payload->set_command(commands_.make_key(payload->command()));
@@ -988,12 +1002,17 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 				}
 				command_chunks[id].request.add_payload()->CopyFrom(*payload);
 			} else {
-				LOG_ERROR_CORE("No module supports query: " + payload->command() + " avalible commands: " + commands_.to_string());
+				strEx::append_list(commands, payload->command());
 			}
 		}
 
 		if (command_chunks.size() == 0) {
-			LOG_ERROR_CORE("No command to execute: giving up!");
+			LOG_ERROR_CORE("Unknown command(s): " + commands + " available commands: " + commands_.to_string());
+			nscapi::protobuf::functions::create_simple_header(response_message.mutable_header());
+			Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+			payload->set_command(commands);
+			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + commands);
+			response = response_message.SerializeAsString();
 			return NSCAPI::hasFailed;
 		}
 

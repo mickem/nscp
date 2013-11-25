@@ -90,6 +90,9 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		} else if (hostname_ == "auto-lc") {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+		} else if (hostname_ == "auto-uc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
 			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
 
@@ -109,10 +112,16 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			} catch (const std::exception& e) {
 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
-
-
 			strEx::replace(hostname_, "${host}", dn.first);
 			strEx::replace(hostname_, "${domain}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			strEx::replace(hostname_, "${host_uc}", dn.first);
+			strEx::replace(hostname_, "${domain_uc}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			strEx::replace(hostname_, "${host_lc}", dn.first);
+			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
@@ -229,6 +238,8 @@ NRDPClient::connection_data parse_header(const ::Plugin::Common_Header &header, 
 	nscapi::protobuf::functions::destination_container recipient, sender;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
+	if (sender.address.host.empty() && !data->host_self.address.host.empty())
+		sender.address.host = data->host_self.address.host;
 	return NRDPClient::connection_data(recipient, data->recipient, sender);
 }
 

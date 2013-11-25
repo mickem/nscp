@@ -214,7 +214,8 @@ void NSCAClient::handleNotification(const std::string &channel, const Plugin::Su
 void NSCAClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
 		("encryption,e", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "encryption", _1)), 
-		"Length of payload (has to be same as on the server)")
+		(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
+		"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n")).c_str())
 
 		("certificate", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
@@ -241,7 +242,7 @@ void NSCAClient::add_local_options(po::options_description &desc, client::config
 		"Length of payload (has to be same as on the server)")
 
 		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
-			"Length of payload (has to be same as on the server)")
+			"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 
  		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
 			"Initial an ssl handshake with the server.")
@@ -280,6 +281,8 @@ NSCAClient::connection_data parse_header(const ::Plugin::Common_Header &header, 
 	nscapi::protobuf::functions::destination_container recipient, sender;
 	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
+	if (sender.address.host.empty() && !data->host_self.address.host.empty())
+		sender.address.host = data->host_self.address.host;
 	return NSCAClient::connection_data(recipient, data->recipient, sender);
 }
 

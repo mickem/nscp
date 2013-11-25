@@ -131,7 +131,7 @@ namespace modern_filter {
 			return context->get_filter_syntax() + summary.get_filter_syntax();
 		}
 		std::string get_format_syntax() const {
-			return context->get_filter_syntax() + summary.get_format_syntax();
+			return context->get_format_syntax() + summary.get_format_syntax();
 		}
 		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, std::string &gerror) {
 			std::string lerror;

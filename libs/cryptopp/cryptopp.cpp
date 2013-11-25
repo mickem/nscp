@@ -76,7 +76,7 @@ std::string nscp::encryption::helpers::get_crypto_string(std::string sep) {
 					name = core->getName();
 				if (ret.size() > 1)
 					ret += sep;
-				ret += name;
+				ret += encryption_to_string(i) + " = " + name;
 			} catch (const std::exception &e) {
 				// Dont print invalid cryptos
 			}

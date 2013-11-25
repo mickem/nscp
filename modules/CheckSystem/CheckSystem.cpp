@@ -651,13 +651,13 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: -${uptime}, boot: ${boot} (UTC)", "uptime_delta");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime_delta");
 
 	if (!filter_helper.parse_options())
 		return;
 
 	if (filter_helper.empty()) {
-		filter_helper.set_default("uptime > -24h", "uptime > -12h");
+		filter_helper.set_default("uptime < 2d", "uptime < 1d");
 	}
 
 	if (!filter_helper.build_filter(filter))
@@ -673,9 +673,6 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 
 	long long now_delta = (now-epoch).total_seconds();
-	value =  now_delta - value;
-
-
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
 	boost::tuple<bool,bool> ret = filter.match(record);

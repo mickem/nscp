@@ -107,7 +107,7 @@ public:
 	// Service helper functions
 	bool boot_init(const bool override_log = false);
 	bool boot_load_all_plugins();
-	bool boot_load_plugin(std::string plugin);
+	bool boot_load_plugin(std::string plugin, bool boot = false);
 	bool boot_start_plugins(bool boot);
 
 	bool stop_unload_plugins_pre();

@@ -227,14 +227,26 @@ namespace check_svc_filter {
 
 
 namespace check_uptime_filter {
+
+	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(subject->get_string_value(context)));
+	}
+
+	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
 	filter_obj_handler::filter_obj_handler() {
-		registry_.add_string()
-			("boot", boost::bind(&filter_obj::get_boottime_s, _1), "Date/time of last reboot")
-			;
 		registry_.add_int()
-			("uptime", parsers::where::type_date, boost::bind(&filter_obj::get_uptime, _1), boost::bind(&filter_obj::get_uptime_s, _1), "System uptime")
-			("uptime_delta", parsers::where::type_int, boost::bind(&filter_obj::get_uptime_delta, _1), "System uptime (seconds since last boot)")
+			("boot", parsers::where::type_date, boost::bind(&filter_obj::get_boot, _1), "System boot time")
+			("uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, _1), "Time since last boot")
 			;
+		registry_.add_converter()
+			(type_custom_uptime, &parse_time)
+			;
+		registry_.add_human_string()
+			("boot", boost::bind(&filter_obj::get_boot_s, _1), "The system boot time")
+			("uptime", boost::bind(&filter_obj::get_uptime_s, _1), "Time sine last boot")
+			;
+
+
 	}
 }
 

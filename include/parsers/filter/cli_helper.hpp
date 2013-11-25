@@ -20,6 +20,7 @@ namespace modern_filter {
 		std::string filter_string, warn_string, crit_string, ok_string;
 		std::string syntax_top, syntax_detail, syntax_perf, empty_detail, empty_state;
 		bool debug;
+		data_container() : debug(false) {}
 	};
 	template<class T>
 	struct cli_helper : public  boost::noncopyable {
@@ -50,18 +51,20 @@ namespace modern_filter {
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
 				"Show debugging information in the log")
+				("show-all", boost::program_options::bool_switch(),
+				"Show debugging information in the log")
 				("filter", boost::program_options::value<std::string>(&data.filter_string),
-				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\n\nAvalible options: \n") + filter_syntax).c_str())
+				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warning", boost::program_options::value<std::string>(&data.warn_string),
-				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n\nAvalible options: \n") + filter_syntax).c_str())
+				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warn", boost::program_options::value<std::string>(&data.warn_string),
 				"Short alias for warning")
 				("critical", boost::program_options::value<std::string>(&data.crit_string),
-				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n\nAvalible options: \n") + filter_syntax).c_str())
+				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("crit", boost::program_options::value<std::string>(&data.crit_string),
 				"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
-				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\n\nAvalible options: \n") + filter_syntax).c_str())
+				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("empty-syntax", boost::program_options::value<std::string>(&data.empty_detail)->default_value(empty_text), 
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", boost::program_options::value<std::string>(&data.empty_state)->default_value(empty_state), 
@@ -73,12 +76,16 @@ namespace modern_filter {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
 				return false;
+			if (vm.count("show-all") > 0)
+				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
 			return true;
 		}
 		bool parse_options(std::vector<std::string> &extra) {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
 				return false;
+			if (vm.count("show-all") > 0)
+				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
 			return true;
 		}
 
@@ -121,16 +128,13 @@ namespace modern_filter {
 			std::string tmp_msg;
 
 			std::string tk = "Top level syntax.\n"
-				"Used to format the message to return can include strings as well as special keywords such as:\n"
-				+ syntax; 
+				"Used to format the message to return can include strings as well as special keywords such as: \n\nKey\tValue\n" + syntax + "\n"; 
 			std::string dk = "Detail level syntax.\n"
 				"This is the syntax of each item in the list of top-syntax (see above).\n"
-				"Possible values are:\n"
-				+ syntax;
+				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
 			std::string pk = "Performance alias syntax.\n"
-				"This is the syntax of each item in the list of top-syntax (see above).\n"
-				"Possible values are:\n"
-				+ syntax;
+				"This is the syntax for the base names of the performance data.\n"
+				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
 
 			desc.add_options()
 				("top-syntax", boost::program_options::value<std::string>(&data.syntax_top)->default_value(default_top_syntax), tk.c_str())

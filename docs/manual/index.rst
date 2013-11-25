@@ -14,3 +14,4 @@ Contents:
    theory.rst
    installing.rst
    nscp_usage.rst
+   build.rst

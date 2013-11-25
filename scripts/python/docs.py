@@ -9,6 +9,7 @@ import StringIO
 import string
 helper = None
 
+all_samples = []
 
 def ttfix(string, def_val = ' '):
 	if not string or len(string) == 0:
@@ -102,6 +103,8 @@ class RSTRenderer(object):
 				char = '='
 			elif level == 2:
 				char = '-'
+			elif level == 3:
+				char = '*'
 			else:
 				char = '.'
 			tag = ''.rjust(l, char)
@@ -124,11 +127,11 @@ class RSTRenderer(object):
 	def heading(self, title, text):
 		return '**%s**:\n\n%s\n\n'%(title, text)
 		
-	def sample(self, block, language, pad=4):
-		return '**Sample**:\n\n%s\n\n'%self.code_block(block, language, pad)
+	def sample(self, block, pad=4):
+		return '**Sample**::\n\n%s\n\n'%indent(pad, block)
 		
 	def code_block(self, block, language, padlen=4):
-		return '.. code-block:: %s\n\n%s\n\n'%(language, indent(padlen, block))
+		return '.. code-block:: %s\n\n%s\n\n'%(language, )
 
 class root_container(object):
 	paths = {}
@@ -318,7 +321,7 @@ class DocumentationHelper(object):
 				plink = renderer.obj_link('confpath', p)
 				for (k,kinfo) in pinfo.keys.iteritems():
 					found_key = True
-					link = renderer.obj_link('confkey', '%s.%s'%(p, k))
+					link = renderer.obj_link('confkey', '~%s.%s'%(p, k))
 					if kinfo.info.sample:
 						sample_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
 					elif not kinfo.info.advanced:
@@ -344,10 +347,27 @@ class DocumentationHelper(object):
 	def generate_rst_config_details(self, paths, module = None):
 		renderer = self.renderer
 		string = ''
+		prefix = None
+		for (path,pinfo) in paths.iteritems():
+			if not module or module in pinfo.info.plugin:
+				if not prefix:
+					prefix = path
+				else:
+					p1 = prefix.split('/')
+					p2 = path.split('/')
+					i = 0
+					while True:
+						if i >= len(p1) or i >= len(p2):
+							break
+						if p1[i] != p2[i]:
+							prefix = '/'.join(p1[0:i])
+							break
+						i = i + 1
+		path_start = len('/'.join(prefix.split('/')[0:-1]))
 		
 		for (path,pinfo) in paths.iteritems():
 			if not module or module in pinfo.info.plugin:
-				string = renderer.title(2, ':confpath:`%s <%s>`'%(path, path))
+				string += renderer.title(2, '...%s'%(path[path_start:].replace('/', ' / ')))
 				string += renderer.obj_anchor('confpath', path, pinfo.info.description)
 
 				regular_keys = []
@@ -367,21 +387,21 @@ class DocumentationHelper(object):
 					regular_keys.extend(sample_keys)
 					string += renderer.table(regular_keys)
 				
-				sample  = "    # %s\n"%pinfo.info.title
+				sample  = "# %s\n"%pinfo.info.title
 				sample += "# %s\n"%pinfo.info.description.split('\n')[0]
-				sample += "    [%s]\n"%path
+				sample += "[%s]\n"%path
 				for (k,kinfo) in pinfo.keys.iteritems():
 					if not module or module in pinfo.info.plugin:
-						sample += "    # %s\n"%kinfo.info.title
-						sample += "    # %s\n"%kinfo.info.description
+						sample += "# %s\n"%kinfo.info.title
+						sample += "# %s\n"%kinfo.info.description.split('\n')[0]
 						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
-				string += renderer.sample(sample, 'ini')
+				string += renderer.sample(sample)
 
 				for (k,kinfo) in pinfo.keys.iteritems():
 					if not module or module in pinfo.info.plugin:
 						string += renderer.obj_anchor('confkey', k, kinfo.info.title)
 						string += renderer.para(indent(4, '**%s**'%kinfo.info.title))
-						string += renderer.para(indent(4, kinfo.info.description))
+						string += renderer.para(indent(4, kinfo.info.description.replace('\\n', '\n'), prefix='| '))
 						if kinfo.info.advanced:
 							string += renderer.para(indent(4, "**Advanced** (means it is not commonly used)"))
 						string += renderer.para(indent(4, "**Path**: %s"%path))
@@ -400,15 +420,15 @@ class DocumentationHelper(object):
 						sample += "# %s\n"%kinfo.info.description.split('\n')[0]
 						sample += "[%s]\n"%path
 						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
-						string += indent(4, renderer.sample(sample, 'ini'))
+						string += indent(4, renderer.sample(sample))
 		return string
 
-	def generate_rst_command_details(self, command, cinfo, module):
+	def generate_rst_command_details(self, command, cinfo, module, path_prefix):
+		global all_samples
 		renderer = self.renderer
 		string = renderer.title(2, ':query:`%s`'%command)
 		string += renderer.obj_anchor('query', command, cinfo.info.description)
 		try:
-
 			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
 			if ret == 0:
 				string += renderer.para("**Usage:**")
@@ -416,36 +436,58 @@ class DocumentationHelper(object):
 				table = []
 				details = ""
 				for row in reader:
-					if len(row) < 3:
+					if len(row) <= 3:
 						continue
 					link = renderer.obj_link('option', row[0])
 					table.append([link, 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2], row[3].split('\\n')[0]])
 					details += renderer.obj_anchor('option', row[0], row[3].split('\\n')[0])
-					details += renderer.para(indent(4, row[3].replace('\\n', '\n'), prefix='| '))
+					desc = row[3].replace('\\n', '\n')
+					desc = desc.replace('\\t', '\t')
+					
+					spos = desc.find('\n\n')
+					tbl = []
+					if spos != -1:
+						epos = desc.find('\n\n', spos+2)
+						if epos != -1:
+							pos = desc.find('\t', spos+2, epos)
+							if pos != -1:
+								start = desc[:spos]
+								end = desc[epos+2:]
+								data = desc[spos+2:epos]
+								rows = data.split('\n')
+								for r in rows:
+									tbl.append(r.split('\t'))
+								data = renderer.table(tbl)
+								details += renderer.para(indent(4, start, prefix='| '))
+								details += renderer.para(indent(4, data, prefix='  '))
+								details += renderer.para(indent(4, end, prefix='| '))
+					if not tbl:
+						details += renderer.para(indent(4, desc, prefix='| '))
 				if table:
 					table.insert(0, ['Option', 'Default value', 'Description'])
 					string += renderer.table(table)
+					sfile = '%s_%s_samples.inc'%(path_prefix, command)
+					if os.path.exists(sfile):
+						sfile = os.path.basename(sfile)
+						string += renderer.title(3, 'Samples')
+						string += ".. include:: %s\n\n"%sfile
+						all_samples.append((module, command, sfile))
+					#	with open (sfile, "r") as myfile:
+					#		string += myfile.read()
+					#		string += "\n\n"
+					string += renderer.title(3, 'Arguments')
 					string += details
+			else:
+				print "WARNING: Ignoring command: %s as it returned %d"%(command, ret)
 		except Exception as e:
-			string = '%s'%e
+			error = 'ERROR: failed to process %s %s'%(command, e)
+			print error
+			string += error
+			string += traceback.format_exc()
 		return string
-		
-	def rst_build_command(self, commands):
-		ret = """Modules
-=======
-
-Contents:
-
-.. toctree::
-   :maxdepth: 3
-
-"""
-		for c in commands:
-			if 'index' in c:
-				ret += '   %s.rst\n'%c
-		self.serialize_rst(ret, '', 'index', 'TODO')
 			
 	def generate_rst(self, dir):
+		global all_samples
 		renderer = self.renderer
 		docs = {}
 		root = self.get_info()
@@ -496,7 +538,7 @@ Contents:
 				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
 				for (c,cinfo) in root.commands.iteritems():
 					if module in cinfo.info.plugin:
-						string += self.generate_rst_command_details(c, cinfo, module)
+						string += self.generate_rst_command_details(c, cinfo, module, '%s/reference/%s'%(dir, module))
 
 			if config_table:
 				string += renderer.title(1, 'Configuration')
@@ -506,6 +548,21 @@ Contents:
 			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))
 			commands.append('%s.rst'%module)
 
+		string = renderer.page_header('samples', 'TODO')
+		string += renderer.title(0, 'All samples')
+		string += renderer.para('All samples')
+		mods = set(map(lambda (m, c, f):m, all_samples))
+		for m1 in mods:
+			string += renderer.title(1, m1)
+			string += renderer.para('All samples for module: :module:`%s`'%m1)
+			for (m2, c, f) in all_samples:
+				if m1 == m2:
+					string += renderer.title(2, c)
+					string += renderer.para('All samples for command: :query:`%s.%s`'%(m1, c))
+					string += ".. include:: %s\n\n"%f
+		renderer.serialize(string, '%s/reference/all_samples.rst'%dir)
+		
+		
 		all_config = self.generate_rst_config_table(root.paths)
 		#renderer.serialize(all_config, '%s/reference/config.rst'%dir)
 			
@@ -520,6 +577,7 @@ Contents:
 """
 		for c in sorted(commands):
 			string += '   %s\n'%c
+		string += '   all_samples.rst\n'
 		renderer.serialize(string, '%s/reference/index.rst'%dir)
 		
 			

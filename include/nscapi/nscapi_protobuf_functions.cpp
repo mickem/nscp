@@ -130,7 +130,7 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target) {
+		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target, const std::string source) {
 			Plugin::QueryResponseMessage response;
 			response.ParseFromString(message);
 			Plugin::SubmitRequestMessage request;
@@ -144,8 +144,23 @@ namespace nscapi {
 				}
 			}
 			request.set_channel(channel);
-			if (!target.empty()) {
+			if (!target.empty())
 				request.mutable_header()->set_recipient_id(target);
+			if (!source.empty()) {
+				request.mutable_header()->set_sender_id(source);
+				bool found = false;
+				for (int i=0;i<request.mutable_header()->hosts_size();i++) {
+					Plugin::Common_Host *host = request.mutable_header()->mutable_hosts(i);
+					if (host->id() == source) {
+						host->set_address(source);
+						found = true;
+					}
+				}
+				if (!found) {
+					Plugin::Common_Host *host = request.mutable_header()->add_hosts();
+					host->set_id(source);
+					host->set_address(source);
+				}
 			}
 			for (int i=0;i<response.payload_size();++i) {
 				request.add_payload()->CopyFrom(response.payload(i));

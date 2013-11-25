@@ -50,10 +50,11 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		"PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use the same value for it to work.")
 
 		("performance data", sh::bool_fun_key<bool>(boost::bind(&nsca::server::handler::set_perf_data, handler_, _1), true),
-		"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).")
+		"PERFORMANCE DATA", "Send performance data back to nagios (set this to false to remove all performance data).")
 
 		("encryption", sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_encryption, handler_, _1), "aes"),
-		"ENCRYPTION", "Encryption to use")
+		"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
+			"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
 
 		;
 

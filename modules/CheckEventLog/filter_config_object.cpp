@@ -102,8 +102,8 @@ namespace eventlog_filter {
 	void command_reader::init_default(object_type& object) {
 		// Populate default template!
 		object.filter.debug = false;
-		object.filter.syntax_top = "${file}: ${count} (${lines})";
-		object.filter.syntax_detail = "${column1}, ${column2}, ${column3}";
+		object.filter.syntax_top = "${file}: ${count} (${list})";
+		object.filter.syntax_detail = "${level}: ${message}";
 		object.filter.target = "NSCA";
 	}
 

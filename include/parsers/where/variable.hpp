@@ -39,13 +39,13 @@ namespace parsers {
 
 		template<class TContext>
 		struct percentage_int_performance_generator : public int_performance_generator_interface<TContext> {
-			typedef boost::function<long long(TContext)> maxfun_type;
+			typedef boost::function<long long(TContext, evaluation_context)> maxfun_type;
 			maxfun_type maxfun;
 			std::string prefix;
 			std::string suffix;
 			percentage_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix), suffix(suffix) {}
 			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
-				long long maximum = maxfun(object);
+				long long maximum = maxfun(object, context);
 				performance_data data;
 				performance_data::perf_value<double> double_data;
 				if (maximum > 0) {
@@ -54,17 +54,17 @@ namespace parsers {
 					double_data.crit = static_cast<double>(crit*100/maximum);
 					double_data.maximum = 100;
 					double_data.minimum = 0;
+					data.value_double = double_data;
+					data.alias = prefix + alias + suffix;
+					data.unit = "%";
+					list.push_back(data);
 				}
-				data.value_double = double_data;
-				data.alias = prefix + alias + suffix;
-				data.unit = "%";
-				list.push_back(data);
 			}
 		};
 
 		template<class TContext>
 		struct scaled_byte_int_performance_generator : public int_performance_generator_interface<TContext> {
-			typedef boost::function<long long(TContext)> maxfun_type;
+			typedef boost::function<long long(TContext, evaluation_context)> maxfun_type;
 			maxfun_type minfun;
 			maxfun_type maxfun;
 			std::string prefix;
@@ -80,12 +80,12 @@ namespace parsers {
 					m = (std::max)(m, crit);
 				long long max_value, min_value;
 				if (maxfun) {
-					max_value = maxfun(object);
+					max_value = maxfun(object, context);
 					if (max_value > 0)
 						m = (std::min)(m, max_value);
 				}
 				if (minfun) {
-					min_value = minfun(object);
+					min_value = minfun(object, context);
 					if (min_value > 0)
 						m = (std::min)(m, min_value);
 				}

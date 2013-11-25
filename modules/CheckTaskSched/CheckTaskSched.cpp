@@ -68,6 +68,82 @@ bool CheckTaskSched::unloadModule() {
 	return true;
 }
 
+void log_args(const Plugin::QueryRequestMessage::Request &request) {
+	std::stringstream ss;
+	for (int i=0;i<request.arguments_size();i++) {
+		if (i>0)
+			ss << " ";
+		ss << request.arguments(i);
+	}
+	NSC_DEBUG_MSG("Created command: " + ss.str());
+}
+
+void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> counters;
+	std::string syntax, topSyntax, filter, arg_warn, arg_crit;
+	bool debug = false;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("warn", po::value<std::string>(&arg_warn), "Warning bounds.")
+		("crit", po::value<std::string>(&arg_crit), "Critical bounds.")
+		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
+		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
+		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
+		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
+		("Counter", po::value<std::vector<std::string>>(&counters), "The time to check")
+		("truncate", po::value<std::string>(), "Deprecated option")
+		("syntax", po::value<std::string>(&syntax), "Syntax (same as detail-syntax in the check_tasksched check)")
+		("master-syntax", po::value<std::string>(&topSyntax), "Master Syntax (same as top-syntax in the check_tasksched check)")
+		("filter", po::value<std::string>(&filter), "Filter (same as filter in the check_tasksched check)")
+		("debug", po::bool_switch(&debug), "Filter (same as filter in the check_tasksched check)")
+		;
+
+	boost::program_options::variables_map vm;
+	std::vector<std::string> extra;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	if (vm.count("MaxWarn"))
+		warn = "warn=count > " + vm["MaxWarn"].as<std::string>();
+	if (vm.count("MaxCrit"))
+		crit = "crit=count > " + vm["MaxCrit"].as<std::string>();
+	if (vm.count("MinWarn"))
+		warn = "warn=count < " + vm["MinWarn"].as<std::string>();
+	if (vm.count("MinCrit"))
+		crit = "crit=count > " + vm["MinCrit"].as<std::string>();
+	if (!arg_warn.empty())
+		warn = "warn=count " + arg_warn;
+	if (!arg_crit.empty())
+		crit = "crit=count " + arg_crit;
+	if (!warn.empty())
+		request.add_arguments(warn);
+	if (!crit.empty())
+		request.add_arguments(crit);
+	if (debug)
+		request.add_arguments("debug");
+	if (!filter.empty())
+		request.add_arguments("filter=" + filter);
+	if (!topSyntax.empty()) {
+		boost::replace_all(topSyntax, "%status%", "${status}");
+		request.add_arguments("top-syntax=" + topSyntax);
+	}
+	if (!syntax.empty()) {
+		boost::replace_all(syntax, "%title%", "${title}");
+		boost::replace_all(syntax, "%exit_code%", "${exit_code}");
+		boost::replace_all(syntax, "%most_recent_run_time%", "${most_recent_run_time}");
+		
+		request.add_arguments("detail-syntax=" + syntax);
+	}
+
+	log_args(request);
+	check_tasksched(request, response);
+}
+
+
 void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef tasksched_filter::filter filter_type;
 	modern_filter::data_container data;

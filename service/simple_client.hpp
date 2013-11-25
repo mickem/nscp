@@ -46,7 +46,7 @@ namespace nsclient {
 					info(__LINE__, "Plugins: ");
 					core_->listPlugins();
 				} else if (s.size() > 4 && s.substr(0,4) == "load") {
-					core_->boot_load_plugin(s.substr(5));
+					core_->boot_load_plugin(s.substr(5), true);
 				} else if (s == "list" || s == "commands") {
 					std::list<std::string> lst = core_->list_commands();
 					if (lst.size() == 0)
@@ -63,7 +63,7 @@ namespace nsclient {
 					int *foo = 0;
 					*foo = 0;
 					throw "test";
-				} else {
+				} else if (!s.empty()) {
 					try {
 						strEx::s::token t = strEx::s::getToken(s, ' ');
 						std::string msg, perf;

@@ -56,7 +56,31 @@ struct filter_obj {
 	long long get_drive_size(parsers::where::evaluation_context context) { get_size(context); return drive_size; }
 	long long get_total_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-total_free; }
 	long long get_user_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-user_free; }
-	long long get_type(parsers::where::evaluation_context context) { get_size(context); return drive_size-user_free; }
+
+	std::string get_user_free_human(parsers::where::evaluation_context context) {
+		return format::format_byte_units(get_user_free(context));
+	}
+	std::string get_total_free_human(parsers::where::evaluation_context context) {
+		return format::format_byte_units(get_total_free(context));
+	}
+	std::string get_drive_size_human(parsers::where::evaluation_context context) {
+		return format::format_byte_units(get_drive_size(context));
+	}
+	std::string get_total_used_human(parsers::where::evaluation_context context) {
+		return format::format_byte_units(get_total_used(context));
+	}
+	std::string get_user_used_human(parsers::where::evaluation_context context) {
+		return format::format_byte_units(get_user_used(context));
+	}
+
+	long long  get_type(parsers::where::evaluation_context context) {
+		if (has_type)
+			return drive_type;
+		std::wstring drv = utf8::cvt<std::wstring>(drive);
+		drive_type = GetDriveType(drv.c_str());
+		has_type = true;
+		return drive_type;
+	}
 
 	void get_size(parsers::where::evaluation_context context) {
 		if (has_size)
@@ -107,6 +131,53 @@ parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, p
 	return parsers::where::factory::create_int(value);
 }
 
+parsers::where::node_type calculate_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	std::list<parsers::where::node_type> list = subject->get_list_value(context);
+	if (list.size() != 2) {
+		context->error("Invalid list value");
+		return parsers::where::factory::create_false();
+	}
+	std::list<parsers::where::node_type>::const_iterator cit = list.begin();
+	parsers::where::node_type amount = *cit;
+	++cit;
+	parsers::where::node_type unit = *cit;
+
+	long long percentage = amount->get_int_value(context);
+	long long value = (object->get_drive_size(context)*(100-percentage))/100;
+	return parsers::where::factory::create_int(value);
+}
+int do_convert_type(const std::string &keyword) {
+	if (keyword == "fixed")
+		return DRIVE_FIXED;
+	if (keyword == "cdrom")
+		return DRIVE_CDROM;
+	if (keyword == "removable")
+		return DRIVE_REMOVABLE;
+	if (keyword == "remote")
+		return DRIVE_REMOTE;
+	if (keyword == "ramdisk")
+		return DRIVE_RAMDISK;
+	if (keyword == "unknown")
+		return DRIVE_UNKNOWN;
+	if (keyword == "no_root_dir")
+		return DRIVE_NO_ROOT_DIR;
+	return -1;
+}
+
+parsers::where::node_type convert_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	std::string keyword = subject->get_string_value(context);
+	boost::to_lower(keyword);
+	int type = do_convert_type(keyword);
+	if (type == -1) {
+		context->error("Failed to convert type: " + keyword);
+		return parsers::where::factory::create_false();
+	}
+	return parsers::where::factory::create_int(type);
+}
+
+long long get_zero() {
+	return 0;
+}
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
 
@@ -122,19 +193,43 @@ struct filter_obj_handler : public native_context {
 			("drive", &filter_obj::get_drive, "Technical name of drive")
 			;
 		registry_.add_int()
-			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)").add_scaled_byte(std::string(""), " free")
- 			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes").add_scaled_byte(std::string(""), " free")
- 			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)").add_scaled_byte(std::string(""), " user free")
+			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
+				.add_percentage(&filter_obj::get_drive_size, "", " free %")
+ 			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
+				.add_percentage(&filter_obj::get_drive_size, "", " free %")
+ 			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user free")
+				.add_percentage(&filter_obj::get_drive_size, "", " user free %")
  			("size", &filter_obj::get_drive_size, "Total size of drive")
- 			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes").add_scaled_byte(std::string(""), " used")
- 			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes").add_scaled_byte(std::string(""), " used")
- 			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)").add_scaled_byte(std::string(""), " user used")
+ 			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
+				.add_percentage(&filter_obj::get_drive_size, "", " used %")
+ 			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
+				.add_percentage(&filter_obj::get_drive_size, "", " used %")
+			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)")
+				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user used")
+				.add_percentage(&filter_obj::get_drive_size, "", " user used %")
 			("type", type_custom_type, &filter_obj::get_type, "Type of drive")
 			;
 
+		registry_.add_human_string()
+			("free", &filter_obj::get_total_free_human, "")
+			("total_free", &filter_obj::get_total_free_human, "")
+			("user_free", &filter_obj::get_user_free_human, "")
+			("size", &filter_obj::get_drive_size_human, "")
+			("total_used", &filter_obj::get_total_used_human, "")
+			("used", &filter_obj::get_total_used_human, "")
+			("user_used", &filter_obj::get_user_used_human, "")
+			;
+
+
 		registry_.add_converter()
 			(type_custom_total_free, &calculate_free)
-			(type_custom_total_used, &calculate_free)
+			(type_custom_total_used, &calculate_used)
+			(type_custom_type, &convert_type)
 			;
 
 	}
@@ -315,7 +410,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "All drives ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${drive} > ${used}", "${drive}");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${drive}: ${used}/${size} used", "${drive}");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives), 
 		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
@@ -327,7 +422,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		;
 	add_custom_options(filter_helper.get_desc());
 
-	filter_helper.parse_options();
+	if (!filter_helper.parse_options())
+		return;
 
 	if (filter_helper.empty())
 		filter_helper.set_default("used > 80%", "used > 90%");
