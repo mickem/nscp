@@ -221,6 +221,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 
 void CheckExternalScripts::handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response) {
 	std::string cmdline = cd.command;
+	std::string all, allesc;
 	if (allowArgs_) {
 		int i=1;
 		BOOST_FOREACH(const std::string &str, args) {
@@ -229,7 +230,11 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				return;
 			}
 			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i++) + "$", str);
+			strEx::append_list(all, str, " ");
+			strEx::append_list(allesc, "\"" + str + "\"", " ");
 		}
+		strEx::replace(cmdline, "$ARGS$", all);
+		strEx::replace(cmdline, "$ARGS\"$", allesc);
 	} else if (args.size() > 0) {
 		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");

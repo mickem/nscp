@@ -16,6 +16,8 @@ SET(SRCS ${SRCS}
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 	${NSCP_FILTER_CPP}
+
+	${NSCP_INCLUDEDIR}/compat.cpp
 )
 
 
@@ -33,6 +35,9 @@ IF(WIN32)
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
+
+		${NSCP_INCLUDEDIR}/compat.hpp
+
 	)
 ENDIF(WIN32)
 

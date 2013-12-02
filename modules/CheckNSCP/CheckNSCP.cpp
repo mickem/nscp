@@ -21,6 +21,7 @@
 #include "CheckNSCP.h"
 
 #include <boost/filesystem.hpp>
+#include <boost/date_time.hpp>
 
 #include <file_helpers.hpp>
 #include <unicode_char.hpp>
@@ -84,7 +85,7 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 	}
 	int count = 0;
 
-	time_t last_write;
+	time_t last_write = std::time(0);
 	boost::filesystem::directory_iterator begin(root), end;
 	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
 		if(boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")

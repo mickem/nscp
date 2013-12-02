@@ -32,6 +32,8 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/EnumNtSrv.cpp
 	${NSCP_INCLUDEDIR}/sysinfo.cpp
 
+	${NSCP_INCLUDEDIR}/compat.cpp
+
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -63,6 +65,9 @@ IF(WIN32)
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
+
+		${NSCP_INCLUDEDIR}/compat.hpp
+
 	)
 ENDIF(WIN32)
 

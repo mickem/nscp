@@ -1,3 +1,25 @@
+2013-11-29 MickeM
+ * Fixed issue with logger
+
+2013-11-28 MickeM
+ * Added %() for all expressions to make esacping in nagios simpler.
+ * Fixed crash in check_nscp
+ * CheckDriveSize (compatiblity) fixed support for multiple bounds will only use "one of them" though.
+ * Fixed some regression issues for check_nt (disk, memory uptime, services)
+ * Added $ARGS$ to CheckExternalScript to add scripts with variable argument lists
+ * Added $ARGS"$ to CheckExternalScript to add scripts with qouted variable argument lists
+ 
+2013-11-27 MickeM
+ * Fixed _user arguments for check:drivesize (which can be used for drives with qouta)
+ 
+
+2013-11-26 MickeM
+ * Improved compatiblity for CheckDriveSize
+ * Added total (option) to check_drive to get/check the total size of all (matching) drives
+ * Fixed bounds calculation for check_drivesize
+ * Fixed issue with the show-all flag beeing on by default.
+ * Fixed issue with converting to byte units for very large/small numbers
+
 2013-11-22 MickeM
  * Updated documentation
  * Added sample for most commands

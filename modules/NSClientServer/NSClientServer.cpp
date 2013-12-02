@@ -235,11 +235,14 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			break;
 		case REQ_UPTIME:
 			cmd.first = "check_uptime";
-			args.push_back("warn=uptime_delta<0");
+			args.push_back("warn=uptime<0");
 			break;
 		case REQ_USEDDISKSPACE:
 			cmd.first = "check_drivesize";
 			split_to_list(args, cmd.second, "drive");
+			args.push_back("warn=free<0");
+			args.push_back("crit=free<0");
+			args.push_back("filter=none");
 			break;
 		case REQ_CLIENTVERSION:
 			return check_nt::packet(nscapi::plugin_singleton->get_core()->getApplicationName() + " " + nscapi::plugin_singleton->get_core()->getApplicationVersionString());
@@ -254,6 +257,8 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			}
 			args.push_back("detail-syntax=${name}: ${legacy_state}");
 			args.push_back("empty-syntax=OK: All services are in their appropriate state.");
+			args.push_back("filter=none");
+			args.push_back("crit=not state = 'running'");
 			break;
 		case REQ_PROCSTATE:
 			cmd.first = "check_process";
@@ -269,6 +274,10 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			break;
 		case REQ_MEMUSE:
 			cmd.first = "check_memory";
+			args.push_back("warn=used<0");
+			args.push_back("crit=used<0");
+			args.push_back("filter=none");
+			args.push_back("type=committed");
 			break;
 		case REQ_COUNTER:
 			cmd.first = "check_pdh";
@@ -306,8 +315,9 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			return check_nt::packet(extract_perf_value(payload.perf(0)));
 
 		case REQ_MEMUSE:
-		case REQ_USEDDISKSPACE:
 			return check_nt::packet(extract_perf_total(payload.perf(0)) + "&" + extract_perf_value(payload.perf(0)));
+		case REQ_USEDDISKSPACE:
+			return check_nt::packet(extract_perf_value(payload.perf(0)) + "&" + extract_perf_total(payload.perf(0)));
 		case REQ_FILEAGE:
 			return check_nt::packet(payload.message());
 

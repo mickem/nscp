@@ -29,6 +29,7 @@ namespace modern_filter {
 		boost::program_options::options_description desc;
 		const Plugin::QueryRequestMessage::Request &request;
 		Plugin::QueryResponseMessage::Response *response;
+		bool show_all;
 
 
 		cli_helper(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, data_container &data)
@@ -36,6 +37,7 @@ namespace modern_filter {
 			, desc("Allowed options for " + request.command())
 			, request(request)
 			, response(response)
+			, show_all(false)
 		{
 		}
 
@@ -51,7 +53,7 @@ namespace modern_filter {
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
 				"Show debugging information in the log")
-				("show-all", boost::program_options::bool_switch(),
+				("show-all", boost::program_options::bool_switch(&show_all),
 				"Show debugging information in the log")
 				("filter", boost::program_options::value<std::string>(&data.filter_string),
 				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
@@ -76,7 +78,7 @@ namespace modern_filter {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
 				return false;
-			if (vm.count("show-all") > 0)
+			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
 			return true;
 		}
@@ -84,7 +86,7 @@ namespace modern_filter {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
 				return false;
-			if (vm.count("show-all") > 0)
+			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
 			return true;
 		}

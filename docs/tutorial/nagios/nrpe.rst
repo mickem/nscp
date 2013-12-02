@@ -320,13 +320,12 @@ Next we need to define a new host for the remote windows server that references 
   }
 
 
-Defining a service for monitoring the remote Windows server. These example service definitions will use
-the sample commands that are defined in the default NSC.ini file which ships with NSClient 0.3.7 or newer.
+Defining a service for monitoring the remote Windows server.
 
 7.4 Service definitions
 -----------------------
 
-The following service will monitor the CPU load on the remote host. The "alias_cpu" argument which is passed to the check_nrpe command definition tells NSClient++ to run the "alias_cpu" command as defined in the alias section of the NSC.ini file.
+The following service will monitor the CPU load on the remote host. The "alias_cpu" argument which is passed to the check_nrpe command definition tells NSClient++ to run the "alias_cpu" command as defined in the alias section of the nsclient.ini file.
 
 .. code-block:: js
 

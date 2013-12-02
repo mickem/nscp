@@ -13,6 +13,9 @@ int main(int argc, char* argv[]) {
 	check_nrpe client;
 	client.query(args, response);
 	std::cout << response.message();
+	std::string tmp = nscapi::protobuf::functions::build_performance_data(response);
+	if (!tmp.empty())
+		std::cout << '|' << tmp;
 }
 
 

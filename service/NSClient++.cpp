@@ -421,7 +421,7 @@ bool NSClientT::boot_init(const bool override_log) {
 
 		settings.add_key_to_settings("shared session")
 			("enabled", sh::bool_key(&enable_shared_session_ , false),
-			"LOG LEVEL", "Log level to use")
+			"ENABLE THE SAHRED SESSION", "This is currently not added in 0.4.x")
 			;
 
 		settings.add_key_to_settings("crash")
@@ -1436,23 +1436,23 @@ void NSClientT::handle_shutdown(std::string service_name) {
 }
 
 NSClientT::service_controller NSClientT::get_service_control() {
-	return service_controller(utf8::cvt<std::wstring>(service_name_));
+	return service_controller(service_name_);
 }
 
 void NSClientT::service_controller::stop() {
 #ifdef WIN32
-	serviceControll::StopNoWait(get_service_name());
+	serviceControll::StopNoWait(utf8::cvt<std::wstring>(get_service_name()));
 #endif
 }
 void NSClientT::service_controller::start() {
 #ifdef WIN32
-	serviceControll::Start(get_service_name());
+	serviceControll::Start(utf8::cvt<std::wstring>(get_service_name()));
 #endif
 }
 bool NSClientT::service_controller::is_started() {
 #ifdef WIN32
 	try {
-		if (serviceControll::isStarted(get_service_name())) {
+		if (serviceControll::isStarted(utf8::cvt<std::wstring>(get_service_name()))) {
 			return true;
 		}
 	} catch (...) {
@@ -1524,7 +1524,7 @@ std::string NSClientT::expand_path(std::string file) {
 		std::string tmp = file;
 		strEx::replace(file, "${" + key + "}", getFolder(key));
 		if (file == tmp)
-			pos = file.find_first_of('$', pos);
+			pos = file.find_first_of('$', pos+1);
 		else
 			pos = file.find_first_of('$');
 	}

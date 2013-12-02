@@ -460,8 +460,8 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 }
 
 
-//#define DEFAULT_BACKEND THREADED_FILE_BACKEND
-#define DEFAULT_BACKEND CONSOLE_BACKEND
+#define DEFAULT_BACKEND THREADED_FILE_BACKEND
+//#define DEFAULT_BACKEND CONSOLE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
 	if (logger_impl_ == NULL)
 		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);

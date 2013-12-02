@@ -111,6 +111,15 @@ One simple way to show the log is to run in test mode like so:
 .. note::
   But it is impossible to tell what is wrong without the NSClient++ log.
 
+1.9 Enable debug log
+********************
+
+By default the log level is info which means to see debug messages you need to enable debug log::
+
+	[/settings/log]
+	file name = nsclient.log
+	level = debug
+
 2. Escaping and Strings
 =======================
 
@@ -235,3 +244,13 @@ If your command takes 60 seconds you need to set the timeouts like this:
 
   service_check_timeout=80
 
+3.4 Rotate log files
+
+Rotating logfile can be done when size reaches a certain level (in this case 2048000 bytes)::
+
+	[/settings/log]
+	date setting = %Y.%m.%d %H:%M:%S
+	file name = nsclient.log
+	level = info
+	[/settings/log/file]
+	max size = 2048000

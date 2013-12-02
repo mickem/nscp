@@ -35,40 +35,26 @@
 #define SZARCH "unknown"
 #endif
 
-// internal name of the service
-#define DEFAULT_SERVICE_NAME        "NSClientpp"
+#define DEFAULT_SERVICE_NAME	"@CONFIG_DEFAULT_SERVICE_NAME@"
+#define DEFAULT_SERVICE_DESC	"@CONFIG_DEFAULT_SERVICE_DESC@"
+#define DEFAULT_SERVICE_DEPS	"@CONFIG_DEFAULT_SERVICE_DEPS@"
 
-// Description of service
-#define DEFAULT_SERVICE_DESC "Monitoring Agent (Provides performance data for monitoring solutions like Nagios)"
-
-// displayed name of the service
+// displayed name and version
 #define SERVICE_NAME APPLICATION_NAME " " CURRENT_SERVICE_VERSION " " SZARCH
-
-// Display version
 #define CURRENT_SERVICE_VERSION STRPRODUCTVER " " STRPRODUCTDATE
 
-// list of service dependencies - "dep1\0dep2\0\0"
-#define DEFAULT_SERVICE_DEPS       ""
-
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
-//#define NASTY_METACHARS_W       _T("|`&><'\"\\[]{}")
 
-//#define DATE_FORMAT _T("%#c")
-#define DATE_FORMAT_S "%#c"
+#define CRASH_SUBMIT_URL			"@CONFIG_CRASH_SUBMIT_URL@"
+#define CRASH_ARCHIVE_FOLDER		"@CONFIG_CRASH_ARCHIVE_FOLDER@"
+#define CRASH_ARCHIVE_FOLDER_KEY	"folder"
 
-#define CRASH_SUBMIT_URL "http://crash.nsclient.org/submit"
-#define CRASH_ARCHIVE_FOLDER "${shared-path}/crash-dumps"
-#define CRASH_ARCHIVE_FOLDER_KEY "folder"
+#define DEFAULT_CONF_LOCATION		"@CONFIG_DEFAULT_CONF_LOCATION@"
+#define DEFAULT_CONF_OLD_LOCATION	"@CONFIG_DEFAULT_CONF_OLD_LOCATION@"
+#define DEFAULT_CONF_REG_LOCATION	"@CONFIG_DEFAULT_CONF_REG_LOCATION@"
+#define BOOT_CONF_LOCATION			"@CONFIG_BOOT_CONF_LOCATION@"
+#define DEFAULT_CONF_INI_BASE		"@CONFIG_DEFAULT_CONF_INI_BASE@"
+#define DEFAULT_CONF_INI_LOCATION	"@CONFIG_DEFAULT_CONF_INI_LOCATION@"
 
-#ifdef WIN32
-#define DEFAULT_CONF_LOCATION "old"
-#else
-#define DEFAULT_CONF_LOCATION "ini"
-#endif
-#define BOOT_CONF_LOCATION "${exe-path}/boot.ini"
-#define DEFAULT_CONF_OLD_LOCATION "old://${exe-path}/nsc.ini"
-#define DEFAULT_CONF_INI_LOCATION "ini://${shared-path}/nsclient.ini"
-#define DEFAULT_CONF_REG_LOCATION "registry://HKEY_LOCAL_MACHINE/software/NSClient++"
-
-#define DEFAULT_CACHE_PATH "${shared-path}/cache"
+#define DEFAULT_CACHE_PATH			"@CONFIG_DEFAULT_CACHE_PATH@"
 

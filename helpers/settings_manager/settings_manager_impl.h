@@ -14,10 +14,9 @@ namespace settings_manager {
 	class NSCSettingsImpl : public settings::settings_handler_impl {
 	private:
 		boost::filesystem::path boot_;
-		bool old_;
 		provider_interface *provider_;
 	public:
-		NSCSettingsImpl(provider_interface *provider) : old_(false), provider_(provider) {}
+		NSCSettingsImpl(provider_interface *provider) : provider_(provider) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string form the boot file.
 		///
@@ -56,7 +55,6 @@ namespace settings_manager {
 		std::string find_file(std::string file, std::string fallback = "");
 		std::string expand_path(std::string file);
 		settings::instance_raw_ptr create_instance(std::string key);
-		bool check_file(std::string file, std::string tag, std::string &key);
 		void change_context(std::string file);
 		bool context_exists(std::string key);
 		bool create_context(std::string key);

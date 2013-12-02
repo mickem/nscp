@@ -22,14 +22,18 @@ struct spirit_expression_parser {
 		using phoenix::push_back;
 		using qi::lexeme;
 		qi::rule<Iterator, entry()> normal_rule;
-		qi::rule<Iterator, entry()> variable_rule;
-		normal_rule		= lexeme[+(qi::char_ - "${")]					[_val = phoenix::construct<entry>(false, _1)];
-		variable_rule	= ("${" >> lexeme[+(qi::char_ - '}')] >> "}")	[_val = phoenix::construct<entry>(true, _1)];
+		qi::rule<Iterator, entry()> variable_rule_d;
+		qi::rule<Iterator, entry()> variable_rule_p;
+		normal_rule		= lexeme[+(qi::char_ - "${" - "%(")]					[_val = phoenix::construct<entry>(false, _1)];
+		variable_rule_d	= ("${" >> lexeme[+(qi::char_ - '}')] >> "}")	[_val = phoenix::construct<entry>(true, _1)];
+		variable_rule_p	= ("%(" >> lexeme[+(qi::char_ - ')')] >> ")")	[_val = phoenix::construct<entry>(true, _1)];
 		return qi::parse(first, last, 
 			*(
 				normal_rule			[ push_back(phoenix::ref(v), _1 )]
 			||	
-				variable_rule		[ push_back(phoenix::ref(v), _1 )]
+				variable_rule_d		[ push_back(phoenix::ref(v), _1 )]
+			||	
+				variable_rule_p		[ push_back(phoenix::ref(v), _1 )]
 			)
 		);
 	}

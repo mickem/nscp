@@ -44,6 +44,7 @@
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <compat.hpp>
 
 #include "filter.hpp"
 #include "counter_filter.hpp"
@@ -493,15 +494,12 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::vector<std::string> times;
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
-		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
-		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
 		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
 		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
 		;
+	compat::addShowAll(desc);
+	compat::addAllNumeric(desc);
 
 	boost::program_options::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
@@ -509,22 +507,13 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::string warn, crit;
 
 	request.clear_arguments();
-	if (vm.count("MaxWarn"))
-		warn = "warn=load > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MaxCrit"))
-		crit = "crit=load > " + vm["MaxCrit"].as<std::string>();
+	compat::matchFirstNumeric(vm, "load", "load", warn, crit);
 	if (vm.count("warn"))
 		warn = "warn=load > " + vm["warn"].as<std::string>();
 	if (vm.count("crit"))
 		crit = "crit=load > " + vm["crit"].as<std::string>();
-	if (vm.count("MinWarn"))
-		warn = "warn=load < " + vm["MinWarn"].as<std::string>();
-	if (vm.count("MinCrit"))
-		crit = "crit=load > " + vm["MinCrit"].as<std::string>();
-	if (!warn.empty())
-		request.add_arguments(warn);
-	if (!crit.empty())
-		request.add_arguments(crit);
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
 	if (vm.count("ShowAll")) {
 		if (vm["ShowAll"].as<std::string>() == "long")
 			request.add_arguments("filter=none");
@@ -651,7 +640,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime_delta");
+	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -808,6 +797,8 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 					continue;
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
 				boost::tuple<bool,bool> ret = filter.match(record);
+				if (filter.has_errors())
+					return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 			}
 		} else {
 			services_helper::service_info info = services_helper::get_service_info(computer, service);
@@ -859,15 +850,12 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::vector<std::string> types;
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
-		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
-		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
 		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
 		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
 		("type", po::value<std::vector<std::string>>(&types), "The types to check")
 		;
+	compat::addShowAll(desc);
+	compat::addAllNumeric(desc);
 
 	boost::program_options::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
@@ -875,22 +863,10 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::string warn, crit;
 
 	request.clear_arguments();
-	if (vm.count("MaxWarn"))
-		warn = "warn=used > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MaxCrit"))
-		crit = "crit=used > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MinWarn"))
-		warn = "warn=used < " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MinCrit"))
-		crit = "crit=used > " + vm["MaxWarn"].as<std::string>();
-	if (!warn.empty())
-		request.add_arguments(warn);
-	if (!crit.empty())
-		request.add_arguments(crit);
-	if (vm.count("ShowAll"))
-		request.add_arguments("top-syntax=${status}: ${list}");
-	else
-		request.add_arguments("top-syntax=${status}: ${problem_list}");
+	compat::matchFirstNumeric(vm, "used", "used", warn, crit);
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::matchShowAll(vm, request);
 	BOOST_FOREACH(const std::string &t, types) {
 		if (t == "page" || t == "paged")
 			request.add_arguments("type=commited");
@@ -923,7 +899,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
 	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${type} > ${used}", "${type}");
 	filter_helper.get_desc().add_options()
-		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), commited = total memory (RAM+PAGE)")
+		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
 		;
 
 	if (!filter_helper.parse_options())
@@ -934,7 +910,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	}
 
 	if (types.empty()) {
-		types.push_back("commited");
+		types.push_back("committed");
 		types.push_back("physical");
 	}
 
@@ -950,7 +926,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	BOOST_FOREACH(const std::string &type, types) {
 		unsigned long long used(0), total(0);
-		if (type == "commited") {
+		if (type == "committed") {
 			used = mem_data.commited.total-mem_data.commited.avail;
 			total = mem_data.commited.total;
 		} else if (type == "physical") {

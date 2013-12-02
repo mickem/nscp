@@ -64,49 +64,29 @@ namespace settings_manager {
 	/// @return a new instance of given type.
 	///
 	/// @author mickem
-	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string key) {
+	settings::instance_raw_ptr NSCSettingsImpl::create_instance(const std::string key) {
 		net::url url = net::parse(key);
-		if (url.protocol.empty()) {
-			url = net::parse(key + "://");
-			get_logger()->debug("settings", __FILE__, __LINE__, "No driver specified attempting to fake one: " + url.to_string());
-		}
+		if (url.protocol.empty())
+			url = net::parse(expand_context(key));
 		get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_string());
-		if (url.host.empty() && url.path.empty()) 
-			key = "";
 #ifdef WIN32
-		if (url.protocol == "old") {
-			old_ = true;
-			if (key.empty())
-				key = DEFAULT_CONF_OLD_LOCATION;
+		if (url.protocol == "old")
 			return settings::instance_raw_ptr(new settings::OLDSettings(this, key));
-		}
-		if (url.protocol == "registry") {
-			if (key.empty())
-				key = DEFAULT_CONF_REG_LOCATION;
+		if (url.protocol == "registry")
 			return settings::instance_raw_ptr(new settings::REGSettings(this, key));
-		}
 #endif
-		if (url.protocol == "ini") {
-			if (key.empty())
-				key = DEFAULT_CONF_INI_LOCATION;
+		if (url.protocol == "ini")
 			return settings::instance_raw_ptr(new settings::INISettings(this, key));
-		}
-		if (url.protocol == "dummy") {
+		if (url.protocol == "dummy")
 			return settings::instance_raw_ptr(new settings::settings_dummy(this, key));
-		}
-		if (url.protocol == "http") {
+		if (url.protocol == "http")
 			return settings::instance_raw_ptr(new settings::settings_http(this, key));
-		}
-		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
-	}
 
-	bool NSCSettingsImpl::check_file(std::string file, std::string tag, std::string &key) {
-		std::string tmp = provider_->expand_path(file);
-		if (boost::filesystem::exists(tmp)) {
-			key = tag;
-			return true;
-		}
-		return false;
+		if (settings::INISettings::context_exists(this, key))
+			return settings::instance_raw_ptr(new settings::INISettings(this, key));
+		if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
+			return settings::instance_raw_ptr(new settings::INISettings(this, DEFAULT_CONF_INI_BASE + key));
+		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
 	}
 
 	std::string NSCSettingsImpl::expand_context(std::string key) {
@@ -138,6 +118,10 @@ namespace settings_manager {
 		if (url.protocol == "dummy")
 			return true;
 		if (url.protocol == "http")
+			return true;
+		if (settings::INISettings::context_exists(this, key))
+			return true;
+		if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
 			return true;
 		return false;
 	}

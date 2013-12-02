@@ -215,6 +215,28 @@ ENDIF(NOT CMAKE_BUILD_TYPE)
 LINK_DIRECTORIES(${CMAKE_LIBRARY_PATH} ${OPENSSL_LIBRARY_DIR} ${NSCP_LIBRARYDIR} ${BOOST_LIBRARYDIR})
 
 # Compile time constants & make sure our build finds it
+
+SET(CONFIG_DEFAULT_SERVICE_NAME "Nsclientpp" CACHE STRING "The name of the service")
+SET(CONFIG_DEFAULT_SERVICE_DESC "Monitoring Agent (Provides performance data for monitoring solutions like Nagios)" CACHE STRING "The description used for the service")
+SET(CONFIG_DEFAULT_SERVICE_DEPS "" CACHE STRING "Any service dependencies to use for the default service")
+
+SET(CONFIG_CRASH_SUBMIT_URL "http://crash.nsclient.org/submit" CACHE STRING "Where to submit crash dump files")
+SET(CONFIG_CRASH_ARCHIVE_FOLDER "${shared-path}/crash-dumps" CACHE STRING "Where to archive chras dump files on the local filesystem")
+
+IF(WIN32)
+	SET(CONFIG_DEFAULT_CONF_LOCATION "old" CACHE STRING "Default configuration store")
+ELSE(WIN32)
+	SET(CONFIG_DEFAULT_CONF_LOCATION "ini" CACHE STRING "Default configuration store")
+ENDIF(WIN32)
+SET(CONFIG_BOOT_CONF_LOCATION			"\${exe-path}/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
+SET(CONFIG_DEFAULT_CONF_INI_BASE		"ini://\${shared-path}/" CACHE STRING "Base location for ini files")
+SET(CONFIG_DEFAULT_CONF_REG_LOCATION	"registry://HKEY_LOCAL_MACHINE/software/NSClient++" CACHE STRING "Default location for registry based settings")
+SET(CONFIG_DEFAULT_CONF_OLD_LOCATION	"old://\${exe-path}/nsc.ini" CACHE STRING "Default location for old config file")
+SET(CONFIG_DEFAULT_CONF_INI_LOCATION	"${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini" CACHE STRING "Default location for ini files")
+SET(CONFIG_BOOT_CONF_LOCATION			"dummy://" CACHE STRING "Default location for dummy settings stores")
+
+SET(CONFIG_DEFAULT_CACHE_PATH			"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+
 CONFIGURE_FILE(
   ${NSCP_INCLUDEDIR}/config.h.in
   ${NSCP_INCLUDEDIR}/config.h

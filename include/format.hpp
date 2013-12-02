@@ -257,29 +257,58 @@ namespace format {
 		return ss.str();
 	}
 
+	inline long long decode_byte_units(const long long value, const std::string &unit) {
+		if (unit.size() == 0)
+			return value;
+		if (unit[0] == 'B')
+			return value;
+		else if (unit[0] == 'K')
+			return value*1024;
+		else if (unit[0] == 'M')
+			return value*1024*1024;
+		else if (unit[0] == 'G')
+			return value*1024*1024*1024;
+		else if (unit[0] == 'T')
+			return value*1024*1024*1024*1024;
+		else
+			return value;
+	}
 	inline long long decode_byte_units(const std::string &s) {
 		std::string::size_type p = s.find_first_not_of("0123456789");
 		if (p == std::string::npos || p == 0)
 			return boost::lexical_cast<long long>(s);
 		std::string numbers = s.substr(0, p);
-		if (s[p] == 'B')
-			return boost::lexical_cast<long long>(numbers);
-		else if (s[p] == 'K')
-			return boost::lexical_cast<long long>(numbers)*1024;
-		else if (s[p] == 'M')
-			return boost::lexical_cast<long long>(numbers)*1024*1024;
-		else if (s[p] == 'G')
-			return boost::lexical_cast<long long>(numbers)*1024*1024*1024;
-		else if (s[p] == 'T')
-			return boost::lexical_cast<long long>(numbers)*1024*1024*1024*1024;
-		else
-			return boost::lexical_cast<long long>(numbers);
+		return decode_byte_units(boost::lexical_cast<long long>(numbers), s.substr(p));
 	}
-#define BKMG_RANGE "BKMGTP"
+#define BKMG_RANGE "BKMGTPE"
 #define BKMG_SIZE 5
 
-	template<class T>
-	inline std::string format_byte_units(T i) {
+	inline std::string format_byte_units(const long long i) {
+		const long long sign = 1;
+		double cpy = static_cast<double>(i);
+		char postfix[] = BKMG_RANGE;
+		int idx = 0;
+		double acpy = cpy<0?-cpy:cpy;
+		while ((acpy > 999)&&(idx<BKMG_SIZE)) {
+			cpy/=1024;
+			acpy = cpy<0?-cpy:cpy;
+			idx++;
+		}
+		std::stringstream ss;
+		ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
+		std::string ret = ss.str();
+		std::string::size_type pos = ret.find_last_not_of("0");
+		if (pos != std::string::npos) {
+			if (ret[pos] == '.')
+				pos--;
+			ret = ret.substr(0,pos+1);
+		}
+		ret += postfix[idx];
+		if (idx > 0)
+			ret += "B";
+		return ret;
+	}
+	inline std::string format_byte_units(const unsigned long long i) {
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
@@ -288,9 +317,14 @@ namespace format {
 			idx++;
 		}
 		std::stringstream ss;
-		ss << std::setprecision(3);
-		ss << cpy;
+		ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
 		std::string ret = ss.str();
+		std::string::size_type pos = ret.find_last_not_of("0");
+		if (pos != std::string::npos) {
+			if (ret[pos] == '.')
+				pos--;
+			ret = ret.substr(0,pos+1);
+		}
 		ret += postfix[idx];
 		if (idx > 0)
 			ret += "B";

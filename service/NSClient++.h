@@ -146,8 +146,8 @@ public:
 	bool do_reload(const bool delay, const std::string module);
 
 	struct service_controller {
-		std::wstring service;
-		service_controller(std::wstring service) : service(service) {}
+		std::string service;
+		service_controller(std::string service) : service(service) {}
 		service_controller(const service_controller & other) : service(other.service) {}
 		service_controller& operator=(const service_controller & other) {
 			service = other.service;
@@ -155,7 +155,7 @@ public:
 		}
 		void stop();
 		void start();
-		std::wstring get_service_name() {
+		std::string get_service_name() {
 			return service;
 		}
 		bool is_started();

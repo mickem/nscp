@@ -24,6 +24,9 @@
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
 
+
+const int drive_type_total = 0x77;
+
 struct filter_obj {
 	std::string drive;
 	std::string name;
@@ -112,39 +115,65 @@ struct filter_obj {
 		total_free = totalNumberOfFreeBytes.QuadPart;
 		drive_size = totalNumberOfBytes.QuadPart;
 	}
+
+	void append(boost::shared_ptr<filter_obj> other) {
+		user_free += other->user_free;
+		total_free += other->total_free;
+		drive_size += other->drive_size;
+
+	}
+	void make_total() {
+		has_size = true;
+		has_type = true;
+		total_free = 0;
+		user_free = 0;
+		drive_size = 0;
+		drive_type = drive_type_total;
+	}
 };
 
-
-parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject) {
 	std::list<parsers::where::node_type> list = subject->get_list_value(context);
-	if (list.size() != 2) {
-		context->error("Invalid list value");
-		return parsers::where::factory::create_false();
+	if (list.empty())
+		list.push_back(subject);
+	long long value;
+	std::string unit = "%";
+	std::list<parsers::where::node_type>::const_iterator cit;
+	if (list.size() > 0) {
+		cit = list.begin();
+		value = (*cit)->get_int_value(context);
 	}
-	std::list<parsers::where::node_type>::const_iterator cit = list.begin();
-	parsers::where::node_type amount = *cit;
-	++cit;
-	parsers::where::node_type unit = *cit;
-
-	long long percentage = amount->get_int_value(context);
-	long long value = (object->get_drive_size(context)*percentage)/100;
-	return parsers::where::factory::create_int(value);
+	if (list.size() > 1) {
+		++cit;
+		unit = (*cit)->get_string_value(context);
+	}
+	return boost::make_tuple(value, unit);
 }
 
-parsers::where::node_type calculate_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	std::list<parsers::where::node_type> list = subject->get_list_value(context);
-	if (list.size() != 2) {
-		context->error("Invalid list value");
-		return parsers::where::factory::create_false();
-	}
-	std::list<parsers::where::node_type>::const_iterator cit = list.begin();
-	parsers::where::node_type amount = *cit;
-	++cit;
-	parsers::where::node_type unit = *cit;
+parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	boost::tuple<long long, std::string> value = read_arguments(context, subject);
+	long long number = value.get<0>();
+	std::string unit = value.get<1>();
 
-	long long percentage = amount->get_int_value(context);
-	long long value = (object->get_drive_size(context)*(100-percentage))/100;
-	return parsers::where::factory::create_int(value);
+	if (unit == "%") {
+		number = (object->get_drive_size(context)*(number))/100;
+	} else {
+		number = format::decode_byte_units(number, unit);
+	}
+	return parsers::where::factory::create_int(number);
+}
+
+parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	boost::tuple<long long, std::string> value = read_arguments(context, subject);
+	long long number = value.get<0>();
+	std::string unit = value.get<1>();
+
+	if (unit == "%") {
+		number = (object->get_user_free(context)*number)/100;
+	} else {
+		number = format::decode_byte_units(number, unit);
+	}
+	return parsers::where::factory::create_int(number);
 }
 int do_convert_type(const std::string &keyword) {
 	if (keyword == "fixed")
@@ -161,6 +190,8 @@ int do_convert_type(const std::string &keyword) {
 		return DRIVE_UNKNOWN;
 	if (keyword == "no_root_dir")
 		return DRIVE_NO_ROOT_DIR;
+	if (keyword == "total")
+		return drive_type_total;
 	return -1;
 }
 
@@ -227,8 +258,10 @@ struct filter_obj_handler : public native_context {
 
 
 		registry_.add_converter()
-			(type_custom_total_free, &calculate_free)
-			(type_custom_total_used, &calculate_used)
+			(type_custom_total_free, &calculate_total_used)
+			(type_custom_total_used, &calculate_total_used)
+			(type_custom_user_free, &calculate_user_used)
+			(type_custom_user_used, &calculate_user_used)
 			(type_custom_type, &convert_type)
 			;
 
@@ -405,7 +438,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> drives, excludes;
-	bool ignore_unreadable = false;
+	bool ignore_unreadable = false, total = false;
 	double magic;
 
 	filter_type filter;
@@ -417,8 +450,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
 		"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
-		("exclude", po::value<std::vector<std::string>>(&excludes), 
-		"A list of drives not to check")
+		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
+		("total", po::bool_switch(&total), "Include the total of all matching drives")
 		;
 	add_custom_options(filter_helper.get_desc());
 
@@ -433,6 +466,16 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	if (drives.empty())
 		drives.push_back("*");
+	if (!total) {
+		std::vector<std::string>::iterator it = std::find(drives.begin(), drives.end(), "total");
+		if (it != drives.end()) {
+			total = true;
+			drives.erase(it);
+		}
+	}
+	boost::shared_ptr<filter_obj> total_obj(new filter_obj("total", "total"));
+	if (total)
+		total_obj->make_total();
 
 	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
 		if (std::find(excludes.begin(), excludes.end(), drive.drive)!=excludes.end()
@@ -440,9 +483,16 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
 		boost::tuple<bool,bool> ret = filter.match(obj);
+		if (filter.has_errors())
+			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 		if (ret.get<1>()) {
 			break;
 		}
+		if (total)
+			total_obj->append(obj);
+	}
+	if (total) {
+		boost::tuple<bool,bool> ret = filter.match(total_obj);
 		if (filter.has_errors())
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 	}
