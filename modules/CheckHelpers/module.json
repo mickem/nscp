@@ -25,6 +25,7 @@
 			"alias"		: "CheckMultiple",
 			"description" : "Run more then one check and return the worst state."
 		},
+		"filter_perf" : "Run a check and filter performance data.",
 		"check_ok" : { 
 			"alias"		: "CheckOK",
 			"description" : "Just return OK (anything passed along will be used as a message)."

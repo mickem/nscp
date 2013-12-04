@@ -27,6 +27,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <vector>
+#include <algorithm>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -262,6 +263,66 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 	} else {
 		t->detach();
 		nscapi::protobuf::functions::set_response_bad(*response, "Thread failed to return within given timeout");
+	}
+}
+
+struct normal_sort {
+	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
+		if (v1.type() != ::Plugin::Common_DataType_INT)
+			return false;
+		if (v2.type() != ::Plugin::Common_DataType_INT)
+			return false;
+		if (v1.int_value().value() > v2.int_value().value())
+			return true;
+		return false;
+	}
+};
+struct reverse_sort {
+	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
+		if (v1.type() != ::Plugin::Common_DataType_INT)
+			return false;
+		if (v2.type() != ::Plugin::Common_DataType_INT)
+			return false;
+		if (v1.int_value().value() < v2.int_value().value())
+			return true;
+		return false;
+	}
+};
+
+void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	std::string command, sort;
+	int limit;
+	std::vector<std::string> arguments;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	desc.add_options()
+		("sort",	po::value<std::string>(&sort)->default_value("none"), "The sort order to use: none, normal or reversed")
+		("limit",	po::value<int>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
+		("command",	po::value<std::string>(&command), "Wrapped command to execute")
+		("arguments",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		;
+
+	po::positional_options_description p;
+	p.add("arguments", -1);
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) 
+		return;
+	if (command.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	simple_query(command, arguments, response);
+
+	std::vector<::Plugin::Common::PerformanceData> perf;
+	for (int i=0;i<response->perf_size(); i++) {
+		perf.push_back(response->perf(i));
+	}
+	if (sort == "normal")
+		std::sort(perf.begin(), perf.end(), normal_sort());
+	else if (sort == "reverse")
+		std::sort(perf.begin(), perf.end(), reverse_sort());
+	response->clear_perf();
+	if (limit > 0 && perf.size() > limit)
+		 perf.erase(perf.begin()+limit, perf.end());
+	BOOST_FOREACH(const ::Plugin::Common::PerformanceData &v, perf) {
+		response->add_perf()->CopyFrom(v);
 	}
 }
 

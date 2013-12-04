@@ -478,16 +478,6 @@ int CheckSystem::commandLineExec(const std::string &command, const std::list<std
 	return 0;
 }
 
-void log_args(const Plugin::QueryRequestMessage::Request &request) {
-	std::stringstream ss;
-	for (int i=0;i<request.arguments_size();i++) {
-		if (i>0)
-			ss << " ";
-		ss << request.arguments(i);
-	}
-	NSC_DEBUG_MSG("Created command: " + ss.str());
-}
-
 void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
@@ -522,7 +512,7 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	BOOST_FOREACH(const std::string &t, times) {
 		request.add_arguments("time=" + t);
 	}
-	log_args(request);
+	compat::log_args(request);
 	check_cpu(request, response);
 
 }
@@ -590,14 +580,12 @@ void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plu
 
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
-		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
-		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
 		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
 		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
 		;
+
+	compat::addShowAll(desc);
+	compat::addAllNumeric(desc);
 
 	boost::program_options::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
@@ -605,28 +593,17 @@ void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plu
 	std::string warn, crit;
 
 	request.clear_arguments();
-	if (vm.count("MaxWarn"))
-		warn = "warn=uptime > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MaxCrit"))
-		crit = "crit=uptime > " + vm["MaxCrit"].as<std::string>();
+	compat::matchFirstNumeric(vm, "uptime", "uptime", warn, crit);
 	if (vm.count("warn"))
 		warn = "warn=uptime > " + vm["warn"].as<std::string>();
 	if (vm.count("crit"))
 		crit = "crit=uptime > " + vm["crit"].as<std::string>();
-	if (vm.count("MinWarn"))
-		warn = "warn=uptime < " + vm["MinWarn"].as<std::string>();
-	if (vm.count("MinCrit"))
-		crit = "crit=uptime > " + vm["MinCrit"].as<std::string>();
-	if (!warn.empty())
-		request.add_arguments(warn);
-	if (!crit.empty())
-		request.add_arguments(crit);
-	if (vm.count("ShowAll")) {
-		if (vm["ShowAll"].as<std::string>() == "long")
-			request.add_arguments("filter=none");
-		request.add_arguments("top-syntax=Uptime: ${list}");
-	}
-	log_args(request);
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::matchShowAll(vm, request);
+	if (vm["ShowAll"].as<std::string>() == "long")
+		request.add_arguments("filter=none");
+	compat::log_args(request);
 	check_uptime(request, response);
 
 }
@@ -714,9 +691,10 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
 		("CheckAll", po::value<std::string>()->implicit_value("true"), "Check all services.")
-		("ShowAll", po::value<std::string>()->implicit_value("long"), "Show status for all services.")
 		("exclude", po::value<std::vector<std::string> >(&excludes), "Exclude services")
 		;
+
+	compat::addShowAll(desc);
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
@@ -725,10 +703,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	std::string filter, crit;
 
 	request.clear_arguments();
-	if (vm.count("ShowAll"))
-		request.add_arguments("top-syntax=${state}: ${list}");
-	else 
-		request.add_arguments("top-syntax=${state}: ${problem_list}");
+	compat::matchShowAll(vm, request);
 	request.add_arguments("detail-syntax=${name} : ${state}");
 	BOOST_FOREACH(const std::string &s, extra) {
 		std::string::size_type pos = s.find('=');
@@ -748,7 +723,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	if (!filter.empty())
 		request.add_arguments("filter=" + filter);
 
-	log_args(request);
+	compat::log_args(request);
 	check_service(request, response);
 
 }
@@ -873,7 +848,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 		else
 			request.add_arguments("type=" + t);
 	}
-	log_args(request);
+	compat::log_args(request);
 	check_memory(request, response);
 
 }
@@ -964,15 +939,9 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
 
-	// MinCritCount
 	nscapi::program_options::add_help(desc);
-	desc.add_options()
-		("MaxWarnCount", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCritCount", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarnCount", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCritCount", po::value<std::string>(), "Minimum value before a critical is returned.")
-		("ShowAll", po::value<std::string>()->implicit_value("long"), "Show more/all status all services.")
-		;
+	compat::addShowAll(desc);
+	compat::addAllNumeric(desc, "Count");
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
@@ -982,19 +951,11 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 
 	request.clear_arguments();
 
-	if (vm.count("MaxWarnCount"))
-		warn = "count > " + vm["MaxWarnCount"].as<std::string>();
-	if (vm.count("MaxCritCount"))
-		crit = "count > " + vm["MaxCritCount"].as<std::string>();
-	if (vm.count("MinWarnCount"))
-		warn = "count < " + vm["MinWarnCount"].as<std::string>();
-	if (vm.count("MinCritCount"))
-		crit = "count > " + vm["MinCritCount"].as<std::string>();
+	compat::matchFirstNumeric(vm, "count", "count", warn, crit, "Count");
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::matchShowAll(vm, request);
 
-	if (vm.count("ShowAll"))
-		request.add_arguments("top-syntax=${state}: ${list}");
-	else 
-		request.add_arguments("top-syntax=${state}: ${problem_list}");
 	request.add_arguments("detail-syntax=${exe} : ${state}");
 	BOOST_FOREACH(const std::string &s, extra) {
 		std::string::size_type pos = s.find('=');
@@ -1011,7 +972,7 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	if (!filter.empty())
 		request.add_arguments("filter=" + filter);
 
-	log_args(request);
+	compat::log_args(request);
 	check_process(request, response);
 
 }
@@ -1023,6 +984,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	bool deep_scan = true;
 	bool vdm_scan = false;
 	bool unreadable_scan = true;
+	bool delta_scan = false;
 
 	NSC_error err;
 	filter_type filter;
@@ -1032,6 +994,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 		("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
 		("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
+		("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will mesure values and then sleep for 2 second and then measure again caluclating deltas.")
 		("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
 		;
 
@@ -1060,7 +1023,8 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	}
 
 	std::vector<std::string> matched;
-	BOOST_FOREACH(const process_helper::process_info &info, process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err)) {
+	process_helper::process_list list = delta_scan?process_helper::enumerate_processes_delta(!unreadable_scan, &err):process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+	BOOST_FOREACH(const process_helper::process_info &info, list) {
 		bool wanted = procs.count(info.exe);
 		if (all || wanted) {
 			boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
@@ -1087,13 +1051,10 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	std::vector<std::string> counters;
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
-		("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
-		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
 		("Counter", po::value<std::vector<std::string>>(&counters), "The time to check")
 		;
+	compat::addShowAll(desc);
+	compat::addAllNumeric(desc);
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
@@ -1102,21 +1063,10 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	std::string warn, crit;
 
 	request.clear_arguments();
-	if (vm.count("MaxWarn"))
-		warn = "warn=value > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MaxCrit"))
-		crit = "crit=value > " + vm["MaxCrit"].as<std::string>();
-	if (vm.count("MinWarn"))
-		warn = "warn=value < " + vm["MinWarn"].as<std::string>();
-	if (vm.count("MinCrit"))
-		crit = "crit=value > " + vm["MinCrit"].as<std::string>();
-	if (!warn.empty())
-		request.add_arguments(warn);
-	if (!crit.empty())
-		request.add_arguments(crit);
-	if (vm.count("ShowAll")) {
-		request.add_arguments("top-syntax=${status}: ${list}");
-	}
+	compat::matchFirstNumeric(vm, "value", "value", warn, crit);
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::matchShowAll(vm, request);
 
 	BOOST_FOREACH(const std::string &s, extra) {
 		if ((s.size() > 8) && (s.substr(0,8) == "Counter:")) {
@@ -1130,7 +1080,7 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	BOOST_FOREACH(const std::string &t, counters) {
 		request.add_arguments("counter=" + t);
 	}
-	log_args(request);
+	compat::log_args(request);
 	check_pdh(request, response);
 
 }

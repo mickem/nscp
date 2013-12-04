@@ -43,7 +43,9 @@ namespace lua {
 		//////////////////////////////////////////////////////////////////////////
 		/// get_xxx
 		std::string get_string(int pos = -1);
+		std::string get_raw_string(int pos = -1);
 		bool get_string(std::string &str, int pos = -1);
+		bool get_raw_string(std::string &str, int pos = -1);
 		int get_int(int pos = -1);
 		bool get_boolean(int pos = -1);
 		NSCAPI::nagiosReturn get_code(int pos = -1);
@@ -65,7 +67,9 @@ namespace lua {
 		/// pop_xxx
 		bool pop_boolean();
 		std::string pop_string();
+		std::string pop_raw_string();
 		bool pop_string(std::string &str);
+		bool pop_raw_string(std::string &str);
 		bool pop_function_ref(int &funref);
 		bool pop_instance_ref(int &funref);
 		int pop_int();
@@ -112,6 +116,7 @@ namespace lua {
 		//////////////////////////////////////////////////////////////////////////
 		// push_xxx
 		void push_code(NSCAPI::nagiosReturn code);
+		void push_exit(NSCAPI::nagiosReturn code);
 		void push_string(std::string s);
 		void push_boolean(bool b);
 		void push_int(int b);

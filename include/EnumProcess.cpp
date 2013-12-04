@@ -221,9 +221,11 @@ namespace process_helper {
 			FILETIME kernelTime;
 			FILETIME userTime;
 			if (GetProcessTimes(handle, &creationTime, &exitTime, &kernelTime, &userTime)) {
+				entry.kernel_time_raw = (kernelTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)kernelTime.dwLowDateTime;
+				entry.user_time_raw = (userTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)userTime.dwLowDateTime;
+				entry.kernel_time = entry.kernel_time_raw/10000000;
+				entry.user_time = entry.user_time_raw/10000000;
 				entry.creation_time = format::filetime_to_time((creationTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)creationTime.dwLowDateTime);
-				entry.kernel_time = ((kernelTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)kernelTime.dwLowDateTime)/10000000;
-				entry.user_time = ((userTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)userTime.dwLowDateTime)/10000000;
 			}
 
 
@@ -372,6 +374,94 @@ namespace process_helper {
 		}
 
 		delete [] dwPIDs;
+		return ret;
+	}
+
+	typedef std::map<DWORD,process_info> process_map;
+	process_map get_process_data(bool ignore_unreadable, error_reporter *error_interface, unsigned int buffer_size = DEFAULT_BUFFER_SIZE) {
+		process_map ret;
+		DWORD *dwPIDs = new DWORD[buffer_size+1];
+		DWORD cbNeeded = 0;
+		BOOL OK = EnumProcesses(dwPIDs, buffer_size*sizeof(DWORD), &cbNeeded);
+		if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
+			delete [] dwPIDs;
+			if (error_interface!=NULL)
+				error_interface->report_debug("Need larger buffer: " + strEx::s::xtos(buffer_size));
+			return get_process_data(ignore_unreadable, error_interface, buffer_size * 10); 
+		}
+		if (!OK) {
+			delete [] dwPIDs;
+			throw nscp_exception("Failed to enumerate process: " + error::lookup::last_error());
+		}
+		unsigned int process_count = cbNeeded/sizeof(DWORD);
+		for (unsigned int i = 0;i <process_count; ++i) {
+			if (dwPIDs[i] == 0)
+				continue;
+			process_info entry;
+			entry.hung = false;
+			try {
+				try {
+					entry = describe_pid(dwPIDs[i], true, ignore_unreadable);
+				} catch (const nscp_exception &e) {
+					if (!ignore_unreadable && error_interface!=NULL)
+						error_interface->report_debug(e.reason());
+					continue;
+				}
+				ret[dwPIDs[i]] = entry;
+			} catch (const nscp_exception &e) {
+				if (error_interface!=NULL)
+					error_interface->report_error("Exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
+			} catch (...) {
+				if (error_interface!=NULL)
+					error_interface->report_error("Unknown exception describing PID: " + strEx::s::xtos(dwPIDs[i]));
+			}
+		}
+		delete [] dwPIDs;
+		return ret;
+	}
+
+	process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface) {
+		process_list ret;
+		try {
+			enable_token_privilege(SE_DEBUG_NAME);
+		} catch (nscp_exception &e) {
+			if (error_interface!=NULL)
+				error_interface->report_error(e.reason());
+			return ret;
+		} 
+
+		unsigned long long kernel_time;
+		unsigned long long user_time;
+		unsigned long long idle_time;
+		FILETIME idleTime;
+		FILETIME kernelTime;
+		FILETIME userTime;
+		if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+			kernel_time = (kernelTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)kernelTime.dwLowDateTime;
+			user_time = (userTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)userTime.dwLowDateTime;
+			idle_time = (idleTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)idleTime.dwLowDateTime;
+		}
+
+		process_map p1 = get_process_data(ignore_unreadable, error_interface);
+		Sleep(1000);
+		if (GetSystemTimes(&idleTime, &kernelTime, &userTime)) {
+			kernel_time = (kernelTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)kernelTime.dwLowDateTime-kernel_time;
+			user_time = (userTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)userTime.dwLowDateTime-user_time;
+			idle_time = (idleTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)idleTime.dwLowDateTime-idle_time;
+		}
+
+		process_map p2 = get_process_data(ignore_unreadable, error_interface);
+		BOOST_FOREACH(process_map::value_type v1, p1) {
+			process_map::iterator v2 = p2.find(v1.first);
+			if (v2 == p2.end()) {
+				if (error_interface!=NULL)
+					error_interface->report_debug("process died: " + strEx::s::xtos(v1.first));
+				continue;
+			}
+			v2->second -= v1.second;
+			v2->second.make_cpu_delta(kernel_time, user_time);
+			ret.push_back(v2->second);
+		}
 		return ret;
 	}
 }

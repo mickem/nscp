@@ -1,3 +1,11 @@
+2013-12-04 MickeM
+ * Added check_cpu_ex.lua script to return top consumers for check_cpu command.
+ * Harmonized the compatiblity layer so all commands "work the same"
+
+2013-12-03 MickeM
+ * Added new command: filter_perf to filter the returned performance data
+ * Fixed some issues (API changes) in Lua script module
+
 2013-11-29 MickeM
  * Fixed issue with logger
 

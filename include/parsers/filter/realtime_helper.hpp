@@ -40,6 +40,17 @@ namespace parsers {
 					return max_age && next_ok_ <= now;
 				}
 
+				bool find_minimum_timeout(boost::optional<boost::posix_time::ptime> &minNext) const {
+					if (!max_age)
+						return false;
+					if (!minNext)				// No value yes, lest assign ours.
+						minNext = next_ok_;
+					if (next_ok_ > *minNext)	// Our value is not interesting: lets ignore us
+						return false;
+					minNext = next_ok_;
+					return true;
+				}
+
 			};
 
 			typedef boost::shared_ptr<container> container_type;
@@ -121,7 +132,14 @@ namespace parsers {
 								item->touch(current_time);
 						}
 					}
+					do_process_no_items(current_time);
+				} catch (...) {
+					NSC_DEBUG_MSG("Realtime processing faillure");
+				}
+			}
 
+			void do_process_no_items(boost::posix_time::ptime current_time)  {
+				try {
 					// Match any stale items and process timeouts
 					BOOST_FOREACH(container_type item, items) {
 						if (item->has_timedout(current_time)) {
@@ -134,23 +152,30 @@ namespace parsers {
 				}
 			}
 
+
+			void process_no_items()  {
+				do_process_no_items(boost::posix_time::second_clock::local_time());
+			}
+
+
 			op_duration find_minimum_timeout() {
 				op_duration ret;
 				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
-				boost::posix_time::ptime minNext = current_time;;
-				bool first = true;
+				boost::optional<boost::posix_time::ptime> minNext;
 				BOOST_FOREACH(const container_type item, items) {
-					if (item->max_age && (first || item->next_ok_ < minNext) ) {
-						first = false;
-						minNext = item->next_ok_;
-					}
+					item->find_minimum_timeout(minNext);
 				}
 
 				boost::posix_time::time_duration dur;
-				if (first) {
+				if (!minNext) {
 					NSC_DEBUG_MSG("Next miss time is in: no timeout specified");
 				} else {
-					boost::posix_time::time_duration dur = minNext - current_time;
+					boost::posix_time::time_duration dur = *minNext - current_time;
+					if (dur.total_seconds() <= 0) {
+						NSC_LOG_ERROR("Invalid duration for eventlog check, assuming all values stale");
+						touch_all();
+						return ret;
+					}
 					NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
 					ret = dur;
 				}

@@ -40,6 +40,21 @@ namespace process_helper {
 		operator long long() const {
 			return value;
 		}
+		int_var &operator +=(long long other) {
+			value += other;
+			return *this;
+		}
+		int_var &operator -=(long long other) {
+			value -= other;
+			return *this;
+		}
+		void delta(long long previous, long long total) {
+			if (total == 0) {
+				value = 0;
+			} else {
+				value = 100*(value-previous)/total;
+			}
+		}
 	};
 	struct bool_var {
 		bool value;
@@ -131,6 +146,8 @@ namespace process_helper {
 		// TImes
 		int_var creation_time;
 		int_var kernel_time;
+		unsigned long long user_time_raw;
+		unsigned long long kernel_time_raw;
 		int_var user_time;
 		INT_GETTER(creation_time);
 		INT_GETTER(kernel_time);
@@ -200,6 +217,88 @@ namespace process_helper {
 			return state_unknown;
 		}
 
+		process_info& operator += (const process_info &other) {
+			// Handles
+			handleCount += other.handleCount;
+			gdiHandleCount += other.gdiHandleCount;
+			userHandleCount += other.userHandleCount;
+
+			// TImes
+			creation_time += other.creation_time;
+			kernel_time += other.kernel_time;
+			user_time += other.user_time;
+			kernel_time_raw += other.kernel_time_raw;
+			user_time_raw += other.user_time_raw;
+
+			// IO Counters
+			readOperationCount += other.readOperationCount;
+			writeOperationCount += other.writeOperationCount;
+			otherOperationCount += other.otherOperationCount;
+			readTransferCount += other.readTransferCount;
+			writeTransferCount += other.writeTransferCount;
+			otherTransferCount += other.otherTransferCount;
+
+			// Mem Counters
+			PeakVirtualSize += other.PeakVirtualSize;
+			VirtualSize += other.VirtualSize;
+			PageFaultCount += other.PageFaultCount;
+			PeakWorkingSetSize += other.PeakWorkingSetSize;
+			WorkingSetSize += other.WorkingSetSize;
+			QuotaPeakPagedPoolUsage += other.QuotaPeakPagedPoolUsage;
+			QuotaPagedPoolUsage += other.QuotaPagedPoolUsage;
+			QuotaPeakNonPagedPoolUsage += other.QuotaPeakNonPagedPoolUsage;
+			QuotaNonPagedPoolUsage += other.QuotaNonPagedPoolUsage;
+			PagefileUsage += other.PagefileUsage;
+			PeakPagefileUsage += other.PeakPagefileUsage;
+
+			return *this;
+		}
+
+
+		process_info& operator -= (const process_info &other) {
+			// Handles
+			handleCount -= other.handleCount;
+			gdiHandleCount -= other.gdiHandleCount;
+			userHandleCount -= other.userHandleCount;
+
+			// TImes
+			creation_time -= other.creation_time;
+			kernel_time -= other.kernel_time;
+			user_time -= other.user_time;
+			kernel_time_raw -= other.kernel_time_raw;
+			user_time_raw -= other.user_time_raw;
+
+			// IO Counters
+			readOperationCount -= other.readOperationCount;
+			writeOperationCount -= other.writeOperationCount;
+			otherOperationCount -= other.otherOperationCount;
+			readTransferCount -= other.readTransferCount;
+			writeTransferCount -= other.writeTransferCount;
+			otherTransferCount -= other.otherTransferCount;
+
+			// Mem Counters
+			PeakVirtualSize -= other.PeakVirtualSize;
+			VirtualSize -= other.VirtualSize;
+			PageFaultCount -= other.PageFaultCount;
+			PeakWorkingSetSize -= other.PeakWorkingSetSize;
+			WorkingSetSize -= other.WorkingSetSize;
+			QuotaPeakPagedPoolUsage -= other.QuotaPeakPagedPoolUsage;
+			QuotaPagedPoolUsage -= other.QuotaPagedPoolUsage;
+			QuotaPeakNonPagedPoolUsage -= other.QuotaPeakNonPagedPoolUsage;
+			QuotaNonPagedPoolUsage -= other.QuotaNonPagedPoolUsage;
+			PagefileUsage -= other.PagefileUsage;
+			PeakPagefileUsage -= other.PeakPagefileUsage;
+
+			return *this;
+		}
+
+		void make_cpu_delta(unsigned long long kernel, unsigned long long user) {
+			if (kernel > 0)
+				kernel_time = kernel_time_raw*100/kernel;
+			if (user > 0)
+				user_time = user_time_raw*100/user;
+		}
+
 	};
 
 	class error_reporter {
@@ -211,4 +310,5 @@ namespace process_helper {
 
 	typedef std::list<process_info> process_list;
 	process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit = false, bool deep_scan = true, error_reporter *error_interface = NULL, unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
+	process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface);
 }

@@ -73,7 +73,7 @@ void real_time_thread::thread_proc() {
 
 		DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size()+1), handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
-			// we take care of this below...
+			helper.process_no_items();
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
 			delete [] handles;
 			return;

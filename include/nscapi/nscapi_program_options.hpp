@@ -33,18 +33,27 @@ namespace nscapi {
 		};
 
 
-		static std::vector<boost::program_options::option> option_parser_kvp(std::vector<std::string> &args) {
+		static std::vector<boost::program_options::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
 			std::vector<boost::program_options::option> result;
-			BOOST_FOREACH(const std::string &s, args) {
+			std::vector<std::string>::iterator it;
+			for (it = args.begin(); it != args.end(); ++it) {
 				boost::program_options::option opt;
-				std::string::size_type pos = s.find('=');
+				opt.original_tokens.push_back(*it);
+				std::string::size_type pos = (*it).find('=');
 				if (pos == std::string::npos) {
-					opt.string_key = s;
+					opt.string_key = (*it);
+					if (!break_at.empty() && (*it) == break_at) {
+						++it;
+						for (;it != args.end(); ++it) {
+							opt.value.push_back((*it));
+						}
+						result.push_back(opt);
+						break;
+					}
 				} else {
-					opt.string_key = s.substr(0, pos);
-					opt.value.push_back(s.substr(pos+1));
+					opt.string_key = (*it).substr(0, pos);
+					opt.value.push_back((*it).substr(pos+1));
 				}
-				opt.original_tokens.push_back(s);
 				result.push_back(opt);
 			}
 			args.clear();
@@ -383,7 +392,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(nscapi::program_options::option_parser_kvp);
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
 				}
 
 				po::parsed_options parsed = cmd.allow_unregistered().run();
@@ -414,7 +423,39 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(nscapi::program_options::option_parser_kvp);
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+				}
+
+				po::parsed_options parsed = cmd.run();
+				po::store(parsed, vm);
+				po::notify(vm);
+
+				if (vm.count("help-csv")) {
+					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+					return false;
+				}
+				if (vm.count("help")) {
+					nscapi::protobuf::functions::set_response_good(response, help(desc));
+					return false;
+				}
+				return true;
+			} catch (const std::exception &e) {
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
+				return false;
+			}
+		}
+
+		template<class T, class U>
+		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, boost::program_options::positional_options_description p) {
+			try {
+				basic_command_line_parser cmd(request);
+				cmd.options(desc);
+				cmd.positional(p);
+
+				if (request.arguments_size() > 0) {
+					std::string a = request.arguments(0);
+					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -446,7 +487,7 @@ namespace nscapi {
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(nscapi::program_options::option_parser_kvp);
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();
@@ -479,7 +520,7 @@ namespace nscapi {
 				if (arguments.size() > 0) {
 					std::string a = arguments[0];
 					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
-						cmd.extra_style_parser(nscapi::program_options::option_parser_kvp);
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
 				}
 
 				po::parsed_options parsed = cmd.run();

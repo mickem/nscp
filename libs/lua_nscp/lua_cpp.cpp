@@ -35,14 +35,35 @@ std::string lua::lua_wrapper::get_string(int pos) {
 		return ret;
 	return "<NOT_A_STRING:" + strEx::s::xtos(type(pos)) + ">";
 }
+std::string lua::lua_wrapper::get_raw_string(int pos) {
+	std::string ret;
+	if (get_raw_string(ret, pos))
+		return ret;
+	return "<NOT_A_STRING:" + strEx::s::xtos(type(pos)) + ">";
+}
 bool lua::lua_wrapper::get_string(std::string &str, int pos) {
 	if (pos == -1)
 		pos = lua_gettop(L);
 	if (pos == 0)
 		return false;
 	if (is_string(pos))
-		str = utf8::cvt<std::string>(lua_tostring(L, pos));
+		str = lua_tostring(L, pos);
 	else if (is_number(pos))
+		str = strEx::s::xtos(lua_tonumber(L, pos));
+	else
+		return false;
+	return true;
+}
+bool lua::lua_wrapper::get_raw_string(std::string &str, int pos) {
+	if (pos == -1)
+		pos = lua_gettop(L);
+	if (pos == 0)
+		return false;
+	if (is_string(pos)) {
+		std::size_t len;
+		const char* cstr = lua_tolstring(L, -1, &len);
+		str = std::string(cstr, len);
+	} else if (is_number(pos))
 		str = strEx::s::xtos(lua_tonumber(L, pos));
 	else
 		return false;
@@ -125,11 +146,29 @@ std::string lua::lua_wrapper::pop_string() {
 	pop();
 	return ret;
 }
+std::string lua::lua_wrapper::pop_raw_string() {
+	std::string ret;
+	int top = lua_gettop(L);
+	if (top == 0)
+		return "<EMPTY>";
+	ret = get_raw_string(top);
+	pop();
+	return ret;
+}
 bool lua::lua_wrapper::pop_string(std::string &str) {
 	int top = lua_gettop(L);
 	if (top == 0)
 		return false;
 	if (!get_string(str, top))
+		return false;
+	pop();
+	return true;
+}
+bool lua::lua_wrapper::pop_raw_string(std::string &str) {
+	int top = lua_gettop(L);
+	if (top == 0)
+		return false;
+	if (!get_raw_string(str, top))
 		return false;
 	pop();
 	return true;
@@ -235,6 +274,16 @@ void lua::lua_wrapper::push_code(NSCAPI::nagiosReturn code) {
 		lua_pushstring(L, "warning");
 	else if (code == NSCAPI::returnCRIT)
 		lua_pushstring(L, "critical");
+	else
+		lua_pushstring(L, "unknown");
+}
+void lua::lua_wrapper::push_exit(NSCAPI::nagiosReturn code) {
+	if (code == NSCAPI::isSuccess)
+		lua_pushstring(L, "ok");
+	else if (code == NSCAPI::hasFailed)
+		lua_pushstring(L, "warning");
+	else if (code == NSCAPI::returnIgnored)
+		lua_pushstring(L, "ignored");
 	else
 		lua_pushstring(L, "unknown");
 }

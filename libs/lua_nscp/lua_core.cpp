@@ -46,19 +46,19 @@ void lua::lua_runtime::on_query(std::string command, script_information *informa
 		nscapi::protobuf::functions::append_simple_query_response_payload(response, command, ret, msg, perf);
 	} else {
 		lua.push_string(command);
+		lua.push_raw_string(request.SerializeAsString());
 		lua.push_raw_string(request_message.SerializeAsString());
+		args++;
 		if (lua.pcall(args, 1, 0) != 0)
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to handle command: " + command + ": " + lua.pop_string());
 		if (lua.size() < 1) {
 			NSC_LOG_ERROR_STD("Invalid return: " + lua.dump_stack());
-			nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::returnUNKNOWN, "Invalid return", "");
+			nscapi::protobuf::functions::append_simple_query_response_payload(response, command, NSCAPI::returnUNKNOWN, "Invalid return data", "");
 			return;
 		}
 		Plugin::QueryResponseMessage local_response;
-		local_response.ParseFromString(lua.pop_string());
-		if (local_response.payload_size() != 1)
-			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + command);
-		response->CopyFrom(local_response.payload(0));
+		std::string data = lua.pop_raw_string();
+		response->ParseFromString(data);
 		lua.gc(LUA_GCCOLLECT, 0);
 	}
 }
