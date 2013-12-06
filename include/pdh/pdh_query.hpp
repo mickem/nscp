@@ -57,7 +57,7 @@ namespace PDH {
 		void open();
 		void close();
 
-		void gatherData();
+		void gatherData(bool ignore_errors = false);
 		inline void collect();
 
 		PDH::PDH_HQUERY getQueryHandle() const;

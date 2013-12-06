@@ -1,3 +1,7 @@
+2013-12-05 MickeM - RC3
+ * Added suport for instances (new keyword instances) to check_pdh
+ * Fixed more compatiblity issues
+ 
 2013-12-04 MickeM
  * Added check_cpu_ex.lua script to return top consumers for check_cpu command.
  * Harmonized the compatiblity layer so all commands "work the same"

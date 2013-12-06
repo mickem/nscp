@@ -126,6 +126,7 @@ namespace check_pdh {
 		bool expand_index = false;
 		bool reload = false;
 		bool check_average = false;
+		bool expand_instance = false;
 		std::string flags;
 		std::string type;
 		std::string time;
@@ -136,6 +137,7 @@ namespace check_pdh {
 		filter_helper.get_desc().add_options()
 			("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
 			("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")
+			("instances", po::bool_switch(&expand_instance), "Expand wildcards and fetch all instances")
 			("reload", po::bool_switch(&reload), "Reload counters on errors (useful to check counters which are not added at boot)")
 			("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
 			("time", po::value<std::string>(&time), "Timeframe to use for named rrd counters")
@@ -175,6 +177,8 @@ namespace check_pdh {
 						PDH::PDHResolver::expand_index(counter);
 					}
 					PDH::pdh_object obj;
+					if (expand_instance)
+						obj.set_instances("*");
 					obj.set_flags(flags);
 					obj.set_counter(counter);
 					obj.set_alias(counter);
@@ -232,7 +236,7 @@ namespace check_pdh {
 					Sleep(1000);
 				}
 				pdh.collect();
-				pdh.gatherData();
+				pdh.gatherData(expand_instance);
 				pdh.close();
 			} catch (const PDH::pdh_exception &e) {
 				NSC_LOG_ERROR_EXR("Failed to poll counter", e);
@@ -265,10 +269,18 @@ namespace check_pdh {
 		}
 		BOOST_FOREACH(PDH::pdh_instance &instance, free_counters) {
 			try {
-				boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), instance->get_int_value()));
-				boost::tuple<bool,bool> ret = filter.match(record);
-				if (ret.get<1>()) {
-					break;
+				if (expand_instance) {
+					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
+						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), child->get_int_value()));
+						boost::tuple<bool,bool> ret = filter.match(record);
+						if (ret.get<1>())
+							break;
+					}
+				} else {
+					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), instance->get_int_value()));
+					boost::tuple<bool,bool> ret = filter.match(record);
+					if (ret.get<1>())
+						break;
 				}
 			} catch (const PDH::pdh_exception &e) {
 				NSC_LOG_ERROR_EXR("ERROR", e);

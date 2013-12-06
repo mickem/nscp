@@ -35,6 +35,12 @@ namespace compat {
 			(std::string("MinCrit"+suffix).c_str(), po::value<std::vector<std::string> >(), "Minimum value before a critical is returned.")
 			;
 	}
+	void addOldNumeric(boost::program_options::options_description &desc) {
+		desc.add_options()
+			(std::string("warn").c_str(), po::value<std::vector<std::string> >(), "Maximum value before a warning is returned.")
+			(std::string("crit").c_str(), po::value<std::vector<std::string> >(), "Maximum value before a critical is returned.")
+			;
+	}
 
 	void do_matchFirstNumeric(const boost::program_options::variables_map &vm, const std::string key, std::string &target, const std::string var, const std::string bound, const std::string op) {
 		if (vm.count(key)) {
@@ -50,6 +56,10 @@ namespace compat {
 		do_matchFirstNumeric(vm, "MaxCrit" + suffix, crit, "crit", upper, ">");
 		do_matchFirstNumeric(vm, "MinWarn" + suffix, warn, "warn", lower, "<");
 		do_matchFirstNumeric(vm, "MinCrit" + suffix, crit, "crit", lower, "<");
+	}
+	void matchFirstOldNumeric(const boost::program_options::variables_map &vm, const std::string var, std::string &warn, std::string &crit) {
+		do_matchFirstNumeric(vm, "warn", warn, "warn", var, ">");
+		do_matchFirstNumeric(vm, "crit", crit, "crit", var, ">");
 	}
 
 	void matchShowAll(const boost::program_options::variables_map &vm, Plugin::QueryRequestMessage::Request &request, std::string prefix) {

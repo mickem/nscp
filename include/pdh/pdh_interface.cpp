@@ -180,6 +180,8 @@ namespace PDH {
 				sub.path = s;
 				sub_counters.push_back(sub);
 			}
+			if (!err.empty())
+				throw pdh_exception("Failed to expand path: " + err);
 			return boost::make_shared<instance_providers::container>(object, sub_counters);
 		} else {
 			if (object.is_rrd()) {

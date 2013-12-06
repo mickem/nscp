@@ -86,7 +86,7 @@ namespace PDH {
 		counters_.clear();
 	}
 
-	void PDHQuery::gatherData() {
+	void PDHQuery::gatherData(bool ignore_errors) {
 		collect();
 		BOOST_FOREACH(counter_type c, counters_) {
 			pdh_error status = c->collect();
@@ -100,8 +100,8 @@ namespace PDH {
 					hasDisplayedInvalidCOunter_ = true;
 					throw pdh_exception(c->getName() + " Negative denominator issue (check FAQ for ways to solve this): ", status);
 				}
-			} else if (status.is_error()) {
-				throw pdh_exception(c->getName() + " Failed to poll counter: " + c->get_path(), status);
+			} else if (!ignore_errors && status.is_error()) {
+				throw pdh_exception(c->getName() + " Failed to poll counter " + c->get_path(), status);
 			}
 		}
 	}

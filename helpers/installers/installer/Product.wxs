@@ -161,9 +161,9 @@
 						</Component>
             <Directory Id="LUA_SCRIPTS" Name="lib">
               <Component Id="LuaScripts" Guid="BD341200-6F01-4bf3-ADEA-CE592229A8E5" Win64="$(var.Win64)">
-                <File Id="lua001" Name="test.lua" DiskId="1" Source="$(var.Source)/scripts/lua/check_cpu_ex.lua" Vital="no" />
+                <File Id="lua001" Name="check_cpu_ex.lua" DiskId="1" Source="$(var.Source)/scripts/lua/check_cpu_ex.lua" Vital="no" />
                 <File Id="lua002" Name="test.lua" DiskId="1" Source="$(var.Source)/scripts/lua/test.lua" Vital="no" />
-                <File Id="lua003" Name="test.lua" DiskId="1" Source="$(var.Source)/scripts/lua/noperf.lua" Vital="no" />
+                <File Id="lua003" Name="noperf.lua" DiskId="1" Source="$(var.Source)/scripts/lua/noperf.lua" Vital="no" />
               </Component>
             </Directory>
             <Directory Id="INSTALLLOCATION_SCRIPTS_LIB" Name="lib">

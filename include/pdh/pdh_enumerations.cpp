@@ -54,6 +54,8 @@ namespace PDH {
 					}
 				}
 				delete [] szBuffer;
+			} else if (status.is_error()) {
+				error = status.get_message();
 			}
 		} catch (std::exception &e) {
 			error = utf8::utf8_from_native(e.what());

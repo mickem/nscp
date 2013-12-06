@@ -164,13 +164,31 @@ If you get illegal metachars or similar errors you are sending characters which 
 This is a security measure inherited from the regular NRPE client.
 
 The following characters are considered harmful: |`&><'\"\\[]{}
-To enable this in the NRPE server you can add the following (please '''notice''' the same issue is also valid for CheckExternalScripts if you are using scripts see question 12 for details):
+To work around this you have two options.
+
+1. You can enable it
+2. You can switch most commands to not use nasty characters
+
+To enable this in the NRPE server you can add the following:
 
 .. code-block:: ini
 
    [/settings/NRPE/server]
    allow nasty characters=true
+   
+   [/settings/external scripts]
+   allow nasty characters=true
 
+To not use nasty characters you can replace man y of them in built-in commands:
+
+========== ===========
+Expression Replacement
+========== ===========
+>          gt
+<          lt
+'..'       s(...)
+${..}      %(..)
+========== ===========
 
 3. General
 ==========

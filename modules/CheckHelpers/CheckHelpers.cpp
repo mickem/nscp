@@ -310,7 +310,7 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
 
-	std::vector<::Plugin::Common::PerformanceData> perf;
+	std::vector<Plugin::Common::PerformanceData> perf;
 	for (int i=0;i<response->perf_size(); i++) {
 		perf.push_back(response->perf(i));
 	}
