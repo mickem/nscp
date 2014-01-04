@@ -186,12 +186,12 @@ std::string nscp::encryption::helpers::encryption_to_string(int encryption) {
 			int get_keySize() {
 				return keysize_;
 			}
-			int get_blockSize() {
+			std::size_t get_blockSize() {
 				return TMethod::BLOCKSIZE;
 			}
 
 			virtual void init(std::string password, std::string iv) {
-				int blocksize = get_blockSize();
+				std::size_t blocksize = get_blockSize();
 				if(blocksize>iv.size())
 					throw nscp::encryption::encryption_exception("IV size for crypto algorithm exceeds limits");
 
@@ -248,7 +248,7 @@ public:
 	int get_keySize() {
 		return 0;
 	}
-	int get_blockSize() {
+	std::size_t get_blockSize() {
 		return 1;
 	}
 	void init(std::string password, std::string iv) {}
@@ -268,7 +268,7 @@ public:
 	int get_keySize() {
 		return 0;
 	}
-	int get_blockSize() {
+	std::size_t get_blockSize() {
 		return 1;
 	}
 	void init(std::string password, std::string iv) {

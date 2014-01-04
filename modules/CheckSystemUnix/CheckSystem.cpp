@@ -389,7 +389,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 		BOOST_FOREACH(const check_mem_filter::filter_obj &o, mem_data) {
 			if (o.type == type) {
 				boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(o));
-				boost::tuple<bool,bool> ret = filter.match(record);
+				filter.match(record);
 				found = true;
 				break;
 			}

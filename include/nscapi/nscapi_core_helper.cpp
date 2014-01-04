@@ -140,7 +140,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
-	NSCAPI::nagiosReturn ret = get_core()->exec_command(target, request, response);
+	get_core()->exec_command(target, request, response);
 	return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 }
 

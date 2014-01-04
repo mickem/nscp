@@ -10,6 +10,10 @@ extern "C" {
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
+#ifndef TRUE
+#define TRUE 1
+#endif
+
 lua::Lua_State::Lua_State() : L(lua_open()) { }
 lua::Lua_State::~Lua_State() {
 	lua_close(L);

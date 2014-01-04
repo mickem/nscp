@@ -551,7 +551,7 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 		WORD wType = EventLogRecord::translateType(type);
 		WORD wSeverity = EventLogRecord::translateSeverity(severity);
 		DWORD tID = (wEventID&0xffff) | ((facility&0xfff)<<16) | ((customer&0x1)<<29) | ((wSeverity&0x3)<<30);
-		hlp::buffer<LPCWSTR> string_data(strings.size()+1);
+		LPCWSTR *string_data = new LPCWSTR[strings.size()+1];
 		int i=0;
 		// TODO: FIxme this is broken!
  		BOOST_FOREACH(const std::wstring &s, strings) {
@@ -560,8 +560,10 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 		string_data[i++] = 0;
 
 		if (!ReportEvent(source, wType, category, tID, NULL, static_cast<WORD>(strings.size()), 0, string_data, NULL)) {
+			delete [] string_data;
 			return nscapi::protobuf::functions::set_response_bad(*response, "Could not report the event: " + error::lookup::last_error());
 		} else {
+			delete [] string_data;
 			return nscapi::protobuf::functions::set_response_good(*response, "Message reported successfully");
 		}
 	} catch (const std::exception &e) {

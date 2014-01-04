@@ -552,32 +552,6 @@ namespace nscapi {
 			std::string alias;
 			std::string value;
 		};
-		typedef std::list<alias_option> alias_map;
-		static alias_map parse_legacy_alias(unrecognized_map unrecognized, std::string default_key) {
-			alias_map result;
-			BOOST_FOREACH(const std::string &k, unrecognized) {
-				std::string::size_type pos = k.find("=");
-				alias_option op;
-				if (pos == std::string::npos) {
-					op.key = default_key;
-					op.value = k;
-				} else {
-					op.key = k.substr(0, pos);
-					op.value = k.substr(pos+1);
-					pos = op.key.find(':');
-					if (pos != std::string::npos) {
-						op.alias = op.key.substr(pos+1);
-						op.key = op.key.substr(0, pos);
-					}
-				}
-				result.push_back(op);
-			}
-			return result;
-		}
-
-
-
-
 		struct standard_filter_config {
 			std::string filter_string;
 			std::string warn_string;
@@ -589,7 +563,7 @@ namespace nscapi {
 			std::string empty_state;
 		};
 
-		static void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist, std::string default_syntax, std::string keylist) {
+		inline void add_standard_filter(po::options_description &desc, standard_filter_config &filter, std::string default_top_syntax, std::string top_keylist, std::string default_syntax, std::string keylist) {
 			desc.add_options()
 				("filter", po::value<std::string>(&filter.filter_string),			"Filter which marks interesting items.\nInteresting items are items which will be included in the check. They do not denote warning or critical state but will be included in performance data and checked for critical and/or warning state. Anything not matching the filter will be ignored. Leaving the filter empty will include all applicable items")
 				("warning", po::value<std::string>(&filter.warn_string),			"Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.")

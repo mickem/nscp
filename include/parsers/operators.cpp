@@ -372,7 +372,7 @@ namespace parsers {
 			};
 
 			struct operator_not : public unary_operator_impl, binary_function_impl {
-				operator_not(const node_type subject) {subject;}
+				operator_not(const node_type) {}
 				operator_not() {}
 				node_type evaluate(evaluation_context errors, const node_type subject) const {
 					return evaluate(subject->get_type(), errors,  subject);
@@ -393,8 +393,7 @@ namespace parsers {
 			};
 		}
 
-		op_factory::bin_op_type op_factory::get_binary_operator(operators op, const node_type left, const node_type right) {
-			left;
+		op_factory::bin_op_type op_factory::get_binary_operator(operators op, const node_type, const node_type) {
 			// op_in, op_nin
 			if (op == op_eq)
 				return op_factory::bin_op_type(new operator_impl::operator_eq());

@@ -28,7 +28,7 @@ namespace nscp {
 			virtual void decrypt(std::string &buffer) = 0;
 			virtual std::string getName() = 0;
 			virtual int get_keySize() = 0;
-			virtual int get_blockSize() = 0;
+			virtual std::size_t get_blockSize() = 0;
 		};
 
 		class engine {
