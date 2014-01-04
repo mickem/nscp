@@ -73,8 +73,18 @@ namespace file_filter {
 		long long get_write() {
 			return strEx::filetime_to_time(ullLastWriteTime);
 		}
+		std::string get_creation_s() {
+			return format::format_filetime(ullCreationTime);
+		}
+		std::string get_access_s() {
+			return format::format_filetime(ullLastAccessTime);
+		}
+		std::string get_written_s() {
+			return format::format_filetime(ullLastWriteTime);
+		}
+
 		unsigned long long get_size() { return ullSize; }
-		std::string render(std::string syntax, std::string datesyntax);
+//		std::string render(std::string syntax, std::string datesyntax);
 		std::string get_version();
 		unsigned long get_line_count();
 

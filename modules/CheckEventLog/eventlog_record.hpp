@@ -230,12 +230,12 @@ public:
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
 			strEx::replace(msg, _T("%")+strEx::itos(i+1), std::wstring(p));
-			unsigned int len = wcslen(p);
+			std::size_t len = wcslen(p);
 			p = &(p[len+1]);
 		}
 		return boost::make_tuple(0, msg);
 	}
-	std::wstring render_message(DWORD dwLang = 0) const {
+	std::wstring render_message(const int truncate_message, DWORD dwLang = 0) const {
 		std::vector<std::wstring> args;
 		std::wstring ret;
 		std::wstring file;
@@ -287,6 +287,8 @@ public:
 				ret += msg;
 			}
 		}
+		if (truncate_message > 0 && ret.length() > truncate_message)
+			ret = ret.substr(0, truncate_message);
 		return ret;
 	}
 	SYSTEMTIME get_time(DWORD time) const {

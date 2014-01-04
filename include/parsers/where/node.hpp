@@ -147,6 +147,18 @@ namespace parsers {
 			virtual boost::shared_ptr<binary_function_impl> create_converter(std::string name, boost::shared_ptr<any_node> subject, value_type to) = 0;
 		};
 		typedef boost::shared_ptr<object_converter_interface> object_converter;
+		struct object_factory_interface : public object_converter_interface {
+			typedef std::size_t index_type;
+
+			virtual bool has_variable(const std::string &name) = 0;
+			virtual node_type create_variable(const std::string &name, bool human_readable) = 0;
+
+			virtual bool has_function(const std::string &name) = 0;
+			virtual node_type create_function(const std::string &name, node_type subject) = 0;
+
+			virtual std::string get_performance_config_key(const std::string prefix, const std::string object, const std::string suffix, const std::string key, const std::string unit) const = 0;
+		};
+		typedef boost::shared_ptr<object_factory_interface> object_factory;
 
 		struct any_node {
 		private:
@@ -180,23 +192,11 @@ namespace parsers {
 
 			// Performance data functions
 			virtual bool find_performance_data(evaluation_context context, performance_collector &collector) = 0;
-			virtual perf_list_type get_performance_data(evaluation_context context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
 				perf_list_type ret;
 				return ret;
 			}
 		};
-
-
-		struct object_factory_interface : public object_converter_interface {
-			typedef std::size_t index_type;
-
-			virtual bool has_variable(const std::string &name) = 0;
-			virtual node_type create_variable(const std::string &name, bool human_readable) = 0;
-
-			virtual bool has_function(const std::string &name) = 0;
-			virtual node_type create_function(const std::string &name, node_type subject) = 0;
-		};
-		typedef boost::shared_ptr<object_factory_interface> object_factory;
 
 		struct list_node_interface : public any_node {
 			virtual void push_back(node_type value) = 0;

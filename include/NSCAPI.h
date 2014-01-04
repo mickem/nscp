@@ -20,42 +20,10 @@
 ***************************************************************************/
 #pragma once
 
-//#include <unicode_char.hpp>
 #include <string>
-//#include <strEx.h>
 
 namespace NSCAPI {
-	/*
-	#ifdef DEBUG
-	typedef enum {
-	returnCRIT = 2,
-	returnOK = 0,
-	returnWARN = 1,
-	returnUNKNOWN = 3,
-	returnInvalidBufferLen = -2,
-	returnIgnored = -1
-	} nagiosReturn;
-	typedef enum {
-	istrue = 1,
-	isfalse = 0
-	} boolReturn;
-	typedef enum {
-	isSuccess = 1,
-	hasFailed = 0,
-	isInvalidBufferLen = -2
-	} errorReturn;
-	typedef enum {
-	key_string = 100,
-	key_integer = 200,
-	key_bool = 300,
-	} settings_type;
 
-	typedef enum {
-	normalStart = 0,
-	dontStart = 1,
-	} moduleLoadMode;
-	#else
-	*/
 	const int normalStart = 0;
 	const int dontStart = 1;
 	const int returnOK = 0;
@@ -84,7 +52,6 @@ namespace NSCAPI {
 	typedef int errorReturn;
 	typedef int settings_type;
 	typedef int moduleLoadMode;
-	//#endif
 
 	const unsigned int encryption_xor = 1;
 
@@ -151,11 +118,6 @@ namespace nscapi {
 		// TODO: convert and re-add these
 		typedef NSCAPI::errorReturn (*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 		typedef NSCAPI::errorReturn (*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
-
-		// TODO: DEprecate these
-		// 		typedef NSCAPI::errorReturn (*lpNSAPISettingsSave)(void);
-		// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterSubmissionListener)(unsigned int plugin_id, const wchar_t* channel);
-		// 		typedef NSCAPI::errorReturn (*lpNSAPIRegisterRoutingListener)(unsigned int plugin_id, const wchar_t* channel);
 	}
 
 	namespace plugin_api {

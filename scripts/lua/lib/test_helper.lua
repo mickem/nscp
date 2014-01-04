@@ -136,6 +136,12 @@ function install_test_manager(cases)
 	for i=1,# test_cases do
 		test_cases[i]:install({})
 	end
+	return 'ok'
+end
+
+local test_cases = {}
+function init_test_manager(cases)
+	test_cases = cases
 	local reg = nscp.Registry()
 	reg:simple_query('lua_unittest', lua_unittest_handler, 'TODO')
 end

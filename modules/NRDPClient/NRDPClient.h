@@ -20,8 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
@@ -67,7 +66,7 @@ private:
 				"TEMPLATE", "Template for message data")
 			;
 		}
-		static void post_process_target(target_object &target) {
+		static void post_process_target(target_object &) {
 		}
 	};
 

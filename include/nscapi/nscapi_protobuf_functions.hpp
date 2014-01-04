@@ -26,8 +26,7 @@
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_types.hpp>
-
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 #include <strEx.h>
 

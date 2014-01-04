@@ -12,10 +12,9 @@ extern "C" {
 
 #include <boost/shared_ptr.hpp>
 
-#include <protobuf/plugin.pb.h>
-
 #include <NSCAPI.h>
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
 
 #include <strEx.h>
 #include <scripts/script_interface.hpp>
@@ -41,8 +40,9 @@ namespace lua {
 		virtual void register_subscription(const std::string &channel, const std::string &description);
 
 		virtual void on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
-		virtual NSCAPI::nagiosReturn on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+		virtual void on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 		virtual NSCAPI::nagiosReturn on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response);
+		virtual void exec_main(script_information *information, const std::vector<std::string> &opts, Plugin::ExecuteResponseMessage::Response *response);
 
 		virtual void load(scripts::script_information<lua_traits> *info);
 		virtual void unload(scripts::script_information<lua_traits> *info);
@@ -56,6 +56,11 @@ namespace lua {
 			lua_rawgeti(L, LUA_REGISTRYINDEX, c.function_ref);
 			if (c.object_ref != 0)
 				lua_rawgeti(L, LUA_REGISTRYINDEX, c.object_ref);
+			return L;
+		}
+		static lua_State * prep_function(const lua::script_information *information, const std::string &f) {
+			lua_State *L = information->user_data.L;
+			lua_getglobal(L, f.c_str());
 			return L;
 		}
 		void create_user_data(script_information* info);

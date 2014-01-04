@@ -5,9 +5,11 @@ from types import *
 import random
 import subprocess
 
-core = Core.get()
-
 class Win32SystemTest(BasicTest):
+
+	reg = None
+	conf = None
+	core = None
 
 	def desc(self):
 		return 'Testcase for w32 check_system module'
@@ -42,35 +44,65 @@ class Win32SystemTest(BasicTest):
 	
 	def test_one_proc_int(self, proc, actual, asked):
 		result = TestResult('Checking one state %d/%d'%(actual, asked))
-		for s in ['eq', 'gt', 'lt', 'ne']:
-			(retcode, retmessage, retperf) = core.simple_query('CheckProcState', ['ShowAll', 'critCount=%s:%d'%(s, asked), '%s=started'%proc])
+		#for s in ['eq', 'gt', 'lt', 'ne']:
+		for s in ['gt']:
+			(retcode, retmessage, retperf) = self.core.simple_query('check_process', ['show-all', 'crit=count %s %d'%(s, asked), "filter=exe='%s'"%proc])
 			expected = self.get_expected_state(actual, s, asked)
 			result.add_message(retcode == expected, 'Process: %s (%d %s %d): %s'%(proc, actual, s, asked, retmessage), 'Expected %s'%(expected))
 		return result
 		
 	def run_test_proc(self):
-		result = TestResult('Checking CheckProcState')
+		master = TestResult('Checking check_process')
 		
+		result = TestResult('0 notepads running')
 		for j in range(0,3):
 			result.append(self.test_one_proc_int('notepad.exe', 0, j))
+		master.add(result)
 		
 		pids = []
 		for i in range(1,4):
+			result = TestResult('%d notepads running'%i)
 			log('Starting notepad...')
 			handle = subprocess.Popen('notepad.exe', shell=False)
 			sleep(500)
 			pids.append(handle.pid)
 			for j in range(0,3):
 				result.append(self.test_one_proc_int('notepad.exe', i, j))
+			master.add(result)
 
 		for p in pids:
 			subprocess.Popen("taskkill /F /T /PID %i"%p , shell=True)
 
-		return result
+		return master
 		
+	def check_and_lookup_index(self, index):
+		result = TestResult('Validating index: %s'%index)
+		(result_code, result_message) = self.core.simple_exec('any', 'pdh', ['--lookup-name', '%s'%index, '--porcelain'])
+		result.assert_equals(result_code, 0, 'Result code')
+		result.assert_equals(len(result_message), 1, 'result length')
+		result.add_message(len(result_message[0])>0, 'result length')
+		name = result_message[0]
+		
+		(result_code, result_message) = self.core.simple_exec('any', 'pdh', ['--lookup-index', name, '--porcelain'])
+		result.assert_equals(result_code, 0, 'Result code')
+		result.assert_equals(len(result_message), 1, 'result length')
+		result.add_message(len(result_message[0])>0, 'result length')
+		result.assert_equals(result_message[0], '%s'%index, 'result length')
+	
+		return result, name
+		
+	def check_counter(self, counter, args):
+		result = TestResult('Checking counter: %s'%counter)
+		args.append('Counter=%s'%counter)
+		(retcode, retmessage, retperf) = self.core.simple_query('CheckCounter', args)
+		result.add_message(retcode != status.UNKNOWN, 'Return code: %s'%retcode)
+		result.add_message(len(retmessage) > 0, 'Returned message: %s'%retmessage)
+		result.add_message(len(retperf) > 0, 'Performance data: %s'%retperf)
+		return result
+	
 	def run_test_counters(self):
 		result = TestResult('Checking CheckCounter')
-		(result_code, result_message) = core.simple_exec('any', 'pdh', ['--list', '--porcelain'])
+		(result_code, result_message) = self.core.simple_exec('any', 'pdh', ['--list', '--all'])
 		count = 0
 		data = []
 		for m in result_message:
@@ -80,36 +112,26 @@ class Win32SystemTest(BasicTest):
 		if len(data) == 0:
 			result.add_message(False, 'Failed to find counters: %s'%result_message)
 		counters = []
-		for x in range(1,10):
-			try:
-				str = random.choice(data)
-				(alias, counter, message) = str.split(',', 2)
-				(retcode, retmessage, retperf) = core.simple_query('CheckCounter', ['index', 'ShowAll', 'MaxWarn=10', 'Counter:001=%s'%counter])
-				result.add_message(retcode != status.UNKNOWN, 'Queried normal: %s'%counter)
-				result.add_message(len(retmessage) > 0, 'Queried normal (got message): %s'%retmessage)
-				result.add_message(len(retperf) > 0, 'Queried normal (got perf): %s'%retperf)
-				if retcode != status.UNKNOWN:
-					counters.append('Counter:%d=%s'%(x, counter))
-			except Exception as e:
-				result.add_message(False, 'Invalid counter found "%s": %s'%(str, e))
-
-		args = ['index', 'ShowAll', 'MaxWarn=10']
-		args.extend(counters)
-		(retcode, retmessage, retperf) = core.simple_query('CheckCounter', args)
-		result.add_message(retcode != status.UNKNOWN, 'Queried normal list of %d counters'%len(counters))
-		result.add_message(len(retmessage) > 0, 'Queried normal (got message): %s'%retmessage)
-		result.add_message(len(retperf) > 0, 'Queried normal (got perf): %s'%retperf)
-		result.add_message(len(counters) == len(retperf.split(' ')), 'Got all responses: %d'%len(counters))
+		
+		
+		(subres, name1) = self.check_and_lookup_index(4)
+		result.add(subres)
+		(subres, name2) = self.check_and_lookup_index(26)
+		result.add(subres)
+		
+		result.add(self.check_counter('\\4\\26', ['ShowAll', 'MaxWarn=10']))
+		result.add(self.check_counter('\\4\\26', ['index', 'ShowAll', 'MaxWarn=10']))
+		result.add(self.check_counter('\\%s\\%s'%(name1, name2), ['ShowAll', 'MaxWarn=10']))
 		return result
 		
 	def run_test(self):
 		result = TestResult('Testing W32 systems')
-		#result.add(self.run_test_proc())
+		result.add(self.run_test_proc())
 		result.add(self.run_test_counters())
 		return result
 
 	def install(self, arguments):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/modules', 'test_system', 'CheckSystem')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
 		conf.set_string('/settings/pytest/scripts', 'test_w32sys', 'test_w32_system.py')
@@ -121,8 +143,10 @@ class Win32SystemTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
-		None
+	def init(self, plugin_id, prefix):
+		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
 		None
@@ -131,7 +155,7 @@ setup_singleton(Win32SystemTest)
 
 all_tests = [Win32SystemTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):
@@ -139,4 +163,3 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-

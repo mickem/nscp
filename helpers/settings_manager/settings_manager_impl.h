@@ -17,6 +17,7 @@ namespace settings_manager {
 		provider_interface *provider_;
 	public:
 		NSCSettingsImpl(provider_interface *provider) : provider_(provider) {}
+		virtual ~NSCSettingsImpl() {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string form the boot file.
 		///

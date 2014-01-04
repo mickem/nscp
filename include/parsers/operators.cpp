@@ -104,7 +104,9 @@ namespace parsers {
 						long long rhs = right->get_int_value(errors);
 						std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
 					}
-					return left->get_int_value(errors) > right->get_int_value(errors);
+					long long lhs = left->get_int_value(errors);
+					long long rhs = right->get_int_value(errors);
+					return lhs > rhs;
 				}
 				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
 					return left->get_string_value(errors) > right->get_string_value(errors);

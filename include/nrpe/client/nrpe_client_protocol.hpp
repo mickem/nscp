@@ -61,7 +61,7 @@ namespace nrpe {
 				return nrpe::packet::unknown_response("Failed to read data");
 			}
 			response_type get_response() {
-				return nrpe::packet(&buffer_[0], buffer_.size());
+				return nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
 			}
 			bool has_data() {
 				return current_state_ == has_request;
@@ -70,18 +70,15 @@ namespace nrpe {
 				return current_state_ == sent_response;
 			}
 
-			bool on_read(std::size_t bytes_transferred) {
-				bytes_transferred;
+			bool on_read(std::size_t) {
 				set_state(connected);
 				return true;
 			}
-			bool on_write(std::size_t bytes_transferred) {
-				bytes_transferred;
+			bool on_write(std::size_t) {
 				set_state(sent_response);
 				return true;
 			}
-			bool on_read_error(const boost::system::error_code& e) {
-				e;
+			bool on_read_error(const boost::system::error_code&) {
 				return false;
 			}
 		};

@@ -29,6 +29,7 @@ namespace check_mk {
 
 		typedef boost::shared_ptr<check_mk::server::handler> handler_type;
 		outbound_buffer_type data_;
+		socket_helpers::connection_info info_;
 		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
@@ -36,7 +37,7 @@ namespace check_mk {
 			none,
 			connected,
 			got_request,
-			done,
+			done
 		};
 
 		state current_state_;
@@ -92,8 +93,6 @@ namespace check_mk {
 		outbound_buffer_type get_outbound() const {
 			return data_;
 		}
-
-		socket_helpers::connection_info info_;
 
 		socket_helpers::connection_info get_info() const {
 			return info_;

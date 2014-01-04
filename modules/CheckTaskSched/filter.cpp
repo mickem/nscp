@@ -46,7 +46,7 @@ std::string convert_status(long status) {
 		return "no_valid_triggers";
 	return strEx::s::xtos(status);
 }
-node_type fun_convert_status(const value_type target_type, evaluation_context context, const node_type subject) {
+node_type fun_convert_status(const value_type, evaluation_context context, const node_type subject) {
 	return factory::create_int(convert_status(subject->get_string_value(context)));
 }
 

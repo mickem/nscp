@@ -72,7 +72,7 @@ void NSAPIStopServer(void) {
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.injectRAW(request, response);
-	*response_buffer_len = response.size();
+	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
 	else {
@@ -85,7 +85,7 @@ NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int 
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.exec_command(target, request, response);
-	*response_buffer_len = response.size();
+	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
 	else {
@@ -194,7 +194,7 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 }
 
 wchar_t* copyString(const std::wstring &str) {
-	int sz = str.size();
+	std::size_t sz = str.size();
 	wchar_t *tc = new wchar_t[sz+2];
 	wcsncpy(tc, str.c_str(), sz);
 	return tc;
@@ -256,7 +256,7 @@ LPVOID NSAPILoader(const char* buffer) {
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient.send_notification(channel, request, response);
-	*response_buffer_len = response.size();
+	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
 	else {
@@ -276,7 +276,7 @@ NSCAPI::log_level::level NSAPIGetLoglevel() {
 
 
 #ifdef HAVE_JSON_SPIRIT
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 /*
 ROOT Level
 {
@@ -507,7 +507,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			LOG_ERROR_STD("Missing type or payload.");
 			return NSCAPI::hasFailed;
 		}
-		*response_buffer_len = response.size();
+		*response_buffer_len = static_cast<unsigned int>(response.size());
 		if (response.empty())
 			*response_buffer = NULL;
 		else {
@@ -635,7 +635,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			return NSCAPI::hasFailed;
 		}
 		std::string response = json_spirit::write(root);
-		*response_buffer_len = response.size();
+		*response_buffer_len = static_cast<unsigned int>(response.size());
 		if (response.empty())
 			*response_buffer = NULL;
 		else {

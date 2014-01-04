@@ -303,8 +303,6 @@ public:
 
 			lua_pushvalue(L, 3);
 
-			const PropertyType *_properties = (*obj)->T::Properties;
-
 			int result = ((*obj)->*(T::Properties[_index].getter)) (L);
 
 			return result;
@@ -341,7 +339,7 @@ public:
 
 			lua_pushvalue(L, 3);
 
-			const PropertyType *_properties = (*obj)->T::Properties;
+			//const PropertyType *_properties = (*obj)->T::Properties;
 
 			return ((*obj)->*(T::Properties[_index].setter)) (L);
 

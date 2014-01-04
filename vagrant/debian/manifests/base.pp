@@ -12,6 +12,8 @@ package { "python-sphinx": ensure => present }
 package { "libcrypto++-dev": ensure => present }
 package { "liblua5.1-0-dev": ensure => present }
 package { "libgtest-dev": ensure => present }
+package { "ttf-dejavu": ensure => present }
+package { "fontconfig": ensure => present }
 
 file { "/usr/share/pyshared/google/protobuf/compiler/__init__.py": 
 	ensure    => present, 

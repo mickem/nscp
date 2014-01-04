@@ -320,4 +320,8 @@ end
 
 
 instances = { TestNRPE }
-test.install_test_manager(instances)
+test.init_test_manager(instances)
+
+function main(args)
+	return test.install_test_manager(instances)
+end

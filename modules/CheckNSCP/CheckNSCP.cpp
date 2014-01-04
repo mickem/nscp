@@ -112,7 +112,6 @@ std::size_t CheckNSCP::get_errors(std::string &last_error) {
 }
 
 void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	Plugin::QueryResponseMessage::Response &r = *response;
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 

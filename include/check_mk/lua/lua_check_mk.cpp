@@ -1,7 +1,7 @@
 #include <check_mk/lua/lua_check_mk.hpp>
 
 //////////////////////////////////////////////////////////////////////////
-check_mk::check_mk_lua_wrapper::check_mk_lua_wrapper(lua_State *L, bool fromLua) {
+check_mk::check_mk_lua_wrapper::check_mk_lua_wrapper(lua_State *L, bool) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<lua::script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -87,7 +87,7 @@ int check_mk::check_mk_packet_wrapper::add_section(lua_State *L) {
 }
 int check_mk::check_mk_packet_wrapper::size_section(lua_State *L) {
 	lua::lua_wrapper instance(L);
-	instance.push_int(packet.section_list.size());
+	instance.push_int(static_cast<int>(packet.section_list.size()));
 	return 1;
 }
 const char check_mk::check_mk_packet_wrapper::className[] = "packet";
@@ -155,7 +155,7 @@ int check_mk::check_mk_section_wrapper::set_title(lua_State *L) {
 }
 int check_mk::check_mk_section_wrapper::size_line(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_int(section.lines.size());
+	lua_instance.push_int(static_cast<int>(section.lines.size()));
 	return 1;
 }
 const char check_mk::check_mk_section_wrapper::className[] = "section";
@@ -208,7 +208,7 @@ int check_mk::check_mk_line_wrapper::add_item(lua_State *L) {
 }
 int check_mk::check_mk_line_wrapper::size_item(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
-	lua_instance.push_int(line.items.size());
+	lua_instance.push_int(static_cast<int>(line.items.size()));
 	return 1;
 }
 const char check_mk::check_mk_line_wrapper::className[] = "line";
@@ -230,6 +230,6 @@ void check_mk::check_mk_plugin::load(lua::lua_wrapper &instance) {
 	Luna<check_mk::check_mk_section_wrapper>::Register(instance, "nscp");
 	Luna<check_mk::check_mk_line_wrapper>::Register(instance, "nscp");
 }
-void check_mk::check_mk_plugin::unload(lua::lua_wrapper &instance) {
+void check_mk::check_mk_plugin::unload(lua::lua_wrapper &) {
 
 }

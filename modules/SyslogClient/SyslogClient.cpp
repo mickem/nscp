@@ -51,7 +51,7 @@ SyslogClient::SyslogClient() {}
  */
 SyslogClient::~SyslogClient() {}
 
-bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	facilities["kernel"] = 0;
 	facilities["user"] = 1;
@@ -177,7 +177,7 @@ bool SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void SyslogClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void SyslogClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
@@ -255,7 +255,7 @@ bool SyslogClient::target_handler::apply(nscapi::protobuf::types::destination_co
 // Parser implementations
 //
 
-int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &, Plugin::QueryResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("SYSLOG does not support query patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support query patterns");
 	return NSCAPI::isSuccess;

@@ -45,7 +45,7 @@ GraphiteClient::GraphiteClient() {}
  */
 GraphiteClient::~GraphiteClient() {}
 
-bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
@@ -176,7 +176,7 @@ bool GraphiteClient::commandLineExec(const Plugin::ExecuteRequestMessage::Reques
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void GraphiteClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void GraphiteClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
@@ -240,7 +240,7 @@ bool GraphiteClient::target_handler::apply(nscapi::protobuf::types::destination_
 // Parser implementations
 //
 
-int GraphiteClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+int GraphiteClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &, Plugin::QueryResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("GRAPHITE does not support query patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;
@@ -274,7 +274,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 					NSC_LOG_ERROR("Unsopported performance data (no value)");
 			} else if (perf.has_int_value()) {
 				if (perf.int_value().has_value())
-					value = perf.int_value().value();
+					value = static_cast<double>(perf.int_value().value());
 				else
 					NSC_LOG_ERROR("Unsopported performance data (no value)");
 			} else {
@@ -292,7 +292,7 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 	return NSCAPI::isSuccess;
 }
 
-int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+int GraphiteClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("GRAPHITE does not support exec patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "GRAPHITE does not support query patterns");
 	return NSCAPI::hasFailed;

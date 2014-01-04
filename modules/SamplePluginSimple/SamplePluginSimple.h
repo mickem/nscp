@@ -20,7 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 // Your implementation class can derive from various helper implementations
 // simple_plugin			- Hides ID handling in your plugin and allows you to register and access the various cores.

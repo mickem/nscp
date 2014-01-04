@@ -300,7 +300,16 @@ void lua::lua_wrapper::push_raw_string(std::string s) {
 	lua_pushlstring(L, s.c_str(), s.size());
 }
 void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
-	lua_createtable(L, 0, arr.size());
+	lua_createtable(L, 0, static_cast<int>(arr.size()));
+	int i=0;
+	BOOST_FOREACH(const std::string &s, arr) {
+		lua_pushnumber(L,i++);
+		lua_pushstring(L,s.c_str());
+		lua_settable(L,-3);
+	}
+}
+void lua::lua_wrapper::push_array(const std::vector<std::string> &arr) {
+	lua_createtable(L, 0, static_cast<int>(arr.size()));
 	int i=0;
 	BOOST_FOREACH(const std::string &s, arr) {
 		lua_pushnumber(L,i++);
@@ -389,7 +398,7 @@ std::list<std::string> lua::lua_wrapper::check_array(int pos) {
 }
 
 bool lua::lua_wrapper::check_bool(int pos) {
-	return lua_toboolean(L, pos);
+	return lua_toboolean(L, pos)==TRUE;
 }
 int lua::lua_wrapper::op_int(int pos, int def) {
 	return luaL_optinteger(L, pos, def);

@@ -29,6 +29,8 @@ namespace parsers {
 				filter_type filter;
 				boost::optional<boost::posix_time::time_duration> max_age;
 				boost::posix_time::ptime next_ok_;
+				bool debug;
+				container() : debug(false) {}
 
 				void touch(const boost::posix_time::ptime &now) {
 					if (max_age)
@@ -66,11 +68,12 @@ namespace parsers {
 				item->timeout_msg = object.filter.timeout_msg;
 				item->severity = object.filter.severity;
 				item->max_age = object.filter.max_age;
+				item->debug = object.filter.debug;
 				if (!object.filter.command.empty())
 					item->command = object.filter.command;
 				std::string message;
 
-				if (!item->filter.build_syntax(object.filter.syntax_top, object.filter.syntax_detail, object.filter.perf_data, message)) {
+				if (!item->filter.build_syntax(object.filter.syntax_top, object.filter.syntax_detail, object.filter.perf_data, object.filter.perf_config, message)) {
 					NSC_LOG_ERROR("Failed to build strings " + object.tpl.alias + ": " + message);
 					return false;
 				}
@@ -101,8 +104,9 @@ namespace parsers {
 				if (item->severity != -1)
 					item->filter.summary.returnCode = item->severity;
 
-				if (!item->data.process_item(item->filter, data))
+				if (!item->data.process_item(item->filter, data)) {
 					return false;
+				}
 
 				std::string message = item->filter.get_message();
 				if (message.empty())
@@ -124,14 +128,18 @@ namespace parsers {
 			void process_items(transient_data_type data) {
 				try {
 					boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
-
+					bool has_matched = false;
 					// Process all items matching this event
 					BOOST_FOREACH(container_type item, items) {
 						if (item->data.has_changed(data)) {
-							if (process_item(item, data))
+							if (process_item(item, data)) {
+								has_matched = true;
 								item->touch(current_time);
+							}
 						}
 					}
+					if (!has_matched)
+						NSC_DEBUG_MSG("No filters matched an event");
 					do_process_no_items(current_time);
 				} catch (...) {
 					NSC_DEBUG_MSG("Realtime processing faillure");

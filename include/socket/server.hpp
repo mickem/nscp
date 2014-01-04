@@ -50,13 +50,13 @@ namespace socket_helpers {
 			typedef socket_helpers::server::ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
 
+			socket_helpers::connection_info info_;
+			int threads_;
+			typename protocol_type::handler_type handler_;
 			boost::asio::io_service io_service_;
 			boost::asio::ip::tcp::acceptor acceptor_v4;
 			boost::asio::ip::tcp::acceptor acceptor_v6;
 			boost::asio::strand accept_strand_;
-			socket_helpers::connection_info info_;
-			int threads_;
-			typename protocol_type::handler_type handler_;
 			boost::shared_ptr<protocol_type> logger_;
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
@@ -69,6 +69,7 @@ namespace socket_helpers {
 				: info_(info)
 				, threads_(0)
 				, handler_(handler)
+				, io_service_()
 				, acceptor_v4(io_service_)
 				, acceptor_v6(io_service_)
 				, accept_strand_(io_service_)

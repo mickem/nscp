@@ -84,7 +84,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	if (vm.count("CheckAll"))
 		request.add_arguments("drive=*");
 	bool exclude = false;
-	if (vm.count("CheckAllOthers")) {
+	if (vm.count("CheckAllOt hers")) {
 		request.add_arguments("drive=*");
 		exclude = true;
 	}
@@ -115,6 +115,78 @@ void CheckDisk::check_drivesize(const Plugin::QueryRequestMessage::Request &requ
 	check_drive::check(request, response);
 }
 
+void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	boost::program_options::options_description desc;
+
+	std::vector<std::string> times;
+	std::vector<std::string> types;
+	std::string syntax = "${filename}";
+	std::string master_syntax = "${list}";
+	std::string path;
+	std::string pattern;
+	std::string filter; 
+	std::string warn2; 
+	std::string crit2; 
+	bool debug = false;
+	int maxDepth = 0;
+	nscapi::program_options::add_help(desc);
+	desc.add_options()
+		("syntax", po::value<std::string>(&syntax), "Syntax for individual items (detail-syntax).")
+		("master-syntax", po::value<std::string>(&master_syntax), "Syntax for top syntax (top-syntax).")
+		("path", po::value<std::string>(&path), "The file or path to check")
+		("pattern", po::value<std::string>(&pattern), "Deprecated and ignored")
+		("alias", po::value<std::string>(), "Deprecated and ignored")
+		("debug", po::bool_switch(&debug), "Debug")
+		("max-dir-depth", po::value<int>(&maxDepth), "The maximum level to recurse")
+		("filter", po::value<std::string>(&filter), "The filter to use when including files in the check")
+		("warn", po::value<std::string>(&warn2), "Deprecated and ignored")
+		("crit", po::value<std::string>(&crit2), "Deprecated and ignored")
+		;
+	compat::addAllNumeric(desc);
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		return;
+	std::string warn, crit;
+
+	request.clear_arguments();
+	compat::matchFirstNumeric(vm, "count", "count", warn, crit);
+	if (!warn.empty() && !warn2.empty()) {
+		NSC_LOG_ERROR("Duplicate warnings not supported.");
+	} else if (!warn2.empty()) {
+		boost::replace_all(warn2, ":", " ");
+		warn = "warn=count "+warn2;
+	}
+	if (!crit.empty() && !crit2.empty()) {
+		NSC_LOG_ERROR("Duplicate warnings not supported.");
+	} else if (!crit2.empty()) {
+		boost::replace_all(crit2, ":", " ");
+		crit = "crit=count "+crit2;
+	}
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::inline_addarg(request, "filter=", filter);
+	compat::inline_addarg(request, "pattern=", pattern);
+
+	boost::replace_all(syntax, "%filename%", "%(filename)");
+	boost::replace_all(syntax, "%size%", "%(size)");
+	boost::replace_all(syntax, "%write%", "%(written)");
+	compat::inline_addarg(request, "detail-syntax=", syntax);
+
+	boost::replace_all(master_syntax, "%list%", "%(list)");
+	boost::replace_all(master_syntax, "%count%", "%(count)");
+	compat::inline_addarg(request, "top-syntax=", master_syntax);
+	compat::inline_addarg(request, "path=", path);
+	if (debug)
+		request.add_arguments("debug");
+	if (maxDepth > 0)
+		request.add_arguments("max-depth=" + strEx::s::xtos(maxDepth));
+	request.add_arguments("empty-state=ok");
+	compat::log_args(request);
+	check_files(request, response);
+}
+
+
 void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
@@ -122,19 +194,22 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	std::string files_string;
 	std::string mode;
 	bool ignoreError = false;
+	file_finder::scanner_context context;
+	context.max_depth = -1;
 
 	file_filter::filter filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "All files ok");
-	filter_helper.add_syntax("${count} files (${problem_list})", filter.get_format_syntax(), "${name}", "${name}");
+	filter_helper.add_options(filter.get_filter_syntax(), "OK: All files ok");
+	filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", filter.get_format_syntax(), "${name}", "${name}");
 	filter_helper.get_desc().add_options()
 		("path", po::value<std::vector<std::string> >(&file_list),	"The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
 		"In other words if one path contains an error the entire check will result in error.")
 		("file", po::value<std::vector<std::string> >(&file_list),	"Alias for path.")
 		("paths", po::value<std::string>(&files_string),			"A comma separated list of paths to scan")
+		("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"),			"The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
+		("max-depth", po::value<int>(&context.max_depth),			"Maximum depth to recurse")
 		;
 
 	// 			MAP_OPTIONS_BOOL_TRUE("ignore-errors", ignoreError)
-	// 			MAP_OPTIONS_STR2INT("max-dir-depth", fargs->max_level)
 	// 			MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 
 
@@ -151,7 +226,6 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	if (!filter_helper.build_filter(filter))
 		return;
 
-	file_finder::scanner_context context;
 	BOOST_FOREACH(const std::string &path, file_list) {
 		file_finder::recursive_scan(filter, context, path);
  		//if (!ignoreError && fargs->error->has_error())

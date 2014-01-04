@@ -534,13 +534,13 @@ namespace nscapi {
 			if (unit.empty())
 				return 1;
 			if (unit[0] == 'K')
-				return 1024;
+				return 1024ll;
 			if (unit[0] == 'M')
-				return 1024*1024;
+				return 1024ll*1024ll;
 			if (unit[0] == 'G')
-				return 1024*1024*1024;
+				return 1024ll*1024ll*1024ll;
 			if (unit[0] == 'T')
-				return 1024*1024*1024*1024;
+				return 1024ll*1024ll*1024ll*1024ll;
 			return 1;
 		}
 		std::string functions::extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf) {

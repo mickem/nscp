@@ -196,7 +196,6 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 	if (arguments.size() == 0)
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	std::string message;
-	Plugin::Common_ResultCode result = Plugin::Common_ResultCode_OK;
 
 	BOOST_FOREACH(std::string arg, arguments) {
 		std::list<std::string> tmp = strEx::s::splitEx(arg, std::string(" "));
@@ -243,9 +242,6 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 		return;
 	if (command.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	::Plugin::Common_ResultCode ret =  ::Plugin::Common_ResultCode_CRITCAL;
-	if (vm.count("return"))
-		ret = nscapi::protobuf::functions::parse_nagios(vm["return"].as<std::string>());
 
 	worker_object obj;
 	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, command, arguments)));
@@ -260,6 +256,8 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
 		}
 		response->CopyFrom(local_response.payload(0));
+		if (vm.count("return"))
+			response->set_result(nscapi::protobuf::functions::parse_nagios(vm["return"].as<std::string>()));
 	} else {
 		t->detach();
 		nscapi::protobuf::functions::set_response_bad(*response, "Thread failed to return within given timeout");
@@ -291,12 +289,12 @@ struct reverse_sort {
 
 void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
 	std::string command, sort;
-	int limit;
+	std::size_t limit;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	desc.add_options()
 		("sort",	po::value<std::string>(&sort)->default_value("none"), "The sort order to use: none, normal or reversed")
-		("limit",	po::value<int>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
+		("limit",	po::value<std::size_t>(&limit)->default_value(0), "The maximum number of items to return (0 returns all items)")
 		("command",	po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		;

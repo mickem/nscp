@@ -2,8 +2,11 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
+#include <boost/foreach.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <parsers/expression/expression.hpp>
+#include <parsers/perfconfig/perfconfig.hpp>
 #include <parsers/where/engine_impl.hpp>
 
 #include <NSCAPI.h>
@@ -72,6 +75,50 @@ namespace modern_filter {
 		}
 	};
 
+	template<class Tfactory>
+	struct perf_config_parser {
+		typedef std::map<std::string,std::string> values_type;
+		struct config_entry {
+			std::string key;
+			values_type values;
+			config_entry() {}
+			config_entry(const std::string &key, const std::vector<parsers::perfconfig::perf_option> &ops) : key(key) {
+				BOOST_FOREACH(const parsers::perfconfig::perf_option &op, ops) {
+					values[op.key] = op.value;
+				}
+			}
+		};
+
+		typedef std::list<config_entry> entry_list;
+		entry_list entries;
+		perf_config_parser() {}
+
+		bool parse(boost::shared_ptr<Tfactory> context, const std::string str, std::string &error) {
+			parsers::perfconfig::result_type keys;
+			parsers::perfconfig parser;
+			if (!parser.parse(str, keys)) {
+				error = "Failed to parse: " + str;
+				return false;
+			}
+			BOOST_FOREACH(const parsers::perfconfig::perf_rule &r, keys) {
+				std::map<std::string,std::string> options;
+				BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+					options[o.key] = o.value;
+				}
+				context->add_perf_config(r.name, options);
+			}
+			return true;
+		}
+		boost::optional<values_type> lookup(std::string key) {
+			BOOST_FOREACH(const config_entry &e, entries) {
+				if (e.key == key)
+					return e.values;
+			}
+			return boost::optional<values_type>();
+		}
+	};
+
+
 
 	class error_handler_impl : public parsers::where::error_handler_interface {
 		std::string error;
@@ -97,14 +144,17 @@ namespace modern_filter {
 		filter_text_renderer<Tfactory> renderer_top;
 		filter_text_renderer<Tfactory> renderer_detail;
 		filter_text_renderer<Tfactory> renderer_perf;
+		filter_text_renderer<Tfactory> renderer_unqiue;
 		filter_engine engine_filter;
 		filter_engine engine_warn;
 		filter_engine engine_crit;
 		filter_engine engine_ok;
+		perf_config_parser<Tfactory> perf_config;
 		parsers::where::generic_summary<object_type> summary;
+		boost::unordered_set<std::string> unique_index;
 		bool has_matched;
-		//std::string message;
 		boost::shared_ptr<Tfactory> context;
+		bool has_unique_index;
 		error_type error_handler;
 
 		struct perf_entry {
@@ -123,7 +173,7 @@ namespace modern_filter {
 		leaf_performance_entry_type leaf_performance_data;
 
 
-		modern_filters() : context(new Tfactory()) {
+		modern_filters() : context(new Tfactory()), has_unique_index(false) {
 			context->set_summary(&summary);
 		}
 
@@ -133,7 +183,16 @@ namespace modern_filter {
 		std::string get_format_syntax() const {
 			return context->get_format_syntax() + summary.get_format_syntax();
 		}
-		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, std::string &gerror) {
+		bool build_index(const std::string &unqie, std::string &gerror) {
+			std::string lerror;
+			if (!renderer_unqiue.parse(context, unqie, lerror)) {
+				gerror = "Invalid unique-syntax: " + lerror;
+				return false;
+			}
+			has_unique_index = true;
+			return true;
+		}
+		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, std::string &gerror) {
 			std::string lerror;
 			if (!renderer_top.parse(context, top, lerror)) {
 				gerror = "Invalid top-syntax: " + lerror;
@@ -144,6 +203,10 @@ namespace modern_filter {
 				return false;
 			}
 			if (!renderer_perf.parse(context, perf, lerror)) {
+				gerror = "Invalid syntax: " + lerror;
+				return false;
+			}
+			if (!perf_config.parse(context, perf_config_data, lerror)) {
 				gerror = "Invalid syntax: " + lerror;
 				return false;
 			}
@@ -244,24 +307,44 @@ namespace modern_filter {
 			if (!engine_filter || engine_filter->match(context)) {
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
+				bool second_unique_match = false;
+				if (has_unique_index) {
+					std::string tmp = renderer_unqiue.render(context);
+					second_unique_match = unique_index.find(tmp) != unique_index.end();
+					if (!second_unique_match)
+						unique_index.emplace(tmp);
+				}
+
 				BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
 					parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, perf_alias, entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
 					if (perf.size() > 0)
 						performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 				}
-				summary.matched(current);
+				if (second_unique_match)
+					summary.matched_unique();
+				else
+					summary.matched(current);
 				if (engine_crit && engine_crit->match(context)) {
-					summary.matched_crit(current);
+					if (second_unique_match)
+						summary.matched_crit_unique();
+					else
+						summary.matched_crit(current);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 					matched = true;
 				} else if (engine_warn && engine_warn->match(context)) {
-					summary.matched_warn(current);
+					if (second_unique_match)
+						summary.matched_warn_unique();
+					else
+						summary.matched_warn(current);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 					matched = true;
 				} else if (engine_ok && engine_ok->match(context)) {
 					// TODO: Unsure of this, should this not re-set matched?
 					// What is matched for?
-					summary.matched_ok(current);
+					if (second_unique_match)
+						summary.matched_ok_unique();
+					else
+						summary.matched_ok(current);
 					matched = true;
 				} else if (error_handler && error_handler->is_debug()) {
 					error_handler->log_debug("Crit/warn/ok did not match: " + current);
@@ -274,6 +357,34 @@ namespace modern_filter {
 			}
 			return boost::make_tuple(has_matched, done);
 		}
+
+
+		bool match_post() {
+			context->remove_object();
+			bool matched = summary.has_matched();
+			BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {
+				parsers::where::perf_list_type perf = entry.second.current_value->get_performance_data(context, "TODO", entry.second.warn_value, entry.second.crit_value, entry.second.minimum_value, entry.second.maximum_value);
+				if (perf.size() > 0)
+					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
+			}
+			if (!matched) {
+				if (engine_crit && engine_crit->match(context)) {
+					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
+					matched = true;
+				} else if (engine_warn && engine_warn->match(context)) {
+					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
+					matched = true;
+				} else if (engine_ok && engine_ok->match(context)) {
+					// TODO: Unsure of this, should this not re-set matched?
+					// What is matched for?
+					matched = true;
+				} else if (error_handler && error_handler->is_debug()) {
+					error_handler->log_debug("Crit/warn/ok did not match: <END>");
+				}
+			}
+			return matched;
+		}
+
 		void end_match() {
 			context->remove_object();
 			BOOST_FOREACH(const typename leaf_performance_entry_type::value_type &entry, leaf_performance_data) {

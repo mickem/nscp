@@ -138,7 +138,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, st
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = query(request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		//PluginCommand::ResponseMessage rsp_msg;
@@ -155,7 +155,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, st
 NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 
 	if (buffer_size > 0 && buffer != NULL) {
 		result = std::string(buffer, buffer_size);
@@ -163,7 +163,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::string target
 
 	DestroyBuffer(&buffer);
 	if (retC != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR("Failed to execute command");
+		CORE_LOG_ERROR("Failed to execute command on " + target + ": " + strEx::s::xtos(retC));
 	}
 	return retC;
 }
@@ -195,7 +195,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, co
 bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = settings_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::errorReturn retC = settings_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
@@ -211,7 +211,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, co
 NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = registry_query(request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::errorReturn retC = registry_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
@@ -222,7 +222,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string reque
 bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = json_to_protobuf(request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::errorReturn retC = json_to_protobuf(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
@@ -239,7 +239,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, c
 bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = protobuf_to_json(object.c_str(), request.c_str(), request.size(), &buffer, &buffer_size);
+	NSCAPI::errorReturn retC = protobuf_to_json(object.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}

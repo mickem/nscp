@@ -16,18 +16,19 @@
 
 namespace eventlog_filter {
 
-	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext) 
+	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message) 
 		: logfile(logfile)
 		, hEvent(hEvent)
-		, buffer(4096) 
+		, buffer(4096)
+		, truncate_message(truncate_message)
 	{
 		DWORD dwBufferSize = 0;
 		DWORD dwPropertyCount = 0;
-		if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, buffer.size(), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
+		if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
 			DWORD status = GetLastError();
 			if (status == ERROR_INSUFFICIENT_BUFFER) {
 				buffer.resize(dwBufferSize);
-				if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, buffer.size(), buffer.get(), &dwBufferSize, &dwPropertyCount))
+				if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount))
 					throw nscp_exception("EvtRender failed: " + error::lookup::last_error());
 			}
 		}
@@ -38,6 +39,29 @@ namespace eventlog_filter {
 			return 0;
 		return static_cast<long long>(strEx::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
 	}
+	std::string type_to_string(long long ival) {
+		//if (ival == 0)
+		//	return "audit";
+		//if (ival == 1)
+		//	return "critical";
+		if (ival == 2)
+			return "error";
+		if (ival == 3)
+			return "warning";
+		//if (ival == 4)
+			return "information";
+		//return "unknown";
+	}
+
+
+	std::string new_filter_obj::get_el_type_s() {
+		return type_to_string(get_el_type());
+	}
+	std::string old_filter_obj::get_el_type_s() {
+		return type_to_string(get_el_type());
+	}
+
+
 	long long new_filter_obj::get_el_type() {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type)
 			return 0;
@@ -50,22 +74,34 @@ namespace eventlog_filter {
 			throw nscp_exception("Failed to get system provider");
 		eventlog::evt_handle hMetadata = eventlog::EvtOpenPublisherMetadata(NULL, buffer.get()[eventlog::api::EvtSystemProviderName].StringVal, NULL, 0, 0);
 		if (!hMetadata)
-			throw nscp_exception("EvtOpenPublisherMetadata failed: " + error::lookup::last_error());
+			throw nscp_exception("EvtOpenPublisherMetadata failed for '" + utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal) + "': " + error::lookup::last_error());
 
-		if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, message_buffer.size(), message_buffer.get(), &dwBufferSize)) {
+		if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize)) {
 			DWORD status = GetLastError();
 			if (status == ERROR_INSUFFICIENT_BUFFER) {
 				message_buffer.resize(dwBufferSize);
-				if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, message_buffer.size(), message_buffer.get(), &dwBufferSize))
+				if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize))
 					throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error());
 			}
 			else if (status != ERROR_EVT_MESSAGE_NOT_FOUND  && ERROR_EVT_MESSAGE_ID_NOT_FOUND != status)
 				throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
 		}
-		return utf8::cvt<std::string>(message_buffer.get_t<wchar_t*>());
+		std::string msg = utf8::cvt<std::string>(message_buffer.get_t<wchar_t*>());
+		boost::replace_all(msg, "\n", " ");
+		boost::replace_all(msg, "\r", " ");
+		boost::replace_all(msg, "\t", " ");
+		boost::replace_all(msg, "  ", " ");
+		if (truncate_message > 0 && msg.length() > truncate_message)
+			msg = msg.substr(0, truncate_message);
+		return msg;
 	}
 
 	std::string new_filter_obj::get_source() {
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderName].Type)
+			return "";
+		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal);
+	}
+	std::string new_filter_obj::get_log() {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemChannel].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemChannel].StringVal);
@@ -75,18 +111,25 @@ namespace eventlog_filter {
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemComputer].StringVal);
 	}
+	long long new_filter_obj::get_category() {
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type)
+			return 0;
+		return buffer.get()[eventlog::api::EvtSystemTask].UInt16Val;
+	}
+
 
 	using namespace parsers::where;
 
-	int convert_severity(std::string str) {
+	int convert_old_severity(parsers::where::evaluation_context context, std::string str) {
 		if (str == "success" || str == "ok")
 			return 0;
-		if (str == "informational" || str == "info")
+		if (str == "informational" || str == "info" || str == "information")
 			return 1;
 		if (str == "warning" || str == "warn")
 			return 2;
 		if (str == "error" || str == "err")
 			return 3;
+		context->error("Invalid severity: " + str);
 		return strEx::s::stox<int>(str);
 	}
 	int convert_old_type(parsers::where::evaluation_context context, std::string str) {
@@ -94,7 +137,7 @@ namespace eventlog_filter {
 			return EVENTLOG_ERROR_TYPE;
 		if (str == "warning")
 			return EVENTLOG_WARNING_TYPE;
-		if (str == "info")
+		if (str == "informational" || str == "info" || str == "information")
 			return EVENTLOG_INFORMATION_TYPE;
 		if (str == "success")
 			return EVENTLOG_SUCCESS;
@@ -103,8 +146,9 @@ namespace eventlog_filter {
 		if (str == "auditFailure")
 			return EVENTLOG_AUDIT_FAILURE;
 		try {
+			context->error("Invalid severity: " + str);
 			return strEx::s::stox<int>(str);
-		} catch (const std::exception &e) {
+		} catch (const std::exception&) {
 			context->error("Failed to convert: " + str);
 			return EVENTLOG_ERROR_TYPE;
 		}
@@ -118,18 +162,18 @@ namespace eventlog_filter {
 			return 2;
 		if (str == "warning" || str == "warn")
 			return 3;
-		if (str == "information" || str == "info")
+		if (str == "informational" || str == "info" || str == "information")
 			return 4;
 		try {
 			return strEx::s::stox<int>(str);
-		} catch (const std::exception &e) {
+		} catch (const std::exception&) {
 			context->error("Failed to convert: " + str);
 			return 2;
 		}
 	}
 
-	parsers::where::node_type fun_convert_severity(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(convert_severity(subject->get_string_value(context)));
+	parsers::where::node_type fun_convert_old_severity(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		return parsers::where::factory::create_int(convert_old_severity(context, subject->get_string_value(context)));
 	}
 	parsers::where::node_type fun_convert_new_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		return parsers::where::factory::create_int(convert_new_type(context, subject->get_string_value(context)));
@@ -152,8 +196,8 @@ namespace eventlog_filter {
 
 		registry_.add_int()
 			("id", boost::bind(&filter_obj::get_id, _1), "Eventlog id")
-			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "alias for level (old)")
-			("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "alias for level (old)")
+			("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
 			("written", type_date, boost::bind(&filter_obj::get_written, _1), "When the message was written to file")
 			("category", boost::bind(&filter_obj::get_category, _1), "TODO")
 			("customer", boost::bind(&filter_obj::get_customer, _1), "TODO")
@@ -165,7 +209,7 @@ namespace eventlog_filter {
 				;
 		} else {
 			registry_.add_int()
-				("severity", type_custom_severity, boost::bind(&filter_obj::get_severity, _1), "Probably not what you want.This is the technical severity of the mseesage often level is what you are looking for.")
+				("severity", type_custom_severity, boost::bind(&filter_obj::get_severity, _1), "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
 				("generated", type_date, boost::bind(&filter_obj::get_generated, _1), "When the message was generated")
 				("qualifier", boost::bind(&filter_obj::get_facility, _1), "TODO")
 				("facility", boost::bind(&filter_obj::get_facility, _1), "TODO")
@@ -174,7 +218,7 @@ namespace eventlog_filter {
 				("strings", boost::bind(&filter_obj::get_strings, _1), "The message content. Significantly faster than message yet yields similar results.")
 				;
 			registry_.add_converter()
-				(type_custom_severity, &fun_convert_severity)
+				(type_custom_severity, &fun_convert_old_severity)
 				(type_custom_type, &fun_convert_old_type)
 				;
 		}

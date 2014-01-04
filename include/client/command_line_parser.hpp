@@ -7,8 +7,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include <nscapi/nscapi_protobuf_types.hpp>
-
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 namespace client {
 
@@ -29,12 +28,12 @@ namespace client {
 		std::string message;
 		std::string result;
 		std::vector<std::string> arguments;
+		int timeout;
 		int retry;
 
 		nscapi::protobuf::types::destination_container host_self;
 		nscapi::protobuf::types::destination_container recipient;
 
-		int timeout;
 
 		nscp_cli_data() : timeout(10), retry(2) {}
 		std::string to_string() {

@@ -9,6 +9,7 @@
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <scripts/script_nscp.hpp>
 
@@ -20,9 +21,32 @@ const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";
 
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
-lua::core_wrapper::core_wrapper(lua_State *L, bool fromLua) {
+lua::core_wrapper::core_wrapper(lua_State *L, bool) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
+}
+
+int lua::core_wrapper::create_pb_query(lua_State *L) {
+	lua::lua_wrapper lua_instance(L);
+	try {
+		std::list<std::string> arguments;
+		int arg_count = lua_instance.size();
+		if (arg_count < 2)
+			return lua_instance.error("Incorrect syntax: create_pb_query(command, args)");
+		if (lua_instance.is_table()) {
+			std::list<std::string> table = lua_instance.pop_array();
+			arguments.insert(arguments.begin(), table.begin(), table.end());
+		} else {
+			arguments.push_front(lua_instance.pop_string());
+		}
+		std::string command = lua_instance.pop_string();
+		std::string buffer;
+		nscapi::protobuf::functions::create_simple_query_request(command, arguments, buffer);
+		lua_instance.push_raw_string(buffer);
+		return 1;
+	} catch (...) {
+		return lua_instance.error("Unknown exception");
+	}
 }
 
 int lua::core_wrapper::simple_query(lua_State *L) {
@@ -135,6 +159,7 @@ boost::shared_ptr<lua::core_provider> lua::core_wrapper::get() {
 
 const char lua::core_wrapper::className[] = "Core";
 const Luna<lua::core_wrapper>::FunctionType lua::core_wrapper::Functions[] = {
+	{ "create_pb_query", &lua::core_wrapper::create_pb_query },
 	{ "simple_query", &lua::core_wrapper::simple_query },
 	{ "query", &lua::core_wrapper::query },
 	{ "simple_exec", &lua::core_wrapper::simple_exec },
@@ -151,7 +176,7 @@ const Luna<lua::core_wrapper>::PropertyType lua::core_wrapper::Properties[] = {{
 // Registry wrapper
 
 
-lua::registry_wrapper::registry_wrapper(lua_State *L, bool fromLua) {
+lua::registry_wrapper::registry_wrapper(lua_State *L, bool) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -251,7 +276,7 @@ const Luna<lua::registry_wrapper>::PropertyType lua::registry_wrapper::Propertie
 //////////////////////////////////////////////////////////////////////////
 // Settings
 
-lua::settings_wrapper::settings_wrapper(lua_State *L, bool fromLua) : info(NULL) {
+lua::settings_wrapper::settings_wrapper(lua_State *L, bool) : info(NULL) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }

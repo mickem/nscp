@@ -292,28 +292,28 @@ namespace strEx {
 #define WEEK	(7 * 24 * 60 * 60 * 1000)
 #define DAY		(24 * 60 * 60 * 1000)
 #define HOUR	(60 * 60 * 1000)
-#define MIN		(60 * 1000)
+#define MINUTES		(60 * 1000)
 #define SEC		(1000)
 	inline std::string itos_as_time(unsigned long long time) {
 		if (time > WEEK) {
 			long long w = time/WEEK;
 			long long d = (time-(w*WEEK))/DAY;
 			long long h = (time-(w*WEEK)-(d*DAY))/HOUR;
-			long long m = (time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN;
+			long long m = (time-(w*WEEK)-(d*DAY)-(h*HOUR))/MINUTES;
 			return s::xtos(w) + "w " + s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
 		}
 		else if (time > DAY) {
 			long long d = time/DAY;
 			long long h = (time-(d*DAY))/HOUR;
-			long long m = (time-(d*DAY)-(h*HOUR))/MIN;
+			long long m = (time-(d*DAY)-(h*HOUR))/MINUTES;
 			return s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
 		}
 		else if (time > HOUR) {
 			long long h = time/HOUR;
-			long long m = (time-(h*HOUR))/MIN;
+			long long m = (time-(h*HOUR))/MINUTES;
 			return s::xtos(h) + ":" + s::xtos(m);
-		} else if (time > MIN) {
-			return "0:" + s::xtos(time/MIN);
+		} else if (time > MINUTES) {
+			return "0:" + s::xtos(time/MINUTES);
 		} else if (time > SEC)
 			return s::xtos(time/SEC) + "s";
 		return s::xtos(time);

@@ -830,17 +830,14 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 
 
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
-	bool delayed = false;
 	if (module.size() > 8 && module.substr(0,8) == "delayed,") {
-		delayed = true;
 		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
 		delayed_thread.detach();
 		return NSCAPI::isSuccess;
 	} else if (module.size() > 6 && module.substr(0,6) == "delay,") {
-			delayed = true;
-			boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
-			delayed_thread.detach();
-			return NSCAPI::isSuccess;
+		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
+		delayed_thread.detach();
+		return NSCAPI::isSuccess;
 	} else {
 		return do_reload(false, module)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 	}
@@ -1199,11 +1196,11 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 						std::string respbuffer;
 						NSCAPI::nagiosReturn r = p->commandLineExec(request, respbuffer);
 						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
-							LOG_DEBUG_CORE_STD("Got response from: " + p->getName());
+							LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
 							found = true;
 							if (match_any) {
 								response = respbuffer;
-								return NSCAPI::returnOK;
+								return NSCAPI::isSuccess;
 							}
 							responses.push_back(respbuffer);
 						}
@@ -1228,7 +1225,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 	}
 	response_message.SerializeToString(&response);
 	if (found)
-		return NSCAPI::returnOK;
+		return NSCAPI::isSuccess;
 	return NSCAPI::returnIgnored;
 }
 

@@ -99,111 +99,41 @@ namespace wmi_impl {
 		row& get_next();
 
 	};
-
-	struct query {
-
+	struct header_enumerator {
+		CComPtr<IEnumWbemClassObject> enumerator_obj;
+		std::list<std::string> get();
+	};
+	struct wmi_service {
 		CComPtr<IWbemServices> service;
-
-		std::string wql_query;
 		std::string ns;
 		std::string username;
 		std::string password;
-		query(std::string wql_query, std::string ns, std::string username, std::string password) : wql_query(wql_query), ns(ns), username(username), password(password) {}
+		bool is_initialized;
+		wmi_service(std::string ns, std::string username, std::string password) : ns(ns), username(username), password(password), is_initialized(false) {}
+		CComPtr<IWbemServices>& get();
 
-		void init_query();
+	};
+	struct query {
+		std::string wql_query;
+		wmi_service instance;
+		query(std::string wql_query, std::string ns, std::string username, std::string password) : wql_query(wql_query), instance(ns, username, password) {}
+
 		std::list<std::string> get_columns();
 		row_enumerator execute();
 
-
-
+	};
+	
+	struct instances {
+		std::string super_class;
+		wmi_service instance;
+		instances(std::string super_class, std::string ns, std::string username, std::string password) : super_class(super_class), instance(ns, username, password) {}
+		row_enumerator get();
+	};
+	struct classes {
+		std::string super_class;
+		wmi_service instance;
+		classes(std::string super_class, std::string ns, std::string username, std::string password) : super_class(super_class), instance(ns, username, password) {}
+		row_enumerator get();
 	};
 
-	class WMIQuery
-	{
-	public:
-		struct WMIResult {
-		public:
-			std::wstring string;
-			long long numeric;
-			bool isNumeric;
-			WMIResult() : isNumeric(false), numeric(0) {}
-			void set_raw_str(std::wstring str) {
-				if (!str.empty()) {
-					std::string::size_type pos = str.find_last_not_of(_T(" "));
-					if (pos != std::string::npos)
-						str.erase(pos+1);
-					else
-						str.erase(str.begin(), str.end());
-				}
-				string = str;
-			}
-			void setString(std::wstring s) {
-				set_raw_str(s);
-				try {
-					numeric = boost::lexical_cast<long long>(s);
-				} catch (...) {
-					numeric = 0;
-				}
-			}
-			void setNumeric(long long n) {
-				numeric = n;
-				set_raw_str(boost::lexical_cast<std::wstring>(n));
-			}
-			void setBoth(long long n, std::wstring s) {
-				numeric = n;
-				set_raw_str(s);
-			}
-			std::string get_string() const {
-				return utf8::cvt<std::string>(string);
-
-			}
-		};
-		struct wmi_row {
-			typedef std::map<std::wstring,WMIResult> list_type;
-			list_type results;
-			boolean hasAlias(std::wstring alias) const {
-				if (alias.empty())
-					return true;
-				return results.find(alias) != results.end();
-			}
-			const WMIResult get(std::wstring alias) const {
-				WMIResult ret;
-				list_type::const_iterator cit = results.find(alias);
-				if (cit != results.end())
-					ret = (*cit).second;
-				return ret;
-			}
-			void addValue(std::wstring column, WMIResult value) {
-				results[column] = value;
-			}
-
-			std::string render(std::string syntax = "", std::string sep = ", ") {
-				std::string ret;
-				BOOST_FOREACH(const list_type::value_type &v, results) {
-					if (syntax.empty()) {
-						if (!ret.empty())	ret += sep;
-						ret += utf8::cvt<std::string>(v.first) + "=" + utf8::cvt<std::string>(v.second.string);
-					} else {
-						std::string sub = syntax;
-						strEx::replace(sub, "%column%", utf8::cvt<std::string>(v.first));
-						strEx::replace(sub, "%value%", utf8::cvt<std::string>(v.second.string));
-						strEx::replace(sub, "%" + utf8::cvt<std::string>(v.first) + "%", utf8::cvt<std::string>(v.second.string));
-						if (sub == syntax)
-							continue;
-						strEx::append_list(ret, sub, sep);
-					}
-				}
-				return ret;
-			}
-
-		};
-
-		WMIQuery(void) {};
-		~WMIQuery(void) {};
-
-		typedef std::list<wmi_row> result_type;
-		std::wstring sanitize_string(LPTSTR in);
-		WMIQuery::result_type WMIQuery::get_classes(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password);
-		WMIQuery::result_type WMIQuery::get_instances(std::wstring ns, std::wstring superClass, std::wstring user, std::wstring password);
-	};
 }

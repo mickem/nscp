@@ -79,10 +79,16 @@ if BREAKPAD_FOUND == "TRUE":
 		print "Processing: %s"%f
 		out = f.replace('.pdb', '.sym')
 		os.system("%s %s > %s"%(BREAKPAD_DUMPSYMS_EXE, f, out))
-		if out.startswith(BUILD_TARGET_EXE_PATH):
-			name = out[len(BUILD_TARGET_EXE_PATH)+1:]
-		else:
-			name = out
+		name = 'invalid/%s'%os.path.basename(out)
+		with open(out, 'r') as f:
+			head = f.readline().strip()
+			try:
+				# MODULE windows x86 1FD4DBADB2B446CA81E0F689BE0FFCA61c nscp.pdb
+				(module, tos, tarch, guid, name) = head.split(' ')
+				name = '%s/%s/%s'%(name, guid, os.path.basename(out))
+			except:
+				print 'Error failed to parse: %s'%out
+			
 		zip.write(out, name)
 	zip.close()
 

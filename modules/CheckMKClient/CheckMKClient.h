@@ -25,8 +25,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>

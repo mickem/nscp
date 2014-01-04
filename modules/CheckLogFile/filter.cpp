@@ -14,7 +14,7 @@
 
 using namespace parsers::where;
 
-node_type get_column_fun(const value_type target_type, evaluation_context context, const node_type subject) {
+node_type get_column_fun(const value_type, evaluation_context context, const node_type subject) {
 	std::list<node_type> l = subject->get_list_value(context);
 	if (l.size() != 1) {
 		context->error("Invalid number of arguments for function");

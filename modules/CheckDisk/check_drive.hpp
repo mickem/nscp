@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 
 struct check_drive {

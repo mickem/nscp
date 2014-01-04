@@ -40,6 +40,7 @@ namespace scripts {
 		std::string script_alias;
 		std::string script;
 		typename script_trait::user_data_type user_data;
+		virtual ~script_information() {}
 		virtual boost::shared_ptr<settings_provider> get_settings_provider() = 0;
 		virtual boost::shared_ptr<core_provider> get_core_provider() = 0;
 		virtual void register_command(const std::string type, const std::string &command, const std::string &description, typename script_trait::function_type function) = 0;
@@ -178,9 +179,10 @@ namespace scripts {
 			return info;
 		}
 
-		void add_and_load(std::string alias, std::string script) {
+		script_information<script_trait>* add_and_load(std::string alias, std::string script) {
 			script_information<script_trait> *instance = add(alias, script);
 			script_runtime->load(instance);
+			return instance;
 		}
 
 		void load_all() {

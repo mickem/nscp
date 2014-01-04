@@ -29,7 +29,7 @@
 #include <strEx.h>
 
 #include <protobuf/ipc.pb.h>
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 using namespace nscp::helpers;
 
@@ -73,11 +73,11 @@ namespace check_mk {
 					return ret;
 				}
 
-				std::string get_item(int id) {
-					if (id < 0 || id >= items.size())
+				std::string get_item(std::size_t id) {
+					if (id >= items.size())
 						throw check_mk::check_mk_exception("Invalid line");
 					std::list<std::string>::const_iterator cit = items.begin();
-					for (int i=0;i<id;i++) {
+					for (std::size_t i=0;i<id;i++) {
 						cit++;
 					}
 					return *cit;
@@ -128,11 +128,11 @@ namespace check_mk {
 				return title.empty() && lines.empty();
 			}
 
-			check_mk::packet::section::line get_line(int id) {
-				if (id < 0 || id >= lines.size())
+			check_mk::packet::section::line get_line(std::size_t id) {
+				if (id >= lines.size())
 					throw check_mk::check_mk_exception("Invalid line");
 				std::list<line>::const_iterator cit = lines.begin();
-				for (int i=0;i<id;i++) {
+				for (std::size_t i=0;i<id;i++) {
 					cit++;
 				}
 				return *cit;
@@ -196,11 +196,11 @@ namespace check_mk {
 			return write();
 		}
 
-		section get_section(int id) {
-			if (id < 0 || id >= section_list.size())
+		section get_section(std::size_t id) {
+			if (id >= section_list.size())
 				throw check_mk::check_mk_exception("Invalid section");
 			std::list<section>::const_iterator cit = section_list.begin();
-			for (int i=0;i<id;i++) {
+			for (std::size_t i=0;i<id;i++) {
 				cit++;
 			}
 			return *cit;

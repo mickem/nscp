@@ -32,6 +32,7 @@ namespace nscp {
 		typedef boost::shared_ptr<nscp::server::handler> handler_type;
 		outbound_buffer_type data_;
 		nscp::server::digester parser_;
+		socket_helpers::connection_info info_;
 		handler_type handler_;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
@@ -90,7 +91,6 @@ namespace nscp {
 		bool on_read(char *begin, char *end) {
 			while (begin != end) {
 				bool result;
-				iterator_type old_begin = begin;
 				boost::tie(result, begin) = parser_.digest(begin, end);
 				if (result) {
 					nscp::packet response;
@@ -115,8 +115,6 @@ namespace nscp {
 		outbound_buffer_type get_outbound() const {
 			return data_;
 		}
-
-		socket_helpers::connection_info info_;
 
 		socket_helpers::connection_info get_info() const {
 			return info_;

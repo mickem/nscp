@@ -2,7 +2,7 @@
 
 #include <string>
 #include <boost/program_options.hpp>
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 namespace compat {
 	void log_args(const Plugin::QueryRequestMessage::Request &request);
@@ -17,5 +17,9 @@ namespace compat {
 	inline void inline_addarg(Plugin::QueryRequestMessage::Request &request, const std::string &str) {
 		if (!str.empty())
 			request.add_arguments(str);
+	}
+	inline void inline_addarg(Plugin::QueryRequestMessage::Request &request, const std::string &prefix, const std::string &str) {
+		if (!str.empty())
+			request.add_arguments(prefix + str);
 	}
 }

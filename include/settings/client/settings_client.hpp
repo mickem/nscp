@@ -38,7 +38,7 @@ namespace boost
 namespace nscapi {
 	namespace settings_helper {
 		typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
-		static std::string make_skey(std::string path, std::string key) {
+		inline std::string make_skey(std::string path, std::string key) {
 			return path + "." + key;
 		}
 		class key_interface {

@@ -22,6 +22,8 @@ before_install:
   - sudo apt-get install -y libcrypto++-dev libcrypto++
   - sudo apt-get install -y liblua5.1-0-dev
   - sudo apt-get install -y libgtest-dev
+  - sudo apt-get install ttf-dejavu
+  - sudo apt-get install fontconfig
   - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
   - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
 notifications:

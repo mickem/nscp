@@ -40,16 +40,17 @@ SMTP     Passive  Communicate with nsclient++ through mails. More of a toy curre
 In this document, we will cover NRPE and NSCA, as well as show how it is integrated with Nagios. If you have other protocols or monitoring solutions the general concepts can be easily adapted to any of the other supported protocols.
 
 Nsclient++ allows many ways to check your system:
- * Get System health (cpu, disks...)
- * Get performances counters
- * Get WMI query
- * Check Log file
- * Check scheduled task
- * Execute:
- ** powershell scripts
- ** VB Scripts (.VBS)
- ** Executable files
- ** Batch (.BAT) files
+* Get System health (cpu, disks...)
+* Get performances counters
+* Get WMI query
+* Check Log file
+* Check scheduled task
+* Execute:
+
+** powershell scripts
+** VB Scripts (.VBS)
+** Executable files
+** Batch (.BAT) files
 
 Requirements
 ------------
@@ -107,11 +108,12 @@ Sections
 Like in all INI, section start with a name between "[]". The first section is [/modules].
 In general NSClient++ has a hierarcical settings structure much like a filesystem. THis means that everything under /settings is related to settings and so on and so forth.
 
- * Sections do not have an explicit end. When a new section start, the previous one end. 
- * Sections can be empty
- * Sections generally starts with either (if they dont, you probably have an older version):
-  * /modules
-  * /settings/
+* Sections do not have an explicit end. When a new section start, the previous one end. 
+* Sections can be empty
+* Sections generally starts with either (if they dont, you probably have an older version):
+
+** /modules
+** /settings/
   
 .. code-block:: ini
 
@@ -372,9 +374,10 @@ Installation is as simple as this script:
    This example covers windows in 64 bit. If you have x86 Windows, you need either 2 packages or add intelligence to install the good one. 
    
 Successfully tested on:
- * Windows Server 2003
- * Windows Server 2008 R2 (core and GUI)
- * Windows Server 2012 (core and GUI)
+* Windows Server 2003
+* Windows Server 2008 R2 (core and GUI)
+* Windows Server 2012 (core and GUI)
+
 Be sure to provide a folder with the MSI, built ini and bat file:
 
 .. image:: images/pdq_msifolder.png
@@ -390,6 +393,7 @@ On PDQ Deploy, target list can be:
  * Text file
  * Active Directory containers
  * ...
+
 As with any tool, respect the best practice:
  * Deploy successfully to just one host
  * Then deploy to more hosts, doing bigger and bigger deployment based on success rate.
@@ -436,7 +440,7 @@ Needed right will depend on what you want to monitor, but as a basis, you will n
    Using a domain account is also useful for specific monitoring, like for SharePoint.
    
 .. note:: 
-   You can use :ref:`Process monitor <http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx>` to get access denied logs.
+   You can use `Process monitor <http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx>` to get access denied logs.
 
 Securing communication
 ----------------------
@@ -455,18 +459,18 @@ Dry runs
 
 Useless to go further if basics health tests fails. Here are the basics steps to pass before going further:
 
-+---------------------------+-----------------------------------------------------------------------------+
-| Where to check            | Action                                                                      |
-+===========================+=============================================================================+
-| Windows server to monitor | Check that nsclient++ Windows service is started                            |
-|                           | Check nsclient.log for errors                                               |
-|                           | Execute some dry test:                                                      |
-|                           | * nscp.exe client --query alias_disk                                        |
-|                           | * nscp.exe client --query alias_event_log                                   |
-|                           | * nscp.exe sys --list                                                       |
-+---------------------------+-----------------------------------------------------------------------------+
-Monitoring server (Nagios...)	Check that monitoring server can reach the remote TCP port (if not udp)   |
-+---------------------------+-----------------------------------------------------------------------------+
++-----------------------------+-----------------------------------------------------------------------------+
+| Where to check              | Action                                                                      |
++=============================+=============================================================================+
+| Windows server to monitor   | Check that nsclient++ Windows service is started                            |
+|                             | Check nsclient.log for errors                                               |
+|                             | Execute some dry test:                                                      |
+|                             | * nscp.exe client --query alias_disk                                        |
+|                             | * nscp.exe client --query alias_event_log                                   |
+|                             | * nscp.exe sys --list                                                       |
++-----------------------------+-----------------------------------------------------------------------------+
+|Monitoring server (Nagios...)| Check that monitoring server can reach the remote TCP port (if not udp)     |
++-----------------------------+-----------------------------------------------------------------------------+
 
 Check command
 -------------

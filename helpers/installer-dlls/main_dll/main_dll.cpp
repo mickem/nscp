@@ -38,7 +38,7 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 // 		return "E" + utf8::cvt<std::string>(message);
 // 	return "I" + utf8::cvt<std::string>(message);
 // }
-std::string nsclient::logging::logger_helper::create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message) {
+std::string nsclient::logging::logger_helper::create(const std::string&, NSCAPI::log_level::level level, const char*, const int, const std::string &message) {
 	if (level < NSCAPI::log_level::info)
 		return "E" + message;
 	return "I" + message;
@@ -96,7 +96,7 @@ bool nsclient::logging::logger::startup() { return true; }
 bool nsclient::logging::logger::shutdown() { return true; }
 void nsclient::logging::logger::configure() {}
 
-void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level level) {}
+void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level) {}
 void nsclient::logging::logger::set_log_level(std::string level) {}
 struct installer_settings_provider : public settings_manager::provider_interface {
 

@@ -59,27 +59,27 @@ namespace tasksched_filter {
 			static std::string get_default() { return ""; }
 			static void cleanup(LPWSTR obj) { CoTaskMemFree(obj); }
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static std::string convert(HRESULT hr, LPWSTR value) { return utf8::cvt<std::string>(value); }
+			static std::string convert(HRESULT, LPWSTR value) { return utf8::cvt<std::string>(value); }
 		};
 		template<typename TObject>
 		struct bstr_traits : public fetch_traits<BSTR, std::string, TObject> {
 			static std::string get_default() { return ""; }
-			static void cleanup(LPWSTR obj) { /*CoTaskMemFree(obj);*/ }
+			static void cleanup(LPWSTR) { /*CoTaskMemFree(obj);*/ }
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static std::string convert(HRESULT hr, LPWSTR value) { return utf8::cvt<std::string>(value); }
+			static std::string convert(HRESULT, LPWSTR value) { return utf8::cvt<std::string>(value); }
 		};
 		template<typename TTarget, typename TReturn, typename TObject>
 		struct word_traits : public fetch_traits<TTarget, TReturn, TObject> {
 			static TReturn get_default() { return 0; }
-			static void cleanup(TTarget obj) {}
+			static void cleanup(TTarget) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static TReturn convert(HRESULT hr, TTarget value) { return value; }
+			static TReturn convert(HRESULT, TTarget value) { return value; }
 		};
 		template<typename TRawType, typename TObject>
 		struct date_traits : public fetch_traits<TRawType, task_sched_date, TObject> {
 			typedef task_sched_date TReturn;
 			static TReturn get_default() { return task_sched_date(); }
-			static void cleanup(TRawType obj) {}
+			static void cleanup(TRawType) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr) && hr != SCHED_S_TASK_HAS_NOT_RUN; }
 
 			static unsigned long long convert_time(const SYSTEMTIME &time) {
@@ -88,7 +88,7 @@ namespace tasksched_filter {
 				LocalFileTimeToFileTime(&localFileTime, &fileTime);
 				return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)fileTime.dwLowDateTime);
 			}
-			static unsigned long long convert_time(const DATE &time) {
+			static unsigned long long convert_time(const DATE &) {
 				return 0;
 			}
 
@@ -101,9 +101,9 @@ namespace tasksched_filter {
 		template<typename TTarget, typename TReturn, typename TObject>
 		struct bool_traits : public fetch_traits<TTarget, TReturn, TObject> {
 			static TReturn get_default() { return false; }
-			static void cleanup(TTarget obj) {}
+			static void cleanup(TTarget) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static TReturn convert(HRESULT hr, TTarget value) { return value==VARIANT_TRUE; }
+			static TReturn convert(HRESULT, TTarget value) { return value==VARIANT_TRUE; }
 		};
 
 		template<typename traits>
@@ -118,11 +118,11 @@ namespace tasksched_filter {
 
 			com_variable(fun_ptr_type fun) : fun_(fun) {}
 
-			bool inline fetch_data(object_type *object, data_type &data) {
+			bool inline fetch_data(object_type *object, data_type &data, const std::string &title) {
 				raw_type tmp;
 				HRESULT hr = (object->*fun_)(&tmp);
 				if (traits::has_failed(hr)) {
-					throw nscp_exception("ERROR: " + ::error::format::from_system(hr));
+					throw nscp_exception("Failed to fetch " + title + ": " + ::error::format::from_system(hr));
 				} else {
 					data = traits::convert(hr, tmp);
 					traits::cleanup(tmp);
@@ -130,10 +130,10 @@ namespace tasksched_filter {
 				}
 			}
 
-			data_type operator() (object_type *object) {
+			data_type operator() (object_type *object, const std::string &title) {
 				if (!data_) {
 					data_type tmp;
-					if (fetch_data(object, tmp))
+					if (fetch_data(object, tmp, title))
 						data_.reset(tmp);
 					else
 						data_.reset(traits::get_default());
@@ -209,20 +209,20 @@ namespace tasksched_filter {
 
 		long long is_enabled() { return (get_status()&SCHED_S_TASK_DISABLED==SCHED_S_TASK_DISABLED)?0:1; }
 
-		std::string get_account_name() { return account_name(task); }
-		std::string get_application_name() { return application_name(task); }
-		std::string get_comment() { return comment(task); }
-		std::string get_creator() { return creator(task); }
-		std::string get_parameters() { return parameters(task); }
-		std::string get_working_directory() { return working_directory(task); }
+		std::string get_account_name() { return account_name(task, title); }
+		std::string get_application_name() { return application_name(task, title); }
+		std::string get_comment() { return comment(task, title); }
+		std::string get_creator() { return creator(task, title); }
+		std::string get_parameters() { return parameters(task, title); }
+		std::string get_working_directory() { return working_directory(task, title); }
 
-		long long get_exit_code() { return exit_code(task); }
-		long long get_flags() { return flags(task); }
-		long long get_max_run_time() { return max_run_time(task); }
-		long long get_priority() { return priority(task); }
+		long long get_exit_code() { return exit_code(task, title); }
+		long long get_flags() { return flags(task, title); }
+		long long get_max_run_time() { return max_run_time(task, title); }
+		long long get_priority() { return priority(task, title); }
 
-		long long get_status() { return status(task); }
-		long long get_most_recent_run_time() { return most_recent_run_time(task); }
+		long long get_status() { return status(task, title); }
+		long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
 	};
 
 
@@ -256,6 +256,7 @@ namespace tasksched_filter {
 		info_string_variable creator;
 		settings_int_variable priority;
 		settings_string_variable max_run_time;
+		std::string str_title;
 
 
 		new_filter_obj(IRegisteredTask* task, std::string folder);
@@ -269,25 +270,25 @@ namespace tasksched_filter {
 
 		std::string get_folder() { return folder; }
 
-		long long is_enabled() { return enabled(task); }
+		long long is_enabled() { return enabled(task, get_title()); }
 
 
-		std::string get_title() { return title(task); }
+		std::string get_title() { if (str_title.empty()) str_title = title(task, "unknown"); return str_title; }
 		std::string get_account_name() { throw nscp_exception("account_name is not supported"); }
 		std::string get_application_name() { throw nscp_exception("application_name is not supported"); }
-		std::string get_comment() { return comment(get_reginfo()); }
-		std::string get_creator() { return creator(get_reginfo()); }
+		std::string get_comment() { return comment(get_reginfo(), get_title()); }
+		std::string get_creator() { return creator(get_reginfo(), get_title()); }
 
 		std::string get_parameters() { throw nscp_exception("get_parameters is not supported"); }
 		std::string get_working_directory() { throw nscp_exception("working_directory is not supported"); }
 
-		long long get_exit_code() { return exit_code(task); }
+		long long get_exit_code() { return exit_code(task, get_title()); }
 		long long get_flags() { throw nscp_exception("flags is not supported"); }
-		long long get_max_run_time() { return convert_runtime(max_run_time(get_settings())); }
-		long long get_priority() { return priority(get_settings()); }
+		long long get_max_run_time() { return convert_runtime(max_run_time(get_settings(), get_title())); }
+		long long get_priority() { return priority(get_settings(), get_title()); }
 
-		long long get_status() { return status(task); }
-		long long get_most_recent_run_time() { return most_recent_run_time(task); }
+		long long get_status() { return status(task, get_title()); }
+		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
 
 		long long convert_runtime(std::string &v) {
 			return 0;

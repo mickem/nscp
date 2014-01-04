@@ -41,7 +41,7 @@ struct eventlog_wrapper {
 	const LPBYTE get_last_buffer() {
 		return pBuffer;
 	}
-	void resize_buffer(int size);
+	void resize_buffer(DWORD size);
 };
 
 struct event_source {

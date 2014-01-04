@@ -23,8 +23,7 @@
 #include <boost/optional.hpp>
 #include <boost/scoped_ptr.hpp>
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <strEx.h>
 #include <utils.h>
 #include <scripts/functions.hpp>

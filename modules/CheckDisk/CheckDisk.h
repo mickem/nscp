@@ -18,7 +18,7 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 class CheckDisk : public nscapi::impl::simple_plugin  {
 private:
@@ -33,8 +33,8 @@ public:
 	NSCAPI::nagiosReturn check_filesize(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	NSCAPI::nagiosReturn check_files(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	void check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-//	NSCAPI::nagiosReturn get_file_age(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 	void check_drivesize(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
 	void checkDriveSize(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 };

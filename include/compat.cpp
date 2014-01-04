@@ -47,8 +47,13 @@ namespace compat {
 			std::vector<std::string> bounds = vm[key].as<std::vector<std::string> >();
 			if (bounds.size() > 1 || !target.empty())
 				NSC_DEBUG_MSG("Multiple boundries of the same kind is not supported");
-			if (bounds.size() > 0)
-				target = var + "=" + bound + op + bounds.front();
+			if (bounds.size() > 0) {
+				std::string value = bounds.front();
+				if (value.size() > 3 && value[2] == ':')
+					target = var + "=" + bound + " " + value.substr(0,2) + " " + value.substr(3);
+				else
+					target = var + "=" + bound + op + bounds.front();
+			}
 		}
 	}
 	void matchFirstNumeric(const boost::program_options::variables_map &vm, const std::string upper, const std::string lower, std::string &warn, std::string &crit, const std::string suffix) {

@@ -20,7 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 struct real_time_thread;
 class CheckLogFile : public nscapi::impl::simple_plugin {

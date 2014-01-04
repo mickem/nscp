@@ -28,8 +28,7 @@
 #include <nscp/client/socket.hpp>
 #include <zeromq/client.hpp>
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 

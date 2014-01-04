@@ -7,19 +7,10 @@
 		"version"		: "auto",
 		"load"			: "none"
 	},
-	"todo" : {
-		"check_filesize" : { 
-			"legacy":true, 
-			"alias" : "CheckFileSize",
-			"desc" : "Check or directory a file and verify its size." 
-		}
-	},
 	"commands" : {
-		"check_drivesize" : "Check the size (free-space) of a drive or volume.",
-		"check_files" : { 
-			"alias"		: "CheckFiles",
-			"desc"		: "Check various aspects of a file and/or folder." 
-		},
-		"checkDriveSize"	:	"Legacy version of check_drivesize"
+		"check_drivesize"	: "Check the size (free-space) of a drive or volume.",
+		"check_files"		: "Check various aspects of a file and/or folder.",
+		"checkFiles"		: "Legacy version of check_drivesize",
+		"checkDriveSize"	: "Legacy version of check_drivesize"
 	}
 }

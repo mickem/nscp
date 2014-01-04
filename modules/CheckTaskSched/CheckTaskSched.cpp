@@ -182,11 +182,11 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	try {
 		TaskSched query;
 		query.findAll(filter, computer, user, domain, password, folder, recursive);
+		modern_filter::perf_writer writer(response);
+		filter_helper.post_process(filter, &writer);
 	} catch (const nscp_exception &e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
+		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to fetch tasks: " + e.reason());
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
 }
 
 int CheckTaskSched::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {

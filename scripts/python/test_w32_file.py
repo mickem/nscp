@@ -1,5 +1,4 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 import random
@@ -7,10 +6,12 @@ import subprocess
 import uuid
 import os
 import sys, stat, datetime, time
-core = Core.get()
 
 class Win32FileTest(BasicTest):
 
+	reg = None
+	conf = None
+	core = None
 
 	def __init__(self):
 		self.test_data = [
@@ -34,7 +35,7 @@ class Win32FileTest(BasicTest):
 
 	def setup(self, plugin_id, prefix):
 		self.reg = Registry.get(plugin_id)
-		self.temp_path = core.expand_path('${temp}')
+		self.temp_path = self.core.expand_path('${temp}')
 		log('Temp: %s'%self.temp_path)
 		self.work_path = os.path.join(self.temp_path, '%s'%uuid.uuid4())
 		log('Work: %s'%self.work_path)
@@ -111,7 +112,9 @@ class Win32FileTest(BasicTest):
 		result = TestResult('Checking %s'%alias)
 		args = ['path=%s'%self.work_path, 'filter=%s'%filter, 'syntax=%filename%: %size% %write%', 'warn=gt:1', 'crit=gt:3']
 		args.extend(extra_args)
-		(ret, msg, perf) = core.simple_query('CheckFiles', args)
+		(ret, msg, perf) = self.core.simple_query('CheckFiles', args)
+		#log("Messge: %s"%msg)
+		#log("Perf: %s"%perf)
 		count = self.get_count(perf)
 		result.add_message(count == expected, 'Check that we get correct number of files', 'Invalid result: got %s expected %s'%(count, expected))
 		if expected > 3:
@@ -127,16 +130,20 @@ class Win32FileTest(BasicTest):
 		result = TestResult('Testing W32 file systems')
 
 		# Check size
-		result.add(self.check_files('size gt 0b', 'Count all files', 10, []))
-		result.add(self.check_files('size gt 4b', 'Count all files', 2, []))
-		result.add(self.check_files('size lt 4b', 'Count all files', 11, []))
-		result.add(self.check_files('size eq 4b', 'Count all files', 8, []))
-		result.add(self.check_files('size ne 4b', 'Count all files', 13, []))
-		result.add(self.check_files('size eq 0b', 'Count all folders', 11, []))
+		result.add(self.check_files('size gt 0b', 'Count all files (not folders)', 10, []))
+		result.add(self.check_files('size gt 4b', 'Count all files > 4b', 2, []))
+		result.add(self.check_files('size lt 5b', 'Count all files < 5b', 11, []))
+		result.add(self.check_files('size eq 4b', 'Count all files = 4b', 8, []))
+		result.add(self.check_files('size ne 4b', 'Count all files!= 4b', 5, []))
+		result.add(self.check_files('size lt 4m', 'Count all files < 5m', 13, []))
+		result.add(self.check_files('size eq 0b', 'Count all folders', 3, []))
 		
 		# Check flags (recursive, pattern)
 		result.add(self.check_files('size eq 0b', 'Count all folders (non recursivly)', 3, ['max-dir-depth=0']))
-		result.add(self.check_files('size eq 0b', 'Count all folders (recurse 1)', 6, ['max-dir-depth=1']))
+		result.add(self.check_files('size eq 0b', 'Count all folders (recurse 1)', 1, ['max-dir-depth=1']))
+		result.add(self.check_files('size eq 0b', 'Count all folders (recurse 1)', 2, ['max-dir-depth=2']))
+		result.add(self.check_files('size eq 0b', 'Count all folders (recurse 1)', 3, ['max-dir-depth=3']))
+		result.add(self.check_files('size eq 0b', 'Count all folders (recurse 1)', 3, ['max-dir-depth=4']))
 		result.add(self.check_files('size gt 0b', 'Count all files (*.txt)', 9, ['pattern=*.txt']))
 		result.add(self.check_files('size gt 0b', 'Count all files (*.txt)', 0, ['pattern=*.foo']))
 
@@ -154,10 +161,10 @@ class Win32FileTest(BasicTest):
 		return result
 
 	def install(self, arguments):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/modules', 'test_disk', 'CheckDisk')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
-		conf.set_string('/settings/pytest/scripts', 'test_w32sys', 'test_w32_file.py')
+		conf.set_string('/settings/pytest/scripts', 'test_w32file', 'test_w32_file.py')
 		conf.save()
 
 	def uninstall(self):
@@ -166,8 +173,10 @@ class Win32FileTest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
-		None
+	def init(self, plugin_id, prefix):
+		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
 		None
@@ -176,7 +185,7 @@ setup_singleton(Win32FileTest)
 
 all_tests = [Win32FileTest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):
@@ -184,4 +193,3 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-

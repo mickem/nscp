@@ -278,7 +278,6 @@ int NRDPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 
 	nrdp::data nrdp_data;
 	for (int i=0;i < request_message.payload_size(); ++i) {
-		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
 		std::string alias, msg, perf;
 		NSCAPI::nagiosReturn result = nscapi::protobuf::functions::parse_simple_submit_request_payload(request_message.payload(i), alias, msg, perf);
 		if (alias == "host_check")
@@ -300,7 +299,6 @@ int NRDPClient::clp_handler_impl::exec(client::configuration::data_type data, co
 
 	nrdp::data nrdp_data;
 	for (int i=0;i < request_message.payload_size(); ++i) {
-		const ::Plugin::ExecuteRequestMessage::Request& payload = request_message.payload(i);
 		nscapi::protobuf::functions::decoded_simple_command_data data = nscapi::protobuf::functions::parse_simple_exec_request_payload(request_message.payload(i));
 		//nrdp_data.add_command(data.command, data.args);
 	}

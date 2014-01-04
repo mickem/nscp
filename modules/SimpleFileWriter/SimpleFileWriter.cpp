@@ -49,12 +49,12 @@ struct simple_string_functor {
 		value = other.value;
 		return *this;
 	}
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return value;
 	}
 };
 struct header_host_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
 		for (int i=0;i<hdr.hosts_size();i++) {
 			if (hdr.hosts(i).id() == sender)
@@ -64,32 +64,32 @@ struct header_host_functor {
 	}
 };
 struct payload_command_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.command();
 	}
 };
 struct channel_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return channel;
 	}
 };
 struct payload_alias_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.alias();
 	}
 };
 struct payload_message_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.message();
 	}
 };
 struct payload_result_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return utf8::cvt<std::string>(nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result())));
 	}
 };
 struct payload_alias_or_command_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		if (payload.has_alias())
 			return payload.alias();
 		return payload.command();

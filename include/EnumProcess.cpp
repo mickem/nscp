@@ -79,8 +79,7 @@ namespace process_helper {
 		std::list<process_info> *target;
 		DWORD pid;
 	};
-	BOOL CALLBACK Enum16Proc( DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined )
-	{
+	BOOL CALLBACK Enum16Proc(DWORD, WORD, WORD, PSZ, PSZ pszFileName, LPARAM lpUserDefined) {
 		find_16bit_container *container = reinterpret_cast<find_16bit_container*>(lpUserDefined);
 		process_info pEntry;
 		pEntry.pid = container->pid;
@@ -430,9 +429,9 @@ namespace process_helper {
 			return ret;
 		} 
 
-		unsigned long long kernel_time;
-		unsigned long long user_time;
-		unsigned long long idle_time;
+		unsigned long long kernel_time = 0;
+		unsigned long long user_time = 0;
+		unsigned long long idle_time = 0;
 		FILETIME idleTime;
 		FILETIME kernelTime;
 		FILETIME userTime;
@@ -449,6 +448,7 @@ namespace process_helper {
 			user_time = (userTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)userTime.dwLowDateTime-user_time;
 			idle_time = (idleTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)idleTime.dwLowDateTime-idle_time;
 		}
+		long long total_time = kernel_time+user_time+idle_time;
 
 		process_map p2 = get_process_data(ignore_unreadable, error_interface);
 		BOOST_FOREACH(process_map::value_type v1, p1) {
@@ -459,7 +459,7 @@ namespace process_helper {
 				continue;
 			}
 			v2->second -= v1.second;
-			v2->second.make_cpu_delta(kernel_time, user_time);
+			v2->second.make_cpu_delta(kernel_time, user_time, total_time);
 			ret.push_back(v2->second);
 		}
 		return ret;

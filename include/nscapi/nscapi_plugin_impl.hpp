@@ -4,7 +4,7 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <NSCAPI.h>
+//#include <NSCAPI.h>
 
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/command_proxy.hpp>

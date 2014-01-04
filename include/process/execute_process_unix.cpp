@@ -51,8 +51,6 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	NSCAPI::nagiosReturn result;
 	int fd[2];
 	int bytes_read=0;
-	time_t start_time, end_time;
-
 	early_timeout=false;
 
 	pipe(fd);

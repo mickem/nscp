@@ -17,7 +17,7 @@ static std::string readFromFile(buffer_type &buffer, HANDLE hFile) {
 	DWORD dwRead = 0;
 	std::string str;
 	do {
-		DWORD retval = ReadFile(hFile, buffer, buffer.size(), &dwRead, NULL);
+		DWORD retval = ReadFile(hFile, buffer, static_cast<DWORD>(buffer.size()), &dwRead, NULL);
 		if (retval == 0 || dwRead <= 0 || dwRead > buffer.size())
 			return str;
 		buffer[dwRead] = 0;
@@ -32,7 +32,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	STARTUPINFO si;
 	HANDLE hChildOutR, hChildOutW, hChildInR, hChildInW;
 	SECURITY_ATTRIBUTES sec;
-	DWORD dwstate, dwexitcode;
+	DWORD dwstate = 0, dwexitcode;
 	// Set up members of SECURITY_ATTRIBUTES structure. 
 	sec.nLength = sizeof(SECURITY_ATTRIBUTES);
 	sec.bInheritHandle = TRUE;

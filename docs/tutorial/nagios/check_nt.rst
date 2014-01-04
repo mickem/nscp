@@ -10,7 +10,7 @@ This is the simplest and most locked in way to use NSClient++ you are limited to
 It is also the "only" way to have password protection. But note that since there is no encryption the password is sent as clear text so if you are compromised it will be easy to find.
 Also since check_nt is distributed in the "normal plugin kit" you undoubtedly already have everything you need on the nagios side.
 
-Nagios have their own guide for setting this up here `http://nagios.sourceforge.net/docs/3_0/monitoring-windows.html
+Nagios have their own guide for setting this up here `http://nagios.sourceforge.net/docs/3_0/monitoring-windows.html`
 
 1. Nagios command line
 **********************
@@ -53,6 +53,7 @@ The first thing you need to do is decide which modules you want to use. NSClient
 
 #. check commands
 #. protocols (and utility modules).
+
 The first kind is the one you *use* it responds to your commands and "finds" monitored data for you.
 The second kind is the one that allows you to talk to the first kind.
 When it comes to modules for the NSClient mode you will need the following:
@@ -78,6 +79,7 @@ The other things you need to configure is who is allowed to ask questions (which
 
 - allowed hosts = A list of addresses that is allowed to ask questions (i.e. your nagios ip).
 - password = The password to use.
+
 The result should look like this (assuming you don't use a password and the nagios ip address is 10.0.0.2):
 
 .. code-block:: ini
@@ -162,10 +164,6 @@ What you will see is the following output (or something similar):
   d \Socket.h(675) Bound to: 0.0.0.0:12489
   l NSClient++.cpp(402) Using settings from: INI-file
   l NSClient++.cpp(403) Enter command to inject or exit to terminate...
-  d \PDHCollector.cpp(123) Found countername: CPU:    \Processor(_total)\% processortid
-  d \PDHCollector.cpp(124) Found countername: UPTIME: \System\Tid sedan systemstart
-  d \PDHCollector.cpp(125) Found countername: MCL:    \Minne\Dedikationsgrõns
-  d \PDHCollector.cpp(126) Found countername: MCB:    \Minne\Dedicerade byte
 
 Then when you run the check from Nagios again:
 

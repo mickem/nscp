@@ -3,7 +3,15 @@
 #include <list>
 #include <vector>
 
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable:4512)
+#pragma warning(disable:4100)
 #include <boost/program_options.hpp>
+#pragma warning(pop)
+#else
+#include <boost/program_options.hpp>
+#endif
 #include <boost/function/function1.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
@@ -100,24 +108,21 @@ namespace nscapi {
 			{}
 		};
 
-		static po::options_description create_desc(const std::string command) {
-			po::options_description desc("Allowed options for " + command);
-			desc.add_options()
-				("help",		"Show help screen (this screen)")
-				("help-csv",	"Show help screen as a comma separated list. \nThis is useful for parsing the output in scripts and generate documentation etc")
-				;
-			return desc;
-		}
 		static void add_help(po::options_description &desc) {
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
 				("help-csv",	"Show help screen as a comma separated list. \nThis is useful for parsing the output in scripts and generate documentation etc")
 				;
 		}
-		static po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
+		inline po::options_description create_desc(const std::string command) {
+			po::options_description desc("Allowed options for " + command);
+			add_help(desc);
+			return desc;
+		}
+		inline po::options_description create_desc(const Plugin::QueryRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
-		static po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
+		inline po::options_description create_desc(const Plugin::ExecuteRequestMessage::Request &request) {
 			return create_desc(request.command());
 		}
 
@@ -356,7 +361,7 @@ namespace nscapi {
 		}
 
 		template<class T>
-		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &command, const std::string &error, T &response) {
+		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &, const std::string &error, T &response) {
 			nscapi::protobuf::functions::set_response_bad(response, help(desc, error));
 		}
 		static std::string make_csv(const std::string s) {
@@ -368,7 +373,7 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		static std::string help_csv(const boost::program_options::options_description &desc, const std::string &command) {
+		inline std::string help_csv(const boost::program_options::options_description &desc, const std::string &) {
 			std::stringstream main_stream;
 			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
 				main_stream << make_csv(op->long_name()) << ",";
@@ -434,7 +439,7 @@ namespace nscapi {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
 					return false;
 				}
-				if (vm.count("help")) {
+				if (vm.count("help") && vm["help"].as<bool>()) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
 				}

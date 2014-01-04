@@ -29,7 +29,7 @@
 #include <strEx.h>
 
 #include <protobuf/ipc.pb.h>
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 using namespace nscp::helpers;
 //////////////////////////////////////////////////////////////////////////
@@ -50,7 +50,7 @@ namespace nscp {
 		static const unsigned int frame_error = 3;
 
 		static const unsigned int flag_last_frame = 0x1;
-		static const unsigned int tag_nscp = 0x1234567890;
+		static const unsigned int tag_nscp = 0x12345678;
 
 		struct frame_header {
 			unsigned int type;

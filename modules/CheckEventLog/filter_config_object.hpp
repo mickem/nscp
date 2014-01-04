@@ -55,7 +55,7 @@ namespace eventlog_filter {
 
 	struct command_reader {
 		typedef filter_config_object object_type;
-		static void post_process_object(object_type &object) {}
+		static void post_process_object(object_type &) {}
 		static void command_reader::init_default(object_type& object);
 		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample);
 		static void apply_parent(object_type &object, object_type &parent);

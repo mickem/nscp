@@ -23,6 +23,8 @@ namespace nscapi {
 
 				("detail syntax", sh::string_key(&syntax_detail),
 				"SYNTAX", "Format string for dates", !is_default)
+				("perf config", sh::string_key(&perf_config),
+				"PERF CONFIG", "Performance data configuration", true)
 
 				("debug", nscapi::settings_helper::bool_key(&debug),
 				"DEBUG", "Enable this to display debug information for this match filter", true)

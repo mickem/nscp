@@ -34,6 +34,7 @@ namespace eventlog_filter {
 		virtual std::string get_source() = 0;
 		virtual std::string get_computer() = 0;
 		virtual long long get_el_type() = 0;
+		virtual std::string get_el_type_s() = 0;
 		virtual long long get_severity() = 0;
 		virtual std::string get_message() = 0;
 		virtual std::string get_strings() = 0;
@@ -50,8 +51,9 @@ namespace eventlog_filter {
 
 	struct old_filter_obj : filter_obj {
 		const EventLogRecord &record;
+		const int truncate_message;
 
-		old_filter_obj(const EventLogRecord &record) : record(record) {}
+		old_filter_obj(const EventLogRecord &record, const int truncate_message) : record(record), truncate_message(truncate_message) {}
 
 		long long get_id() {
 			return record.eventID(); 
@@ -65,11 +67,12 @@ namespace eventlog_filter {
 		long long get_el_type() {
 			return record.eventType(); 
 		}
+		std::string get_el_type_s();
 		long long get_severity() {
 			return record.severity();
 		}
 		std::string get_message() {
-			return utf8::cvt<std::string>(record.render_message());
+			return utf8::cvt<std::string>(record.render_message(truncate_message));
 		}
 		std::string get_strings() {
 			return utf8::cvt<std::string>(record.enumStrings());
@@ -102,8 +105,9 @@ namespace eventlog_filter {
 		const std::string &logfile;
 		eventlog::evt_handle &hEvent;
 		hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer;
+		const int truncate_message;
 
-		new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext);
+		new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message);
 
 		long long get_id() {
 			return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val;
@@ -111,20 +115,17 @@ namespace eventlog_filter {
 		std::string get_source();
 		std::string get_computer();
 		long long get_el_type();
+		std::string get_el_type_s();
 		long long get_severity() {
 			return 0;
 		}
 		std::string get_message();
 		std::string get_strings() {
-			return "";
+			return get_message();
 		}
-		std::string get_log() {
-			return "";
-		}
+		std::string get_log();
 		long long get_written();
-		long long get_category() {
-			return 0; 
-		}
+		long long get_category();
 		long long get_facility() {
 			return 0; 
 		}

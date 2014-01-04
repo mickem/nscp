@@ -49,7 +49,7 @@ namespace scheduler {
 		stop_requested_ = false;
 		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
-			for (int i=0;i<missing_threads;i++) {
+			for (std::size_t i=0;i<missing_threads;i++) {
 				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
 			}
 		}
@@ -94,7 +94,7 @@ namespace scheduler {
 						log_error("Ran scheduled item " + strEx::s::xtos(instance->schedule_id) + " " + strEx::s::xtos(off.total_seconds()) + " seconds to late from thread " + strEx::s::xtos(id));
 					}
 					boost::thread::sleep((*instance).time);
-				} catch (boost::thread_interrupted  &e) {
+				} catch (const boost::thread_interrupted &) {
 					if (!queue_.push(*instance))
 						log_error("ERROR");
 					if (stop_requested_) {

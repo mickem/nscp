@@ -79,7 +79,7 @@ void real_time_thread::thread_proc() {
 	struct pollfd pollfds[2] = { { inotify_init(), POLLIN|POLLPRI, 0}, { stop_event_[0], POLLIN, 0}};
 
 	int *wds = new int[logs.size()];
-	for (int i=0;i<files_list.size();i++) {
+	for (std::size_t i=0;i<files_list.size();i++) {
 		wds[i] = inotify_add_watch(pollfds[0].fd, files_list[i].c_str(), IN_MODIFY);
 	}
 
@@ -139,7 +139,7 @@ void real_time_thread::thread_proc() {
 #ifdef WIN32
 	delete [] handles;
 #else
-	for (int i=0;i<files_list.size();i++) {
+	for (std::size_t i=0;i<files_list.size();i++) {
 		inotify_rm_watch(pollfds[0].fd, wds[i]);
 	}
 	close(pollfds[0].fd);

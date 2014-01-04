@@ -34,7 +34,6 @@ void eventlog_wrapper::close() {
 }
 
 bool eventlog_wrapper::get_last_record_number(DWORD* pdwRecordNumber) {
-	DWORD status = ERROR_SUCCESS;
 	DWORD OldestRecordNumber = 0;
 	DWORD NumberOfRecords = 0;
 
@@ -49,9 +48,7 @@ bool eventlog_wrapper::get_last_record_number(DWORD* pdwRecordNumber) {
 }
 
 bool eventlog_wrapper::get_first_record_number(DWORD* pdwRecordNumber) {
-	DWORD status = ERROR_SUCCESS;
 	DWORD OldestRecordNumber = 0;
-	DWORD NumberOfRecords = 0;
 
 	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
 		return false;
@@ -65,7 +62,7 @@ bool eventlog_wrapper::notify(HANDLE &handle) {
 	if (!handle) {
 		return false;
 	}
-	return NotifyChangeEventLog(hLog, handle);
+	return NotifyChangeEventLog(hLog, handle)==TRUE;
 }
 
 bool eventlog_wrapper::un_notify(HANDLE &handle) {
@@ -76,7 +73,7 @@ bool eventlog_wrapper::re_notify(HANDLE &handle) {
 	if (!handle) {
 		return false;
 	}
-	return NotifyChangeEventLog(hLog, handle);
+	return NotifyChangeEventLog(hLog, handle)==TRUE;
 }
 
 bool eventlog_wrapper::seek_end() {
@@ -101,7 +98,7 @@ bool eventlog_wrapper::seek_start() {
 	return true;
 }
 
-void eventlog_wrapper::resize_buffer(int size) {
+void eventlog_wrapper::resize_buffer(DWORD size) {
 	if (size <= bufferSize)
 		return;
 	PBYTE tmp = pBuffer;

@@ -1,0 +1,27 @@
+{
+	"module"		: {
+		"title"			: "Unix system module",
+		"description"	: "Various system related checks, such as CPU load, process state and memory.",
+		"name"			: "CheckSystem",
+		"alias"			: "system",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "system/unix"
+	},
+
+	"commands" : {
+		"check_cpu" 		: "Check that the load of the CPU(s) are within bounds.",
+		"check_uptime"		: "Check time since last server re-boot." ,
+		"check_service"		: "Check the state of one or more of the computer services.",
+		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
+		"check_memory"		: "Check free/used memory on the system.",
+		"check_os_version"	: "Check the version of the underlaying OS.",
+		"check_pagefile"	: "Check the size of the system pagefile(s)."
+	},
+
+	"command line exec" : "legacy",
+
+	"log messages" : false
+}

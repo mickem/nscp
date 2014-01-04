@@ -65,7 +65,7 @@ namespace check_mk {
 	};
 	class check_mk_line_wrapper {
 	public:
-		check_mk_line_wrapper(lua_State *L, bool fromLua) {}
+		check_mk_line_wrapper(lua_State*, bool) {}
 
 		static const char className[];
 		static const Luna<check_mk_line_wrapper>::PropertyType Properties[];

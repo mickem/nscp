@@ -149,9 +149,11 @@ namespace process_helper {
 		unsigned long long user_time_raw;
 		unsigned long long kernel_time_raw;
 		int_var user_time;
+		int_var total_time;
 		INT_GETTER(creation_time);
 		INT_GETTER(kernel_time);
 		INT_GETTER(user_time);
+		INT_GETTER(total_time);
 
 		// IO Counters
 		int_var readOperationCount;
@@ -292,11 +294,13 @@ namespace process_helper {
 			return *this;
 		}
 
-		void make_cpu_delta(unsigned long long kernel, unsigned long long user) {
+		void make_cpu_delta(unsigned long long kernel, unsigned long long user, unsigned long long total) {
 			if (kernel > 0)
 				kernel_time = kernel_time_raw*100/kernel;
 			if (user > 0)
 				user_time = user_time_raw*100/user;
+			if (total > 0)
+				total_time = (kernel_time_raw+user_time_raw)*100/total;
 		}
 
 	};

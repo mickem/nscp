@@ -1,5 +1,4 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
-from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 import random
@@ -7,13 +6,15 @@ import subprocess
 import uuid
 import os
 import sys, stat, datetime, time
-core = Core.get()
 
 class Win32WMITest(BasicTest):
 
+	reg = None
+	conf = None
+	core = None
 
 	def desc(self):
-		return 'Testcase for w32 check_file module'
+		return 'Testcase for w32 check_wmi module'
 
 	def title(self):
 		return 'Win32File tests'
@@ -36,8 +37,8 @@ class Win32WMITest(BasicTest):
 		
 	def check_cli_ns(self):
 		result = TestResult('Checking CLI list-ns')
-		(ret, ns_msgs) = core.simple_exec('any', 'wmi', ['--list-all-ns', '--namespace', 'root'])
-		result.assert_equals(ret, status.OK, 'Check that --list-all-ns returns ok')
+		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', ['--list-all-ns', '--namespace', 'root'])
+		result.assert_equals(ret, 1, 'Check that --list-all-ns returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --list-all-ns returns one entry')
 		if len(ns_msgs) > 0:
 			result.assert_contains(ns_msgs[0], 'CIMV2', 'Check that --list-all-ns contains cimv2')
@@ -48,8 +49,8 @@ class Win32WMITest(BasicTest):
 		args = ['--list-classes', '--simple']
 		if ns != None:
 			args.extend(['--namespace', ns])
-		(ret, ns_msgs) = core.simple_exec('any', 'wmi', args)
-		result.assert_equals(ret, status.OK, 'Check that --list-classes returns ok')
+		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
+		result.assert_equals(ret, 1, 'Check that --list-classes returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --list-classes returns one entry')
 		if len(ns_msgs) > 0:
 			result.assert_contains(ns_msgs[0], expected, 'Check that --list-classes contains %s'%expected)
@@ -61,8 +62,8 @@ class Win32WMITest(BasicTest):
 		args = ['--select', query, '--simple']
 		if ns != None:
 			args.extend(['--namespace', ns])
-		(ret, ns_msgs) = core.simple_exec('any', 'wmi', args)
-		result.assert_equals(ret, status.OK, 'Check that --select returns ok')
+		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
+		result.assert_equals(ret, 1, 'Check that --select returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --select returns one entry')
 		if len(ns_msgs) > 0:
 			result.add_message(count(ns_msgs[0].splitlines()), 'Check that it contains the right number of rows')
@@ -78,7 +79,7 @@ class Win32WMITest(BasicTest):
 		return result
 
 	def install(self, arguments):
-		conf = Settings.get()
+		conf = self.conf
 		conf.set_string('/modules', 'test_system', 'CheckWMI')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
 		conf.set_string('/settings/pytest/scripts', 'test_w32wmi', 'test_w32_wmi.py')
@@ -90,8 +91,10 @@ class Win32WMITest(BasicTest):
 	def help(self):
 		None
 
-	def init(self, plugin_id):
-		None
+	def init(self, plugin_id, prefix):
+		self.reg = Registry.get(plugin_id)
+		self.core = Core.get(plugin_id)
+		self.conf = Settings.get(plugin_id)
 
 	def shutdown(self):
 		None
@@ -100,7 +103,7 @@ setup_singleton(Win32WMITest)
 
 all_tests = [Win32WMITest]
 
-def __main__():
+def __main__(args):
 	install_testcases(all_tests)
 	
 def init(plugin_id, plugin_alias, script_alias):
@@ -108,4 +111,3 @@ def init(plugin_id, plugin_alias, script_alias):
 
 def shutdown():
 	shutdown_testcases()
-

@@ -14,6 +14,8 @@ namespace parsers {
 
 		template<class TObject>
 		struct int_performance_generator_interface {
+			virtual bool is_configured() = 0;
+			virtual void configure(const std::string key, object_factory context) = 0;
 			virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TObject object) = 0;
 		};
 
@@ -22,9 +24,22 @@ namespace parsers {
 			std::string unit;
 			std::string prefix;
 			std::string suffix;
-			simple_int_performance_generator(const std::string unit, std::string prefix, std::string suffix) : unit(unit), prefix(prefix), suffix(suffix) {}
-			simple_int_performance_generator(const std::string unit) : unit(unit) {}
+			bool configured;
+			bool ignored;
+			simple_int_performance_generator(const std::string unit, std::string prefix, std::string suffix) : unit(unit), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+			simple_int_performance_generator(const std::string unit) : unit(unit), configured(false), ignored(false) {}
+			virtual bool is_configured() { return configured; }
+			virtual void configure(const std::string key, object_factory context) {
+				unit = context->get_performance_config_key(prefix, key, suffix, "unit", unit);
+				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
+				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
+				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+					ignored = true;
+				configured = true;
+			}
 			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
+				if (ignored)
+					return;
 				performance_data data;
 				performance_data::perf_value<long long> int_data;
 				int_data.value = current_value;
@@ -43,8 +58,20 @@ namespace parsers {
 			maxfun_type maxfun;
 			std::string prefix;
 			std::string suffix;
-			percentage_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix), suffix(suffix) {}
+			bool configured;
+			bool ignored;
+			percentage_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+			virtual bool is_configured() { return configured; }
+			virtual void configure(const std::string key, object_factory context) {
+				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
+				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
+				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+					ignored = true;
+				configured = true;
+			}
 			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
+				if (ignored)
+					return;
 				long long maximum = maxfun(object, context);
 				performance_data data;
 				performance_data::perf_value<double> double_data;
@@ -69,48 +96,64 @@ namespace parsers {
 			maxfun_type maxfun;
 			std::string prefix;
 			std::string suffix;
-			scaled_byte_int_performance_generator(maxfun_type minfun, maxfun_type maxfun, std::string prefix, std::string suffix) : minfun(minfun), maxfun(maxfun), prefix(prefix), suffix(suffix) {}
-			scaled_byte_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix) , suffix(suffix){}
-			scaled_byte_int_performance_generator(std::string prefix, std::string suffix) : prefix(prefix), suffix(suffix) {}
+			std::string unit;
+			bool configured;
+			bool ignored;
+			scaled_byte_int_performance_generator(maxfun_type minfun, maxfun_type maxfun, std::string prefix, std::string suffix) : minfun(minfun), maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+			scaled_byte_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix) , suffix(suffix), configured(false), ignored(false) {}
+			scaled_byte_int_performance_generator(std::string prefix, std::string suffix) : prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
+			virtual bool is_configured() { return configured; }
+			virtual void configure(const std::string key, object_factory context) {
+				unit = context->get_performance_config_key(prefix, key, suffix, "unit", unit);
+				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
+				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
+				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+					ignored = true;
+				configured = true;
+			}
 			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
-				long long m = current_value;
-				if (warn > 0)
-					m = (std::max)(m, warn);
-				if (crit > 0)
-					m = (std::max)(m, crit);
-				long long max_value, min_value;
-				if (maxfun) {
+				if (ignored)
+					return;
+				std::string active_unit = unit;
+				long long max_value = 0;
+				long long min_value = 0;
+				if (maxfun)
 					max_value = maxfun(object, context);
+				if (minfun)
+					min_value = minfun(object, context);
+				if (active_unit.empty()) {
+					long long m = current_value;
+					if (warn > 0)
+						m = (std::max)(m, warn);
+					if (crit > 0)
+						m = (std::max)(m, crit);
 					if (max_value > 0)
 						m = (std::min)(m, max_value);
-				}
-				if (minfun) {
-					min_value = minfun(object, context);
 					if (min_value > 0)
 						m = (std::min)(m, min_value);
+					active_unit = format::find_proper_unit_BKMG(m);
 				}
-				std::string unit = format::find_proper_unit_BKMG(m);
 
 				performance_data::perf_value<double> double_data;
 				if (maxfun) {
 					if (max_value > 0)
-						double_data.maximum = format::convert_to_byte_units(max_value, unit);
+						double_data.maximum = format::convert_to_byte_units(max_value, active_unit);
 					else
 						double_data.maximum = max_value;
 				}
 				if (minfun) {
 					if (min_value > 0)
-						double_data.minimum = format::convert_to_byte_units(min_value, unit);
+						double_data.minimum = format::convert_to_byte_units(min_value, active_unit);
 					else
 						double_data.minimum = min_value;
 				}
-				double_data.warn = format::convert_to_byte_units(warn, unit);
-				double_data.crit = format::convert_to_byte_units(crit, unit);
-				double_data.value = format::convert_to_byte_units(current_value, unit);
+				double_data.warn = format::convert_to_byte_units(warn, active_unit);
+				double_data.crit = format::convert_to_byte_units(crit, active_unit);
+				double_data.value = format::convert_to_byte_units(current_value, active_unit);
 				performance_data data;
 				data.value_double = double_data;
 				data.alias = prefix + alias + suffix;
-				data.unit = unit;
+				data.unit = active_unit;
 				list.push_back(data);
 			}
 		};
@@ -138,7 +181,7 @@ namespace parsers {
 			virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
 				try {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && fun)
+					if (native_context != NULL && fun && native_context->has_object())
 						return factory::create_int(fun(native_context->get_object(), context));
 					context->error("Failed to evaluate " + name_);
 				} catch (const std::exception &e) {
@@ -155,7 +198,7 @@ namespace parsers {
 			long long get_int_value(evaluation_context context) const {
 				try {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && fun)
+					if (native_context != NULL && fun && native_context->has_object())
 						return fun(native_context->get_object(), context);
 					context->error("Failed to evaluate " + name_);
 				} catch (const std::exception &e) {
@@ -180,7 +223,7 @@ namespace parsers {
 				return false;
 			}
 
-			virtual perf_list_type get_performance_data(evaluation_context context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && native_context->has_object()) {
@@ -191,7 +234,9 @@ namespace parsers {
 						warn_value = warn->get_int_value(context);
 					if (crit)
 						crit_value = crit->get_int_value(context);
-					BOOST_FOREACH(const int_performance_generator &p, perfgen) {
+					BOOST_FOREACH(int_performance_generator &p, perfgen) {
+						if (!p->is_configured())
+							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
 					}
 				}
@@ -373,7 +418,7 @@ namespace parsers {
 				return false;
 			}
 
-			virtual perf_list_type get_performance_data(evaluation_context context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && native_context->has_object()) {
@@ -385,6 +430,8 @@ namespace parsers {
 					if (crit)
 						crit_value = crit->get_int_value(context);
 					BOOST_FOREACH(const int_performance_generator &p, perfgen) {
+						if (!p->is_configured())
+							p->configure(name_, context);
 						p->eval(ret, context, alias, current_value, warn_value, crit_value, native_context->get_object());
 					}
 				}
@@ -512,7 +559,7 @@ namespace parsers {
 				collector.set_candidate_variable(name_);
 				return false;
 			}
-			virtual perf_list_type get_performance_data(evaluation_context context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && !native_context->has_object()) {

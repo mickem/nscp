@@ -27,6 +27,7 @@ namespace check_cpu_filter {
 
 		filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value) : time(time), core(core), value(value) {}
 
+
 		long long get_total() const {
 			return static_cast<long long>(value.total);
 		}

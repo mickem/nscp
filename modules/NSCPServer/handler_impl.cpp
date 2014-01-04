@@ -1,7 +1,7 @@
 #include "stdafx.h"
 
 #include <boost/asio.hpp>
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/functions.hpp>
 
 #include "handler_impl.hpp"

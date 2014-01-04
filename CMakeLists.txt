@@ -98,7 +98,6 @@ EXECUTE_PROCESS(
 		--generate-hpp ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp
 	OUTPUT_VARIABLE TMP_VERSION_OUT
 	)
-	MESSAGE(STATUS "===================== Bumping version")
 ENDIF("${INCREASE_BUILD}" STREQUAL "1")
 
 EXECUTE_PROCESS(
@@ -309,6 +308,7 @@ SET(NSCP_FILTER_HPP
 )
 SET(NSCP_FILTER_LIB
 	where_filter
+	perfconfig_parser
 )
 
 SET(NSCP_DEF_PLUGIN_LIB
@@ -379,6 +379,7 @@ IF(WIN32)
 # Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
 #	add_nscp_py_test(eventlog test_eventlog)
 	add_nscp_py_test(w32_system test_w32_system)
+	add_nscp_py_test(w32_system test_w32_file)
 ENDIF(WIN32)
 
 #############################################################################

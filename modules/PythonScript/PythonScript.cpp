@@ -235,6 +235,8 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		settings.register_all();
 		settings.notify();
 
+		NSC_DEBUG_MSG("boot python");
+
 		bool do_init = false;
 		if (!has_init) {
 			has_init = true;
@@ -250,13 +252,16 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 			{
 				script_wrapper::thread_locker locker;
 				try {
+					NSC_DEBUG_MSG("Prepare python");
 
 					PyRun_SimpleString("import cStringIO");
 					PyRun_SimpleString("import sys");
 					PyRun_SimpleString("sys.stderr = cStringIO.StringIO()");
 
-					if (do_init)
+					if (do_init) {
+						NSC_DEBUG_MSG("init python");
 						initNSCP();
+					}
 
 				} catch( error_already_set e) {
 					script_wrapper::log_exception();
@@ -328,7 +333,7 @@ bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_cmdline(request.command())) {
 		std::string buffer;
-		int ret = inst->handle_exec(request.command(), request_message.SerializeAsString(), buffer);
+		inst->handle_exec(request.command(), request_message.SerializeAsString(), buffer);
 		Plugin::ExecuteResponseMessage local_response;
 		local_response.ParseFromString(buffer);
 		if (local_response.payload_size() != 1) {
@@ -345,6 +350,7 @@ bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(request.command(), args, result);
 		response->set_message(result);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
+		return true;
 	}
 	if (request.command() != "python-script" && request.command() != "python-run" 
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {

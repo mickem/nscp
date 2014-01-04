@@ -1,6 +1,6 @@
 #pragma once
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 #include <nscapi/nscapi_settings_object.hpp>
 

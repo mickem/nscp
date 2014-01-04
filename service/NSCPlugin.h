@@ -223,7 +223,7 @@ public:
 
 public:
 	void on_raw_log_message(std::string &payload) {
-		handleMessage(payload.c_str(), payload.size());
+		handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size()));
 	}
 
 private:

@@ -8,6 +8,7 @@ extern "C" {
 
 #include <string>
 #include <list>
+#include <vector>
 #include <NSCAPI.h>
 
 namespace lua {
@@ -122,6 +123,7 @@ namespace lua {
 		void push_int(int b);
 		void push_raw_string(std::string s);
 		void push_array(const std::list<std::string> &arr);
+		void push_array(const std::vector<std::string> &arr);
 		int size();
 		bool empty();
 		void log_stack();

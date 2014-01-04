@@ -32,8 +32,7 @@
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -243,6 +242,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			args.push_back("warn=free<0");
 			args.push_back("crit=free<0");
 			args.push_back("filter=none");
+			args.push_back("perf-config=used(unit:B)free(unit:B)");
 			break;
 		case REQ_CLIENTVERSION:
 			return check_nt::packet(nscapi::plugin_singleton->get_core()->getApplicationName() + " " + nscapi::plugin_singleton->get_core()->getApplicationVersionString());
@@ -278,6 +278,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			args.push_back("crit=used<0");
 			args.push_back("filter=none");
 			args.push_back("type=committed");
+			args.push_back("perf-config=used(unit:B)free(unit:B)");
 			break;
 		case REQ_COUNTER:
 			cmd.first = "check_pdh";

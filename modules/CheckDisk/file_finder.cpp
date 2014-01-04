@@ -18,7 +18,7 @@ bool is_directory(unsigned long dwAttr) {
  	return false;
 }
 
-void file_finder::recursive_scan(file_filter::filter filter, scanner_context &context, boost::filesystem::path dir, bool recursive, int current_level) {
+void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, bool recursive, int current_level) {
 	if (!context.is_valid_level(current_level)) {
 		if (context.debug) context.report_debug("Level death exhausted: " + strEx::s::xtos(current_level));
 		return;
@@ -57,12 +57,12 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 	HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (is_directory(wfd.dwFileAttributes) && ( wcscmp(wfd.cFileName, _T(".")) != 0 || wcscmp(wfd.cFileName, _T("..")) != 0))
+			if (is_directory(wfd.dwFileAttributes) && ( wcscmp(wfd.cFileName, _T(".")) == 0 || wcscmp(wfd.cFileName, _T("..")) == 0))
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
 			boost::tuple<bool,bool> ret = filter.match(info);
-			FindClose(hFind);
 			if (ret.get<1>()) {
+				FindClose(hFind);
 				return;
 			}
 		} while (FindNextFile(hFind, &wfd));
@@ -84,20 +84,18 @@ void file_finder::recursive_scan(file_filter::filter filter, scanner_context &co
 
 bool file_finder::scanner_context::is_valid_level(int current_level)
 {
-	throw std::exception("The method or operation is not implemented.");
+	return max_depth == -1 || current_level < max_depth;
 }
 
-void file_finder::scanner_context::report_error(const std::string str)
-{
-	throw std::exception("The method or operation is not implemented.");
+void file_finder::scanner_context::report_error(const std::string str) {
+	NSC_LOG_ERROR(str);
 }
 
-void file_finder::scanner_context::report_debug(const std::string str)
-{
-	throw std::exception("The method or operation is not implemented.");
+void file_finder::scanner_context::report_debug(const std::string str) {
+	if (debug)
+		NSC_DEBUG_MSG(str);
 }
 
-void file_finder::scanner_context::report_warning(const std::string msg)
-{
-	throw std::exception("The method or operation is not implemented.");
+void file_finder::scanner_context::report_warning(const std::string msg) {
+	NSC_LOG_ERROR(msg);
 }

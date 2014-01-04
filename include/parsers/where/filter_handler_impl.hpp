@@ -1,10 +1,13 @@
 #pragma once
 
 #include <map>
+#include <vector>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/bind.hpp>
+#include <boost/unordered_map.hpp>
+#include <boost/optional.hpp>
 
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/variable.hpp>
@@ -58,6 +61,7 @@ namespace parsers {
 
 		template<class T>
 		struct registry_adders_variables_int {
+			typedef typename filter_variable<T>::perf_generator_type perf_generator_type;
 
 			registry_adders_variables_int(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
 
@@ -88,26 +92,26 @@ namespace parsers {
 				return *this;
 			}
 			registry_adders_variables_int& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::simple_int_performance_generator<T>(unit, prefix, suffix)));
+				get_last()->perf.push_back(perf_generator_type(new parsers::where::simple_int_performance_generator<T>(unit, prefix, suffix)));
 				return *this;
 			}
 			typedef boost::function<long long(T, evaluation_context)> maxfun_type;
 			registry_adders_variables_int& add_percentage(maxfun_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::percentage_int_performance_generator<T>(maxfun, prefix, suffix)));
+				get_last()->perf.push_back(perf_generator_type(new parsers::where::percentage_int_performance_generator<T>(maxfun, prefix, suffix)));
 				return *this;
 			}
 
 			typedef boost::function<long long(T, evaluation_context)> scale_type;
 			registry_adders_variables_int& add_scaled_byte(std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(prefix, suffix)));
+				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(prefix, suffix)));
 				return *this;
 			}
 			registry_adders_variables_int& add_scaled_byte(scale_type minfun, scale_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(minfun, maxfun, prefix, suffix)));
+				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(minfun, maxfun, prefix, suffix)));
 				return *this;
 			}
 			registry_adders_variables_int& add_scaled_byte(scale_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(filter_variable<T>::perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(maxfun, prefix, suffix)));
+				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(maxfun, prefix, suffix)));
 				return *this;
 			}
 			
@@ -326,6 +330,9 @@ namespace parsers {
 				format::append_list(list_match, line);
 				count_match++;
 			}
+			void matched_unique() {
+				count_match++;
+			}
 			bool has_matched() const {
 				return count_match > 0;
 			}
@@ -341,6 +348,15 @@ namespace parsers {
 			void matched_crit(std::string &line) {
 				format::append_list(list_crit, line);
 				format::append_list(list_problem, line);
+				count_crit++;
+			}
+			void matched_ok_unique() {
+				count_ok++;
+			}
+			void matched_warn_unique() {
+				count_warn++;
+			}
+			void matched_crit_unique() {
 				count_crit++;
 			}
 
@@ -392,17 +408,24 @@ namespace parsers {
 					"${ok_list}\t A list of all items which matched the ok criteria\n"
 					"${warn_list}\t A list of all items which matched the warning criteria\n"
 					"${crit_list}\t A list of all items which matched the critical criteria\n"
-					"${problem_list}\t A list of all items which matched either the critical or the warning criteria\n";
+					"${problem_list}\t A list of all items which matched either the critical or the warning criteria\n"
+					"${status}\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
 			}
-			std::string get_filter_syntax() const {
+ 			std::string get_filter_syntax() const {
 				return 
 					"count\tNumber of items matching the filter\n"
 					"total\t Total number of items\n"
 					"ok_count\t Number of items matched the ok criteria\n"
 					"warn_count\t Number of items matched the warning criteria\n"
 					"crit_count\t Number of items matched the critical criteria\n"
-					"problem_count\t Number of items matched either warning or critical criteria\n";
-			}
+					"problem_count\t Number of items matched either warning or critical criteria\n"
+					"list\t A list of all items which matched the filter\n"
+					"ok_list\t A list of all items which matched the ok criteria\n"
+					"warn_list\t A list of all items which matched the warning criteria\n"
+					"crit_list\t A list of all items which matched the critical criteria\n"
+					"problem_list\t A list of all items which matched either the critical or the warning criteria\n"
+					"status\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
+ 			}
 
 			bool has_variable(const std::string &name) {
 				return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count"
@@ -412,6 +435,7 @@ namespace parsers {
 
 			node_type create_variable(const std::string &name, bool human_readable = false);
 		};
+
 
 		template<class TObject>
 		struct filter_handler_impl : public parsers::where::evaluation_context_impl<TObject> {
@@ -426,7 +450,7 @@ namespace parsers {
 			std::string get_format_syntax() const {
 				std::stringstream ss;
 				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
-					ss << "${" << var.first << "}\t" << var.second->description << "\n";
+					ss << "%(" << var.first << ")\t" << var.second->description << "\n";
 				}
 				return ss.str();
 			}
@@ -455,7 +479,7 @@ namespace parsers {
 					if (var) {
 						if (var->i_function) {
 							if (var->perf.empty()) {
-								typename filter_variable<object_type>::perf_generator_type gen(new parsers::where::simple_int_performance_generator<object_type>(""));
+								typename filter_variable<object_type>::perf_generator_type gen(new parsers::where::simple_int_performance_generator<object_type>("", "", "_" + var->name));
 								var->perf.push_back(gen);
 							}
 							if (var->s_function)
@@ -498,6 +522,41 @@ namespace parsers {
 				if (registry_.has_converter(to))
 					return true;
 				return false;
+			}
+
+			typedef std::map<std::string,std::string> perf_object_options_type;
+			typedef boost::unordered_map<std::string,perf_object_options_type> perf_options_type;
+			perf_options_type perf_options;
+
+			virtual bool has_performance_config_for_object(const std::string object) const {
+				return perf_options.find(object) != perf_options.end();
+			}
+			virtual std::string get_performance_config_key(const std::string prefix, const std::string object, const std::string suffix, const std::string key, const std::string v) const {
+				std::string value = v;
+				if (get_performance_config_value(prefix+object+suffix, key, value))
+					return value;
+				if (get_performance_config_value(prefix+object, key, value))
+					return value;
+				if (get_performance_config_value(object+suffix, key, value))
+					return value;
+				if (get_performance_config_value(object, key, value))
+					return value;
+				if (get_performance_config_value("*", key, value))
+					return value;
+				return value;
+			}
+			virtual bool get_performance_config_value(const std::string object, const std::string key, std::string &value) const {
+				perf_options_type::const_iterator cit = perf_options.find(object);
+				if (cit == perf_options.end())
+					return false;
+				perf_object_options_type::const_iterator cit2 = cit->second.find(key);
+				if (cit2 == cit->second.end())
+					return false;
+				value = cit2->second;
+				return true;
+			}
+			virtual void add_perf_config(const std::string &key, const std::map<std::string,std::string> &options) {
+				perf_options[key] = options;
 			}
 		};
 

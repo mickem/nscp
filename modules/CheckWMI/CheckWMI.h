@@ -23,8 +23,7 @@
 #include <strEx.h>
 #include <settings/client/settings_client.hpp>
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 #include "WMIQuery.h"
@@ -45,8 +44,7 @@ struct target_helper {
 			, password(other.password)
 			, protocol(other.protocol)
 		{}
-		const target_info& operator=(const target_info &other) 
-		{
+		const target_info& operator=(const target_info &other) {
 			hostname = other.hostname;
 			username = other.username;
 			password = other.password;

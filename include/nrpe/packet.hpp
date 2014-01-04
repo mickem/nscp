@@ -43,7 +43,7 @@ namespace nrpe {
 
 		static const std::size_t buffer_offset = 10;
 
-		typedef struct packet {
+		struct packet {
 			int16_t   packet_version;
 			int16_t   packet_type;
 			u_int32_t crc32_value;

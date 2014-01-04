@@ -29,7 +29,7 @@ namespace logfile_filter {
 				return chunks[col-1];
 			return "";
 		}
-		long long get_column_number(int col) const {
+		long long get_column_number(std::size_t col) const {
 			if (col >= 1 && col <= chunks.size())
 				return strEx::s::stox<long long>(chunks[col-1]);
 			return 0;

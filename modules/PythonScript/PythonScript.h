@@ -26,7 +26,7 @@
 #include <boost/optional.hpp>
 #include <boost/python.hpp>
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 #include <scripts/functions.hpp>
 

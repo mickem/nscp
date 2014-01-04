@@ -45,6 +45,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <buffer.hpp>
 #include <handle.hpp>
+#include <compat.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -137,21 +138,6 @@ bool CheckEventLog::unloadModule() {
 	return true;
 }
 
-class uniq_eventlog_record {
-	DWORD ID;
-	WORD type;
-	WORD category;
-public:
-	std::string message;
-	uniq_eventlog_record(EVENTLOGRECORD *pevlr) : ID(pevlr->EventID&0xffff), type(pevlr->EventType), category(pevlr->EventCategory) {}
-	bool operator< (const uniq_eventlog_record &other) const { 
-		return (ID < other.ID) || ((ID==other.ID)&&(type < other.type)) || (ID==other.ID&&type==other.type)&&(category < other.category);
-	}
-	std::wstring to_string() const {
-		return _T("id=") + strEx::itos(ID) + _T("type=") + strEx::itos(type) + _T("category=") + strEx::itos(category);
-	}
-};
-typedef std::map<uniq_eventlog_record,unsigned int> uniq_eventlog_map;
 typedef hlp::buffer<BYTE, EVENTLOGRECORD*> eventlog_buffer;
 
 inline std::time_t to_time_t(boost::posix_time::ptime t) { 
@@ -182,13 +168,12 @@ inline long long parse_time(std::string time) {
 	return now + value;
 }
 
-void check_legacy(const std::string &logfile, std::string &scan_range, eventlog_filter::filter &filter)  {
+void check_legacy(const std::string &logfile, std::string &scan_range, const int truncate_message,  eventlog_filter::filter &filter)  {
 	typedef eventlog_filter::filter filter_type;
 	eventlog_buffer buffer(4096);
 	HANDLE hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(logfile).c_str());
 	if (hLog == NULL)
 		throw nscp_exception("Could not open the '" + logfile + "' event log: "  + error::lookup::last_error());
-	uniq_eventlog_map uniq_records;
 	long long stop_date;
 	enum direction_type {
 		direction_none, direction_forwards, direction_backwards
@@ -212,12 +197,12 @@ void check_legacy(const std::string &logfile, std::string &scan_range, eventlog_
 	bool is_scanning = true;
 	while (is_scanning) {
 
-		BOOL bStatus = ReadEventLog(hLog, flags, 0, buffer.get(), buffer.size(), &dwRead, &dwNeeded);
+		BOOL bStatus = ReadEventLog(hLog, flags, 0, buffer.get(), static_cast<DWORD>(buffer.size()), &dwRead, &dwNeeded);
 		if (bStatus == FALSE) {
 			DWORD err = GetLastError();
 			if (err == ERROR_INSUFFICIENT_BUFFER) {
 				buffer.resize(dwNeeded);
-				if (!ReadEventLog(hLog, flags, 0, buffer.get(), buffer.size(), &dwRead, &dwNeeded))
+				if (!ReadEventLog(hLog, flags, 0, buffer.get(), static_cast<DWORD>(buffer.size()), &dwRead, &dwNeeded))
 					throw nscp_exception("Error reading eventlog: " + error::lookup::last_error());
 			} else if (err == ERROR_HANDLE_EOF) {
 				is_scanning = false;
@@ -242,29 +227,10 @@ void check_legacy(const std::string &logfile, std::string &scan_range, eventlog_
 				is_scanning = false;
 				break;
 			}
-			boost::tuple<bool,bool> ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record)));
+			boost::tuple<bool,bool> ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, truncate_message)));
 			if (ret.get<1>()) {
 				break;
 			}
-			// 				bool match = impl->match(arg);
-			// 				if (match&&unique) {
-			// 					match = false;
-			// 					uniq_eventlog_record uniq_record = pevlr;
-			// 					uniq_eventlog_map::iterator it = uniq_records.find(uniq_record);
-			// 					if (it != uniq_records.end()) {
-			// 						(*it).second ++;
-			// 					}
-			// 					else {
-			// 						uniq_record.message = record.render(fargs->bShowDescriptions, fargs->syntax);
-			// 						uniq_records[uniq_record] = 1;
-			// 					}
-			// 					hit_count++;
-			// 				} else if (match) {
-			// 					if (!fargs->syntax.empty()) {
-			// 						strEx::append_list(message, record.render(fargs->bShowDescriptions, fargs->syntax));
-			// 					}
-			// 					hit_count++;
-			// 				}
 			dwRead -= pevlr->Length; 
 			pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
 		} 
@@ -273,7 +239,7 @@ void check_legacy(const std::string &logfile, std::string &scan_range, eventlog_
 }
 
 
-void check_modern(const std::string &logfile, std::string &scan_range, eventlog_filter::filter &filter)  {
+void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter)  {
 	typedef eventlog_filter::filter filter_type;
 	DWORD status = ERROR_SUCCESS;
 	const int batch_size = 10;	// TODO make configurable
@@ -328,7 +294,7 @@ void check_modern(const std::string &logfile, std::string &scan_range, eventlog_
 			for (DWORD i = 0; i < dwReturned; i++) {
 				eventlog::evt_handle handle(hEvents[i]);
 				try {
-					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, handle, hContext));
+					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, handle, hContext, truncate_message));
 					if (direction == direction_backwards && item->get_written() < stop_date)
 						return;
 					if (direction == direction_forwards && item->get_written() > stop_date)
@@ -344,27 +310,6 @@ void check_modern(const std::string &logfile, std::string &scan_range, eventlog_
 				}
 			}
 		}
-
-
-			// 				bool match = impl->match(arg);
-			// 				if (match&&unique) {
-			// 					match = false;
-			// 					uniq_eventlog_record uniq_record = pevlr;
-			// 					uniq_eventlog_map::iterator it = uniq_records.find(uniq_record);
-			// 					if (it != uniq_records.end()) {
-			// 						(*it).second ++;
-			// 					}
-			// 					else {
-			// 						uniq_record.message = record.render(fargs->bShowDescriptions, fargs->syntax);
-			// 						uniq_records[uniq_record] = 1;
-			// 					}
-			// 					hit_count++;
-			// 				} else if (match) {
-			// 					if (!fargs->syntax.empty()) {
-			// 						strEx::append_list(message, record.render(fargs->bShowDescriptions, fargs->syntax));
-			// 					}
-			// 					hit_count++;
-			// 				}
 	} 
 }
 
@@ -382,24 +327,24 @@ void log_args(const Plugin::QueryRequestMessage::Request &request) {
 void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	bool debug = false;
-	std::string filter, syntax;
+	std::string filter, syntax, scan_range, top_syntax;
 	std::vector<std::string> times;
 	nscapi::program_options::add_help(desc);
+	bool unique = false;
+
+	compat::addAllNumeric(desc);
+	compat::addOldNumeric(desc);
+
 	desc.add_options()
-		("MaxWarn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("MaxCrit", po::value<std::string>(), "Maximum value before a critical is returned.")
-		("MinWarn", po::value<std::string>(), "Minimum value before a warning is returned.")
-		("MinCrit", po::value<std::string>(), "Minimum value before a critical is returned.")
-		("warn", po::value<std::string>(), "Maximum value before a warning is returned.")
-		("crit", po::value<std::string>(), "Maximum value before a critical is returned.")
 		("filter", po::value<std::string>(&filter), "The filter to use.")
 		("file", po::value<std::vector<std::string>>(&times), "The file to check")
-		("debug", po::value<bool>(&debug), "The file to check")
+		("debug", po::value<bool>(&debug)->implicit_value("true"), "The file to check")
 		("truncate", po::value<std::string>(), "Deprecated and has no meaning")
-		("descriptions", po::value<bool>(), "Deprecated and has no meaning")
-		("unique", po::value<bool>(), "TODO: Currently not supported")
-		 
-		("display", po::value<std::string>(&syntax)->default_value("%source%, %strings%"), "The syntax string")
+		("descriptions", po::value<bool>()->implicit_value("true"), "Deprecated and has no meaning")
+		("unique", po::value<bool>(&unique)->implicit_value("true"), "")
+		("syntax", po::value<std::string>(&syntax)->default_value("%source%, %strings%"), "The syntax string")
+		("top-syntax", po::value<std::string>(&top_syntax)->default_value("${list}"), "The top level syntax string")
+		("scan-range", po::value<std::string>(&scan_range), "TODO")
 		;
 
 	boost::program_options::variables_map vm;
@@ -408,33 +353,30 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 	std::string warn, crit;
 
 	request.clear_arguments();
-	if (vm.count("MaxWarn"))
-		warn = "warn=count > " + vm["MaxWarn"].as<std::string>();
-	if (vm.count("MaxCrit"))
-		crit = "crit=count > " + vm["MaxCrit"].as<std::string>();
-	if (vm.count("warn"))
-		warn = "warn=count > " + vm["warn"].as<std::string>();
-	if (vm.count("crit"))
-		crit = "crit=count > " + vm["crit"].as<std::string>();
-	if (vm.count("MinWarn"))
-		warn = "warn=count < " + vm["MinWarn"].as<std::string>();
-	if (vm.count("MinCrit"))
-		crit = "crit=count > " + vm["MinCrit"].as<std::string>();
-	if (!warn.empty())
-		request.add_arguments(warn);
-	if (!crit.empty())
-		request.add_arguments(crit);
+	compat::matchFirstNumeric(vm, "count", "count", warn, crit);
+	compat::matchFirstOldNumeric(vm, "count", warn, crit);
+
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+	compat::inline_addarg(request, "scan-range=", scan_range);
+
 	BOOST_FOREACH(const std::string &t, times) {
 		request.add_arguments("file=" + t);
 	}
 	if (debug)
 		request.add_arguments("debug");
-	if (!filter.empty())
+	if (unique)
+		request.add_arguments("unique");
+	if (!filter.empty()) {
+		if (eventlog::api::supports_modern()) {
+			boost::replace_all(filter, "strings", "message");
+			boost::replace_all(filter, "generated", "written");
+		}
 		request.add_arguments("filter="+filter);
+	}
 	boost::replace_all(syntax, "%message%", "${message}");
 	boost::replace_all(syntax, "%source%", "${source}");
 	boost::replace_all(syntax, "%computer%", "${computer}");
-	boost::replace_all(syntax, "%generated%", "${generated}");
 	boost::replace_all(syntax, "%written%", "${written}");
 	boost::replace_all(syntax, "%type%", "${type}");
 	boost::replace_all(syntax, "%category%", "${category}");
@@ -442,13 +384,20 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 	boost::replace_all(syntax, "%qualifier%", "${qualifier}");
 	boost::replace_all(syntax, "%customer%", "${customer}");
 	boost::replace_all(syntax, "%severity%", "${severity}");
-	boost::replace_all(syntax, "%strings%", "${message}");
+	if (eventlog::api::supports_modern()) {
+		boost::replace_all(syntax, "%strings%", "${message}");
+		boost::replace_all(syntax, "%generated%", "${written}");
+	} else {
+		boost::replace_all(syntax, "%strings%", "${strings}");
+		boost::replace_all(syntax, "%generated%", "${generated}");
+	}
 	boost::replace_all(syntax, "%level%", "${level}");
 	boost::replace_all(syntax, "%log%", "${file}");
 	boost::replace_all(syntax, "%file%", "${file}");
 	boost::replace_all(syntax, "%id%", "${id}");
 	boost::replace_all(syntax, "%user%", "${user}");
 	request.add_arguments("detail-syntax="+syntax);
+	request.add_arguments("top-syntax="+top_syntax);
 	log_args(request);
 	check_eventlog(request, response);
 }
@@ -462,22 +411,31 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	std::string files_string;
 	std::string mode;
 	std::string scan_range;
+	bool unique = false;
+	int truncate_message = 0;
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax());
-	filter_helper.add_syntax("${file}: ${count} (${problem_list})", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}");
+	filter_helper.add_index(filter.get_format_syntax(), "");
+	filter_helper.add_syntax("${status}: ${problem_count}/${count} ${problem_list}", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}");
 	filter_helper.get_desc().add_options()
 		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
 		"In other words if one file contains an error the entire check will result in error.")
 		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nThis is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
+		("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
+		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
 		;
 	if (!filter_helper.parse_options())
 		return;
 
 	if (filter_helper.empty()) {
-		data.filter_string = "level in ('error', 'warning')";
+		filter_helper.set_default_filter("level in ('error', 'warning')");
 		filter_helper.set_default("count > 0", "count > 5");
 		scan_range = "-24h";
+	}
+
+	if (unique) {
+		filter_helper.set_default_index("${log}-${source}-${id}");
 	}
 	if (file_list.empty()) {
 		file_list.push_back("Application");
@@ -488,10 +446,6 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		return;
 
 
-// 	desc.add_options()
-// 		("unique", po::bool_switch(&unique), "Only return one of each message (based on message id and source).")
-// 		;
-
 	BOOST_FOREACH(const std::string &file, file_list) {
 		std::string name = file;
 		if (lookup_names_) {
@@ -501,14 +455,9 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 			}
 		}
 		if (eventlog::api::supports_modern())
-			check_modern(name, scan_range, filter);
+			check_modern(name, scan_range, truncate_message, filter);
 		else
-			check_legacy(name, scan_range, filter);
-// 		BOOST_FOREACH(const uniq_eventlog_map::value_type &v, uniq_records) {
-// 			std::string msg = v.first.message;
-// 			strEx::replace(msg, "%count%", strEx::s::xtos(v.second));
-// 			strEx::append_list(message, msg);
-// 		}
+			check_legacy(name, scan_range, truncate_message, filter);
 	}
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);
@@ -602,15 +551,16 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 		WORD wType = EventLogRecord::translateType(type);
 		WORD wSeverity = EventLogRecord::translateSeverity(severity);
 		DWORD tID = (wEventID&0xffff) | ((facility&0xfff)<<16) | ((customer&0x1)<<29) | ((wSeverity&0x3)<<30);
-		hlp::buffer<LPCWSTR> string_data(strings.size());
+		hlp::buffer<LPCWSTR> string_data(strings.size()+1);
 		int i=0;
 		// TODO: FIxme this is broken!
-// 		BOOST_FOREACH(const std::wstring &s, strings) {
-// 			string_data[i++] = s.c_str();
-// 		}
+ 		BOOST_FOREACH(const std::wstring &s, strings) {
+ 			string_data[i++] = s.c_str();
+ 		}
+		string_data[i++] = 0;
 
 		if (!ReportEvent(source, wType, category, tID, NULL, static_cast<WORD>(strings.size()), 0, string_data, NULL)) {
-			return nscapi::protobuf::functions::set_response_bad(*response, "Could not report the event");
+			return nscapi::protobuf::functions::set_response_bad(*response, "Could not report the event: " + error::lookup::last_error());
 		} else {
 			return nscapi::protobuf::functions::set_response_good(*response, "Message reported successfully");
 		}

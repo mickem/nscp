@@ -521,7 +521,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "CPU Load ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${time}: ${load}%", "${core} ${time}");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${time}: ${load}%", "${core} ${time}");
 	filter_helper.get_desc().add_options()
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
 		;
@@ -606,7 +606,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -643,7 +643,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "Version ok");
-	filter_helper.add_syntax("${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -730,7 +730,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -782,7 +782,7 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "OK pagefile within bounds.");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -861,7 +861,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${type} = ${used}", "${type}");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${type} = ${used}", "${type}");
 	filter_helper.get_desc().add_options()
 		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
 		;
@@ -978,7 +978,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	NSC_error err;
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "OK all processes are ok.");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 		("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")

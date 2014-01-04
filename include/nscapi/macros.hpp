@@ -1,9 +1,4 @@
 #pragma once
-//#include <unicode_char.hpp>
-//#include <boost/shared_ptr.hpp>
-//#include <NSCAPI.h>
-
-//#pragma warning( disable : 4100 )
 
 //////////////////////////////////////////////////////////////////////////
 // Module wrappers (definitions)
@@ -19,7 +14,7 @@
 	extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id); \
 	extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len); \
 	extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len); \
-	extern "C" int NSUnloadModule(unsigned int plugin_id);
+	extern "C" int NSUnloadModule(unsigned int plugin_id)
 
 
 #define NSC_WRAPPERS_CLI() \
@@ -72,7 +67,7 @@
 #define NSC_WRAPPERS_MAIN_DEF(impl_class, def_alias) \
 	typedef impl_class plugin_impl_class; \
 	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance; \
-	extern int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); } \
+	extern int NSModuleHelperInit(unsigned int, nscapi::core_api::lpNSAPILoader f) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); } \
 	extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) { \
 		nscapi::basic_wrapper_static<plugin_impl_class>::set_alias(def_alias, alias); \
 		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); \

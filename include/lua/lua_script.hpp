@@ -60,6 +60,7 @@ namespace lua {
 		bool isExisting;
 		bool isPrecious() { return false; }
 
+		int create_pb_query(lua_State *L);
 		int simple_query(lua_State *L);
 		int query(lua_State *L);
 		int simple_exec(lua_State *L);

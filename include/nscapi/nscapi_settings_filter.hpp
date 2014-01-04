@@ -22,6 +22,7 @@ namespace nscapi {
 			std::string filter_warn;
 			std::string filter_crit;
 			std::string perf_data;
+			std::string perf_config;
 			NSCAPI::nagiosReturn severity;
 			std::string command;
 			boost::optional<boost::posix_time::time_duration> max_age;

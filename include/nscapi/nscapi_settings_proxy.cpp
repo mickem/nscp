@@ -1,6 +1,6 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 template<class T>
 void report_errors(const T &response, nscapi::core_wrapper* core, const std::string &action) {

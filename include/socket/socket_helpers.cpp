@@ -93,7 +93,7 @@ addr calculate_mask(std::string mask_s) {
 		if (i < index)
 			ret[i] = largest_byte;
 		else if (i == index)
-			ret[i] = value;
+			ret[i] = static_cast<unsigned char>(value);
 		else
 			ret[i] = 0;
 	}

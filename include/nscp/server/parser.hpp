@@ -19,19 +19,19 @@ namespace nscp {
 
 			template<typename iterator_type>
 			boost::tuple<bool, iterator_type> digest(iterator_type begin, iterator_type end) {
-				bool result = false;
 				for (; begin != end; ++begin)
 					buffer_.push_back(*begin);
 				if (buffer_.size() >= nscp::length::get_header_size()) {
 					nscp::data::frame *tmp = reinterpret_cast<nscp::data::frame*>(&(*buffer_.begin()));
 					unsigned int frame_length = nscp::length::get_frame_size(tmp->header);
 					if (buffer_.size() >= frame_length) {
-						bool last_frame = tmp->header.flags&nscp::data::flag_last_frame==1;
+						bool last_frame = (tmp->header.flags&nscp::data::flag_last_frame)==nscp::data::flag_last_frame;
 						// TODO: push frames!
 						buffer_.erase(buffer_.begin(), buffer_.begin()+frame_length);
 						return boost::make_tuple(last_frame, end);
 					}
 				}
+				return boost::make_tuple(true, end);
 			}
 			nscp::packet get_packet() const { return packet_; }
 
@@ -44,7 +44,7 @@ namespace nscp {
 				if (buffer_.size() < frame_length) 
 					return frame_length;
 
-				if (tmp->header.flags&nscp::data::flag_last_frame==1)
+				if ((tmp->header.flags&nscp::data::flag_last_frame)==nscp::data::flag_last_frame)
 					return 0;
 
 				return nscp::length::get_header_size();

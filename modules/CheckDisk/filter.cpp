@@ -33,11 +33,18 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		;
 
 	registry_.add_int()
-		("size", boost::bind(&filter_obj::get_size, _1), "File size").add_scaled_byte(std::string(""), " size")
+		("size", type_size, boost::bind(&filter_obj::get_size, _1), "File size").add_scaled_byte(std::string(""), " size")
 		("line_count", boost::bind(&filter_obj::get_line_count, _1), "Number of lines in the file (text files)")
 		("access", type_date, boost::bind(&filter_obj::get_access, _1), "Last access time")
 		("creation", type_date, boost::bind(&filter_obj::get_creation, _1), "When file was created")
-		("written", type_date, boost::bind(&filter_obj::get_write, _1), "WHen file was last written to")
+		("written", type_date, boost::bind(&filter_obj::get_write, _1), "When file was last written to")
+		("write", type_date, boost::bind(&filter_obj::get_write, _1), "Alias for written")
+		;
+
+	registry_.add_human_string()
+		("access", boost::bind(&filter_obj::get_access_s, _1), "")
+		("creation", boost::bind(&filter_obj::get_creation_s, _1), "")
+		("written", boost::bind(&filter_obj::get_written_s, _1), "")
 		;
 
 }

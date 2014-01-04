@@ -219,7 +219,7 @@ namespace format {
 #define WEEK	(7 * 24 * 60 * 60 * 1000)
 #define DAY		(24 * 60 * 60 * 1000)
 #define HOUR	(60 * 60 * 1000)
-#define MIN		(60 * 1000)
+#define MINUTE	(60 * 1000)
 #define SEC		(1000)
 	inline std::string itos_as_time(unsigned long long time) {
 		std::stringstream ss;
@@ -227,7 +227,7 @@ namespace format {
 			unsigned int w = static_cast<unsigned int>(time/WEEK);
 			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MIN);
+			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MINUTE);
 			ss << w;
 			ss << "w " << d << "d " ;
 			ss  << std::setfill('0') << std::setw(2);
@@ -236,7 +236,7 @@ namespace format {
 		else if (time > DAY) {
 			unsigned int d = static_cast<unsigned int>((time)/DAY);
 			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MIN);
+			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MINUTE);
 			ss << d;
 			ss << "d " ;
 			ss << std::setfill('0') << std::setw(2);
@@ -244,10 +244,10 @@ namespace format {
 		}
 		else if (time > HOUR) {
 			unsigned int h = static_cast<unsigned int>((time)/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MIN);
+			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MINUTE);
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
-		} else if (time > MIN) {
+		} else if (time > MINUTE) {
 			ss << std::setfill('0') << std::setw(2);
 			ss << "0:" << static_cast<unsigned int>(time/(60 * 1000));
 		} else if (time > SEC)
@@ -284,7 +284,6 @@ namespace format {
 #define BKMG_SIZE 5
 
 	inline std::string format_byte_units(const long long i) {
-		const long long sign = 1;
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;

@@ -39,14 +39,14 @@ namespace scheduler {
 		boost::shared_mutex mutex_;
 	public:
 		bool empty(unsigned int timeout = 5) {
-			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
 			if (!lock.owns_lock()) 
 				return false;
 			return queue_.empty();
 		}
 
 		boost::optional<T> top(unsigned int timeout = 5) {
-			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
 			if (!lock || queue_.empty())
 				return boost::optional<T>();
 			return boost::optional<T>(queue_.top());

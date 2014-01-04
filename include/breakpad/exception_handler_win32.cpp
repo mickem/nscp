@@ -82,7 +82,7 @@ ExceptionManager::~ExceptionManager() {
 
 static HMODULE GetModuleHandleFromAddress(void *address) {
 	MEMORY_BASIC_INFORMATION mbi;
-	SIZE_T result = VirtualQuery(address, &mbi, sizeof(mbi));
+	VirtualQuery(address, &mbi, sizeof(mbi));
 	return static_cast<HMODULE>(mbi.AllocationBase);
 }
 
@@ -94,15 +94,15 @@ static HMODULE GetCurrentModuleHandle() {
 }
 
 
-static bool IsAddressInCurrentModule(void *address) {
-	return GetCurrentModuleHandle() == GetModuleHandleFromAddress(address);
-}
+// static bool IsAddressInCurrentModule(void *address) {
+// 	return GetCurrentModuleHandle() == GetModuleHandleFromAddress(address);
+// }
 
 
 // Called back when an exception occurs - we can decide here if we
 // want to handle this crash...
 //
-static bool FilterCallback(void *context, EXCEPTION_POINTERS *exinfo, MDRawAssertionInfo *assertion) {
+static bool FilterCallback(void *context, EXCEPTION_POINTERS *exinfo, MDRawAssertionInfo*) {
 	// g_logger will be NULL if user opts out of metrics/crash reporting
 	//if (!g_logger) return false;
 
@@ -171,7 +171,7 @@ void run_command(ExceptionManager* this_ptr, std::string exe, std::string comman
 	Sleep(500);
 }
 
-static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *minidump_id, void *context, EXCEPTION_POINTERS *exinfo, MDRawAssertionInfo *assertion, bool succeeded) {
+static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *minidump_id, void *context, EXCEPTION_POINTERS*, MDRawAssertionInfo*, bool) {
 	ExceptionManager* this_ptr = reinterpret_cast<ExceptionManager*>(context);
 	report_info("Detected crash...");
 
@@ -219,7 +219,7 @@ void ExceptionManager::setup_restart(std::string service) {
 	service_ = service;
 }
 
-void ExceptionManager::setup_submit(boolean ui, std::string url) {
+void ExceptionManager::setup_submit(bool ui, std::string url) {
 	ui_ = ui;
 	url_ = url;
 }

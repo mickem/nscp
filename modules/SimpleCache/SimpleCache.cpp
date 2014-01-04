@@ -53,15 +53,15 @@ struct simple_string_functor {
 		value = other.value;
 		return *this;
 	}
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return value;
 	}
-	std::string operator() (const SimpleCache::cache_query &query) {
+	std::string operator() (const SimpleCache::cache_query &) {
 		return value;
 	}
 };
 struct header_host_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
 		for (int i=0;i<hdr.hosts_size();i++) {
 			if (hdr.hosts(i).id() == sender)
@@ -74,7 +74,7 @@ struct header_host_functor {
 	}
 };
 struct payload_command_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.command();
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -82,7 +82,7 @@ struct payload_command_functor {
 	}
 };
 struct channel_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return channel;
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -90,7 +90,7 @@ struct channel_functor {
 	}
 };
 struct payload_alias_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string , const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.alias();
 	}
 	std::string operator() (const SimpleCache::cache_query &query) {
@@ -98,7 +98,7 @@ struct payload_alias_functor {
 	}
 };
 struct payload_alias_or_command_functor {
-	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		if (payload.has_alias())
 			return payload.alias();
 		return payload.command();

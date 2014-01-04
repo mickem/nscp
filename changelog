@@ -1,3 +1,30 @@
+2014-01-04 MickeM
+ * Numerous bugfixes and compatiblity fixes
+ * Gone over all unit tests to make sure they run
+
+2013-12-23 MickeM
+ * Added support for unique
+ * Fixed unique and debug flags in CheckEventLog
+
+2013-12-20 MickeM
+ * Fixed issue with check_nt and units beeing reounded to nearest bg, mg, kb, etc)
+ * Added support for configuring performance data
+
+2013-12-18 MickeM
+ * Fixed source in new eventlog
+ * Added truncate-message option to check eventlog to truncate the message
+ * Added filtering of cr,lf in eventlog messages
+ * Fixed performance data naming in event log
+
+2013-12-10 MickeM
+ * renamed "full config" sample to reduce confusion.
+ * Fixed numerous issues with check_files and CheckFiles (now all CheckFiles unit test work as expected)
+ 
+2013-12-09 MickeM
+ * Fixed a crash in handling ${status} in some filters.
+ * Added check_nrpe to the installer
+ * Changed symbol paths (in zip) now correspond to what breakpad expects
+
 2013-12-05 MickeM - RC3
  * Added suport for instances (new keyword instances) to check_pdh
  * Fixed more compatiblity issues

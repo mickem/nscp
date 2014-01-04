@@ -142,7 +142,7 @@ public:
 			return;
 		try {
 			if (max_size_ != 0 &&  boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
-				int target_size = max_size_*0.7;
+				int target_size = static_cast<int>(max_size_*0.7);
 				char *tmpBuffer = new char[target_size+1];
 				try {
 					std::ifstream ifs(file_.c_str());
@@ -186,7 +186,7 @@ public:
 		std::string format;
 		std::size_t max_size;
 	};
-	config_data do_config(bool load_values = false) {
+	config_data do_config() {
 		config_data ret;
 		try {
 
@@ -227,12 +227,12 @@ public:
 		return ret;
 	}
 	void synch_configure() {
-		do_config(false);
+		do_config();
 	}
 
 	void asynch_configure() {
 		try {
-			config_data config = do_config(true);
+			config_data config = do_config();
 
 			format_ = config.format;
 			max_size_ = config.max_size;
@@ -275,7 +275,7 @@ public:
 	struct config_data {
 		std::string format;
 	};
-	config_data do_config(bool load_values = false) {
+	config_data do_config() {
 		config_data ret;
 		try {
 			sh::settings_registry settings(settings_manager::get_proxy());
@@ -303,11 +303,11 @@ public:
 		return ret;
 	}
 	void synch_configure() {
-		do_config(false);
+		do_config();
 	}
 	void asynch_configure() {
 		try {
-			config_data config = do_config(true);
+			config_data config = do_config();
 			format_ = config.format;
 		} catch (nscapi::nscapi_exception &e) {
 			log_fatal(std::string("Failed to register command: ") + e.what());

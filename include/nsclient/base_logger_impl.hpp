@@ -30,7 +30,7 @@ namespace nsclient {
 			NSCAPI::log_level::level get_log_level() const {
 				return level_;
 			}
-			virtual void set_log_level(NSCAPI::log_level::level level) {
+			virtual void set_log_level(const NSCAPI::log_level::level level) {
 				level_ = level;
 			}
 			virtual void set_config(const std::string &key) {

@@ -443,7 +443,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "All drives ok");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${drive}: ${used}/${size} used", "${drive}");
+	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive}: ${used}/${size} used", "${drive}");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives), 
 		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")

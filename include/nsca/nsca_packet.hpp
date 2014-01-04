@@ -16,7 +16,7 @@ namespace nsca {
 	class data {
 	public:
 		static const short transmitted_iuv_size = 128;
-		static const short version3 = 3;
+		static const int16_t version3 = 3;
 
 		typedef struct data_packet : public boost::noncopyable {
 			int16_t   packet_version;
@@ -31,23 +31,29 @@ namespace nsca {
 			*/
 			//data_packet_struct() : packet_version(NSCA_PACKET_VERSION_3) {}
 
+			char* get_data_offset(unsigned int offset) {
+				return &data[offset];
+			}
+			const char* get_data_offset(unsigned int offset) const {
+				return &data[offset];
+			}
 			const char* get_host_ptr() const {
-				return &data[0];
+				return get_data_offset(0);
 			}
 			const char* get_desc_ptr(unsigned int host_len) const {
-				return &data[host_len];
+				return get_data_offset(host_len);
 			}
 			const char* get_result_ptr(unsigned int host_len, unsigned int desc_len) const {
-				return &data[host_len+desc_len];
+				return get_data_offset(host_len+desc_len);
 			}
 			char* get_host_ptr() {
-				return &data[0];
+				return get_data_offset(0);
 			}
 			char* get_desc_ptr(unsigned int host_len) {
-				return &data[host_len];
+				return get_data_offset(host_len);
 			}
 			char* get_result_ptr(unsigned int host_len, unsigned int desc_len) {
-				return &data[host_len+desc_len];
+				return get_data_offset(host_len+desc_len);
 			}
 		} data_packet;
 
@@ -72,8 +78,8 @@ namespace nsca {
 	class length {
 	public:
 		typedef unsigned int size_type;
-		static const short host_length = 64;
-		static const short desc_length = 128;
+		static const std::size_t host_length = 64;
+		static const std::size_t desc_length = 128;
 	public:
 		static size_type payload_length_;
 		static void set_payload_length(size_type length) {
@@ -180,17 +186,17 @@ namespace nsca {
 
 			data->packet_version=swap_bytes::hton<int16_t>(nsca::data::version3);
 			if (servertime != 0)
-				data->timestamp=swap_bytes::hton<u_int32_t>(servertime);
+				data->timestamp=swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(servertime));
 			else
-				data->timestamp=swap_bytes::hton<u_int32_t>(time);
-			data->return_code = swap_bytes::hton<int16_t>(code);
+				data->timestamp=swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(time));
+			data->return_code = swap_bytes::hton<int16_t>(static_cast<int16_t>(code));
 			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 
 			copy_string(data->get_host_ptr(), host, nsca::length::host_length);
 			copy_string(data->get_desc_ptr(nsca::length::host_length), service, nsca::length::desc_length);
 			copy_string(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result, get_payload_length());
 
-			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),buffer.size());
+			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),static_cast<int>(buffer.size()));
 			data->crc32_value=swap_bytes::hton<u_int32_t>(calculated_crc32);
 		}
 		std::string get_buffer() const {

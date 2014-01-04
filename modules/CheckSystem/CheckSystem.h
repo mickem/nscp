@@ -23,11 +23,11 @@
 //#include <pdh.hpp>
 #include "pdh_thread.hpp"
 #include <CheckMemory.h>
-#include <protobuf/plugin.pb.h>
 
 #include "check_pdh.hpp"
 
 
+#include <nscapi/nscapi_protobuf.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>

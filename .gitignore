@@ -11,3 +11,4 @@ version.hpp
 
 # Vagrant
 .vagrant
+.codelite

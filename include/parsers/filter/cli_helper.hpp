@@ -2,9 +2,6 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 
-#include <protobuf/plugin.pb.h>
-
-#include <parsers/expression/expression.hpp>
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
@@ -13,12 +10,13 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
 
 
 namespace modern_filter {
 	struct data_container {
 		std::string filter_string, warn_string, crit_string, ok_string;
-		std::string syntax_top, syntax_detail, syntax_perf, empty_detail, empty_state;
+		std::string syntax_top, syntax_detail, syntax_perf, perf_config, empty_detail, empty_state, syntax_unique;
 		bool debug;
 		data_container() : debug(false) {}
 	};
@@ -71,6 +69,8 @@ namespace modern_filter {
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", boost::program_options::value<std::string>(&data.empty_state)->default_value(empty_state), 
 				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
+				"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
 				;
 		}
 
@@ -104,14 +104,24 @@ namespace modern_filter {
 			if (data.filter_string.empty())
 				data.filter_string = filter;
 		}
+		void set_default_index(const std::string filter) {
+			if (data.syntax_unique.empty())
+				data.syntax_unique = filter;
+		}
 		bool build_filter(T &filter) {
 			std::string tmp_msg;
 			if (data.filter_string == "none")
 				data.filter_string = "";
 
-			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, tmp_msg)) {
+			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, tmp_msg)) {
 				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
 				return false;
+			}
+			if (!data.syntax_unique.empty()) {
+				if (!filter.build_index(data.syntax_unique, tmp_msg)) {
+					nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
+					return false;
+				}
 			}
 			if (!filter.build_engines(data.debug, data.filter_string, data.ok_string, data.warn_string, data.crit_string)) {
 				nscapi::protobuf::functions::set_response_bad(*response, "Failed to build engines");
@@ -127,8 +137,6 @@ namespace modern_filter {
 			return true;
 		}
 		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax) {
-			std::string tmp_msg;
-
 			std::string tk = "Top level syntax.\n"
 				"Used to format the message to return can include strings as well as special keywords such as: \n\nKey\tValue\n" + syntax + "\n"; 
 			std::string dk = "Detail level syntax.\n"
@@ -145,14 +153,24 @@ namespace modern_filter {
 				;
 		}
 
+		void add_index(const std::string &syntax, const std::string &default_unique_syntax) {
+			std::string tk = "Unique syntax.\n"
+				"Used to filter unique items (counted will still increase but messages will not repeaters: \n\nKey\tValue\n" + syntax + "\n"; 
+
+			desc.add_options()
+				("unique-index", boost::program_options::value<std::string>(&data.syntax_unique)->default_value(default_unique_syntax), tk.c_str())
+				;
+		}
+
 		void post_process(T &filter, parsers::where::perf_writer_interface* writer) {
-			filter.end_match();
+			filter.match_post();
+			//filter.end_match();
 			filter.fetch_perf(writer);
-			if (!filter.summary.has_matched()) {
-				response->set_message(data.empty_detail);
-				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
-				return;
-			}
+// 			if (!filter.summary.has_matched()) {
+// 				response->set_message(data.empty_detail);
+// 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
+// 				return;
+// 			}
 			std::string msg = filter.get_message();
 			if (msg.empty()) msg = data.empty_detail;
 			response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));

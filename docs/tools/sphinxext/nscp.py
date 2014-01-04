@@ -286,8 +286,7 @@ class NSClientDomain(Domain):
 	# Object stores
 	initial_data = {
 		'objects': {},     # (fullname, name) -> docname, objtype
-		'options': {},     # fullname -> docname, objtype
-		'queries' : {},    # fullname -> (docname, objtype)
+
 		'procedures' : {}, # fullname -> arity -> (targetname, docname)
 		'modules': {},     # modname -> docname, synopsis, deprecated
 	}
@@ -302,9 +301,6 @@ class NSClientDomain(Domain):
 		for modname, (fn, _, _) in self.data['modules'].items():
 			if fn == docname:
 				del self.data['modules'][modname]
-		for fullname, (fn, _, _) in self.data['queries'].items():
-			if fn == docname:
-				del self.data['queries'][fullname]
 		for fullname, funcs in self.data['procedures'].items():
 			for arity, (fn, _) in funcs.items():
 				if fn == docname:
@@ -327,14 +323,14 @@ class NSClientDomain(Domain):
 			return None, None
 			
 		elif objtype == 'query':
-			if name in self.data['queries']:
-				docname, objtype = self.data['queries'][name]
+			if name in self.data['objects']:
+				docname, objtype = self.data['objects'][name]
 				return name, docname
 			tname = '%s.%s'%(modname, name)
-			if tname in self.data['queries']:
-				docname, objtype = self.data['queries'][tname]
+			if tname in self.data['objects']:
+				docname, objtype = self.data['objects'][tname]
 				return tname, docname
-			#print "_find_obj: QUERY: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['queries'].keys())
+			print "_find_obj: ERROR: QUERY: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['objects'].keys())
 			return None, None
 
 		elif objtype == 'confpath':
@@ -363,13 +359,13 @@ class NSClientDomain(Domain):
 			return None, None
 
 		elif objtype == 'option':
-			if name in self.data['options']:
-				return name, self.data['options'][name]
+			if name in self.data['objects']:
+				return name, self.data['objects'][name]
 			tname = '%s.%s.%s'%(modname, commandname, name)
-			if tname in self.data['options']:
-				docname, objtype = self.data['options'][tname]
+			if tname in self.data['objects']:
+				docname, objtype = self.data['objects'][tname]
 				return tname, docname
-			#print "_find_obj: OPTION: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['options'].keys())
+			print "_find_obj: ERROR: OPTION: modname: %s, commandname: %s, name: %s, objtype: %s => %s" % (modname, commandname, name, objtype, self.data['objects'].keys())
 			return None, None
 
 		#print "_find_obj: NOTHING: modname: %s, commandname: %s, name: %s, objtype: %s => NONE" % (modname, commandname, name, objtype)
@@ -387,12 +383,6 @@ class NSClientDomain(Domain):
 		#else:
 		#	fname = name
 		#	arity = -1
-		#if fname in self.data['queries']:
-		#	return name, self.data['queries'][fname]
-		#elif fname in self.data['procedures']:
-		#	arities = self.data['procedures'][fname]
-		#else:
-		#	return None, None
 
 		#if arity == -1:
 		#	arity = min(arities)

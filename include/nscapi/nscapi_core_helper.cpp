@@ -22,8 +22,7 @@
 #include <iostream>
 
 #include <nscapi/macros.hpp>
-
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 
@@ -71,7 +70,7 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf) 
 {
 	std::string response;
-	NSCAPI::nagiosReturn ret = simple_query(command, argument, response);
+	simple_query(command, argument, response);
 	if (!response.empty()) {
 		try {
 			return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
@@ -142,8 +141,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string 
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
 	NSCAPI::nagiosReturn ret = get_core()->exec_command(target, request, response);
-	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
-	return ret;
+	return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 }
 
 

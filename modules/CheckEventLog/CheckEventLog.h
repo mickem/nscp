@@ -20,7 +20,7 @@
 ***************************************************************************/
 #include <boost/shared_ptr.hpp>
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {

@@ -22,8 +22,7 @@
 
 #include <string>
 
-#include <protobuf/plugin.pb.h>
-
+#include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/plugin.hpp>
 
 #include <boost/thread/thread.hpp>

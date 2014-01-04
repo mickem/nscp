@@ -167,7 +167,7 @@ namespace check_svc_filter {
 		return check_state_is_perfect(state, start_type);
 	}
 
-	node_type state_is_ok(const value_type target_type, evaluation_context context, const node_type subject) {
+	node_type state_is_ok(const value_type, evaluation_context context, const node_type subject) {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
@@ -178,7 +178,7 @@ namespace check_svc_filter {
 			return factory::create_false();
 	}
 
-	node_type state_is_perfect(const value_type target_type, evaluation_context context, const node_type subject) {
+	node_type state_is_perfect(const value_type, evaluation_context context, const node_type subject) {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
@@ -294,6 +294,7 @@ namespace check_proc_filter {
 			("creation", parsers::where::type_date, boost::bind(&filter_obj::get_creation_time, _1), "Creation time").add_perf("", "", " creation")
 			("kernel", boost::bind(&filter_obj::get_kernel_time, _1), "Kernel time in seconds").add_perf("", "", " kernel")
 			("user", boost::bind(&filter_obj::get_user_time, _1), "User time in seconds").add_perf("", "", " user")
+			("time", boost::bind(&filter_obj::get_total_time, _1), "User-kernel time in seconds").add_perf("", "", " total")
 
  			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state (started, stopped hung)").add_perf("", ""," state")
  			;

@@ -50,7 +50,7 @@ SMTPClient::SMTPClient() {}
  */
 SMTPClient::~SMTPClient() {}
 
-bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	std::wstring template_string, sender, recipient;
 	try {
@@ -148,7 +148,7 @@ bool SMTPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &r
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void SMTPClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void SMTPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
@@ -213,7 +213,7 @@ bool SMTPClient::target_handler::apply(nscapi::protobuf::types::destination_cont
 
 //////////////////////////////////////////////////////////////////////////
 // Parser implementations
-int SMTPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+int SMTPClient::clp_handler_impl::query(client::configuration::data_type, const Plugin::QueryRequestMessage &, Plugin::QueryResponseMessage &) {
 	NSC_LOG_ERROR_STD("SMTP does not support query patterns");
 	return NSCAPI::hasFailed;
 }

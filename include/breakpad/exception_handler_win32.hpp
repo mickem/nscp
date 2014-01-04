@@ -99,7 +99,7 @@ public:
 
 
 	void setup_restart(std::string service);
-	void setup_submit(boolean ui, std::string url);
+	void setup_submit(bool ui, std::string url);
 	void setup_archive(std::string target);
 	void setup_app(std::string application, std::string version, std::string date);
 

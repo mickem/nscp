@@ -20,7 +20,7 @@
 ***************************************************************************/
 #include <boost/thread/shared_mutex.hpp>
 
-#include <protobuf/plugin.pb.h>
+#include <nscapi/nscapi_protobuf.hpp>
 
 class SimpleCache : public nscapi::impl::simple_plugin {
 public:

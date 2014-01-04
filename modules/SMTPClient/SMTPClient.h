@@ -64,7 +64,7 @@ private:
 				"TEMPLATE", "Template for message data")
 			;
 		}
-		static void post_process_target(target_object &target) {
+		static void post_process_target(target_object &) {
 		}
 	};
 
