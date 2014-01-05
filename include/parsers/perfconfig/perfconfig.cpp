@@ -44,6 +44,8 @@ struct spirit_perfconfig_parser {
 		qi::rule<Iterator, std::string(), ascii::space_type> op_key;
 		qi::rule<Iterator, std::string(), ascii::space_type> op_value;
 		qi::rule<Iterator, std::string(), ascii::space_type> keyword;
+//		qi::rule<Iterator, std::string(), ascii::space_type> valid_keyword;
+		qi::rule<Iterator, std::string()> valid_keyword, valid_keyword_1, valid_keyword_2;
 
  		rules		%= *rule;
  		rule		%= keyword >> "(" >> options >> ")";
@@ -51,9 +53,16 @@ struct spirit_perfconfig_parser {
  		option		= op_key						[at_c<0>(_val) = _1]
 						>> ":"  >> op_value			[at_c<1>(_val) = _1]
 					| op_key						[at_c<0>(_val) = _1];
-		op_key		%= lexeme[+(qi::char_("-_a-zA-Z0-9*+")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+"))])];
-		op_value	%= lexeme[+(qi::char_("-_a-zA-Z0-9*+")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+"))])];
-		keyword		%= lexeme[+(qi::char_("-_a-zA-Z0-9*+")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+"))])];;
+		op_key		%= valid_keyword;
+		op_value	%= valid_keyword;
+		keyword		%= valid_keyword;
+
+// TODO: FIXME: This does not work with boost prior to 1.49
+//		valid_keyword		%= lexeme[+(qi::char_("-_a-zA-Z0-9*+")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+"))])];
+// THis works with boost prior to 1.49 but has some issues (see removed test simple_space_5 and simple_space_6
+		valid_keyword %= valid_keyword_1 >> *valid_keyword_2 [_val += _1];
+ 		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+");
+ 		valid_keyword_2 %= qi::hold[+qi::char_(' ') >> +qi::char_("-_a-zA-Z0-9+")];
 
 		return qi::phrase_parse(first, last, rules, ascii::space, v);
 	}
