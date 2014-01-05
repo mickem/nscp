@@ -21,7 +21,7 @@ namespace hlp {
 			data = new T[size_];
 			memcpy(data, other.data, size_);
 		}
-		T& operator[] (const std::size_t pos) const {
+		T& operator[] (const std::size_t pos) {
 			return data[pos];
 		}
 		~buffer() {

@@ -50,7 +50,7 @@ void my_system_sighandler(int sig) {
 int process::execute_process(process::exec_arguments args, std::string &output) {
 	NSCAPI::nagiosReturn result;
 	int fd[2];
-	int bytes_read=0;
+	std::size_t bytes_read=0;
 	early_timeout=false;
 
 	pipe(fd);
