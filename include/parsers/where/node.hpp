@@ -188,6 +188,7 @@ namespace parsers {
 			virtual bool can_evaluate() const = 0;
 			virtual boost::shared_ptr<any_node> evaluate(evaluation_context errors) const = 0;
 			virtual bool static_evaluate(evaluation_context errors) const = 0;
+			virtual bool require_object(evaluation_context errors) const = 0;
 			virtual bool bind(object_converter errors) = 0;
 
 			// Performance data functions

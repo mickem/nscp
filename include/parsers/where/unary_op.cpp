@@ -48,6 +48,9 @@ namespace parsers {
 		bool unary_op::static_evaluate(evaluation_context errors) const {
 			return subject->static_evaluate(errors);
 		}
+		bool unary_op::require_object(evaluation_context errors) const {
+			return subject->require_object(errors);
+		}
 
 
 	}

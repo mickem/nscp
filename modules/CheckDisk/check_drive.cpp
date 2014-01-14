@@ -27,6 +27,29 @@ namespace po = boost::program_options;
 
 const int drive_type_total = 0x77;
 
+
+
+std::string type_to_string(const int type) {
+	if (type == DRIVE_FIXED)
+		return "fixed";
+	if (type == DRIVE_CDROM)
+		return "cdrom";
+	if (type == DRIVE_REMOVABLE)
+		return "removable";
+	if (type == DRIVE_REMOTE)
+		return "remote";
+	if (type == DRIVE_RAMDISK)
+		return "ramdisk";
+	if (type == DRIVE_UNKNOWN)
+		return "unknown";
+	if (type == DRIVE_NO_ROOT_DIR)
+		return "no_root_dir";
+	if (type == drive_type_total)
+		return "total";
+	return "unknown";
+}
+
+
 struct filter_obj {
 	std::string drive;
 	std::string name;
@@ -74,6 +97,9 @@ struct filter_obj {
 	}
 	std::string get_user_used_human(parsers::where::evaluation_context context) {
 		return format::format_byte_units(get_user_used(context));
+	}
+	std::string get_type_as_string(parsers::where::evaluation_context context) {
+		return type_to_string(get_type(context));
 	}
 
 	long long  get_type(parsers::where::evaluation_context context) {
@@ -194,7 +220,6 @@ int do_convert_type(const std::string &keyword) {
 		return drive_type_total;
 	return -1;
 }
-
 parsers::where::node_type convert_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 	std::string keyword = subject->get_string_value(context);
 	boost::to_lower(keyword);
@@ -254,6 +279,7 @@ struct filter_obj_handler : public native_context {
 			("total_used", &filter_obj::get_total_used_human, "")
 			("used", &filter_obj::get_total_used_human, "")
 			("user_used", &filter_obj::get_user_used_human, "")
+			("type", &filter_obj::get_type_as_string, "")
 			;
 
 
@@ -282,35 +308,52 @@ boost::shared_ptr<filter_obj> get_details(const drive_container &drive, bool ign
 	return boost::make_shared<filter_obj>(drive.drive, drive.name);
 }
 
-
 class volume_helper {
 	typedef HANDLE (WINAPI *typeFindFirstVolumeW)( __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
 	typedef BOOL (WINAPI *typeFindNextVolumeW)( __inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
 	typedef HANDLE (WINAPI *typeFindFirstVolumeMountPointW)( __in LPCWSTR lpszRootPathName, __out_ecount(cchBufferLength) LPWSTR lpszVolumeMountPoint, __in DWORD cchBufferLength );
+	typedef BOOL (WINAPI *typeFindNextVolumeMountPointW)( __inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
 	typedef BOOL (WINAPI *typeGetVolumeNameForVolumeMountPointW)( __in LPCWSTR lpszVolumeMountPoint, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength );
+	typedef BOOL (WINAPI *typeGetVolumeInformationByHandleW)(_In_ HANDLE hFile, _Out_opt_ LPWSTR lpVolumeNameBuffer, _In_ DWORD nVolumeNameSize, _Out_opt_ LPDWORD lpVolumeSerialNumber, 
+			_Out_opt_ LPDWORD  lpMaximumComponentLength, _Out_opt_ LPDWORD lpFileSystemFlags, _Out_opt_ LPWSTR lpFileSystemNameBuffer, _In_ DWORD nFileSystemNameSize);
+	typedef BOOL (WINAPI *typeGetVolumePathNamesForVolumeNameW)(_In_ LPCTSTR lpszVolumeName, _Out_ LPTSTR lpszVolumePathNames, _In_ DWORD cchBufferLength, _Out_ PDWORD lpcchReturnLength);
+
+
 	typeFindFirstVolumeW ptrFindFirstVolumeW;
 	typeFindNextVolumeW ptrFindNextVolumeW;
 	typeFindFirstVolumeMountPointW ptrFindFirstVolumeMountPointW;
+	typeFindNextVolumeMountPointW ptrFindNextVolumeMountPointW;
 	typeGetVolumeNameForVolumeMountPointW ptrGetVolumeNameForVolumeMountPointW;
+	typeGetVolumeInformationByHandleW ptrGetVolumeInformationByHandleW;
+	typeGetVolumePathNamesForVolumeNameW ptrGetVolumePathNamesForVolumeNameW;
 	HMODULE hLib;
 
 public:
 	typedef std::map<std::string,std::string> map_type;
 
 public:
-	volume_helper() : ptrFindFirstVolumeW(NULL) {
+	volume_helper() 
+		: ptrFindFirstVolumeW(NULL)
+		, ptrFindNextVolumeW(NULL)
+		, ptrFindFirstVolumeMountPointW(NULL)
+		, ptrFindNextVolumeMountPointW(NULL)
+		, ptrGetVolumeNameForVolumeMountPointW(NULL)
+		, ptrGetVolumeInformationByHandleW(NULL)
+		, ptrGetVolumePathNamesForVolumeNameW(NULL)
+	{
 		hLib = ::LoadLibrary(_TEXT("KERNEL32"));
 		if (hLib) {
-			// Find PSAPI functions
 			ptrFindFirstVolumeW = (typeFindFirstVolumeW)::GetProcAddress(hLib, "FindFirstVolumeW");
 			ptrFindNextVolumeW = (typeFindNextVolumeW)::GetProcAddress(hLib, "FindNextVolumeW");
 			ptrFindFirstVolumeMountPointW = (typeFindFirstVolumeMountPointW)::GetProcAddress(hLib, "FindFirstVolumeMountPointW");
+			ptrFindNextVolumeMountPointW = (typeFindNextVolumeMountPointW)::GetProcAddress(hLib, "FindNextVolumeMountPointW");
 			ptrGetVolumeNameForVolumeMountPointW = (typeGetVolumeNameForVolumeMountPointW)::GetProcAddress(hLib, "GetVolumeNameForVolumeMountPointW");
+			ptrGetVolumeInformationByHandleW = (typeGetVolumeInformationByHandleW)::GetProcAddress(hLib, "GetVolumeInformationByHandleW");
+			ptrGetVolumePathNamesForVolumeNameW = (typeGetVolumePathNamesForVolumeNameW)::GetProcAddress(hLib, "GetVolumePathNamesForVolumeNameW");
 		}
 	}
 
 	~volume_helper() {
-
 	}
 
 	HANDLE FindFirstVolume(std::wstring &volume) {
@@ -332,18 +375,80 @@ public:
 		return r;
 	}
 
-	void getVolumeInformation(std::wstring volume, std::wstring &name) {
+	HANDLE FindFirstVolumeMountPoint(std::wstring &root, std::wstring &volume) {
+		if (ptrFindFirstVolumeMountPointW == NULL)
+			return INVALID_HANDLE_VALUE;
+		hlp::tchar_buffer buffer(1024);
+		HANDLE h = ptrFindFirstVolumeMountPointW(root.c_str(), buffer.get(), static_cast<DWORD>(buffer.size()));
+		if (h != INVALID_HANDLE_VALUE)
+			volume = buffer.get();
+		return h;
+	}
+	BOOL FindNextVolumeMountPoint(HANDLE hVolume, std::wstring &volume) {
+		if (ptrFindNextVolumeMountPointW == NULL || hVolume == INVALID_HANDLE_VALUE)
+			return FALSE;
+		hlp::tchar_buffer buffer(1024);
+		BOOL r = ptrFindNextVolumeMountPointW(hVolume, buffer.get(), static_cast<DWORD>(buffer.size()));
+		if (r)
+			volume = buffer.get();
+		return r;
+	}
+
+	void GetVolumeInformationByHandle(HANDLE hVolume, std::wstring &name, std::wstring &fs) {
+		if (ptrGetVolumeInformationByHandleW == NULL || hVolume == INVALID_HANDLE_VALUE)
+			return;
+		hlp::tchar_buffer volumeName(1024);
+		hlp::tchar_buffer fileSysName(1024);
+		DWORD maximumComponentLength, fileSystemFlags;
+
+		if (!ptrGetVolumeInformationByHandleW(hVolume, volumeName.get(), volumeName.size(), 
+			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
+				NSC_LOG_ERROR("Failed to get volume information: " + error::lookup::last_error());
+		} else {
+			name = volumeName.get();
+			fs = fileSysName.get();
+		}
+	}
+
+	void getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs) {
 		hlp::tchar_buffer volumeName(1024);
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
 
 		if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(), 
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
-				NSC_LOG_ERROR_WA("Failed to get volume information: ", volume);
+				DWORD dwErr = GetLastError();
+				if (dwErr != ERROR_NOT_READY)
+					NSC_LOG_ERROR("Failed to get volume information " + utf8::cvt<std::string>(volume) + ": " + error::lookup::last_error());
 		} else {
 			name = volumeName.get();
+			fs = fileSysName.get();
 		}
 	}
+
+	std::list<std::wstring> GetVolumePathNamesForVolumeName(std::wstring volume) {
+		std::list<std::wstring> ret;
+		if (ptrGetVolumePathNamesForVolumeNameW == NULL)
+			return ret;
+		hlp::tchar_buffer buffer(1024);
+		DWORD returnLen = 0;
+		if (!ptrGetVolumePathNamesForVolumeNameW(volume.c_str(), buffer.get(), buffer.size(), &returnLen)) {
+			NSC_LOG_ERROR("Failed to get mountpoints: " + error::lookup::last_error());
+			return ret;
+		} else {
+			DWORD last = 0;
+			for (DWORD i=0;i<returnLen;i++) {
+				if (buffer[i] == 0) {
+					std::wstring item = buffer.get(last);
+					if (!item.empty())
+						ret.push_back(item);
+					last = i+1;
+				}
+			}
+			return ret;
+		}
+	}
+
 
 
 	bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
@@ -360,7 +465,25 @@ public:
 		return volumeName;
 	}
 
-	map_type get_volumes(map_type alias) {
+	std::list<std::wstring> find_mount_points(std::wstring &root, std::wstring &name) {
+		std::list<std::wstring> ret;
+		std::wstring volume;
+		HANDLE hVol = FindFirstVolumeMountPoint(root, volume);
+		if (hVol == INVALID_HANDLE_VALUE) {
+			DWORD dwErr = GetLastError();
+			if (dwErr != ERROR_NO_MORE_FILES && dwErr != ERROR_ACCESS_DENIED)
+				NSC_LOG_ERROR_STD("Failed to enumerate volumes " + utf8::cvt<std::string>(name) + ": " + error::lookup::last_error(dwErr));
+			return ret;
+		}
+		BOOL bFlag = TRUE;
+		while (bFlag) {
+			ret.push_back(volume);
+			bFlag = FindNextVolumeMountPoint(hVol, volume);
+		}
+		return ret;
+	}
+
+	map_type get_volumes() {
 		map_type ret;
 		std::wstring volume;
 		HANDLE hVol = FindFirstVolume(volume);
@@ -370,62 +493,71 @@ public:
 		}
 		BOOL bFlag = TRUE;
 		while (bFlag) {
-			map_type::iterator it = alias.find(utf8::cvt<std::string>(volume));
-			if (it != alias.end())
-				ret[utf8::cvt<std::string>(volume)] = (*it).second;
-			else
-				ret[utf8::cvt<std::string>(volume)] = utf8::cvt<std::string>(get_title(volume));
+			std::wstring name, fs;
+			getVolumeInformation(volume, name, fs);
+
+			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
+				ret[utf8::cvt<std::string>(s)] = utf8::cvt<std::string>(get_title(s));
+			}
+			ret[utf8::cvt<std::string>(volume)] = utf8::cvt<std::string>(name);
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		return ret;
 	}
 
 	std::wstring get_title(std::wstring volume) {
-		std::wstring title;
-		getVolumeInformation(volume, title);
+		std::wstring title, fs;
+		getVolumeInformation(volume, title, fs);
 		return title;
 	}
 
 
 };
 
-void find_all_volumes(std::list<drive_container> &drives) {
+void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives) {
+	volume_helper helper;
+	BOOST_FOREACH(const volume_helper::map_type::value_type &v, helper.get_volumes()) {
+		if (std::find(exclude_drives.begin(), exclude_drives.end(), v.first) == exclude_drives.end()) {
+			drives.push_back(drive_container(v.first, v.second));
+			exclude_drives.push_back(v.first);
+		}
+	}
+}
+void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives) {
 	volume_helper helper;
 	DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
 	TCHAR *buffer = new TCHAR[bufSize+10];
 	if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
 		while (buffer[0] != 0) {
 			std::wstring drv = buffer;
-			drives.push_back(drive_container(utf8::cvt<std::string>(drv), utf8::cvt<std::string>(helper.GetVolumeNameForVolumeMountPoint(drv))));
+			std::string drive = utf8::cvt<std::string>(drv);
+			if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
+				std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(drv);
+				std::string title = "";
+				if (!volume.empty())
+					title = utf8::cvt<std::string>(helper.get_title(volume));
+				drives.push_back(drive_container(drive, title));
+				exclude_drives.push_back(drive);
+				exclude_drives.push_back(utf8::cvt<std::string>(volume));
+			}
 			buffer = &buffer[drv.size()];
 			buffer++;
 		}
 	} else
 		throw nscp_exception("Failed to get volume list: " + error::lookup::last_error());
 }
-void find_all_drives(std::list<drive_container> &drives) {
-	DWORD dwDrives = GetLogicalDrives();
-	int idx = 0;
-	while (dwDrives != 0) {
-		if (dwDrives & 0x1) {
-			std::string drv;
-			drv += static_cast<char>('A' + idx); drv += ":\\";
-			drives.push_back(drive_container(drv, ""));
-		}
-		idx++;
-		dwDrives >>= 1;
-	}
-}
 
 std::list<drive_container> find_drives(std::vector<std::string> drives) {
 	std::list<drive_container> ret;
+	std::vector<std::string> found_drives;
 	BOOST_FOREACH(const std::string &d, drives) {
 		if (d == "all-volumes") {
-			find_all_volumes(ret);
+			find_all_volumes(ret, found_drives);
 		} else if (d == "all-drives") {
-			find_all_drives(ret);
+			find_all_drives(ret, found_drives);
 		} else if (d == "all" || d == "*") {
-			find_all_volumes(ret);
+			find_all_drives(ret, found_drives);
+			find_all_volumes(ret, found_drives);
 		} else {
 			ret.push_back(drive_container(d, ""));
 		}

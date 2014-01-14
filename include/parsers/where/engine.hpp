@@ -77,6 +77,10 @@ namespace parsers {
 				return true;
 			}
 
+			bool require_object(execution_context_type context) const {
+				return ast_parser.require_object(context);
+			}
+
 			bool match(execution_context_type context) {
 				bool ret = ast_parser.evaluate(context);
 				if (context->has_error()) {

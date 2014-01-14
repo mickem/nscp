@@ -32,6 +32,13 @@ TEST(PerfConfigTest, simple_string) {
 	EXPECT_EQ("foo(a:b;)", to_string(v));
 }
 
+TEST(PerfConfigTest, percentage_sign) {
+	EXPECT_TRUE(do_parse("foo %(a:b)", v));
+	ASSERT_EQ(1, v.size());
+	EXPECT_EQ("foo %(a:b;)", to_string(v));
+}
+
+
 TEST(PerfConfigTest, simple_multiple_rules_1) {
 	EXPECT_TRUE(do_parse("foo(a:b)foo(1:b)", v));
 	ASSERT_EQ(2, v.size());
@@ -79,8 +86,7 @@ TEST(PerfConfigTest, simple_space_4) {
 	ASSERT_EQ(1, v.size());
 	EXPECT_EQ("foo(a:b;)", to_string(v));
 }
-/*
-TODO: FIXME: THis causes issues with workaround for boost <1.49
+#if BOOST_VERSION >= 104900
 TEST(PerfConfigTest, simple_space_5) {
 	EXPECT_TRUE(do_parse("foo(  a  b :  b  c )", v));
 	ASSERT_EQ(1, v.size());
@@ -91,7 +97,7 @@ TEST(PerfConfigTest, simple_space_6) {
 	ASSERT_EQ(3, v.size());
 	EXPECT_EQ("foo(a:b;12:h  h    h;)foo(a:b    k k;)foo(a:b;)", to_string(v));
 }
-*/
+#endif
 TEST(PerfConfigTest, simple_star_1) {
 	EXPECT_TRUE(do_parse("*(a:b)", v));
 	ASSERT_EQ(1, v.size());

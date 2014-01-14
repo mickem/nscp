@@ -367,20 +367,18 @@ namespace modern_filter {
 				if (perf.size() > 0)
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 			}
-			if (!matched) {
-				if (engine_crit && engine_crit->match(context)) {
-					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
-					matched = true;
-				} else if (engine_warn && engine_warn->match(context)) {
-					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
-					matched = true;
-				} else if (engine_ok && engine_ok->match(context)) {
-					// TODO: Unsure of this, should this not re-set matched?
-					// What is matched for?
-					matched = true;
-				} else if (error_handler && error_handler->is_debug()) {
-					error_handler->log_debug("Crit/warn/ok did not match: <END>");
-				}
+			if (engine_crit && !engine_crit->require_object(context) && engine_crit->match(context)) {
+				nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
+				matched = true;
+			} else if (engine_warn && !engine_warn->require_object(context) && engine_warn->match(context)) {
+				nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
+				matched = true;
+			} else if (engine_ok && !engine_ok->require_object(context) && engine_ok->match(context)) {
+				// TODO: Unsure of this, should this not re-set matched?
+				// What is matched for?
+				matched = true;
+			} else if (error_handler && error_handler->is_debug()) {
+				error_handler->log_debug("Crit/warn/ok did not match: <END>");
 			}
 			return matched;
 		}

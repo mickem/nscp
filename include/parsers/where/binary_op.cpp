@@ -75,6 +75,9 @@ namespace parsers {
 			return false;
 		}
 
+		bool binary_op::require_object(evaluation_context errors) const {
+			return left->require_object(errors) && right->require_object(errors);
+		}
 		bool binary_op::static_evaluate(evaluation_context errors) const {
 			return left->static_evaluate(errors) && right->static_evaluate(errors);
 		}

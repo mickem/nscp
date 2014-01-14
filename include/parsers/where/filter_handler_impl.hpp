@@ -543,10 +543,14 @@ namespace parsers {
 					return value;
 				if (get_performance_config_value("*", key, value))
 					return value;
+				if (get_performance_config_value(prefix, key, value))
+					return value;
+				if (get_performance_config_value(suffix, key, value))
+					return value;
 				return value;
 			}
 			virtual bool get_performance_config_value(const std::string object, const std::string key, std::string &value) const {
-				perf_options_type::const_iterator cit = perf_options.find(object);
+				perf_options_type::const_iterator cit = perf_options.find(boost::trim_copy(object));
 				if (cit == perf_options.end())
 					return false;
 				perf_object_options_type::const_iterator cit2 = cit->second.find(key);
@@ -595,6 +599,10 @@ namespace parsers {
 		node_type filter_converter<T>::evaluate(value_type, evaluation_context context, const node_type subject) const {
 			typedef filter_handler_impl<T>* native_context_type;
 			native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+			if (!native_context->has_object()) {
+				context->error("No object attached");
+				return parsers::where::factory::create_false();
+			}
 			return function(native_context->get_object(), context, subject);
 		}
 	}

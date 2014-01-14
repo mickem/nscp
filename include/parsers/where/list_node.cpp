@@ -82,6 +82,12 @@ namespace parsers {
 			}
 			return true;
 		}
+		bool list_node::require_object(evaluation_context errors) const {
+			BOOST_FOREACH(const node_type n, value_) {
+				n->require_object(errors);
+			}
+			return true;
+		}
 
 	}
 }

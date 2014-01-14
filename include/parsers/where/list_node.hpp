@@ -35,6 +35,7 @@ namespace parsers {
 			value_type infer_type(object_converter converter, value_type suggestion);
 			bool find_performance_data(evaluation_context context, performance_collector &collector);
 			bool static_evaluate(evaluation_context context) const;
+			bool require_object(evaluation_context context) const;
 
 		};
 	}

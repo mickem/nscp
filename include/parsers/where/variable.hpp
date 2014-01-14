@@ -195,6 +195,9 @@ namespace parsers {
 			virtual bool static_evaluate(evaluation_context context) const {
 				return false;
 			}
+			virtual bool require_object(evaluation_context context) const {
+				return true;
+			}
 			long long get_int_value(evaluation_context context) const {
 				try {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
@@ -281,6 +284,9 @@ namespace parsers {
 			virtual bool static_evaluate(evaluation_context context) const {
 				return false;
 			}
+			virtual bool require_object(evaluation_context context) const {
+				return true;
+			}
 			long long get_int_value(evaluation_context context) const {
 				context->error("Invalid type: " + name_);
 				return 0;
@@ -366,6 +372,9 @@ namespace parsers {
 			}
 			virtual bool static_evaluate(evaluation_context context) const {
 				return false;
+			}
+			virtual bool require_object(evaluation_context context) const {
+				return true;
 			}
 			long long get_int_value(evaluation_context context) const {
 				try {
@@ -474,6 +483,9 @@ namespace parsers {
 			virtual bool static_evaluate(evaluation_context context) const {
 				return false;
 			}
+			virtual bool require_object(evaluation_context context) const {
+				return true;
+			}
 			long long get_int_value(evaluation_context context) const {
 				return evaluate(context)->get_int_value(context);
 			}
@@ -530,6 +542,9 @@ namespace parsers {
 				return true;
 			}
 			virtual bool static_evaluate(evaluation_context context) const {
+				return false;
+			}
+			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
 			long long get_int_value(evaluation_context context) const {
@@ -617,6 +632,9 @@ namespace parsers {
 				return true;
 			}
 			virtual bool static_evaluate(evaluation_context context) const {
+				return false;
+			}
+			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
 			long long get_int_value(evaluation_context context) const {

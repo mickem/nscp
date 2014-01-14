@@ -606,7 +606,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
 
 	if (!filter_helper.parse_options())
 		return;

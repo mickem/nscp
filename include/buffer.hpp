@@ -33,8 +33,8 @@ namespace hlp {
 		std::size_t size() const {
 			return size_;
 		}
-		U get() const {
-			return reinterpret_cast<U>(data);
+		U get(std::size_t offset = 0) const {
+			return reinterpret_cast<U>(&data[offset]);
 		}
 		template<class V>
 		V get_t(std::size_t offset = 0) const {

@@ -15,6 +15,8 @@ namespace parsers {
 			bool evaluate(evaluation_context context);
 			bool collect_perfkeys(evaluation_context context, performance_collector &boundries);
 			std::string result_as_tree() const;
+			bool require_object(evaluation_context context) const;
+
 		};
 	}
 }

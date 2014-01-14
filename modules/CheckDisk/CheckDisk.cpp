@@ -57,12 +57,14 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 
 	std::vector<std::string> times;
 	std::vector<std::string> types;
+	std::string perf_unit;
 	nscapi::program_options::add_help(desc);
 	desc.add_options()
 		("CheckAll", po::value<std::string>()->implicit_value("true"), "Checks all drives.")
 		("CheckAllOthers", po::value<std::string>()->implicit_value("true"), "Checks all drives turns the drive option into an exclude option.")
 		("Drive", po::value<std::vector<std::string>>(&times), "The drives to check")
 		("FilterType", po::value<std::vector<std::string>>(&types), "The type of drives to check fixed, remote, cdrom, ramdisk, removable")
+		("perf-unit", po::value<std::string>(&perf_unit), "Force performance data to use a given unit prevents scaling which can cause problems over time in some graphing solutions.")
 		;
 	compat::addShowAll(desc);
 	compat::addAllNumeric(desc);
@@ -88,6 +90,8 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 		request.add_arguments("drive=*");
 		exclude = true;
 	}
+	if (!perf_unit.empty())
+		request.add_arguments("perf-config=free(unit:" + perf_unit + ")used(unit:" + perf_unit + ")");
 	request.add_arguments("detail-syntax=${drive}: Total: ${size} - Used: ${used} - Free: ${free}");
 	compat::matchShowAll(vm, request);
 	std::string keyword = exclude?"exclude=":"drive=";

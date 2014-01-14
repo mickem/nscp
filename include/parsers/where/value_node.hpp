@@ -35,6 +35,9 @@ namespace parsers {
 			virtual bool static_evaluate(evaluation_context context) const {
 				return true;
 			}
+			virtual bool require_object(evaluation_context context) const {
+				return false;
+			}
 		};
 
 		struct string_value : public node_value_impl<std::string>, boost::enable_shared_from_this<string_value> {

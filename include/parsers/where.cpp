@@ -71,12 +71,16 @@ namespace parsers {
 				resulting_tree->bind(context);
 				return true;
 			} catch (const std::exception &e) {
-				context->error(std::string("Unhandled exception bind: ") + e.what());
+				context->error(std::string("Bind exception: ") + e.what());
 				return false;
 			} catch (...) {
-				context->error("Unhandled exception bind: " + result_as_tree());
+				context->error("Bind exception: " + result_as_tree());
 				return false;
 			}
+		}
+
+		bool parser::require_object(evaluation_context context) const {
+			return resulting_tree->require_object(context);
 		}
 
 		bool parser::evaluate(evaluation_context context) {
@@ -84,10 +88,10 @@ namespace parsers {
 				node_type result = resulting_tree->evaluate(context);
 				return result->get_int_value(context) == 1;
 			} catch (const std::exception &e) {
-				context->error(std::string("Unhandled exception evaluate: ") + e.what());
+				context->error(std::string("Evaluate exception: ") + e.what());
 				return false;
 			} catch (...) {
-				context->error("Unhandled exception evaluate: " + result_as_tree());
+				context->error("Evaluate exception: " + result_as_tree());
 				return false;
 			}
 		}

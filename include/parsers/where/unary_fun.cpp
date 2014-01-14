@@ -71,6 +71,9 @@ namespace parsers {
 			subject->static_evaluate(context);
 			return false;
 		}
+		bool unary_fun::require_object(evaluation_context context) const {
+			return subject->require_object(context);
+		}
 
 		bool unary_fun::is_transparent(value_type) const {
 			if (name == "neg")
