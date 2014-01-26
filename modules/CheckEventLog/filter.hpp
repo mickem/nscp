@@ -46,6 +46,9 @@ namespace eventlog_filter {
 		virtual long long get_raw_id() = 0;
 		virtual long long get_generated() = 0;
 		virtual bool is_modern() = 0;
+		virtual std::string get_written_s() {
+			return format::itos_as_time(get_written());
+		}
 	};
 
 

@@ -1,3 +1,16 @@
+2014-01-25 MickeM
+ * Fixed FILEAGE check_nt command #480, #636, #642, #39 (and others)
+ * Fixed delayed start issue in check_service #681
+ * Fixed not regexp issue #651
+ * Fixed default service name
+ * Fixed issue with scan-range #683
+ * Fixed uptime performance alias (and added unit s) #688
+ * Fixed issue with CkeckCPU show-all: #687
+ * Fixed issue with check_ping.bat #635
+ * Fixed documentation for nsca hostname #690
+ * Fixed validation issues with lists #605
+ * Fixed so external script errors are reported againast the alias not the command #677
+
 2014-01-04 MickeM
  * Numerous bugfixes and compatiblity fixes
  * Gone over all unit tests to make sure they run

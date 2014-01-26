@@ -229,7 +229,8 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 			("LUA SCRIPT SECTION", "Section for the PythonScripts module.")
 
 			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)), 
-			"LUA SCRIPTS SECTION", "A list of scripts available to run from the PythonScript module.")
+			"PYTHON SCRIPTS SECTION", "A list of scripts available to run from the PythonScript module.",
+			"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
 		settings.register_all();

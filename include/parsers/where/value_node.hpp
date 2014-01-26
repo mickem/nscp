@@ -21,7 +21,9 @@ namespace parsers {
 				return *this;
 			}
 			virtual std::list<node_type> get_list_value(evaluation_context errors) const {
-				return std::list<node_type>();
+				std::list<node_type> ret;
+				ret.push_back(factory::create_ios(value_));
+				return ret;
 			}
 			virtual bool can_evaluate() const {
 				return false;

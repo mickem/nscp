@@ -236,7 +236,7 @@ namespace check_uptime_filter {
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_int()
 			("boot", parsers::where::type_date, boost::bind(&filter_obj::get_boot, _1), "System boot time")
-			("uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, _1), "Time since last boot")
+			("uptime", type_custom_uptime, boost::bind(&filter_obj::get_uptime, _1), "Time since last boot").add_perf("s", "", "")
 			;
 		registry_.add_converter()
 			(type_custom_uptime, &parse_time)

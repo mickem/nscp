@@ -112,6 +112,7 @@ namespace nscapi {
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
 				("help-csv",	"Show help screen as a comma separated list. \nThis is useful for parsing the output in scripts and generate documentation etc")
+				("help-short",	"Show help screen (short format).")
 				;
 		}
 		inline po::options_description create_desc(const std::string command) {
@@ -360,6 +361,38 @@ namespace nscapi {
 			return main_stream.str();
 		}
 
+		static std::string help_short(const boost::program_options::options_description &desc) {
+			std::stringstream main_stream;
+			std::string::size_type opwidth = 0;
+			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+				if (op->long_name().size() > opwidth)
+					opwidth = op->long_name().size();
+				if (op->semantic()->max_tokens() != 0) {
+					std::size_t len = op->long_name().size() + strip_default_value(op->format_parameter()).size() + 1;
+					if (len > opwidth)
+						opwidth = len;
+				}
+			}
+			opwidth++;
+			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+				std::stringstream ss;
+				ss << op->long_name();
+				if (op->semantic()->max_tokens() != 0)
+					ss << "=" << strip_default_value(op->format_parameter());
+				main_stream << ss.str();
+
+				for(std::string::size_type pad = opwidth - ss.str().size(); pad+8 > 8; pad-=8)
+					main_stream.put('\t');
+				std::string::size_type pos = op->description().find('\n');
+				if (pos == std::string::npos)
+					main_stream << op->description();
+				else
+					main_stream << op->description().substr(0, pos);
+				main_stream << "\n";
+			}
+			return main_stream.str();
+		}
+
 		template<class T>
 		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &, const std::string &error, T &response) {
 			nscapi::protobuf::functions::set_response_bad(response, help(desc, error));
@@ -410,6 +443,10 @@ namespace nscapi {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
 					return false;
 				}
+				if (vm.count("help-short")) {
+					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
+					return false;
+				}
 				if (vm.count("help")) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
@@ -439,13 +476,17 @@ namespace nscapi {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
 					return false;
 				}
+				if (vm.count("help-short")) {
+					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
+					return false;
+				}
 				if (vm.count("help") && vm["help"].as<bool>()) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
 				}
 				return true;
 			} catch (const std::exception &e) {
-				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), response);
 				return false;
 			}
 		}
@@ -469,6 +510,10 @@ namespace nscapi {
 
 				if (vm.count("help-csv")) {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+					return false;
+				}
+				if (vm.count("help-short")) {
+					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
 					return false;
 				}
 				if (vm.count("help")) {
@@ -503,6 +548,10 @@ namespace nscapi {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
 					return false;
 				}
+				if (vm.count("help-short")) {
+					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
+					return false;
+				}
 				if (vm.count("help")) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
@@ -534,6 +583,10 @@ namespace nscapi {
 
 				if (vm.count("help-csv")) {
 					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, command));
+					return false;
+				}
+				if (vm.count("help-short")) {
+					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
 					return false;
 				}
 				if (vm.count("help")) {

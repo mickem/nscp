@@ -21,6 +21,9 @@ namespace parsers {
 					value_type ltype = left->get_type();
 					value_type rtype = right->get_type();
 
+					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype))
+						return eval_int(ltype, errors,  left, right)?factory::create_true():factory::create_false();
+
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
 						errors->error("Invalid types (not same) for binary operator");
 						return factory::create_false();
@@ -42,6 +45,8 @@ namespace parsers {
 					value_type ltype = left->get_type();
 					value_type rtype = right->get_type();
 
+					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype)) 
+						return factory::create_int(eval_int(ltype, errors,  left, right));
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
 						errors->error("Invalid types (not same) for binary operator");
 						return factory::create_false();
@@ -302,7 +307,7 @@ namespace parsers {
 
 				node_type evaluate(value_type type, evaluation_context errors, const node_type subject) const {
 					if (!value) {
-						errors->error("Convert requires arguments");
+						errors->error("no arguments for convert(): " + subject->to_string());
 						return factory::create_false();
 					}
 					node_type v = *value;
@@ -413,7 +418,7 @@ namespace parsers {
 				return op_factory::bin_op_type(new operator_impl::operator_not_like());
 			if (op == op_regexp)
 				return op_factory::bin_op_type(new operator_impl::operator_regexp());
-			if (op == op_regexp)
+			if (op == op_not_regexp)
 				return op_factory::bin_op_type(new operator_impl::operator_not_regexp());
 
 			if (op == op_and)

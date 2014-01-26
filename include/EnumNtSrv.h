@@ -10,7 +10,7 @@ namespace services_helper {
 		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0), delayed(false) {}
 		service_info(const service_info &other) 
 			: name(other.name), displayname(other.displayname)
-			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type)
+			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type), delayed(other.delayed)
 			, binary_path(other.binary_path)
 		{}
 		

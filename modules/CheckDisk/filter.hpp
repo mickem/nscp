@@ -17,6 +17,7 @@
 #include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/helpers.hpp>
 
 #include "file_info.hpp"
 
@@ -72,6 +73,10 @@ namespace file_filter {
 		}
 		long long get_write() {
 			return strEx::filetime_to_time(ullLastWriteTime);
+		}
+		long long get_age() {
+			long long now = parsers::where::constants::get_now();
+			return now-get_write();
 		}
 		std::string get_creation_s() {
 			return format::format_filetime(ullCreationTime);

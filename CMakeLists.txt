@@ -215,7 +215,7 @@ LINK_DIRECTORIES(${CMAKE_LIBRARY_PATH} ${OPENSSL_LIBRARY_DIR} ${NSCP_LIBRARYDIR}
 
 # Compile time constants & make sure our build finds it
 
-SET(CONFIG_DEFAULT_SERVICE_NAME "Nsclientpp" CACHE STRING "The name of the service")
+SET(CONFIG_DEFAULT_SERVICE_NAME "NSCP" CACHE STRING "The name of the service")
 SET(CONFIG_DEFAULT_SERVICE_DESC "Monitoring Agent (Provides performance data for monitoring solutions like Nagios)" CACHE STRING "The description used for the service")
 SET(CONFIG_DEFAULT_SERVICE_DEPS "" CACHE STRING "Any service dependencies to use for the default service")
 

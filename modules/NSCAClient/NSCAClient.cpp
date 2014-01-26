@@ -63,15 +63,25 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
 
 			("handlers", sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "")
+			"CLIENT HANDLER SECTION", "",
+			"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
 			("targets", sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "")
+			"REMOTE TARGET DEFINITIONS", "",
+			"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("hostname", sh::string_key(&hostname_, "auto"),
-			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
+			"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+			"auto\tHostname\n"
+			"${host}\tHostname\n"
+			"${host_lc}\nHostname in lowercase\n"
+			"${host_uc}\tHostname in uppercase\n"
+			"${domain}\tDomainname\n"
+			"${domain_lc}\tDomainname in lowercase\n"
+			"${domain_uc}\tDomainname in uppercase\n"
+			)
 
 			("encoding", sh::string_key(&encoding_, ""),
 			"NSCA DATA ENCODING", "", true)

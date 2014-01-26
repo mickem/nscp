@@ -61,10 +61,12 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
 			("handlers", sh::fun_values_path(boost::bind(&SMTPClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "")
+			"CLIENT HANDLER SECTION", "",
+			"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
 			("targets", sh::fun_values_path(boost::bind(&SMTPClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "")
+			"REMOTE TARGET DEFINITIONS", "",
+			"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()

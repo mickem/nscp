@@ -51,6 +51,7 @@ namespace process {
 			, encoding(encoding)
 		{}
 
+		std::string alias;
 		std::string root_path;
 		std::string command;
 		unsigned int timeout;

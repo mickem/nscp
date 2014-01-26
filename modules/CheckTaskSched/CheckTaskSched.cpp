@@ -45,23 +45,6 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias("check", alias, "task schedule");
-
-	settings.alias().add_path_to_settings()
-		("TASK SCHEDULE", "Section for system checks and system settings")
-
-		;
-
-	settings.alias().add_key_to_settings()
-
-		("default buffer length", sh::wstring_key(&syntax, _T("%title% last run: %most-recent-run-time% (%exit-code%)")),
-		"SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one)")
-		;
-
-
-	settings.register_all();
-	settings.notify();
 	return true;
 }
 bool CheckTaskSched::unloadModule() {

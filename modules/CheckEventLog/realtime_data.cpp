@@ -8,6 +8,8 @@
 #include <nscapi/nscapi_plugin_interface.hpp>
 
 bool runtime_data::has_changed(transient_data_type record) const {
+	if (files.empty())
+		return true;
 	BOOST_FOREACH(const std::string &s, files) {
 		if (s == "any" || s == "all" || s == record.get_log())
 			return true;

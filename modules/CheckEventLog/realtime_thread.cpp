@@ -94,7 +94,6 @@ void real_time_thread::thread_proc() {
 
 			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
 			while (pevlr != NULL) {
-				NSC_DEBUG_MSG("*** entry ***");
 				EventLogRecord elr(el->get_name(), pevlr, ltime);
 				helper.process_items(elr);
 				pevlr = el->read_record_with_buffer();

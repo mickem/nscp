@@ -12,8 +12,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <unicode_char.hpp>
-#include <strEx.h>
+#include <utf8.hpp>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <settings/client/settings_client_interface.hpp>
@@ -22,13 +21,7 @@
 #pragma warning( disable : 4800 )
 #endif
 
-namespace boost
-{
-	template<>
-	inline std::wstring lexical_cast<std::wstring, boost::filesystem::path>(const boost::filesystem::path& arg) {
-		return utf8::cvt<std::wstring>(arg.string());
-	}
-
+namespace boost {
 	template<>
 	inline std::string lexical_cast<std::string, boost::filesystem::path>(const boost::filesystem::path& arg) {
 		return utf8::cvt<std::string>(arg.string());
@@ -272,9 +265,7 @@ namespace nscapi {
 			return r;
 		}
 
-		typedef typed_key_value<std::wstring, typed_string_value<std::wstring> > wstring_key_type;
 		typedef typed_key_value<std::string, typed_string_value<std::string> > string_key_type;
-		typedef typed_key_value<std::wstring, typed_xpath_value<std::wstring, std::wstring> > wpath_key_type;
 		typedef typed_key_value<std::string, typed_xpath_value<std::string, std::string> > path_key_type;
 		typedef typed_key_value<boost::filesystem::path, typed_xpath_value<boost::filesystem::path, std::string> > real_path_key_type;
 		typedef typed_key_value<unsigned int, typed_int_value<unsigned int> > uint_key_type;
@@ -282,8 +273,6 @@ namespace nscapi {
 		typedef typed_key_value<std::size_t, typed_int_value<std::size_t> > size_key_type;
 		typedef typed_key_value<bool, typed_bool_value<bool> > bool_key_type;
 
-		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val, std::wstring def);
-// 		boost::shared_ptr<wstring_key_type> wstring_key(std::wstring *val);
 		boost::shared_ptr<string_key_type> string_key(std::string *val, std::string def);
 		boost::shared_ptr<string_key_type> string_key(std::string *val);
 		boost::shared_ptr<int_key_type> int_key(int *val, int def = 0);
@@ -292,8 +281,6 @@ namespace nscapi {
 		boost::shared_ptr<uint_key_type> uint_key(unsigned int *val);
 		boost::shared_ptr<bool_key_type> bool_key(bool *val, bool def);
 		boost::shared_ptr<bool_key_type> bool_key(bool *val);
-		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val, std::wstring def);
-//		boost::shared_ptr<wpath_key_type> wpath_key(std::wstring *val);
 		boost::shared_ptr<path_key_type> path_key(std::string *val, std::string def);
 		boost::shared_ptr<path_key_type> path_key(std::string *val);
 		boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val, std::string def);
@@ -361,21 +348,6 @@ namespace nscapi {
 			map_type* store_to_;
 		};
 
-		class typed_path_list : public path_interface {
-		public:
-			typed_path_list(std::list<std::wstring>* store_to)  : store_to_(store_to) {}
-
-			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
-				if (store_to_) {
-					BOOST_FOREACH(const std::string &s, core_->get_keys(path))
-						store_to_->push_back(utf8::cvt<std::wstring>(s));
-				}
-			}
-
-		protected:
-			std::list<std::wstring>* store_to_;
-		};
-
 		template<class T>
 		class typed_path_fun_value : public path_interface {
 		public:
@@ -399,33 +371,15 @@ namespace nscapi {
 			boost::function<void (T, T)> callback_;
 		};
 
-		class typed_path_fun : public path_interface {
-		public:
-			typed_path_fun(boost::function<void (std::wstring)> callback) : callback_(callback) {}
-
-			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
-				if (callback_) {
-					std::list<std::string> list = core_->get_keys(path);
-					BOOST_FOREACH(std::string key, list) {
-						callback_(utf8::cvt<std::wstring>(key));
-					}
-				}
-			}
-
-		protected:
-			boost::function<void (std::wstring)> callback_;
-		};
-
-		boost::shared_ptr<typed_path_fun> fun_path(boost::function<void (std::wstring)> fun);
 		boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void (std::string,std::string)> fun);
-		boost::shared_ptr<typed_path_map<std::wstring> > wstring_map_path(std::map<std::wstring,std::wstring> *val);
 		boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string,std::string> *val);
-		boost::shared_ptr<typed_path_list> wstring_list_path(std::list<std::wstring> *val);
 
 		struct description_container {
 			std::string title;
 			std::string description;
 			bool advanced;
+			description_container() : advanced(false)
+			{}
 
 			description_container(std::string title, std::string description, bool advanced)
 				: title(title)
@@ -490,16 +444,20 @@ namespace nscapi {
 			std::string path_name;
 			boost::shared_ptr<path_interface> path;
 			description_container description;
+			description_container subkey_description;
 			bool is_sample;
 
-			path_info(std::string path_name, description_container description_) : path_name(path_name), description(description_), is_sample(false) {}
-			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description_) : path_name(path_name), path(path), description(description_), is_sample(false) {}
+			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
+//			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), subkey_description(subkey_description), is_sample(false) {}
+//			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
+			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
 
 			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
 			virtual path_info& operator=(const path_info& obj) {
 				path_name = obj.path_name;
 				path = obj.path;
 				description = obj.description;
+				subkey_description = obj.subkey_description;
 				is_sample = obj.is_sample;
 				return *this;
 			}
@@ -512,8 +470,8 @@ namespace nscapi {
 			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner), is_sample(false) {}
 			settings_paths_easy_init(std::string path, settings_registry* owner, bool is_sample) : path_(path), owner(owner), is_sample(is_sample) {}
 
-			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::string title, std::string description) {
-				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description)));
+			settings_paths_easy_init& operator()(boost::shared_ptr<path_interface> value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
+				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
 				add(d);
 				return *this;
 			}
@@ -529,10 +487,10 @@ namespace nscapi {
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::string path, boost::shared_ptr<path_interface> value, std::string title, std::string description) {
+			settings_paths_easy_init& operator()(std::string path, boost::shared_ptr<path_interface> value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
 				if (!path_.empty())
 					path = path_ + "/" + path;
-				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description)));
+				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
 				add(d);
 				return *this;
 			}
@@ -712,14 +670,8 @@ namespace nscapi {
 			void set_alias(std::string cur, std::string def) {
 				alias_ = alias_extension::get_alias(cur, def);
 			}
-			void set_alias(std::wstring cur, std::string def) {
-				alias_ = alias_extension::get_alias(utf8::cvt<std::string>(cur), def);
-			}
 			void set_alias(std::string prefix, std::string cur, std::string def) {
 				alias_ = alias_extension::get_alias(prefix, cur, def);
-			}
-			void set_alias(std::string prefix, std::wstring cur, std::string def) {
-				alias_ = alias_extension::get_alias(prefix, utf8::cvt<std::string>(cur), def);
 			}
 			void set_alias(std::string alias) {
 				alias_ = alias;
@@ -765,6 +717,10 @@ namespace nscapi {
 				}
 				BOOST_FOREACH(path_list::value_type v, paths_) {
 					core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
+					if (!v->subkey_description.title.empty()) {
+						BOOST_FOREACH(const std::string &s, core_->get_keys(v->path_name))
+							core_->register_key(v->path_name, s, NSCAPI::key_string, v->subkey_description.title, v->subkey_description.description, "", v->description.advanced, v->is_sample);
+					}
 				}
 			}
 			void clear() {

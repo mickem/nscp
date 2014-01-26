@@ -114,8 +114,8 @@ namespace nscapi {
 				object_type::options_type options;
 				root_path.add_path()
 					(nscapi::settings_helper::string_map_path(&options), 
-					"TARGET DEFENITION", "Target definition for: " + object.tpl.alias)
-
+					"TARGET DEFENITION", "Target definition for: " + object.tpl.alias,
+					"TARGET", "Target definition for: " + object.tpl.alias)
 					;
 
 				root_path.add_key()

@@ -174,6 +174,12 @@ namespace parsers {
 		node_type factory::create_conversion(node_type node) {
 			return node_type(new unary_fun("convert", node));
 		}
+		node_type factory::create_ios(const long long &value) {
+			return create_int(value);
+		}
+		node_type factory::create_ios(const std::string &value) {
+			return create_string(value);
+		}
 		node_type factory::create_string(const std::string &value) {
 			return node_type(new string_value(value));
 		}

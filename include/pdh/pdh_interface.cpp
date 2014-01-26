@@ -65,8 +65,10 @@ namespace PDH {
 	}
 
 	void pdh_object::set_buffer_size(std::string buffer_size_) {
+		if (buffer_size_.empty())
+			return;
 		try {
-			buffer_size = strEx::stoui_as_time(buffer_size_);
+			buffer_size = strEx::stoui_as_time(buffer_size_)/1000;
 		} catch (...) {
 			buffer_size = 0;
 		}

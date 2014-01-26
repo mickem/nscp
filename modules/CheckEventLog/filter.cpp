@@ -39,7 +39,7 @@ namespace eventlog_filter {
 			return 0;
 		return static_cast<long long>(strEx::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
 	}
-	std::string type_to_string(long long ival) {
+	std::string new_type_to_string(long long ival) {
 		//if (ival == 0)
 		//	return "audit";
 		//if (ival == 1)
@@ -52,13 +52,26 @@ namespace eventlog_filter {
 			return "information";
 		//return "unknown";
 	}
+	std::string old_type_to_string(long long ival) {
+		if (ival == 0)
+			return "audit";
+		if (ival == 1)
+			return "error";
+		if (ival == 2)
+			return "error";
+		if (ival == 3)
+			return "warning";
+		if (ival == 4)
+			return "information";
+		return "unknown";
+	}
 
 
 	std::string new_filter_obj::get_el_type_s() {
-		return type_to_string(get_el_type());
+		return new_type_to_string(get_el_type());
 	}
 	std::string old_filter_obj::get_el_type_s() {
-		return type_to_string(get_el_type());
+		return old_type_to_string(get_el_type());
 	}
 
 
@@ -198,7 +211,7 @@ namespace eventlog_filter {
 			("id", boost::bind(&filter_obj::get_id, _1), "Eventlog id")
 			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "alias for level (old)")
 			("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
-			("written", type_date, boost::bind(&filter_obj::get_written, _1), "When the message was written to file")
+			("written", type_date, boost::bind(&filter_obj::get_written, _1), boost::bind(&filter_obj::get_written_s, _1), "When the message was written to file")
 			("category", boost::bind(&filter_obj::get_category, _1), "TODO")
 			("customer", boost::bind(&filter_obj::get_customer, _1), "TODO")
 			("rawid", boost::bind(&filter_obj::get_raw_id, _1), "Raw message id (contains many other fields all baked into a single number)")

@@ -1,8 +1,8 @@
 @echo off
 ping -n 1 %1 -w 20000 >NUL
+IF ERRORLEVEL 2 GOTO unknown
 IF ERRORLEVEL 1 GOTO err
-IF ERRORLEVEL 0 GOTO ok
-GOTO unknown
+GOTO ok
  
 :err
 echo CRITICAL: Ping check failed

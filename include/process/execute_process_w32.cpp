@@ -98,11 +98,11 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
-			output = "Command (" + args.command + ") didn't terminate within the timeout period (" + strEx::s::xtos(args.timeout) + "s)!";
+			output = "Command " + args.alias + " didn't terminate within the timeout period " + strEx::s::xtos(args.timeout) + "s";
 			result = NSCAPI::returnUNKNOWN;
 		} else {
 			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
-				output = "Failed to get commands (" + args.command + ") return code: " + utf8::cvt<std::string>(error::lookup::last_error());
+				output = "Failed to get commands " + args.alias + " return code: " + utf8::cvt<std::string>(error::lookup::last_error());
 				result = NSCAPI::returnUNKNOWN;
 			} else {
 				result = dwexitcode;
@@ -114,9 +114,9 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	} else {
 		DWORD error = GetLastError();
 		if (error == ERROR_BAD_EXE_FORMAT) {
-			output = "ExternalCommands: failed to create process (" + args.command + "): it is not an exe file: " + utf8::cvt<std::string>(error::lookup::last_error(error));
+			output = "Failed to execute " + args.alias + " seems more like a script maybe you need a script executable first: " + utf8::cvt<std::string>(error::lookup::last_error(error));
 		} else {
-			output = "ExternalCommands: failed to create process (" + args.command + "): " + utf8::cvt<std::string>(error::lookup::last_error(error));
+			output = "Failed to execute " + args.alias + ": " + utf8::cvt<std::string>(error::lookup::last_error(error));
 		}
 		result = NSCAPI::returnUNKNOWN;
 		CloseHandle(hChildInR);

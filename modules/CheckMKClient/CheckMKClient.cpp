@@ -83,13 +83,16 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			("CHECK MK CLIENT SECTION", "Section for NSCP active/passive check module.")
 
 			("handlers", sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "")
+			"CLIENT HANDLER SECTION", "",
+			"CLIENT", "For more configuration options add a dedicated section")
 
 			("targets", sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "")
+			"REMOTE TARGET DEFINITIONS", "",
+			"TARGET", "For more configuration options add a dedicated section")
 
 			("scripts", sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "")
+			"REMOTE TARGET DEFINITIONS", "",
+			"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()

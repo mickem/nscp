@@ -39,6 +39,7 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("creation", type_date, boost::bind(&filter_obj::get_creation, _1), "When file was created")
 		("written", type_date, boost::bind(&filter_obj::get_write, _1), "When file was last written to")
 		("write", type_date, boost::bind(&filter_obj::get_write, _1), "Alias for written")
+		("age", type_int, boost::bind(&filter_obj::get_age, _1), "Seconds since file was last written")
 		;
 
 	registry_.add_human_string()

@@ -74,10 +74,13 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.alias().add_path_to_settings()
 
 			("wrappings", sh::string_map_path(&wrappings_)
-			, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts")
+			, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts",
+			"SCRIPT", "For more configuration options add a dedicated section")
 
 			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
-			"EXTERNAL SCRIPT ALIAS SECTION", "A list of aliases available. An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)")
+			"ALIAS SECTION", "A list of aliases available.\n"
+			"An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
+			"ALIAS", "For more configuration options add a dedicated section")
 
 			;
 
@@ -113,11 +116,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			add_alias("alias_process_count", "check_process \"process=$ARG1$\" \"warn=count > $ARG2$\" \"crit=count > $ARG3$\"");
 			add_alias("alias_process_hung", "check_process \"filter=is_hung\" \"crit=count>0\"");
 			add_alias("alias_event_log", "check_eventlog");
-			add_alias("alias_file_size", "CheckFiles \"filter=size > $ARG2$\" \"path=$ARG1$\" MaxWarn=1 MaxCrit=1 \"syntax=%filename% %size%\" max-dir-depth=10");
-//			add_alias("alias_file_age", "checkFile2 filter=out \"file=$ARG1$\" filter-written=>1d MaxWarn=1 MaxCrit=1 \"syntax=%filename% %write%\"");
-			add_alias("alias_sched_all", "CheckTaskSched \"filter=exit_code ne 0\" \"syntax=%title%: %exit_code%\" warn=>0");
-			add_alias("alias_sched_long", "CheckTaskSched \"filter=status = 'running' AND most_recent_run_time < -$ARG1$\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
-			add_alias("alias_sched_task", "CheckTaskSched \"filter=title eq '$ARG1$' AND exit_code ne 0\" \"syntax=%title% (%most_recent_run_time%)\" warn=>0");
+			add_alias("alias_file_size", "check_files \"path=$ARG1$\" \"crit=size > $ARG2$\" \"top-syntax=${list}\" \"detail-syntax=${filename] ${size}\" max-dir-depth=10");
+			add_alias("alias_file_age", "check_files \"path=$ARG1$\" \"crit=written > $ARG2$\" \"top-syntax=${list}\" \"detail-syntax=${filename] ${written}\" max-dir-depth=10");
+			add_alias("alias_sched_all", "check_tasksched show-all \"syntax=${title}: ${exit_code}\" \"crit=exit_code ne 0\"");
+			add_alias("alias_sched_long", "check_tasksched \"filter=status = 'running'\" \"detail-syntax=${title} (${most_recent_run_time})\" \"crit=most_recent_run_time < -$ARG1$\"");
+			add_alias("alias_sched_task", "check_tasksched show-all \"filter=title eq '$ARG1$'\" \"detail-syntax=${title} (${exit_code})\" \"crit=exit_code ne 0\"");
 //			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
 		}
 
@@ -125,10 +128,12 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			("EXTERNAL SCRIPT SECTION", "Section for external scripts configuration options (CheckExternalScripts).")
 
 			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
-			"EXTERNAL SCRIPT SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>")
+			"SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>",
+			"SCRIPT", "For more configuration options add a dedicated section")
 
 			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
-			"EXTERNAL SCRIPT WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. using the template mechanism)")
+			"WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. using the template mechanism)",
+			"WRAPPED SCRIPT", "For more configuration options add a dedicated section")
 
 			;
 
@@ -249,6 +254,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		arg.domain = cd.domain;
 		arg.password = cd.password;
 	}
+	arg.alias = cd.tpl.alias;
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {

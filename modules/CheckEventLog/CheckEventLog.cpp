@@ -89,7 +89,8 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
 		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
-		"REALTIME FILTERS", "A set of filters to use in real-time mode")
+		"REALTIME FILTERS", "A set of filters to use in real-time mode",
+		"FILTER DEFENITION", "For more configuration options add a dedicated section")
 		;
 
 	settings.alias().add_key_to_settings()
@@ -431,7 +432,8 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	if (filter_helper.empty()) {
 		filter_helper.set_default_filter("level in ('error', 'warning')");
 		filter_helper.set_default("count > 0", "count > 5");
-		scan_range = "-24h";
+		if (scan_range.empty())
+			scan_range = "-24h";
 	}
 
 	if (unique) {

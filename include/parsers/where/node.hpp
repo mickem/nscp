@@ -216,6 +216,8 @@ namespace parsers {
 			static node_type create_fun(object_factory factory, const std::string op, node_type node);
 			static node_type create_string(const std::string &value);
 			static node_type create_int(const long long &value);
+			static node_type create_ios(const long long &value);
+			static node_type create_ios(const std::string &value);
 			static node_type create_neg_int(const long long &value);
 			static node_type create_variable(object_factory factory, const std::string &name);
 			static node_type create_false();

@@ -28,6 +28,7 @@
 #include <parsers/expression/expression.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
+#include <parsers/helpers.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -217,6 +218,7 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	// 			MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 
 
+	context.now = parsers::where::constants::get_now();
 
 	if (!filter_helper.parse_options())
 		return;

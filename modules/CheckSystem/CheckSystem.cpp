@@ -108,8 +108,9 @@ std::pair<bool,std::string> validate_counter(std::string counter) {
 
 void load_counters(std::map<std::string,std::string> &counters, sh::settings_registry &settings) {
 	settings.alias().add_path_to_settings()
-		("counters", sh::string_map_path(&counters)
-		, "PDH COUNTERS", "Define various PDH counters to check.")
+		("counters", sh::string_map_path(&counters), 
+		"PDH COUNTERS", "Define various PDH counters to check.",
+		"COUNTER", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();
@@ -144,12 +145,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("service mapping", "SERVICE MAPPING SECTION", "Configure which services has to be in which state")
 
 		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, get_settings_proxy(), counter_path, _1, _2)), 
-		"COUNTERS", "Add counters to check")
+		"COUNTERS", "Add counters to check",
+		"COUNTER", "For more configuration options add a dedicated section")
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
 		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, &collector, get_settings_proxy(), _1, _2)),  
-		"REALTIME FILTERS", "A set of filters to use in real-time mode")
+		"REALTIME FILTERS", "A set of filters to use in real-time mode",
+		"FILTER", "For more configuration options add a dedicated section")
 
 		;
 
@@ -198,16 +201,20 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 
 		BOOST_FOREACH(const check_pdh::counter_config_object &object, pdh_checker.counters_.get_object_list()) {
-			PDH::pdh_object counter;
-			counter.alias = object.tpl.alias;
-			counter.path = object.counter;
+			try {
+				PDH::pdh_object counter;
+				counter.alias = object.tpl.alias;
+				counter.path = object.counter;
 
-			counter.set_strategy(object.collection_strategy);
-			counter.set_instances(object.instances);
-			counter.set_buffer_size(object.buffer_size);
-			counter.set_type(object.type);
+				counter.set_strategy(object.collection_strategy);
+				counter.set_instances(object.instances);
+				counter.set_buffer_size(object.buffer_size);
+				counter.set_type(object.type);
 
-			collector.add_counter(counter);
+				collector.add_counter(counter);
+			} catch (const PDH::pdh_exception &e) {
+				NSC_LOG_ERROR("Failed to load: " + object.tpl.alias + ": " + e.reason());
+			}
 		}
 		collector.start();
 	}
@@ -503,14 +510,15 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	if (vm.count("ShowAll")) {
 		if (vm["ShowAll"].as<std::string>() == "long")
 			request.add_arguments("filter=none");
-		request.add_arguments("top-syntax=CPU Load: ${list}");
+		request.add_arguments("top-syntax=${status}: CPU Load: ${list}");
 	}
+	request.add_arguments("detail-syntax=${time}: average load ${load}%");
 	BOOST_FOREACH(const std::string &t, times) {
 		request.add_arguments("time=" + t);
 	}
 	compat::log_args(request);
 	check_cpu(request, response);
-
+	
 }
 
 void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -692,8 +700,13 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	std::string filter, crit;
 
 	request.clear_arguments();
-	compat::matchShowAll(vm, request);
-	request.add_arguments("detail-syntax=${name} : ${state}");
+	request.add_arguments("detail-syntax=${name}: ${state}");
+	if (vm.count("ShowAll")) {
+		request.add_arguments("top-syntax=${status}: ${list}");
+	} else {
+		request.add_arguments("top-syntax=${status}: ${crit_list} delayed (${warn_list})");
+	}
+
 	BOOST_FOREACH(const std::string &s, extra) {
 		std::string::size_type pos = s.find('=');
 		if (pos != std::string::npos) {
@@ -730,7 +743,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
+	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -765,9 +778,13 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 					return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 			}
 		} else {
-			services_helper::service_info info = services_helper::get_service_info(computer, service);
-			boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
-			boost::tuple<bool,bool> ret = filter.match(record);
+			try {
+				services_helper::service_info info = services_helper::get_service_info(computer, service);
+				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
+				boost::tuple<bool,bool> ret = filter.match(record);
+			} catch (const nscp_exception &e) {
+				return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
+			}
 		}
 	}
 	modern_filter::perf_writer writer(response);
@@ -908,7 +925,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);
-//MAP_OPTIONS_STR("perf-unit", tmpObject.perf_unit)
 }
 
 class NSC_error : public process_helper::error_reporter {

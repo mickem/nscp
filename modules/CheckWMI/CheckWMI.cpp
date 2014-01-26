@@ -86,7 +86,8 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	settings.add_path_to_settings()
 		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
-		"TARGET LIST SECTION", "A list of avalible remote target systems")
+		"TARGET LIST SECTION", "A list of available remote target systems",
+		"TARGET DEFENTION", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();

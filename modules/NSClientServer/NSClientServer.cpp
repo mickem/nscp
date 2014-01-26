@@ -171,6 +171,10 @@ inline std::string extract_perf_value(const ::Plugin::Common_PerformanceData &pe
 inline std::string extract_perf_total(const ::Plugin::Common_PerformanceData &perf) {
 	return nscapi::protobuf::functions::extract_perf_maximum_as_string(perf);
 }
+inline long long extract_perf_value_i(const ::Plugin::Common_PerformanceData &perf) {
+	return nscapi::protobuf::functions::extract_perf_value_as_int(perf);
+}
+
 
 std::string list_instance(std::string counter) {
 	std::list<std::string> exeresult;
@@ -285,8 +289,11 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			args.push_back("counter=" + cmd.second);
 			break;
 		case REQ_FILEAGE:
-			cmd.first = "getFileAge";
+			cmd.first = "check_files";
 			args.push_back("path=" + cmd.second);
+			args.push_back("crit=age<0");
+			args.push_back("detail-syntax=${file} ${written}");
+			args.push_back("top-syntax=${list}");
 			break;
 		case REQ_INSTANCES:
 			return check_nt::packet(list_instance(cmd.second));
@@ -320,7 +327,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		case REQ_USEDDISKSPACE:
 			return check_nt::packet(extract_perf_value(payload.perf(0)) + "&" + extract_perf_total(payload.perf(0)));
 		case REQ_FILEAGE:
-			return check_nt::packet(payload.message());
+			return check_nt::packet(strEx::s::itos_non_sci(extract_perf_value_i(payload.perf(0))/60) + "&" + payload.message());
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 		case REQ_PROCSTATE:

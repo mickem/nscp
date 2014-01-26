@@ -254,7 +254,10 @@ Class NagiosPlugin
 		
 		Set re = New RegExp
 		re.IgnoreCase = True
-		
+
+		' Make sure that "value" is of type Integer 
+		value = Int(value) 		
+
 		Select Case myOpt
 			' Generate an alert if x ...
 			Case 1

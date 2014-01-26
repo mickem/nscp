@@ -148,12 +148,13 @@ namespace PDH {
 			return strategy_ == types::rrd;
 		}
 		void set_strategy(std::string strategy) {
-			if (strategy == "static") {
+			if (strategy == "static" || strategy.empty()) {
 				strategy_ = types::static_value;
-			} else if (strategy == "round robin") {
+			} else if (strategy == "round robin" || strategy == "rrd") {
 				strategy_ = types::rrd;
+				set_default_buffer_size("60m");
 			} else {
-				// TODO: NSC_LOG_ERROR("Failed to load counter " + alias + " invalid collection strategy: " + strategy);
+				throw pdh_exception("Invalid strategy: " + strategy);
 			}
 		}
 		void set_strategy_static() {

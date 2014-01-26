@@ -23,9 +23,6 @@
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckTaskSched : public nscapi::impl::simple_plugin {
-private:
-	std::wstring syntax;
-
 public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);

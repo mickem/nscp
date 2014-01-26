@@ -183,7 +183,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun && native_context->has_object())
 						return factory::create_int(fun(native_context->get_object(), context));
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -203,7 +203,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun && native_context->has_object())
 						return fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -272,7 +272,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun && native_context->has_object())
 						return factory::create_string(fun(native_context->get_object(), context));
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -298,7 +298,7 @@ namespace parsers {
 						return "";
 					if (native_context != NULL && fun)
 						return fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -350,7 +350,7 @@ namespace parsers {
 						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 						if (native_context != NULL && s_fun && native_context->has_object())
 							return factory::create_string(s_fun(native_context->get_object(), context));
-						context->error("Failed to evaluate " + name_);
+						context->error("Failed to evaluate " + name_ + " no object instance");
 					} catch (const std::exception &e) {
 						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -360,7 +360,7 @@ namespace parsers {
 						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 						if (native_context != NULL && i_fun && native_context->has_object())
 							return factory::create_int(i_fun(native_context->get_object(), context));
-						context->error("Failed to evaluate " + name_);
+						context->error("Failed to evaluate " + name_ + " no object instance");
 					} catch (const std::exception &e) {
 						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -381,7 +381,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && i_fun && native_context->has_object())
 						return i_fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -392,7 +392,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && s_fun && native_context->has_object())
 						return s_fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no object instance");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -471,7 +471,7 @@ namespace parsers {
 				try {
 					if (fun)
 						return fun(get_type(), context, subject);
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no function");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -532,7 +532,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun)
 						return factory::create_int(fun(native_context->get_summary()));
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no function");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -552,7 +552,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun)
 						return fun(native_context->get_summary());
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no function");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
@@ -622,7 +622,7 @@ namespace parsers {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun)
 						return factory::create_string(fun(native_context->get_summary()));
-					context->error("Failed to evaluate " + name_);
+					context->error("Failed to evaluate " + name_ + " no function");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}

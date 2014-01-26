@@ -52,7 +52,8 @@ bool LUAScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			("LUA SCRIPT SECTION", "Section for the LUAScripts module.")
 
 			("scripts", sh::fun_values_path(boost::bind(&LUAScript::loadScript, this, _1, _2)), 
-			"LUA SCRIPTS SECTION", "A list of scripts available to run from the LuaSCript module.")
+			"LUA SCRIPTS SECTION", "A list of scripts available to run from the LuaSCript module.",
+			"SCRIPT DEFENTION", "For more configuration options add a dedicated section")
 			;
 
 		settings.register_all();

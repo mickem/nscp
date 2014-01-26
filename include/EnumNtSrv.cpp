@@ -119,7 +119,7 @@ namespace services_helper {
 // 			} SERVICE_DELAYED_AUTO_START_INFO, *LPSERVICE_DELAYED_AUTO_START_INFO;
 			
 			DWORD size=sizeof(SERVICE_DELAYED_AUTO_START_INFO);
-			if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size) != 0) {
+			if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
 				info.delayed = delayed.fDelayedAutostart;
 			}
 			ret.push_back(info);
@@ -227,6 +227,8 @@ namespace services_helper {
 		return "unknown";
 	}
 	std::string service_info::get_start_type_s() const {
+		if (delayed)
+			return "delayed";
 		if (start_type == SERVICE_AUTO_START)
 			return "auto";
 		if (start_type == SERVICE_BOOT_START)

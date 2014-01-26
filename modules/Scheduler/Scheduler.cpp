@@ -48,7 +48,8 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.alias().add_path_to_settings()
 		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)), 
-		"SCHEDULER SECTION", "Section for the Scheduler module.")
+		"SCHEDULER SECTION", "Section for the Scheduler module.",
+		"SCHEDULE", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();
@@ -109,7 +110,17 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.tpl.alias, item.target_id, item.source_id);
 			std::string result;
-			get_core()->submit_message(item.channel, response, result);
+			NSCAPI::errorReturn ret = get_core()->submit_message(item.channel, response, result);
+			if (ret != NSCAPI::isSuccess) {
+				NSC_LOG_ERROR_STD("Failed to submit: " + item.tpl.alias);
+				return;
+			}
+			std::string error;
+			ret = nscapi::protobuf::functions::parse_simple_submit_response(result, error);
+			if (ret != NSCAPI::isSuccess) {
+				NSC_LOG_ERROR_STD("Failed to submit " + item.tpl.alias + ": "  + error);
+				return;
+			}
 		} else {
 			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.tpl.alias) + " so nothing is reported");
 		}

@@ -548,7 +548,7 @@ namespace nscapi {
 				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
 				if (val.has_unit())
 					return strEx::s::itos_non_sci(val.value()*get_multiplier(val.unit()));
-				 return strEx::s::itos_non_sci(val.value());
+				return strEx::s::itos_non_sci(val.value());
 			} else if (perf.has_bool_value()) {
 				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
 				return val.value()?"true":"false";
@@ -560,6 +560,25 @@ namespace nscapi {
 				return val.value();
 			}
 			return "unknown";
+		}
+		long long functions::extract_perf_value_as_int(const ::Plugin::Common_PerformanceData &perf) {
+			if (perf.has_int_value()) {
+				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
+				if (val.has_unit())
+					return val.value()*get_multiplier(val.unit());
+				return val.value();
+			} else if (perf.has_bool_value()) {
+				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
+				return val.value()?1:0;
+			} else if (perf.has_float_value()) {
+				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
+				if (val.has_unit())
+					return static_cast<long long>(val.value()*get_multiplier(val.unit()));
+				return static_cast<long long>(val.value());
+			} else if (perf.has_string_value()) {
+				return 0;
+			}
+			return 0;
 		}
 		std::string functions::extract_perf_maximum_as_string(const ::Plugin::Common_PerformanceData &perf) {
 			if (perf.has_int_value()) {

@@ -49,7 +49,8 @@ bool CheckMKServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		("CHECK MK SERVER SECTION", "Section for check_mk (CheckMKServer.dll) protocol options.")
 
 		("scripts", sh::fun_values_path(boost::bind(&CheckMKServer::add_script, this, _1, _2)), 
-		"REMOTE TARGET DEFINITIONS", "")
+		"REMOTE TARGET DEFINITIONS", "",
+		"TARGET", "For more configuration options add a dedicated section")
 
 		;
 

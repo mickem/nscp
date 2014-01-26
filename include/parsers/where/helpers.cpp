@@ -84,7 +84,11 @@ namespace parsers {
 					return true;
 				if (src == type_int && dst == type_string)
 					return true;
+				if (src == type_int && dst == type_bool)
+					return true;
 				if (src == type_string && dst == type_int)
+					return true;
+				if (src == type_bool && dst == type_int)
 					return true;
 				if (src >= type_custom_int && src < type_custom_int_end && dst == type_int)
 					return true;
@@ -140,7 +144,7 @@ namespace parsers {
 					left = add_convert_node(left, rt);
 					return rt;
 				}
-				factory->error("Invalid type detected for nodes: " + left->to_string() + " and " + right->to_string());
+				factory->error("Cannot compare " + left->to_string() + " to " + right->to_string() + " (" + type_to_string(lt) + " to " + type_to_string(rt) + ")");
 				return type_invalid;
 			}
 
