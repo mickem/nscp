@@ -32,13 +32,6 @@ TEST(PerfConfigTest, simple_string) {
 	EXPECT_EQ("foo(a:b;)", to_string(v));
 }
 
-TEST(PerfConfigTest, percentage_sign) {
-	EXPECT_TRUE(do_parse("foo %(a:b)", v));
-	ASSERT_EQ(1, v.size());
-	EXPECT_EQ("foo %(a:b;)", to_string(v));
-}
-
-
 TEST(PerfConfigTest, simple_multiple_rules_1) {
 	EXPECT_TRUE(do_parse("foo(a:b)foo(1:b)", v));
 	ASSERT_EQ(2, v.size());
@@ -87,6 +80,12 @@ TEST(PerfConfigTest, simple_space_4) {
 	EXPECT_EQ("foo(a:b;)", to_string(v));
 }
 #if BOOST_VERSION >= 104900
+// These test only works in boost after 1.49
+TEST(PerfConfigTest, percentage_sign) {
+	EXPECT_TRUE(do_parse("foo %(a:b)", v));
+	ASSERT_EQ(1, v.size());
+	EXPECT_EQ("foo %(a:b;)", to_string(v));
+}
 TEST(PerfConfigTest, simple_space_5) {
 	EXPECT_TRUE(do_parse("foo(  a  b :  b  c )", v));
 	ASSERT_EQ(1, v.size());
