@@ -252,7 +252,7 @@ namespace nscapi {
 			payload->mutable_status()->set_status(status_to_gpb(ret));
 			message.SerializeToString(&buffer);
 		}
-		NSCAPI::errorReturn functions::parse_simple_submit_response(const std::string &request, std::string response) {
+		NSCAPI::errorReturn functions::parse_simple_submit_response(const std::string &request, std::string &response) {
 			Plugin::SubmitResponseMessage message;
 			message.ParseFromString(request);
 
