@@ -167,6 +167,7 @@ namespace eventlog_filter {
 		}
 	}
 	int convert_new_type(parsers::where::evaluation_context context, std::string str) {
+		// TODO: auditFailure
 		if (str == "audit")
 			return 0;
 		if (str == "critical")
@@ -175,7 +176,7 @@ namespace eventlog_filter {
 			return 2;
 		if (str == "warning" || str == "warn")
 			return 3;
-		if (str == "informational" || str == "info" || str == "information")
+		if (str == "informational" || str == "info" || str == "information" || str == "success" || str == "auditSuccess")
 			return 4;
 		try {
 			return strEx::s::stox<int>(str);
@@ -201,7 +202,7 @@ namespace eventlog_filter {
 
 		registry_.add_string()
 			("source", boost::bind(&filter_obj::get_source, _1), "Source system.")
-			("message", boost::bind(&filter_obj::get_message, _1), "The message renderd as a string.")
+			("message", boost::bind(&filter_obj::get_message, _1), "The message rendered as a string.")
 			("computer", boost::bind(&filter_obj::get_computer, _1), "Which computer generated the message")
 			("log", boost::bind(&filter_obj::get_log, _1), "alias for file")
 			("file", boost::bind(&filter_obj::get_log, _1), "The logfile name")
@@ -209,19 +210,28 @@ namespace eventlog_filter {
 
 		registry_.add_int()
 			("id", boost::bind(&filter_obj::get_id, _1), "Eventlog id")
-			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "alias for level (old)")
-			("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), boost::bind(&filter_obj::get_el_type_s, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+			("type", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "alias for level (old, deprecated)")
 			("written", type_date, boost::bind(&filter_obj::get_written, _1), boost::bind(&filter_obj::get_written_s, _1), "When the message was written to file")
 			("category", boost::bind(&filter_obj::get_category, _1), "TODO")
 			("customer", boost::bind(&filter_obj::get_customer, _1), "TODO")
 			("rawid", boost::bind(&filter_obj::get_raw_id, _1), "Raw message id (contains many other fields all baked into a single number)")
 			;
+
+		registry_.add_human_string()
+			("type", boost::bind(&filter_obj::get_el_type_s, _1), "")
+			("level", boost::bind(&filter_obj::get_el_type_s, _1), "")
+			;
 		if (eventlog::api::supports_modern()) {
 			registry_.add_converter()
 				(type_custom_type, &fun_convert_new_type)
 				;
+			registry_.add_int()
+				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+				;
+
 		} else {
 			registry_.add_int()
+				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info)")
 				("severity", type_custom_severity, boost::bind(&filter_obj::get_severity, _1), "Legacy: Probably not what you want.This is the technical severity of the message often level is what you are looking for.")
 				("generated", type_date, boost::bind(&filter_obj::get_generated, _1), "When the message was generated")
 				("qualifier", boost::bind(&filter_obj::get_facility, _1), "TODO")

@@ -32,13 +32,13 @@ The configuration from nsclient.ini::
 	type=large
 	counter=counter=\Processor(_total)\% Processor Time
 
-Then we can check the value (average over time)::
+Then we can check the value (**current snapshot**)::
 
 	check_pdh "counter=foo" "warn=value > 80" "crit=value > 90"
 	Everything looks good
 	'foo value'=18;80;90
 	
-To specify a time you use the time option::
+To check averages from the same counter we need to specify the time option::
 
 	check_pdh "counter=foo" "warn=value > 80" "crit=value > 90" time=30s
 	Everything looks good

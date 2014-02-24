@@ -54,7 +54,7 @@ namespace parsers {
 						>> '(' >> list_expr >> ')')						[_val = phoenix::bind(&factory::create_bin_op, op_nin, _1, _2) ]
 					| (identifier_expr >> ascii::no_case["in"] 
 						>> '(' >> list_expr >> ')')						[_val = phoenix::bind(&factory::create_bin_op, op_in, _1, _2) ]
-					| ('(' >> expression >> ')')						[_val = _1 ]
+						| ('(' >> expression >> ')')						[_val = _1 ]
 					| (identifier_expr)									[_val = _1 ]
 					;
 

@@ -372,6 +372,7 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 		if (eventlog::api::supports_modern()) {
 			boost::replace_all(filter, "strings", "message");
 			boost::replace_all(filter, "generated", "written");
+			boost::replace_all(filter, "severity", "level");
 		}
 		request.add_arguments("filter="+filter);
 	}
@@ -384,13 +385,14 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 	boost::replace_all(syntax, "%facility%", "${facility}");
 	boost::replace_all(syntax, "%qualifier%", "${qualifier}");
 	boost::replace_all(syntax, "%customer%", "${customer}");
-	boost::replace_all(syntax, "%severity%", "${severity}");
 	if (eventlog::api::supports_modern()) {
 		boost::replace_all(syntax, "%strings%", "${message}");
 		boost::replace_all(syntax, "%generated%", "${written}");
+		boost::replace_all(syntax, "%severity%", "${level}");
 	} else {
 		boost::replace_all(syntax, "%strings%", "${strings}");
 		boost::replace_all(syntax, "%generated%", "${generated}");
+		boost::replace_all(syntax, "%severity%", "${severity}");
 	}
 	boost::replace_all(syntax, "%level%", "${level}");
 	boost::replace_all(syntax, "%log%", "${file}");
@@ -432,6 +434,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	if (filter_helper.empty()) {
 		filter_helper.set_default_filter("level in ('error', 'warning')");
 		filter_helper.set_default("count > 0", "count > 5");
+		filter_helper.set_default_index("${log}-${source}-${id}");
 		if (scan_range.empty())
 			scan_range = "-24h";
 	}

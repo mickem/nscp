@@ -1,3 +1,13 @@
+2014-02-23 MickeM
+ * Changed so uniq is default for eventlog checks (if no arguments are given)
+ * Fixed drives so they are more sensible
+ * Added drive_or_id and drive_or_name to configure the default "id" of drives.
+ * Fixed so legacy MaxWarn/MinWarn/MaxCrit/MinCrit are treated like >= and <= (which is the original behaviour)
+ * Changed so default "help" if invalid syntax is the short version.
+ * Removed erronouse logging when shutting down sockets
+ * Tweaked console output a bit
+ * Fixed check_uptime overflow issue
+ 
 2014-01-25 MickeM
  * Fixed FILEAGE check_nt command #480, #636, #642, #39 (and others)
  * Fixed delayed start issue in check_service #681

@@ -49,7 +49,7 @@ namespace socket_helpers {
 #ifdef USE_SSL
 			typedef socket_helpers::server::ssl_connection<protocol_type, N> ssl_connection_type;
 #endif
-
+			bool is_shutting_down_;
 			socket_helpers::connection_info info_;
 			int threads_;
 			typename protocol_type::handler_type handler_;
@@ -66,7 +66,8 @@ namespace socket_helpers {
 			boost::thread_group thread_group_;
 		public:
 			server(socket_helpers::connection_info info, typename protocol_type::handler_type handler)
-				: info_(info)
+				: is_shutting_down_(false)
+				, info_(info)
 				, threads_(0)
 				, handler_(handler)
 				, io_service_()
@@ -219,10 +220,12 @@ namespace socket_helpers {
 // 				return "test";
 // 			}
 			void stop() {
+				is_shutting_down_ = true;
 				acceptor_v4.close();
 				acceptor_v6.close();
 				io_service_.stop();
 				thread_group_.join_all();
+				is_shutting_down_ = false;
 			}
 
 		private:
@@ -251,7 +254,8 @@ namespace socket_helpers {
 						)
 						);
 				} else {
-					logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
+					if (!is_shutting_down_)
+						logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
 				}
 			}
 

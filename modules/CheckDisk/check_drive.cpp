@@ -50,9 +50,17 @@ std::string type_to_string(const int type) {
 }
 
 
-struct filter_obj {
-	std::string drive;
+struct drive_container {
+	std::string id;
+	std::string letter;
 	std::string name;
+	drive_container() {}
+	drive_container(std::string id, std::string letter, std::string name) : id(id), letter(letter), name(name) {}
+};
+
+
+struct filter_obj {
+	drive_container drive;
 	UINT drive_type;
 	long long user_free;
 	long long total_free;
@@ -62,9 +70,8 @@ struct filter_obj {
 	bool unreadable;
 
 	filter_obj() : drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(false) {}
-	filter_obj(std::string drive, std::string name) 
+	filter_obj(const drive_container drive) 
 		: drive(drive)
-		, name(name)
 		, drive_type(0)
 		, user_free(0)
 		, total_free(0)
@@ -74,8 +81,11 @@ struct filter_obj {
 		, unreadable(true)
 	{};
 
-	std::string get_drive(parsers::where::evaluation_context) const { return drive; }
-	std::string get_name() const { return name; }
+	std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
+	std::string get_name(parsers::where::evaluation_context) const { return drive.name; }
+	std::string get_id(parsers::where::evaluation_context) const { return drive.id; }
+	std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty()?drive.id:drive.letter; }
+	std::string get_drive_or_name(parsers::where::evaluation_context) const { return drive.letter.empty()?drive.name:drive.letter; }
 
 	long long get_user_free(parsers::where::evaluation_context context) { get_size(context); return user_free; }
 	long long get_total_free(parsers::where::evaluation_context context) { get_size(context); return total_free; }
@@ -102,11 +112,16 @@ struct filter_obj {
 		return type_to_string(get_type(context));
 	}
 
-	long long  get_type(parsers::where::evaluation_context context) {
+	std::wstring get_volume_or_letter_w() {
+		if (!drive.id.empty())
+			return utf8::cvt<std::wstring>(drive.id);
+		return utf8::cvt<std::wstring>(drive.letter);
+
+	}
+	long long get_type(parsers::where::evaluation_context context) {
 		if (has_type)
 			return drive_type;
-		std::wstring drv = utf8::cvt<std::wstring>(drive);
-		drive_type = GetDriveType(drv.c_str());
+		drive_type = GetDriveType(get_volume_or_letter_w().c_str());
 		has_type = true;
 		return drive_type;
 	}
@@ -119,7 +134,7 @@ struct filter_obj {
 		ULARGE_INTEGER totalNumberOfBytes;
 		ULARGE_INTEGER totalNumberOfFreeBytes;
 		std::string error;
-		std::wstring drv = utf8::cvt<std::wstring>(drive);
+		std::wstring drv = get_volume_or_letter_w();
 		if (drv.size() == 1)
 			drv = drv + L":\\";
 		if (!GetDiskFreeSpaceEx(drv.c_str(), &freeBytesAvailableToCaller, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
@@ -131,7 +146,7 @@ struct filter_obj {
 				drive_size = 0;
 				return;
 			}
-			context->error("Failed to get size for: " + name + error::lookup::last_error(err));
+			context->error("Failed to get size for: " + drive.name + error::lookup::last_error(err));
 			unreadable = err == ERROR_ACCESS_DENIED;
 			has_size = true;
 			return;
@@ -245,8 +260,11 @@ struct filter_obj_handler : public native_context {
 
 	filter_obj_handler() {
 		registry_.add_string()
-			("name", boost::bind(&filter_obj::get_name, _1), "Descriptive name of drive")
+			("name", &filter_obj::get_name, "Descriptive name of drive")
+			("id", &filter_obj::get_id, "Drive or id of drive")
 			("drive", &filter_obj::get_drive, "Technical name of drive")
+			("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
+			("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
 			;
 		registry_.add_int()
 			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
@@ -297,15 +315,9 @@ struct filter_obj_handler : public native_context {
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
 
 
-struct drive_container {
-	std::string drive;
-	std::string name;
-	drive_container(std::string drive, std::string name) : drive(drive), name(name) {}
-};
-
 
 boost::shared_ptr<filter_obj> get_details(const drive_container &drive, bool ignore_errors) {
-	return boost::make_shared<filter_obj>(drive.drive, drive.name);
+	return boost::make_shared<filter_obj>(drive);
 }
 
 class volume_helper {
@@ -483,8 +495,8 @@ public:
 		return ret;
 	}
 
-	map_type get_volumes() {
-		map_type ret;
+	std::list<drive_container> get_volumes() {
+		std::list<drive_container> ret;
 		std::wstring volume;
 		HANDLE hVol = FindFirstVolume(volume);
 		if (hVol == INVALID_HANDLE_VALUE) {
@@ -496,10 +508,14 @@ public:
 			std::wstring name, fs;
 			getVolumeInformation(volume, name, fs);
 
+			bool found_mp = false;
+			std::string title = utf8::cvt<std::string>(get_title(volume));
 			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
-				ret[utf8::cvt<std::string>(s)] = utf8::cvt<std::string>(get_title(s));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title));
+				found_mp = true;
 			}
-			ret[utf8::cvt<std::string>(volume)] = utf8::cvt<std::string>(name);
+			if (!found_mp)
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title));
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		return ret;
@@ -514,17 +530,30 @@ public:
 
 };
 
-void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives) {
-	volume_helper helper;
-	BOOST_FOREACH(const volume_helper::map_type::value_type &v, helper.get_volumes()) {
-		if (std::find(exclude_drives.begin(), exclude_drives.end(), v.first) == exclude_drives.end()) {
-			drives.push_back(drive_container(v.first, v.second));
-			exclude_drives.push_back(v.first);
+
+void add_missing(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, const std::string volume, const std::string drive, const std::string title) {
+	if (!drive.empty()) {
+		if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
+			drives.push_back(drive_container(volume, drive, title));
+			exclude_drives.push_back(drive);
 		}
+	} else if (!volume.empty()) {
+		if (std::find(exclude_drives.begin(), exclude_drives.end(), volume) == exclude_drives.end()) {
+			drives.push_back(drive_container(volume, drive, title));
+			exclude_drives.push_back(volume);
+		}
+	} else {
+		drives.push_back(drive_container(volume, drive, title));
 	}
 }
-void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives) {
-	volume_helper helper;
+void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
+	BOOST_FOREACH(const drive_container &d, helper.get_volumes()) {
+		add_missing(drives, exclude_drives, d.id, d.letter, d.name);
+	}
+}
+
+
+void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
 	DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
 	TCHAR *buffer = new TCHAR[bufSize+10];
 	if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
@@ -536,9 +565,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 				std::string title = "";
 				if (!volume.empty())
 					title = utf8::cvt<std::string>(helper.get_title(volume));
-				drives.push_back(drive_container(drive, title));
-				exclude_drives.push_back(drive);
-				exclude_drives.push_back(utf8::cvt<std::string>(volume));
+				add_missing(drives, exclude_drives, utf8::cvt<std::string>(volume), drive, title);
 			}
 			buffer = &buffer[drv.size()];
 			buffer++;
@@ -548,18 +575,19 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 }
 
 std::list<drive_container> find_drives(std::vector<std::string> drives) {
+	volume_helper helper;
 	std::list<drive_container> ret;
 	std::vector<std::string> found_drives;
 	BOOST_FOREACH(const std::string &d, drives) {
-		if (d == "all-volumes") {
-			find_all_volumes(ret, found_drives);
-		} else if (d == "all-drives") {
-			find_all_drives(ret, found_drives);
+		if (d == "all-volumes" || d == "volumes") {
+			find_all_volumes(ret, found_drives, helper);
+		} else if (d == "all-drives" || d == "drives") {
+			find_all_drives(ret, found_drives, helper);
 		} else if (d == "all" || d == "*") {
-			find_all_drives(ret, found_drives);
-			find_all_volumes(ret, found_drives);
+			find_all_drives(ret, found_drives, helper);
+			find_all_volumes(ret, found_drives, helper);
 		} else {
-			ret.push_back(drive_container(d, ""));
+			ret.push_back(drive_container(d, d, ""));
 		}
 	}
 	return ret;
@@ -575,7 +603,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	filter_type filter;
 	filter_helper.add_options(filter.get_filter_syntax(), "All drives ok");
-	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive}: ${used}/${size} used", "${drive}");
+	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives), 
 		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
@@ -605,12 +633,12 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			drives.erase(it);
 		}
 	}
-	boost::shared_ptr<filter_obj> total_obj(new filter_obj("total", "total"));
+	boost::shared_ptr<filter_obj> total_obj(new filter_obj(drive_container("total", "total", "total")));
 	if (total)
 		total_obj->make_total();
 
 	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
-		if (std::find(excludes.begin(), excludes.end(), drive.drive)!=excludes.end()
+		if (std::find(excludes.begin(), excludes.end(), drive.letter)!=excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.name)!=excludes.end())
 			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);

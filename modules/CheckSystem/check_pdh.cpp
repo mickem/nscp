@@ -142,7 +142,7 @@ namespace check_pdh {
 			("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
 			("time", po::value<std::string>(&time), "Timeframe to use for named rrd counters")
 			("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
-			("type", po::value<std::string>(&type)->default_value("long"), "Format of value (double, long, large)")
+			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
 			;
 
 		std::vector<std::string> extra;

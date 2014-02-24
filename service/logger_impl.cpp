@@ -18,7 +18,7 @@
 nsclient::logging::impl::raw_subscribers subscribers_;
 
 void log_fatal(std::string message) {
-	std::cout << message << std::endl;
+	std::cout << message << "\n";
 }
 std::string create_message(const std::string &module, Plugin::LogEntry::Entry::Level level, const char* file, const int line, const std::string &logMessage) {
 	std::string str;
@@ -81,19 +81,19 @@ std::pair<bool,std::string> render_console_message(const bool oneline, const std
 					<< render_log_level_long(msg.level())
 					<< ": "
 					<< tmp
-					<< std::endl;
+					<< "\n";
 			} else {
 				if (i > 0)
 					ss << " -- ";
 				ss << lpad(render_log_level_short(msg.level()), 1)
 					<< " " << rpad(msg.sender(), 10)
 					<< " " + msg.message()
-					<< std::endl;
+					<< "\n";
 				if (msg.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR) {
 					ss << "                    "
 						<< msg.file()
 						<< ":"
-						<< msg.line() << std::endl;
+						<< msg.line() << "\n";
 				}
 			}
 		}
@@ -172,7 +172,7 @@ public:
 						<< (": ") << utf8::cvt<std::string>(render_log_level_long(msg.level()))
 						<< (":") << msg.file()
 						<< (":") << msg.line()
-						<< (": ") << msg.message() << std::endl;
+						<< (": ") << msg.message() << "\n";
 				}
 			}
 		} catch (std::exception &e) {
@@ -260,8 +260,11 @@ public:
 
 class simple_console_logger : public nsclient::logging::logging_interface_impl {
 	std::string format_;
+	std::vector<char> buf_;
 public:
-	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S") {}
+	simple_console_logger() : format_("%Y-%m-%d %H:%M:%S"), buf_(65536) {
+		std::cout.rdbuf()->pubsetbuf(buf_.data(), buf_.size());
+	}
 
 	void do_log(const std::string data) {
 		if (is_console()) {
@@ -348,7 +351,7 @@ public:
 			if (!is_no_std_err() && m.first)
 				std::cerr << m.second;
 			else
-				std::cout << m.second;
+				std::cout <<  m.second;
 		}
 		push(data);
 	}

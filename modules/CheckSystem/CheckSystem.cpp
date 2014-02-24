@@ -567,7 +567,7 @@ typedef ULONGLONG (*tGetTickCount64)();
 
 tGetTickCount64 pGetTickCount64 = NULL;
 
-BOOL nscpGetTickCount64() {
+ULONGLONG nscpGetTickCount64() {
 	if (pGetTickCount64 == NULL) {
 		HMODULE hMod = ::LoadLibrary(_TEXT("kernel32"));
 		if (hMod == NULL)
@@ -957,23 +957,41 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	request.clear_arguments();
 
 	compat::matchFirstNumeric(vm, "count", "count", warn, crit, "Count");
-	compat::inline_addarg(request, warn);
-	compat::inline_addarg(request, crit);
 	compat::matchShowAll(vm, request);
 
-	request.add_arguments("detail-syntax=${exe} : ${state}");
-	BOOST_FOREACH(const std::string &s, extra) {
-		std::string::size_type pos = s.find('=');
-		if (pos != std::string::npos) {
-			request.add_arguments("process=" + s.substr(0, pos));
-			strEx::append_list(crit, "(exe like '" + s.substr(0, pos) + "' and state != '" + s.substr(pos+1) +"')", " or ");
-		} else {
-			request.add_arguments("process=" + s);
-			strEx::append_list(crit, "(exe like '" + s + "' and state != 'started')", " or ");
+	if (compat::hasFirstNumeric(vm, "Count")) {
+		NSC_DEBUG_MSG("Warning: Max...Count might be parsed incorrectly");
+		request.add_arguments("detail-syntax=${exe} : ${count}");
+		BOOST_FOREACH(const std::string &s, extra) {
+			std::string::size_type pos = s.find('=');
+			if (pos != std::string::npos) {
+				request.add_arguments("process=" + s.substr(0, pos));
+				strEx::append_list(filter, "( exe like '" + s.substr(0, pos) + "' and state = '" + s.substr(pos+1) +"' )", " or ");
+			} else {
+				request.add_arguments("process=" + s);
+				strEx::append_list(filter, "(exe like '" + s + "' and state = 'started')", " or ");
+			}
+		}
+
+	} else {
+		request.add_arguments("detail-syntax=${exe} : ${state}");
+		if (crit.empty())
+			crit = "crit=";
+		BOOST_FOREACH(const std::string &s, extra) {
+			std::string::size_type pos = s.find('=');
+			if (pos != std::string::npos) {
+				request.add_arguments("process=" + s.substr(0, pos));
+				strEx::append_list(crit, "(exe like '" + s.substr(0, pos) + "' and state != '" + s.substr(pos+1) +"')", " or ");
+			} else {
+				request.add_arguments("process=" + s);
+				strEx::append_list(crit, "(exe like '" + s + "' and state != 'started')", " or ");
+			}
 		}
 	}
-	if (!crit.empty())
-		request.add_arguments("crit=" + crit);
+	compat::inline_addarg(request, warn);
+	compat::inline_addarg(request, crit);
+// 	if (!crit.empty())
+// 		request.add_arguments("crit=" + crit);
 	if (!filter.empty())
 		request.add_arguments("filter=" + filter);
 

@@ -105,10 +105,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			add_alias("alias_cpu_ex", "check_cpu \"warn=load > $ARG1$\" \"crit=load > $ARG2$\" time=5m time=1m time=30s");
 			add_alias("alias_mem", "check_memory");
 			add_alias("alias_up", "check_uptime");
-			add_alias("alias_disk", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED");
-			add_alias("alias_disk_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll FilterType=FIXED ignore-unreadable");
-			add_alias("alias_volumes", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED");
-			add_alias("alias_volumes_loose", "CheckDriveSize MinWarn=10% MinCrit=5% CheckAll=volumes FilterType=FIXED ignore-unreadable ");
+			add_alias("alias_disk", "check_drivesize");
+			add_alias("alias_disk_loose", "check_drivesize");
+			add_alias("alias_volumes", "check_drivesize");
+			add_alias("alias_volumes_loose", "check_drivesize");
 			add_alias("alias_service", "check_service");
 			add_alias("alias_service_ex", "check_service \"exclude=Net Driver HPZ12\" \"exclude=Pml Driver HPZ12\" exclude=stisvc");
 			add_alias("alias_process", "check_process \"process=$ARG1$\" \"crit=state != 'started'\"");
@@ -179,10 +179,12 @@ bool CheckExternalScripts::unloadModule() {
 
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
-		if (!allowArgs_ && arg.find("$ARG") != std::string::npos) {
-			NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
-		}
 		commands_.add(get_settings_proxy(), commands_path, key, arg, key == "default");
+		if (arg.find("$ARG") != std::string::npos) {
+			if (!allowArgs_) {
+				NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
+			}
+		}
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
@@ -246,6 +248,9 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		return;
 	}
 
+	if (cmdline.find("$ARG") != std::string::npos) {
+		NSC_DEBUG_MSG_STD("Possible missing argument in: " + cmdline);
+	}
 	NSC_DEBUG_MSG("Command line: " + cmdline);
 
 	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding);
@@ -285,11 +290,18 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 
 void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
+	bool missing_args = false;
+
 	BOOST_FOREACH(std::string &arg, args) {
 		int i=1;
 		BOOST_FOREACH(const std::string &str, src_args) {
 			strEx::replace(arg, "$ARG" + strEx::s::xtos(i++) + "$", str);
 		}
+		if (arg.find("$ARG") != std::string::npos)
+			missing_args = true;
+	}
+	if (missing_args) {
+		NSC_DEBUG_MSG("Potential missing argument for: " + cd.tpl.alias);
 	}
 	std::string buffer;
 	int result = nscapi::core_helper::simple_query(cd.command, args, buffer);

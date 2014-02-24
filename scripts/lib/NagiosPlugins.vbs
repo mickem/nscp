@@ -256,7 +256,7 @@ Class NagiosPlugin
 		re.IgnoreCase = True
 
 		' Make sure that "value" is of type Integer 
-		value = Int(value) 		
+		value = CDbl(value) 		
 
 		Select Case myOpt
 			' Generate an alert if x ...

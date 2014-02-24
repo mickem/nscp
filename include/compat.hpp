@@ -13,6 +13,7 @@ namespace compat {
 	void matchFirstNumeric(const boost::program_options::variables_map &vm, const std::string upper, const std::string lower, std::string &warn, std::string &crit, const std::string suffix = "");
 	void matchFirstOldNumeric(const boost::program_options::variables_map &vm, const std::string var, std::string &warn, std::string &crit);
 	void matchShowAll(const boost::program_options::variables_map &vm, Plugin::QueryRequestMessage::Request &request, std::string prefix = "${status}: ");
+	bool hasFirstNumeric(const boost::program_options::variables_map &vm, const std::string suffix);
 
 	inline void inline_addarg(Plugin::QueryRequestMessage::Request &request, const std::string &str) {
 		if (!str.empty())

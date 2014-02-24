@@ -361,8 +361,10 @@ namespace nscapi {
 			return main_stream.str();
 		}
 
-		static std::string help_short(const boost::program_options::options_description &desc) {
+		static std::string help_short(const boost::program_options::options_description &desc, const std::string &extra_info = "") {
 			std::stringstream main_stream;
+			if (!extra_info.empty())
+				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 0;
 			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
 				if (op->long_name().size() > opwidth)
@@ -395,7 +397,7 @@ namespace nscapi {
 
 		template<class T>
 		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &, const std::string &error, T &response) {
-			nscapi::protobuf::functions::set_response_bad(response, help(desc, error));
+			nscapi::protobuf::functions::set_response_bad(response, help_short(desc, error));
 		}
 		static std::string make_csv(const std::string s) {
 			std::string ret = s;
@@ -480,7 +482,7 @@ namespace nscapi {
 					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
 					return false;
 				}
-				if (vm.count("help") && vm["help"].as<bool>()) {
+				if (vm.count("help")) {
 					nscapi::protobuf::functions::set_response_good(response, help(desc));
 					return false;
 				}

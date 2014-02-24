@@ -53,10 +53,28 @@ TEST(PerfDataTest, leading_space) {
 	EXPECT_EQ("'aaa'=1g", do_parse(" aaa=1g"));
 	EXPECT_EQ("'aaa'=1g", do_parse("                   aaa=1g"));
 }
+TEST(PerfDataTest, leading_spaces) {
+	EXPECT_EQ("'aaa'=1g", do_parse("     aaa=1g"));
+	EXPECT_EQ("'aaa'=1g", do_parse("                   aaa=1g"));
+}
 TEST(PerfDataTest, negative_vvalues) {
 	EXPECT_EQ("'aaa'=-1g;-0;-4;-2;-5 'bbb'=2g;-3;4;-2;5", do_parse("aaa=-1g;-0;-4;-2;-5 bbb=2g;-3;4;-2;5"));
 }
+TEST(PerfDataTest, value_without_long_uom) {
+	EXPECT_EQ("'aaa'=1ggggg;;;0;5", do_parse("aaa=1ggggg;;;0;5"));
+}
+TEST(PerfDataTest, value_without____uom) {
+	EXPECT_EQ("'aaa'=1gg__gg;;;0;5", do_parse("aaa=1gg__gg;;;0;5"));
+}
 
+TEST(PerfDataTest, float_value) {
+	EXPECT_EQ("'aaa'=0gig;;;0;5", do_parse("aaa=0.00gig;;;0;5"));
+}
+
+TEST(PerfDataTest, problem_701_001) {
+	EXPECT_EQ("'TotalGetRequests__Total'=0requests/s;;;0;", do_parse("'TotalGetRequests__Total'=0.00requests/s;;;0;"));
+}
+// 'TotalGetRequests__Total'=0.00requests/s;;;0;
 TEST(PerfDataTest, value_various_reparse) {
 	std::vector<std::string> strings;
 	strings.push_back("'aaa'=1g;0;4;2;5");

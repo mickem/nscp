@@ -56,15 +56,18 @@ namespace compat {
 			}
 		}
 	}
+	bool hasFirstNumeric(const boost::program_options::variables_map &vm, const std::string suffix) {
+		return vm.count("MaxWarn" + suffix) > 0 || vm.count("MaxCrit" + suffix) > 0 || vm.count("MinWarn" + suffix) > 0 || vm.count("MinCrit" + suffix) > 0;
+	}
 	void matchFirstNumeric(const boost::program_options::variables_map &vm, const std::string upper, const std::string lower, std::string &warn, std::string &crit, const std::string suffix) {
-		do_matchFirstNumeric(vm, "MaxWarn" + suffix, warn, "warn", upper, ">");
-		do_matchFirstNumeric(vm, "MaxCrit" + suffix, crit, "crit", upper, ">");
-		do_matchFirstNumeric(vm, "MinWarn" + suffix, warn, "warn", lower, "<");
-		do_matchFirstNumeric(vm, "MinCrit" + suffix, crit, "crit", lower, "<");
+		do_matchFirstNumeric(vm, "MaxWarn" + suffix, warn, "warn", upper, ">=");
+		do_matchFirstNumeric(vm, "MaxCrit" + suffix, crit, "crit", upper, ">=");
+		do_matchFirstNumeric(vm, "MinWarn" + suffix, warn, "warn", lower, "<=");
+		do_matchFirstNumeric(vm, "MinCrit" + suffix, crit, "crit", lower, "<=");
 	}
 	void matchFirstOldNumeric(const boost::program_options::variables_map &vm, const std::string var, std::string &warn, std::string &crit) {
-		do_matchFirstNumeric(vm, "warn", warn, "warn", var, ">");
-		do_matchFirstNumeric(vm, "crit", crit, "crit", var, ">");
+		do_matchFirstNumeric(vm, "warn", warn, "warn", var, ">=");
+		do_matchFirstNumeric(vm, "crit", crit, "crit", var, ">=");
 	}
 
 	void matchShowAll(const boost::program_options::variables_map &vm, Plugin::QueryRequestMessage::Request &request, std::string prefix) {
