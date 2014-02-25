@@ -72,7 +72,7 @@ TEST(PerfDataTest, float_value) {
 }
 
 TEST(PerfDataTest, problem_701_001) {
-	EXPECT_EQ("'TotalGetRequests__Total'=0requests/s;;;0;", do_parse("'TotalGetRequests__Total'=0.00requests/s;;;0;"));
+	EXPECT_EQ("'TotalGetRequests__Total'=0requests/s;;;0", do_parse("'TotalGetRequests__Total'=0.00requests/s;;;0;"));
 }
 // 'TotalGetRequests__Total'=0.00requests/s;;;0;
 TEST(PerfDataTest, value_various_reparse) {
