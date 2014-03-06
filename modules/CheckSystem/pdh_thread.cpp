@@ -121,15 +121,22 @@ void pdh_thread::thread_proc() {
 	DWORD waitStatus = 0;
 	bool first = true;
 	int i = 0;
+
+	if (check_pdh)
+		NSC_DEBUG_MSG("Checking pdh data");
+
+	mutex_.unlock();
+
 	do {
 		std::list<std::string>	errors;
 		{
+			windows::system_info::cpu_load load = windows::system_info::get_cpu_load();
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!writeLock.owns_lock()) {
-				NSC_LOG_ERROR("Failed to get Mutex!");
+				errors.push_back("Failed to get mutex for writing");
 			} else {
 				try {
-					cpu.push(windows::system_info::get_cpu_load());
+					cpu.push(load);
 					if (check_pdh)
 						pdh.gatherData();
 

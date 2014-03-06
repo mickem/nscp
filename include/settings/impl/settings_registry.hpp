@@ -319,7 +319,7 @@ namespace settings {
 			return "Registry settings: (" + context_ + ",TODO)";
 		}
 public:
-		static bool context_exists(settings::settings_core *core, std::string key) {
+		static bool context_exists(settings::settings_core *, std::string key) {
 			return has_key(get_reg_key(key));
 		}
 		virtual void real_clear_cache() {}

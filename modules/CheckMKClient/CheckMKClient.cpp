@@ -64,7 +64,7 @@ NSCAPI::nagiosReturn CheckMKClient::parse_data(lua::script_information *informat
 
 
 //////////////////////////////////////////////////////////////////////////
-bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {
@@ -207,7 +207,7 @@ bool CheckMKClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void CheckMKClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void CheckMKClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);

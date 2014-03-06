@@ -1,3 +1,13 @@
+2014-03-05 MickeM
+ * Fixed crash dump issue
+ * Fixed memory leak in NSCA
+  
+2014-03-04 MickeM
+ * Fixed issue with CheckTaskSched and status #702
+ * Improved rendering of status #702
+ * Added some debug logging to eventlog to help diagnose issues
+ * Fixed default crash dump folder config issue
+
 2014-02-23 MickeM
  * Changed so uniq is default for eventlog checks (if no arguments are given)
  * Fixed drives so they are more sensible

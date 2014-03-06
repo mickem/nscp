@@ -72,8 +72,11 @@ std::string nscp::encryption::helpers::get_crypto_string(std::string sep) {
 			std::string name;
 			try {
 				nscp::encryption::any_encryption *core = nscp::encryption::engine::get_encryption_core(i);
-				if (core)
+				if (core) {
 					name = core->getName();
+					delete core;
+				}
+
 				if (ret.size() > 1)
 					ret += sep;
 				ret += encryption_to_string(i) + " = " + name;

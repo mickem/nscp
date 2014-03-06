@@ -74,7 +74,8 @@ void CheckNSCP::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!lock.owns_lock())
 			return;
-		errors_.push_back(message.message());
+		error_count_++;
+		last_error_ = message.message();
 	}
 }
 
@@ -103,12 +104,10 @@ std::size_t CheckNSCP::get_errors(std::string &last_error) {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		last_error = "Failed to get lock";
-		return 1;
+		return error_count_+1;
 	}
-	if (errors_.empty())
-		return 0;
-	last_error = errors_.front();
-	return errors_.size();
+	last_error = last_error_;
+	return error_count_;
 }
 
 void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

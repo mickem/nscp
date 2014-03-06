@@ -34,10 +34,15 @@ class CheckNSCP : public nscapi::impl::simple_plugin {
 private:
 	boost::timed_mutex mutex_;
 	boost::filesystem::path crashFolder;
-	typedef std::list<std::string> error_list;
-	error_list errors_;
+	//typedef std::list<std::string> error_list;
+	//error_list errors_;
+	std::string last_error_;
+	unsigned int error_count_;
 	boost::posix_time::ptime start_;
 public:
+
+	CheckNSCP() : error_count_(0) {}
+
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();

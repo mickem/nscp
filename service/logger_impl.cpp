@@ -401,7 +401,7 @@ public:
 			return true;
 		try {
 			push(QUIT_MESSAGE);
-			if (!thread_.timed_join(boost::posix_time::seconds(5))) {
+			if (!thread_.timed_join(boost::posix_time::seconds(10))) {
 				log_fatal("Failed to exit log slave!");
 				return false;
 			}

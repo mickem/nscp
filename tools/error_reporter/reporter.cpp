@@ -85,7 +85,7 @@ bool write_desc(std::string file, std::string application, std::string version, 
 
 int archive_dump(std::string file, std::string application, std::string version, std::string date, std::string target) {
 	try {
-		if (!boost::filesystem::is_regular(target)) {
+		if (!boost::filesystem::exists(target)) {
 			if (!boost::filesystem::create_directories(target)) {
 				std::cout << "Failed to create directory: " << target << std::endl;
 				return -1;

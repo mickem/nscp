@@ -225,7 +225,6 @@ class Command:
 			alias = ''
 			alias_lst = ''
 		cmd_name = self.name
-		print '---> %s == %s'%(cmd_name, module_data['CLASS'])
 		if cmd_name == module_data['CLASS']:
 			cmd_name += "_"
 		return dict(module_data.items() + {

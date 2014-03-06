@@ -212,7 +212,6 @@ public:
 
 
 	bool table_exists(std::wstring table) {
-		HRESULT hr = S_OK;
 		UINT er = ERROR_SUCCESS;
 
 		// NOTE:  The following line of commented out code should work in a 
@@ -279,7 +278,6 @@ public:
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
 
-		HRESULT hr = S_OK;
 		UINT er;
 		DWORD_PTR cch = 0;
 
@@ -307,7 +305,6 @@ public:
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
 
-		HRESULT hr = S_OK;
 		UINT er;
 
 		unsigned int size = MsiRecordDataSize(hRec, uiField);
@@ -374,7 +371,6 @@ public:
 		if (!hRec || !wzData)
 			throw installer_exception(_T("Invalid arguments!"));
 
-		HRESULT hr = S_OK;
 		UINT er = ::MsiRecordSetStringW(hRec, uiField, wzData);
 		if (er != ERROR_SUCCESS)
 			throw installer_exception(_T("Failed to set filed as string!"));
@@ -389,7 +385,6 @@ public:
 		if (!hRec)
 			throw installer_exception(_T("Invalid arguments!"));
 
-		HRESULT hr = S_OK;
 		UINT er;
 
 		// get the format string

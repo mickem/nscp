@@ -8,46 +8,42 @@
 #include "filter.hpp"
 #include <error_com.hpp>
 
-using namespace parsers::where;
 
-long convert_status(std::string status) {
-	if (status == "ready")
-		return SCHED_S_TASK_READY;
-	if (status == "running")
-		return SCHED_S_TASK_RUNNING;
-	if (status == "not_scheduled")
-		return SCHED_S_TASK_NOT_SCHEDULED;
-	if (status == "has_not_run")
-		return SCHED_S_TASK_HAS_NOT_RUN;
-	if (status == "disabled")
-		return SCHED_S_TASK_DISABLED;
-	if (status == "no_more_runs")
-		return SCHED_S_TASK_NO_MORE_RUNS;
-	if (status == "no_valid_triggers")
-		return SCHED_S_TASK_NO_VALID_TRIGGERS;
-	return 0;
-}
-
-std::string convert_status(long status) {
-	std::wstring ret;
-	if (status == SCHED_S_TASK_READY)
-		return "ready";
-	if (status == SCHED_S_TASK_RUNNING)
-		return "running";
-	if (status == SCHED_S_TASK_NOT_SCHEDULED)
-		return "not_scheduled";
-	if (status == SCHED_S_TASK_HAS_NOT_RUN)
-		return "has_not_run";
-	if (status == SCHED_S_TASK_DISABLED)
-		return "disabled";
-	if (status == SCHED_S_TASK_NO_MORE_RUNS)
-		return "has_more_runs";
-	if (status == SCHED_S_TASK_NO_VALID_TRIGGERS)
-		return "no_valid_triggers";
-	return strEx::s::xtos(status);
-}
-node_type fun_convert_status(const value_type, evaluation_context context, const node_type subject) {
-	return factory::create_int(convert_status(subject->get_string_value(context)));
+parsers::where::node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	std::string status = subject->get_string_value(context);
+	long long istat = 0;
+	if (object->is_new()) {
+		if (status == "queued")
+			istat = TASK_STATE_QUEUED;
+		else if (status == "unknown")
+			istat = TASK_STATE_UNKNOWN;
+		else if (status == "ready")
+			istat = TASK_STATE_READY;
+		else if (status == "running")
+			istat = TASK_STATE_RUNNING;
+		else if (status == "disabled")
+			istat = TASK_STATE_DISABLED;
+		else 
+			context->error("Failed to convert: " + status);
+	} else {
+		if (status == "ready")
+			istat = SCHED_S_TASK_READY;
+		else if (status == "running")
+			istat = SCHED_S_TASK_RUNNING;
+		else if (status == "not_scheduled")
+			istat = SCHED_S_TASK_NOT_SCHEDULED;
+		else if (status == "has_not_run")
+			istat = SCHED_S_TASK_HAS_NOT_RUN;
+		else if (status == "disabled")
+			istat = SCHED_S_TASK_DISABLED;
+		else if (status == "no_more_runs")
+			istat = SCHED_S_TASK_NO_MORE_RUNS;
+		else if (status == "no_valid_triggers")
+			istat = SCHED_S_TASK_NO_VALID_TRIGGERS;
+		else 
+			context->error("Failed to convert: " + status);
+	}
+	return parsers::where::factory::create_int(istat);
 }
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
@@ -69,20 +65,18 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 // 		("flags", boost::bind(&filter_obj::get_flags, _1), "TODO")
  		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "Retrieves the maximum length of time the task can run.")
  		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
- 		("status", boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
+ 		("status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
  		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
 		;
 
-// 	registr_.add_conversions()
-// 		(parsers::where::type_string, type_custom_hresult, &fun_convert_status)
-// 		(parsers::where::type_int, type_custom_hresult, &fun_convert_status)
-// 		;
-// 	if ((from == parsers::where::type_string)&&(to == type_custom_hresult))
-// 		return true;
-// 	if ((from == parsers::where::type_int)&&(to == type_custom_hresult))
-// 		return true;
-// 	return false;
+	registry_.add_human_string()
+		("status", boost::bind(&filter_obj::get_status_s, _1), "")
+		;
 
+	registry_.add_converter()
+ 		(type_custom_state, &fun_convert_status)
+// 		(parsers::where::type_int, type_custom_hresult, &fun_convert_status)
+ 		;
 }
 
 namespace tasksched_filter {

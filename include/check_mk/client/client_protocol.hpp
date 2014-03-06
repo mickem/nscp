@@ -49,7 +49,7 @@ namespace check_mk {
 			void on_connect() {
 				set_state(connected);
 			}
-			void prepare_request(request_type &packet) {
+			void prepare_request(request_type &) {
 				set_state(wants_response);
 			}
 
@@ -86,7 +86,7 @@ namespace check_mk {
 				data_buffer_.insert(data_buffer_.end(), begin, end);
 				return true;
 			}
-			bool on_write(std::size_t bytes_transferred) {
+			bool on_write(std::size_t) {
 				return true;
 			}
 		};

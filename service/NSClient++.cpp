@@ -1294,6 +1294,16 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 
 	bool found = false;
 	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
+		if (cur_chan == "log") {
+			Plugin::SubmitRequestMessage msg;
+			msg.ParseFromString(request);
+			for (int i=0;i<msg.payload_size();i++) {
+				LOG_INFO_CORE("Logging notification: " + msg.payload(i).message());
+			}
+			found = true;
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", NSCAPI::isSuccess, "seems ok", response);
+			continue;
+		}
 		try {
 			//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {

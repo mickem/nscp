@@ -35,7 +35,7 @@ void settings::settings_handler_impl::update_defaults() {
 					else if (desc.type == key_integer) {
 						try {
 							get()->set_int(path, key, strEx::s::stox<int>(desc.defValue));
-						} catch (const std::exception &e) {
+						} catch (const std::exception &) {
 							get_logger()->error("settings", __FILE__, __LINE__, "invalid default value for: " + key_to_string(path, key));
 						}
 					} else
@@ -82,7 +82,7 @@ void settings::settings_handler_impl::remove_defaults() {
 						}
 					} else
 						get_logger()->error("settings",__FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
-				} catch (const std::exception &e) {
+				} catch (const std::exception &) {
 					get_logger()->error("settings",__FILE__, __LINE__, "invalid default value for: " + key_to_string(path, key));
 				}
 			}

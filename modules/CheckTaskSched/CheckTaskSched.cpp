@@ -116,6 +116,7 @@ void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &reque
 	}
 	if (!syntax.empty()) {
 		boost::replace_all(syntax, "%title%", "${title}");
+		boost::replace_all(syntax, "%status%", "${status}");
 		boost::replace_all(syntax, "%exit_code%", "${exit_code}");
 		boost::replace_all(syntax, "%most_recent_run_time%", "${most_recent_run_time}");
 		

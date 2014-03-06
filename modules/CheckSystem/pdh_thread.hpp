@@ -23,6 +23,7 @@
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/shared_ptr.hpp>
+#define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
 #include <pdh/pdh_interface.hpp>
@@ -72,7 +73,9 @@ public:
 	}
 	value_type get_average(long time) const {
 		value_type ret;
-		if (time <= 60) {
+		if (time < 0)
+			return ret;
+		if (time <= seconds.size()) {
 			for (list_type::const_iterator cit = seconds.end()-time; cit != seconds.end(); ++cit) {
 				ret.add(*cit);
 			}
@@ -80,7 +83,7 @@ public:
 			return ret;
 		}
 		time /= 60;
-		if (time <= 60) {
+		if (time <= minutes.size()) {
 			for (list_type::const_iterator cit = minutes.end()-time; cit != minutes.end(); ++cit) {
 				ret.add(*cit);
 			}
@@ -88,7 +91,7 @@ public:
 			return ret;
 		}
 		time/=60;
-		if (time >= 24)
+		if (time >= hours.size())
 			throw nscp_exception("Size larger than buffer");
 		for (list_type::const_iterator cit = hours.end()-time; cit != hours.end(); ++cit) {
 			ret.add(*cit);
@@ -140,6 +143,9 @@ public:
 
 public:
 
+	pdh_thread() {
+		mutex_.lock();
+	}
 	void add_counter(const PDH::pdh_object &counter);
 
 	std::map<std::string,double> get_value(std::string counter);

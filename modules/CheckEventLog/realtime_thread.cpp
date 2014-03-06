@@ -81,9 +81,10 @@ void real_time_thread::thread_proc() {
 
 			int index = dwWaitReason-WAIT_OBJECT_0-1;
 			eventlog_type el = evlog_list[index];
+			NSC_DEBUG_MSG_STD("Reading eventlog messages...");
 			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
-			if (ERROR_SUCCESS != status && ERROR_HANDLE_EOF != status) {
-				NSC_LOG_ERROR("Assuming eventlog reset (re-reading from start)");
+			if (status != ERROR_SUCCESS  && status != ERROR_HANDLE_EOF) {
+				NSC_LOG_MESSAGE("Assuming eventlog reset (re-reading from start)");
 				el->un_notify(handles[index+1]);
 				el->reopen();
 				el->notify(handles[index+1]);
@@ -94,12 +95,13 @@ void real_time_thread::thread_proc() {
 
 			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
 			while (pevlr != NULL) {
+				NSC_DEBUG_MSG_STD("Processing: " + strEx::s::xtos(pevlr));
 				EventLogRecord elr(el->get_name(), pevlr, ltime);
 				helper.process_items(elr);
 				pevlr = el->read_record_with_buffer();
 			}
 		} else {
-			NSC_LOG_ERROR_WA("Error failed to wait for eventlog message: ", error::lookup::last_error());
+			NSC_LOG_ERROR("Error failed to wait for eventlog message: " + error::lookup::last_error());
 			if (errors++ > 10) {
 				NSC_LOG_ERROR("To many errors giving up");
 				delete [] handles;

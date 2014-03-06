@@ -73,7 +73,7 @@ namespace nscp {
 				return current_state_ == sent_response;
 			}
 
-			bool on_read(std::size_t bytes_transferred) {
+			bool on_read(std::size_t) {
 				read_buffer_type::iterator begin = buffer_.begin();
 				read_buffer_type::iterator end = buffer_.end();
 				while (begin != end) {
@@ -87,13 +87,13 @@ namespace nscp {
 				buffer_.resize(digester_.get_next_size());
 				return true;
 			}
-			bool on_write(std::size_t bytes_transferred) {
+			bool on_write(std::size_t) {
 				set_state(sent_response);
 				digester_.reset();
 				buffer_.resize(digester_.get_next_size());
 				return true;
 			}
-			bool on_read_error(const boost::system::error_code& e) {
+			bool on_read_error(const boost::system::error_code&) {
 				return false;
 			}
 		};

@@ -168,6 +168,7 @@ namespace tasksched_filter {
 
 		virtual long long is_enabled() = 0;
 		virtual long long get_status() = 0;
+		virtual std::string get_status_s() = 0;
 		virtual long long get_most_recent_run_time() = 0;
 
 	};
@@ -222,6 +223,24 @@ namespace tasksched_filter {
 		long long get_priority() { return priority(task, title); }
 
 		long long get_status() { return status(task, title); }
+		std::string get_status_s() { 
+			long long i = get_status();
+			if (i == SCHED_S_TASK_READY)
+				return "ready";
+			if (i == SCHED_S_TASK_RUNNING)
+				return "running";
+			if (i == SCHED_S_TASK_NOT_SCHEDULED)
+				return "not_scheduled";
+			if (i == SCHED_S_TASK_HAS_NOT_RUN)
+				return "has_not_run";
+			if (i == SCHED_S_TASK_DISABLED)
+				return "disabled";
+			if (i == SCHED_S_TASK_NO_MORE_RUNS)
+				return "has_more_runs";
+			if (i == SCHED_S_TASK_NO_VALID_TRIGGERS)
+				return "no_valid_triggers";
+			return strEx::s::xtos(i);
+		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
 	};
 
@@ -288,6 +307,20 @@ namespace tasksched_filter {
 		long long get_priority() { return priority(get_settings(), get_title()); }
 
 		long long get_status() { return status(task, get_title()); }
+		std::string get_status_s() { 
+			long long i = get_status();
+			if (i == TASK_STATE_QUEUED)
+				return "queued";
+			if (i == TASK_STATE_UNKNOWN)
+				return "unknown";
+			if (i == TASK_STATE_READY)
+				return "ready";
+			if (i == TASK_STATE_RUNNING)
+				return "running";
+			if (i == TASK_STATE_DISABLED)
+				return "disabled";
+			return strEx::s::xtos(i);
+		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
 
 		long long convert_runtime(std::string &v) {
@@ -297,6 +330,9 @@ namespace tasksched_filter {
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
+
+		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
+
 		filter_obj_handler();
 	};
 	typedef modern_filter::modern_filters<tasksched_filter::filter_obj, tasksched_filter::filter_obj_handler> filter;

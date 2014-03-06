@@ -25,7 +25,6 @@
 #endif
 #include <nsclient/logger.hpp>
 
-#pragma message("Hello")
 #ifdef HAVE_JSON_SPIRIT
 //#define JSON_SPIRIT_VALUE_ENABLED
 #include <json_spirit.h>
