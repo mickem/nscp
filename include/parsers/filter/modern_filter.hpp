@@ -118,7 +118,18 @@ namespace modern_filter {
 		}
 	};
 
+	struct match_result {
+		bool matched_filter;
+		bool matched_bound;
+		bool is_done;
 
+		match_result(bool matched_filter, bool matched_bound) 
+			: matched_filter(matched_filter)
+			, matched_bound(matched_bound)
+			, is_done(false)
+		{
+		}
+	};
 
 	class error_handler_impl : public parsers::where::error_handler_interface {
 		std::string error;
@@ -292,19 +303,23 @@ namespace modern_filter {
 			leaf_performance_data[key] = entry;
 		}
 
+		bool has_filter() const {
+			return engine_filter;
+		}
 		void start_match() {
 			summary.returnCode = NSCAPI::returnOK;
 			has_matched = false;
 			summary.reset();
 		}
-		boost::tuple<bool,bool> match(object_type record) {
+		match_result match(object_type record) {
 			context->set_object(record);
-			bool matched = false;
-			bool done = false;
+			bool matched_filter = false;
+			bool matched_bound = false;
 			// done should be set if we want to bail out after the first hit!
 			// I.e. mode==first (mode==all)
 			summary.count();
 			if (!engine_filter || engine_filter->match(context)) {
+				matched_filter = true;
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
 				bool second_unique_match = false;
@@ -330,14 +345,14 @@ namespace modern_filter {
 					else
 						summary.matched_crit(current);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
-					matched = true;
+					matched_bound = true;
 				} else if (engine_warn && engine_warn->match(context)) {
 					if (second_unique_match)
 						summary.matched_warn_unique();
 					else
 						summary.matched_warn(current);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
-					matched = true;
+					matched_bound = true;
 				} else if (engine_ok && engine_ok->match(context)) {
 					// TODO: Unsure of this, should this not re-set matched?
 					// What is matched for?
@@ -345,17 +360,17 @@ namespace modern_filter {
 						summary.matched_ok_unique();
 					else
 						summary.matched_ok(current);
-					matched = true;
+					matched_bound = true;
 				} else if (error_handler && error_handler->is_debug()) {
 					error_handler->log_debug("Crit/warn/ok did not match: " + current);
 				}
-				if (matched) {
+				if (matched_bound) {
 					has_matched = true;
 				}
 			} else if (error_handler && error_handler->is_debug()) {
 				error_handler->log_debug("Did not match: " + renderer_detail.render(context));
 			}
-			return boost::make_tuple(has_matched, done);
+			return match_result(matched_filter, matched_bound);
 		}
 
 

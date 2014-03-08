@@ -18,7 +18,7 @@ bool is_directory(unsigned long dwAttr) {
  	return false;
 }
 
-void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, bool recursive, int current_level) {
+void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj, bool recursive, int current_level) {
 	if (!context.is_valid_level(current_level)) {
 		if (context.debug) context.report_debug("Level death exhausted: " + strEx::s::xtos(current_level));
 		return;
@@ -42,9 +42,11 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 		if (hFind != INVALID_HANDLE_VALUE) {
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, single_path.first);
 			// boost::make_shared<eventlog_filter::filter_obj>(record, filter.summary.count_match)
-			boost::tuple<bool,bool> ret = filter.match(info);
+			modern_filter::match_result ret = filter.match(info);
+			if (total_obj && ret.matched_filter)
+				total_obj->add(info);
 			FindClose(hFind);
-			if (ret.get<1>()) {
+			if (ret.is_done) {
 				return;
 			}
 		} else {
@@ -60,8 +62,10 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 			if (is_directory(wfd.dwFileAttributes) && ( wcscmp(wfd.cFileName, _T(".")) == 0 || wcscmp(wfd.cFileName, _T("..")) == 0))
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
-			boost::tuple<bool,bool> ret = filter.match(info);
-			if (ret.get<1>()) {
+			modern_filter::match_result ret = filter.match(info);
+			if (ret.matched_filter && total_obj)
+				total_obj->add(info);
+			if (ret.is_done) {
 				FindClose(hFind);
 				return;
 			}
@@ -75,7 +79,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 		do {
 			if (is_directory(wfd.dwFileAttributes)) {
 				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
-					recursive_scan(filter, context, dir / wfd.cFileName, true, current_level+1);
+					recursive_scan(filter, context, dir / wfd.cFileName, total_obj, true, current_level+1);
 			}
 		} while (FindNextFile(hFind, &wfd));
 		FindClose(hFind);

@@ -228,8 +228,8 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 				is_scanning = false;
 				break;
 			}
-			boost::tuple<bool,bool> ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, truncate_message)));
-			if (ret.get<1>()) {
+			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, truncate_message)));
+			if (ret.is_done) {
 				break;
 			}
 			dwRead -= pevlr->Length; 
@@ -300,8 +300,8 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 						return;
 					if (direction == direction_forwards && item->get_written() > stop_date)
 						return;
-					boost::tuple<bool,bool> ret = filter.match(item);
-					if (ret.get<1>()) {
+					modern_filter::match_result ret = filter.match(item);
+					if (ret.is_done) {
 						break;
 					}
 				} catch (const nscp_exception &e) {

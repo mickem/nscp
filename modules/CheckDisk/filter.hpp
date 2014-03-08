@@ -36,14 +36,16 @@ namespace file_filter {
 
 	struct filter_obj {
 		filter_obj() 
-			: ullCreationTime(0)
+			: is_total_(false)
+			, ullCreationTime(0)
 			, ullLastAccessTime(0)
 			, ullLastWriteTime(0)
 			, ullSize(0)
 			, ullNow(0)
 		{}
 		filter_obj(boost::filesystem::path path_, std::string filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
-			: path(path_)
+			: is_total_(false)
+			, path(path_)
 			, filename(filename_)
 			, ullCreationTime(creationTime)
 			, ullLastAccessTime(lastAccessTime)
@@ -51,13 +53,40 @@ namespace file_filter {
 			, ullSize(size)
 			, ullNow(now)
 			, attributes(attributes)
-		{};
+		{}
+
+		filter_obj( const filter_obj& other) 
+			: ullSize(other.ullSize)
+			, ullCreationTime(other.ullCreationTime)
+			, ullLastAccessTime(other.ullLastAccessTime)
+			, ullLastWriteTime(other.ullLastWriteTime)
+			, ullNow(other.ullNow)
+			, filename(other.filename)
+			, path(other.path)
+			, cached_version(other.cached_version)
+			, cached_count(other.cached_count)
+			, attributes(other.attributes)
+		{}
+
+		const filter_obj& operator=( const filter_obj&other ) {
+			ullSize = other.ullSize;
+			ullCreationTime = other.ullCreationTime;
+			ullLastAccessTime = other.ullLastAccessTime;
+			ullLastWriteTime = other.ullLastWriteTime;
+			ullNow = other.ullNow;
+			filename = other.filename;
+			path = other.path;
+			cached_version = other.cached_version;
+			cached_count = other.cached_count;
+			attributes = other.attributes;
+		}
 
 #ifdef WIN32
 		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem:: path path, std::string filename);
 		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::string filename);
-		static boost::shared_ptr<filter_obj>  get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
+		static boost::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
 #endif
+		static boost::shared_ptr<file_filter::filter_obj> get_total(unsigned long long now);
 		static filter_obj get(unsigned long long now, boost::filesystem::path path, std::string filename);
 		static filter_obj get(unsigned long long now, std::string file);
 		static filter_obj get(std::string file);
@@ -94,32 +123,9 @@ namespace file_filter {
 		unsigned long get_line_count();
 
 	public:
-		filter_obj( const filter_obj& other) 
-			: ullSize(other.ullSize)
-			, ullCreationTime(other.ullCreationTime)
-			, ullLastAccessTime(other.ullLastAccessTime)
-			, ullLastWriteTime(other.ullLastWriteTime)
-			, ullNow(other.ullNow)
-			, filename(other.filename)
-			, path(other.path)
-			, cached_version(other.cached_version)
-			, cached_count(other.cached_count)
-			, attributes(other.attributes)
-		{}
-
-		const filter_obj& operator=( const filter_obj&other ) {
-			ullSize = other.ullSize;
-			ullCreationTime = other.ullCreationTime;
-			ullLastAccessTime = other.ullLastAccessTime;
-			ullLastWriteTime = other.ullLastWriteTime;
-			ullNow = other.ullNow;
-			filename = other.filename;
-			path = other.path;
-			cached_version = other.cached_version;
-			cached_count = other.cached_count;
-			attributes = other.attributes;
-		}
-
+		void add(boost::shared_ptr<file_filter::filter_obj> info);
+		void make_total() { is_total_ = true; }
+		bool is_total() const { return is_total_; }
 
 		unsigned long long ullSize;
 		__int64 ullCreationTime;
@@ -127,6 +133,7 @@ namespace file_filter {
 		__int64 ullLastWriteTime;
 		__int64 ullNow;
 		std::string filename;
+		bool is_total_;
 		boost::filesystem::path path;
 		boost::optional<std::string> cached_version;
 		boost::optional<unsigned long> cached_count;

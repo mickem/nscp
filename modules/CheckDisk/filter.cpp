@@ -40,6 +40,8 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("written", type_date, boost::bind(&filter_obj::get_write, _1), "When file was last written to")
 		("write", type_date, boost::bind(&filter_obj::get_write, _1), "Alias for written")
 		("age", type_int, boost::bind(&filter_obj::get_age, _1), "Seconds since file was last written")
+		("total", type_bool, boost::bind(&filter_obj::is_total, _1), 
+		"True if this is the total object").no_perf();
 		;
 
 	registry_.add_human_string()
@@ -85,6 +87,9 @@ file_filter::filter_obj file_filter::filter_obj::get(unsigned long long now, boo
 		throw new file_object_exception("Could not open file (2) " + path.string() + "\\" + filename + ": " + error::lookup::last_error());
 	}
 	return get(now, data, path, filename);
+}
+boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get_total(unsigned long long now) {
+	return boost::shared_ptr<file_filter::filter_obj>(new file_filter::filter_obj("", "total", now, now, now, now, 0));
 }
 file_filter::filter_obj file_filter::filter_obj::get(std::string file) {
 	FILETIME now;
@@ -167,6 +172,10 @@ unsigned long file_filter::filter_obj::get_line_count() {
 	fclose (pFile);
 	cached_count.reset(count);
 	return *cached_count;
+}
+
+void file_filter::filter_obj::add(boost::shared_ptr<file_filter::filter_obj> info) {
+	ullSize += info->ullSize;
 }
 
 //////////////////////////////////////////////////////////////////////////

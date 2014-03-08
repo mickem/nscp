@@ -1,5 +1,6 @@
 #pragma once
 
+#include <boost/algorithm/string.hpp>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -23,26 +24,49 @@ namespace settings {
 		}
 	};
 	typedef hlp::handle<HKEY, registry_closer> reg_handle;
-	typedef hlp::buffer<wchar_t> reg_buffer;
+	typedef hlp::buffer<wchar_t, const BYTE*> reg_buffer;
 	class REGSettings : public settings::SettingsInterfaceImpl {
 	private:
 		struct reg_key {
 			HKEY hKey;
 			std::wstring path;
-			operator std::wstring () {
-				return path;
+
+			reg_key(std::string context) {
+				net::url url = net::parse(context);
+				std::string file = url.path;
+				boost::replace_all(file, "/", "\\");
+				if (url.host == "HKEY_LOCAL_MACHINE" || url.host == "LOCAL_MACHINE" || url.host == "HKLM")
+					hKey = HKEY_LOCAL_MACHINE;
+				else if (url.host == "HKEY_CURRENT_USER" || url.host == "CURRENT_USER" || url.host == "HKCU")
+						hKey = HKEY_CURRENT_USER;
+				else
+					hKey = NS_HKEY_ROOT;
+				if (!file.empty()) {
+					if (file[0] == '\\')
+						file = file.substr(1);
+					path = utf8::cvt<std::wstring>(file);
+				} else
+					path = NS_REG_ROOT;
 			}
-			std::string to_string() {
+			reg_key(HKEY hKey, std::wstring path) : hKey(hKey), path(path) {}
+			std::string to_string() const {
 				return utf8::cvt<std::string>(path);
 			}
-			std::wstring to_wstring() {
-				return path;
+			reg_key get_subkey(std::wstring sub_path) const {
+				return reg_key(hKey, path + boost::replace_all_copy(sub_path, _T("/"), _T("\\")));
+			}
+			reg_key get_subkey(std::string sub_path) const {
+				return get_subkey(utf8::cvt<std::wstring>(sub_path));
 			}
 		};
+		reg_key root;
 
 
-		public:
-		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {}
+	public:
+		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), root(context) {
+			
+		}
+
 
 		virtual ~REGSettings(void) {}
 
@@ -155,41 +179,28 @@ namespace settings {
 		virtual void get_real_keys(std::string path, string_list &list) {
 			getValues_(get_reg_key(path), list);
 		}
-	// 	virtual settings_core::key_type get_key_type(std::wstring path, std::wstring key) {
-	// 		return SettingsInterfaceImpl::get_key_type(path, key);
-	// 	}
 	private:
-		reg_key get_reg_key(settings_core::key_path_type key) {
-			return get_reg_key(key.first);
+		reg_key get_reg_key(const settings_core::key_path_type key) const {
+			return root.get_subkey(key.first);
 		}
-		static reg_key get_reg_key(std::string path) {
-			reg_key ret;
-			net::url url = net::parse(path);
-			std::string file = url.path;
-			strEx::replace(file, "/", "\\");
-			if (url.host == "HKEY_LOCAL_MACHINE" || url.host == "HKLM") {
-				ret.hKey = HKEY_LOCAL_MACHINE;
-			} else {
-				ret.hKey = NS_HKEY_ROOT;
-			}
-			if (!file.empty()) {
-				if (file[0] == '\\')
-					file = file.substr(1);
-				ret.path = utf8::cvt<std::wstring>(file);
-			} else
-				ret.path = NS_REG_ROOT;
-			return ret;
+		reg_key get_reg_key(const std::string path) const {
+			return root.get_subkey(path);
 		}
 
 		struct tmp_reg_key {
 			reg_handle hTemp;
+			tmp_reg_key(const reg_key &key) {
+				open(key.hKey, key.path);
+			}
+			/*
 			tmp_reg_key(HKEY hKey, std::string path) {
 				open(hKey, utf8::cvt<std::wstring>(path));
 			}
 			tmp_reg_key(HKEY hKey, std::wstring path) {
 				open(hKey, path);
 			}
-			void open(HKEY hKey, std::wstring path) {
+			*/
+			void open(const HKEY hKey, const std::wstring &path) {
 				DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hTemp.ref(), NULL);
 				if (err != ERROR_SUCCESS) {
 					throw settings_exception("Failed to open key " + utf8::cvt<std::string>(path) + ": " + error::lookup::last_error(err));
@@ -200,18 +211,19 @@ namespace settings {
 			}
 		};
 
-		static void setString_(reg_key path, std::string key, std::string value) {
-			tmp_reg_key hTemp(path.hKey, path.path);
+		static void setString_(const reg_key &path, std::string key, std::string value) {
+			tmp_reg_key hTemp(path);
 			std::wstring wvalue = utf8::cvt<std::wstring>(value);
+			std::wstring wkey = utf8::cvt<std::wstring>(key);
 			reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
-			DWORD err = RegSetValueExW(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_EXPAND_SZ, reinterpret_cast<LPBYTE>(*buffer), buffer.size());
+			DWORD err = RegSetValueExW(*hTemp, wkey.c_str(), 0, REG_SZ, buffer.get(), buffer.size());
 			if (err != ERROR_SUCCESS) {
 				throw settings_exception("Failed to write string " + path.to_string() + "." + key + ": " + error::lookup::last_error(err));
 			}
 		}
 
-		static void setInt_(reg_key path, std::string key, DWORD value) {
-			tmp_reg_key hTemp(path.hKey, path.path);
+		static void setInt_(const reg_key &path, std::string key, DWORD value) {
+			tmp_reg_key hTemp(path);
 			DWORD err = RegSetValueEx(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
 			if (err != ERROR_SUCCESS) {
 				throw settings_exception("Failed to int string: " + path.to_string() + "." + key + " (" + error::lookup::last_error(err) + ")");
@@ -320,7 +332,7 @@ namespace settings {
 		}
 public:
 		static bool context_exists(settings::settings_core *, std::string key) {
-			return has_key(get_reg_key(key));
+			return has_key(reg_key(key));
 		}
 		virtual void real_clear_cache() {}
 

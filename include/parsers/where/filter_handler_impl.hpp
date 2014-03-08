@@ -33,9 +33,10 @@ namespace parsers {
 			str_fun_type s_function;
 			int_fun_type i_function;
 			std::list<perf_generator_type> perf;
+			bool add_default_perf;
+			void set_no_perf() { add_default_perf = false; }
 
-
-			filter_variable(std::string name, value_type type, std::string description) : name(name), type(type), description(description) {}
+			filter_variable(std::string name, value_type type, std::string description) : name(name), type(type), description(description), add_default_perf(true) {}
 
 		};
 		template<class T>
@@ -93,6 +94,10 @@ namespace parsers {
 			}
 			registry_adders_variables_int& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
 				get_last()->perf.push_back(perf_generator_type(new parsers::where::simple_int_performance_generator<T>(unit, prefix, suffix)));
+				return *this;
+			}
+			registry_adders_variables_int& no_perf() {
+				get_last()->set_no_perf();
 				return *this;
 			}
 			typedef boost::function<long long(T, evaluation_context)> maxfun_type;
@@ -478,7 +483,7 @@ namespace parsers {
 					boost::shared_ptr<filter_variable<object_type> > var = registry_.get_variable(name, human_readable);
 					if (var) {
 						if (var->i_function) {
-							if (var->perf.empty()) {
+							if (var->perf.empty() && var->add_default_perf) {
 								typename filter_variable<object_type>::perf_generator_type gen(new parsers::where::simple_int_performance_generator<object_type>("", "", "_" + var->name));
 								var->perf.push_back(gen);
 							}
@@ -533,19 +538,21 @@ namespace parsers {
 			}
 			virtual std::string get_performance_config_key(const std::string prefix, const std::string object, const std::string suffix, const std::string key, const std::string v) const {
 				std::string value = v;
-				if (get_performance_config_value(prefix+object+suffix, key, value))
+				bool has_p = !prefix.empty();
+				bool has_s = !suffix.empty();
+				if (has_p&&has_s&&get_performance_config_value(prefix+object+suffix, key, value))
 					return value;
-				if (get_performance_config_value(prefix+object, key, value))
+				if (has_p&&get_performance_config_value(prefix+object, key, value))
 					return value;
-				if (get_performance_config_value(object+suffix, key, value))
+				if (has_s&&get_performance_config_value(object+suffix, key, value))
+					return value;
+				if (has_p&&get_performance_config_value(prefix, key, value))
+					return value;
+				if (has_s&&get_performance_config_value(suffix, key, value))
 					return value;
 				if (get_performance_config_value(object, key, value))
 					return value;
 				if (get_performance_config_value("*", key, value))
-					return value;
-				if (get_performance_config_value(prefix, key, value))
-					return value;
-				if (get_performance_config_value(suffix, key, value))
 					return value;
 				return value;
 			}

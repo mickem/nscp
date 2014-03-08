@@ -554,7 +554,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 		typedef std::map<std::string,windows::system_info::load_entry>::value_type vt;
 		BOOST_FOREACH(vt v, vals) {
 			boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
-			boost::tuple<bool,bool> ret = filter.match(record);
+			filter.match(record);
 		}
 	}
 	modern_filter::perf_writer writer(response);
@@ -638,7 +638,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	long long now_delta = (now-epoch).total_seconds();
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
-	boost::tuple<bool,bool> ret = filter.match(record);
+	filter.match(record);
 
 	modern_filter::perf_writer scaler(response);
 	filter_helper.post_process(filter, &scaler);
@@ -673,7 +673,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	record->version_s = windows::system_info::get_version_string();
 	record->version_i = windows::system_info::get_version();
 
-	boost::tuple<bool,bool> ret = filter.match(record);
+	filter.match(record);
 
 	modern_filter::perf_writer scaler(response);
 	filter_helper.post_process(filter, &scaler);
@@ -773,7 +773,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 					)
 					continue;
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
-				boost::tuple<bool,bool> ret = filter.match(record);
+				filter.match(record);
 				if (filter.has_errors())
 					return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
 			}
@@ -781,7 +781,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 			try {
 				services_helper::service_info info = services_helper::get_service_info(computer, service);
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
-				boost::tuple<bool,bool> ret = filter.match(record);
+				filter.match(record);
 			} catch (const nscp_exception &e) {
 				return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
 			}
@@ -814,11 +814,12 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	windows::system_info::pagefile_info total("total");
 	BOOST_FOREACH(const windows::system_info::pagefile_info &info, windows::system_info::get_pagefile_info()) {
 		boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
-		boost::tuple<bool,bool> ret = filter.match(record);
-		total.add(info);
+		modern_filter::match_result ret = filter.match(record);
+		if (ret.matched_bound)
+			total.add(info);
 	}
 	boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
-	boost::tuple<bool,bool> ret = filter.match(record);
+	filter.match(record);
 
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);
@@ -920,7 +921,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
 		}
 		boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
-		boost::tuple<bool,bool> ret = filter.match(record);
+		filter.match(record);
 	}
 
 	modern_filter::perf_writer writer(response);
@@ -1051,7 +1052,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		bool wanted = procs.count(info.exe);
 		if (all || wanted) {
 			boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
-			boost::tuple<bool,bool> ret = filter.match(record);
+			filter.match(record);
 		}
 		if (wanted) {
 			matched.push_back(info.exe);
@@ -1062,7 +1063,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	}
 	BOOST_FOREACH(const std::string proc, procs) {
 		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
-		boost::tuple<bool,bool> ret = filter.match(record);
+		filter.match(record);
 	}
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);

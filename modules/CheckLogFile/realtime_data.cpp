@@ -44,10 +44,10 @@ bool runtime_data::process_item(filter_type &filter, transient_data_type) {
 				if (!line.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
-					boost::tuple<bool,bool> ret = filter.match(record);
-					if (ret.get<0>()) {
+					modern_filter::match_result ret = filter.match(record);
+					if (ret.matched_bound) {
 						matched = true;
-						if (ret.get<1>()) {
+						if (ret.is_done) {
 							break;
 						}
 					}

@@ -22,6 +22,6 @@ void runtime_data::add_file(const std::string &file) {
 }
 
 bool runtime_data::process_item(filter_type &filter, transient_data_type record) {
-	boost::tuple<bool,bool> ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, 0)));
+	filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, 0)));
 	return filter.summary.get_count_match() > 0;
 }

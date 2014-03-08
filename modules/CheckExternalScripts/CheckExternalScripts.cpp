@@ -291,6 +291,25 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 void CheckExternalScripts::handle_alias(const alias::command_object &cd, const std::list<std::string> &src_args, Plugin::QueryResponseMessage::Response *response) {
 	std::list<std::string> args = cd.arguments;
 	bool missing_args = false;
+	BOOST_FOREACH(const std::string &s, src_args) {
+		if (s == "help-csv") {
+			std::stringstream ss;
+			int i=1;
+			bool found = true;
+			while (found) {
+				found = false;
+				BOOST_FOREACH(std::string &arg, args) {
+					if (arg.find("$ARG" + strEx::s::xtos(i++) + "$") != std::string::npos) {
+						ss << "$ARG" << strEx::s::xtos(i++) << "$,false,," << arg << "\n";
+						found = true;
+					}
+				}
+			}
+			response->set_result(::Plugin::Common_ResultCode_OK);
+			response->set_message(ss.str());
+			return;
+		}
+	}
 
 	BOOST_FOREACH(std::string &arg, args) {
 		int i=1;

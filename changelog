@@ -1,3 +1,11 @@
+2014-03-08 MickeM
+ * Added total object to check_files
+ * Fixed registry issues
+
+2014-03-06 MickeM
+ * Fixed performance config order
+ * Fixed external script alias and support for help-csv
+
 2014-03-05 MickeM
  * Fixed crash dump issue
  * Fixed memory leak in NSCA

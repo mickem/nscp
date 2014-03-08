@@ -257,8 +257,8 @@ namespace check_pdh {
 					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
 				BOOST_FOREACH(const value_list_type::value_type &v, values) {
 					boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, v.second));
-					boost::tuple<bool,bool> ret = filter.match(record);
-					if (ret.get<1>()) {
+					modern_filter::match_result ret = filter.match(record);
+					if (ret.is_done) {
 						break;
 					}
 				}
@@ -272,14 +272,14 @@ namespace check_pdh {
 				if (expand_instance) {
 					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
 						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), child->get_int_value()));
-						boost::tuple<bool,bool> ret = filter.match(record);
-						if (ret.get<1>())
+						modern_filter::match_result ret = filter.match(record);
+						if (ret.is_done)
 							break;
 					}
 				} else {
 					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), instance->get_int_value()));
-					boost::tuple<bool,bool> ret = filter.match(record);
-					if (ret.get<1>())
+					modern_filter::match_result ret = filter.match(record);
+					if (ret.is_done)
 						break;
 				}
 			} catch (const PDH::pdh_exception &e) {

@@ -22,10 +22,10 @@ namespace check_cpu_filter {
 			typedef std::map<std::string,windows::system_info::load_entry>::value_type vt;
 			BOOST_FOREACH(vt v, vals) {
 				boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(c.alias, v.first, v.second));
-				boost::tuple<bool,bool> ret = filter.match(record);
-				if (ret.get<0>()) {
+				modern_filter::match_result ret = filter.match(record);
+				if (ret.matched_bound) {
 					matched = true;
-					if (ret.get<1>()) {
+					if (ret.is_done) {
 						break;
 					}
 				}
@@ -59,11 +59,11 @@ namespace check_mem_filter {
 				total = mem_data.virt.total;
 			}
 			boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
-			boost::tuple<bool,bool> ret = filter.match(record);
+			modern_filter::match_result ret = filter.match(record);
 
-			if (ret.get<0>()) {
+			if (ret.matched_bound) {
 				matched = true;
-				if (ret.get<1>()) {
+				if (ret.is_done) {
 					break;
 				}
 			}
