@@ -1,3 +1,6 @@
+2014-03-10 MickeM
+ * Fixed server restarting listeners on errors
+
 2014-03-08 MickeM
  * Added total object to check_files
  * Fixed registry issues

@@ -110,7 +110,8 @@ namespace strEx {
 			ss << i;
 			return ss.str();
 		}
-		inline std::string itos_non_sci(double i) {
+		template<typename T>
+		inline std::string xtos_non_sci(T i) {
 			std::stringstream ss;
 			if (i < 10)
 				ss.precision(20);

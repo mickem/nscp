@@ -547,14 +547,14 @@ namespace nscapi {
 			if (perf.has_int_value()) {
 				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
 				if (val.has_unit())
-					return strEx::s::itos_non_sci(val.value()*get_multiplier(val.unit()));
-				return strEx::s::itos_non_sci(val.value());
+					return strEx::s::xtos_non_sci(val.value()*get_multiplier(val.unit()));
+				return strEx::s::xtos_non_sci(val.value());
 			} else if (perf.has_bool_value()) {
 				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
 				return val.value()?"true":"false";
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
-				return strEx::s::itos_non_sci(val.value()*get_multiplier(val.unit()));
+				return strEx::s::xtos_non_sci(val.value()*get_multiplier(val.unit()));
 			} else if (perf.has_string_value()) {
 				const Plugin::Common::PerformanceData::StringValue& val = perf.string_value();
 				return val.value();
@@ -584,15 +584,15 @@ namespace nscapi {
 			if (perf.has_int_value()) {
 				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
 				if (val.has_unit())
-					return strEx::s::itos_non_sci(val.maximum()*get_multiplier(val.unit()));
-				return strEx::s::itos_non_sci(val.maximum());
+					return strEx::s::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return strEx::s::xtos_non_sci(val.maximum());
 			} else if (perf.has_bool_value() || perf.has_string_value()) {
 				return "";
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
 				if (val.has_unit())
-					return strEx::s::itos_non_sci(val.maximum()*get_multiplier(val.unit()));
-				return strEx::s::itos_non_sci(val.maximum());
+					return strEx::s::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return strEx::s::xtos_non_sci(val.maximum());
 			}
 			return "unknown";
 		}
@@ -696,29 +696,29 @@ namespace nscapi {
 				if (perfData.has_float_value()) {
 					Plugin::Common_PerformanceData_FloatValue fval = perfData.float_value();
 
-					ss << strEx::s::itos_non_sci(fval.value());
+					ss << strEx::s::xtos_non_sci(fval.value());
 					if (fval.has_unit())
 						ss << fval.unit();
 					if (!fval.has_warning() && !fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_warning())
-						ss << strEx::s::itos_non_sci(fval.warning());
+						ss << strEx::s::xtos_non_sci(fval.warning());
 					if (!fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_critical())
-						ss << strEx::s::itos_non_sci(fval.critical());
+						ss << strEx::s::xtos_non_sci(fval.critical());
 					if (!fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_minimum())
-						ss << strEx::s::itos_non_sci(fval.minimum());
+						ss << strEx::s::xtos_non_sci(fval.minimum());
 					if (!fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_maximum())
-						ss << strEx::s::itos_non_sci(fval.maximum());
+						ss << strEx::s::xtos_non_sci(fval.maximum());
 				} else if (perfData.has_int_value()) {
 					Plugin::Common_PerformanceData_IntValue fval = perfData.int_value();
 					ss << fval.value();

@@ -56,7 +56,7 @@ namespace check_mk {
 			current_state_ = new_state;
 		}
 
-		bool on_accept(boost::asio::ip::tcp::socket& socket, int count) {
+		bool on_accept(boost::asio::ip::tcp::socket& socket, int) {
 			std::list<std::string> errors;
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
@@ -84,7 +84,7 @@ namespace check_mk {
 			return current_state_ == connected;
 		}
 
-		bool on_read(char *begin, char *end) {
+		bool on_read(char *, char *) {
 			return true;
 		}
 		void on_write() {

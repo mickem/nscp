@@ -239,24 +239,31 @@ namespace socket_helpers {
 					} else {
 						new_connection_->on_done(false);
 					}
-					new_connection_.reset(create_connection());
-
-					if (ipv6)
- 						acceptor_v6.async_accept(new_connection_->get_socket(),
- 							accept_strand_.wrap(
- 							boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
- 							)
- 							);
-					else
-						acceptor_v4.async_accept(new_connection_->get_socket(),
-						accept_strand_.wrap(
-						boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
-						)
-						);
-				} else {
-					if (!is_shutting_down_)
-						logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
+				} else if (is_shutting_down_)
+					return;
+				else {
+					logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
 				}
+
+				new_connection_.reset(create_connection());
+
+				if (ipv6)
+					acceptor_v6.async_accept(new_connection_->get_socket(),
+					accept_strand_.wrap(
+					boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
+					)
+					);
+				else
+					acceptor_v4.async_accept(new_connection_->get_socket(),
+					accept_strand_.wrap(
+					boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
+					)
+					);
+			}
+
+			void restart() {
+				stop();
+				start();
 			}
 
 			connection_type* create_connection() {

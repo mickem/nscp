@@ -8,7 +8,7 @@ namespace parsers {
 		long long string_value::get_int_value(evaluation_context errors) const {
 			try {
 				return strEx::s::stox<long long>(value_);
-			} catch (const std::exception &e) {
+			} catch (const std::exception &) {
 				errors->error("Failed to convert string to number: " + value_);
 				return 0;
 			}

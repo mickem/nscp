@@ -134,8 +134,8 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 				std::getline(file,line, '\n');
 				std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
 				boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
-				boost::tuple<bool,bool> ret = filter.match(record);
-				if (ret.get<1>()) {
+				modern_filter::match_result ret = filter.match(record);
+				if (ret.is_done) {
 					break;
 				}
 			}

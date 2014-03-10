@@ -196,7 +196,7 @@ namespace windows {
 	void init_old_buffer(boost::scoped_array<unsigned long long> &array, const std::size_t size) {
 		if (!array) {
 			array.reset(new unsigned long long[size]);
-			for (int i=0;i<size;i++) {
+			for (std::size_t i=0;i<size;i++) {
 				array[i] = 0;
 			}
 		}

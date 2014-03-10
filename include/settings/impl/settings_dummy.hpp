@@ -109,7 +109,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::string path, string_list &list) {
+		virtual void get_real_keys(std::string, string_list &) {
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store

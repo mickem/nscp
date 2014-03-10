@@ -275,7 +275,7 @@ namespace settings {
 		}
 
 
-		std::set<std::string> internal_read_keys_from_section(std::string section, int bufferLength = 1024) {
+		std::set<std::string> internal_read_keys_from_section(std::string section, unsigned int bufferLength = 1024) {
 			TCHAR* buffer = new TCHAR[bufferLength+1];
 			if (buffer == NULL)
 				throw settings_exception("internal_read_keys_from_section:: Failed to allocate memory for buffer!");
@@ -346,7 +346,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void get_real_sections(std::string path, string_list &list) {
-			unsigned int path_length = path.length();
 			map.get_sections(path, list);
 			list.unique();
 		}

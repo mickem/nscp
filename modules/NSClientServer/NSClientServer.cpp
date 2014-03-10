@@ -327,7 +327,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		case REQ_USEDDISKSPACE:
 			return check_nt::packet(extract_perf_value(payload.perf(0)) + "&" + extract_perf_total(payload.perf(0)));
 		case REQ_FILEAGE:
-			return check_nt::packet(strEx::s::itos_non_sci(extract_perf_value_i(payload.perf(0))/60) + "&" + payload.message());
+			return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(payload.perf(0))/60) + "&" + payload.message());
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 		case REQ_PROCSTATE:

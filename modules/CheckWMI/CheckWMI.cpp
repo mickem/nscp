@@ -187,7 +187,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 		wmi_impl::row_enumerator e = wmiQuery.execute();
 		while (e.has_next()) {
 			boost::shared_ptr<wmi_filter::filter_obj> record(new wmi_filter::filter_obj(e.get_next()));
-			boost::tuple<bool,bool> ret = filter.match(record);
+			filter.match(record);
 		}
 	} catch (const wmi_impl::wmi_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
