@@ -88,8 +88,10 @@ namespace tasksched_filter {
 				LocalFileTimeToFileTime(&localFileTime, &fileTime);
 				return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)fileTime.dwLowDateTime);
 			}
-			static unsigned long long convert_time(const DATE &) {
-				return 0;
+			static unsigned long long convert_time(const DATE &date) {
+				SYSTEMTIME time;
+				::VariantTimeToSystemTime(date, &time);
+				return convert_time(time);
 			}
 
 			static TReturn convert(HRESULT hr, TRawType &value) {
@@ -170,6 +172,7 @@ namespace tasksched_filter {
 		virtual long long get_status() = 0;
 		virtual std::string get_status_s() = 0;
 		virtual long long get_most_recent_run_time() = 0;
+		virtual std::string get_most_recent_run_time_s() = 0;
 
 	};
 
@@ -242,6 +245,9 @@ namespace tasksched_filter {
 			return strEx::s::xtos(i);
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
+		std::string get_most_recent_run_time_s() {
+			return format::format_date(get_most_recent_run_time());
+		}
 	};
 
 
@@ -322,6 +328,9 @@ namespace tasksched_filter {
 			return strEx::s::xtos(i);
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
+		std::string get_most_recent_run_time_s() {
+			return format::format_date(get_most_recent_run_time());
+		}
 
 		long long convert_runtime(std::string &v) {
 			return 0;

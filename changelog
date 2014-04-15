@@ -1,6 +1,7 @@
 2014-04-15 MickeM
  * Fixed issue with aveerages and performance check_pdh #710
  * Fixed issue with converting empty exclude statements for CheckService
+ * Fixed issue with check_taskshced and most_recent_run_time 
 
 2014-04-xx MickeM
  * Added testcase for powershell scripts

@@ -71,6 +71,7 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 
 	registry_.add_human_string()
 		("status", boost::bind(&filter_obj::get_status_s, _1), "")
+		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time_s, _1), "")
 		;
 
 	registry_.add_converter()
