@@ -235,7 +235,7 @@ namespace check_pdh {
 					pdh.collect();
 					Sleep(1000);
 				}
-				pdh.collect();
+				//pdh.collect();
 				pdh.gatherData(expand_instance);
 				pdh.close();
 			} catch (const PDH::pdh_exception &e) {

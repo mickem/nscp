@@ -1,4 +1,11 @@
+2014-04-15 MickeM
+ * Fixed issue with aveerages and performance check_pdh #710
+
+2014-04-xx MickeM
+ * Added testcase for powershell scripts
+
 2014-03-10 MickeM
+ ! 0.4.2 RELEASE
  * Fixed server restarting listeners on errors
 
 2014-03-08 MickeM

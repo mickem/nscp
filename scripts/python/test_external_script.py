@@ -13,17 +13,17 @@ import threading
 sync = threading.RLock()
 
 
-LONG_OUTPUT = """Test arguments are: (LONG "$ARG2$" "$ARG3$")\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
-0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\r
+LONG_OUTPUT = """Test arguments are: (LONG "$ARG2$" "$ARG3$")\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
+0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789\n
 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789"""
 
 
@@ -51,12 +51,18 @@ class ExternalScriptTest(BasicTest):
 			message = message.replace('$ARG1$', '$')
 			message = message.replace('$ARG2$', '$')
 			message = message.replace('$ARG3$', '$')
-			message = message.replace('\r', '')
+
+		message = message.replace('\r', '\n')
+		message = message.replace('\n\n', '\n')
+		msg = msg.replace('\r', '\n')
+		msg = msg.replace('\n\n', '\n')
+
 		result.assert_equals(ret, expected, 'Validate return code for %s'%script)
 		result.assert_equals(msg, message, 'Validate return message for %s'%script)
 		if msg != message:
 			diff = difflib.ndiff(msg.splitlines(1), message.splitlines(1))
-			print ''.join(diff),
+			for l in diff:
+				log_error(l)
 		return result
 
 	def run_test(self):
@@ -75,24 +81,38 @@ class ExternalScriptTest(BasicTest):
 		self.core.reload('test_external_scripts')
 
 		result = TestResult('Arguments allowed')
-		result.add(self.do_one_test('tes_sca_test', status.OK, 'Test arguments are: (OK "$ARG2$" "$ARG3$")', ['OK']))
-		result.add(self.do_one_test('tes_sca_test', status.WARNING, 'Test arguments are: (WARN "$ARG2$" "$ARG3$")', ['WARN']))
-		result.add(self.do_one_test('tes_sca_test', status.CRITICAL, 'Test arguments are: (CRIT "$ARG2$" "$ARG3$")', ['CRIT']))
-		result.add(self.do_one_test('tes_sca_test', status.UNKNOWN, 'Test arguments are: (UNKNOWN "$ARG2$" "$ARG3$")', ['UNKNOWN']))
-		result.add(self.do_one_test('tes_sca_test', status.OK, 'Test arguments are: (OK "String with space" "A long long option with many spaces")', ['OK', 'String with space', 'A long long option with many spaces']))
-		result.add(self.do_one_test('tes_sca_test', status.OK, LONG_OUTPUT, ['LONG']))
 		
-		result.add(self.do_one_test('tes_sca_test', status.UNKNOWN, 'Request contained illegal characters set /settings/external scripts/allow nasty characters=true!', ['OK', '$$$ \\ \\', '$$$ \\ \\']))
+		if os.name == 'nt':
+			tests = ['bat', 'ps1']
+		else:
+			tests = ['sh']
+		for t in tests:
+			script = 'tes_sca_%s'%t
+			subresult = TestResult(t)
+			subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK "$ARG2$" "$ARG3$")', ['OK']))
+			subresult.add(self.do_one_test(script, status.WARNING, 'Test arguments are: (WARN "$ARG2$" "$ARG3$")', ['WARN']))
+			subresult.add(self.do_one_test(script, status.CRITICAL, 'Test arguments are: (CRIT "$ARG2$" "$ARG3$")', ['CRIT']))
+			subresult.add(self.do_one_test(script, status.UNKNOWN, 'Test arguments are: (UNKNOWN "$ARG2$" "$ARG3$")', ['UNKNOWN']))
+			subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK "String with space" "A long long option with many spaces")', ['OK', 'String with space', 'A long long option with many spaces']))
+			subresult.add(self.do_one_test(script, status.OK, LONG_OUTPUT, ['LONG']))
 
+			subresult.add(self.do_one_test(script, status.UNKNOWN, 'Request contained illegal characters set /settings/external scripts/allow nasty characters=true!', ['OK', '$$$ \\ \\', '$$$ \\ \\']))
+
+			result.add(subresult)
 		ret.add(result)
+			
 		self.conf.set_string('/settings/test_external_scripts', 'allow nasty characters', 'true')
 		self.core.reload('test_external_scripts')
 
 		result = TestResult('Nasty Arguments allowed')
-		if os.name == 'nt':
-			result.add(self.do_one_test('tes_sca_test', status.OK, 'Test arguments are: (OK "$$$ \\ \\" "$$$ \\ \\")', ['OK', '$$$ \\ \\', '$$$ \\ \\'], False))
-		else:
-			result.add(self.do_one_test('tes_sca_test', status.OK, 'Test arguments are: (OK $ \\ " $  ")', ['OK', '$ \\ \\', '$ \\ \\'], False))
+		for t in tests:
+			script = 'tes_sca_%s'%t
+			subresult = TestResult(t)
+			if os.name == 'nt':
+				subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK "$$$ \\ \\" "$$$ \\ \\")', ['OK', '$$$ \\ \\', '$$$ \\ \\'], False))
+			else:
+				subresult.add(self.do_one_test(script, status.OK, 'Test arguments are: (OK $ \\ " $  ")', ['OK', '$ \\ \\', '$ \\ \\'], False))
+			result.add(subresult)
 		
 		ret.add(result)
 		return ret
@@ -118,8 +138,8 @@ class ExternalScriptTest(BasicTest):
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sa_ps1', 	'scripts\\check_test.ps1 "ARG1" "ARG 2" "A R G 3"')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sa_vbs', 	'scripts\\check_test.vbs "ARG1" "ARG 2" "A R G 3"')
 
-			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_test', 	'scripts\\check_test.bat $ARG1$ "$ARG2$" "$ARG3$"')
-			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_ps1', 	'scripts\\check_test.ps1 $ARG1$ "$ARG2$" "$ARG3$"')
+			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_bat', 	'scripts\\check_test.bat $ARG1$ "$ARG2$" "$ARG3$"')
+			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_ps1', 	'cmd /c echo scripts\\check_test.ps1 \'$ARG1$\' \'$ARG2$\' \'$ARG3$\'; exit($lastexitcode) | powershell.exe -command -')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_vbs', 	'scripts\\check_test.vbs $ARG1$ "$ARG2$" "$ARG3$"')
 			
 			self.conf.set_string('/settings/test_external_scripts/wrapped scripts', 'tes_ws_bat', 	'check_test.bat')
@@ -136,7 +156,7 @@ class ExternalScriptTest(BasicTest):
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_sh', 	'scripts/check_test.sh')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_test', 	'scripts/check_test.sh')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sa_test', 		'scripts/check_test.sh "ARG1" "ARG 2" "A R G 3"')
-			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_test', 	'scripts/check_test.sh $ARG1$ "$ARG2$" "$ARG3$"')
+			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_sh', 	'scripts/check_test.sh $ARG1$ "$ARG2$" "$ARG3$"')
 
 		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_alias_ok', 	'tes_script_test')
 		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_aa_ok', 	'tes_script_test  "ARG1" "ARG 2" "A R G 3"')
