@@ -710,15 +710,21 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 	BOOST_FOREACH(const std::string &s, extra) {
 		std::string::size_type pos = s.find('=');
 		if (pos != std::string::npos) {
-			request.add_arguments("service=" + s.substr(0, pos));
-			strEx::append_list(crit, "name != '" + s.substr(0, pos) + "' and state != '" + s.substr(pos+1) +"'", " AND ");
+			std::string svc_name = s.substr(0, pos);
+			if (!svc_name.empty()) {
+				request.add_arguments("service=" + svc_name);
+				strEx::append_list(crit, "name != '" + svc_name + "' and state != '" + s.substr(pos+1) +"'", " AND ");
+			}
 		} else {
-			request.add_arguments("service=" + s);
-			strEx::append_list(crit, "'" + s + "' != 'started'", " AND ");
+			if (!s.empty()) {
+				request.add_arguments("service=" + s);
+				strEx::append_list(crit, "'" + s + "' != 'started'", " AND ");
+			}
 		}
 	}
 	BOOST_FOREACH(const std::string &s, excludes) {
-		strEx::append_list(filter, "name != '" + s + "'", " AND ");
+		if (!s.empty())
+			strEx::append_list(filter, "name != '" + s + "'", " AND ");
 	}
 	if (!crit.empty())
 		request.add_arguments("crit=" + crit);
