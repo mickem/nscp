@@ -53,6 +53,7 @@ namespace parsers {
 
 		struct filter_function {
 			std::string name;
+			std::string description;
 			typedef boost::function<node_type(const value_type,evaluation_context,const node_type)> generic_fun_type;
 			generic_fun_type function;
 			value_type type;
@@ -179,6 +180,7 @@ namespace parsers {
 				boost::shared_ptr<filter_function> var(new filter_function(key));
 				var->function = fun;
 				var->type = type;
+				var->description = description;
 				add_functions(var);
 				return *this;
 			}
@@ -186,6 +188,7 @@ namespace parsers {
 				boost::shared_ptr<filter_function> var(new filter_function(key));
 				var->function = fun;
 				var->type = type_;
+				var->description = description;
 				add_functions(var);
 				return *this;
 			}
@@ -463,6 +466,9 @@ namespace parsers {
 				std::stringstream ss;
 				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
 					ss << var.first << "\t" << var.second->description << "\n";
+				}
+				BOOST_FOREACH(const typename registry_type::function_type::value_type &var, registry_.functions) {
+					ss << var.first << "()\t" << var.second->description << "\n";
 				}
 				return ss.str();
 			}

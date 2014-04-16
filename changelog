@@ -1,10 +1,14 @@
+2014-04-16 MickeM
+ * Added filter functions to documentation
+ * Fixed issue with conversion of CheckServiceState #707
+
 2014-04-15 MickeM
  * Fixed issue with aveerages and performance check_pdh #710
  * Fixed issue with converting empty exclude statements for CheckService
- * Fixed issue with check_taskshced and most_recent_run_time 
+ * Fixed issue with check_taskshced and most_recent_run_time
 
 2014-04-xx MickeM
- * Added testcase for powershell scripts
+ * Added testcase for powershell scripts #709
 
 2014-03-10 MickeM
  ! 0.4.2 RELEASE

@@ -713,12 +713,12 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 			std::string svc_name = s.substr(0, pos);
 			if (!svc_name.empty()) {
 				request.add_arguments("service=" + svc_name);
-				strEx::append_list(crit, "name != '" + svc_name + "' and state != '" + s.substr(pos+1) +"'", " AND ");
+				strEx::append_list(crit, "name = '" + svc_name + "' and state != '" + s.substr(pos+1) +"'", " AND ");
 			}
 		} else {
 			if (!s.empty()) {
 				request.add_arguments("service=" + s);
-				strEx::append_list(crit, "'" + s + "' != 'started'", " AND ");
+				strEx::append_list(crit, "name = '" + s + "' and state != 'running'", " AND ");
 			}
 		}
 	}

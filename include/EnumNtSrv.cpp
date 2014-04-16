@@ -183,6 +183,8 @@ namespace services_helper {
 			return SERVICE_PAUSED;
 		if (s == "running")
 			return SERVICE_RUNNING;
+		if (s == "started")
+			return SERVICE_RUNNING;
 		if (s == "starting")
 			return SERVICE_START_PENDING;
 		if (s == "stopping")
