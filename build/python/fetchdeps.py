@@ -237,7 +237,7 @@ sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/b
 
 #sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
 #sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
-sources['openssl'] = source('openssl-1.0.1c.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1c.tar.gz', '91b684de947cb021ac61b8c51027cc4b63d894ce')
+sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
 sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')

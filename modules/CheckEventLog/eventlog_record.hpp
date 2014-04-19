@@ -190,6 +190,12 @@ public:
 			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
 			return true;
 		} catch (simple_registry::registry_exception &e) {
+		}
+		try {
+			std::wstring providerGuid = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("ProviderGuid"));
+			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers") + providerGuid, _T("MessageFileName"));
+			return true;
+		} catch (simple_registry::registry_exception &e) {
 			file_or_error = _T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + utf8::cvt<std::wstring>(e.reason());
 			return false;
 		}
