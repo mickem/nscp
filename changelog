@@ -1,5 +1,8 @@
 2014-04-23 MickeM
  * Added initial WebServer module
+ * Fixed issue with check_nt INSTANCES
+ * Fixed documentation bugs
+ * Fixed issue with checking values without units
 
 2014-04-16 MickeM
  * Added filter functions to documentation
