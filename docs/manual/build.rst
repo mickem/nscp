@@ -104,7 +104,7 @@ Build NSClient++ (If you dont know you your visual studio versio name you can ru
 Vagrant
 ========
 
-I provide a number of vagrant profiles which will built NSClient++ as well:
+I provide a number of vagrant profiles which will built NSClient++ as well::
 
 	git clone --recursive https://github.com/mickem/nscp.git
 	cd vagrant
