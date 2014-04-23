@@ -276,6 +276,8 @@ ENDFOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
 ADD_SUBDIRECTORY("helpers/settings_manager")
 ADD_SUBDIRECTORY("helpers/where_filter")
 
+ADD_SUBDIRECTORY("ext/mongoose-cpp")
+
 #############################################################################
 #
 # Construct the bases for plugins

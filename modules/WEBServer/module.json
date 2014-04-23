@@ -1,0 +1,9 @@
+{
+	"module"		: {
+		"title"			: "WEB server",
+		"description"	: "A server that listens for incoming HTTP connection and processes incoming requests.",
+		"name"			: "WEBServer",
+		"alias"			: "web",
+		"version"		: "auto"
+	}
+}
