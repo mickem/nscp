@@ -34,14 +34,17 @@ namespace check_mem_filter {
 
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		std::list<parsers::where::node_type> list = subject->get_list_value(context);
-		if (list.size() != 2) {
-			context->error("Invalid list value");
+
+		if (list.empty() || list.size() > 2) {
+			context->error("Invalid list size (returning false)");
 			return parsers::where::factory::create_false();
 		}
 		std::list<parsers::where::node_type>::const_iterator cit = list.begin();
 		parsers::where::node_type amount = *cit;
-		++cit;
-		parsers::where::node_type unit = *cit;
+		if (list.size() > 1) {
+			++cit;
+			parsers::where::node_type unit = *cit;
+		}
 
 		long long percentage = amount->get_int_value(context);
 		long long value = (object->get_total()*percentage)/100;
