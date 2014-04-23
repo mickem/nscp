@@ -189,7 +189,7 @@ std::string list_instance(std::string counter) {
 		while(std::getline(iss, line, '\n')) {
 			Tokenizer tok(line);
 			Tokenizer::const_iterator cit = tok.begin();
-			int i = 1;
+			int i = 2;
 			while ((i-->0) && (cit != tok.end()))
 				++cit;
 			if (i <= 1) {
