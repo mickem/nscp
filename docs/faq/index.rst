@@ -190,13 +190,24 @@ Expression Replacement
 ${..}      %(..)
 ========== ===========
 
-3. General
-==========
+3. Versions
+===========
    
 3.1 I use version 0.3.9 or 0.2.7
 ********************************
+please upgrade to 0.4.2 and see if the error still persist before you ask questions and/or report bugs.
+I generally do NOT fix issues in several years old versions.
 
-please upgrade to 0.4.1 and see if the error still persist before you ask questions and/or report bugs
+3.2 I use version 0.4.0 or 0.4.1
+********************************
+A good idea to upgrade to 0.4.2 and see if the issue has been resolved but please report this anyway so I can (if possible) fir it for 0.4.1
+
+3. General
+==========
+
+3.1 My question is not here?
+*****************************
+Please ask in the forums or the questions site.
 
 3.2 Rejected connection from: <ip address here>
 ************************************************
@@ -272,3 +283,34 @@ Rotating logfile can be done when size reaches a certain level (in this case 204
 	level = info
 	[/settings/log/file]
 	max size = 2048000
+
+4. check_nt
+============
+
+4.1 I use check_nt and...
+**************************
+
+Check_nt is NOT a good protocl and is considerd abandoneware. NSClient++ supports it only for legacy reasons.
+There is generally no reason to use check_nt
+
+4.2 MEMUSE reports the wrong value
+***********************************
+
+No it does not :)
+MEMUSE reports physical+page (normally called commited bytes). This is the amount of memory the system has promised to various applications.
+Thus it will be "more" than your RAM if you want to check physical memory please use check_nrpe and check_memory instead.
+
+5. Eventlog
+============
+
+5.1 Can I check "modern" eventlogs from Windows 2008 and above?
+****************************************************************
+
+Yes, but it requires NSClient++ 0.4.2 and later.
+
+5.2 I use severity but still dont get errors (or get non error messages).
+**************************************************************************
+
+This is a "feature" of the Windows Eventlog API. They have something called severity which most programs do not use as severity.
+instead please try using level which is more accurate.
+
