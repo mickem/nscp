@@ -100,6 +100,8 @@ void PDHCollector::thread_proc() {
 				} else {
 					NSC_LOG_ERROR_STD(_T("Failed to load counter: ") + c.alias + _T(" = ") + c.path);
 				}
+			} catch (const PDH::PDHException &e) {
+				NSC_LOG_ERROR_STD(_T("EXCEPTION: Failed to load counter: ") + c.alias + _T(" = ") + c.path + _T(" (") + e.getError() + _T(")"));
 			} catch (...) {
 				NSC_LOG_ERROR_STD(_T("EXCEPTION: Failed to load counter: ") + c.alias + _T(" = ") + c.path);
 			}

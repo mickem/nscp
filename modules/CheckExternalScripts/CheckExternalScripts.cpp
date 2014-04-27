@@ -254,9 +254,10 @@ NSCAPI::nagiosReturn CheckExternalScripts::handle_command(const commands::comman
 		args.domain = cd.domain;
 		args.password = cd.password;
 	}
+	args.ignore_perf = cd.ignore_perf;
 	int result = process::executeProcess(args, message, perf);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-		nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result), _T(""), response);
+		nscapi::functions::create_simple_query_response_unknown(data.command, _T("The command (") + args.command + _T(") returned an invalid return code: ") + strEx::itos(result) + _T(": ") + message, _T(""), response);
 		return NSCAPI::returnUNKNOWN;
 	}
 	nscapi::functions::create_simple_query_response(data.command, nscapi::plugin_helper::int2nagios(result), message, perf, response);

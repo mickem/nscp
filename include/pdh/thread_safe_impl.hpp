@@ -115,6 +115,14 @@ namespace PDH {
 				throw PDHException(_T("Failed to initalize PdhAddCounter :("));
 			return PDH::PDHError(pPdhAddCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
 		}
+		virtual PDHError PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
+			MutexLock lock(mutex_);
+			if (!lock.hasMutex())
+				throw PDHException(_T("Failed to get mutex for PdhAddEnglishCounter"));
+			if (pPdhAddEnglishCounter == NULL)
+				throw PDHException(_T("Failed to initalize PdhAddEnglishCounter :("));
+			return PDH::PDHError(pPdhAddEnglishCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
+		}
 		virtual PDHError PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
 			MutexLock lock(mutex_);
 			if (!lock.hasMutex())

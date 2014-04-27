@@ -132,12 +132,12 @@ bool NSCAAgent::loadModuleEx(std::wstring alias, NSCAPI::moduleLoadMode mode) {
 			}
 			strEx::replace(hostname_, "${host}", dn.first);
 			strEx::replace(hostname_, "${domain}", dn.second);
-			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
 			strEx::replace(hostname_, "${host_uc}", dn.first);
 			strEx::replace(hostname_, "${domain_uc}", dn.second);
-			std::transform(hostname_.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-			std::transform(hostname_.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
 			strEx::replace(hostname_, "${host_lc}", dn.first);
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}

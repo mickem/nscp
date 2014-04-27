@@ -9,6 +9,7 @@ SET(SRCS
 	"${TARGET}.cpp"
 	"PDHCollector.cpp"
 	${NSCP_DEF_PLUGIN_CPP}
+	check_pdh.cpp
 	
 	${NSCP_INCLUDEDIR}/pdh/basic_impl.cpp
 	${NSCP_INCLUDEDIR}/pdh/core.cpp
@@ -26,6 +27,7 @@ SET(SRCS ${SRCS}
 	"${TARGET}.h"
 	"${TARGET}.def"
 	"PDHCollector.h"
+	check_pdh.hpp
 
 	${NSCP_INCLUDEDIR}/EnumProcess.h
 	${NSCP_INCLUDEDIR}/EnumNtSrv.h

@@ -19,7 +19,7 @@ namespace sh = nscapi::settings_helper;
 namespace commands {
 	struct command_object {
 
-		command_object() : is_template(false) {}
+		command_object() : is_template(false), ignore_perf(false) {}
 		command_object(const command_object &other) 
 			: path(other.path)
 			, alias(other.alias)
@@ -31,6 +31,7 @@ namespace commands {
 			, domain(other.domain)
 			, password(other.password)
 			, encoding(other.encoding)
+			, ignore_perf(other.ignore_perf)
 		{}
 		const command_object& operator =(const command_object &other) {
 			path = other.path;
@@ -43,6 +44,7 @@ namespace commands {
 			domain = other.domain;
 			password = other.password;
 			encoding = other.encoding;
+			ignore_perf = other.ignore_perf;
 			return *this;
 		}
 	
@@ -57,6 +59,7 @@ namespace commands {
 		std::wstring command;
 		std::wstring user, domain, password;
 		std::string encoding;
+		bool ignore_perf;
 
 
 		std::wstring to_wstring() const {
@@ -142,6 +145,9 @@ namespace commands {
 				(_T("encoding"), nscapi::settings_helper::string_key(&object.encoding),
 				_T("ENCODING"), _T("The encoding to parse the command as"), true)
 
+				(_T("ignore perfdata"), nscapi::settings_helper::bool_key(&object.ignore_perf),
+				_T("IGNORE PERF DATA"), _T("Do not parse performance data from the output"), false)
+
 				;
 
 			settings.register_all();
@@ -156,6 +162,8 @@ namespace commands {
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
 			import_string(object.encoding, parent.encoding);
+			if (parent.ignore_perf)
+				object.ignore_perf = true;
 		}
 
 	};

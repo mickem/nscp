@@ -36,6 +36,7 @@ namespace PDH {
 		typedef PDH_STATUS (WINAPI *fpPdhExpandCounterPath)(LPCWSTR,LPWSTR,LPDWORD);
 		typedef PDH_STATUS (WINAPI *fpPdhGetCounterInfo)(PDH_HCOUNTER,BOOLEAN,LPDWORD,PDH_COUNTER_INFO*);
 		typedef PDH_STATUS (WINAPI *fpPdhAddCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
+		typedef PDH_STATUS (WINAPI *fpPdhAddEnglishCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
 		typedef PDH_STATUS (WINAPI *fpPdhRemoveCounter)(PDH::PDH_HCOUNTER);
 		typedef PDH_STATUS (WINAPI *fpPdhGetFormattedCounterValue)(PDH_HCOUNTER,DWORD,LPDWORD,PPDH_FMT_COUNTERVALUE);
 		typedef PDH_STATUS (WINAPI *fpPdhOpenQuery)(LPCTSTR,DWORD_PTR,PDH_HQUERY*);
@@ -52,6 +53,7 @@ namespace PDH {
 		static fpPdhExpandCounterPath pPdhExpandCounterPath;
 		static fpPdhGetCounterInfo pPdhGetCounterInfo;
 		static fpPdhAddCounter pPdhAddCounter;
+		static fpPdhAddEnglishCounter pPdhAddEnglishCounter;
 		static fpPdhRemoveCounter pPdhRemoveCounter;
 		static fpPdhGetFormattedCounterValue pPdhGetFormattedCounterValue;
 		static fpPdhOpenQuery pPdhOpenQuery;
@@ -81,6 +83,7 @@ namespace PDH {
 			pPdhExpandCounterPath = NULL;
 			pPdhGetCounterInfo = NULL;
 			pPdhAddCounter = NULL;
+			pPdhAddEnglishCounter = NULL;
 			pPdhRemoveCounter = NULL;
 			pPdhGetFormattedCounterValue = NULL;
 			pPdhOpenQuery = NULL;
@@ -107,6 +110,7 @@ namespace PDH {
 			pPdhExpandCounterPath = (fpPdhExpandCounterPath)::GetProcAddress(PDH_, "PdhExpandCounterPathW");
 			pPdhGetCounterInfo = (fpPdhGetCounterInfo)::GetProcAddress(PDH_, "PdhGetCounterInfoW");
 			pPdhAddCounter = (fpPdhAddCounter)::GetProcAddress(PDH_, "PdhAddCounterW");
+			pPdhAddEnglishCounter = (fpPdhAddEnglishCounter)::GetProcAddress(PDH_, "PdhAddEnglishCounterW");
 			pPdhOpenQuery = (fpPdhOpenQuery)::GetProcAddress(PDH_, "PdhOpenQueryW");
 			pPdhValidatePath = (fpPdhValidatePath)::GetProcAddress(PDH_, "PdhValidatePathW");
 			pPdhEnumObjects = (fpPdhEnumObjects)::GetProcAddress(PDH_, "PdhEnumObjectsW");
@@ -117,6 +121,7 @@ namespace PDH {
 			pPdhExpandCounterPath = (fpPdhExpandCounterPath)::GetProcAddress(PDH_, "PdhExpandCounterPathA");
 			pPdhGetCounterInfo = (fpPdhGetCounterInfo)::GetProcAddress(PDH_, "PdhGetCounterInfoA");
 			pPdhAddCounter = (fpPdhAddCounter)::GetProcAddress(PDH_, "PdhAddCounterA");
+			pPdhAddEnglishCounter = (fpPdhAddEnglishCounter)::GetProcAddress(PDH_, "PdhAddEnglishCounterA");
 			pPdhOpenQuery = (fpPdhOpenQuery)::GetProcAddress(PDH_, "PdhOpenQueryA");
 			pPdhValidatePath = (fpPdhValidatePath)::GetProcAddress(PDH_, "PdhValidatePathA");
 			pPdhEnumObjects = (fpPdhEnumObjects)::GetProcAddress(PDH_, "PdhEnumObjectsA");
@@ -158,6 +163,11 @@ namespace PDH {
 			if (pPdhAddCounter == NULL)
 				throw PDHException(_T("Failed to initalize PdhAddCounter :("));
 			return PDH::PDHError(pPdhAddCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
+		}
+		virtual PDHError PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
+			if (pPdhAddEnglishCounter == NULL)
+				throw PDHException(_T("Failed to initalize PdhAddEnglishCounter :("));
+			return PDH::PDHError(pPdhAddEnglishCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
 		}
 		virtual PDHError PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
 			if (pPdhRemoveCounter == NULL)

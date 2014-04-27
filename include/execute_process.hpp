@@ -37,6 +37,7 @@ namespace process {
 			, command(command_)
 			, timeout(timeout_) 
 			, encoding(encoding)
+			, ignore_perf(false)
 		{}
 
 		std::wstring root_path;
@@ -46,6 +47,7 @@ namespace process {
 		std::wstring domain;
 		std::wstring password;
 		std::string encoding;
+		bool ignore_perf;
 	};
 }
 

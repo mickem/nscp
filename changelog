@@ -4,6 +4,25 @@ TODO:
  * Fix dependonservice LanManWorkStation (old win)
  * Fix RtlStringFromGUID problem on NT4
 
+2014-04-27 MickeM
+ * Some build fixes
+
+2013-07-15 MickeM
+ * Added support for ignoring performance data from external scripts:
+   [/settings/external scripts/scripts/default]
+   ignore perfdata = true
+ * Improved error message from external scripts
+ * Added support for loading english performance counters
+ * Added support for polling rrd counters using time-grames (new option Range)
+ 
+2013-07-09 MickeM
+ * Added support for lookup of English counter names
+ * Added Range option for checking round robin buffered counters
+
+2013-05-18 MickeM
+ * Fixed issue with NSCA hostname
+ * Fixed "ok ping" date handling in real-time check_log_file
+
 2013-05-05 MickeM
  * Fixed a bug in the check_logfile which made filtering bail-out after the first hit.
  * Added default column-split as \t

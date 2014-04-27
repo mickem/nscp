@@ -36,25 +36,27 @@ namespace PDH {
 		bool error_;
 		bool more_data_;
 		bool negative_denominator_;
+		bool not_found_;
 		long status_;
 	public:
 		/*
 		PDHError(std::wstring message, bool error, bool more_data) : message_(message), error_(error), more_data_(more_data) {}
 		PDHError(bool error, bool more_data) : error_(error), more_data_(more_data) {}
 		*/
-		PDHError() : error_(false), more_data_(false), negative_denominator_(false) {}
-		PDHError(PDH_STATUS status) : status_(status), error_(status!=ERROR_SUCCESS), more_data_(status==PDH_MORE_DATA), negative_denominator_(status==PDH_CALC_NEGATIVE_DENOMINATOR)
+		PDHError() : error_(false), more_data_(false), negative_denominator_(false), not_found_(false) {}
+		PDHError(PDH_STATUS status) : status_(status), error_(status!=ERROR_SUCCESS), more_data_(status==PDH_MORE_DATA), negative_denominator_(status==PDH_CALC_NEGATIVE_DENOMINATOR), not_found_(status==PDH_CSTATUS_NO_OBJECT)
 		{
 			if (is_error()) {
 				message_ = error::format::from_module(_T("PDH.DLL"), status);
 			}
 		}
-		PDHError(const PDHError &other) : error_(other.error_), more_data_(other.more_data_), message_(other.message_), negative_denominator_(other.negative_denominator_), status_(other.status_) {}
+		PDHError(const PDHError &other) : error_(other.error_), more_data_(other.more_data_), message_(other.message_), negative_denominator_(other.negative_denominator_), status_(other.status_), not_found_(other.not_found_) {}
 		PDHError& operator=(PDHError const& other) {
 			error_ = other.error_;
 			more_data_ = other.more_data_;
 			message_ = other.message_;
 			status_ = other.status_;
+			not_found_ = other.not_found_;
 			negative_denominator_ = other.negative_denominator_;
 			return *this;
 		}
@@ -74,6 +76,9 @@ namespace PDH {
 		}
 		bool is_more_data() {
 			return more_data_;
+		}
+		bool is_not_found() {
+			return not_found_;
 		}
 		bool is_negative_denominator() {
 			return negative_denominator_;
@@ -165,6 +170,7 @@ namespace PDH {
 		virtual PDHError PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) = 0;
 		virtual PDHError PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO* lpBuffer) = 0;
 		virtual PDHError PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) = 0;
+		virtual PDHError PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) = 0;
 		virtual PDHError PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) = 0;
 		virtual PDHError PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) = 0;
 		virtual PDHError PdhOpenQuery(LPCWSTR szDataSource, DWORD_PTR dwUserData, PDH::PDH_HQUERY * phQuery) = 0;

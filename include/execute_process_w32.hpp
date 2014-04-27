@@ -130,9 +130,11 @@ namespace process {
 				if (msg.empty()) {
 					msg = _T("No output available from command (") + args.command + _T(").");
 				} else {
-					strEx::token t = strEx::getToken(msg, '|');
-					msg = t.first;
-					perf = t.second;
+					if (!args.ignore_perf) {
+						strEx::token t = strEx::getToken(msg, '|');
+						msg = t.first;
+						perf = t.second;
+					}
 				}
 				if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
 					msg = _T("Failed to get commands (") + args.command + _T(") return code: ") + error::lookup::last_error();

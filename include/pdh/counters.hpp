@@ -48,8 +48,8 @@ namespace PDH {
 
 	public:
 
-		PDHCounter(std::wstring name, listener_ptr listener) : name_(name), listener_(listener), hCounter_(NULL){}
-		PDHCounter(std::wstring name) : name_(name), hCounter_(NULL){}
+		PDHCounter(std::wstring name, listener_ptr listener) : name_(name), listener_(listener), hCounter_(NULL) {}
+		PDHCounter(std::wstring name) : name_(name), hCounter_(NULL) {}
 		virtual ~PDHCounter(void) {
 			if (hCounter_ != NULL)
 				remove();
@@ -86,7 +86,14 @@ namespace PDH {
 			if (listener_)
 				listener_->attach(this);
 			LPCWSTR name = name_.c_str();
-			PDH::PDHError status = PDH::PDHFactory::get_impl()->PdhAddCounter(hQuery, name, 0, &hCounter_);
+			PDH::PDHError status;
+//			if (english_)
+//				status = PDH::PDHFactory::get_impl()->PdhAddEnglishCounter(hQuery, name, 0, &hCounter_);
+			status = PDH::PDHFactory::get_impl()->PdhAddCounter(hQuery, name, 0, &hCounter_);
+			if (status.is_not_found()) {
+				hCounter_ = NULL;
+				status = PDH::PDHFactory::get_impl()->PdhAddEnglishCounter(hQuery, name, 0, &hCounter_);
+			}
 			if (status.is_error()) {
 				hCounter_ = NULL;
 				throw PDHException(name_, _T("PdhAddCounter failed"), status);

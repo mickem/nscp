@@ -206,7 +206,7 @@ void real_time_thread::thread_proc() {
 
 #endif
 
-	boost::posix_time::ptime current_time;
+	boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 	BOOST_FOREACH(filters::filter_config_object &object, filters) {
 		object.touch(current_time);
 	}
@@ -225,7 +225,7 @@ void real_time_thread::thread_proc() {
 		if (first) {
 			NSC_DEBUG_MSG(_T("Next miss time is in: no timeout specified"));
 		} else {
-			dur = minNext - boost::posix_time::ptime();
+			dur = minNext - boost::posix_time::second_clock::local_time();
 			NSC_DEBUG_MSG(_T("Next miss time is in: ") + strEx::itos(dur.total_seconds()) + _T("s"));
 		}
 
@@ -275,7 +275,7 @@ void real_time_thread::thread_proc() {
 		}
 #endif
 
-		current_time = boost::posix_time::ptime();
+		current_time = boost::posix_time::second_clock::local_time();
 
 		BOOST_FOREACH(filters::filter_config_object &object, filters) {
  			if (object.has_changed()) {

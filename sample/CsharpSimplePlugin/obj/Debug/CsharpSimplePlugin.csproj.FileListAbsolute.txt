@@ -1,0 +1,7 @@
+D:\source\nscp\trunk\sample\CsharpSimplePlugin\obj\Debug\CsharpSimplePlugin.csprojResolveAssemblyReference.cache
+D:\source\nscp\build\x64\modules\dotnet\test.dll
+D:\source\nscp\build\x64\modules\dotnet\test.pdb
+D:\source\build\vs2012\x64\dist\modules\dotnet\CSharpSimplePlugin.dll
+D:\source\build\vs2012\x64\dist\modules\dotnet\CSharpSimplePlugin.pdb
+D:\source\nscp\trunk\sample\CsharpSimplePlugin\obj\Debug\CSharpSimplePlugin.dll
+D:\source\nscp\trunk\sample\CsharpSimplePlugin\obj\Debug\CSharpSimplePlugin.pdb

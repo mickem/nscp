@@ -162,7 +162,7 @@ namespace filters {
 
 		void touch(boost::posix_time::ptime now) {
 			if (max_age)
-				next_ok_ = now+ (*max_age);
+				next_ok_ = now + (*max_age);
 			BOOST_FOREACH(file_container &fc, files) {
 				fc.size = boost::filesystem::file_size(fc.file);
 			}
@@ -195,8 +195,9 @@ namespace filters {
 		}
 
 		void set_max_age(std::wstring age) {
-			if (age != _T("none") && age != _T("infinite") && age != _T("false"))
+			if (age != _T("none") && age != _T("infinite") && age != _T("false")) {
 				max_age = parse_time(age);
+			}
 		} 
 
 
