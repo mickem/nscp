@@ -51,19 +51,31 @@ file { "/home/vagrant/build.sh":
     mode    => 755,
 	source  => "/etc/puppet/files/build.sh"
 }
-file { "/home/vagrant/build-protobuf.sh":
-    ensure  => "present",
-    mode    => 755,
-	source  => "/etc/puppet/files/build-protobuf.sh"
+
+#exec { "yum-update":
+#    command => "/usr/bin/yum -y update"
+#}
+
+class { 'epel':
+} -> 
+package { "protobuf-devel": ensure => present
 }
-file { "/home/vagrant/build-cryptopp.sh":
-    ensure  => "present",
-    mode    => 755,
-	source  => "/etc/puppet/files/build-cryptopp.sh"
+package { "protobuf-compiler": ensure => present
+} ->
+package { "protobuf-python": ensure => present
+} ->
+package { "cryptopp": ensure => present
+} ->
+file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler": 
+	ensure    => "directory", 	
+} ->
+file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py": 
+	ensure    => present, 
+	source  => "/etc/puppet/files/plugin_pb2.py"
+} ->
+file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py": 
+	ensure    => present,
 }
 
-exec { "yum-update":
-    command => "/usr/bin/yum -y update"
-}
 
-Exec["yum-update"] -> Package <| |>
+#Exec["yum-update"] -> Package <| |>
