@@ -24,7 +24,7 @@
 #include <utils.h>
 #include <strEx.h>
 
-#include <cryptopp/cryptopp.hpp>
+//#include <nscpcrypt/nscpcrypt.hpp>
 #include <nsca/nsca_packet.hpp>
 
 #include <nsca/client/nsca_client_protocol.hpp>

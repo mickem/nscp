@@ -5,7 +5,7 @@
 #include <nscapi/nscapi_plugin_interface.hpp>
 
 #include <nsca/nsca_packet.hpp>
-#include <cryptopp/cryptopp.hpp>
+//#include <cryptopp/cryptopp.hpp>
 #include <nsca/server/handler.hpp>
 
 class nsca_handler_impl : public nsca::server::handler {

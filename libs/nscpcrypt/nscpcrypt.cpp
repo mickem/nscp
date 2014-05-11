@@ -7,7 +7,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <unicode_char.hpp>
-#include <cryptopp/cryptopp.hpp>
+#include <nscpcrypt/nscpcrypt.hpp>
 
 #ifdef HAVE_LIBCRYPTOPP
 #include <cryptlib.h>

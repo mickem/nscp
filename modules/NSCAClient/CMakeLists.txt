@@ -29,7 +29,7 @@ IF(WIN32)
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
-		${NSCP_INCLUDEDIR}/cryptopp/cryptopp.hpp
+		${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
@@ -47,7 +47,7 @@ target_link_libraries(${TARGET}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
-	cryptopp
+	nscpcrypt
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
 SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/nsca/.*)

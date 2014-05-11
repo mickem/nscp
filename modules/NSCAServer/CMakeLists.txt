@@ -36,7 +36,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/server.hpp
 		${NSCP_INCLUDEDIR}/socket/connection.hpp
-		${NSCP_INCLUDEDIR}/cryptopp/cryptopp.hpp
+		${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -50,7 +50,7 @@ target_link_libraries(${TARGET}
 	${Boost_THREAD_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
-	cryptopp
+	nscpcrypt
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
 SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nsca/.*)

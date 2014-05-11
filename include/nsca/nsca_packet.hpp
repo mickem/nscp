@@ -4,7 +4,7 @@
 
 #include <types.hpp>
 #include <swap_bytes.hpp>
-#include <cryptopp/cryptopp.hpp>
+#include <nscpcrypt/nscpcrypt.hpp>
 
 #include <unicode_char.hpp>
 #include <utils.h>

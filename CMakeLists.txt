@@ -25,7 +25,7 @@ ELSEIF(EXISTS ${PROJECT_BINARY_DIR}/build.cmake)
 	MESSAGE(STATUS "Reading custom variables from: ${PROJECT_BINARY_DIR}/build.cmake")
 	INCLUDE(${PROJECT_BINARY_DIR}/build.cmake)
 ELSE(NSCP_CMAKE_CONFIG)
-	MESSAGE(STATUS "NO build configuration found")
+	MESSAGE(STATUS "NO build configurationconfiguration found")
 ENDIF(NSCP_CMAKE_CONFIG)
 SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build/cmake;${CMAKE_MODULE_PATH}")
@@ -259,9 +259,25 @@ INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
 # Build all included and required libraries
 #
 #############################################################################
+
+MESSAGE(STATUS "Building support libraries")
+
 IF(JSON_SPIRIT_CMAKE)
+	MESSAGE(STATUS " - Json-Spirit")
 	ADD_SUBDIRECTORY(${JSON_SPIRIT_CMAKE})
+	SET_TARGET_PROPERTIES(json_spirit PROPERTIES FOLDER "libraries")
 ENDIF(JSON_SPIRIT_CMAKE)
+IF(CRYPTOPP_CMAKE)
+	MESSAGE(STATUS " - Crypto++")
+	SET(CRYPTOPP_BUILD_TESTS FALSE)
+	SET(CRYPTOPP_RUNTIME_TYPE "STATIC")
+	SET(CRYPTOPP_LIBRARY_TYPE "STATIC")
+	ADD_SUBDIRECTORY(${CRYPTOPP_CMAKE})
+	SET_TARGET_PROPERTIES(cryptlib PROPERTIES FOLDER "libraries")
+ENDIF(CRYPTOPP_CMAKE)
+
+MESSAGE(STATUS " - Mongoose")
+ADD_SUBDIRECTORY("ext/mongoose-cpp")
 
 SET(ALL_LIB_NAMES)
 MESSAGE(STATUS "Adding libraries")
@@ -276,7 +292,6 @@ ENDFOREACH(CURRENT_LIB ${ALL_LIB_PROJECTS})
 ADD_SUBDIRECTORY("helpers/settings_manager")
 ADD_SUBDIRECTORY("helpers/where_filter")
 
-ADD_SUBDIRECTORY("ext/mongoose-cpp")
 
 #############################################################################
 #

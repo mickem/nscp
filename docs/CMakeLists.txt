@@ -68,4 +68,10 @@ IF(SPHINX_FOUND)
 		"${BUILD_TARGET_EXE_PATH}"
 		DEPENDS build_doc_sources copy_docs
 		COMMENT "Building PDF documentation with Sphinx")
+
+		SET_TARGET_PROPERTIES(build_doc_sources PROPERTIES FOLDER "docs")
+		SET_TARGET_PROPERTIES(build_docs_html PROPERTIES FOLDER "docs")
+		SET_TARGET_PROPERTIES(build_docs_epub PROPERTIES FOLDER "docs")
+		SET_TARGET_PROPERTIES(build_docs_pdf PROPERTIES FOLDER "docs")
+
 ENDIF(SPHINX_FOUND)

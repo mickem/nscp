@@ -4,7 +4,7 @@
 #include <boost/noncopyable.hpp>
 
 #include <nsca/nsca_packet.hpp>
-#include <cryptopp/cryptopp.hpp>
+//#include <cryptopp/cryptopp.hpp>
 
 #include "handler.hpp"
 
