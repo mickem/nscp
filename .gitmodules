@@ -9,7 +9,7 @@
 	url = https://github.com/mickem/lua-protobuf.git
 [submodule "ext/mongoose-cpp"]
 	path = ext/mongoose-cpp
-	url = https://github.com/Gregwar/mongoose-cpp.git
+	url = https://github.com/mickem/mongoose-cpp
 [submodule "ext/cryptopp"]
 	path = ext/cryptopp
 	url = https://github.com/mickem/cryptopp.git
