@@ -32,8 +32,9 @@ IF(SPHINX_FOUND)
 	ADD_CUSTOM_TARGET(build_doc_sources
 		COMMAND ${CMAKE_BINARY_DIR}/nscp py --no-stderr --settings dummy --load-all --log error --log oneline -- --script docs --format rst --output docs/source
 		WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-		DEPENDS nscp copy_scripts copy_files ${ALL_MODULE_NAMES}
+#		DEPENDS nscp ../scripts/copy_scripts copy_files ${ALL_MODULE_NAMES}
 		COMMENT "Generate RST files")
+	ADD_DEPENDENCIES(build_doc_sources nscp copy_scripts copy_files ${ALL_MODULE_NAMES})
 	
 	if(NOT DEFINED SPHINX_THEME)
 		set(SPHINX_THEME default)
@@ -48,8 +49,9 @@ IF(SPHINX_FOUND)
 		-d "${CMAKE_CURRENT_BINARY_DIR}/_cache"
 		"${CMAKE_CURRENT_BINARY_DIR}/source"
 		"${CMAKE_CURRENT_BINARY_DIR}/html"
-		DEPENDS build_doc_sources copy_docs
+#		DEPENDS build_doc_sources copy_docs
 		COMMENT "Building HTML documentation with Sphinx")
+	ADD_DEPENDENCIES(build_docs_html build_doc_sources copy_docs)
 
 	ADD_CUSTOM_TARGET(build_docs_epub ALL
 		${SPHINX_EXECUTABLE}
@@ -57,8 +59,9 @@ IF(SPHINX_FOUND)
 		-d "${CMAKE_CURRENT_BINARY_DIR}/_cache"
 		"${CMAKE_CURRENT_BINARY_DIR}/source"
 		"${CMAKE_CURRENT_BINARY_DIR}/epub"
-		DEPENDS build_doc_sources copy_docs
+#		DEPENDS build_doc_sources copy_docs
 		COMMENT "Building ePub documentation with Sphinx")
+	ADD_DEPENDENCIES(build_docs_epub build_doc_sources copy_docs)
 
 	ADD_CUSTOM_TARGET(build_docs_pdf ALL
 		${SPHINX_EXECUTABLE}
@@ -66,12 +69,13 @@ IF(SPHINX_FOUND)
 		-d "${CMAKE_CURRENT_BINARY_DIR}/_cache"
 		"${CMAKE_CURRENT_BINARY_DIR}/source"
 		"${BUILD_TARGET_EXE_PATH}"
-		DEPENDS build_doc_sources copy_docs
+#		DEPENDS build_doc_sources copy_docs
 		COMMENT "Building PDF documentation with Sphinx")
+	ADD_DEPENDENCIES(build_docs_pdf build_doc_sources copy_docs)
 
-		SET_TARGET_PROPERTIES(build_doc_sources PROPERTIES FOLDER "docs")
-		SET_TARGET_PROPERTIES(build_docs_html PROPERTIES FOLDER "docs")
-		SET_TARGET_PROPERTIES(build_docs_epub PROPERTIES FOLDER "docs")
-		SET_TARGET_PROPERTIES(build_docs_pdf PROPERTIES FOLDER "docs")
+	SET_TARGET_PROPERTIES(build_doc_sources PROPERTIES FOLDER "docs")
+	SET_TARGET_PROPERTIES(build_docs_html PROPERTIES FOLDER "docs")
+	SET_TARGET_PROPERTIES(build_docs_epub PROPERTIES FOLDER "docs")
+	SET_TARGET_PROPERTIES(build_docs_pdf PROPERTIES FOLDER "docs")
 
 ENDIF(SPHINX_FOUND)

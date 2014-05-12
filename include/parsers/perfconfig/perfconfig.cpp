@@ -47,7 +47,11 @@ struct spirit_perfconfig_parser {
 #if BOOST_VERSION >= 104900
 		qi::rule<Iterator, std::string(), ascii::space_type> valid_keyword;
 #else
+#if BOOST_VERSION >= 104200
 		qi::rule<Iterator, std::string()> valid_keyword, valid_keyword_1, valid_keyword_2;
+#else
+		qi::rule<Iterator, std::string(), ascii::space_type> valid_keyword;
+#endif
 #endif
 
  		rules		%= *rule;
@@ -63,10 +67,17 @@ struct spirit_perfconfig_parser {
 #if BOOST_VERSION >= 104900
 		valid_keyword		%= lexeme[+(qi::char_("-_a-zA-Z0-9*+%")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%"))])];
 #else
-		// THis works with boost prior to 1.49 but has some issues (see removed test simple_space_5 and simple_space_6
+#if BOOST_VERSION >= 104200
+		// THis works with boost prior to 1.49 but has some issues (see removed test simple_space_5 and simple_space_6)
 		valid_keyword %= valid_keyword_1 >> *valid_keyword_2 [_val += _1];
 		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+%");
 		valid_keyword_2 %= qi::hold[+qi::char_(' ') >> +qi::char_("-_a-zA-Z0-9+%")];
+#else
+		// THis works with boost prior to 1.42 but has some issues (see removed test ...)
+		valid_keyword %= *qi::char_("-_a-zA-Z0-9*+%") [_val += _1];
+//		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+%");
+//		valid_keyword_2 %= +qi::char_("-_a-zA-Z0-9+%");
+#endif
 #endif
 
 		return qi::phrase_parse(first, last, rules, ascii::space, v);

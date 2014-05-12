@@ -165,8 +165,8 @@ namespace format {
 		return format_date(boost::posix_time::from_time_t(time), format);
 	}
 
-	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
-	static const long long SECS_TO_100NS = 10000000;
+	static const unsigned long long SECS_BETWEEN_EPOCHS = 11644473600ull;
+	static const unsigned long long SECS_TO_100NS = 10000000ull;
 	inline unsigned long long filetime_to_time(unsigned long long filetime) {
 		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
 	}

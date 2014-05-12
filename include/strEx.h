@@ -152,13 +152,13 @@ namespace strEx {
 			lst += sep;
 		lst += append;
 	}
-
-	static const long long SECS_BETWEEN_EPOCHS = 11644473600;
-	static const long long SECS_TO_100NS = 10000000;
+#ifdef WIN32
+	static const unsigned long long SECS_BETWEEN_EPOCHS = 11644473600ull;
+	static const unsigned long long SECS_TO_100NS = 10000000ull;
 	inline unsigned long long filetime_to_time(unsigned long long filetime) {
 		return (filetime - (SECS_BETWEEN_EPOCHS * SECS_TO_100NS)) / SECS_TO_100NS;
 	}
-
+#endif
 	inline void replace(std::wstring &string, const std::wstring replace, const std::wstring with) {
 		std::wstring::size_type pos = string.find(replace);
 		std::wstring::size_type len = replace.length();

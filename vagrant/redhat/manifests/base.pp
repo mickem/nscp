@@ -41,7 +41,7 @@ package { "python-devel": ensure => present }
 package { "openssl-devel": ensure => present }
 package { "boost-devel": ensure => present }
 #TODO package { "rst2pdf": ensure => present }
-package { "python-sphinx": ensure => present }
+#package { "python-sphinx": ensure => present }
 package { "lua-devel": ensure => present }
 #TODO package { "libgtest-dev": ensure => present }
 
