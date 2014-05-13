@@ -6,9 +6,9 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-	config.vm.box = "oracle64_64x"
-	config.vm.box_url = "https://dl.dropbox.com/sh/yim9oyqajopoiqs/G-XIEmQJMb/oracle64-64.box"
-	config.vm.hostname = "ora64x64.build.nscp.org"
+	config.vm.box = "oracle64_32"
+	config.vm.box_url = "https://dl.dropbox.com/sh/yim9oyqajopoiqs/cx4lB6NnZU/oracle64-32.box"
+	config.vm.hostname = "ora64x32.build.nscp.org"
 
 	config.vm.provider :virtualbox do |vb|
 		vb.gui = false
