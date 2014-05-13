@@ -4,9 +4,6 @@
 [submodule "ext/tinyxml2"]
 	path = ext/tinyxml2
 	url = https://github.com/leethomason/tinyxml2.git
-[submodule "ext/lua-protobuf"]
-	path = ext/lua-protobuf
-	url = https://github.com/mickem/lua-protobuf.git
 [submodule "ext/mongoose-cpp"]
 	path = ext/mongoose-cpp
 	url = https://github.com/mickem/mongoose-cpp
