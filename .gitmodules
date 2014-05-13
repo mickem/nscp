@@ -10,3 +10,6 @@
 [submodule "ext/cryptopp"]
 	path = ext/cryptopp
 	url = https://github.com/mickem/cryptopp.git
+[submodule "ext/lua-protobuf"]
+	path = ext/lua-protobuf
+	url = https://github.com/mickem/lua-protobuf.git
