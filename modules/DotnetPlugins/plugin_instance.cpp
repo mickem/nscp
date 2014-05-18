@@ -2,6 +2,8 @@
 
 #include <list>
 
+#include <utf8.hpp>
+
 #include "plugin_instance.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>

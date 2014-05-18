@@ -23,6 +23,8 @@
 
 #include <map>
 #include <vector>
+#include <ostream>
+#include <fstream>
 
 #include <boost/foreach.hpp>
 #include <boost/bind.hpp>
@@ -99,7 +101,7 @@ struct payload_alias_or_command_functor {
 std::string simple_string_fun(std::string key) {
 	return key;
 }
-bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	std::string primary_key;
 	std::string channel;
 	try {
@@ -170,7 +172,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mo
 	return true;
 }
 
-void SimpleFileWriter::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
+void SimpleFileWriter::handleNotification(const std::string &, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
 	std::string key;
 	BOOST_FOREACH(index_lookup_function &f, index_lookup_) {
 		key += f(request.command(), request_message.header(), request);

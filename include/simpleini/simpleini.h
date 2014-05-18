@@ -1337,7 +1337,7 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::LoadFile(
     u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
     return LoadFile(szFile);
 #else // SI_CONVERT_ICU
-	return LoadFile(to_string(std::wstring(a_pwszFile)).c_str());
+	return LoadFile(utf8::cvt<std::string>(std::wstring(a_pwszFile)).c_str());
 #endif // SI_CONVERT_ICU
 #endif // _WIN32
 }
@@ -2356,7 +2356,7 @@ CSimpleIniTempl<SI_CHAR,SI_STRLESS,SI_CONVERTER>::SaveFile(
     u_austrncpy(szFile, a_pwszFile, sizeof(szFile));
     return SaveFile(szFile, a_bAddSignature);
 #else // SI_CONVERT_ICU
-	return SaveFile(to_string(std::wstring(a_pwszFile)).c_str(), a_bAddSignature);
+	return SaveFile(utf8::cvt<std::string>(std::wstring(a_pwszFile)).c_str(), a_bAddSignature);
 #endif // SI_CONVERT_ICU
 #endif // _WIN32
 }

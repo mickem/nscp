@@ -18,6 +18,9 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
+#include <map>
+#include <string>
+
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <tchar.h>
@@ -26,6 +29,8 @@
 #include <buffer.hpp>
 #include <handle.hpp>
 #include <error.hpp>
+#include <format.hpp>
+
 #include <win_sysinfo/win_defines.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 

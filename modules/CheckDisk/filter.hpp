@@ -11,7 +11,9 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
+
 #include <error.hpp>
+#include <format.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/engine.hpp>

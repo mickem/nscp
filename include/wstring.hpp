@@ -19,64 +19,29 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-
-#include <types.hpp>
 #include <string>
-#include <unicode_char.hpp>
-#include <boost/asio/buffer.hpp>
-#include <strEx.h>
 
-namespace check_nt {
-	class check_nt_exception {
-		std::wstring error_;
-	public:
-		check_nt_exception(std::wstring error) : error_(error) {}
-		std::wstring getMessage() {
-			return error_;
+namespace strEx {
+	template<class T>
+	inline std::wstring xtos(T i) {
+		std::wstringstream ss;
+		ss << i;
+		return ss.str();
+	}
+	inline std::list<std::wstring> splitEx(const std::wstring str, const std::wstring key) {
+		std::list<std::wstring> ret;
+		std::wstring::size_type pos = 0, lpos = 0;
+		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
+			ret.push_back(str.substr(lpos, pos-lpos));
+			lpos = ++pos;
 		}
-	};
-	class check_nt_packet_exception : public check_nt_exception {
-	public:
-		check_nt_packet_exception(std::wstring error) : check_nt_exception(error) {}
-	};
+		if (lpos < str.size())
+			ret.push_back(str.substr(lpos));
+		return ret;
+	}
+	template<class T>
+	inline T stox(std::wstring s) {
+		return boost::lexical_cast<T>(s.c_str());
+	}
 
-	class packet /*: public boost::noncopyable*/ {
-	private:
-		std::string data_;
-	public:
-		packet() {};
-		packet(std::vector<char> buffer) {
-			data_ = std::string(buffer.begin(), buffer.end());
-		};
-		packet(std::string data) 
-			: data_(data) 
-		{}
-		packet(const packet &other) : data_(other.data_) {}
-		packet& operator=(packet const& other) {
-			data_ = other.data_;
-			return *this;
-		}
-
-		~packet() {
-			//delete [] tmpBuffer;
-		}
-
-		std::vector<char> get_buffer() const {
-			return std::vector<char>(data_.begin(), data_.end());
-		}
-		std::string get_payload() const {
-			return data_;
-		}
-
-		unsigned int get_packet_length() const { return data_.length(); }
-		boost::asio::const_buffer to_buffers() const {
-			return boost::asio::buffer(get_buffer(), get_packet_length());
-		}
-		std::string to_string() {
-			std::stringstream ss;
-			ss << "data: " << data_;
-			return ss.str();
-		}
-	};
 }
-

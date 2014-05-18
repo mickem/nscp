@@ -25,6 +25,7 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <utf8.hpp>
 
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>

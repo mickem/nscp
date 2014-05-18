@@ -47,7 +47,7 @@ NSCPClient::NSCPClient() {}
  */
 NSCPClient::~NSCPClient() {}
 
-bool NSCPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool NSCPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode ) {
 	std::map<std::wstring,std::wstring> commands;
 
 	try {

@@ -27,11 +27,11 @@
 #include <swap_bytes.hpp>
 #include <unicode_char.hpp>
 #include <strEx.h>
+#include <utf8.hpp>
 
 #include <protobuf/ipc.pb.h>
 #include <nscapi/nscapi_protobuf.hpp>
 
-using namespace nscp::helpers;
 //////////////////////////////////////////////////////////////////////////
 //
 //

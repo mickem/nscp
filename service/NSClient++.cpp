@@ -28,9 +28,9 @@
 #include "core_api.h"
 #include "../helpers/settings_manager/settings_manager_impl.h"
 #include <settings/macros.h>
-#include "simple_client.hpp"
-#include "settings_client.hpp"
-#include "service_manager.hpp"
+// #include "simple_client.hpp"
+// #include "settings_client.hpp"
+// #include "service_manager.hpp"
 #include <nscapi/functions.hpp>
 
 #include <settings/client/settings_client.hpp>
@@ -40,6 +40,7 @@
 #include <config.h>
 
 #ifdef WIN32
+#include <ServiceCmd.h>
 #include <com_helpers.hpp>
 com_helper::initialize_com com_helper_;
 #endif
@@ -1495,6 +1496,9 @@ std::string NSClientT::getFolder(std::string key) {
 	}
 	if (key == "module-path") {
 		return "${shared-path}/modules";
+	}
+	if (key == "web-path") {
+		return "${shared-path}/web";
 	}
 	if (key == "base-path") {
 		return getBasePath().string();

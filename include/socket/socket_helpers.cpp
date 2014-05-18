@@ -3,6 +3,8 @@
 #include <boost/filesystem.hpp>
 
 #include <strEx.h>
+#include <utf8.hpp>
+
 #include <socket/socket_helpers.hpp>
 
 

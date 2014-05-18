@@ -3,6 +3,7 @@
 #include "simple_registry.hpp"
 #include <config.h>
 #include <boost/tuple/tuple.hpp>
+#include <wstring.hpp>
 
 class EventLogRecord {
 	const EVENTLOGRECORD *pevlr_;
@@ -114,7 +115,7 @@ public:
 			return EVENTLOG_AUDIT_SUCCESS;
 		if (sType == _T("auditFailure"))
 			return EVENTLOG_AUDIT_FAILURE;
-		return static_cast<WORD>(strEx::stoi(sType));
+		return static_cast<WORD>(strEx::stox<WORD>(sType));
 	}
 	static WORD translateType(std::string sType) {
 		if (sType.empty())
@@ -146,7 +147,7 @@ public:
 			return _T("auditSuccess");
 		if (dwType == EVENTLOG_AUDIT_FAILURE)
 			return _T("auditFailure");
-		return strEx::itos(dwType);
+		return strEx::xtos(dwType);
 	}
 	static WORD translateSeverity(std::wstring sType) {
 		if (sType.empty())
@@ -159,7 +160,7 @@ public:
 			return 2;
 		if (sType == _T("error"))
 			return 3;
-		return static_cast<WORD>(strEx::stoi(sType));
+		return static_cast<WORD>(strEx::stox<WORD>(sType));
 	}
 	static WORD translateSeverity(std::string sType) {
 		if (sType.empty())
@@ -183,13 +184,13 @@ public:
 			return _T("warning");
 		if (dwType == 3)
 			return _T("error");
-		return strEx::itos(dwType);
+		return strEx::xtos(dwType);
 	}
 	bool get_dll(std::wstring &file_or_error) const {
 		try {
 			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
 			return true;
-		} catch (simple_registry::registry_exception &e) {
+		} catch (simple_registry::registry_exception &) {
 		}
 		try {
 			std::wstring providerGuid = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("ProviderGuid"));
@@ -235,7 +236,7 @@ public:
 		LocalFree(lpMsgBuf);
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
-			strEx::replace(msg, _T("%")+strEx::itos(i+1), std::wstring(p));
+			strEx::replace(msg, _T("%")+strEx::xtos(i+1), std::wstring(p));
 			std::size_t len = wcslen(p);
 			p = &(p[len+1]);
 		}
@@ -248,14 +249,13 @@ public:
 		if (!get_dll(file)) {
 			return file;
 		}
-		strEx::splitList dlls = strEx::splitEx(file, _T(";"));
-		for (strEx::splitList::const_iterator cit = dlls.begin(); cit != dlls.end(); ++cit) {
+		BOOST_FOREACH(const std::wstring &dll, strEx::splitEx(file, _T(";"))) {
 			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
 			std::wstring msg;
 			try {
-				HMODULE hDLL = LoadLibraryEx((*cit).c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
+				HMODULE hDLL = LoadLibraryEx(dll.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
 				if (hDLL == NULL) {
-					msg = _T("failed to load: ") + (*cit) + _T(", reason: ") + strEx::itos(GetLastError());
+					msg = _T("failed to load: ") + dll + _T(", reason: ") + strEx::xtos(GetLastError());
 					continue;
 				}
 				if (dwLang == 0)
@@ -273,7 +273,7 @@ public:
 						msg = _T("");
 						continue;
 					}
-					msg = _T("failed to lookup error code: ") + strEx::itos(eventID()) + _T(" from DLL: ") + (*cit) + _T("( reason: ") + strEx::itos(formated_data.get<0>()) + _T(")");
+					msg = _T("failed to lookup error code: ") + strEx::xtos(eventID()) + _T(" from DLL: ") + dll + _T("( reason: ") + strEx::xtos(formated_data.get<0>()) + _T(")");
 					continue;
 				}
 				FreeLibrary(hDLL);

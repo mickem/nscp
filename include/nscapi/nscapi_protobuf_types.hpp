@@ -29,6 +29,7 @@
 
 #include <NSCAPI.h>
 #include <net/net.hpp>
+#include <strEx.h>
 
 namespace nscapi {
 	namespace protobuf {

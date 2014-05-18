@@ -29,7 +29,10 @@
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
+
 #include <strEx.h>
+#include <utf8.hpp>
+
 #define BUFF_LEN 4096
 
 namespace settings {

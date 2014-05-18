@@ -3,6 +3,7 @@
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
+#include <config.h>
 
 namespace nsclient {
 	namespace client {

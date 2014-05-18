@@ -243,7 +243,7 @@ int SMTPClient::clp_handler_impl::submit(client::configuration::data_type data, 
 
 }
 
-int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+int SMTPClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("SMTP does not support exec patterns");
 	return NSCAPI::hasFailed;
 }

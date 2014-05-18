@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <fstream>
 #include <map>
 
 #include <boost/filesystem/path.hpp>
@@ -47,7 +48,7 @@ namespace settings {
 		}
 
 		void reload_data() {
-			std::ofstream os(utf8::cvt<std::string>(local_file.string()).c_str());
+			std::ofstream os(local_file.string().c_str());
 			std::string error;
 			if (!http::client::download(remote_url.protocol, remote_url.host, remote_url.path, os, error)) {
 				os.close();

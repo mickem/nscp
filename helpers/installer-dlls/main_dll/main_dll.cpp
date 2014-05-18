@@ -14,6 +14,7 @@
 #include "../../settings_manager/settings_manager_impl.h"
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>
+#include <wstring.hpp>
 
 const UINT COST_SERVICE_INSTALL = 2000;
 
@@ -191,12 +192,12 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		h.logMessage(_T("Looking for old settings file (for archiving): ") + old_path.wstring());
 		h.logMessage(_T("Using restore path: ") + restore_path.wstring());
 		if (boost::filesystem::exists(old_path)) {
-			h.logMessage(_T("Found old file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
+			h.logMessage(_T("Found old file: ") + strEx::xtos(boost::filesystem::file_size(old_path)));
 			h.setProperty(_T("RESTORE_FILE"), restore_path.wstring());
 			copy_file(h, old_path.wstring(), restore_path.wstring());
 		}
 		if (boost::filesystem::exists(restore_path))
-			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
+			h.logMessage(_T("Found restore file: ") + strEx::xtos(boost::filesystem::file_size(restore_path)));
 
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, "")) {
@@ -381,11 +382,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		boost::filesystem::path restore_path = restore;
 
 		if (boost::filesystem::exists(old_path))
-			h.logMessage(_T("Found old (.old) file: ") + strEx::itos(boost::filesystem::file_size(old_path)));
+			h.logMessage(_T("Found old (.old) file: ") + strEx::xtos(boost::filesystem::file_size(old_path)));
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Found old file: ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Found old file: ") + strEx::xtos(boost::filesystem::file_size(path)));
 		if (boost::filesystem::exists(restore_path))
-			h.logMessage(_T("Found restore file: ") + strEx::itos(boost::filesystem::file_size(restore_path)));
+			h.logMessage(_T("Found restore file: ") + strEx::xtos(boost::filesystem::file_size(restore_path)));
 
 		if (boost::filesystem::exists(restore_path)) {
 			if (!boost::filesystem::exists(path)) {
@@ -399,7 +400,7 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		}
 
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (001): ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Size (001): ") + strEx::xtos(boost::filesystem::file_size(path)));
 
 		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_settings(&provider, context)) {
@@ -407,12 +408,12 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			return ERROR_INSTALL_FAILURE;
 		}
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (002): ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Size (002): ") + strEx::xtos(boost::filesystem::file_size(path)));
 
 		h.logMessage("Switching to: " + context);
 		settings_manager::change_context(context);
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (003): ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Size (003): ") + strEx::xtos(boost::filesystem::file_size(path)));
 
 		while (data.has_more()) {
 			unsigned int mode = data.get_next_int();
@@ -426,15 +427,15 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			} else if (mode == 2) {
 				h.logMessage("***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
 			} else {
-				h.errorMessage(_T("Unknown mode in CA data: ") + strEx::itos(mode) + _T(": ") + data.to_string());
+				h.errorMessage(_T("Unknown mode in CA data: ") + strEx::xtos(mode) + _T(": ") + data.to_string());
 				return ERROR_INSTALL_FAILURE;
 			}
 		}
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (004): ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Size (004): ") + strEx::xtos(boost::filesystem::file_size(path)));
 		settings_manager::get_settings()->save();
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (005): ") + strEx::itos(boost::filesystem::file_size(path)));
+			h.logMessage(_T("Size (005): ") + strEx::xtos(boost::filesystem::file_size(path)));
 	} catch (installer_exception e) {
 		h.errorMessage(_T("Failed to write configuration: ") + e.what());
 		return ERROR_INSTALL_FAILURE;

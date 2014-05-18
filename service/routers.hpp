@@ -3,8 +3,6 @@
 #include "NSCPlugin.h"
 #include "plugin_list.hpp"
 
-using namespace nscp::helpers;
-
 namespace nsclient {
 	struct routers : plugins_list_with_listener {
 

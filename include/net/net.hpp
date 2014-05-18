@@ -1,6 +1,7 @@
 #pragma once
 
-#include <strEx.h>
+#include <utf8.hpp>
+#include <algorithm>
 
 namespace net {
 

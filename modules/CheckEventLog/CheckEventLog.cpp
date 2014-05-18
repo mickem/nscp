@@ -470,7 +470,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 
 
 
-bool CheckEventLog::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CheckEventLog::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &) {
 	if (request.command() == "insert-message" || request.command() == "insert") {
 		insert_eventlog(request, response);
 		return true;

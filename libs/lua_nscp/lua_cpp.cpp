@@ -7,6 +7,8 @@ extern "C" {
 #include "luna.h"
 
 #include <strEx.h>
+#include <utf8.hpp>
+
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 

@@ -3,6 +3,9 @@
 
 #include "stdafx.h"
 
+#include <iostream>
+#include <fstream>
+
 #include <boost/filesystem.hpp>
 
 #include "reporter.h"

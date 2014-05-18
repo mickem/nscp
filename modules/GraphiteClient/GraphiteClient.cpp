@@ -84,7 +84,7 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		if (hostname_ == "auto") {
 			hostname_ = boost::asio::ip::host_name();
 		} else {
-			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
+			std::pair<std::string,std::string> dn = strEx::split(boost::asio::ip::host_name(), ".");
 
 			try {
 				boost::asio::io_service svc;

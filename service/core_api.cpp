@@ -28,10 +28,8 @@
 #ifdef HAVE_JSON_SPIRIT
 //#define JSON_SPIRIT_VALUE_ENABLED
 #include <json_spirit.h>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #endif
-
-
-using namespace nscp::helpers;
 
 #define LOG_ERROR_STD(msg) LOG_ERROR(((std::string)msg).c_str())
 #define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::string)msg).c_str())
@@ -524,6 +522,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 #define SET_JSON_VALUE_LIST(gpb, node, tag) if (gpb.tag ## _size() > 0) { json_spirit::Array arr; for (int i=0;i<gpb.tag ## _size();++i) { arr.push_back(json_spirit::Value(gpb.tag(i)));} node.insert(json_spirit::Object::value_type(#tag, arr)); }
 #define SET_JSON_NILL(gpb, node, tag) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, json_spirit::Object())); }
 #define SET_JSON_DELEGATE(gpb, node, tag, fun) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, fun(gpb.tag()))); }
+#define SET_JSON_DELEGATE_LIST(gpb, node, tag, fun) if (gpb.tag ## _size() > 0) { json_spirit::Array arr; for (int i=0;i<gpb.tag ## _size();++i) { arr.push_back(json_spirit::Value(fun(gpb.tag(i))));} node.insert(json_spirit::Object::value_type(#tag, arr)); }
 
 json_spirit::Object build_json_header(const ::Plugin::Common_Header& gpb) {
 	json_spirit::Object node;
@@ -596,12 +595,68 @@ json_spirit::Object build_json_settings_response_payload(const Plugin::SettingsR
 	SET_JSON_NILL(gpb, node, control);
 	return node;
 }
-json_spirit::Object build_json_query_response_payload(const Plugin::RegistryResponseMessage::Response &gpb) {
+
+/*
+
+optional string title = 1;
+optional string description = 2;
+
+repeated Common.KeyValue metadata = 3;
+
+optional string min_version = 5;
+optional string max_version = 6;
+
+optional bool advanced = 8;
+repeated string plugin = 9;
+*/
+
+json_spirit::Object build_json_registry_response_payload_inventory_info(const Plugin::Registry::Information &gpb) {
+	json_spirit::Object node;
+	SET_JSON_VALUE(gpb, node, title);
+	SET_JSON_VALUE(gpb, node, description);
+	// TODO: metadata
+	SET_JSON_VALUE(gpb, node, min_version);
+	SET_JSON_VALUE(gpb, node, max_version);
+	SET_JSON_VALUE(gpb, node, advanced);
+	SET_JSON_VALUE_LIST(gpb, node, plugin);
+	return node;
+}
+
+json_spirit::Object build_json_registry_response_payload_inventory(const Plugin::RegistryResponseMessage::Response::Inventory &gpb) {
+	json_spirit::Object node;
+	SET_JSON_VALUE_LIST(gpb, node, plugin);
+	// type
+	SET_JSON_VALUE(gpb, node, name);
+	SET_JSON_DELEGATE(gpb, node, info, build_json_registry_response_payload_inventory_info);
+//	SET_JSON_DELEGATE(gpb, node, result, build_json_common_status);
+//	SET_JSON_NILL(gpb, node, registration);
+//	SET_JSON_DELEGATE(gpb, node, query, build_json_settings_response_payload_query);
+//	SET_JSON_NILL(gpb, node, update);
+	//SET_JSON_DELEGATE_LIST(gpb, node, inventory);
+//	SET_JSON_NILL(gpb, node, control);
+	return node;
+}
+
+json_spirit::Object build_json_registry_response_payload(const Plugin::RegistryResponseMessage::Response &gpb) {
 	json_spirit::Object node;
 	SET_JSON_VALUE(gpb, node, id);
 	SET_JSON_DELEGATE(gpb, node, result, build_json_common_status);
 	SET_JSON_DELEGATE(gpb, node, registration, build_json_registry_response_payload_registration);
-	//SET_JSON_DELEGATE_LIST(gpb, node, inventory, build_json_settings_response_payload_inventory);
+	SET_JSON_DELEGATE_LIST(gpb, node, inventory, build_json_registry_response_payload_inventory);
+	return node;
+}
+
+json_spirit::Object build_json_query_response_payload(const Plugin::QueryResponseMessage::Response &gpb) {
+	json_spirit::Object node;
+	SET_JSON_VALUE(gpb, node, id);
+	SET_JSON_VALUE(gpb, node, message);
+	SET_JSON_VALUE(gpb, node, result);
+
+	std::string perf = nscapi::protobuf::functions::build_performance_data(gpb);
+	if (!perf.empty()) { node.insert(json_spirit::Object::value_type("perf", perf));}
+	//SET_JSON_DELEGATE(gpb, node, result, build_json_common_status);
+	//SET_JSON_DELEGATE(gpb, node, registration, build_json_registry_response_payload_registration);
+	//SET_JSON_DELEGATE_LIST(gpb, node, inventory, build_json_registry_response_payload_inventory);
 	return node;
 }
 
@@ -621,6 +676,16 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			}
 		} else if (obj == "RegistryResponseMessage") {
 			Plugin::RegistryResponseMessage message;
+			message.ParseFromString(request);
+			root.insert(json_spirit::Object::value_type("type", obj));
+			root.insert(json_spirit::Object::value_type("header", build_json_header(message.header())));
+			if (message.payload_size() != 1) {
+				LOG_ERROR_STD("Invalid size: " + obj);
+			} else {
+				root.insert(json_spirit::Object::value_type("payload", build_json_registry_response_payload(message.payload(0))));
+			}
+		} else if (obj == "QueryResponseMessage") {
+			Plugin::QueryResponseMessage message;
 			message.ParseFromString(request);
 			root.insert(json_spirit::Object::value_type("type", obj));
 			root.insert(json_spirit::Object::value_type("header", build_json_header(message.header())));

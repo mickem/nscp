@@ -27,6 +27,7 @@
 #include "DotnetPlugins.h"
 
 #include <strEx.h>
+#include <utf8.hpp>
 
 #include "Vcclr.h"
 #include "json.h"

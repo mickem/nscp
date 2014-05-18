@@ -28,8 +28,6 @@
 #include <strEx.h>
 #include <utils.h>
 
-using namespace nscp::helpers;
-
 namespace nrpe {
 
 

@@ -157,7 +157,7 @@ namespace script_wrapper {
 		command_wrapper(nscapi::core_wrapper* core) : core(core) {}
 
 	public:
-		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id) {
+		static boost::shared_ptr<command_wrapper> create(unsigned int) {
 			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
 		}
 

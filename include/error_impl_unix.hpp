@@ -1,8 +1,7 @@
 #pragma once
+#include <cstdarg>
 #include <unicode_char.hpp>
 #include <string>
-
-using namespace nscp::helpers;
 
 namespace error {
 	class format {

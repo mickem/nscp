@@ -10,9 +10,9 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
-#include <strEx.h>
 #include <char_buffer.hpp>
 #include <error.hpp>
+#include <format.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>

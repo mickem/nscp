@@ -14,7 +14,7 @@ struct runtime_data {
 	std::list<std::string> files;
 
 	void boot() {}
-	void touch(boost::posix_time::ptime now) {}
+	void touch(boost::posix_time::ptime) {}
 	bool has_changed(transient_data_type record) const;
 	bool process_item(filter_type &filter, transient_data_type data);
 	void add_file(const std::string &file);

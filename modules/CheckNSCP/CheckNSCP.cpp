@@ -39,7 +39,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	start_ =  boost::posix_time::microsec_clock::local_time();
 
 	std::string path;
@@ -64,7 +64,7 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 bool CheckNSCP::unloadModule() {
 	return true;
 }
-std::string render(int msgType, const std::string file, int line, std::string message) {
+std::string render(int, const std::string, int, std::string message) {
 	return message;
 }
 void CheckNSCP::handleLogMessage(const Plugin::LogEntry::Entry &message) {

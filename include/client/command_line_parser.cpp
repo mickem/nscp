@@ -1,6 +1,10 @@
-#include <client/command_line_parser.hpp>
-#include <nscapi/functions.hpp>
 #include <boost/bind.hpp>
+
+#include <utf8.hpp>
+
+#include <client/command_line_parser.hpp>
+
+#include <nscapi/functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 
 namespace po = boost::program_options;

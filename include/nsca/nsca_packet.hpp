@@ -9,10 +9,7 @@
 #include <unicode_char.hpp>
 #include <utils.h>
 
-namespace nstr = nscp::helpers;
 namespace nsca {
-//#define NSCA_MAX_PLUGINOUTPUT_LENGTH	512
-//#define NSCA_MAX_PASSWORD_LENGTH     512
 	class data {
 	public:
 		static const short transmitted_iuv_size = 128;
@@ -140,8 +137,8 @@ namespace nsca {
 		std::string to_string() const {
 			return "host: " + host + ", " + 
 				"service: " + service + ", " + 
-				"code: " + nstr::to_string(code) + ", " + 
-				"time: " + nstr::to_string(time) + ", " + 
+				"code: " + strEx::s::xtos(code) + ", " + 
+				"time: " + strEx::s::xtos(time) + ", " + 
 				"result: " + result;
 		}
 
@@ -163,15 +160,15 @@ namespace nsca {
 			unsigned int calculated_crc32=calculate_crc32(tmp, buffer_len);
 			delete [] tmp;
 			if (crc32 != calculated_crc32)
-				throw nsca::nsca_exception("Invalid crc: " + nstr::to_string(crc32) + " != " + nstr::to_string(calculated_crc32));
+				throw nsca::nsca_exception("Invalid crc: " + strEx::s::xtos(crc32) + " != " + strEx::s::xtos(calculated_crc32));
 		}
 		void validate_lengths() const {
 			if (service.length() >= nsca::length::desc_length)
-				throw nsca::nsca_exception("Description field to long: " + nstr::to_string(service.length()) + " > " + nstr::to_string(nsca::length::desc_length));
+				throw nsca::nsca_exception("Description field to long: " + strEx::s::xtos(service.length()) + " > " + strEx::s::xtos(nsca::length::desc_length));
 			if (host.length() >= nsca::length::host_length)
-				throw nsca::nsca_exception("Host field to long: " + nstr::to_string(host.length()) + " > " + nstr::to_string(nsca::length::host_length));
+				throw nsca::nsca_exception("Host field to long: " + strEx::s::xtos(host.length()) + " > " + strEx::s::xtos(nsca::length::host_length));
 			if (result.length() >= get_payload_length())
-				throw nsca::nsca_exception("Result field to long: " + nstr::to_string(result.length()) + " > " + nstr::to_string(get_payload_length()));
+				throw nsca::nsca_exception("Result field to long: " + strEx::s::xtos(result.length()) + " > " + strEx::s::xtos(get_payload_length()));
 		}
 
 		static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
@@ -182,7 +179,7 @@ namespace nsca {
 		void get_buffer(std::string &buffer, int servertime=0) const {
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 			if (buffer.size() < get_packet_length())
-				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(get_packet_length()));
+				throw nsca::nsca_exception("Buffer is to short: " + strEx::s::xtos(buffer.length()) + " > " + strEx::s::xtos(get_packet_length()));
 
 			data->packet_version=swap_bytes::hton<int16_t>(nsca::data::version3);
 			if (servertime != 0)
@@ -232,7 +229,7 @@ namespace nsca {
 
 		std::string get_buffer() const {
 			if (iv.size() != nsca::length::iv::get_payload_length())
-				throw nsca::nsca_exception("Invalid IV size: " + nstr::to_string(iv.size()) + " != " + nstr::to_string(nsca::length::iv::get_payload_length()));
+				throw nsca::nsca_exception("Invalid IV size: " + strEx::s::xtos(iv.size()) + " != " + strEx::s::xtos(nsca::length::iv::get_payload_length()));
 			nsca::data::iv_packet data;
 			memcpy(data.iv, iv.c_str(), iv.size());
 			data.timestamp = swap_bytes::hton<u_int32_t>(time);
@@ -242,7 +239,7 @@ namespace nsca {
 		}
 		void parse(const std::string &buffer) {
 			if (buffer.size() < nsca::length::iv::get_packet_length())
-				throw nsca::nsca_exception("Buffer is to short: " + nstr::to_string(buffer.length()) + " > " + nstr::to_string(nsca::length::iv::get_packet_length()));
+				throw nsca::nsca_exception("Buffer is to short: " + strEx::s::xtos(buffer.length()) + " > " + strEx::s::xtos(nsca::length::iv::get_packet_length()));
 			const nsca::data::iv_packet *data = reinterpret_cast<const nsca::data::iv_packet*>(buffer.c_str());
 			iv = std::string(data->iv, nsca::data::transmitted_iuv_size);
 			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);

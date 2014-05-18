@@ -25,6 +25,10 @@
 #include <boost/thread/mutex.hpp>
 
 #include <sysinfo.h>
+#ifndef _T
+#define _T(x) L ## x
+#endif
+
 
 namespace service_helper_impl {
 	class service_exception {

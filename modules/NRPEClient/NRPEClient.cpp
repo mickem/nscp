@@ -42,7 +42,7 @@ NRPEClient::NRPEClient() {}
  */
 NRPEClient::~NRPEClient() {}
 
-bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
@@ -158,7 +158,7 @@ bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &r
 	return commands.parse_exec(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
 }
 
-void NRPEClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void NRPEClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(nrpe_client::command_prefix);
 	config.target_lookup = boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)); 
 	config.handler = boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler())));

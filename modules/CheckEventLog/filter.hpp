@@ -13,6 +13,7 @@
 #include <boost/noncopyable.hpp>
 
 #include <error.hpp>
+#include <format.hpp>
 
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>

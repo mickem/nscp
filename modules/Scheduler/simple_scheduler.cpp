@@ -6,8 +6,6 @@
 
 #include <nscapi/macros.hpp>
 
-using namespace nscp::helpers;
-
 namespace scheduler {
 
 	int simple_scheduler::add_task(schedules::schedule_object item) {

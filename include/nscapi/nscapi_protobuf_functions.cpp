@@ -20,6 +20,7 @@
 ***************************************************************************/
 #include <boost/noncopyable.hpp>
 
+#include <utf8.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #define THROW_INVALID_SIZE(size) \
@@ -634,11 +635,12 @@ namespace nscapi {
 					else
 						perf = perf.substr(p);
 				}
-				std::vector<std::string> items = strEx::splitV(chunk, perf_item_splitter);
+				std::vector<std::string> items;
+				strEx::split(items, chunk, perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
 					perfData->set_type(Plugin::Common_DataType_STRING);
-					std::pair<std::string,std::string> fitem = strEx::split(std::string(), perf_equal_sign);
+					std::pair<std::string,std::string> fitem = strEx::split("", perf_equal_sign);
 					perfData->set_alias("invalid");
 					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");

@@ -55,7 +55,7 @@ namespace dll {
 			}
 
 			void load_library() {
-				std::string dllname = to_string(module_.string());
+				std::string dllname = module_.string();
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
 				handle_ = dlopen(dllname.c_str(), RTLD_NOW);
 				if (handle_ == NULL)

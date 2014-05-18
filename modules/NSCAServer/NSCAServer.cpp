@@ -27,7 +27,6 @@
 #include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
-namespace str = nscp::helpers;
 
 NSCAServer::NSCAServer() : handler_(new nsca_handler_impl(1024)) {}
 

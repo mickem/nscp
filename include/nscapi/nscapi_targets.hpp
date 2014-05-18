@@ -103,7 +103,7 @@ namespace nscapi {
 				custom_reader::init_default(object);
 			}
 
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample = false) {
+			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool, bool is_sample = false) {
 				object.address = net::parse(object.tpl.value, 0);
 				nscapi::settings_helper::settings_registry settings(proxy);
 

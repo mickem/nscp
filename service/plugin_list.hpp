@@ -8,8 +8,6 @@
 #include "NSCPlugin.h"
 #include <nsclient/logger.hpp>
 
-using namespace nscp::helpers;
-
 namespace nsclient {
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	typedef std::map<unsigned long,plugin_type> plugin_list_type;
@@ -18,7 +16,7 @@ namespace nsclient {
 	class plugins_list_exception : public std::exception {
 		std::string what_;
 	public:
-		plugins_list_exception(std::wstring error) throw() : what_(to_string(error).c_str()) {}
+//		plugins_list_exception(std::wstring error) throw() : what_(to_string(error).c_str()) {}
 		plugins_list_exception(std::string error) throw() : what_(error.c_str()) {}
 		virtual ~plugins_list_exception() throw() {};
 
@@ -174,7 +172,7 @@ namespace nsclient {
 			std::string lc = make_key(channel);
 			if (!have_plugin(plugin_id)) {
 				writeLock.unlock();
-				throw plugins_list_exception("Failed to find plugin: " + ::to_string(plugin_id) + ", Plugins: " + to_string());
+				throw plugins_list_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + ", Plugins: " + to_string());
 			}
 			listeners_[lc].insert(plugin_id);
 		}

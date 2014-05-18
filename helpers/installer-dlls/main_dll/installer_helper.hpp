@@ -4,7 +4,7 @@
 #include <msi.h>
 #include <error.hpp>
 #include <char_buffer.hpp>
-//#include <strsafe.h>
+#include <wstring.hpp>
 
 class installer_exception {
 	std::wstring error_;
@@ -430,7 +430,7 @@ public:
 			throw installer_exception(_T("Invalid arguments!"));
 		std::wstring str = get_record_formatted_string(hRec, uiField);
 		if (str.length() > 0)
-			return strEx::stoi(str);
+			return strEx::stox<int>(str);
 		else
 			return MSI_NULL_INTEGER;
 	}
@@ -473,7 +473,7 @@ public:
 		}
 		else
 		{
-			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to; isInstalled: ") + strEx::itos(isInstalled) + _T(", isAction: ")+ strEx::itos(isAction));
+			logMessage(_T("State for : ") + wzComponentId + _T(" was unknown due to; isInstalled: ") + strEx::xtos(isInstalled) + _T(", isAction: ")+ strEx::xtos(isAction));
 			return WCA_TODO_UNKNOWN;
 		}
 	}
@@ -560,7 +560,7 @@ public:
 			return list_[position_++];
 		}
 		unsigned int get_next_int() {
-			return strEx::stoi(get_next_string());
+			return strEx::stox<unsigned int>(get_next_string());
 		}
 		std::list<std::wstring> get_next_list() {
 			std::list<std::wstring> list;
@@ -596,7 +596,7 @@ public:
 				buf_ = str;
 		}
 		void insert_int(int i) {
-			insert_string(strEx::itos(i));
+			insert_string(strEx::xtos(i));
 		}
 		void write_string(std::wstring str) {
 			WCHAR delim[] = {MAGIC_MULTISZ_DELIM, 0}; // magic char followed by NULL terminator
@@ -605,7 +605,7 @@ public:
 			buf_ += str;
 		}
 		void write_int(int i) {
-			write_string(strEx::itos(i));
+			write_string(strEx::xtos(i));
 		}
 		void write_list(std::list<std::wstring> list) {
 			write_int(list.size());

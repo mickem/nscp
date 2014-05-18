@@ -36,7 +36,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
 
-#include <strEx.h>
+#include <utf8.hpp>
 
 namespace nscapi {
 	template<class impl_type>

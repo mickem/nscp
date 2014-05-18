@@ -61,7 +61,7 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 	}
 }
 
-bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 
 		sh::settings_registry settings(get_settings_proxy());
@@ -202,7 +202,7 @@ void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 }
 
 
-void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
+void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
 		//nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 
 		commands::optional_command_object command_def = commands_.find_object(request.command());

@@ -297,7 +297,7 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 	return NSCAPI::isSuccess;
 }
 
-int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("SYSLOG does not support exec patterns");
 	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support exec patterns");
 	return NSCAPI::isSuccess;

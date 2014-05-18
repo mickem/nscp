@@ -9,6 +9,8 @@
 #include <boost/unordered_map.hpp>
 #include <boost/optional.hpp>
 
+#include <format.hpp>
+
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/where/variable.hpp>
 #include <parsers/where/helpers.hpp>

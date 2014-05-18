@@ -22,6 +22,8 @@ SET(service_SRCS
 	NSCPlugin.cpp
 	core_api.cpp
 	logger_impl.cpp
+	cli_parser.cpp
+	settings_client.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp

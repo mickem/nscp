@@ -1,5 +1,7 @@
 #include <boost/foreach.hpp>
 
+#include <format.hpp>
+
 #include "realtime_thread.hpp"
 #include "realtime_data.hpp"
 

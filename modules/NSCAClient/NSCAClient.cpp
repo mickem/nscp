@@ -51,7 +51,7 @@ NSCAClient::NSCAClient() {}
  */
 NSCAClient::~NSCAClient() {}
 
-bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
@@ -113,7 +113,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
-			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
+			strEx::s::token dn = strEx::s::getToken(boost::asio::ip::host_name(), '.');
 
 			try {
 				boost::asio::io_service svc;
@@ -211,7 +211,7 @@ bool NSCAClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &r
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void NSCAClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void NSCAClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);

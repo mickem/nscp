@@ -1,6 +1,8 @@
 #pragma once
 #include <iostream>
-
+#ifdef _WIN32
+#include <utf8.hpp>
+#endif
 
 namespace service_helper {
 	class service_exception {

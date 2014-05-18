@@ -15,7 +15,6 @@
 namespace socket_helpers {
 
 	namespace server {
-		namespace str = nscp::helpers;
 		
 		class server_exception : public std::exception {
 			std::string error;

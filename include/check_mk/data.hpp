@@ -31,8 +31,6 @@
 #include <protobuf/ipc.pb.h>
 #include <nscapi/nscapi_protobuf.hpp>
 
-using namespace nscp::helpers;
-
 namespace check_mk {
 	class check_mk_exception : public std::exception {
 		std::string error_;

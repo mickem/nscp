@@ -50,7 +50,7 @@ NRDPClient::NRDPClient() {}
 NRDPClient::~NRDPClient() {}
 
 
-bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 		sh::settings_registry settings(get_settings_proxy());
@@ -96,7 +96,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
-			std::pair<std::string,std::string> dn = strEx::split<std::string>(boost::asio::ip::host_name(), ".");
+			strEx::s::token dn = strEx::s::getToken(boost::asio::ip::host_name(), '.');
 
 			try {
 				boost::asio::io_service svc;
@@ -194,7 +194,7 @@ bool NRDPClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &r
 	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
 }
 
-void NRDPClient::handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
+void NRDPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()), boost::shared_ptr<target_handler>(new target_handler(targets)));
 	setup(config, request_message.header());
 	commands.forward_submit(config, request_message, *response_message);
@@ -267,7 +267,7 @@ bool NRDPClient::target_handler::apply(nscapi::protobuf::types::destination_cont
 // Parser implementations
 //
 
-int NRDPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+int NRDPClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &, Plugin::QueryResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("SMTP does not support query patterns");
 	return NSCAPI::hasFailed;
 }

@@ -53,7 +53,7 @@ namespace check_nt {
 			current_state_ = new_state;
 		}
 
-		bool on_accept(boost::asio::ip::tcp::socket& socket, int count) {
+		bool on_accept(boost::asio::ip::tcp::socket& socket, int) {
 			std::list<std::string> errors;
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {

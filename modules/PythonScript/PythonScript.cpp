@@ -217,7 +217,7 @@ void python_script::_exec(const std::string &scriptfile){
 	}
 }
 static bool has_init = false;
-bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	alias_ = alias;
 	try {
 		root_ = get_base_path();

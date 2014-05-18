@@ -317,13 +317,13 @@ int CheckMKClient::clp_handler_impl::query(client::configuration::data_type data
 	return ret;
 }
 
-int CheckMKClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
+int CheckMKClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &, Plugin::SubmitResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("check_mk does not support submit patterns");
 	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support query pattern");
 	return NSCAPI::isSuccess;
 }
 
-int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
+int CheckMKClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &, Plugin::ExecuteResponseMessage &response_message) {
 	NSC_LOG_ERROR_STD("check_mk does not support submit patterns");
 	nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), "check_mk does not support exec pattern");
 	return NSCAPI::isSuccess;
