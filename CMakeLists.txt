@@ -349,6 +349,7 @@ SET(MAIN_NSCP_TARGET "nscp" "nscp_full_config")
 
 ADD_SUBDIRECTORY("service")
 ADD_SUBDIRECTORY("scripts")
+ADD_SUBDIRECTORY("web")
 ADD_SUBDIRECTORY("files")
 
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")

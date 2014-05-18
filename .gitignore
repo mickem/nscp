@@ -12,3 +12,6 @@ version.hpp
 # Vagrant
 .vagrant
 .codelite
+
+#Unix vi
+*~

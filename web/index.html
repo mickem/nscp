@@ -1,0 +1,145 @@
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
+		<link rel="stylesheet" href="/static/css/nscp.css" />
+
+		<title>Command List</title>
+
+		<script type="text/javascript" src="/static/js/jquery-1.11.1.min.js"></script>
+		<script type="text/javascript" src="/static/js/knockout-3.1.0.js"></script>
+		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
+		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
+		<script type="text/javascript" src="/static/js/nscp.js" defer="defer"></script>
+		<script type="text/javascript">
+        $(window).on('load', function () {
+
+            $('.selectpicker').selectpicker({
+                'selectedText': 'cat'
+            });
+
+            // $('.selectpicker').selectpicker('hide');
+        });
+		</script>
+	</head>
+	<body>
+		<div class="container">
+			<nav class="navbar navbar-default" role="navigation">
+				<div class="container-fluid">
+					<!-- Brand and toggle get grouped for better mobile display -->
+					<div class="navbar-header">
+						<button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1">
+							<span class="sr-only">Toggle navigation</span>
+							<span class="icon-bar"/>
+							<span class="icon-bar"/>
+							<span class="icon-bar"/>
+						</button>
+						<a class="navbar-brand" href="/index.html">NSClient++</a>
+					</div>
+
+					<!-- Collect the nav links, forms, and other content for toggling -->
+					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+						<ul class="nav navbar-nav">
+							<li>
+								<a href="/settings.html">Settings</a>
+							</li>
+							<li class="active">
+								<a href="/queries.html">Queries</a>
+							</li>
+						</ul>
+						<ul class="nav navbar-nav navbar-right">
+							<li>
+								<a href="http://www.nsclient.org">NSClient++ Website</a>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</nav>
+
+
+			<ol class="breadcrumb">
+				<li><a href="/index.html">Home</a></li>
+				<li class="active">Queries</li>
+			</ol>
+
+			
+			<div id="result" class="modal fade">
+			  <div class="modal-dialog">
+				<div class="modal-content">
+				  <div class="modal-header">
+					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+					<h4 class="modal-title">Execution result</h4>
+				  </div>
+				  <div class="modal-body">
+						<table class="table">
+							<tbody>
+								<tr>
+									<td>
+										<button class="btn" data-bind="css: resultCSS">
+											<span data-bind="text: result().resultText"></span>
+										</button>
+									</td>
+									<td><span data-bind="text: result().message"></span></td>
+								</tr>
+								<tr>
+									<td><b>Perf&nbsp;data:</b></td>
+									<td><span data-bind="text: result().perf"></span></td>
+								</tr>
+							</tbody>
+						</table>
+				  </div>
+				  <div class="modal-footer">
+					<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+				  </div>
+				</div>
+			  </div>
+			</div>
+			
+			<div class="panel panel-default">
+				<div class="panel-heading">Avalible queries: <span data-bind="text: commands().length"></span>
+				<div class="actions">
+					<div class="button-group">
+						<button class="minibutton" data-bind="click: load">refresh</button>
+					</div>
+				</div>
+				</div>
+				<div class="panel-body">
+					<form class="form-inline" role="form">
+						<table class="table table-hover">
+							<thead>
+								<tr>
+									<th>Command</th>
+									<th>Description</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody data-bind="foreach: commands">
+								<tr data-bind="click: $data.showMore">
+									<td>
+										<span data-bind="text: name"></span>
+									</td>
+									<td>
+										<span data-bind="text: desc"></span>
+										<span data-bind="visible: showDetails"><br/>
+										<b>Plugin(s): </b>
+										<span data-bind="foreach: {data: plugs, as: 'p'}">
+											<span data-bind="if: $index &gt; 0">, </span>
+											<span data-bind="text: p"></span>
+										</span>
+										</span>
+									</td>
+									<td>
+										<a href="#" class="btn btn-primary" data-bind="click: $root.execute">Execute</a>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</form>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>

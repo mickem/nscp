@@ -1,0 +1,17 @@
+body {
+padding-top: 20px;
+padding-bottom: 20px;
+}
+.container {
+margin-right: auto;
+margin-left: auto;
+padding-left: 15px;
+padding-right: 15px;
+}
+
+.actions {
+float: right;
+/*height: 33px;
+line-height: 33px;
+*/
+}

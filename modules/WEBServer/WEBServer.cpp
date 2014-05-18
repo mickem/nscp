@@ -19,11 +19,17 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "stdafx.h"
+#include <iostream>
+#include <fstream>
 #include "WEBServer.h"
 #include <strEx.h>
 #include <time.h>
 #include "handler_impl.hpp"
 
+#include <boost/algorithm/string.hpp>
+
+#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <settings/client/settings_client.hpp>
 #include <socket/socket_settings_helper.hpp>
 
@@ -39,26 +45,45 @@ using namespace std;
 using namespace Mongoose;
 
 
-class MyController : public Mongoose::WebController
+class BaseController : public Mongoose::WebController
 {
+	nscapi::core_wrapper* core;
 public: 
-	void hello(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		response << "Hello " << htmlEntities(request.get("name", "... what's your name ?")) << endl;
+
+	BaseController(nscapi::core_wrapper* core) : core(core) {}
+
+
+
+	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+
+		Plugin::RegistryRequestMessage rrm;
+		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		if (request.get("all", "true") == "true")
+			payload->mutable_inventory()->set_fetch_all(true);
+		std::string type = request.get("type", "query");
+
+		if (type == "query")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
+		else if (type == "command")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_COMMAND);
+		else if (type == "plugin")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_PLUGIN);
+		else if (type == "query-alias")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY_ALIAS);
+		else if (type == "all")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_ALL);
+		else {
+			response.setCode(HTTP_SERVER_ERROR);
+			response << "500 Invalid type. Possible types are: query, command, plugin, query-alias, all";
+			return;
+		}
+		std::string pb_response, json_response;
+		core->registry_query(rrm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
+		response << json_response;
 	}
 
-	void form(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		response << "<form method=\"post\">" << endl;
-		response << "<input type=\"text\" name=\"test\" /><br >" << endl;
-		response << "<input type=\"submit\" value=\"Envoyer\" />" << endl;
-		response << "</form>" << endl;
-	}
-
-	void formPost(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		response << "Test=" << htmlEntities(request.get("test", "(unknown)"));
-	}
 
 	void session(Mongoose::Request &request, Mongoose::StreamResponse &response)
 	{
@@ -74,62 +99,113 @@ public:
 		}
 	}
 
-	void forbid(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		response.setCode(HTTP_FORBIDDEN);
-		response << "403 forbidden demo";
-	}
-
-	void exception(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		throw string("Exception example");
-	}
-
-	void uploadForm(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		response << "<h1>File upload demo (don't forget to create a tmp/ directory)</h1>";
-		response << "<form enctype=\"multipart/form-data\" method=\"post\">";
-		response << "Choose a file to upload: <input name=\"file\" type=\"file\" /><br />";
-		response << "<input type=\"submit\" value=\"Upload File\" />";
-		response << "</form>";
-	}
-
-	void upload(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		request.handleUploads();
-
-		// Iterate through all the uploaded files
-		vector<Mongoose::UploadFile>::iterator it = request.uploadFiles.begin();
-		for (; it != request.uploadFiles.end(); it++) {
-			Mongoose::UploadFile file = *it;
-			file.saveTo("tmp/");
-			response << "Uploaded file: " << file.getName() << endl;
-		}
+	void redirect_index(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		response.setCode(302);
+		response.setHeader("Location", "/index.html");
+		response.setCookie("original_url", request.getUrl());
 	}
 
 	void setup()
 	{
-		// Hello demo
-		addRoute("GET", "/hello", MyController, hello);
-		addRoute("GET", "/", MyController, hello);
-
-		// Form demo
-		addRoute("GET", "/form", MyController, form);
-		addRoute("POST", "/form", MyController, formPost);
-
-		// Session demo
-		addRoute("GET", "/session", MyController, session);
-
-		// Exception example
-		addRoute("GET", "/exception", MyController, exception);
-
-		// 403 demo
-		addRoute("GET", "/403", MyController, forbid);
-
-		// File upload demo
-		addRoute("GET", "/upload", MyController, uploadForm);
-		addRoute("POST", "/upload", MyController, upload);
+		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
+		addRoute("GET", "/", BaseController, redirect_index);
 	}
+};
+
+#define BUF_SIZE 4096
+
+class StaticController : public Mongoose::WebController {
+	boost::filesystem::path base;
+public:
+	StaticController(std::string path) : base(path){}
+
+
+	Response *process(Request &request) {
+		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
+		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
+		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
+		if (!is_js && !is_html && !is_css)
+			return NULL;
+
+		NSC_DEBUG_MSG("---> Request: " + request.getUrl());
+
+		boost::filesystem::path file = base / request.getUrl();
+
+		NSC_DEBUG_MSG(request.getUrl() + " as " + file.string());
+
+
+		std::ifstream in(file.string().c_str(), ios_base::in|ios_base::binary);
+
+		StreamResponse *sr = new StreamResponse();
+		if (is_js)
+			sr->setHeader("Content-Type", "application/javascript");
+		else if (is_css)
+			sr->setHeader("Content-Type", "text/css");
+		else
+			sr->setHeader("Content-Type", "text/html");
+		char buf[BUF_SIZE];
+
+		do {
+			in.read(&buf[0], BUF_SIZE);      // Read at most n bytes into
+			sr->write(&buf[0], in.gcount()); // buf, then write the buf to
+		} while (in.gcount() > 0);          // the output.
+
+		// Check streams for problems...
+
+		in.close();
+		return sr;
+	}
+	bool handles(string method, string url)
+	{ 
+		return boost::algorithm::ends_with(url, ".js")
+			|| boost::algorithm::ends_with(url, ".css")
+			|| boost::algorithm::ends_with(url, ".html");
+	}
+
+};
+
+
+class RESTController : public Mongoose::WebController {
+	nscapi::core_wrapper* core;
+public: 
+
+	RESTController(nscapi::core_wrapper* core) : core(core) {}
+
+
+	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+
+
+		Plugin::QueryRequestMessage rm;
+		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
+		Plugin::QueryRequestMessage::Request *payload = rm.add_payload();
+
+
+		payload->set_command(obj);
+		if (request.hasVariable("help"))
+			payload->add_arguments("help");
+
+		std::string pb_response, json_response;
+		core->query(rm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("QueryResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+
+
+	Response *process(Request &request) {
+		StreamResponse *response = new StreamResponse();
+		std::string url = request.getUrl();
+		if (boost::algorithm::starts_with(url, "/query/")) {
+			handle_query(url.substr(7), request, *response);
+		} else {
+			response->setCode(HTTP_SERVER_ERROR);
+			(*response) << "Unknown REST node: " << url;
+		}
+		return response;
+	}
+	bool handles(string method, string url) {
+		return boost::algorithm::starts_with(url, "/query/");
+	}
+
 };
 
 
@@ -185,8 +261,12 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		//MyController myController;
 		server.reset(new Mongoose::Server(8080));
-		server->registerController(new MyController());
-		server->setOption("enable_directory_listing", "true");
+		server->registerController(new StaticController(get_core()->expand_path("${web-path}")));
+		server->registerController(new BaseController(get_core()));
+		server->registerController(new RESTController(get_core()));
+		
+//		server->setOption("enable_directory_listing", "true");
+		server->setOption("extra_mime_types", ".inc=text/html,.css=text/css,.js=application/javascript");
 		server->start();
 
 
