@@ -231,9 +231,9 @@ Now we have done some basic setup of NSClient++ and we can continue to try using
 
 .. image:: images/nagios-active-nrpe-002.png
 
-Now that we have the agent up and running (if not probably want to go back over the previous sections to get it up and running before reading on) what can we do with it?. From here on we will assume you have allow arguments and metchars enabled since it makes it simpler to try things out **BEWARED** that there are security implication to this so might wanna read up before rolling this configuration into production.
+Now that we have the agent up and running (if not probably want to go back over the previous sections to get it up and running before reading on) what can we do with it?. From here on we will assume you have allow arguments and metachars enabled since it makes it simpler to try things out **BEWARE** that there are security implications to this so you might wanna read up before rolling this configuration into production.
 
-As we stated before check_nrpe is a lot more powerful then the legacy check_nt and there is a lot of built in commands as well as a lot of external ones you can use. 
+As we stated before check_nrpe is a lot more powerful than the legacy check_nt and there is a lot of built in commands as well as a lot of external ones you can use. 
 Lets start with a simple one CheckCPU and see how to use it.
 
 If we check the docs for it it has an example like so:
