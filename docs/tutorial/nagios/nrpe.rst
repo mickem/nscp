@@ -173,7 +173,7 @@ This is because we have not configured anything yet all we can do now is talk to
  * allow arguments
    Since arguments can be potentially dangerous (it allows your users to control the execution) there is a flag (which defaults to off) to enable arguments. So if you plan on configure NSClient++ from the Nagios end you need to enable this. **But be warned this is a security issue you need to think about**. If you do not want to allow arguments you can instead configure all checks in the nsclient.ini file and just execute the aliases from nagios.
 
-   One important issue with the **allow_arguments** is that there are more then one! '''Yes, more then one! ''' The reason for this is that you can allow arguments from NRPE and you can allow arguments for external scripts (it is not the same option) which might seem a bit confusing at first. But actually quite nice. Using arguments fr external scripts can potentially be more dangerous than allowing them from NRPE (internal commands).
+   One important issue with the **allow_arguments** is that there are more then one! '''Yes, more then one! ''' The reason for this is that you can allow arguments from NRPE and you can allow arguments for external scripts (it is not the same option) which might seem a bit confusing at first. But actually quite nice. Using arguments for external scripts can potentially be more dangerous than allowing them from NRPE (internal commands).
 
 
  * allow nasty characters
