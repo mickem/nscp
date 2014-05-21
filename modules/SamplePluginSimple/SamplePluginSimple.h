@@ -24,7 +24,7 @@
 
 // Your implementation class can derive from various helper implementations
 // simple_plugin			- Hides ID handling in your plugin and allows you to register and access the various cores.
-// simple_command_handler	- Provides a "nagios plugin" like command handler interface (so you wont have to deal with google protocl buffers)
+// simple_command_handler	- Provides a "nagios plugin" like command handler interface (so you wont have to deal with google protocol buffers)
 // There is a bunch of others as well for wrapping the other APIs
 class SamplePluginSimple : public nscapi::impl::simple_plugin {
 private:

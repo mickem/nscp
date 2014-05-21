@@ -1,5 +1,5 @@
 IF(HAVE_LUA)
 	SET (BUILD_MODULE 1)
 ELSE(HAVE_LUA)
-	MESSAGE(STATUS "Disabling since Lua was not foun")
+	MESSAGE(STATUS "Disabling since Lua was not found")
 ENDIF(HAVE_LUA)

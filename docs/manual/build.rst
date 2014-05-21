@@ -95,7 +95,7 @@ Validate that we have all dependencies::
 
 	cmake -D TARGET=dist -D SOURCE=nscp -P nscp\check_deps.cmake
 
-Build NSClient++ (If you dont know you your visual studio versio name you can run cmake --help to list all avalible profiles)::
+Build NSClient++ (If you dont know you your visual studio versio name you can run cmake --help to list all available profiles)::
 
 	cd dist
 	cmake -G "VISUAL STUDIO GNERATOR STRING" ../nscp

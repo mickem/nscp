@@ -10,7 +10,7 @@ Only showing the total amount of pagefile usage::
 	OK: total 1.66G (24G)
 	Performance data: 'total'=1G;14;19;0;23 'total %'=6%;59;79;0;100
 	
-Getting help on avalible options::
+Getting help on available options::
 
 	check_pagefile help
 	...
@@ -20,7 +20,7 @@ Getting help on avalible options::
 						   They do not denote warning or critical state but they
 						   are checked use this to filter out unwanted items.
 
-						   Avalible options:
+						   Available options:
 						   free          Free memory in bytes (g,m,k,b) or percentages %
 						   name          The name of the page file (location)
 						   size          Total size of pagefile

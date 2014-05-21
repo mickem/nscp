@@ -510,7 +510,7 @@ class DocumentationHelper(object):
 					queries.append([renderer.obj_link('query', c), cinfo.info.description.split('\n')[0]])
 			if queries:
 				queries.insert(0, ['Command', 'Description'])
-				string += renderer.heading('Queries (Overview)', 'A list of all avalible queries (check commands)')
+				string += renderer.heading('Queries (Overview)', 'A list of all available queries (check commands)')
 				string += renderer.table(queries)
 				
 			table = []
@@ -535,14 +535,14 @@ class DocumentationHelper(object):
 				
 			if queries:
 				string += renderer.title(1, 'Queries')
-				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
+				string += renderer.para('A quick reference for all available queries (check commands) in the %s module.'%module)
 				for (c,cinfo) in root.commands.iteritems():
 					if module in cinfo.info.plugin:
 						string += self.generate_rst_command_details(c, cinfo, module, '%s/reference/%s'%(dir, module))
 
 			if config_table:
 				string += renderer.title(1, 'Configuration')
-				string += renderer.para('A quick reference for all avalible configuration options in the %s module.'%module)
+				string += renderer.para('A quick reference for all available configuration options in the %s module.'%module)
 				string += self.generate_rst_config_details(root.paths, module)
 			
 			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))

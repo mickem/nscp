@@ -96,7 +96,7 @@ use_file=1
 ;
 ;# BIND TO ADDRESS
 ;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
-;  Leaving this blank will bind to all avalible IP adresses.
+;  Leaving this blank will bind to all available IP adresses.
 ;bind_to_address=
 ;
 ;# SOCKET TIMEOUT
@@ -126,7 +126,7 @@ use_file=1
 ;
 ;# BIND TO ADDRESS
 ;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
-;  Leaving this blank will bind to all avalible IP adresses.
+;  Leaving this blank will bind to all available IP adresses.
 ; bind_to_address=
 ;
 ;# ALLOWED HOST ADDRESSES

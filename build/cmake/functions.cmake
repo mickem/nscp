@@ -90,7 +90,7 @@ IF (LUA_FOUND)
 			--log error
 		)
 ELSE (LUA_FOUND)
-	MESSAGE(STATUS "Skipping test ${name} since lua is not avalible")
+	MESSAGE(STATUS "Skipping test ${name} since lua is not available")
 ENDIF (LUA_FOUND)
 ENDMACRO(add_nscp_lua_test)
 
