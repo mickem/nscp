@@ -350,7 +350,7 @@ void CheckMKClient::send(connection_data con) {
 		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
 		if (con.ssl.enabled) {
 #ifndef USE_SSL
-			NSC_LOG_ERROR_STD(_T("SSL not avalible (compiled without USE_SSL)"));
+			NSC_LOG_ERROR_STD(_T("SSL not available (compiled without USE_SSL)"));
 			return response;
 #endif
 		}

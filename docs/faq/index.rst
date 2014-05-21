@@ -290,7 +290,7 @@ Rotating logfile can be done when size reaches a certain level (in this case 204
 4.1 I use check_nt and...
 **************************
 
-Check_nt is NOT a good protocl and is considerd abandoneware. NSClient++ supports it only for legacy reasons.
+Check_nt is NOT a good protocol and is considerd abandoneware. NSClient++ supports it only for legacy reasons.
 There is generally no reason to use check_nt
 
 4.2 MEMUSE reports the wrong value

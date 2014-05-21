@@ -48,7 +48,7 @@ To checking **UNC Paths**. Please note that I need to use \\ to escape the back-
    L     client  Performance data: '\\medin-ds\data\ free'=83GB;0;274;0;2746 '\\medin-ds\data\ free %'=3%;0;9;0;100
 
 .. important:: 
-   Please note that UNC paths are only avalible in each session meaning a user mounted share will not be visible to NSClient++ (since services run in their own session). 
+   Please note that UNC paths are only available in each session meaning a user mounted share will not be visible to NSClient++ (since services run in their own session). 
    But as long as NSClient++ can access the share it still works as long as you specify the UNC path.
    In other words the following will **NOT** work::
 

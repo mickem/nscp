@@ -76,7 +76,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 #ifndef USE_SSL
 	if (info_.use_ssl) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+		NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
 	}
 #endif
 	NSC_LOG_ERROR_LISTS(info_.validate());

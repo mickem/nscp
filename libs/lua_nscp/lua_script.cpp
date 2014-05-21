@@ -499,7 +499,7 @@ void lua::lua_script::luaopen(lua_State *L) {
 #ifdef HAVE_LUA_PB
 	lua_protobuf_Plugin_open(L);
 #else
-	GET_CORE()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Lua not compiled with protocl buffer support");
+	GET_CORE()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Lua not compiled with protocol buffer support");
 
 #endif
 }

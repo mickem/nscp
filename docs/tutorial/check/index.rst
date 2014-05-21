@@ -62,7 +62,7 @@ Reflect in Silence
 
 So what have learned so far?
 Well, we need to load a module before we can execute its command.
-And is we look at the output we can decern that we get various messages. Meny of them marked D for debug.. These message will only be avalible if log level is set to debug.
+And is we look at the output we can decern that we get various messages. Meny of them marked D for debug.. These message will only be available if log level is set to debug.
 This can be achived in two ways:
 
 1. the --log debug command line options
