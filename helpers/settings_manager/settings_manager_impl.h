@@ -52,10 +52,12 @@ namespace settings_manager {
 #endif
 		}
 
-		std::string expand_context(std::string key);
+		std::string expand_simple_context(const std::string &key);
 		void boot(std::string file = BOOT_CONF_LOCATION);
 		std::string find_file(std::string file, std::string fallback = "");
 		std::string expand_path(std::string file);
+		std::string expand_context(const std::string &key);
+
 		settings::instance_raw_ptr create_instance(std::string key);
 		void change_context(std::string file);
 		bool context_exists(std::string key);

@@ -21,7 +21,7 @@ settings::instance_ptr settings::settings_handler_impl::get_no_wait() {
 }
 
 void settings::settings_handler_impl::update_defaults() {
-	BOOST_FOREACH(const std::string &path, get_reg_sections(false)) {
+	BOOST_FOREACH(const std::string &path, get_reg_sections("", false)) {
 		get()->add_path(path);
 		BOOST_FOREACH(const std::string &key, get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
@@ -30,7 +30,7 @@ void settings::settings_handler_impl::update_defaults() {
 					get_logger()->debug("settings", __FILE__, __LINE__, "Adding: " + key_to_string(path, key));
 					if (desc.type == key_string)
 						get()->set_string(path, key, desc.defValue);
-					else if (desc.type == key_bool)
+					else if (desc.type == key_bool) 
 						get()->set_bool(path, key, settings::settings_interface::string_to_bool(desc.defValue));
 					else if (desc.type == key_integer) {
 						try {
@@ -61,7 +61,7 @@ void settings::settings_handler_impl::update_defaults() {
 
 
 void settings::settings_handler_impl::remove_defaults() {
-	BOOST_FOREACH(std::string path, get_reg_sections(false)) {
+	BOOST_FOREACH(std::string path, get_reg_sections("", false)) {
 		BOOST_FOREACH(std::string key, get_reg_keys(path, false)) {
 			settings_core::key_description desc = get_registred_key(path, key);
 			if (get()->has_key(path, key)) {

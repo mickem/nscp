@@ -14,16 +14,16 @@ namespace hlp {
 				TCloser::close(handle_);
 			handle_ = NULL;
 		}
-		THandle get() {
+		THandle get() const {
 			return handle_;
 		}
 		THandle* ref() {
 			return &handle_;
 		}
-		operator THandle() {
+		operator THandle() const {
 			return handle_;
 		}
-		operator bool() {
+		operator bool() const {
 			return handle_ != NULL;
 		}
 		const handle<THandle, TCloser>& operator = (const THandle &other) {

@@ -131,5 +131,7 @@ namespace settings {
 			static bool context_exists(settings::settings_core*, std::string) {
 				return true;
 			}
+			void ensure_exists() {
+			}
 	};
 }

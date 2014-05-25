@@ -7,22 +7,13 @@
 		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
 		<link rel="stylesheet" href="/static/css/nscp.css" />
 
-		<title>Command List</title>
+		<title>NSClient++</title>
 
 		<script type="text/javascript" src="/static/js/jquery-1.11.1.min.js"></script>
 		<script type="text/javascript" src="/static/js/knockout-3.1.0.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
-		<script type="text/javascript" src="/static/js/nscp.js" defer="defer"></script>
-		<script type="text/javascript">
-        $(window).on('load', function () {
-
-            $('.selectpicker').selectpicker({
-                'selectedText': 'cat'
-            });
-
-            // $('.selectpicker').selectpicker('hide');
-        });
+		<script type="text/javascript" src="/static/js/nscp.js"></script>
 		</script>
 	</head>
 	<body>
@@ -37,7 +28,7 @@
 							<span class="icon-bar"/>
 							<span class="icon-bar"/>
 						</button>
-						<a class="navbar-brand" href="/index.html">NSClient++</a>
+						<a class="navbar-brand active" href="/index.html">NSClient++</a>
 					</div>
 
 					<!-- Collect the nav links, forms, and other content for toggling -->
@@ -46,7 +37,7 @@
 							<li>
 								<a href="/settings.html">Settings</a>
 							</li>
-							<li class="active">
+							<li>
 								<a href="/queries.html">Queries</a>
 							</li>
 						</ul>
@@ -61,85 +52,10 @@
 
 
 			<ol class="breadcrumb">
-				<li><a href="/index.html">Home</a></li>
-				<li class="active">Queries</li>
+				<li class="active">Home</li>
 			</ol>
 
-			
-			<div id="result" class="modal fade">
-			  <div class="modal-dialog">
-				<div class="modal-content">
-				  <div class="modal-header">
-					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-					<h4 class="modal-title">Execution result</h4>
-				  </div>
-				  <div class="modal-body">
-						<table class="table">
-							<tbody>
-								<tr>
-									<td>
-										<button class="btn" data-bind="css: resultCSS">
-											<span data-bind="text: result().resultText"></span>
-										</button>
-									</td>
-									<td><span data-bind="text: result().message"></span></td>
-								</tr>
-								<tr>
-									<td><b>Perf&nbsp;data:</b></td>
-									<td><span data-bind="text: result().perf"></span></td>
-								</tr>
-							</tbody>
-						</table>
-				  </div>
-				  <div class="modal-footer">
-					<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-				  </div>
-				</div>
-			  </div>
-			</div>
-			
-			<div class="panel panel-default">
-				<div class="panel-heading">Avalible queries: <span data-bind="text: commands().length"></span>
-				<div class="actions">
-					<div class="button-group">
-						<button class="minibutton" data-bind="click: load">refresh</button>
-					</div>
-				</div>
-				</div>
-				<div class="panel-body">
-					<form class="form-inline" role="form">
-						<table class="table table-hover">
-							<thead>
-								<tr>
-									<th>Command</th>
-									<th>Description</th>
-									<th>Action</th>
-								</tr>
-							</thead>
-							<tbody data-bind="foreach: commands">
-								<tr data-bind="click: $data.showMore">
-									<td>
-										<span data-bind="text: name"></span>
-									</td>
-									<td>
-										<span data-bind="text: desc"></span>
-										<span data-bind="visible: showDetails"><br/>
-										<b>Plugin(s): </b>
-										<span data-bind="foreach: {data: plugs, as: 'p'}">
-											<span data-bind="if: $index &gt; 0">, </span>
-											<span data-bind="text: p"></span>
-										</span>
-										</span>
-									</td>
-									<td>
-										<a href="#" class="btn btn-primary" data-bind="click: $root.execute">Execute</a>
-									</td>
-								</tr>
-							</tbody>
-						</table>
-					</form>
-				</div>
-			</div>
+			<h1>Welcome to NSClient++</h1>
 		</div>
 	</body>
 </html>

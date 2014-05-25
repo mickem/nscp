@@ -55,6 +55,20 @@ namespace settings_manager {
 	}
 
 
+	std::string NSCSettingsImpl::expand_context(const std::string &key) {
+#ifdef WIN32
+		if (key == "old")
+			return DEFAULT_CONF_OLD_LOCATION;
+		if (key == "registry" || key == "reg")
+			return DEFAULT_CONF_REG_LOCATION;
+#endif
+		if (key == "ini")
+			return DEFAULT_CONF_INI_LOCATION;
+		if (key == "dummy")
+			return "dummy://";
+		return key;
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	/// Create an instance of a given type.
 	/// Used internally to create instances of various settings types.
@@ -64,10 +78,9 @@ namespace settings_manager {
 	/// @return a new instance of given type.
 	///
 	/// @author mickem
-	settings::instance_raw_ptr NSCSettingsImpl::create_instance(const std::string key) {
+	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string key) {
+		key = expand_context(key);
 		net::url url = net::parse(key);
-		if (url.protocol.empty())
-			url = net::parse(expand_context(key));
 		get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_string());
 #ifdef WIN32
 		if (url.protocol == "old")
@@ -89,24 +102,10 @@ namespace settings_manager {
 		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
 	}
 
-	std::string NSCSettingsImpl::expand_context(std::string key) {
-#ifdef WIN32
-		if (key == "old")
-			return DEFAULT_CONF_OLD_LOCATION;
-		if (key == "registry")
-			return DEFAULT_CONF_REG_LOCATION;
-#endif
-		if (key == "ini")
-			return DEFAULT_CONF_INI_LOCATION;
-		if (key == "dummy")
-			return "dummy://";
-		return key;
-	}
 
 	bool NSCSettingsImpl::context_exists(std::string key) {
+		key = expand_context(key);
 		net::url url = net::parse(key);
-		if (url.protocol.empty())
-			url = net::parse(expand_context(key));
 #ifdef WIN32
 		if (url.protocol == "old")
 			return settings::OLDSettings::context_exists(this, key);
@@ -199,6 +198,7 @@ namespace settings_manager {
 		BOOST_FOREACH(const std::string &k, order) {
 			set_boot_string("settings", strEx::s::xtos(i++), k);
 		}
+		get_core()->create_instance(key)->ensure_exists();
 		set_boot_string("main", "write", key);
 		boot(key);
 	}
@@ -234,6 +234,7 @@ namespace settings_manager {
 			settings_impl = new NSCSettingsImpl(provider);
 			get_core()->set_base(provider->expand_path("${base-path}"));
 			get_core()->boot(context);
+			get_core()->set_ready();
 		} catch (settings::settings_exception e) {
 			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;
@@ -257,4 +258,7 @@ namespace settings_manager {
 	bool create_context(std::string key) {
 		return settings_impl->create_context(key);
 	}
+	void ensure_exists() {
+	}
+
 }

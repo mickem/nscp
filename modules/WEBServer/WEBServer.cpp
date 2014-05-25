@@ -48,9 +48,10 @@ using namespace Mongoose;
 class BaseController : public Mongoose::WebController
 {
 	nscapi::core_wrapper* core;
+	unsigned int plugin_id;
 public: 
 
-	BaseController(nscapi::core_wrapper* core) : core(core) {}
+	BaseController(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 
 
@@ -84,6 +85,35 @@ public:
 		response << json_response;
 	}
 
+	void settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+
+		Plugin::SettingsRequestMessage rm;
+		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
+		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
+		if (request.get("paths", "false") == "true")
+			payload->mutable_inventory()->set_fetch_paths(true);
+		if (request.get("keys", "false") == "true")
+			payload->mutable_inventory()->set_fetch_keys(true);
+		if (request.get("recursive", "false") == "true")
+			payload->mutable_inventory()->set_recursive_fetch(true);
+		if (request.get("samples", "false") == "true")
+			payload->mutable_inventory()->set_fetch_samples(true);
+		if (request.get("desc", "false") == "true")
+			payload->mutable_inventory()->set_descriptions(true);
+		std::string path = request.get("path", "");
+		if (!path.empty())
+			payload->mutable_inventory()->mutable_node()->set_path(path);
+		std::string key = request.get("key", "");
+		if (!key.empty())
+			payload->mutable_inventory()->mutable_node()->set_key(key);
+		payload->set_plugin_id(plugin_id);
+
+		std::string pb_response, json_response;
+		core->settings_query(rm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+
 
 	void session(Mongoose::Request &request, Mongoose::StreamResponse &response)
 	{
@@ -108,6 +138,7 @@ public:
 	void setup()
 	{
 		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
+		addRoute("GET", "/settings/inventory", BaseController, settings_inventory);
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
@@ -262,7 +293,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		//MyController myController;
 		server.reset(new Mongoose::Server(8080));
 		server->registerController(new StaticController(get_core()->expand_path("${web-path}")));
-		server->registerController(new BaseController(get_core()));
+		server->registerController(new BaseController(get_core(), get_id()));
 		server->registerController(new RESTController(get_core()));
 		
 //		server->setOption("enable_directory_listing", "true");

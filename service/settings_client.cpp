@@ -53,6 +53,9 @@ void nsclient_core::settings_client::startup() {
 	started_ = true;
 }
 
+std::string nsclient_core::settings_client::expand_context(const std::string &key) const {
+	return get_core()->expand_context(key);
+}
 void nsclient_core::settings_client::terminate() {
 	if (!started_)
 		return;
@@ -64,8 +67,8 @@ void nsclient_core::settings_client::terminate() {
 
 int nsclient_core::settings_client::migrate_from(std::string src) {
 	try {
-		debug_msg("Migrating from: " + src);
-		get_core()->migrate_from(src);
+		debug_msg("Migrating from: " + expand_context(src));
+		get_core()->migrate_from(expand_context(src));
 		return 1;
 	} catch (settings::settings_exception e) {
 		error_msg("Failed to initialize settings: " + e.reason());
@@ -76,8 +79,8 @@ int nsclient_core::settings_client::migrate_from(std::string src) {
 }
 int nsclient_core::settings_client::migrate_to(std::string target) {
 	try {
-		debug_msg("Migrating to: " + target);
-		get_core()->migrate_to(target);
+		debug_msg("Migrating to: " + expand_context(target));
+		get_core()->migrate_to(expand_context(target));
 		return 1;
 	} catch (settings::settings_exception e) {
 		error_msg("Failed to initialize settings: " + e.reason());
@@ -114,7 +117,7 @@ int nsclient_core::settings_client::generate(std::string target) {
 		} else if (target == "json" || target == "json-compact") {
 			json_spirit::Object json_root;
 			// TODO, allow samples to be generated
-			settings::settings_interface::string_list s = get_core()->get_reg_sections(use_samples_);
+			settings::settings_interface::string_list s = get_core()->get_reg_sections("", use_samples_);
 			BOOST_FOREACH(const std::string &path, s) {
 
 				settings::settings_core::path_description desc = get_core()->get_registred_path(path);
@@ -160,7 +163,7 @@ int nsclient_core::settings_client::generate(std::string target) {
 				write(json_root, std::cout, json_spirit::pretty_print);
 #endif
 		} else {
-			get_core()->get()->save_to(target);
+			get_core()->get()->save_to(expand_context(target));
 		}
 		return 0;
 	} catch (settings::settings_exception e) {
@@ -180,7 +183,7 @@ int nsclient_core::settings_client::generate(std::string target) {
 
 
 void nsclient_core::settings_client::switch_context(std::string contect) {
-	get_core()->set_primary(contect);
+	get_core()->set_primary(expand_context(contect));
 }
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {

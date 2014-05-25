@@ -551,13 +551,14 @@ bool NSClientT::boot_load_all_plugins() {
 		BOOST_FOREACH(const plugin_alias_list_type::value_type &v, find_all_plugins(true)) {
 			std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
 			std::string alias = v.first;
+			boost::filesystem::path module = pluginPath / file;
 			try {
-				addPlugin(pluginPath / file, alias);
+				addPlugin(module, alias);
 			} catch(const NSPluginException& e) {
 				if (e.file().find("FileLogger") != std::string::npos) {
-					LOG_DEBUG_CORE_STD("Exception raised: '" + e.reason() + "' in module: " + e.file());
+					LOG_DEBUG_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
 				} else {
-					LOG_ERROR_CORE_STD("Exception raised: '" + e.reason() + "' in module: " + e.file());
+					LOG_ERROR_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
 				}
 			} catch (const std::exception &e) {
 				LOG_ERROR_CORE_STD("exception loading plugin: " + file + utf8::utf8_from_native(e.what()));
@@ -1490,39 +1491,53 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 }
 #endif
 
+typedef boost::unordered_map<std::string, std::string> paths_type;
+paths_type paths;
+#define CONFIG_PATHS "/paths"
+
 std::string NSClientT::getFolder(std::string key) {
+	paths_type::const_iterator p = paths.find(key);
+	if (p != paths.end())
+		return p->second;
+	std::string default_value = getBasePath().string();
 	if (key == "certificate-path") {
-		return "${shared-path}/security";
-	}
-	if (key == "module-path") {
-		return "${shared-path}/modules";
-	}
-	if (key == "web-path") {
-		return "${shared-path}/web";
-	}
-	if (key == "base-path") {
-		return getBasePath().string();
-	}
-	if (key == "temp") {
-		return getTempPath().string();
-	}
-	if (key == "shared-path" || key == "base-path" || key == "exe-path") {
-		return getBasePath().string();
+		default_value = "${shared-path}/security";
+	} else if (key == "module-path") {
+		default_value = "${shared-path}/modules";
+	} else if (key == "web-path") {
+		default_value = "${shared-path}/web";
+	} else if (key == "base-path") {
+		default_value = getBasePath().string();
+	} else if (key == "temp") {
+		default_value = getTempPath().string();
+	} else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
+		default_value = getBasePath().string();
 	}
 #ifdef WIN32
-	if (key == "common-appdata") {
+	else if (key == "common-appdata") {
 		wchar_t buf[MAX_PATH+1];
-		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE)) {
-			return utf8::cvt<std::string>(buf);
-		}
-		return getBasePath().string();
+		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
+			default_value = utf8::cvt<std::string>(buf);
+		else 
+			default_value = getBasePath().string();
 	}
 #else
 	if (key == "etc") {
-		return "/etc";
+		default_value = "/etc";
 	}
 #endif
-	return getBasePath().string();
+	try {
+		if (settings_manager::get_core()->is_ready()) {
+			std::string path = settings_manager::get_settings()->get_string(CONFIG_PATHS, key, default_value);
+			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, settings::settings_core::key_string, "Path for " + key, "", default_value, false, false);
+			paths[key] = path;
+			return path;
+		}
+	} catch (const settings::settings_exception &e) {
+		// TODO: Maybe this should be fixed!
+		paths[key] = default_value;
+	}
+	return default_value;
 }
 
 std::string NSClientT::expand_path(std::string file) {
@@ -1584,7 +1599,10 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				} else {
 					bool fetch_samples = q.fetch_samples();
 					if (q.recursive_fetch()) {
-						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections(fetch_samples)) {
+						std::string base_path;
+						if (q.node().has_path())
+							base_path = q.node().path();
+						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections(base_path, fetch_samples)) {
 							if (q.fetch_paths()) {
 								settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();

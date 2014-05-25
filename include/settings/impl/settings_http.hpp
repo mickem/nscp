@@ -168,6 +168,9 @@ namespace settings {
 			settings::error_list ret;
 			return ret;
 		}
+		void ensure_exists() {
+		}
+
 
 	private:
 

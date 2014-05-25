@@ -492,6 +492,9 @@ public:
 			std::string tmp = core->expand_path(file);
 			return boost::filesystem::exists(tmp);
 		}
+		void ensure_exists() {
+			return;
+		}
 
 	};
 }

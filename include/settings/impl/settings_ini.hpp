@@ -322,6 +322,10 @@ namespace settings {
 			}
 			return boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp);
 		}
+		void ensure_exists() {
+			save();
+		}
+
 
 	};
 }

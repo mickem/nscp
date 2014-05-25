@@ -195,7 +195,7 @@ namespace settings {
 		/// @return a list of section paths
 		///
 		/// @author mickem
-		virtual string_list get_reg_sections(bool fetch_samples) = 0;
+		virtual string_list get_reg_sections(std::string path, bool fetch_samples) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys for a registered section.
 		///
@@ -256,6 +256,9 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void boot(std::string file = "boot.ini") = 0;
+		virtual void set_ready(bool is_read = true) = 0;
+		virtual bool is_ready() = 0;
+
 
 		virtual std::string find_file(std::string file, std::string fallback) = 0;
 
@@ -293,11 +296,15 @@ namespace settings {
 
 		virtual std::string expand_path(std::string key) = 0;
 
+		virtual std::string expand_context(const std::string &key) = 0;
+
 	};
 
 	class settings_interface {
 	public:
 		typedef std::list<std::string> string_list;
+
+		virtual void ensure_exists() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the core module to use

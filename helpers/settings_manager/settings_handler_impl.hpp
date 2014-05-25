@@ -25,6 +25,7 @@
 #include <set>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
 #include <strEx.h>
@@ -43,11 +44,18 @@ namespace settings {
 		boost::timed_mutex instance_mutex_;
 		boost::filesystem::path base_path_;
 		reg_paths_type registred_paths_;
+		bool ready_flag;
 
 	public:
-		settings_handler_impl() {}
+		settings_handler_impl() : ready_flag(false) {}
 		~settings_handler_impl() {
 			destroy_all_instances();
+		}
+		bool is_ready() {
+			return ready_flag;
+		}
+		void set_ready(bool flag=true) {
+			ready_flag = flag;
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -203,10 +211,10 @@ namespace settings {
 		/// @return a list of section paths
 		///
 		/// @author mickem
-		string_list get_reg_sections(bool fetch_samples) {
+		string_list get_reg_sections(std::string path, bool fetch_samples) {
 			string_list ret;
 			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
-				if (!v.second.is_sample || fetch_samples)
+				if ((!v.second.is_sample || fetch_samples) && (path.empty() || boost::starts_with(v.first, path)))
 					ret.push_back(v.first);
 			}
 			return ret;

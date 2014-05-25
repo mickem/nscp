@@ -31,14 +31,16 @@ namespace settings {
 			HKEY hKey;
 			std::wstring path;
 
-			reg_key(std::string context) {
+			static reg_key from_context(std::string context) {
 				net::url url = net::parse(context);
 				std::string file = url.path;
 				boost::replace_all(file, "/", "\\");
+				HKEY hKey;
+				std::wstring path;
 				if (url.host == "HKEY_LOCAL_MACHINE" || url.host == "LOCAL_MACHINE" || url.host == "HKLM")
 					hKey = HKEY_LOCAL_MACHINE;
 				else if (url.host == "HKEY_CURRENT_USER" || url.host == "CURRENT_USER" || url.host == "HKCU")
-						hKey = HKEY_CURRENT_USER;
+					hKey = HKEY_CURRENT_USER;
 				else
 					hKey = NS_HKEY_ROOT;
 				if (!file.empty()) {
@@ -47,6 +49,7 @@ namespace settings {
 					path = utf8::cvt<std::wstring>(file);
 				} else
 					path = NS_REG_ROOT;
+				return reg_key(hKey, path);
 			}
 			reg_key(HKEY hKey, std::wstring path) : hKey(hKey), path(path) {}
 			std::string to_string() const {
@@ -59,11 +62,49 @@ namespace settings {
 				return get_subkey(utf8::cvt<std::wstring>(sub_path));
 			}
 		};
+
+
+
+		struct open_reg_key {
+			reg_handle hTemp;
+			const reg_key &source;
+			open_reg_key(const reg_key &source) : source(source) {
+				open();
+			}
+			void open() {
+				DWORD err = RegCreateKeyEx(source.hKey, source.path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hTemp.ref(), NULL);
+				if (err != ERROR_SUCCESS) {
+					throw settings_exception("Failed to open key " + source.to_string() + ": " + error::lookup::last_error(err));
+				}
+			}
+			void ensure() {
+				open();
+			}
+			HKEY operator*() {
+				return hTemp;
+			}
+			void setValueEx(const std::string &key, DWORD type, const BYTE *lpData, DWORD size) const {
+				std::wstring wkey = utf8::cvt<std::wstring>(key);
+				DWORD err = RegSetValueExW(hTemp.get(), wkey.c_str(), 0, type, lpData, size);
+				if (err != ERROR_SUCCESS) {
+					throw settings_exception("Failed to write string " + source.to_string() + "." + key + ": " + error::lookup::last_error(err));
+				}
+			}
+			inline void setValueEx(const std::string &key, DWORD type, const reg_buffer &buffer) const {
+				return setValueEx(key, type, buffer.get(), buffer.size_in_bytes());
+			}
+			inline void setValueEx(const std::string &key, DWORD type, const DWORD value) const {
+				return setValueEx(key, type, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
+			}
+
+
+		};
+
 		reg_key root;
 
 
 	public:
-		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), root(context) {
+		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), root(reg_key::from_context(context)) {
 			
 		}
 
@@ -187,47 +228,17 @@ namespace settings {
 			return root.get_subkey(path);
 		}
 
-		struct tmp_reg_key {
-			reg_handle hTemp;
-			tmp_reg_key(const reg_key &key) {
-				open(key.hKey, key.path);
-			}
-			/*
-			tmp_reg_key(HKEY hKey, std::string path) {
-				open(hKey, utf8::cvt<std::wstring>(path));
-			}
-			tmp_reg_key(HKEY hKey, std::wstring path) {
-				open(hKey, path);
-			}
-			*/
-			void open(const HKEY hKey, const std::wstring &path) {
-				DWORD err = RegCreateKeyEx(hKey, path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hTemp.ref(), NULL);
-				if (err != ERROR_SUCCESS) {
-					throw settings_exception("Failed to open key " + utf8::cvt<std::string>(path) + ": " + error::lookup::last_error(err));
-				}
-			}
-			HKEY operator*() {
-				return hTemp;
-			}
-		};
 
 		static void setString_(const reg_key &path, std::string key, std::string value) {
-			tmp_reg_key hTemp(path);
+			open_reg_key open_key(path);
 			std::wstring wvalue = utf8::cvt<std::wstring>(value);
-			std::wstring wkey = utf8::cvt<std::wstring>(key);
 			reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
-			DWORD err = RegSetValueExW(*hTemp, wkey.c_str(), 0, REG_SZ, buffer.get(), buffer.size());
-			if (err != ERROR_SUCCESS) {
-				throw settings_exception("Failed to write string " + path.to_string() + "." + key + ": " + error::lookup::last_error(err));
-			}
+			open_key.setValueEx(key, REG_SZ, buffer);
 		}
 
 		static void setInt_(const reg_key &path, std::string key, DWORD value) {
-			tmp_reg_key hTemp(path);
-			DWORD err = RegSetValueEx(*hTemp, utf8::cvt<std::wstring>(key).c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
-			if (err != ERROR_SUCCESS) {
-				throw settings_exception("Failed to int string: " + path.to_string() + "." + key + " (" + error::lookup::last_error(err) + ")");
-			}
+			open_reg_key open_key(path);
+			open_key.setValueEx(key, REG_DWORD, value);
 		}
 
 		static std::string getString_(reg_key path, std::string key) {
@@ -332,9 +343,14 @@ namespace settings {
 		}
 public:
 		static bool context_exists(settings::settings_core *, std::string key) {
-			return has_key(reg_key(key));
+			return has_key(reg_key::from_context(key));
 		}
 		virtual void real_clear_cache() {}
+		void ensure_exists() {
+			open_reg_key open_key(root);
+			open_key.ensure();
+		}
+
 
 	};
 }

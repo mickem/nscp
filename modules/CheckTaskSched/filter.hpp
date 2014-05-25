@@ -334,7 +334,7 @@ namespace tasksched_filter {
 			return format::format_date(get_most_recent_run_time());
 		}
 
-		long long convert_runtime(std::string &v) {
+		long long convert_runtime(std::string &) {
 			return 0;
 		}
 	};

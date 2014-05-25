@@ -44,7 +44,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+bool CheckTaskSched::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	return true;
 }
 bool CheckTaskSched::unloadModule() {
@@ -173,6 +173,6 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	}
 }
 
-int CheckTaskSched::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
+int CheckTaskSched::commandLineExec(const std::string &, const std::list<std::string> &, std::string &) {
 	return 0;
 }
