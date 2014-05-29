@@ -325,6 +325,7 @@ namespace settings {
 		void ensure_exists() {
 			save();
 		}
+		virtual std::string get_type() { return "ini"; }
 
 
 	};

@@ -298,6 +298,9 @@ namespace settings {
 
 		virtual std::string expand_context(const std::string &key) = 0;
 
+		virtual void set_dirty(bool flag = true) = 0;
+		virtual bool is_dirty() = 0;
+
 	};
 
 	class settings_interface {
@@ -509,6 +512,7 @@ namespace settings {
 		/// @author mickem
 		virtual void load() = 0;
 
+		virtual std::string get_type() = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Validate the settings store and report all missing/invalid and superfluous keys.
 		///

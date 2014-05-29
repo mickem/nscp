@@ -5,7 +5,6 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
 		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
-		<link rel="stylesheet" href="/static/css/font-awesome.min.css" />
 		<link rel="stylesheet" href="/static/css/nscp.css" />
 
 		<title>NSClient++</title>
@@ -15,7 +14,6 @@
 		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
 		<script type="text/javascript" src="/static/js/nscp.js"></script>
-		<script type="text/javascript" src="/static/js/index.js" defer="defer"></script>
 		</script>
 	</head>
 	<body>
@@ -37,49 +35,43 @@
 					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 						<ul class="nav navbar-nav">
 							<li>
-								<a href="/modules.html">Modules</a>
-							</li>
-							<li>
 								<a href="/settings.html">Settings</a>
 							</li>
 							<li>
 								<a href="/queries.html">Queries</a>
-							</li>
-							<li>
-								<a href="/log.html">Log</a>
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
 							<li>
 								<a href="http://www.nsclient.org">NSClient++ Website</a>
 							</li>
-							<li>
-								<a href="/auth/logout" class="fa fa-sign-out"></a>
-							</li>
 						</ul>
 					</div>
 				</div>
 			</nav>
 
-			<div class="panel panel-danger" data-bind="visible: nscp_status().has_issues">
-				<div class="panel-heading">
-					<h3 class="panel-title"><span data-bind="text: nscp_status().error_count"></span> error(s) detected</h3>
-				</div>
-				<div class="panel-body">
-				Last error: <span data-bind="text: nscp_status().last_error"></span>, <a href="/log.html">See all errors</a>
-				</div>
-				<div class="modal-footer">
-					<button type="button" class="btn btn-danger" data-bind="click: nscp_status().reset">Discard</button>
-				</div>
-			</div>
-
 			<ol class="breadcrumb">
-				<li><a href="/index.html"><i class="glyphicon glyphicon-home"></i></a></li>
+				<li class="active">Home</li>
 			</ol>
 
 			<h1>Welcome to NSClient++</h1>
-			This is an early prototype of the up-coming web interface.
-			You can currently see the log,l execute queries (no argument support yet) as well as browse and change the setttings (but you cannot load).
+			
+			<form accept-charset="UTF-8" action="/auth/login" method="post">
+				<div style="margin:0;padding:0;display:inline">
+					<input name="authenticity_token" type="hidden" value="GprbbVgSlipGUVO1DrT555Xx6kApjNlhGkiwWPURkrX9X3Z+TyD905JiJ8IELZoGm1HpMRumPI/psF1eq2JjKw==">
+				</div>
+				<div class="auth-form-header">
+					<h1>Sign in</h1>
+				</div>
+				<div class="auth-form-body">
+					<label for="password">
+						Password
+					</label>
+					<input class="input-block" id="password" name="password" tabindex="2" type="password" autocomplete="off" />
+					<input class="button" name="commit" tabindex="3" type="submit" value="Sign in" />
+				</div>
+			</form>
+			
 		</div>
 	</body>
 </html>

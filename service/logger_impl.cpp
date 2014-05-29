@@ -346,13 +346,6 @@ public:
 	}
 
 	void do_log(const std::string data) {
-		if (is_console()) {
-			std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
-			if (!is_no_std_err() && m.first)
-				std::cerr << m.second;
-			else
-				std::cout <<  m.second;
-		}
 		push(data);
 	}
 	void push(const std::string &data) {
@@ -372,6 +365,13 @@ public:
 				} else if (data.size() > SET_CONFIG_MESSAGE.size() && data.substr(0, SET_CONFIG_MESSAGE.size()) == SET_CONFIG_MESSAGE) {
 					background_logger_->set_config(data.substr(SET_CONFIG_MESSAGE.size()));
 				} else {
+					if (is_console()) {
+						std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
+						if (!is_no_std_err() && m.first)
+							std::cerr << m.second;
+						else
+							std::cout <<  m.second;
+					}
 					if (background_logger_)
 						background_logger_->do_log(data);
 					subscribers_.notify(data);

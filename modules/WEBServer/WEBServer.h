@@ -25,6 +25,27 @@
 #include <mongoose/WebController.h>
 #include <mongoose/StreamResponse.h>
 
+#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/plugin.hpp>
+
+struct error_handler {
+	struct status {
+		status() : error_count(0) {}
+		std::string last_error;
+		unsigned int error_count;
+	};
+	error_handler() : error_count_(0) {}
+	void add_message(bool is_error, std::string message);
+	void reset();
+	status get_status();
+	std::string get_errors(int &position);
+private:
+	boost::timed_mutex mutex_;
+	std::list<std::string> log_entries;
+	std::string last_error_;
+	unsigned int error_count_;
+
+};
 class WEBServer : public nscapi::impl::simple_plugin {
 public:
 	WEBServer();
@@ -32,6 +53,7 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
+	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 
 private:
 

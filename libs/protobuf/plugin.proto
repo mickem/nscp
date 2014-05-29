@@ -262,6 +262,8 @@ message Registry {
 		PLUGIN = 4;
 		QUERY_ALIAS = 5;
 		ROUTER = 6;
+		MODULE = 7;
+
 		ALL = 99;
 	};
 	message Query {
@@ -295,7 +297,7 @@ message RegistryRequestMessage {
 			optional string plugin = 1;
 			repeated Registry.ItemType type = 2;
 			optional string name = 3;
-			optional Registry.Information info = 4;
+			//optional Registry.Information info = 4;
 
 			optional bool fetch_all = 6;
 			optional bool fetch_information = 7;
@@ -391,6 +393,8 @@ message SettingsRequestMessage {
 			required Settings.Command command = 1;
 			optional string context = 2;
 		};
+		message Status {
+		};
 		optional int64 id = 1;
 		required int32 plugin_id = 3;
 		
@@ -399,6 +403,7 @@ message SettingsRequestMessage {
 		optional Update update = 12;
 		optional Inventory inventory = 13;
 		optional Control control = 14;
+		optional Status status = 15;
 	};
 	required Common.Header header = 1;
 	repeated Request payload = 2;
@@ -416,8 +421,14 @@ message SettingsResponseMessage {
 		message Inventory {
 			required Settings.Node node = 1;
 			required Settings.Information info = 2;
+			optional Common.AnyDataType value = 3;
 		};
 		message Control {
+		};
+		message Status {
+			optional string context = 1;
+			optional string type = 2;
+			optional bool has_changed = 3;
 		};
 		optional int64 id = 1;
 		required Common.Status result = 2;
@@ -427,6 +438,7 @@ message SettingsResponseMessage {
 		optional Update update = 12;
 		repeated Inventory inventory = 13;
 		optional Control control = 14;
+		optional Status status = 15;
 	};
 
 	required Common.Header header = 1;
@@ -461,3 +473,6 @@ message LogEntry {
 
 	repeated Entry entry = 1;
 }
+
+
+

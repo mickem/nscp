@@ -27,6 +27,8 @@
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
+#include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
 #include <strEx.h>
 #include <settings/settings_core.hpp>
 #include <net/net.hpp>
@@ -88,10 +90,10 @@ namespace settings {
 			}
 		};
 		typedef settings_core::key_path_type cache_key_type;
-		typedef std::map<cache_key_type,conainer> cache_type;
-		typedef std::set<std::string> path_cache_type;
-		typedef std::set<cache_key_type> path_delete_cache_type;
-		typedef std::map<std::string,std::set<std::string> > key_cache_type;
+		typedef boost::unordered_map<cache_key_type,conainer> cache_type;
+		typedef boost::unordered_set<std::string> path_cache_type;
+		typedef boost::unordered_set<cache_key_type> path_delete_cache_type;
+		typedef boost::unordered_map<std::string,std::set<std::string> > key_cache_type;
 		cache_type settings_cache_;
 		path_delete_cache_type settings_delete_cache_;
 		path_cache_type path_cache_;
@@ -226,9 +228,16 @@ namespace settings {
 		virtual void set_string(std::string path, std::string key, std::string value) {
 			{
 				MUTEX_GUARD();
+				cache_type::const_iterator cit = settings_cache_.find(cache_key_type(path,key));
+				if (cit != settings_cache_.end()) {
+					if (cit->second.get_string() == value)
+						return;
+				}
+				// TODO: Check value in file here as well
 				settings_cache_[cache_key_type(path,key)] = value;
 				path_cache_.insert(path);
 			}
+			get_core()->set_dirty(true);
 			add_key(path, key);
 		}
 
@@ -240,6 +249,7 @@ namespace settings {
 				settings_cache_.erase(it);
 			}
 			settings_delete_cache_.insert(cache_key_type(path, key));
+			get_core()->set_dirty(true);
 		}
 		virtual void remove_path(std::string path) {
 			MUTEX_GUARD();
@@ -248,12 +258,14 @@ namespace settings {
 				path_cache_.erase(it);
 			}
 			settings_delete_path_cache_.insert(path);
+			get_core()->set_dirty(true);
 		}
 
 
 		virtual void add_path(std::string path) {
 			MUTEX_GUARD();
 			path_cache_.insert(path);
+			get_core()->set_dirty(true);
 		}
 		virtual void add_key(std::string path, std::string key) {
 			MUTEX_GUARD();
@@ -267,6 +279,7 @@ namespace settings {
 					(*it).second.insert(key);
 				}
 			}
+			get_core()->set_dirty(true);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -421,6 +434,7 @@ namespace settings {
 				path_cache_.insert(path);
 			}
 			add_key(path, key);
+			get_core()->set_dirty(true);
 		}
 
 
@@ -639,6 +653,7 @@ namespace settings {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
 			}
+			get_core()->set_dirty(false);
 		}
 		/////////////////////////////////////////////////////////////////////////
 		/// Load from another settings store

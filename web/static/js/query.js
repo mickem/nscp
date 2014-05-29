@@ -37,6 +37,7 @@ function parseNagiosResultCSS(id) {
 function CommandViewModel() {
 	var self = this;
 
+	self.nscp_status = ko.observable(new NSCPStatus());
 	self.commands = ko.observableArray([]);
 	self.result = ko.observable("TODO");
 	self.resultCSS = ko.computed(function() {
@@ -58,9 +59,11 @@ function CommandViewModel() {
 	self.load = function() {
 		$.getJSON("/registry/inventory", function(data) {
 			self.commands.removeAll()
-			data['payload']['inventory'].forEach(function(entry) {
-				self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
-			});
+			if (data['payload'] && data['payload']['inventory']) {
+				data['payload']['inventory'].forEach(function(entry) {
+					self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
+				});
+			}
 		})
 		self.commands.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 	}

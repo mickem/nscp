@@ -289,6 +289,7 @@ ROOT Level
 */
 
 #define SET_STR(obj, src, tag) if (src.second.isString() && src.first == # tag) { obj->set_ ## tag(src.second.getString()); continue; }
+#define SET_STR_EX(obj, src, tag, target) if (src.second.isString() && src.first == # tag) { obj->set_ ## target(src.second.getString()); continue; }
 #define SET_BOOL(obj, src, tag) if (src.second.isBool() && src.first == # tag) { obj->set_ ## tag(src.second.getBool()); continue; }
 #define SET_STR_LIST(obj, src, tag) if (src.second.isString() && src.first == # tag) { obj->add_ ## tag(src.second.getString()); continue; } \
 	if (src.second.isArray() && src.first == # tag) { BOOST_FOREACH(const json_spirit::Value &s, src.second.getArray()) { if (s.isString()) { obj->add_ ## tag(s.getString());}} continue; }
@@ -333,15 +334,16 @@ void parse_json_settings_common_node(Plugin::Settings::Node* gpb, const json_spi
 template<class T>
 void parse_json_settings_common_type(T* gpb, const json_spirit::Object::value_type &node, const std::string &alias) {
 	if (node.second.isString() && node.first == alias) {
-		if (node.second == "INT")
+		std::string key = boost::to_upper_copy(node.second.getString());
+		if (key == "INT")
 			gpb->set_type(Plugin::Common_DataType_INT);
-		else if (node.second == "STRING")
+		else if (key == "STRING")
 			gpb->set_type(Plugin::Common_DataType_STRING);
-		else if (node.second == "FLOAT")
+		else if (key == "FLOAT")
 			gpb->set_type(Plugin::Common_DataType_FLOAT);
-		else if (node.second == "BOOL")
+		else if (key == "BOOL")
 			gpb->set_type(Plugin::Common_DataType_BOOL);
-		else if (node.second == "LIST")
+		else if (key == "LIST")
 			gpb->set_type(Plugin::Common_DataType_LIST);
 	}
 }
@@ -370,6 +372,7 @@ void parse_json_common_any_data(Plugin::Common::AnyDataType* gpb, const json_spi
 	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		parse_json_settings_common_type(gpb, node, "type");
 		SET_STR(gpb, node, string_data);
+		SET_STR_EX(gpb, node, value, string_data);
 		SET_INT64(gpb, node, int_data);
 		//SET_FLOAT(gpb, node, float_data);
 		SET_BOOL(gpb, node, bool_data);
@@ -434,6 +437,35 @@ void parse_json_settings_payload_update(Plugin::SettingsRequestMessage::Request:
 		DELEGATE_OBJ(gpb, node, value, parse_json_common_any_data);
 	}
 }
+void parse_json_settings_payload_control(Plugin::SettingsRequestMessage::Request::Control* gpb, const json_spirit::Object &json) {
+	/*
+	message Control {
+	required Settings.Command command = 1;
+	optional string context = 2;
+	};
+	*/
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
+
+	/*
+	enum Command {
+	LOAD	= 1;
+	SAVE	= 2;
+	RELOAD	= 3;
+	};
+*/
+	if (node.second.isString() && node.first == "command") {
+		std::string key = boost::to_upper_copy(node.second.getString());
+		if (key == "LOAD")
+			gpb->set_command(Plugin::Settings_Command_LOAD);
+		else if (key == "SAVE")
+			gpb->set_command(Plugin::Settings_Command_SAVE);
+		else if (key == "RELOAD")
+			gpb->set_command(Plugin::Settings_Command_RELOAD);
+	}
+//		DELEGATE_OBJ(gpb, node, node, parse_json_settings_common_command);
+		SET_STR(gpb, node, context);
+	}
+}
 
 void parse_json_settings_payload(Plugin::SettingsRequestMessage_Request* gpb, const json_spirit::Object &json) {
 	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
@@ -442,6 +474,7 @@ void parse_json_settings_payload(Plugin::SettingsRequestMessage_Request* gpb, co
 		DELEGATE_OBJ(gpb, node, registration, parse_json_settings_payload_registration);
 		DELEGATE_OBJ(gpb, node, query, parse_json_settings_payload_query);
 		DELEGATE_OBJ(gpb, node, update, parse_json_settings_payload_update);
+		DELEGATE_OBJ(gpb, node, control, parse_json_settings_payload_control);
 	}
 }
 
@@ -489,6 +522,11 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 				object_type = p.second.getString();
 			if (p.first == "payload" && p.second.isObject())
 				payloads.push_back(p.second.getObject());
+			if (p.first == "payload" && p.second.isArray()) {
+				BOOST_FOREACH(const json_spirit::Value &payload, p.second.getArray()) {
+					payloads.push_back(payload.getObject());
+				}
+			}
 			if (p.first == "header" && p.second.isObject())
 				header = p.second.getObject();
 		}
@@ -519,6 +557,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 }
 
 #define SET_JSON_VALUE(gpb, node, tag) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, gpb.tag())); }
+#define SET_JSON_VALUE_EX(gpb, node, name, key) if (gpb.has_##key()) { node.insert(json_spirit::Object::value_type(#name, gpb.key())); }
 #define SET_JSON_VALUE_LIST(gpb, node, tag) if (gpb.tag ## _size() > 0) { json_spirit::Array arr; for (int i=0;i<gpb.tag ## _size();++i) { arr.push_back(json_spirit::Value(gpb.tag(i)));} node.insert(json_spirit::Object::value_type(#tag, arr)); }
 #define SET_JSON_NILL(gpb, node, tag) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, json_spirit::Object())); }
 #define SET_JSON_DELEGATE(gpb, node, tag, fun) if (gpb.has_##tag()) { node.insert(json_spirit::Object::value_type(#tag, fun(gpb.tag()))); }
@@ -548,12 +587,22 @@ json_spirit::Object build_json_header(const ::Plugin::Common_Header& gpb) {
 }
 json_spirit::Object build_json_common_any_data(const Plugin::Common::AnyDataType &gpb) {
 	json_spirit::Object node;
-	//parse_json_settings_common_type(gpb, node, "type");
-	SET_JSON_VALUE(gpb, node, string_data);
-	SET_JSON_VALUE(gpb, node, int_data);
-	SET_JSON_VALUE(gpb, node, float_data);
-	SET_JSON_VALUE(gpb, node, bool_data);
-	SET_JSON_VALUE(gpb, node, string_data);
+	if (gpb.type() == Plugin::Common_DataType_BOOL) {
+		 node.insert(json_spirit::Object::value_type("type", "bool"));
+	} else if (gpb.type() == Plugin::Common_DataType_INT) {
+		node.insert(json_spirit::Object::value_type("type", "int"));
+	} else if (gpb.type() == Plugin::Common_DataType_STRING) {
+		node.insert(json_spirit::Object::value_type("type", "string"));
+	} else if (gpb.type() == Plugin::Common_DataType_FLOAT) {
+		node.insert(json_spirit::Object::value_type("type", "float"));
+	} else if (gpb.type() == Plugin::Common_DataType_LIST) {
+		node.insert(json_spirit::Object::value_type("type", "list"));
+	}
+	SET_JSON_VALUE_EX(gpb, node, value, string_data);
+	SET_JSON_VALUE_EX(gpb, node, value, int_data);
+	SET_JSON_VALUE_EX(gpb, node, value, float_data);
+	SET_JSON_VALUE_EX(gpb, node, value, bool_data);
+	SET_JSON_VALUE_EX(gpb, node, value, string_data);
 	SET_JSON_VALUE_LIST(gpb, node, list_data);
 	return node;
 }
@@ -588,6 +637,8 @@ repeated string plugin = 9;
 
 	SET_JSON_VALUE(gpb, node, title);
 	SET_JSON_VALUE(gpb, node, description);
+	SET_JSON_DELEGATE(gpb, node, default_value, build_json_common_any_data);
+
 	//SET_JSON_VALUE(gpb, node, default_value);
 	SET_JSON_VALUE(gpb, node, min_version);
 	SET_JSON_VALUE(gpb, node, max_version);
@@ -604,6 +655,20 @@ json_spirit::Object build_json_settings_response_payload_query(const Plugin::Set
 	SET_JSON_DELEGATE(gpb, node, value, build_json_common_any_data);
 	return node;
 }
+/*
+message Status {
+optional string context = 1;
+optional string type = 2;
+optional bool has_changed = 3;
+};
+*/
+json_spirit::Object build_json_settings_response_payload_status(const Plugin::SettingsResponseMessage::Response::Status &gpb) {
+	json_spirit::Object node;
+	SET_JSON_VALUE(gpb, node, context);
+	SET_JSON_VALUE(gpb, node, type);
+	SET_JSON_VALUE(gpb, node, has_changed);
+	return node;
+}
 json_spirit::Object build_json_registry_response_payload_registration(const Plugin::RegistryResponseMessage::Response::Registration &gpb) {
 	json_spirit::Object node;
 	SET_JSON_VALUE(gpb, node, item_id);
@@ -614,6 +679,7 @@ json_spirit::Object build_json_settings_response_payload_inventory(const Plugin:
 	json_spirit::Object node;
 	SET_JSON_DELEGATE(gpb, node, node, build_json_settings_common_node);
 	SET_JSON_DELEGATE(gpb, node, info, build_json_settings_common_info);
+	SET_JSON_DELEGATE(gpb, node, value, build_json_common_any_data);
 	return node;
 }
 
@@ -627,6 +693,7 @@ json_spirit::Object build_json_settings_response_payload(const Plugin::SettingsR
 	SET_JSON_NILL(gpb, node, update);
 	SET_JSON_DELEGATE_LIST(gpb, node, inventory, build_json_settings_response_payload_inventory);
 	SET_JSON_NILL(gpb, node, control);
+	SET_JSON_DELEGATE(gpb, node, status, build_json_settings_response_payload_status);
 	return node;
 }
 

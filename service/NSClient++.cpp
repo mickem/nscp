@@ -24,6 +24,7 @@
 
 
 #include <boost/unordered_map.hpp>
+#include <timer.hpp>
 
 #include "core_api.h"
 #include "../helpers/settings_manager/settings_manager_impl.h"
@@ -1584,6 +1585,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 	nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 	modules_type module_cache;
 	request.ParseFromArray(request_buffer, request_buffer_len);
+	timer t;
 	for (int i=0;i<request.payload_size();i++) {
 		Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 		try {
@@ -1591,7 +1593,9 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 			if (r.has_inventory()) {
 				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory(); 
 				if (q.node().has_key()) {
+					t.start("fetching key");
 					settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(q.node().path(), q.node().key());
+					t.end();
 					Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->mutable_node()->CopyFrom(q.node());
 					rpp->mutable_info()->set_title(desc.title);
@@ -1602,9 +1606,14 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 						std::string base_path;
 						if (q.node().has_path())
 							base_path = q.node().path();
-						BOOST_FOREACH(const std::string &path, settings_manager::get_core()->get_reg_sections(base_path, fetch_samples)) {
+						t.start("fetching paths");
+						std::list<std::string> list = settings_manager::get_core()->get_reg_sections(base_path, fetch_samples);
+						t.end();
+						BOOST_FOREACH(const std::string &path, list) {
 							if (q.fetch_paths()) {
+								t.start("fetching path");
 								settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+								t.end();
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 								rpp->mutable_node()->set_path(path);
 								rpp->mutable_info()->set_title(desc.title);
@@ -1614,7 +1623,10 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 							}
 							if (q.fetch_keys()) {
-								BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, fetch_samples)) {
+								t.start("fetching keys");
+								std::list<std::string> list = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
+								t.end();
+								BOOST_FOREACH(const std::string &key, list) {
 									settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
 									Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 									rpp->mutable_node()->set_path(path);
@@ -1625,6 +1637,21 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 									rpp->mutable_info()->set_sample(desc.is_sample);
 									rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 									rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
+									if (desc.type == NSCAPI::key_string) {
+										try {
+											rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key()));
+										} catch (settings::settings_exception &e) {}
+									} else if (desc.type == NSCAPI::key_integer) {
+										try {
+											rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key()));
+										} catch (settings::settings_exception &e) {}
+									} else if (desc.type == NSCAPI::key_bool) {
+										try {
+											rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key()));
+										} catch (settings::settings_exception &e) {}
+									} else {
+										LOG_ERROR_CORE("Invalid type");
+									}
 									settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 								}
 							}
@@ -1632,7 +1659,9 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					} else {
 						std::string path = q.node().path();
 						if (q.fetch_paths()) {
+							t.start("fetching paths");
 							settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
+							t.end();
 							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 							rpp->mutable_node()->set_path(path);
 							rpp->mutable_info()->set_title(desc.title);
@@ -1642,10 +1671,15 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 						if (q.fetch_keys()) {
-							BOOST_FOREACH(const std::string &key, settings_manager::get_core()->get_reg_keys(path, fetch_samples)) {
+							t.start("fetching keys");
+							std::list<std::string> list = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
+							t.end();
+							BOOST_FOREACH(const std::string &key, list) {
+								t.start("fetching keys");
 								settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
+								t.end();
 								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->mutable_node()->set_path(q.node().path());
+								rpp->mutable_node()->set_path(path);
 								rpp->mutable_node()->set_key(key);
 								rpp->mutable_info()->set_title(desc.title);
 								rpp->mutable_info()->set_description(desc.description);
@@ -1653,6 +1687,27 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								rpp->mutable_info()->set_sample(desc.is_sample);
 								rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
+								if (desc.type == NSCAPI::key_string) {
+									try {
+										std::string value = settings_manager::get_settings()->get_string(path, key);
+										rpp->mutable_value()->set_type(Plugin::Common_DataType_STRING);
+										rpp->mutable_value()->set_string_data(value);
+									} catch (settings::settings_exception &e) {}
+								} else if (desc.type == NSCAPI::key_integer) {
+									try {
+										int value = settings_manager::get_settings()->get_int(path, key);
+										rpp->mutable_value()->set_type(Plugin::Common_DataType_INT);
+										rpp->mutable_value()->set_int_data(value);
+									} catch (settings::settings_exception &e) {}
+								} else if (desc.type == NSCAPI::key_bool) {
+									try {
+										bool value = settings_manager::get_settings()->get_bool(path, key);
+										rpp->mutable_value()->set_type(Plugin::Common_DataType_BOOL);
+										rpp->mutable_value()->set_bool_data(value);
+									} catch (settings::settings_exception &e) {}
+								} else {
+									LOG_ERROR_CORE("Invalid type");
+								}
 								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 							}
 						}
@@ -1729,6 +1784,28 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 					rp->mutable_result()->set_message("Unknown command");
 				}
+			} else if (r.has_status()) {
+				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
+				rp->mutable_status()->set_has_changed(settings_manager::get_core()->is_dirty());
+				rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
+				rp->mutable_status()->set_type(settings_manager::get_settings()->get_type());
+				if (p.command() == Plugin::Settings_Command_LOAD) {
+					if (p.has_context() && p.context().size() > 0)
+						settings_manager::get_core()->migrate_from(p.context());
+					else
+						settings_manager::get_settings()->load();
+					settings_manager::get_settings()->reload();
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				} else if (p.command() == Plugin::Settings_Command_SAVE) {
+					if (p.has_context() && p.context().size() > 0)
+						settings_manager::get_core()->migrate_to(p.context());
+					else
+						settings_manager::get_settings()->save();
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				} else {
+					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_message("Unknown command");
+				}
 			} else {
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 				rp->mutable_result()->set_message("Settings error: Invalid action");
@@ -1748,6 +1825,9 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 			LOG_ERROR_CORE_STD("Settings error");
 		}
 	}
+	//BOOST_FOREACH(const std::string &s, t.get()) {
+	//	LOG_DEBUG_CORE(s);
+	//}
 	*response_buffer_len = response.ByteSize();
 	*response_buffer = new char[*response_buffer_len + 10];
 	response.SerializeToArray(*response_buffer, *response_buffer_len);

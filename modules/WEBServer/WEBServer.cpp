@@ -24,6 +24,7 @@
 #include "WEBServer.h"
 #include <strEx.h>
 #include <time.h>
+#include <timer.hpp>
 #include "handler_impl.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -35,27 +36,44 @@
 
 namespace sh = nscapi::settings_helper;
 
+using namespace std;
+using namespace Mongoose;
 
 WEBServer::WEBServer() {
 }
 WEBServer::~WEBServer() {}
 
 
-using namespace std;
-using namespace Mongoose;
 
+Sessions g_sessions("nscpsessid");
+error_handler log_data;
+
+bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, bool respond = true) {
+	Mongoose::Session &session = g_sessions.get(request, response);
+	if (session.get("auth") != "true") {
+		if (respond) {
+			response.setCode(HTTP_E_STATUS_DENIED);
+			response << "500 Please login first";
+		}
+		return false;
+	}
+	return true;
+}
 
 class BaseController : public Mongoose::WebController
 {
+	std::string password;
 	nscapi::core_wrapper* core;
 	unsigned int plugin_id;
 public: 
 
-	BaseController(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
+	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) : password(password), core(core), plugin_id(plugin_id) {}
 
 
 
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
 
 		Plugin::RegistryRequestMessage rrm;
 		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
@@ -86,7 +104,8 @@ public:
 	}
 
 	void settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-
+		if (!is_loggedin(request, response))
+			return;
 		Plugin::SettingsRequestMessage rm;
 		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
@@ -113,32 +132,94 @@ public:
 		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
 		response << json_response;
 	}
-
-
-	void session(Mongoose::Request &request, Mongoose::StreamResponse &response)
-	{
-		Mongoose::Session &session = getSession(request, response);
-
-		if (session.hasValue("try")) {
-			response << "Session value: " << session.get("try");
-		} else {
-			ostringstream val;
-			val << time(NULL);
-			session.setValue("try", val.str());
-			response << "Session value set to: " << session.get("try");
+	void settings_query(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		std::string request_pb, response_pb, response_json;
+		if (!core->json_to_protobuf(request.getData(), request_pb)) {
+			NSC_LOG_ERROR("Failed to convert reuqest");
+			return;
 		}
+		core->settings_query(request_pb, response_pb);
+		core->protobuf_to_json("SettingsResponseMessage", response_pb, response_json);
+		response << response_json;
+	}
+	void settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		Plugin::SettingsRequestMessage rm;
+		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
+		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
+		payload->mutable_status();
+		payload->set_plugin_id(plugin_id);
+
+		std::string pb_response, json_response;
+		core->settings_query(rm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+
+
+	void auth_login(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (password != request.get("password")) {
+			response.setCode(302);
+			response.setHeader("Location", "/index.html?error=Invalid+password");
+		} else {
+			Mongoose::Session &session = g_sessions.get(request, response);
+			session.setValue("auth", "true");
+			response.setCode(302);
+			response.setHeader("Location", request.getCookie("original_url", "/index.html"));
+		}
+	}
+	void auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		Mongoose::Session &session = g_sessions.get(request, response);
+		session.setValue("auth", "false");
+		response.setCode(302);
+		response.setHeader("Location", "/index.html?msg=Logged+out");
 	}
 
 	void redirect_index(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		response.setCode(302);
 		response.setHeader("Location", "/index.html");
-		response.setCookie("original_url", request.getUrl());
+	}
+
+	void log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		error_handler::status status = log_data.get_status();
+		response << "{ \"status\" : { \"count\" : " << status.error_count << ", \"error\" : \"" << status.last_error << "\"} }";
+	}
+	void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		std::string str_position = request.get("pos", "0");
+		int pos = strEx::s::stox<int>(str_position);
+		std::string data = log_data.get_errors(pos);
+		boost::replace_all(data, "\"", "'");
+		boost::replace_all(data, "\\", "\\\\");
+		boost::replace_all(data, "\n", "\\n");
+		response << "{\"log\" : { \"data\" : \"" << data << "\", \"pos\" : \"" << pos << "\"} }";
+	}
+	void log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		log_data.reset();
+		response << "{\"status\" : \"ok\"}";
 	}
 
 	void setup()
 	{
 		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
 		addRoute("GET", "/settings/inventory", BaseController, settings_inventory);
+		addRoute("POST", "/settings/query.json", BaseController, settings_query);
+		addRoute("GET", "/settings/status", BaseController, settings_status);
+		addRoute("GET", "/log/status", BaseController, log_status);
+		addRoute("GET", "/log/reset", BaseController, log_reset);
+		addRoute("GET", "/log/messages", BaseController, log_messages);
+		addRoute("GET", "/auth/login", BaseController, auth_login);
+		addRoute("GET", "/auth/logout", BaseController, auth_logout);
+		addRoute("POST", "/auth/login", BaseController, auth_login);
+		addRoute("POST", "/auth/logout", BaseController, auth_logout);
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
@@ -155,33 +236,38 @@ public:
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
 		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
 		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
-		if (!is_js && !is_html && !is_css)
+		bool is_font = boost::algorithm::ends_with(request.getUrl(), ".ttf")
+			|| boost::algorithm::ends_with(request.getUrl(), ".svg")
+			|| boost::algorithm::ends_with(request.getUrl(), ".woff");
+		if (!is_js && !is_html && !is_css && !is_font)
 			return NULL;
 
-		NSC_DEBUG_MSG("---> Request: " + request.getUrl());
-
 		boost::filesystem::path file = base / request.getUrl();
-
-		NSC_DEBUG_MSG(request.getUrl() + " as " + file.string());
-
-
-		std::ifstream in(file.string().c_str(), ios_base::in|ios_base::binary);
 
 		StreamResponse *sr = new StreamResponse();
 		if (is_js)
 			sr->setHeader("Content-Type", "application/javascript");
 		else if (is_css)
 			sr->setHeader("Content-Type", "text/css");
-		else
+		else if (is_font)
 			sr->setHeader("Content-Type", "text/html");
+		else {
+			if (!is_loggedin(request, *sr, false))
+				file = base / "login.html";
+			sr->setCookie("original_url", request.getUrl());
+			sr->setHeader("Content-Type", "text/html");
+		}
+		if (is_css || is_font) {
+			sr->setHeader("Cache-Control", "max-age=3600"); //1 hour (60*60)
+
+		}
+		std::ifstream in(file.string().c_str(), ios_base::in|ios_base::binary);
 		char buf[BUF_SIZE];
 
 		do {
-			in.read(&buf[0], BUF_SIZE);      // Read at most n bytes into
-			sr->write(&buf[0], in.gcount()); // buf, then write the buf to
-		} while (in.gcount() > 0);          // the output.
-
-		// Check streams for problems...
+			in.read(&buf[0], BUF_SIZE);
+			sr->write(&buf[0], in.gcount());
+		} while (in.gcount() > 0);
 
 		in.close();
 		return sr;
@@ -190,7 +276,10 @@ public:
 	{ 
 		return boost::algorithm::ends_with(url, ".js")
 			|| boost::algorithm::ends_with(url, ".css")
-			|| boost::algorithm::ends_with(url, ".html");
+			|| boost::algorithm::ends_with(url, ".html")
+			|| boost::algorithm::ends_with(url, ".ttf")
+			|| boost::algorithm::ends_with(url, ".svg")
+			|| boost::algorithm::ends_with(url, ".woff");
 	}
 
 };
@@ -198,13 +287,15 @@ public:
 
 class RESTController : public Mongoose::WebController {
 	nscapi::core_wrapper* core;
+	std::string password;
 public: 
 
-	RESTController(nscapi::core_wrapper* core) : core(core) {}
+	RESTController(std::string password, nscapi::core_wrapper* core) : password(password), core(core) {}
 
 
 	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-
+		if (!is_loggedin(request, response))
+			return;
 
 		Plugin::QueryRequestMessage rm;
 		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
@@ -245,81 +336,37 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("WEB", alias, "server");
 
+	int port;
+	std::string password;
+
 	settings.alias().add_path_to_settings()
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 		;
-/*
 	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&info_.port_, "5666"),
+		("port", sh::int_key(&port, 8080),
 		"PORT NUMBER", "Port to use for WEB.")
-
-		("payload length", sh::int_fun_key<unsigned int>(boost::bind(&WEB::server::handler::set_payload_length, handler_, _1), 1024),
-		"PAYLOAD LENGTH", "Length of payload to/from the WEB agent. This is a hard specific value so you have to \"configure\" (read recompile) your WEB agent to use the same value for it to work.", true)
-
-		("allow arguments", sh::bool_fun_key<bool>(boost::bind(&WEB::server::handler::set_allow_arguments, handler_, _1), false),
-		"COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
-
-		("allow nasty characters", sh::bool_fun_key<bool>(boost::bind(&WEB::server::handler::set_allow_nasty_arguments, handler_, _1), false),
-		"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
-
-		("performance data", sh::bool_fun_key<bool>(boost::bind(&WEB::server::handler::set_perf_data, handler_, _1), true),
-		"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
-
 		;
-		*/
-//	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-//	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
 
-/*
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
-	
-		("encoding", sh::string_key(&handler_->encoding_, ""),
-		"WEB PAYLOAD ENCODING", "", true)
+
+		("password", sh::string_key(&password),
+		"PASSWORD", "Password used to authenticate against server")
+
 		;
-		*/
+
 		settings.register_all();
 		settings.notify();
 
-		/*
-#ifndef USE_SSL
-	if (info_.use_ssl) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
-		return false;
-	}
-#endif
-	*/
 	if (mode == NSCAPI::normalStart) {
 
-		//MyController myController;
-		server.reset(new Mongoose::Server(8080));
+		server.reset(new Mongoose::Server(port));
 		server->registerController(new StaticController(get_core()->expand_path("${web-path}")));
-		server->registerController(new BaseController(get_core(), get_id()));
-		server->registerController(new RESTController(get_core()));
+		server->registerController(new BaseController(password, get_core(), get_id()));
+		server->registerController(new RESTController(password, get_core()));
 		
-//		server->setOption("enable_directory_listing", "true");
 		server->setOption("extra_mime_types", ".inc=text/html,.css=text/css,.js=application/javascript");
 		server->start();
 
-
-		/*
-		if (handler_->get_payload_length() != 1024)
-			NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_WEB changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(handler_->get_payload_length()));
-		NSC_LOG_ERROR_LISTS(info_.validate());
-
-		std::list<std::string> errors;
-		info_.allowed_hosts.refresh(errors);
-		NSC_LOG_ERROR_LISTS(errors);
-		NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
-
-		boost::asio::io_service io_service_;
-
-		server_.reset(new WEB::server::server(info_, handler_));
-		if (!server_) {
-			NSC_LOG_ERROR_STD("Failed to create server instance!");
-			return false;
-		}
-		server_->start();
-		*/
 	}
 	return true;
 }
@@ -327,14 +374,60 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 bool WEBServer::unloadModule() {
 	try {
 		if (server)
-		server->stop();
-// 		if (server_) {
-// 			server_->stop();
-// 			server_.reset();
-// 		}
+			server->stop();
 	} catch (...) {
 		NSC_LOG_ERROR_EX("unload");
 		return false;
 	}
 	return true;
+}
+
+
+void error_handler::add_message(bool is_error, std::string message) {
+	{
+		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!lock.owns_lock())
+			return;
+		log_entries.push_back(message);
+		if (is_error) {
+			error_count_++;
+			last_error_ = message;
+		}
+	}
+}
+void error_handler::reset() {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return;
+	log_entries.clear();
+	last_error_ = "";
+	error_count_ = 0;
+}
+error_handler::status error_handler::get_status() {
+	status ret;
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return ret;
+	ret.error_count = error_count_;
+	ret.last_error = last_error_;
+	return ret;
+}
+std::string error_handler::get_errors(int &position) {
+	std::string ret;
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return "";
+	int count = log_entries.size()-position;
+	std::list<std::string>::reverse_iterator cit = log_entries.rbegin();
+	std::list<std::string>::reverse_iterator end = log_entries.rend();
+
+	for (;cit != end && count > 0;++cit, --count, ++position) {
+		ret += *cit;
+		ret += "\n";
+	}
+	return ret;
+}
+
+void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
+	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, message.message());
 }

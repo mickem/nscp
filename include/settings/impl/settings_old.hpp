@@ -485,6 +485,7 @@ namespace settings {
 		virtual std::string get_info() {
 			return "INI settings: (" + context_ + ", " + get_file_name() + ")";
 		}
+		virtual std::string get_type() { return "old"; }
 public:
 		static bool context_exists(settings::settings_core *core, std::string key) {
 			net::url url = net::parse(key);

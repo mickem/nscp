@@ -5,5 +5,7 @@
 		"name"			: "WEBServer",
 		"alias"			: "web",
 		"version"		: "auto"
-	}
+	},
+	"log messages" : true
+
 }

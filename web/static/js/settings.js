@@ -17,12 +17,31 @@ function make_paths_from_string(path) {
 	return paths
 }
 
-function PathEntry(path, desc, plugs) {
+function SettingsStatus(elem) {
 	var self = this;
-	self.path = path;
-	self.paths = make_paths_from_string(path)
-	self.desc = desc;
-	self.plugs = plugs;
+	self.has_changed = ko.observable('')
+	self.context = ko.observable('')
+	self.type = ko.observable('')
+	self.showMore = function() {
+		self.showDetails(!self.showDetails());
+	}
+	self.update = function(elem) {
+		self.context(elem['context'])
+		self.type(elem['type'])
+		self.has_changed(elem['has_changed'])
+	}
+	
+}
+
+function PathEntry(entry) {
+	var self = this;
+	
+	self.path = entry['node']['path'];
+	self.title = entry['info']['title'];
+	self.href = "/settings.html?path=" + self.path
+	self.paths = make_paths_from_string(self.path)
+	self.desc = entry['info']['description'];
+	self.plugs = entry['info']['plugin'];
 	self.showDetails = ko.observable(false);
 	
 	self.showMore = function() {
@@ -31,63 +50,148 @@ function PathEntry(path, desc, plugs) {
 }
 
 
-function KeyEntry(path, key, desc, plugs) {
+function LocalKeyEntry(path) {
 	var self = this;
+	self.value = ko.observable('')
 	self.path = path;
-	self.key = key;
-	self.value = ''
-	self.paths = make_paths_from_string(path)
-	self.desc = desc;
-	self.plugs = plugs;
-	self.showDetails = ko.observable(false);
-	
-	self.showMore = function() {
-		self.showDetails(!self.showDetails());
-	}
+	self.key = ''
+	self.type = 'string'
 }
+
+function KeyEntry(entry) {
+	var self = this;
+	self.value = ko.observable('')
+
+	if (entry['value'])
+		self.value(entry['value']['value'])
+	self.path = entry['node']['path'];
+	self.key = ''
+	if (entry['node']['key'])
+		self.key = entry['node']['key'];
+	self.paths = make_paths_from_string(self.path)
+	self.title = entry['info']['title'];
+	self.desc = entry['info']['description'];
+	self.plugs = entry['info']['plugin'];
+	self.default_value = ''
+	self.type = 'string'
+	if (entry['info']['default_value']) {
+		self.default_value = entry['info']['default_value']['value'];
+		self.type = entry['info']['default_value']['type'];
+	}
+	if (self.value() == self.default_value)
+		self.value('')
+}
+
+function build_settings_payload(value) {
+	console.log(value.key + "=" + value.value())
+	payload = {}
+	payload['plugin_id'] = 1234
+	payload['update'] = {}
+	payload['update']['node'] = {}
+	payload['update']['node']['path'] = value.path
+	payload['update']['node']['key'] = value.key
+	payload['update']['value'] = {}
+	payload['update']['value']['type'] = 'string'
+	payload['update']['value']['value'] = value.value()
+	return payload
+}
+
 function CommandViewModel() {
 	var self = this;
 
+	self.nscp_status = ko.observable(new NSCPStatus());
 	path = getUrlVars()['path']
 	if (!path)
 		path = '/'
 	self.currentPath = ko.observableArray(make_paths_from_string(path))
 	self.paths = ko.observableArray([]);
 	self.keys = ko.observableArray([]);
-	self.result = ko.observable("TODO");
-	self.resultCSS = ko.computed(function() {
-		return parseNagiosResultCSS(this.result().result);
-		}, self);
+	self.current = ko.observable();
+	self.status = ko.observable(new SettingsStatus());
+	self.addNew = ko.observable(new LocalKeyEntry(path));
 
-	self.execute = function(command) {
-		$("#result").modal('show');
-		
-		$.getJSON("/settings/" + command.name, function(data) {
-			data['payload'].resultText = parseNagiosResult(data['payload'].result)
-			self.result(data['payload'])
-			//data['payload']['inventory'].forEach(function(entry) {
-			//	self.paths.push(new PathEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
-			//});
-		})
-		
+	self.showAddKey = function(command) {
+		$("#addKey").modal('show');
 	}
-	self.load = function() {
+	self.addNewKey = function(command) {
+		root={}
+		root['header'] = {};
+		root['header']['version'] = 1;
+		root['type'] = 'SettingsRequestMessage';
+		root['payload'] = [build_settings_payload(self.addNew())];
+
+		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			self.refresh()
+		})
+	}
+	self.save = function(command) {
+		root={}
+		root['header'] = {};
+		root['header']['version'] = 1;
+		root['type'] = 'SettingsRequestMessage';
+		root['payload'] = [];
+		self.keys().forEach(function(entry) {
+			root['payload'].push(build_settings_payload(entry))
+		})
+		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			self.refresh()
+		})
+	}
+	self.loadStore = function(command) {
+		root={}
+		root['header'] = {};
+		root['header']['version'] = 1;
+		root['type'] = 'SettingsRequestMessage';
+		payload = {}
+		payload['plugin_id'] = 1234
+		payload['control'] = {}
+		payload['control']['command'] = 'LOAD'
+		root['payload'] = [ payload ];
+		
+		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			self.refresh()
+		})
+	}
+	self.saveStore = function(command) {
+		root={}
+		root['header'] = {};
+		root['header']['version'] = 1;
+		root['type'] = 'SettingsRequestMessage';
+		payload = {}
+		payload['plugin_id'] = 1234
+		payload['control'] = {}
+		payload['control']['command'] = 'SAVE'
+		
+		root['payload'] = [ payload ];
+		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			self.refresh()
+		})
+	}
+	self.refresh = function() {
 		$.getJSON("/settings/inventory?path=" + path + "&recursive=true&paths=true", function(data) {
 			self.paths.removeAll()
 			data['payload'][0]['inventory'].forEach(function(entry) {
-				self.paths.push(new PathEntry(entry['node']['path'], entry['info']['description'], entry['info']['plugin']));
+				if (path == entry['node']['path']) {
+					self.current(new PathEntry(entry))
+				} else {
+					self.paths.push(new PathEntry(entry));
+				}
 			});
 		})
 		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
 			self.keys.removeAll()
-			data['payload'][0]['inventory'].forEach(function(entry) {
-				console.log(entry)
-				self.keys.push(new KeyEntry(entry['node']['path'], entry['node']['key'], entry['info']['description'], entry['info']['plugin']));
-			});
+			if (data['payload'][0]['inventory']) {
+				data['payload'][0]['inventory'].forEach(function(entry) {
+					self.keys.push(new KeyEntry(entry));
+				});
+			}
 		})
 		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
+		$.getJSON("/settings/status", function(data) {
+			self.status().update(data['payload'][0]['status'])
+		})
 	}
-	self.load()
+	self.refresh()
 }
 ko.applyBindings(new CommandViewModel());

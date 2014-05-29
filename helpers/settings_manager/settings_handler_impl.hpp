@@ -45,9 +45,10 @@ namespace settings {
 		boost::filesystem::path base_path_;
 		reg_paths_type registred_paths_;
 		bool ready_flag;
+		bool dirty_flag;
 
 	public:
-		settings_handler_impl() : ready_flag(false) {}
+		settings_handler_impl() : ready_flag(false), dirty_flag(false) {}
 		~settings_handler_impl() {
 			destroy_all_instances();
 		}
@@ -56,6 +57,12 @@ namespace settings {
 		}
 		void set_ready(bool flag=true) {
 			ready_flag = flag;
+		}
+		bool is_dirty() {
+			return dirty_flag;
+		}
+		void set_dirty(bool flag=true) {
+			dirty_flag = flag;
 		}
 
 		//////////////////////////////////////////////////////////////////////////

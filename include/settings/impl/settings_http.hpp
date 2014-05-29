@@ -171,6 +171,7 @@ namespace settings {
 		void ensure_exists() {
 		}
 
+		virtual std::string get_type() { return "http"; }
 
 	private:
 

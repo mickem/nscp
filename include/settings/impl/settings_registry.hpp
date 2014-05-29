@@ -341,6 +341,8 @@ namespace settings {
 		virtual std::string get_info() {
 			return "Registry settings: (" + context_ + ",TODO)";
 		}
+		virtual std::string get_type() { return "registry"; }
+
 public:
 		static bool context_exists(settings::settings_core *, std::string key) {
 			return has_key(reg_key::from_context(key));

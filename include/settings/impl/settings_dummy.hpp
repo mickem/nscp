@@ -125,6 +125,7 @@ namespace settings {
 			settings::error_list ret;
 			return ret;
 		}
+		virtual std::string get_type() { return "dummy"; }
 
 		public:
 			virtual void real_clear_cache() {}
