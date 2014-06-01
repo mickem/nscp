@@ -51,7 +51,13 @@
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
 							<li>
-								<a href="http://www.nsclient.org">NSClient++ Website</a>
+								<a href="http://docs.nsclient.org">Help</a>
+							</li>
+							<li class="dropdown">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown">Restart <b class="caret"></b></a>
+								<ul class="dropdown-menu">
+									<li><a data-bind="click: nscp_status().restart">Restart NSClient++</a></li>
+								</ul>
 							</li>
 							<li>
 								<a href="/auth/logout" class="fa fa-sign-out"></a>
@@ -60,6 +66,20 @@
 					</div>
 				</div>
 			</nav>
+
+			<div id="busy" class="modal fade">
+				<div class="modal-dialog">
+					<div class="modal-content">
+						<div class="modal-header">
+							<h4 class="modal-title"><span data-bind="text: nscp_status().busy_header"></span></h4>
+						</div>
+						<div class="modal-body">
+							<img src="/static/images/ajax-loader.gif" />
+							<span data-bind="text: nscp_status().busy_text"></span>
+						</div>
+					</div>
+				</div>
+			</div>
 
 			<div class="panel panel-danger" data-bind="visible: nscp_status().has_issues">
 				<div class="panel-heading">

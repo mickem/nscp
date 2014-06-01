@@ -82,38 +82,38 @@ namespace nscapi {
 
 		std::string expand_path(std::string value);
 
-		NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		bool settings_query(const std::string request, std::string &response);
+		NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool settings_query(const std::string request, std::string &response) const;
 
 		// Helper functions for calling into the core
 		std::string getApplicationName(void);
 		std::string getApplicationVersionString(void);
 
-		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message);
-		bool should_log(NSCAPI::nagiosReturn msgType);
-		NSCAPI::log_level::level get_loglevel();
-		void DestroyBuffer(char**buffer);
-		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		NSCAPI::nagiosReturn query(const std::string & request, std::string & result);
+		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) const ;
+		bool should_log(NSCAPI::nagiosReturn msgType) const ;
+		NSCAPI::log_level::level get_loglevel() const ;
+		void DestroyBuffer(char**buffer) const;
+		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
+		NSCAPI::nagiosReturn query(const std::string & request, std::string & result) const ;
 
 		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::nagiosReturn exec_command(const std::string target, std::string request, std::string & result);
 
 		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		NSCAPI::errorReturn submit_message(std::string channel, std::string request, std::string &response);
-		NSCAPI::errorReturn reload(std::string module);
+		NSCAPI::errorReturn reload(std::string module) const;
 
-		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		bool json_to_protobuf(const std::string & request, std::string & result);
-		NSCAPI::nagiosReturn protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		bool protobuf_to_json(const std::string &object, const std::string & request, std::string & result);
+		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
+		bool json_to_protobuf(const std::string & request, std::string & result) const ;
+		NSCAPI::nagiosReturn protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
+		bool protobuf_to_json(const std::string &object, const std::string & request, std::string & result) const ;
 
 		bool checkLogMessages(int type);
 		std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 		std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
-		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		NSCAPI::errorReturn registry_query(const std::string request, std::string &response);
+		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		NSCAPI::errorReturn registry_query(const std::string request, std::string &response) const;
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 		void set_alias(const std::string default_alias, const std::string alias);

@@ -35,7 +35,7 @@
 // Callbacks into the core
 //////////////////////////////////////////////////////////////////////////
 
-bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
+bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
 	enum log_status {unknown, set };
 	static NSCAPI::log_level::level level = NSCAPI::log_level::info;
 	static log_status status = unknown;
@@ -55,7 +55,7 @@ bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) {
 * @param message Message in human readable format
 * @throws nscapi::nscapi_exception When core pointer set is unavailable.
 */
-void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string logMessage) {
+void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string logMessage) const {
 	if (!should_log(msgType))
 		return;
 	if (!fNSAPISimpleMessage) {
@@ -67,7 +67,7 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 	}
 }
 
-NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() {
+NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() const {
 	if (!fNSAPIGetLoglevel) {
 		return NSCAPI::log_level::debug;
 	}
@@ -92,14 +92,13 @@ NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() {
 * @param returnPerfBufferLen returnPerfBuffer
 * @return The returned status of the command
 */
-NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
-{
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIInject(request, request_len, response, response_len);
 }
 
-void nscapi::core_wrapper::DestroyBuffer(char**buffer) {
+void nscapi::core_wrapper::DestroyBuffer(char**buffer) const {
 	if (!fNSAPIDestroyBuffer)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIDestroyBuffer(buffer);
@@ -120,7 +119,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::string channel, st
 	return ret;
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::reload(std::string module) {
+NSCAPI::errorReturn nscapi::core_wrapper::reload(std::string module) const {
 	if (!fNSAPIReload)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIReload(module.c_str());
@@ -132,8 +131,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, c
 	return fNSAPINotify(channel, request, request_len, response, response_len);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, std::string & result)
-{
+NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, std::string & result) const {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
@@ -187,12 +185,12 @@ std::string nscapi::core_wrapper::expand_path(std::string value) {
 	delete [] buffer;
 	return ret;
 }
-NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPISettingsQuery)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPISettingsQuery(request, request_len, response, response_len);
 }
-bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) {
+bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::errorReturn retC = settings_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
@@ -203,12 +201,12 @@ bool nscapi::core_wrapper::settings_query(const std::string request, std::string
 	return retC == NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPIRegistryQuery)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIRegistryQuery(request, request_len, response, response_len);
 }
-NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) {
+NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::errorReturn retC = registry_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
@@ -219,7 +217,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string reque
 	return retC;
 }
 
-bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) {
+bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::errorReturn retC = json_to_protobuf(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
@@ -230,13 +228,13 @@ bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::str
 	return retC == NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSCAPIProtobuf2Json)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSCAPIProtobuf2Json(object, request, request_len, response, response_len);
 }
 
-bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) {
+bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	NSCAPI::errorReturn retC = protobuf_to_json(object.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
@@ -247,7 +245,7 @@ bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std
 	return retC == NSCAPI::isSuccess;
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSCAPIJson2Protobuf)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSCAPIJson2Protobuf(request, request_len, response, response_len);

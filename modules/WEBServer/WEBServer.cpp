@@ -28,11 +28,13 @@
 #include "handler_impl.hpp"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <settings/client/settings_client.hpp>
 #include <socket/socket_settings_helper.hpp>
+
 
 namespace sh = nscapi::settings_helper;
 
@@ -52,7 +54,7 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 	Mongoose::Session &session = g_sessions.get(request, response);
 	if (session.get("auth") != "true") {
 		if (respond) {
-			response.setCode(HTTP_E_STATUS_DENIED);
+			response.setCode(HTTP_FORBIDDEN);
 			response << "500 Please login first";
 		}
 		return false;
@@ -62,14 +64,28 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 
 class BaseController : public Mongoose::WebController
 {
-	std::string password;
-	nscapi::core_wrapper* core;
-	unsigned int plugin_id;
+	const std::string password;
+	const nscapi::core_wrapper* core;
+	const unsigned int plugin_id;
+	std::string status;
+	boost::shared_mutex mutex_;
+
 public: 
 
-	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) : password(password), core(core), plugin_id(plugin_id) {}
+	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) : password(password), core(core), plugin_id(plugin_id), status("ok") {}
 
-
+	std::string get_status() {
+		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+		if (!lock.owns_lock()) 
+			return "unknown";
+		return status;
+	}
+	bool set_status(std::string status_) {
+		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+		if (!lock.owns_lock()) 
+			return false;
+		status = status_;
+	}
 
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
@@ -206,6 +222,16 @@ public:
 		log_data.reset();
 		response << "{\"status\" : \"ok\"}";
 	}
+	void reload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		core->reload("delayed,service");
+		set_status("reload");
+		response << "{\"status\" : \"reload\"}";
+	}
+	void alive(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		response << "{\"status\" : \"" + get_status() + "\"}";
+	}
 
 	void setup()
 	{
@@ -220,6 +246,8 @@ public:
 		addRoute("GET", "/auth/logout", BaseController, auth_logout);
 		addRoute("POST", "/auth/login", BaseController, auth_login);
 		addRoute("POST", "/auth/logout", BaseController, auth_logout);
+		addRoute("GET", "/core/reload", BaseController, reload);
+		addRoute("GET", "/core/isalive", BaseController, alive);
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
@@ -236,10 +264,13 @@ public:
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
 		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
 		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
+		bool is_gif = boost::algorithm::ends_with(request.getUrl(), ".gif");
+		bool is_png = boost::algorithm::ends_with(request.getUrl(), ".png");
+		bool is_jpg = boost::algorithm::ends_with(request.getUrl(), ".jpg");
 		bool is_font = boost::algorithm::ends_with(request.getUrl(), ".ttf")
 			|| boost::algorithm::ends_with(request.getUrl(), ".svg")
 			|| boost::algorithm::ends_with(request.getUrl(), ".woff");
-		if (!is_js && !is_html && !is_css && !is_font)
+		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png)
 			return NULL;
 
 		boost::filesystem::path file = base / request.getUrl();
@@ -251,13 +282,19 @@ public:
 			sr->setHeader("Content-Type", "text/css");
 		else if (is_font)
 			sr->setHeader("Content-Type", "text/html");
+		else if (is_gif)
+			sr->setHeader("Content-Type", "image/gif");
+		else if (is_jpg)
+			sr->setHeader("Content-Type", "image/jpeg");
+		else if (is_png)
+			sr->setHeader("Content-Type", "image/png");
 		else {
 			if (!is_loggedin(request, *sr, false))
 				file = base / "login.html";
 			sr->setCookie("original_url", request.getUrl());
 			sr->setHeader("Content-Type", "text/html");
 		}
-		if (is_css || is_font) {
+		if (is_css || is_font || is_gif || is_png || is_jpg) {
 			sr->setHeader("Cache-Control", "max-age=3600"); //1 hour (60*60)
 
 		}
@@ -279,15 +316,19 @@ public:
 			|| boost::algorithm::ends_with(url, ".html")
 			|| boost::algorithm::ends_with(url, ".ttf")
 			|| boost::algorithm::ends_with(url, ".svg")
-			|| boost::algorithm::ends_with(url, ".woff");
+			|| boost::algorithm::ends_with(url, ".woff")
+			|| boost::algorithm::ends_with(url, ".gif")
+			|| boost::algorithm::ends_with(url, ".png")
+			|| boost::algorithm::ends_with(url, ".jpg");
+			;
 	}
 
 };
 
 
 class RESTController : public Mongoose::WebController {
-	nscapi::core_wrapper* core;
-	std::string password;
+	const nscapi::core_wrapper* core;
+	const std::string password;
 public: 
 
 	RESTController(std::string password, nscapi::core_wrapper* core) : password(password), core(core) {}
@@ -373,8 +414,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 bool WEBServer::unloadModule() {
 	try {
-		if (server)
+		if (server) {
 			server->stop();
+			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(2));
+		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("unload");
 		return false;
