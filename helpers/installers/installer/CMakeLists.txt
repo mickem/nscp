@@ -12,6 +12,7 @@ SET(SRCS
 	../ui/InvalidConfigureationDlg.wxs
 	../ui/SelectConfigurationDlg.wxs
 	../ui/WixUI_MondoNSCP.wxs
+	web-content.wxs
 )
 #	WixUI.wixlib
 SET(DEPENDENCIES

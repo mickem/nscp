@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
 
-	<?if "$(var.arch)" = "x64"?>
-	<?define ProgramFiles = "ProgramFiles64Folder" ?>
-	<?define Win64 = "yes" ?>
-	<?define Plattform = "x64" ?>
-	<?else?>
-	<?define ProgramFiles = "ProgramFilesFolder" ?>
-	<?define Win64 = "no" ?>
-	<?define Plattform = "x86" ?>
-	<?endif?>
+  <?include setup.wxs ?>
 
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
 	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
@@ -119,6 +111,9 @@
 						
 						<Component Id="NSCServer" Guid="64CEEE94-4E45-48ca-B120-81DA3F3E081A" Win64="$(var.Win64)">
 							<File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
+						</Component>
+						<Component Id="WEBServer" Guid="6B28E09F-E5C3-458F-9C60-E9335AEE44D3" Win64="$(var.Win64)">
+							<File Id="WEBServerDLL" Name="WEBServer.dll" DiskId="1" Source="$(var.Source)/modules/WEBServer.dll" Vital="no" />
 						</Component>
 						<Component Id="NSCA" Guid="C2C9E95A-28A6-4ea0-BF71-73B8CE509369" Win64="$(var.Win64)">
 							<File Id="NSCAClientDLL" Name="NSCAClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCAClient.dll" Vital="no" />
@@ -298,6 +293,10 @@
 				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
 					<ComponentRef Id="NSCServer" />
 				</Feature>
+				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="disallow">
+					<ComponentRef Id="WEBServer" />
+          <ComponentGroupRef Id="WEBStaticContent" />
+        </Feature>
 				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
 					<ComponentRef Id="NSCA" />
 				</Feature>
