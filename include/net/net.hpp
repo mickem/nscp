@@ -100,12 +100,18 @@ namespace net {
 		ret.host = std::string(prot_i, path_i);
 		//ret.host.reserve(std::distance(prot_i, path_i));
 		//std::transform(prot_i, path_i, std::back_inserter(ret.host), std::ptr_fun<int,int>(std::tolower)); // host is icase
-		if ((path_i != url_s.end()) && (*path_i == ':')) {
-			std::string::const_iterator port_b = path_i; ++port_b;
-			path_i = std::find(path_i, url_s.end(), '/');
-			ret.port = boost::lexical_cast<unsigned int>(std::string(port_b, path_i));
-		} else {
-			ret.port = default_port;
+		if (ret.protocol != "ini" && ret.protocol != "registry") {
+			if ((path_i != url_s.end()) && (*path_i == ':')) {
+				std::string::const_iterator port_b = path_i; ++port_b;
+				std::string::const_iterator tmp = std::find(path_i, url_s.end(), '/');
+				std::string chunk = std::string(port_b, tmp);
+				if (chunk.find_first_not_of("0123456789") != std::string::npos) {
+					ret.port = boost::lexical_cast<unsigned int>(chunk);
+					path_i = tmp;
+				}
+			} else {
+				ret.port = default_port;
+			}
 		}
 		std::string::const_iterator query_i = std::find(path_i, url_s.end(), '?');
 		ret.path.assign(path_i, query_i);
