@@ -41,7 +41,7 @@
 
 
 namespace settings {
-	class SettingsInterfaceImpl : public settings_interface {
+	class settings_interface_impl : public settings_interface {
 	protected:
 		settings_core *core_;
 		typedef std::list<instance_raw_ptr> parent_list_type;
@@ -94,6 +94,7 @@ namespace settings {
 		typedef boost::unordered_set<std::string> path_cache_type;
 		typedef boost::unordered_set<cache_key_type> path_delete_cache_type;
 		typedef boost::unordered_map<std::string,std::set<std::string> > key_cache_type;
+
 		cache_type settings_cache_;
 		path_delete_cache_type settings_delete_cache_;
 		path_cache_type path_cache_;
@@ -103,7 +104,7 @@ namespace settings {
 		net::url url_;
 
 		//SettingsInterfaceImpl() : core_(NULL) {}
-		SettingsInterfaceImpl(settings_core *core, std::string context) : core_(core), context_(context), url_(net::parse(context_)) {}
+		settings_interface_impl(settings_core *core, std::string context) : core_(core), context_(context), url_(net::parse(context_)) {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Empty all cached settings values and force a reload.
@@ -173,31 +174,27 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_string(std::string path, std::string key) {
+		virtual op_string get_string(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
 			if (cit == settings_cache_.end()) {
-				std::string val;
-				try {
-					val = get_real_string(lookup);
-				} catch (KeyNotFoundException e) {
+				op_string val = get_real_string(lookup);
+				if (!val)
 					val = get_string_from_child_unsafe(lookup);
-				}
-				settings_cache_[lookup] = val;
+				if (val) 
+					settings_cache_[lookup] = *val;
 				return val;
 			}
 			return (*cit).second.get_string();
 		}
-		std::string get_string_from_child_unsafe(settings_core::key_path_type key) {
+		op_string get_string_from_child_unsafe(settings_core::key_path_type key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				try {
-					return (*it)->get_string(key.first, key.second);
-				} catch (KeyNotFoundException e) {
-					continue;
-				}
+					op_string val = (*it)->get_string(key.first, key.second);
+					if (val)
+						return val;
 			}
-			throw KeyNotFoundException(key);
+			return op_string();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist the default value will be returned
@@ -209,13 +206,10 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual std::string get_string(std::string path, std::string key, std::string def) {
-			try {
-				return get_string(path, key);
-			} catch (KeyNotFoundException e) {
-				//MUTEX_GUARD();
-				//settings_cache_[cache_key_type(path,key)] = def;
-				return def;
-			}
+			op_string val = get_string(path, key);
+			if (val)
+				return *val;
+			return def;
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update a string value
@@ -290,31 +284,28 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::string path, std::string key) {
+		virtual op_int get_int(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
 			if (cit == settings_cache_.end()) {
-				int val;
-				try {
-					val = get_real_int(lookup);
-				} catch (KeyNotFoundException e) {
+				op_int val = get_real_int(lookup);
+				if (!val)
 					val = get_int_from_child_unsafe(path, key);
-				}
-				settings_cache_[lookup] = val;
+				if (!val)
+					return val;
+				settings_cache_[lookup] = *val;
 				return val;
 			}
-			return (*cit).second.get_int();
+			return op_int((*cit).second.get_int());
 		}
-		int get_int_from_child_unsafe(std::string path, std::string key) {
+		op_int get_int_from_child_unsafe(std::string path, std::string key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				try {
-					return (*it)->get_int(path, key);
-				} catch (KeyNotFoundException e) {
-					continue;
-				}
+				op_int val = (*it)->get_int(path, key);
+				if (val)
+					return val;
 			}
-			throw KeyNotFoundException(path, key);
+			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist the default value will be returned
@@ -326,13 +317,10 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual int get_int(std::string path, std::string key, int def) {
-			try {
-				return get_int(path, key);
-			} catch (KeyNotFoundException e) {
-				//MUTEX_GUARD();
-				//settings_cache_[cache_key_type(path,key)] = def;
-				return def;
-			}
+			op_int val = get_int(path, key);
+			if (val)
+				return *val;
+			return def;
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update an integer value
@@ -375,31 +363,28 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::string path, std::string key) {
+		virtual op_bool get_bool(std::string path, std::string key) {
 			MUTEX_GUARD();
 			settings_core::key_path_type lookup(path,key);
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
 			if (cit == settings_cache_.end()) {
-				bool val;
-				try {
-					val = get_real_bool(lookup);
-				} catch (KeyNotFoundException e) {
+				op_bool val = get_real_bool(lookup);
+				if (!val)
 					val = get_bool_from_child_unsafe(path, key);
-				}
-				settings_cache_[lookup] = val;
+				if (!val)
+					return val;
+				settings_cache_[lookup] = *val;
 				return val;
 			}
 			return (*cit).second.get_bool();
 		}
-		bool get_bool_from_child_unsafe(std::string path, std::string key) {
+		op_bool get_bool_from_child_unsafe(std::string path, std::string key) {
 			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				try {
-					return (*it)->get_bool(path, key);
-				} catch (KeyNotFoundException e) {
-					continue;
-				}
+				op_bool val = (*it)->get_bool(path, key);
+				if (val)
+					return val;
 			}
-			throw KeyNotFoundException(path, key);
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist the default value will be returned
@@ -411,13 +396,10 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool get_bool(std::string path, std::string key, bool def) {
-			try {
-				return get_bool(path, key);
-			} catch (KeyNotFoundException e) {
-				//MUTEX_GUARD();
-				//settings_cache_[cache_key_type(path,key)] = def;
-				return def;
-			}
+			op_bool val = get_bool(path, key);
+			if (val)
+				return *val;
+			return def;
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Set or update a boolean value
@@ -618,16 +600,24 @@ namespace settings {
 				settings_core::key_path_type key(path, *cit);
 				settings_core::key_type type = get_key_type(key.first, key.second);
 				if (type ==settings_core::key_string) {
-					try {
-						other->set_string(key.first, key.second, get_string(key.first, key.second));
-					} catch (KeyNotFoundException e) {
+					settings_interface::op_string val = get_string(key.first, key.second);
+					if (val)
+						other->set_string(key.first, key.second, *val);
+					else
 						other->set_string(key.first, key.second, "");
-					}
-				} else if (type ==settings_core::key_integer)
-					other->set_int(key.first, key.second, get_int(key.first, key.second));
-				else if (type ==settings_core::key_bool)
-					other->set_bool(key.first, key.second, get_bool(key.first, key.second));
-				else
+				} else if (type ==settings_core::key_integer) {
+					settings_interface::op_int val = get_int(key.first, key.second);
+					if (val)
+						other->set_int(key.first, key.second, *val);
+					else
+						other->set_int(key.first, key.second, 0);
+				} else if (type ==settings_core::key_bool) {
+					settings_interface::op_bool val = get_bool(key.first, key.second);
+					if (val)
+						other->set_bool(key.first, key.second, *val);
+					else
+						other->set_bool(key.first, key.second, false);
+				} else
 					throw settings_exception("Invalid type for key: " + key.first + "." + key.second);
 			}
 		}
@@ -714,7 +704,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type key) = 0;
+		virtual op_string get_real_string(settings_core::key_path_type key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
 		///
@@ -722,7 +712,7 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) = 0;
+		virtual op_int get_real_int(settings_core::key_path_type key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
 		///
@@ -730,7 +720,7 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) = 0;
+		virtual op_bool get_real_bool(settings_core::key_path_type key) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
@@ -783,7 +773,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) = 0;
+		virtual settings_interface_impl* create_new_context(std::string context) = 0;
 
 		virtual void real_clear_cache() = 0;
 

@@ -25,7 +25,7 @@ namespace settings {
 	};
 	typedef hlp::handle<HKEY, registry_closer> reg_handle;
 	typedef hlp::buffer<wchar_t, const BYTE*> reg_buffer;
-	class REGSettings : public settings::SettingsInterfaceImpl {
+	class REGSettings : public settings::settings_interface_impl {
 	private:
 		struct reg_key {
 			HKEY hKey;
@@ -65,25 +65,26 @@ namespace settings {
 
 
 
-		struct open_reg_key {
+		struct write_reg_key {
 			reg_handle hTemp;
 			const reg_key &source;
-			open_reg_key(const reg_key &source) : source(source) {
+			write_reg_key(const reg_key &source) : source(source) {
 				open();
 			}
 			void open() {
 				DWORD err = RegCreateKeyEx(source.hKey, source.path.c_str(), 0, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, hTemp.ref(), NULL);
 				if (err != ERROR_SUCCESS) {
-					throw settings_exception("Failed to open key " + source.to_string() + ": " + error::lookup::last_error(err));
+					throw settings_exception("Failed to create " + source.to_string() + ": " + error::lookup::last_error(err));
 				}
 			}
-			void ensure() {
-				open();
-			}
 			HKEY operator*() {
+				if (!hTemp)
+					throw settings_exception("No valid handle: " + source.to_string());
 				return hTemp;
 			}
 			void setValueEx(const std::string &key, DWORD type, const BYTE *lpData, DWORD size) const {
+				if (!hTemp)
+					throw settings_exception("No valid handle: " + source.to_string());
 				std::wstring wkey = utf8::cvt<std::wstring>(key);
 				DWORD err = RegSetValueExW(hTemp.get(), wkey.c_str(), 0, type, lpData, size);
 				if (err != ERROR_SUCCESS) {
@@ -91,12 +92,16 @@ namespace settings {
 				}
 			}
 			inline void setValueEx(const std::string &key, DWORD type, const reg_buffer &buffer) const {
-				return setValueEx(key, type, buffer.get(), buffer.size_in_bytes());
+				setValueEx(key, type, buffer.get(), buffer.size_in_bytes());
 			}
 			inline void setValueEx(const std::string &key, DWORD type, const DWORD value) const {
-				return setValueEx(key, type, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
+				setValueEx(key, type, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD));
 			}
-
+			inline void setValueEx(const std::string &key, DWORD type, const std::string &value) const {
+				std::wstring wvalue = utf8::cvt<std::wstring>(value);
+				reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
+				setValueEx(key, type, buffer);
+			}
 
 		};
 
@@ -104,15 +109,17 @@ namespace settings {
 
 
 	public:
-		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), root(reg_key::from_context(context)) {
+		REGSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), root(reg_key::from_context(context)) {
 			std::list<std::string> list;
 			reg_key path = get_reg_key("/includes");
 			getValues_(path, list);
 			get_core()->register_path(999, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
 			BOOST_FOREACH(const std::string &s, list) {
-				std::string child = getString_(path, s);
-				get_core()->register_key(999, "/includes", s, settings::settings_core::key_string, "INCLUDED FILE", child, child, false, false);
-				add_child_unsafe(child);
+				op_string child = getString_(path, s);
+				if (child) {
+					get_core()->register_key(999, "/includes", s, settings::settings_core::key_string, "INCLUDED FILE", *child, *child, false, false);
+					add_child_unsafe(*child);
+				}
 			}
 		}
 
@@ -126,7 +133,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
+		virtual settings_interface_impl* create_new_context(std::string context) {
 			return new REGSettings(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -137,7 +144,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type key) {
+		virtual op_string get_real_string(settings_core::key_path_type key) {
 			return getString_(get_reg_key(key.first), key.second);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -148,9 +155,11 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return strEx::s::stox<int>(str);
+		virtual op_int get_real_int(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return strEx::s::stox<int>(*str);
+			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -160,9 +169,11 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return SettingsInterfaceImpl::string_to_bool(str);
+		virtual op_bool get_real_bool(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return settings_interface_impl::string_to_bool(*str);
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -238,21 +249,19 @@ namespace settings {
 
 
 		static void setString_(const reg_key &path, std::string key, std::string value) {
-			open_reg_key open_key(path);
-			std::wstring wvalue = utf8::cvt<std::wstring>(value);
-			reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
-			open_key.setValueEx(key, REG_SZ, buffer);
+			write_reg_key open_key(path);
+			open_key.setValueEx(key, REG_SZ, value);
 		}
 
 		static void setInt_(const reg_key &path, std::string key, DWORD value) {
-			open_reg_key open_key(path);
+			write_reg_key open_key(path);
 			open_key.setValueEx(key, REG_DWORD, value);
 		}
 
-		static std::string getString_(reg_key path, std::string key) {
+		static op_string getString_(reg_key path, std::string key) {
 			reg_handle hTemp;
-			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, hTemp.ref()) != ERROR_SUCCESS) 
-				throw KeyNotFoundException("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error());
+			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, hTemp.ref()) != ERROR_SUCCESS)
+				return op_string();
 			DWORD type;
 			const DWORD data_length = 2048;
 			DWORD cbData = data_length;
@@ -273,7 +282,7 @@ namespace settings {
 				}
 				throw settings_exception("Unsupported key type: " + path.to_string());
 			} else if (lRet == ERROR_FILE_NOT_FOUND)
-				throw KeyNotFoundException("Key not found: " + path.to_string());
+				throw op_string();
 			throw settings_exception("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error(lRet));
 		}
 		static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
@@ -357,8 +366,7 @@ public:
 		}
 		virtual void real_clear_cache() {}
 		void ensure_exists() {
-			open_reg_key open_key(root);
-			open_key.ensure();
+			write_reg_key open_key(root);
 		}
 
 

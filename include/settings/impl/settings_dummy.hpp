@@ -13,11 +13,11 @@
 #include <error.hpp>
 
 namespace settings {
-	class settings_dummy : public settings::SettingsInterfaceImpl {
+	class settings_dummy : public settings::settings_interface_impl {
 	private:
 
 	public:
-		settings_dummy(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {}
+		settings_dummy(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
 		///
@@ -25,7 +25,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
+		virtual settings_interface_impl* create_new_context(std::string context) {
 			return new settings_dummy(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -36,8 +36,8 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_string get_real_string(settings_core::key_path_type key) {
+			return op_string();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
@@ -47,8 +47,8 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_int get_real_int(settings_core::key_path_type key) {
+			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -58,8 +58,8 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_bool get_real_bool(settings_core::key_path_type key) {
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -116,7 +116,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void save() {
-			SettingsInterfaceImpl::save();
+			settings_interface_impl::save();
 		}
 		virtual std::string get_info() {
 			return "dummy settings";

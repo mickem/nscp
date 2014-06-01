@@ -16,14 +16,14 @@
 #include <simpleini/simpleini.h>
 
 namespace settings {
-	class INISettings : public settings::SettingsInterfaceImpl {
+	class INISettings : public settings::settings_interface_impl {
 	private:
 		CSimpleIni ini;
 		bool is_loaded_;
 		std::string filename_;
 
 	public:
-		INISettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), ini(false, false, false), is_loaded_(false) {
+		INISettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), ini(false, false, false), is_loaded_(false) {
 			load_data();
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -33,7 +33,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
+		virtual settings_interface_impl* create_new_context(std::string context) {
 			return new INISettings(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -44,12 +44,12 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type key) {
+		virtual op_string get_real_string(settings_core::key_path_type key) {
 			load_data();
 			const wchar_t *val = ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), NULL);
 			if (val == NULL)
-				throw KeyNotFoundException(key);
-			return utf8::cvt<std::string>(val);
+				return op_string();
+			return op_string(utf8::cvt<std::string>(val));
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
@@ -59,9 +59,12 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return strEx::s::stox<int>(str);
+		virtual op_int get_real_int(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return strEx::s::stox<int>(*str);
+			return op_int();
+
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -71,9 +74,11 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return SettingsInterfaceImpl::string_to_bool(str);
+		virtual op_bool get_real_bool(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return settings_interface_impl::string_to_bool(*str);
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -106,10 +111,8 @@ namespace settings {
 				
 				ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(comment).c_str());
-			} catch (KeyNotFoundException e) {
-				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), L"; Undocumented key");
 			} catch (settings_exception e) {
-				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Failed to write key: " + utf8::utf8_from_native(e.what()));
+				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), L"; Undocumented key");
 			} catch (...) {
 				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}
@@ -122,10 +125,8 @@ namespace settings {
 					std::string comment = "; " + desc.description;
 					ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
 				}
-			} catch (KeyNotFoundException e) {
-				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
 			} catch (settings_exception e) {
-				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Failed to write section: " + utf8::utf8_from_native(e.what()));
+				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
 			} catch (...) {
 				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Unknown failure when writing section: " + make_skey(path));
 			}
@@ -198,7 +199,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void save() {
-			SettingsInterfaceImpl::save();
+			settings_interface_impl::save();
 			SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to save file");
@@ -212,7 +213,7 @@ namespace settings {
 				std::string path = utf8::cvt<std::string>(ePath.pItem);
 				try {
 					get_core()->get_registred_path(path);
-				} catch (const KeyNotFoundException &) {
+				} catch (const settings_exception &) {
 					ret.push_back(std::string("Invalid path: ") + path);
 				}
 				CSimpleIni::TNamesDepend keys;
@@ -221,7 +222,7 @@ namespace settings {
 					std::string key = utf8::cvt<std::string>(eKey.pItem);
 					try {
 						get_core()->get_registred_key(path, key);
-					} catch (const KeyNotFoundException &) {
+					} catch (const settings_exception &) {
 						ret.push_back(std::string("Invalid key: ") + settings::key_to_string(path, key));
 					}
 				}

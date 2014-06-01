@@ -41,16 +41,18 @@ void settings::settings_handler_impl::update_defaults() {
 					} else
 						get_logger()->error("settings", __FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
 				} else {
-					std::string val = get()->get_string(path, key);
-					get_logger()->debug("settings", __FILE__, __LINE__, "Setting old (already exists): " + key_to_string(path, key));
-					if (desc.type == key_string)
-						get()->set_string(path, key, val);
-					else if (desc.type == key_bool)
-						get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
-					else if (desc.type == key_integer)
-						get()->set_int(path, key, strEx::s::stox<int>(val));
-					else
-						get_logger()->error("settings", __FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
+					settings_interface::op_string val = get()->get_string(path, key);
+					if (val) {
+						get_logger()->debug("settings", __FILE__, __LINE__, "Setting old (already exists): " + key_to_string(path, key));
+						if (desc.type == key_string)
+							get()->set_string(path, key, *val);
+						else if (desc.type == key_bool)
+							get()->set_bool(path, key, settings::settings_interface::string_to_bool(*val));
+						else if (desc.type == key_integer)
+							get()->set_int(path, key, strEx::s::stox<int>(*val));
+						else
+							get_logger()->error("settings", __FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
+					}
 				}
 			} else {
 				get_logger()->debug("settings", __FILE__, __LINE__, "Skipping (advanced): " + key_to_string(path, key));

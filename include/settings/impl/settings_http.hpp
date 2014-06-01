@@ -16,7 +16,7 @@
 #include <error.hpp>
 
 namespace settings {
-	class settings_http : public settings::SettingsInterfaceImpl {
+	class settings_http : public settings::settings_interface_impl {
 	private:
 		std::string url_;
 		boost::filesystem::path local_file;
@@ -27,7 +27,7 @@ namespace settings {
 		}
 
 	public:
-		settings_http(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {
+		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
 			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
 			boost::filesystem::path path = core->expand_path(DEFAULT_CACHE_PATH);
 			if (!boost::filesystem::is_directory(path)) {
@@ -67,7 +67,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
+		virtual settings_interface_impl* create_new_context(std::string context) {
 			return new settings_http(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -78,8 +78,8 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_string get_real_string(settings_core::key_path_type key) {
+			return op_string();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
@@ -89,8 +89,8 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_int get_real_int(settings_core::key_path_type key) {
+			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -100,8 +100,8 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) {
-			throw KeyNotFoundException(key);
+		virtual op_bool get_real_bool(settings_core::key_path_type key) {
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists

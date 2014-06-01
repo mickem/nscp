@@ -279,7 +279,7 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	BOOST_FOREACH(std::string plugin, list) {
 		std::string alias;
 		try {
-			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin);
+			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
 		} catch (settings::settings_exception e) {
 			LOG_DEBUG_CORE_STD("Exception looking for module: " + e.reason());
 		}
@@ -1638,17 +1638,17 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 									rpp->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 									rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 									if (desc.type == NSCAPI::key_string) {
-										try {
-											rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key()));
-										} catch (settings::settings_exception &e) {}
+										settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(q.node().path(), q.node().key());
+										if (val)
+											rpp->mutable_value()->set_string_data(*val);
 									} else if (desc.type == NSCAPI::key_integer) {
-										try {
-											rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key()));
-										} catch (settings::settings_exception &e) {}
+										settings::settings_interface::op_int val = settings_manager::get_settings()->get_int(q.node().path(), q.node().key());
+										if (val)
+											rpp->mutable_value()->set_int_data(*val);
 									} else if (desc.type == NSCAPI::key_bool) {
-										try {
-											rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key()));
-										} catch (settings::settings_exception &e) {}
+										settings::settings_interface::op_bool val = settings_manager::get_settings()->get_bool(q.node().path(), q.node().key());
+										if (val)
+											rpp->mutable_value()->set_bool_data(*val);
 									} else {
 										LOG_ERROR_CORE("Invalid type");
 									}
@@ -1689,19 +1689,19 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 								if (desc.type == NSCAPI::key_string) {
 									try {
-										std::string value = settings_manager::get_settings()->get_string(path, key);
+										std::string value = settings_manager::get_settings()->get_string(path, key, "");
 										rpp->mutable_value()->set_type(Plugin::Common_DataType_STRING);
 										rpp->mutable_value()->set_string_data(value);
 									} catch (settings::settings_exception &e) {}
 								} else if (desc.type == NSCAPI::key_integer) {
 									try {
-										int value = settings_manager::get_settings()->get_int(path, key);
+										int value = settings_manager::get_settings()->get_int(path, key, 0);
 										rpp->mutable_value()->set_type(Plugin::Common_DataType_INT);
 										rpp->mutable_value()->set_int_data(value);
 									} catch (settings::settings_exception &e) {}
 								} else if (desc.type == NSCAPI::key_bool) {
 									try {
-										bool value = settings_manager::get_settings()->get_bool(path, key);
+										bool value = settings_manager::get_settings()->get_bool(path, key, false);
 										rpp->mutable_value()->set_type(Plugin::Common_DataType_BOOL);
 										rpp->mutable_value()->set_bool_data(value);
 									} catch (settings::settings_exception &e) {}

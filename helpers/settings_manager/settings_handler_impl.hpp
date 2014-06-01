@@ -200,14 +200,14 @@ namespace settings {
 					return ret;
 				}
 			}
-			throw KeyNotFoundException(path, key);
+			throw settings_exception("Key not found: " + path + ", " + key);
 		}
 		settings_core::path_description get_registred_path(const std::string &path) {
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				return (*cit).second;
 			}
-			throw KeyNotFoundException(path);
+			throw settings_exception("Path not found: " + path);
 		}
 
 
@@ -243,7 +243,7 @@ namespace settings {
 				}
 				return ret;
 			}
-			throw KeyNotFoundException(path, "");
+			return ret;
 		}
 
 

@@ -28,7 +28,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/regex.hpp>
+#include <boost/optional.hpp>
 
 #include <strEx.h>
 #include <utf8.hpp>
@@ -64,12 +64,6 @@ namespace settings {
 			return error_.c_str();
 		}
 		std::string reason() const throw() { return utf8::utf8_from_native(what()); }
-	};
-	class KeyNotFoundException : public settings_exception {
-	public:
-		KeyNotFoundException(std::string path, std::string key) : settings_exception("Key not found: " + key_to_string(path, key)) {}
-		KeyNotFoundException(std::string path) : settings_exception("Key not found: " + path) {}
-		KeyNotFoundException(std::pair<std::string,std::string> key) : settings_exception("Key not found: " + key_to_string(key)) {}
 	};
 
 	class settings_interface;
@@ -306,6 +300,9 @@ namespace settings {
 	class settings_interface {
 	public:
 		typedef std::list<std::string> string_list;
+		typedef boost::optional<std::string> op_string;
+		typedef boost::optional<int> op_int;
+		typedef boost::optional<bool> op_bool;
 
 		virtual void ensure_exists() = 0;
 
@@ -342,7 +339,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_string(std::string path, std::string key) = 0;
+		virtual op_string get_string(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist the default value will be returned
 		/// 
@@ -371,7 +368,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual int get_int(std::string path, std::string key) = 0;
+		virtual op_int get_int(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist the default value will be returned
 		/// 
@@ -400,7 +397,7 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual bool get_bool(std::string path, std::string key) = 0;
+		virtual op_bool get_bool(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist the default value will be returned
 		/// 

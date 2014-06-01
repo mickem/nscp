@@ -12,7 +12,7 @@
 
 
 namespace settings {
-	class OLDSettings : public settings::SettingsInterfaceImpl {
+	class OLDSettings : public settings::settings_interface_impl {
 		std::string filename_;
 		typedef std::pair<std::wstring,std::wstring> section_key_type;
 
@@ -160,7 +160,7 @@ namespace settings {
 		public:
 
 
-		OLDSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context) {
+		OLDSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
 			get_logger()->debug("settings",__FILE__, __LINE__, "Loading OLD: " + context);
 			std::string mapfile = core->get_boot_string("settings", "old_settings_map_file", "old-settings.map");
 			std::string file = core->find_file("${exe-path}/" + mapfile, mapfile);
@@ -193,7 +193,7 @@ namespace settings {
 		/// @return the newly created settings interface
 		///
 		/// @author mickem
-		virtual SettingsInterfaceImpl* create_new_context(std::string context) {
+		virtual settings_interface_impl* create_new_context(std::string context) {
 			return new OLDSettings(get_core(), context);
 		}
 		settings::error_list validate() {
@@ -210,20 +210,17 @@ namespace settings {
 		/// @return the string value
 		///
 		/// @author mickem
-		virtual std::string get_real_string(settings_core::key_path_type in_key) {
+		virtual op_string get_real_string(settings_core::key_path_type in_key) {
 			settings_core::key_path_type key = map.key(in_key);
 			if (has_key_int(key.first, key.second))
 				return internal_get_value(key.first, key.second);
 			if (has_key_int(in_key.first, in_key.second))
 				return internal_get_value(in_key.first, in_key.second);
-			throw KeyNotFoundException(key);
+			return op_string();
 		}
 #define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
 
 		std::string internal_get_value(std::string path, std::string key, int bufferSize = 1024) {
-			if (!has_key_int(path, key))
-				throw KeyNotFoundException(key);
-
 			TCHAR* buffer = new TCHAR[bufferSize+2];
 			if (buffer == NULL)
 				throw settings_exception("Out of memory error!");
@@ -245,9 +242,11 @@ namespace settings {
 		/// @return the int value
 		///
 		/// @author mickem
-		virtual int get_real_int(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return strEx::s::stox<int>(str);
+		virtual op_int get_real_int(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return op_int(strEx::s::stox<int>(*str));
+			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -257,9 +256,11 @@ namespace settings {
 		/// @return the boolean value
 		///
 		/// @author mickem
-		virtual bool get_real_bool(settings_core::key_path_type key) {
-			std::string str = get_real_string(key);
-			return SettingsInterfaceImpl::string_to_bool(str);
+		virtual op_bool get_real_bool(settings_core::key_path_type key) {
+			op_string str = get_real_string(key);
+			if (str)
+				return op_bool(settings_interface_impl::string_to_bool(*str));
+			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
