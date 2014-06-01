@@ -105,7 +105,15 @@ namespace settings {
 
 	public:
 		REGSettings(settings::settings_core *core, std::string context) : settings::SettingsInterfaceImpl(core, context), root(reg_key::from_context(context)) {
-			
+			std::list<std::string> list;
+			reg_key path = get_reg_key("/includes");
+			getValues_(path, list);
+			get_core()->register_path(999, "/includes", "INCLUDED FILES", "Files to be included in the configuration", false, false);
+			BOOST_FOREACH(const std::string &s, list) {
+				std::string child = getString_(path, s);
+				get_core()->register_key(999, "/includes", s, settings::settings_core::key_string, "INCLUDED FILE", child, child, false, false);
+				add_child_unsafe(child);
+			}
 		}
 
 
