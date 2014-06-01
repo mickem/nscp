@@ -21,6 +21,7 @@
 #include "stdafx.h"
 
 #include <stack>
+#include <iostream>
 
 #include <boost/assign.hpp>
 
@@ -91,7 +92,15 @@ json_value* find_node(json_value *node, std::list<std::string> &trail) {
 			return find_node(it, trail);
 		}
 	}
-	NSC_DEBUG_MSG_STD("Failed to find node: " + target);
+	trail.push_front(target);
+	for (json_value *it = node->first_child; it; it = it->next_sibling) {
+		if (!it->name) {
+			json_value * tmp = find_node(it, trail);
+			if (tmp != NULL)
+				return tmp;
+		}
+	}
+	NSC_DEBUG_MSG("Failed to find node: " + target);
 	return NULL;
 }
 std::string json_string(json_value *node) {
@@ -224,8 +233,9 @@ void DotnetPlugins::settings_reg_path(const std::string path, const std::string 
 		return;
 	}
 	std::list<std::string> trail = list_of("payload")("result")("status");
-	if (json_int(find_node(json.root, trail)) != 0) {
-		NSC_LOG_ERROR("Failed to describe path: " + path);
+	json_value* resnode = find_node(json.root, trail);
+	if (json_int(resnode) != 0) {
+		NSC_LOG_ERROR("Failed to describe path: " + path + " (" + json_string(resnode) + ")");
 	}
 }
 
