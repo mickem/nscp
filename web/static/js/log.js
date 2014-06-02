@@ -2,7 +2,7 @@
 function CommandViewModel() {
 	var self = this;
 
-	//self.nscp_status = ko.observable(new NSCPStatus());
+	self.nscp_status = ko.observable(new NSCPStatus(false));
 	self.log = ko.observable("");
 	self.pos = ko.observable(0);
 

@@ -31,8 +31,9 @@ function getUrlVars() {
     return vars;
 }
 
-function NSCPStatus(elem) {
+function NSCPStatus(state) {
 	var self = this;
+	self.poller_state = typeof state !== 'undefined' ? state : true;
 	self.has_issues = ko.observable('')
 	self.error_count = ko.observable('')
 	self.last_error = ko.observable('')
@@ -48,7 +49,8 @@ function NSCPStatus(elem) {
 		self.has_issues(self.error_count() > 0)
 	}
 	self.busy = function(header, text) {
-		self.cancelPoller();
+		if (self.poller_state)
+			self.cancelPoller();
 		self.busy_header(header)
 		self.busy_text(text)
 		$("#busy").modal({"backdrop" : "static", "show": "true"});
@@ -57,7 +59,8 @@ function NSCPStatus(elem) {
 		$("#busy").modal('hide');
 		self.busy_header('')
 		self.busy_text('')
-		self.start();
+		if (self.poller_state)
+			self.start();
 	}
 		
 	self.do_update = function(elem) {
@@ -113,6 +116,8 @@ function NSCPStatus(elem) {
 	self.start = function() {
 		self.poll();
 	}
-	self.start()
+	if (self.poller_state) {
+		self.start()
+	}
 }
 
