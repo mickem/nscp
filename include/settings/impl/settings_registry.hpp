@@ -282,7 +282,7 @@ namespace settings {
 				}
 				throw settings_exception("Unsupported key type: " + path.to_string());
 			} else if (lRet == ERROR_FILE_NOT_FOUND)
-				throw op_string();
+				return op_string();
 			throw settings_exception("Failed to open key: " + path.to_string() + ": " + error::lookup::last_error(lRet));
 		}
 		static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
