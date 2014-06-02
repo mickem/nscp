@@ -173,7 +173,7 @@ This is because we have not configured anything yet all we can do now is talk to
  * allow arguments
    Since arguments can be potentially dangerous (it allows your users to control the execution) there is a flag (which defaults to off) to enable arguments. So if you plan on configure NSClient++ from the Nagios end you need to enable this. **But be warned this is a security issue you need to think about**. If you do not want to allow arguments you can instead configure all checks in the nsclient.ini file and just execute the aliases from nagios.
 
-   One important issue with the **allow_arguments** is that there are more then one! '''Yes, more then one! ''' The reason for this is that you can allow arguments from NRPE and you can allow arguments for external scripts (it is not the same option) which might seem a bit confusing at first. But actually quite nice. Using arguments fr external scripts can potentially be more dangerous than allowing them from NRPE (internal commands).
+   One important issue with the **allow_arguments** is that there are more then one! '''Yes, more then one! ''' The reason for this is that you can allow arguments from NRPE and you can allow arguments for external scripts (it is not the same option) which might seem a bit confusing at first. But actually quite nice. Using arguments for external scripts can potentially be more dangerous than allowing them from NRPE (internal commands).
 
 
  * allow nasty characters
@@ -231,9 +231,9 @@ Now we have done some basic setup of NSClient++ and we can continue to try using
 
 .. image:: images/nagios-active-nrpe-002.png
 
-Now that we have the agent up and running (if not probably want to go back over the previous sections to get it up and running before reading on) what can we do with it?. From here on we will assume you have allow arguments and metchars enabled since it makes it simpler to try things out **BEWARED** that there are security implication to this so might wanna read up before rolling this configuration into production.
+Now that we have the agent up and running (if not probably want to go back over the previous sections to get it up and running before reading on) what can we do with it?. From here on we will assume you have allow arguments and metachars enabled since it makes it simpler to try things out **BEWARE** that there are security implications to this so you might wanna read up before rolling this configuration into production.
 
-As we stated before check_nrpe is a lot more powerful then the legacy check_nt and there is a lot of built in commands as well as a lot of external ones you can use. 
+As we stated before check_nrpe is a lot more powerful than the legacy check_nt and there is a lot of built in commands as well as a lot of external ones you can use. 
 Lets start with a simple one CheckCPU and see how to use it.
 
 If we check the docs for it it has an example like so:
