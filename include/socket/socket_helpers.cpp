@@ -24,12 +24,15 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	list.push_back("SSL is not supported (not compiled with openssl)");
 #endif
 
-	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate))
+#ifdef USE_SSL
+	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate)) {
 		list.push_back("Certificate not found: " + ssl.certificate);
+	}
 	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
 	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
 		list.push_back("DH key not found: " + ssl.dh_key);
+#endif
 	return list;
 }
 

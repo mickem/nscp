@@ -38,6 +38,17 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("NRPE", alias, "server");
 
+
+	bool insecure;
+	settings.alias().add_key_to_settings()
+		("insecure", sh::bool_key(&insecure, false),
+		"ALLOW INSECURE CHIPHERS", "This is for legacy reasons and should not be used as it effectivly disables encryption.")
+		;
+
+	settings.register_all();
+	settings.notify();
+
+
 	settings.alias().add_path_to_settings()
 		("NRPE SERVER SECTION", "Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.")
 		;
@@ -61,8 +72,13 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	socket_helpers::settings_helper::add_core_server_opts(settings, info_);
-	socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
-
+#ifdef USE_SSL
+	if (insecure) {
+		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
+	} else {
+		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true);
+	}
+#endif
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 	
