@@ -19,9 +19,13 @@ file { "/usr/share/pyshared/google/protobuf/compiler/__init__.py":
 	ensure    => present, 
 	subscribe => Package['python-protobuf']
 }
-file { "/usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py": 
-	ensure    => present,
-	subscribe => Package['python-protobuf']
+case $::operatingsystem {
+	'ubuntu' : {
+		file { "/usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py": 
+			ensure    => present,
+			subscribe => Package['python-protobuf']
+		}
+	}
 }
 file { "/home/vagrant/build.sh":
     ensure    => "present",

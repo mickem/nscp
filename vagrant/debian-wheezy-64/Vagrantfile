@@ -1,0 +1,31 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "wheezy64"
+  config.vm.box_url = "https://www.dropbox.com/s/23gupgb0xompvkm/Wheezy64.box?dl=1"
+  config.vm.hostname = "wheezy64.build.nscp.org"
+
+
+  config.vm.provider :virtualbox do |vb|
+    # Don't boot with headless mode
+    vb.gui = false
+    vb.customize ["modifyvm", :id, "--memory", "2048"]
+  end
+
+  config.vm.provision :puppet do |puppet|
+    puppet.manifests_path = "../debian/manifests"
+    puppet.manifest_file  = "base.pp"
+  end
+
+  config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
+
+  config.vm.synced_folder "../files", "/etc/puppet/files"
+  config.vm.synced_folder "../../", "/source/nscp"
+  config.ssh.forward_agent = true
+  
+end
