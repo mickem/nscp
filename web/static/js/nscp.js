@@ -62,6 +62,28 @@ function NSCPStatus(state) {
 		if (self.poller_state)
 			self.start();
 	}
+	
+	self.message = function(type, title, message) {
+		if (type == "info")
+			type = BootstrapDialog.TYPE_INFO
+		if (type == "warn")
+			type = BootstrapDialog.TYPE_WARNING
+		BootstrapDialog.show({
+			type: type,
+			title: title,
+			message: message,
+			buttons: [{
+				label: 'Close',
+				action: function(dialogItself){
+					dialogItself.close();
+				}
+			}]
+		});	
+	
+		self.message_header(header)
+		self.message_text(text)
+		$("#busy").modal({"backdrop" : "hide", "show": "true"});
+	}
 		
 	self.do_update = function(elem) {
 		$.getJSON("/log/status", function(data) {

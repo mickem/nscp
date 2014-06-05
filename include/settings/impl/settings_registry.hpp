@@ -157,8 +157,13 @@ namespace settings {
 		/// @author mickem
 		virtual op_int get_real_int(settings_core::key_path_type key) {
 			op_string str = get_real_string(key);
-			if (str)
-				return strEx::s::stox<int>(*str);
+			if (str && !str->empty()) {
+				try {
+					return strEx::s::stox<int>(*str);
+				} catch (const std::exception &e) {
+					throw settings_exception("Failed to convert " + key.first + "." + key.second + " = " + *str + " to a number");
+				}
+			}
 			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////

@@ -227,9 +227,19 @@ namespace settings {
 					if (cit->second.get_string() == value)
 						return;
 				}
-				// TODO: Check value in file here as well
+
+				settings_core::key_path_type lookup(path,key);
+				op_string current = get_real_string(lookup);
+				if (!current)
+					current = get_string_from_child_unsafe(lookup);
+
 				settings_cache_[cache_key_type(path,key)] = value;
 				path_cache_.insert(path);
+
+				if (current && *current == value)
+					return;
+				if (!current && value.empty())
+					return;
 			}
 			get_core()->set_dirty(true);
 			add_key(path, key);

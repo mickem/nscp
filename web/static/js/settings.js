@@ -72,6 +72,7 @@ function KeyEntry(entry) {
 	self.title = entry['info']['title'];
 	self.desc = entry['info']['description'];
 	self.plugs = entry['info']['plugin'];
+	self.advanced = entry['info']['advanced'];
 	self.default_value = ''
 	self.type = 'string'
 	if (entry['info']['default_value']) {
@@ -80,6 +81,8 @@ function KeyEntry(entry) {
 	}
 	if (self.value() == self.default_value)
 		self.value('')
+	self.old_value = self.value()
+	
 }
 
 function build_settings_payload(value) {
@@ -106,12 +109,16 @@ function CommandViewModel() {
 	self.currentPath = ko.observableArray(make_paths_from_string(path))
 	self.paths = ko.observableArray([]);
 	self.keys = ko.observableArray([]);
+	self.akeys = ko.observableArray([]);
 	self.current = ko.observable();
 	self.status = ko.observable(new SettingsStatus());
 	self.addNew = ko.observable(new LocalKeyEntry(path));
 
 	self.showAddKey = function(command) {
 		$("#addKey").modal('show');
+	}
+	self.toggleAdvanced = function(command) {
+		$("#adkeys").modal($('#myModal').hasClass('in')?'hide':'show');
 	}
 	self.addNewKey = function(command) {
 		root={}
@@ -131,11 +138,21 @@ function CommandViewModel() {
 		root['type'] = 'SettingsRequestMessage';
 		root['payload'] = [];
 		self.keys().forEach(function(entry) {
-			root['payload'].push(build_settings_payload(entry))
+			if (entry.old_value != entry.value())
+				root['payload'].push(build_settings_payload(entry))
 		})
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
-			self.refresh()
+		self.akeys().forEach(function(entry) {
+			if (entry.old_value != entry.value())
+				root['payload'].push(build_settings_payload(entry))
 		})
+		if (root['payload'].length > 0) {
+			$.post("/settings/query.json", JSON.stringify(root), function(data) {
+				self.refresh()
+			})
+		} else {
+			self.nscp_status().message("warn", "Settings not saved", "No changes detected");
+		}
+		
 	}
 	self.loadStore = function(command) {
 		root={}
@@ -170,27 +187,37 @@ function CommandViewModel() {
 	self.refresh = function() {
 		$.getJSON("/settings/inventory?path=" + path + "&recursive=true&paths=true", function(data) {
 			self.paths.removeAll()
-			data['payload'][0]['inventory'].forEach(function(entry) {
-				if (path == entry['node']['path']) {
-					self.current(new PathEntry(entry))
-				} else {
-					self.paths.push(new PathEntry(entry));
-				}
-			});
-		})
-		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
-		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
-			self.keys.removeAll()
 			if (data['payload'][0]['inventory']) {
 				data['payload'][0]['inventory'].forEach(function(entry) {
-					self.keys.push(new KeyEntry(entry));
+					if (path == entry['node']['path']) {
+						self.current(new PathEntry(entry))
+					} else {
+						self.paths.push(new PathEntry(entry));
+					}
+				});
+			}
+		})
+		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
+			self.keys.removeAll()
+			self.akeys.removeAll()
+			if (data['payload'][0]['inventory']) {
+				data['payload'][0]['inventory'].forEach(function(entry) {
+					key = new KeyEntry(entry)
+					if (key.advanced)
+						self.akeys.push(key);
+					else
+						self.keys.push(key);
 				});
 			}
 		})
 		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
+		self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		$.getJSON("/settings/status", function(data) {
 			self.status().update(data['payload'][0]['status'])
 		})
+	}
+	self.set_default_value = function(key) {
+		key.value('') // key.default_value
 	}
 	self.refresh()
 }

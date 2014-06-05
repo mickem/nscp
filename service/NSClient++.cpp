@@ -1785,27 +1785,10 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					rp->mutable_result()->set_message("Unknown command");
 				}
 			} else if (r.has_status()) {
-				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
 				rp->mutable_status()->set_has_changed(settings_manager::get_core()->is_dirty());
 				rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
 				rp->mutable_status()->set_type(settings_manager::get_settings()->get_type());
-				if (p.command() == Plugin::Settings_Command_LOAD) {
-					if (p.has_context() && p.context().size() > 0)
-						settings_manager::get_core()->migrate_from(p.context());
-					else
-						settings_manager::get_settings()->load();
-					settings_manager::get_settings()->reload();
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
-				} else if (p.command() == Plugin::Settings_Command_SAVE) {
-					if (p.has_context() && p.context().size() > 0)
-						settings_manager::get_core()->migrate_to(p.context());
-					else
-						settings_manager::get_settings()->save();
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
-				} else {
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
-					rp->mutable_result()->set_message("Unknown command");
-				}
+				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 			} else {
 				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
 				rp->mutable_result()->set_message("Settings error: Invalid action");
