@@ -49,6 +49,7 @@ namespace process {
 			, command(command_)
 			, timeout(timeout_) 
 			, encoding(encoding)
+			, ignore_perf(false)
 		{}
 
 		std::string alias;
@@ -59,6 +60,7 @@ namespace process {
 		std::string domain;
 		std::string password;
 		std::string encoding;
+		bool ignore_perf;
 	};
 	int execute_process(process::exec_arguments args, std::string &output);
 }
