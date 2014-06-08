@@ -19,7 +19,7 @@ namespace sh = nscapi::settings_helper;
 namespace commands {
 	struct command_object {
 
-		command_object() {}
+		command_object() : ignore_perf(false) {}
 
 		nscapi::settings_objects::template_object tpl;
 		std::string encoding;
@@ -27,6 +27,7 @@ namespace commands {
 		std::string user;
 		std::string domain;
 		std::string password;
+		bool ignore_perf;
 
 		std::string to_string() const {
 			std::stringstream ss;
@@ -96,6 +97,10 @@ namespace commands {
 
 				("encoding", nscapi::settings_helper::string_key(&object.encoding),
 				"ENCODING", "The encoding to parse the command as", true)
+
+				("ignore perfdata", nscapi::settings_helper::bool_key(&object.ignore_perf),
+				"IGNORE PERF DATA", "Do not parse performance data from the output", false)
+				
 				;
 
 			object.tpl.read_object(root_path);
@@ -113,6 +118,8 @@ namespace commands {
 			import_string(object.password, parent.password);
 			import_string(object.command, parent.command);
 			import_string(object.encoding, parent.encoding);
+			if (parent.ignore_perf)
+				object.ignore_perf = true;
 		}
 
 	};

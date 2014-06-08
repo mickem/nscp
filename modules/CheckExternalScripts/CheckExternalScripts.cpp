@@ -260,6 +260,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		arg.password = cd.password;
 	}
 	arg.alias = cd.tpl.alias;
+	arg.ignore_perf = cd.ignore_perf;
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
@@ -277,14 +278,18 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	if (output.empty())
 		output = "No output available from command (" + cd.command + ").";
 
-
-	pos = output.find('|');
-	if (pos != std::string::npos) {
-		response->set_message(output.substr(0, pos));
-		nscapi::protobuf::functions::parse_performance_data(response, output.substr(pos+1));
+	if (!arg.ignore_perf) {
+		pos = output.find('|');
+		if (pos != std::string::npos) {
+			response->set_message(output.substr(0, pos));
+			nscapi::protobuf::functions::parse_performance_data(response, output.substr(pos+1));
+		} else {
+			response->set_message(output);
+		}
 	} else {
-		response->set_message(output.substr(0, pos));
+		response->set_message(output);
 	}
+
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
 }
 
