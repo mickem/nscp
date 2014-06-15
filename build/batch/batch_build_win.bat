@@ -1,6 +1,6 @@
 @ECHO OFF
-SET ROOT=D:\source\build\vs2012
-SET SOURCE=D:\source\nscp\master\nscp
+SET ROOT=D:\source\build
+SET SOURCE=D:\source\nscp
 
 mkdir %ROOT%
 mkdir %ROOT%\x64
