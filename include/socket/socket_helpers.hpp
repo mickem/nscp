@@ -15,6 +15,10 @@
 
 namespace socket_helpers {
 
+#ifdef USE_SSL
+	void write_certs(std::string cert, std::string key);
+#endif
+
 	class socket_exception : public std::exception {
 		std::string error;
 	public:

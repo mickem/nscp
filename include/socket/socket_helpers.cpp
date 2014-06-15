@@ -26,7 +26,11 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 
 #ifdef USE_SSL
 	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate)) {
-		list.push_back("Certificate not found: " + ssl.certificate);
+		if (boost::algorithm::ends_with(ssl.certificate, "/certificate.pem")) {
+			list.push_back("Certificate not found: " + ssl.certificate + " (generating a default certificate)");
+			write_certs(ssl.certificate, ssl.certificate_key);
+		} else 
+			list.push_back("Certificate not found: " + ssl.certificate);
 	}
 	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
@@ -36,22 +40,6 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	return list;
 }
 
-// std::wstring socket_helpers::allowed_hosts_manager::to_wstring() {
-// 	std::wstring ret;
-// 	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
-// 		ip::address_v4 a(r.addr);
-// 		ip::address_v4 m(r.mask);
-// 		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
-// 		strEx::append_list(ret, s);
-// 	}
-// 	BOOST_FOREACH(const host_record_v6 &r, entries_v6) {
-// 		ip::address_v6 a(r.addr);
-// 		ip::address_v6 m(r.mask);
-// 		std::wstring s = utf8::cvt<std::wstring>(a.to_string()) + _T("(") + utf8::cvt<std::wstring>(m.to_string()) + _T(")");
-// 		strEx::append_list(ret, s);
-// 	}
-// 	return ret;
-// }
 std::string socket_helpers::allowed_hosts_manager::to_string() {
 	std::string ret;
 	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
@@ -245,4 +233,101 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 		return boost::asio::ssl::context::asn1;
 	return boost::asio::ssl::context::pem;
 }
+
+
+void genkey_callback(int p, int n, void *arg) {
+	// Ignored as we dont want to show progress...
+}
+
+int add_ext(X509 *cert, int nid, char *value) {
+	X509_EXTENSION *ex;
+	X509V3_CTX ctx;
+	X509V3_set_ctx_nodb(&ctx);
+	X509V3_set_ctx(&ctx, cert, cert, NULL, NULL, 0);
+	ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, value);
+	if (!ex)
+		return 0;
+	X509_add_ext(cert,ex,-1);
+	X509_EXTENSION_free(ex);
+	return 1;
+}
+void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days) {
+	X509 *x;
+	EVP_PKEY *pk;
+	RSA *rsa;
+	X509_NAME *name=NULL;
+
+	if ((pkeyp == NULL) || (*pkeyp == NULL)) {
+		if ((pk=EVP_PKEY_new()) == NULL)
+			throw socket_helpers::socket_exception("Failed to create private key");
+	} else
+		pk = *pkeyp;
+
+	if ((x509p == NULL) || (*x509p == NULL)) {
+		if ((x=X509_new()) == NULL)
+			throw socket_helpers::socket_exception("Failed to create certificate");
+	} else
+		x = *x509p;
+
+	rsa=RSA_generate_key(bits,RSA_F4,genkey_callback,NULL);
+	if (!EVP_PKEY_assign_RSA(pk,rsa))
+		throw socket_helpers::socket_exception("Failed to assign RSA data");
+	rsa=NULL;
+
+	X509_set_version(x,2);
+	ASN1_INTEGER_set(X509_get_serialNumber(x),serial);
+	X509_gmtime_adj(X509_get_notBefore(x),0);
+	X509_gmtime_adj(X509_get_notAfter(x),(long)60*60*24*days);
+	X509_set_pubkey(x,pk);
+
+	name=X509_get_subject_name(x);
+
+	//X509_NAME_add_entry_by_txt(name,"C", MBSTRING_ASC, (unsigned char*)"NA", -1, -1, 0);
+	X509_NAME_add_entry_by_txt(name,"CN", MBSTRING_ASC, (unsigned char*)"NSClient++", -1, -1, 0);
+
+	X509_set_issuer_name(x,name);
+
+	add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
+	add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
+	add_ext(x, NID_subject_key_identifier, "hash");
+	add_ext(x, NID_netscape_cert_type, "sslCA");
+	add_ext(x, NID_netscape_comment, "example comment extension");
+
+	if (!X509_sign(x,pk,EVP_md5()))
+		throw socket_helpers::socket_exception("Failed to sign certificate");
+
+	*x509p=x;
+	*pkeyp=pk;
+}
+void socket_helpers::write_certs(std::string cert, std::string key) {
+	BIO *bio_err;
+	X509 *x509=NULL;
+	EVP_PKEY *pkey=NULL;
+
+	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+
+	bio_err=BIO_new_fp(stderr, BIO_NOCLOSE);
+
+	make_certificate(&x509,&pkey,512,0,365);
+
+	FILE *fout = fopen(cert.c_str(), "wb");
+	PEM_write_X509(fout,x509);
+	fclose(fout);
+	fout = fopen(key.c_str(), "wb");
+	PEM_write_PrivateKey(fout,pkey,NULL,NULL,0,NULL, NULL);
+	fclose(fout);
+
+	X509_free(x509);
+	EVP_PKEY_free(pkey);
+
+#ifndef OPENSSL_NO_ENGINE
+	ENGINE_cleanup();
+#endif
+	CRYPTO_cleanup_all_ex_data();
+
+	CRYPTO_mem_leaks(bio_err);
+	BIO_free(bio_err);
+}
+
+
 #endif
