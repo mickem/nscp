@@ -2,6 +2,9 @@
 #include <string>
 
 #include "NSClient++.h"
+
+#include <settings/settings_core.hpp>
+
 //#include <settings/settings_core.hpp>
 //#include <nsclient/logger.hpp>
 //#ifdef HAVE_JSON_SPIRIT
@@ -18,6 +21,8 @@ namespace nsclient_core {
 		bool load_all_;
 		bool use_samples_;
 		std::string filter_;
+
+		settings::settings_core* get_core() const;
 
 	public:
 		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) ;

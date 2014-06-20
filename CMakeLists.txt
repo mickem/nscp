@@ -380,16 +380,10 @@ ADD_SUBDIRECTORY("docs")
 # CTest setup and add testcases
 #
 #############################################################################
-if(WIN32)
-	IF(CMAKE_CL_64)
-		# Disabled for w32 due to linkage error with openssl from both python and nscp on x64 machines running w32
-		add_nscp_py_test(nsca test_nsca)
-		add_nscp_py_test(nrpe test_nrpe)
-	ENDIF(CMAKE_CL_64)
-ELSE(WIN32)
-	add_nscp_py_test(nsca test_nsca)
-	add_nscp_py_test(nrpe test_nrpe)
-ENDIF(WIN32)
+FOREACH(case "none" "xor" "des" "3des" "cast128" "xtea" "blowfish" "twofish" "rc2" "aes" "aes256" "aes192" "aes128" "serpent" "gost" "3way")
+	add_nscp_py_test_case(nsca test_nsca ${case})
+ENDFOREACH()
+add_nscp_py_test(nrpe test_nrpe)
 add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
 add_nscp_py_test(external_script test_external_script)

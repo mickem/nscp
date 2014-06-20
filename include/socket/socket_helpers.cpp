@@ -6,8 +6,9 @@
 #include <utf8.hpp>
 
 #include <socket/socket_helpers.hpp>
-
-
+#ifndef WIN32
+#include <openssl/x509v3.h>
+#endif
 const int socket_helpers::connection_info::backlog_default = 0;
 
 namespace ip = boost::asio::ip;

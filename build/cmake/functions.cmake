@@ -79,6 +79,15 @@ MACRO(add_nscp_py_test name script)
 			--script ${script}
 		)
 ENDMACRO(add_nscp_py_test)
+MACRO(add_nscp_py_test_case name script case)
+	ADD_TEST("${name}_${case}"
+		nscp 
+			unit
+			--language python
+			--script ${script}
+			--case ${case}
+		)
+ENDMACRO(add_nscp_py_test_case)
 
 MACRO(add_nscp_lua_test name script)
 IF (LUA_FOUND)

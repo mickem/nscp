@@ -284,12 +284,30 @@ class NSCAServerTest(BasicTest):
 			result.add(self.test_one_crypto_full(crypto, status.CRITICAL, 'crit', target, length))
 		return result
 
-	def run_test(self):
+	def run_test(self, cases=None):
 		result = TestResult()
 		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
 		for c in cryptos:
+			run_l = None
+			run_this = False
+			if cases:
+				tmp_l = None
+				for case in cases:
+					if '-' in case:
+						(run_c, tmp_l) = case.split('-', 2)
+					else:
+						run_c = case
+					if c == run_c:
+						run_l = int(tmp_l) if tmp_l else None
+						run_this = True
+				if not run_this:
+					result.add_message(True, 'Ignoring: %s-*'%c)
+					continue
 			for l in [128, 512, 1024, 4096]:
-				result.add(self.test_one_crypto(c, l))
+				if not run_l or run_l == l:
+					result.add(self.test_one_crypto(c, l))
+				else:
+					result.add_message(True, 'Ignoring: %s-%s'%(c, l))
 			#result.add(self.test_one_crypto(c))
 		
 		return result

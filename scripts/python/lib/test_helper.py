@@ -4,7 +4,7 @@ import inspect
 
 test_manager = None
 
-def install_testcases(tests):
+def install_testcases(tests, args = []):
 	test_manager = create_test_manager()
 	test_manager.add(tests)
 	test_manager.install()
@@ -241,7 +241,15 @@ class TestResultCollection(TestResultEntry):
 			if self.status and not entry.is_ok():
 				self.status = False
 			self.children.append(entry)
-	
+
+class ArgumentParserError(Exception): pass
+
+import argparse
+
+class ThrowingArgumentParser(argparse.ArgumentParser):
+    def error(self, message):
+        raise ArgumentParserError(message)
+
 class TestResult(TestResultCollection):
 
 	def __init__(self, title = 'DUMMY TITLE'):
@@ -317,12 +325,25 @@ class TestManager:
 		return result
 		
 	def run(self, arguments = []):
+		cases = []
+		try:
+			parser = ThrowingArgumentParser(prog='nscp')
+			parser.add_argument("--script", help="The script to run (sort of ignored)", action='store')
+			parser.add_argument("--case", help="Which test case to run", action='append')
+			args = parser.parse_args(arguments)
+			cases = args.case
+		except Exception as e:
+			log_error('Failed to parse command line: %s'%e)
+			
 		result = TestResult('Test result for %d suites'%len(self.suites))
 		for suite in self.suites:
 			instance = suite.getInstance()
 			instance.setup(self.plugin_id, self.prefix)
 			suite_result = TestResult('Running suite: %s'%instance.title())
-			suite_result.append(instance.run_test())
+			if cases:
+				suite_result.append(instance.run_test(cases))
+			else:
+				suite_result.append(instance.run_test())
 			result.append(suite_result)
 			result.add_message(suite_result.is_ok(), 'Result from suite: %s'%instance.title())
 			instance.teardown()
