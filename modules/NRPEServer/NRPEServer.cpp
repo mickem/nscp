@@ -42,7 +42,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	bool insecure;
 	settings.alias().add_key_to_settings()
 		("insecure", sh::bool_key(&insecure, false),
-		"ALLOW INSECURE CHIPHERS and ENCRYPTION", "This is for legacy reasons and should not be used as it effectivly disables encryption.")
+		"ALLOW INSECURE CHIPHERS and ENCRYPTION", "Only enable this if you are using legacy check_nrpe client.")
 		;
 
 	settings.register_all();
