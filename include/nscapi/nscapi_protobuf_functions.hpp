@@ -23,6 +23,7 @@
 #include <list>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_types.hpp>
@@ -37,6 +38,45 @@ namespace nscapi {
 			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 			
+			class settings_query {
+				::Plugin::SettingsRequestMessage request_message;
+				::Plugin::SettingsResponseMessage response_message;
+				std::string response_buffer;
+				int plugin_id;
+
+			public:
+				struct key_values {
+					std::string path;
+					boost::optional<std::string> key;
+					boost::optional<std::string> str_value;
+					boost::optional<long long> int_value;
+					boost::optional<bool> bool_value;
+					key_values(std::string path) : path(path) {}
+					key_values(std::string path, std::string key, std::string str_value) : path(path), key(key), str_value(str_value) {}
+					key_values(std::string path, std::string key, long long int_value) : path(path), key(key), int_value(int_value) {}
+					key_values(std::string path, std::string key, bool bool_value) : path(path), key(key), bool_value(bool_value) {}
+					std::string get_string() const;
+					bool get_bool() const;
+					long long get_int() const;
+				};
+				settings_query(int plugin_id);
+
+				void get(const std::string path, const std::string key, const std::string def);
+				void get(const std::string path, const std::string key, const char* def);
+				void get(const std::string path, const std::string key, const long long def);
+				void get(const std::string path, const std::string key, const bool def);
+
+				void set(const std::string path, const std::string key, std::string value);
+				const std::string request() const;
+				std::string& response() { return response_buffer; }
+				bool validate_response();
+				std::list<key_values> get_query_key_response() const ;
+				std::string get_response_error() const;
+				void save();
+				void load();
+				void reload();
+
+			};
 
 			inline void set_response_good(::Plugin::QueryResponseMessage::Response &response, std::string message) {
 				response.set_result(::Plugin::Common_ResultCode_OK);
