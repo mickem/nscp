@@ -156,6 +156,8 @@ cli_parser::alias_map cli_parser::get_aliases() {
 	aliases["wmi"] = "CheckWMI";
 	aliases["check_mk"] = "CheckMKClient";
 	aliases["mk"] = "CheckMKClient";
+	aliases["ext-scr"] = "CheckExternalScripts";
+	aliases["ext"] = "CheckExternalScripts";
 	return aliases;
 }
 

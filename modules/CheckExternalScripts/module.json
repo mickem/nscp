@@ -13,5 +13,7 @@
 
 	"commands" : {
 		"fallback" : "true"
-	}
+	},
+	"command line exec" : true
+
 }

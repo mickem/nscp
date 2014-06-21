@@ -32,6 +32,8 @@
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 
 #include <file_helpers.hpp>
 
@@ -176,6 +178,83 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 bool CheckExternalScripts::unloadModule() {
 	return true;
 }
+
+
+bool CheckExternalScripts::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	try {
+		if (request.arguments_size() > 0 && request.arguments(0) == "add")
+			add_script(request, response);
+		else if (request.arguments_size() > 0 && request.arguments(0) == "help") {
+
+		} else 
+			return false;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+	}
+	return true;
+}
+
+
+void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string script, arguments, alias;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("script", po::value<std::string>(&script), 
+		"Script to add")
+
+		("alias", po::value<std::string>(&alias), 
+		"Name of command to execute script (defaults to basename of script)")
+
+		("arguments", po::value<std::string>(&arguments), 
+		"Arguments for script.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+	boost::filesystem::path file = get_core()->expand_path(script);
+	if (!boost::filesystem::is_regular(file)) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
+		return;
+	}
+	if (alias.empty()) {
+		alias = boost::filesystem::basename(file.filename());
+	}
+
+	nscapi::protobuf::functions::settings_query s(get_id());
+	s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+	s.set("/modules", "CheckExternalScripts", "enabled");
+	s.save();
+	get_core()->settings_query(s.request(), s.response());
+	if (!s.validate_response()) {
+		nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+		return;
+	}
+	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script);
+}
+
 
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
