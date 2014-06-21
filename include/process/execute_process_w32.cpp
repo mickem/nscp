@@ -16,13 +16,14 @@ typedef hlp::buffer<char> buffer_type;
 static std::string readFromFile(buffer_type &buffer, HANDLE hFile) {
 	DWORD dwRead = 0;
 	std::string str;
+	DWORD chunk_size = buffer.size() - 10;
 	do {
-		DWORD retval = ReadFile(hFile, buffer, static_cast<DWORD>(buffer.size()), &dwRead, NULL);
-		if (retval == 0 || dwRead <= 0 || dwRead > buffer.size())
+		DWORD retval = ReadFile(hFile, buffer, chunk_size, &dwRead, NULL);
+		if (retval == 0 || dwRead <= 0 || dwRead > chunk_size)
 			return str;
 		buffer[dwRead] = 0;
 		str += buffer;
-	} while (dwRead == BUFF_SIZE);
+	} while (dwRead == chunk_size);
 	return str;
 }
 
