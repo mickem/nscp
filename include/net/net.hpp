@@ -105,7 +105,7 @@ namespace net {
 				std::string::const_iterator port_b = path_i; ++port_b;
 				std::string::const_iterator tmp = std::find(path_i, url_s.end(), '/');
 				std::string chunk = std::string(port_b, tmp);
-				if (chunk.find_first_not_of("0123456789") == std::string::npos) {
+				if (!chunk.empty() && chunk.find_first_not_of("0123456789") == std::string::npos) {
 					ret.port = boost::lexical_cast<unsigned int>(chunk);
 					path_i = tmp;
 				}
