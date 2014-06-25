@@ -25,7 +25,6 @@
 #include <strEx.h>
 #include <time.h>
 #include <timer.hpp>
-#include "handler_impl.hpp"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/shared_mutex.hpp>

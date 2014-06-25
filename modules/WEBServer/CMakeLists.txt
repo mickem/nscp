@@ -9,7 +9,6 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	stdafx.cpp
 	"${TARGET}.cpp"
-	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
@@ -31,15 +30,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		stdafx.h
 		"${TARGET}.h"
-		"handler_impl.hpp"
-		${NSCP_INCLUDEDIR}/nrpe/server/protocol.hpp
-		${NSCP_INCLUDEDIR}/nrpe/server/handler.hpp
-		${NSCP_INCLUDEDIR}/nrpe/server/parser.hpp
-		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
-		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/socket/server.hpp
-		${NSCP_INCLUDEDIR}/socket/connection.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
@@ -55,5 +46,4 @@ target_link_libraries(${TARGET}
 	${EXTRA_LIBS}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Server" REGULAR_EXPRESSION .*include/nrpe/.*)
 SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)
