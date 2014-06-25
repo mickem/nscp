@@ -22,7 +22,9 @@ namespace nrpe {
 	// Connection states:
 	// on_accept
 	// on_connect	-> connected	wants_data = true
-	// on_read		-> got_req.		has_data = true
+	// on_read		-> has_more		has_data = true
+	// on_write		-> has_more		has_data = true
+	// on_write		-> last_packet	has_data = true
 	// on_write		-> done
 
 	static const int socket_bufer_size = 8096;
@@ -37,7 +39,8 @@ namespace nrpe {
 		enum state {
 			none,
 			connected,
-			got_request,
+			has_more,
+			last_packet,
 			done
 		};
 
@@ -46,6 +49,7 @@ namespace nrpe {
 		nrpe::server::parser parser_;
 		state current_state_;
 		outbound_buffer_type data_;
+		std::list<nrpe::packet> responses_;
 
 		static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, handler_type handler) {
 			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
@@ -87,7 +91,7 @@ namespace nrpe {
 			return current_state_ == connected;
 		}
 		bool has_data() {
-			return current_state_ == got_request;
+			return current_state_ == has_more || current_state_ == last_packet;
 		}
 
 
@@ -97,22 +101,15 @@ namespace nrpe {
 				iterator_type old_begin = begin;
 				boost::tie(result, begin) = parser_.digest(begin, end);
 				if (result) {
-					nrpe::packet response;
 					try {
 						nrpe::packet request = parser_.parse();
-						response = handler_->handle(request);
+						responses_ = handler_->handle(request);
 					} catch (const std::exception &e) {
-						response = handler_->create_error("Exception processing request: " + utf8::utf8_from_native(e.what()));
+						responses_.push_back(handler_->create_error("Exception processing request: " + utf8::utf8_from_native(e.what())));
 					} catch (...) {
-						response = handler_->create_error("Exception processing request");
+						responses_.push_back(handler_->create_error("Exception processing request"));
 					}
-
-					try {
-						data_ = response.get_buffer();
-					} catch (const std::exception &e) {
-						log_debug(__FILE__, __LINE__, "Failed to create return package: " + utf8::utf8_from_native(e.what()));
-					}
-					set_state(got_request);
+					queue_next();
 					return true;
 				} else if (begin == old_begin) {
 					log_error(__FILE__, __LINE__, "Digester failed to parse chunk, giving up.");
@@ -121,8 +118,26 @@ namespace nrpe {
 			}
 			return true;
 		}
+		bool has_more_response() const {
+			return !responses_.empty();
+		}
+		void queue_next() {
+			try {
+				data_ = responses_.front().get_buffer();
+				responses_.pop_front();
+				if (has_more_response())
+					set_state(has_more);
+				else
+					set_state(last_packet);
+			} catch (const std::exception &e) {
+				log_debug(__FILE__, __LINE__, "Failed to create return package: " + utf8::utf8_from_native(e.what()));
+			}
+		}
 		void on_write() {
-			set_state(done);
+			if (current_state_ == last_packet)
+				set_state(done);
+			else
+				queue_next();
 		}
 		std::vector<char> get_outbound() const {
 			return data_;

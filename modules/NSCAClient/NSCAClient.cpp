@@ -411,6 +411,10 @@ struct client_handler : public socket_helpers::client::client_handler {
 	std::string get_password() {
 		return password_;
 	}
+	std::string expand_path(std::string path) {
+		return GET_CORE()->expand_path(path);
+	}
+
 };
 
 boost::tuple<int,std::string> NSCAClient::clp_handler_impl::send(connection_data con, const std::list<nsca::packet> packets) {

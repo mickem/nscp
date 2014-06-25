@@ -133,6 +133,10 @@ struct client_handler : public socket_helpers::client::client_handler {
 			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
+	std::string expand_path(std::string path) {
+		return GET_CORE()->expand_path(path);
+	}
+
 };
 
 void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {

@@ -37,6 +37,7 @@ namespace nrpe {
 		static const short unknownPacket = 0;
 		static const short queryPacket = 1;
 		static const short responsePacket = 2;
+		static const short moreResponsePacket = 3;
 		static const short version2 = 2;
 
 		static const std::size_t buffer_offset = 10;
@@ -208,7 +209,7 @@ namespace nrpe {
 				throw nrpe::nrpe_exception("Invalid packet length: " + strEx::s::xtos(length) + " != " + strEx::s::xtos(get_packet_length()) + " configured payload is: " + strEx::s::xtos(get_payload_length()));
 			const nrpe::data::packet *p = reinterpret_cast<const nrpe::data::packet*>(buffer);
 			type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
-			if ((type_ != nrpe::data::queryPacket)&&(type_ != nrpe::data::responsePacket))
+			if (type_ != nrpe::data::queryPacket && type_ != nrpe::data::responsePacket  && type_ != nrpe::data::moreResponsePacket)
 				throw nrpe::nrpe_exception("Invalid packet type: " + strEx::s::xtos(type_));
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
@@ -251,6 +252,9 @@ namespace nrpe {
 		}
 		static nrpe::packet create_response(int ret, std::string string, int buffer_length) {
 			return packet(nrpe::data::responsePacket, nrpe::data::version2, ret, string, buffer_length);
+		}
+		static nrpe::packet create_more_response(int ret, std::string string, int buffer_length) {
+			return packet(nrpe::data::moreResponsePacket, nrpe::data::version2, ret, string, buffer_length);
 		}
 	};
 }

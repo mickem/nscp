@@ -11,13 +11,16 @@ class handler_impl : public nrpe::server::handler {
 	bool noPerfData_;
 	bool allowNasty_;
 	bool allowArgs_;
+	bool multiple_packets_;
 public:
 	std::string encoding_;
 	handler_impl(unsigned int payload_length) 
 		: payload_length_(payload_length)
 		, noPerfData_(false)
 		, allowNasty_(false)
-		, allowArgs_(false) {}
+		, allowArgs_(false)
+		, multiple_packets_(false)
+	{}
 
 	unsigned int get_payload_length() {
 		return payload_length_;
@@ -26,7 +29,7 @@ public:
 		payload_length_ = payload;
 	}
 
-	nrpe::packet handle(nrpe::packet packet);
+	std::list<nrpe::packet> handle(nrpe::packet packet);
 
 	nrpe::packet create_error(std::string msg) {
 		return nrpe::packet::create_response(3, msg, payload_length_);
@@ -37,6 +40,9 @@ public:
 	}
 	virtual void set_allow_nasty_arguments(bool v) {
 		allowNasty_ = v;
+	}
+	virtual void set_multiple_packets(bool v) {
+		multiple_packets_ = v;
 	}
 	virtual void set_perf_data(bool v) {
 		noPerfData_ = !v;

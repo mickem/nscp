@@ -30,6 +30,10 @@ struct client_handler : public socket_helpers::client::client_handler {
 	void log_error(std::string file, int line, std::string msg) const {
 		std::cout << msg;
 	}
+	std::string expand_path(std::string path) {
+		return path;
+	}
+
 };
 
 void check_nrpe::query(const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response) {

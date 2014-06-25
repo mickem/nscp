@@ -376,6 +376,8 @@ namespace socket_helpers {
 
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;
+			virtual std::string expand_path(std::string path) = 0;
+
 		};
 	
 	}

@@ -9,10 +9,13 @@ namespace nrpe_client {
 
 		void custom_reader::init_default(target_object &target) {
 			target.set_property_int("timeout", 30);
-			target.set_property_string("dh", "${certificate-path}/nrpe_dh_512.pem");
+			//target.set_property_string("dh", "${certificate-path}/nrpe_dh_512.pem");
+			target.set_property_string("certificate", "${certificate-path}/certificate.pem");
+			target.set_property_string("certificate key", "${certificate-path}/certificate_key.pem");
 			target.set_property_string("certificate format", "PEM");
-			target.set_property_string("allowed ciphers", "ADH");
+			target.set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			target.set_property_string("verify mode", "none");
+			target.set_property_bool("insecure", false);
 			target.set_property_bool("ssl", true);
 			target.set_property_int("payload length", 1024);
 		}
@@ -26,14 +29,14 @@ namespace nrpe_client {
 				("timeout", sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
 				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
-				("dh", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
-				"DH KEY", "The diffi-hellman perfect forwarded secret to use", true)
+				("dh", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1)),
+				"DH KEY", "The diffi-hellman perfect forwarded secret to use setting --insecure will override this", true)
 
 				("certificate", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
 				"SSL CERTIFICATE", "The ssl certificate to use to encrypt the communication", false)
 
 				("certificate key", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
-				"SSL CERTIFICATE KEY", "Key for the SSL certificate", true)
+				"SSL CERTIFICATE KEY", "Key for the SSL certificate", false)
 
 				("certificate format", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
 				"CERTIFICATE FORMAT", "Format of SSL certificate", true)
@@ -41,8 +44,11 @@ namespace nrpe_client {
 				("ca", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
 				"CA", "The certificate authority to use to authenticate remote certificate", true)
 
-				("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
-				"ALLOWED CIPHERS", "The allowed list of ciphers, the default is insecure so a better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
+				("insecure", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "insecure", _1)),
+				"Insecure legacy mode", "Use insecure legacy mode to connect to old NRPE server", false)
+
+				("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH"),
+				"ALLOWED CIPHERS", "The allowed list of ciphers (setting insecure wil override this to only support ADH", true)
 
 				("verify mode", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
 				"VERIFY MODE", "What to verify default is non, to validate remote certificate use remote-peer", false)
@@ -77,10 +83,14 @@ namespace nrpe_client {
 
 
 
-		nrpe_client::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
+		nrpe_client::connection_data clp_handler_impl::parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
 			nscapi::protobuf::functions::destination_container recipient;
 			nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
-			return nrpe_client::connection_data(recipient, data->recipient);
+			nrpe_client::connection_data ret = nrpe_client::connection_data(recipient, data->recipient);
+			ret.ssl.ca_path = client_handler->expand_path(ret.ssl.ca_path);
+			ret.ssl.certificate = client_handler->expand_path(ret.ssl.certificate);
+			ret.ssl.certificate_key = client_handler->expand_path(ret.ssl.certificate_key);
+			return ret;
 		}
 
 
@@ -156,9 +166,16 @@ namespace nrpe_client {
 				nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
 				socket_helpers::client::client<nrpe::client::protocol> client(con, client_handler);
 				client.connect();
-				nrpe::packet response = client.process_request(packet);
+				std::list<nrpe::packet> responses = client.process_request(packet);
 				client.shutdown();
-				return boost::make_tuple(static_cast<int>(response.getResult()), response.getPayload());
+				int result = NSCAPI::returnUNKNOWN;
+				std::string payload;
+				if (responses.size() > 0)
+					result = static_cast<int>(responses.front().getResult());
+				BOOST_FOREACH(const nrpe::packet &p, responses) {
+					payload += p.getPayload();
+				}
+				return boost::make_tuple(result, payload);
 			} catch (nrpe::nrpe_exception &e) {
 				return boost::make_tuple(NSCAPI::returnUNKNOWN, std::string("NRPE Packet error: ") + e.what());
 			} catch (std::runtime_error &e) {
@@ -186,6 +203,9 @@ namespace nrpe_client {
 
 				("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
 				"Client certificate format (default is PEM)")
+
+				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "insecure", _1)), 
+				"Use insecure legacy mode")
 
 				("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
 				"A file representing the Certificate authority used to validate peer certificates")

@@ -177,7 +177,7 @@ namespace socket_helpers {
 				return ss.str();
 			}
 #ifdef USE_SSL
-			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors);
+			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors);
 			boost::asio::ssl::context::verify_mode get_verify_mode();
 			boost::asio::ssl::context::file_format get_certificate_format();
 			boost::asio::ssl::context::file_format get_certificate_key_format();

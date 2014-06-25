@@ -16,7 +16,7 @@ namespace nrpe {
 			typedef std::vector<char> read_buffer_type;
 			typedef std::vector<char> write_buffer_type;
 			typedef nrpe::packet request_type;
-			typedef nrpe::packet response_type;
+			typedef std::list<nrpe::packet> response_type;
 			typedef socket_helpers::client::client_handler client_handler;
 			static const bool debug_trace = false;
 
@@ -24,12 +24,14 @@ namespace nrpe {
 			std::vector<char> buffer_;
 			unsigned int  payload_length_;
 			boost::shared_ptr<client_handler> handler_;
+			response_type responses_;
 
 			enum state {
 				none,
 				connected,
 				has_request,
 				sent_response,
+				has_more,
 				done
 			};
 			state current_state_;
@@ -58,20 +60,27 @@ namespace nrpe {
 			}
 
 			response_type get_timeout_response() {
-				return nrpe::packet::unknown_response("Failed to read data");
+				response_type ret;
+				ret.push_back(nrpe::packet::unknown_response("Failed to read data"));
+				return ret;
 			}
 			response_type get_response() {
-				return nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
+				return responses_;
 			}
 			bool has_data() {
 				return current_state_ == has_request;
 			}
 			bool wants_data() {
-				return current_state_ == sent_response;
+				return current_state_ == sent_response || current_state_ == has_more;
 			}
 
 			bool on_read(std::size_t) {
-				set_state(connected);
+				nrpe::packet packet = nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
+				if (packet.getType() == nrpe::data::moreResponsePacket)
+					set_state(has_more);
+				else 
+					set_state(connected);
+				responses_.push_back(packet);
 				return true;
 			}
 			bool on_write(std::size_t) {

@@ -92,6 +92,8 @@ namespace nrpe_client {
 		boost::shared_ptr<socket_helpers::client::client_handler> client_handler;
 		clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler> client_handler) : client_handler(client_handler) {}
 
+		nrpe_client::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
+
 		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
 		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
 		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);

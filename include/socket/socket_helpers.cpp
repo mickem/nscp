@@ -163,7 +163,7 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 	}
 }
 #ifdef USE_SSL
-void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> errors) {
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) {
 	boost::system::error_code er;
 	if (!certificate.empty() && certificate != "none") {
 		context.use_certificate_file(certificate, get_certificate_format(), er);
@@ -309,7 +309,7 @@ void socket_helpers::write_certs(std::string cert, std::string key) {
 
 	bio_err=BIO_new_fp(stderr, BIO_NOCLOSE);
 
-	make_certificate(&x509,&pkey,512,0,365);
+	make_certificate(&x509,&pkey,2048,0,365);
 
 	FILE *fout = fopen(cert.c_str(), "wb");
 	PEM_write_X509(fout,x509);

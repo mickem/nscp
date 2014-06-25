@@ -343,6 +343,10 @@ struct client_handler : public socket_helpers::client::client_handler {
 			GET_CORE()->log(NSCAPI::log_level::error, file, line, utf8::utf8_from_native(msg));
 		}
 	}
+	std::string expand_path(std::string path) {
+		return GET_CORE()->expand_path(path);
+	}
+
 };
 
 void CheckMKClient::send(connection_data con) {

@@ -4,10 +4,12 @@
 #include "handler_impl.hpp"
 #include <config.h>
 
-nrpe::packet handler_impl::handle(nrpe::packet p) {
+std::list<nrpe::packet> handler_impl::handle(nrpe::packet p) {
+	std::list<nrpe::packet> packets;
 	strEx::s::token cmd = strEx::s::getToken(p.getPayload(), '!');
 	if (cmd.first == "_NRPE_CHECK") {
-		return nrpe::packet::create_response(NSCAPI::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length());
+		packets.push_back(nrpe::packet::create_response(NSCAPI::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
+		return packets;
 	}
 	if (!allowArgs_) {
 		if (!cmd.second.empty()) {
@@ -34,20 +36,21 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 			ret = nscapi::core_helper::simple_query_from_nrpe(utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_)), utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_)), wmsg, wperf);
 		}
 	} catch (...) {
-		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length());
+		packets.push_back(nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
+		return packets;
 	}
 	switch (ret) {
 	case NSCAPI::returnInvalidBufferLen:
-		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Return buffer to small to handle this command.", p.get_payload_length());
+		throw nrpe::nrpe_exception("UNKNOWN: Return buffer to small to handle this command.");
 	case NSCAPI::returnIgnored:
-		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: No handler for that command.", p.get_payload_length());
+		throw nrpe::nrpe_exception("UNKNOWN: No handler for that command.");
 	case NSCAPI::returnOK:
 	case NSCAPI::returnWARN:
 	case NSCAPI::returnCRIT:
 	case NSCAPI::returnUNKNOWN:
 		break;
 	default:
-		return nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal error.", p.get_payload_length());
+		throw nrpe::nrpe_exception("UNKNOWN: Internal error.");
 	}
 	std::string data,msg, perf;
 	if (encoding_.empty()) {
@@ -57,18 +60,29 @@ nrpe::packet handler_impl::handle(nrpe::packet p) {
 		msg = utf8::to_encoding(utf8::cvt<std::wstring>(wmsg), encoding_);
 		perf = utf8::to_encoding(utf8::cvt<std::wstring>(wperf), encoding_);
 	}
-
 	const unsigned int max_len = p.get_payload_length()-1;
-	if (msg.length() >= max_len) {
-		data = msg.substr(0, max_len);
-	} else if (perf.empty() || noPerfData_) {
-		data = msg;
-	} else if (msg.length() + perf.length() + 1 > max_len) {
-		data = msg;
-	} else {
+	if (multiple_packets_) {
 		data = msg + "|" + perf;
+		std::size_t data_len = data.size();
+		for (std::size_t i = 0; i < data_len; i+=max_len) {
+			if (i > data_len - max_len)
+				packets.push_back(nrpe::packet::create_response(ret, data.substr(i, max_len), p.get_payload_length()));
+			else
+				packets.push_back(nrpe::packet::create_more_response(ret, data.substr(i, max_len), p.get_payload_length()));
+		}
+	} else {
+		if (msg.length() >= max_len) {
+			data = msg.substr(0, max_len);
+		} else if (perf.empty() || noPerfData_) {
+			data = msg;
+		} else if (msg.length() + perf.length() + 1 > max_len) {
+			data = msg;
+		} else {
+			data = msg + "|" + perf;
+		}
+		packets.push_back(nrpe::packet::create_response(ret, data, p.get_payload_length()));
 	}
-	return nrpe::packet::create_response(ret, data, p.get_payload_length());
+	return packets;
 }
 
 
