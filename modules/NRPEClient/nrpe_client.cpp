@@ -87,9 +87,17 @@ namespace nrpe_client {
 			nscapi::protobuf::functions::destination_container recipient;
 			nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
 			nrpe_client::connection_data ret = nrpe_client::connection_data(recipient, data->recipient);
-			ret.ssl.ca_path = client_handler->expand_path(ret.ssl.ca_path);
-			ret.ssl.certificate = client_handler->expand_path(ret.ssl.certificate);
-			ret.ssl.certificate_key = client_handler->expand_path(ret.ssl.certificate_key);
+			if (data->recipient.get_bool_data("insecure")) {
+				ret.ssl.ca_path = "";
+				ret.ssl.certificate = "";
+				ret.ssl.certificate_key = "";
+				ret.ssl.allowed_ciphers = "ADH";
+				ret.ssl.dh_key = client_handler->expand_path("${certificate-path}/nrpe_dh_512.pem");
+			} else {
+				ret.ssl.ca_path = client_handler->expand_path(ret.ssl.ca_path);
+				ret.ssl.certificate = client_handler->expand_path(ret.ssl.certificate);
+				ret.ssl.certificate_key = client_handler->expand_path(ret.ssl.certificate_key);
+			}
 			return ret;
 		}
 
