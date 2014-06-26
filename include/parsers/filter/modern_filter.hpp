@@ -143,6 +143,7 @@ namespace modern_filter {
 		bool is_debug() const;
 		void set_debug(bool debug_);
 		bool has_errors() const;
+		std::string get_errors() const;
 	};
 
 	template<class Tobject, class Tfactory>
@@ -268,6 +269,11 @@ namespace modern_filter {
 			if (error_handler)
 				return error_handler->has_errors();
 			return false;
+		}
+		std::string get_errors() const {
+			if (error_handler)
+				return error_handler->get_errors();
+			return "unknown";
 		}
 
 		void register_leaf_performance_data(const parsers::where::performance_node &node, const bool is_crit) {

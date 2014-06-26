@@ -422,7 +422,7 @@ public:
 		}
 	}
 
-	void getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs) {
+	bool getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs) {
 		hlp::tchar_buffer volumeName(1024);
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
@@ -430,12 +430,15 @@ public:
 		if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(), 
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
 				DWORD dwErr = GetLastError();
+				if (dwErr == ERROR_PATH_NOT_FOUND)
+					return false;
 				if (dwErr != ERROR_NOT_READY)
 					NSC_LOG_ERROR("Failed to get volume information " + utf8::cvt<std::string>(volume) + ": " + error::lookup::last_error());
 		} else {
 			name = volumeName.get();
 			fs = fileSysName.get();
 		}
+		return true;
 	}
 
 	std::list<std::wstring> GetVolumePathNamesForVolumeName(std::wstring volume) {
@@ -506,15 +509,15 @@ public:
 		BOOL bFlag = TRUE;
 		while (bFlag) {
 			std::wstring name, fs;
-			getVolumeInformation(volume, name, fs);
+			bool is_valid = getVolumeInformation(volume, name, fs);
 
 			bool found_mp = false;
-			std::string title = utf8::cvt<std::string>(get_title(volume));
+			std::string title = utf8::cvt<std::string>(name);
 			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
 				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title));
 				found_mp = true;
 			}
-			if (!found_mp)
+			if (!found_mp && is_valid)
 				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title));
 			bFlag = FindNextVolume(hVol, volume);
 		}
@@ -644,7 +647,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
 		modern_filter::match_result ret = filter.match(obj);
 		if (filter.has_errors())
-			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
+			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
 		if (ret.is_done) {
 			break;
 		}
@@ -654,7 +657,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	if (total) {
 		filter.match(total_obj);
 		if (filter.has_errors())
-			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed (see log for details)");
+			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
 	}
 
 	modern_filter::perf_writer writer(response);

@@ -16,6 +16,9 @@ namespace modern_filter {
 	void error_handler_impl::log_debug(const std::string error) {
 		NSC_DEBUG_MSG_STD(error);
 	}
+	std::string error_handler_impl::get_errors() const {
+		return error;
+	}
 
 	bool error_handler_impl::is_debug() const {
 		return debug;
