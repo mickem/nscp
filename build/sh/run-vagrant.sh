@@ -12,5 +12,6 @@ if $EXIT == 0 ; then
 else
   echo "Build failed: $EXIT"
 fi
-vagrant destroy --force
+vagrant destroy --force 2>&1 1> /dev/null
+echo "New machine destroyed"
 exit $EXIT
