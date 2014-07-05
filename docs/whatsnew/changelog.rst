@@ -1,6 +1,0 @@
-+++++++++
-Changelog
-+++++++++
-
-.. literalinclude:: ../../../changelog
-

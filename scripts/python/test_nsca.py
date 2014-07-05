@@ -1,4 +1,4 @@
-from NSCP import Settings, Registry, Core, log, status, log_error, sleep
+from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
 from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 import plugin_pb2
 from types import *
@@ -121,7 +121,7 @@ class NSCAServerTest(BasicTest):
 	inbox_handler = Callable(inbox_handler)
 	
 	def simple_inbox_handler_wrapped(self, channel, source, command, status, message, perf):
-		log('Got message %s on %s'%(command, channel))
+		log_debug('Got message %s on %s'%(command, channel))
 		msg = NSCAMessage(command)
 		msg.source = source
 		msg.status = status
@@ -138,7 +138,7 @@ class NSCAServerTest(BasicTest):
 			log_error("Got invalid message on channel: %s"%channel)
 			return None
 		command = message.payload[0].command
-		log('Got message %s on %s'%(command, channel))
+		log_debug('Got message %s on %s'%(command, channel))
 		
 		msg = NSCAMessage(command)
 		msg.got_response = True
@@ -152,10 +152,10 @@ class NSCAServerTest(BasicTest):
 		found = False
 		for i in range(0,10):
 			if not self.has_response(uuid):
-				log('Waiting for %s (%d/10)'%(uuid, i+1))
+				log_debug('Waiting for %s (%d/10)'%(uuid, i+1))
 				sleep(200)
 			else:
-				log('Got response %s'%uuid)
+				log_debug('Got response %s'%uuid)
 				found = True
 				break
 		if not found:
@@ -165,10 +165,10 @@ class NSCAServerTest(BasicTest):
 		for i in range(0,10):
 			rmsg = self.get_response(uuid)
 			if not rmsg.got_simple_response or not rmsg.got_response:
-				log('Waiting for delayed response %s s/m: %s/%s - (%d/10)'%(uuid, rmsg.got_simple_response, rmsg.got_response, i+1))
+				log_debug('Waiting for delayed response %s s/m: %s/%s - (%d/10)'%(uuid, rmsg.got_simple_response, rmsg.got_response, i+1))
 				sleep(500)
 			else:
-				log('Got delayed response %s'%uuid)
+				log_debug('Got delayed response %s'%uuid)
 				break
 		
 		result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
@@ -251,6 +251,7 @@ class NSCAServerTest(BasicTest):
 		return result
 
 	def test_one_crypto(self, crypto, length=512):
+		log('Testing: %s %d'%(crypto, length))
 		conf = self.conf
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '%s'%crypto)
 		conf.set_string('/settings/NSCA/test_nsca_server', 'password', 'pwd-%s'%crypto)

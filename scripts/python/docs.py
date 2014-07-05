@@ -1,3 +1,5 @@
+﻿#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 from NSCP import Settings, Registry, Core, log, log_debug, log_error, status
 import plugin_pb2
 from optparse import OptionParser
@@ -7,137 +9,209 @@ import csv
 import traceback
 import StringIO
 import string
+from jinja2 import Template, Environment
+import hashlib
 helper = None
 
-all_samples = []
+module_template = u""".. default-domain:: nscp
 
-def ttfix(string, def_val = ' '):
-	if not string or len(string) == 0:
-		return def_val
-	return string
-def key2link(str):
-	str = str.replace('/', '_')
-	str = str.replace(' ', '_')
-	return str
-	
-def indent(numSpaces, s, prefix=''):
-	ret = ''
-	for line in s.split('\n'):
-		if line != '\n':
-			ret += (numSpaces * ' ') + prefix + line + '\n'
-		else:
-			ret += line + '\n'
-	return ret
-	#str = '\n'.join([(numSpaces * ' ') + string.lstrip(line) for line in s.split('\n')])
+.. module:: {{module.key}}
+    :synopsis: {{module.info.description}}
 
-class RSTRenderer(object):
-	
-	def page_header(self, type, key):
-		return '.. default-domain:: nscp\n\n'
+{{(':module:`' + module.key + '` --- ' + module.info.title)|rst_heading('=', True)}}
+{{module.info.description}}
 
-	def table(self, table):
-		cols = {}
-		for line in table:
-			i=0
-			for col in line:
-				if i in cols:
-					cols[i] = max(cols[i], len(col))
-				else:
-					cols[i] = len(col)
-				i=i+1
-		divider = ''
-		header = ''
-		data = ''
-		first = True
-		for line in table:
-			i=0
-			for col in line:
-				if first:
-					divider += '%s '%''.ljust(cols[i]+1, '=')
-					header += '%s '%col.ljust(cols[i]+1, ' ')
-				else:
-					data += '%s '%col.ljust(cols[i]+1, ' ')
-				i=i+1
-			if not first:
-				data += "\n"
-			first = False
-		return '%s\n%s\n%s\n%s%s\n\n'%(divider, header, divider, data, divider)
-		
-	def obj_link(self, type, name, title=None):
-		if title:
-			return ':%s:`%s<%s>`'%(type, title, name)
-		return ':%s:`%s`'%(type, name)
+{% if module.queries -%}
+**Queries (Overview)**:
 
-	def obj_anchor(self, type, name, desc):
-		return '.. %s:: %s\n    :synopsis: %s\n\n'%(type, name, desc)
-		
-	def link(self, k1, k2=None, k3=None, k4=None, title=None):
-		keys = k1.replace('/', '_')
-		if k2:
-			keys += "__" + k2.replace('/', '_')
-		if k3:
-			keys += "__" + k3.replace('/', '_')
-		if k4:
-			keys += "__" + k4.replace('/', '_')
-		if title:
-			return ':ref:`%s <%s>`'%(title, keys)
-		return ':ref:`%s`'%(keys)
-		
-	def anchor(self, k1, k2=None, k3=None, k4=None):
-		keys = k1.replace('/', '_')
-		if k2:
-			keys += "__" + k2.replace('/', '_')
-		if k3:
-			keys += "__" + k3.replace('/', '_')
-		if k4:
-			keys += "__" + k4.replace('/', '_')
-		return '.. _%s:\n\n'%keys
-		
-	def title(self, level, title):
-		l = len(title)
-		if level == 0:
-			tag = ''.rjust(l, '=')
-			return "%s\n%s\n%s\n"%(tag, title, tag)
-		else:
-			if level == 1:
-				char = '='
-			elif level == 2:
-				char = '-'
-			elif level == 3:
-				char = '*'
-			else:
-				char = '.'
-			tag = ''.rjust(l, char)
-			return "%s\n%s\n"%(title, tag)
+A list of all avalible queries (check commands)
+{% set table = [] -%}
+{% for key,query in module.queries|dictsort  -%}
+	{% if query.info.description.startswith('Alternative name for:') -%}
+		{% set command = query.info.description[22:] -%}
+		{% do table.append([query.key|rst_link('query'), command|rst_link('query')]) -%}
+	{%- elif query.info.description.startswith('Alias for:') -%}
+		{% set command = query.info.description[11:] -%}
+		{% do table.append([query.key|rst_link('query'), command|rst_link('query')]) -%}
+	{%- else -%}
+		{% do table.append([query.key|rst_link('query'), query.info.description|firstline]) -%}
+	{%- endif %}
+{%- endfor %}
+{{table|rst_csvtable('Command', 'Description')}}
+{%- endif %}
 
-	def para(self, text, text2 = None):
-		if text2:
-			return '%s: %s\n\n'%(text, text2)
-		return '%s\n\n'%text
-		
-	def serialize(self, string, filename):
-		path = os.path.dirname(filename)
-		if not os.path.exists(path):
-			os.makedirs(path)
-		f = open(filename,"w")
-		f.write(string)
-		f.close()
-		log_debug('Writing file: %s'%filename)
-		
-	def heading(self, title, text):
-		return '**%s**:\n\n%s\n\n'%(title, text)
-		
-	def sample(self, block, pad=4):
-		return '**Sample**::\n\n%s\n\n'%indent(pad, block)
-		
-	def code_block(self, block, language, padlen=4):
-		return '.. code-block:: %s\n\n%s\n\n'%(language, )
+{% if module.aliases -%}
+**Aliases (Overview)**:
+
+A list of all short hand aliases for queries (check commands)
+
+{% set table = [] %}
+{% for key,query in module.aliases|dictsort  -%}
+	{% if query.info.description.startswith('Alternative name for:') -%}
+		{% set command = query.info.description[22:] -%}
+		{% do table.append([query.key, command|rst_link('query')]) -%}
+	{%- elif query.info.description.startswith('Alias for:') -%}
+		{% set command = query.info.description[11:] -%}
+		{% do table.append([query.key, command|rst_link('query')]) -%}
+	{%- else -%}
+		{% do table.append([query.key, query.info.description|firstline]) -%}
+	{%- endif %}
+{%- endfor %}
+{{table|rst_csvtable('Command', 'Description')}}
+{%- endif %}
+
+**Commands (Overview)**: 
+
+**TODO:** Add a list of all external commands (this is not check commands)
+
+{% if module.paths -%}
+**Configuration (Overview)**:
+
+{% set table = [] -%}
+{% set table_adv = [] -%}
+{% set table_sam = [] -%}
+{% for k,path in module.paths|dictsort  -%}
+	{% set pkey = path.key|rst_link('confpath') -%}
+	{% for k,key in path.keys|dictsort  -%}
+		{% set kkey = ("~"+path.key+"."+k)|rst_link('confkey') -%}
+		{% if key.info.sample -%}
+			{% do table_sam.append([pkey, kkey, key.info.title|firstline]) -%}
+		{%- elif key.info.advanced -%}
+			{% do table_adv.append([pkey, kkey, key.info.title|firstline]) -%}
+		{%- else -%}
+			{% do table.append([pkey, kkey, key.info.title|firstline]) -%}
+		{%- endif %}
+	{%- endfor %}
+{%- endfor %}
+{% if table -%}
+Common Keys:
+
+{{table|rst_csvtable('Path / Section', 'Key', 'Description')}}
+{%- endif %}
+{% if table_adv -%}
+Advanced keys:
+
+{{table_adv|rst_csvtable('Path / Section', 'Key', 'Default Value', 'Description')}}
+{%- endif %}
+{% if table_sam -%}
+Sample keys:
+
+{{table_sam|rst_csvtable('Path / Section', 'Key', 'Default Value', 'Description')}}
+{%- endif %}
+{%- endif %}
+
+{% if module.queries -%}
+
+Queries
+=======
+A quick reference for all avalible queries (check commands) in the {{module.key}} module.
+
+{% for k,query in module.queries|dictsort -%}
+
+{{(':query:`'+query.key+'`')|rst_heading}}
+.. query:: {{query.key}}
+    :synopsis: {{query.info.description|firstline}}
+
+**Usage:**
+
+{% set table = [] %}
+{% for help in query.help -%}
+    {% do table.append([help.key|rst_link('option'), help.arg, help.desc|firstline]) %}
+{%- endfor %}
+{{table|rst_csvtable('Option', 'Default Value', 'Description')}}
+
+Arguments
+*********
+{% for help in query.help -%}
+.. option:: {{help.key}}
+    :synopsis: {{help.desc|firstline}}
+
+{%if help.ext -%}
+{{help.ext.head|block_pad(4, '| ')}}
+
+{{help.ext.data|rst_table|block_pad(4, '  ')}}
+
+{{help.ext.tail|block_pad(4, '| ')}}
+
+{% else -%}
+{{help.desc|block_pad(4, '| ')}}
+{%- endif %}
+{{'\n'}}
+{%- endfor %}
+{% if query.sample %}
+Samples
+*******
+{%if module.namespace %}
+.. include:: ../../samples/{{query.sample}}
+{% else %}
+.. include:: ../samples/{{query.sample}}
+{% endif %}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+{% for pkey,path in module.paths|dictsort %}
+{% set common_heading=module.paths.keys()|common_head|length %}
+{{("… " + pkey[common_heading:])|replace("/", " / ")|rst_heading}}
+.. confpath:: {{pkey}}
+    :synopsis: {{path.info.title|firstline}}
+
+    **{{path.info.title}}**
+
+{{path.info.description|block_pad(4, '| ')}}
+
+{% set table = [] -%}
+{% set pkey = path.key|rst_link('confpath') -%}
+{% for k,key in path.keys|dictsort  -%}
+    {% set kkey = k|rst_link('confkey') -%}
+    {% do table.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+{%- endfor %}
+{{table|rst_csvtable('Key', 'Default Value', 'Description')}}
+
+**Sample**::
+
+    # {{path.info.title}}
+    # {{path.info.description|firstline}}
+    [{{path.key}}]
+{% for kkey,key in path.keys|dictsort %}    {{kkey}}={{key.info.default_value|extract_value}}
+{% endfor %}
+{% for kkey,key in path.keys|dictsort %}
+.. confkey:: {{kkey}}
+    :synopsis: {{key.info.title}}
+
+    **{{key.info.title}}**
+
+{{key.info.description|block_pad(4, '| ')}}
+
+{% if key.info.advanced %}    **Advanced** (means it is not commonly used)
+
+{% endif %}    **Path**: {{path.key}}
+
+    **Key**: {{kkey}}
+
+{% if key.info.default_value %}    **Default value**: {{key.info.default_value|extract_value}}
+
+{% endif %}{% if key.info.sample %}    **Sample key**: This key is provided as a sample to show how to configure objects
+
+{% endif %}    **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+
+    **Sample**::
+
+        # {{key.info.title}}
+        # {{key.info.description|firstline}}
+        [{{path.key}}]
+        {{kkey}}={{key.info.default_value|extract_value}}
+
+{% endfor %}
+{% endfor %}
+"""
 
 class root_container(object):
 	paths = {}
 	commands = {}
 	aliases = {}
 	plugins = {}
+	windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins']
 	def __init__(self):
 		self.paths = {}
 		self.commands = {}
@@ -162,6 +236,7 @@ class root_container(object):
 		name = info.name
 		if not name in self.commands:
 			self.commands[name] = command_container(info)
+
 	def append_alias(self, info):
 		name = info.name
 		if not name in self.commands:
@@ -169,8 +244,19 @@ class root_container(object):
 
 	def append_plugin(self, info):
 		name = info.name
+		namespace = ''
+		if name in self.windows_modules:
+			namespace = 'windows'
 		if not name in self.plugins:
-			self.plugins[name] = plugin_container(info)
+			self.plugins[name] = plugin_container(info, namespace)
+			
+	def get_hash(self):
+		ret = {}
+		ret['paths'] = self.paths
+		ret['commands'] = self.commands
+		ret['aliases'] = self.aliases
+		ret['plugins'] = self.plugins
+		return ret
 
 class path_container(object):
 	keys = {}
@@ -189,9 +275,113 @@ class command_container(object):
 
 class plugin_container(object):
 	info = None
-	def __init__(self, info = None):
+	namespace = ''
+	def __init__(self, info = None, namespace = ''):
 		self.info = info.info
+		self.namespace = namespace
 
+def first_line(string):
+    return string.strip().split('\n')[0]
+
+def make_rst_link(name, type, title = None):
+	if title:
+		return ':%s:`%s<%s>`'%(type, title, name)
+	return ':%s:`%s`'%(type, name)
+
+def largest_value(a,b):
+	return map(lambda n: n[0] if len(n[0])>len(n[1]) else n[1], zip(a, b))
+
+def extract_value(value):
+	if value.HasField("string_data"):
+		return value.string_data
+	return '??? %s ???'%value
+
+def block_pad(string, pad, prefix = ''):
+	string = string.strip()
+	if not string:
+		return ''
+	ret = ''
+	for line in string.split('\n'):
+		if line != '\n':
+			ret += (pad * ' ') + prefix + line + '\n'
+		else:
+			ret += line + '\n'
+	return ret.rstrip()
+
+def render_rst_csv_table(table, *header):
+	if not table:
+		return ''
+	ret = """.. csv-table:: 
+    :class: contentstable 
+    :delim: | 
+"""
+	ret += "    :header: " + ", ".join(map(lambda a: '"%s"'%a, header))
+	ret += "\n\n"
+	for line in table:
+		ret += '    ' + ' | '.join(line) + '\n'
+	return ret
+ 
+
+def render_rst_table(table, *args):
+	if not table:
+		return ''
+	if args:
+		table.insert(0, args)
+	ret = ''
+	maxcol = map(lambda a:len(a)+1, reduce(lambda a,b: largest_value(a,b), table))
+	divider = ''.join(map(lambda a:''.ljust(a,'=') + ' ', maxcol)) + '\n'
+	for line in table:
+		c = ''.join(map(lambda a:a[1].ljust(a[0],' ') + ' ', zip(maxcol, line))) + '\n'
+		if not ret:
+			c = c + divider
+		ret = ret + c
+	return divider + ret + divider
+	
+def render_rst_heading(string, char='-', top=False):
+	if top:
+		return "\n".rjust(len(string)+1, char) + string + "\n".ljust(len(string)+1, char)
+	return string + "\n".ljust(len(string)+1, char)
+
+def getcommonletters(strlist):
+	return ''.join([x[0] for x in zip(*strlist) \
+					 if reduce(lambda a,b:(a == b) and a or None,x)])
+
+def calculate_common_head(strlist):
+	strlist = strlist[:]
+	prev = None
+	while True:
+		common = getcommonletters(strlist)
+		if common == prev:
+			break
+		strlist.append(common)
+		prev = common
+
+	return getcommonletters(strlist)
+
+def render_template(hash, template, filename):
+	data = template.render(hash).encode('utf8')
+	
+	path = os.path.dirname(filename)
+	if not os.path.exists(path):
+		os.makedirs(path)
+
+	if os.path.exists(filename):
+		m1 = hashlib.sha256()
+		m1.update(data)
+		sha1 = m1.digest()
+		with open(filename) as f:
+			m2 = hashlib.sha256()
+			m2.update(f.read())
+			sha2 = m2.digest()
+		if sha1 == sha2:
+			log_debug("no changes detected in: %s"%filename)
+			return
+
+	log_debug('Writing file: %s'%filename)
+	f = open(filename,"w")
+	f.write(data)
+	f.close()
+	
 class DocumentationHelper(object):
 	plugin_id = None
 	plugin_alias = None
@@ -200,7 +390,7 @@ class DocumentationHelper(object):
 	registry = None
 	core = None
 	dir = None
-	renderer = RSTRenderer()
+	command_cache = {}
 	
 	def __init__(self, plugin_id, plugin_alias, script_alias):
 		self.plugin_id = plugin_id
@@ -209,6 +399,7 @@ class DocumentationHelper(object):
 		self.conf = Settings.get(self.plugin_id)
 		self.registry = Registry.get(self.plugin_id)
 		self.core = Core.get(self.plugin_id)
+		self.command_cache = {}
 		
 	def build_inventory_request(self,  path = '/', recursive = True, keys = False):
 		message = plugin_pb2.SettingsRequestMessage()
@@ -264,6 +455,7 @@ class DocumentationHelper(object):
 					return payload.inventory
 		log_error('No commands found')
 		return []
+
 	def get_query_aliases(self):
 		(code, data) = self.registry.query(self.build_command_request(5))
 		if code == 1:
@@ -301,302 +493,116 @@ class DocumentationHelper(object):
 		for p in self.get_plugins():
 			root.append_plugin(p)
 		return root
-
-
-	def any_value(self, value):
-		if value.HasField("string_data"):
-			return value.string_data
-		return '??? %s ???'%value
-
-
-	def generate_rst_config_table(self, paths, module = None):
-		renderer = self.renderer
-		regular_keys = []
-
-		advanced_keys = []
-		sample_keys = []
-		for (p,pinfo) in sorted(paths.iteritems()):
-			if not module or module in pinfo.info.plugin:
-				found_key = False
-				plink = renderer.obj_link('confpath', p)
-				for (k,kinfo) in pinfo.keys.iteritems():
-					found_key = True
-					link = renderer.obj_link('confkey', '~%s.%s'%(p, k))
-					if kinfo.info.sample:
-						sample_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-					elif not kinfo.info.advanced:
-						regular_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-					else:
-						advanced_keys.append([plink, link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-				if not found_key:
-					regular_keys.append([plink, '', '', pinfo.info.title])
-		if regular_keys or advanced_keys or sample_keys:
-			regular_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
-			ret = renderer.table(regular_keys)
-			if advanced_keys:
-				ret += 'Advanced keys:\n\n'
-				advanced_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
-				ret += renderer.table(advanced_keys)
-			if sample_keys:
-				ret += 'Sample keys:\n\n'
-				sample_keys.insert(0, ['Path / Section', 'Key', 'Default value', 'Description'])
-				ret += renderer.table(sample_keys)
-			return ret
-		return False
-
-	def generate_rst_config_details(self, paths, module = None):
-		renderer = self.renderer
-		string = ''
-		prefix = None
-		for (path,pinfo) in paths.iteritems():
-			if not module or module in pinfo.info.plugin:
-				if not prefix:
-					prefix = path
-				else:
-					p1 = prefix.split('/')
-					p2 = path.split('/')
-					i = 0
-					while True:
-						if i >= len(p1) or i >= len(p2):
-							break
-						if p1[i] != p2[i]:
-							prefix = '/'.join(p1[0:i])
-							break
-						i = i + 1
-		path_start = len('/'.join(prefix.split('/')[0:-1]))
 		
-		for (path,pinfo) in paths.iteritems():
-			if not module or module in pinfo.info.plugin:
-				string += renderer.title(2, '...%s'%(path[path_start:].replace('/', ' / ')))
-				string += renderer.obj_anchor('confpath', path, pinfo.info.description)
-
-				regular_keys = []
-				advanced_keys = []
-				sample_keys = []
-				for (k,kinfo) in sorted(pinfo.keys.iteritems()):
-					link = renderer.obj_link('confkey', k)
-					if kinfo.info.sample:
-						sample_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-					elif not kinfo.info.advanced:
-						regular_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-					else:
-						advanced_keys.append([link, self.any_value(kinfo.info.default_value), kinfo.info.title])
-				if regular_keys or advanced_keys or sample_keys:
-					regular_keys.insert(0, ['Key', 'Default Value', 'Description'])
-					regular_keys.extend(advanced_keys)
-					regular_keys.extend(sample_keys)
-					string += renderer.table(regular_keys)
-				
-				sample  = "# %s\n"%pinfo.info.title
-				sample += "# %s\n"%pinfo.info.description.split('\n')[0]
-				sample += "[%s]\n"%path
-				for (k,kinfo) in pinfo.keys.iteritems():
-					if not module or module in pinfo.info.plugin:
-						sample += "# %s\n"%kinfo.info.title
-						sample += "# %s\n"%kinfo.info.description.split('\n')[0]
-						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
-				string += renderer.sample(sample)
-
-				for (k,kinfo) in pinfo.keys.iteritems():
-					if not module or module in pinfo.info.plugin:
-						string += renderer.obj_anchor('confkey', k, kinfo.info.title)
-						string += renderer.para(indent(4, '**%s**'%kinfo.info.title))
-						string += renderer.para(indent(4, kinfo.info.description.replace('\\n', '\n'), prefix='| '))
-						if kinfo.info.advanced:
-							string += renderer.para(indent(4, "**Advanced** (means it is not commonly used)"))
-						string += renderer.para(indent(4, "**Path**: %s"%path))
-						string += renderer.para(indent(4, "**Key**: %s"%k))
-						if kinfo.info.default_value:
-							string += renderer.para(indent(4, "**Default value**: %s"%self.any_value(kinfo.info.default_value)))
-						if kinfo.info.sample:
-							string += renderer.para(indent(4, "**Sample key**: This key is provided as a sample to show how to configure objects"))
-						mods = ""
-						for p in pinfo.info.plugin:
-							if mods:
-								mods += ", "
-							mods += ":module:`%s`"%p
-						string += renderer.para(indent(4, "**Used by**: %s"%mods))
-						sample  = "# %s\n"%kinfo.info.title
-						sample += "# %s\n"%kinfo.info.description.split('\n')[0]
-						sample += "[%s]\n"%path
-						sample += "%s=%s\n"%(k, self.any_value(kinfo.info.default_value))
-						string += indent(4, renderer.sample(sample))
-		return string
-
-	def generate_rst_command_details(self, command, cinfo, module, path_prefix):
-		global all_samples
-		renderer = self.renderer
-		string = renderer.title(2, ':query:`%s`'%command)
-		string += renderer.obj_anchor('query', command, cinfo.info.description)
+	def fetch_command(self, command, cinfo):
+		cinfo.help = []
+		cinfo.sample = ''
+		if command in self.command_cache:
+			return self.command_cache[command]
 		try:
+			log_debug("Fetching info from: %s"%command)
 			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
-			if ret == 0:
-				string += renderer.para("**Usage:**")
-				reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
-				table = []
-				details = ""
-				for row in reader:
-					if len(row) <= 3:
-						continue
-					link = renderer.obj_link('option', row[0])
-					table.append([link, 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2], row[3].split('\\n')[0]])
-					details += renderer.obj_anchor('option', row[0], row[3].split('\\n')[0])
-					desc = row[3].replace('\\n', '\n')
-					desc = desc.replace('\\t', '\t')
-					
-					spos = desc.find('\n\n')
-					tbl = []
-					if spos != -1:
-						epos = desc.find('\n\n', spos+2)
-						if epos != -1:
-							pos = desc.find('\t', spos+2, epos)
-							if pos != -1:
-								start = desc[:spos]
-								end = desc[epos+2:]
-								data = desc[spos+2:epos]
-								rows = data.split('\n')
-								for r in rows:
-									tbl.append(r.split('\t'))
-								data = renderer.table(tbl)
-								details += renderer.para(indent(4, start, prefix='| '))
-								details += renderer.para(indent(4, data, prefix='  '))
-								details += renderer.para(indent(4, end, prefix='| '))
-					if not tbl:
-						details += renderer.para(indent(4, desc, prefix='| '))
-				if table:
-					table.insert(0, ['Option', 'Default value', 'Description'])
-					string += renderer.table(table)
-					sfile = '%s_%s_samples.inc'%(path_prefix, command)
-					if os.path.exists(sfile):
-						sfile = os.path.basename(sfile)
-						string += renderer.title(3, 'Samples')
-						string += ".. include:: %s\n\n"%sfile
-						all_samples.append((module, command, sfile))
-					#	with open (sfile, "r") as myfile:
-					#		string += myfile.read()
-					#		string += "\n\n"
-					string += renderer.title(3, 'Arguments')
-					string += details
-			else:
-				print "WARNING: Ignoring command: %s as it returned %d"%(command, ret)
+			if not ret == 0:
+				log_error("WARNING: Ignoring command: %s as it returned %d"%(command, ret))
+				return None
+			reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
+			for row in reader:
+				if len(row) <= 3:
+					log_error("WARNING: Ignoring invalid argument: %s"%(row))
+					continue
+				hash = {}
+				hash['key'] = row[0]
+				hash['arg'] = 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2]
+				hash['desc'] = row[3].replace('\\n', '\n').replace('\\t', '\t')
+				hash['sample'] = ''
+				
+				spos = hash['desc'].find('\n\n')
+				extdata = {}
+				if spos != -1:
+					desc = hash['desc']
+					epos = desc.find('\n\n', spos+2)
+					if epos != -1:
+						pos = desc.find('\t', spos+2, epos)
+						if pos != -1:
+							extdata['head'] = desc[:spos]
+							extdata['tail'] = desc[epos+2:]
+							data = desc[spos+2:epos]
+							rows = data.split('\n')
+							tbl = []
+							for r in rows:
+								tbl.append(r.split('\t'))
+							extdata['data'] = tbl
+				hash['ext'] = extdata
+				cinfo.help.append(hash)
+			self.command_cache[command] = cinfo
+			return cinfo
 		except Exception as e:
-			error = 'ERROR: failed to process %s %s'%(command, e)
-			print error
-			string += error
-			string += traceback.format_exc()
-		return string
-			
-	def generate_rst(self, dir):
-		global all_samples
-		renderer = self.renderer
-		docs = {}
-		root = self.get_info()
-		import_commands = []
-		import_config = ""
-		
-		i = 0
-		commands = []
-		for (module,minfo) in root.plugins.iteritems():
-			i=i+1
-			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
-			string = renderer.page_header('module', module)
-			string += renderer.obj_anchor('module', module, minfo.info.description)
-			string += renderer.title(0, ':module:`%s` --- %s'%(module, minfo.info.title))
-			string += renderer.para(minfo.info.description)
+			log_error('ERROR: failed to process %s %s'%(command, e))
+			return None
 
-			queries = []
+	def generate_rst(self, input_dir, output_dir):
+		root = self.get_info()
+		i = 0
+		for (module,minfo) in root.plugins.iteritems():
+			out_base_path = '%s/reference/'%output_dir
+			in_base_path = '%s/reference/'%input_dir
+			if minfo.namespace:
+				out_base_path = '%s/reference/%s/'%(output_dir, minfo.namespace)
+				in_base_path = '%s/reference/%s/'%(input_dir, minfo.namespace)
+			hash = root.get_hash()
+			minfo.key = module
+			minfo.queries = {}
 			for (c,cinfo) in sorted(root.commands.iteritems()):
 				if module in cinfo.info.plugin:
-					queries.append([renderer.obj_link('query', c), cinfo.info.description.split('\n')[0]])
-			if queries:
-				queries.insert(0, ['Command', 'Description'])
-				string += renderer.heading('Queries (Overview)', 'A list of all avalible queries (check commands)')
-				string += renderer.table(queries)
-				
-			table = []
+					more_info = self.fetch_command(c,cinfo)
+					if more_info:
+						cinfo = more_info
+					sfile = '%s/%s_%s_samples.inc'%(in_base_path, module, c)
+					if os.path.exists(sfile):
+						cinfo.sample = os.path.basename(sfile)
+						#all_samples.append((module, command, sfile))
+					cinfo.key = c
+					minfo.queries[c] = cinfo
+			minfo.aliases = {}
 			for (c,cinfo) in sorted(root.aliases.iteritems()):
 				if module in cinfo.info.plugin:
-					if cinfo.info.description.startswith('Alternative name for:'):
-						command = cinfo.info.description[22:]
-						table.append([c, renderer.obj_link('query', command), cinfo.info.title])
-					else:
-						table.append([c, '', cinfo.info.title])
-			if table:
-				table.insert(0, ['Alias', 'Command', 'Description'])
-				string += renderer.heading('Aliases', 'A list of all short hand aliases for queries (check commands)')
-				string += renderer.table(table)
+					cinfo.key = c
+					minfo.aliases[c] = cinfo
+					
+			minfo.paths = {}
+			for (c,cinfo) in sorted(root.paths.iteritems()):
+				if module in cinfo.info.plugin:
+					cinfo.key = c
+					minfo.paths[c] = cinfo
 
-			string += renderer.para('Commands (executable)', "**TODO:** Add command list")
+			hash['module'] = minfo
+			i=i+1
+			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
 
-			config_table = self.generate_rst_config_table(root.paths, module)
-			if config_table:
-				string += renderer.heading('Configuration (Overview)', 'A list of all configuration options')
-				string += config_table
-				
-			if queries:
-				string += renderer.title(1, 'Queries')
-				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
-				for (c,cinfo) in root.commands.iteritems():
-					if module in cinfo.info.plugin:
-						string += self.generate_rst_command_details(c, cinfo, module, '%s/reference/%s'%(dir, module))
-
-			if config_table:
-				string += renderer.title(1, 'Configuration')
-				string += renderer.para('A quick reference for all avalible configuration options in the %s module.'%module)
-				string += self.generate_rst_config_details(root.paths, module)
+			env = Environment(extensions=["jinja2.ext.do",])
+			env.filters['firstline'] = first_line
+			env.filters['rst_link'] = make_rst_link
+			env.filters['rst_table'] = render_rst_table
+			env.filters['rst_csvtable'] = render_rst_csv_table
+			env.filters['rst_heading'] = render_rst_heading
+			env.filters['extract_value'] = extract_value
+			env.filters['block_pad'] = block_pad
+			env.filters['common_head'] = calculate_common_head
 			
-			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))
-			commands.append('%s.rst'%module)
-
-		string = renderer.page_header('samples', 'TODO')
-		string += renderer.title(0, 'All samples')
-		string += renderer.para('All samples')
-		mods = set(map(lambda (m, c, f):m, all_samples))
-		for m1 in mods:
-			string += renderer.title(1, m1)
-			string += renderer.para('All samples for module: :module:`%s`'%m1)
-			for (m2, c, f) in all_samples:
-				if m1 == m2:
-					string += renderer.title(2, c)
-					string += renderer.para('All samples for command: :query:`%s.%s`'%(m1, c))
-					string += ".. include:: %s\n\n"%f
-		renderer.serialize(string, '%s/reference/all_samples.rst'%dir)
-		
-		
-		all_config = self.generate_rst_config_table(root.paths)
-		#renderer.serialize(all_config, '%s/reference/config.rst'%dir)
-			
-		string = """Modules
-=======
-
-Contents:
-
-.. toctree::
-   :maxdepth: 3
-
-"""
-		for c in sorted(commands):
-			string += '   %s\n'%c
-		string += '   all_samples.rst\n'
-		renderer.serialize(string, '%s/reference/index.rst'%dir)
-		
-			
-
-		#renderer.build_command(import_commands)
+			template = env.from_string(module_template)
+			render_template(hash, template, '%s/%s.rst'%(out_base_path, module))
 
 	def main(self, args):
 		parser = OptionParser(prog="")
 		parser.add_option("-f", "--format", help="Generate format")
 		parser.add_option("-o", "--output", help="write report to FILE(s)")
-		parser.add_option("--trac-path", help="The path to track (used for importing wikis)")
+		parser.add_option("-i", "--input", help="Reference folder")
 		(options, args) = parser.parse_args(args=args)
 
 		if not options.format:
 			options.format = "rst"
-		#if options.format in ["trac"]:
-		#	self.generate_trac(options.output, options.trac_path)
 		if options.format in ["rst"]:
-			self.generate_rst(options.output)
+			self.generate_rst(options.input, options.output)
 		else:
 			log("Help%s"%parser.print_help())
 			log("Invalid format: %s"%options.format)
@@ -613,5 +619,3 @@ def init(plugin_id, plugin_alias, script_alias):
 def shutdown():
 	global helper
 	helper = None
-
-

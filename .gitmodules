@@ -13,3 +13,6 @@
 [submodule "ext/lua-protobuf"]
 	path = ext/lua-protobuf
 	url = https://github.com/mickem/lua-protobuf.git
+[submodule "ext/docs"]
+	path = ext/docs
+	url = https://github.com/mickem/nscp-docs.git
