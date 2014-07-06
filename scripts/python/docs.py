@@ -197,9 +197,8 @@ Samples
 
     **Sample**::
 
-        # {{key.info.title}}
-        # {{key.info.description|firstline}}
         [{{path.key}}]
+        # {{key.info.title}}
         {{kkey}}={{key.info.default_value|extract_value}}
 
 {% endfor %}
@@ -503,12 +502,12 @@ class DocumentationHelper(object):
 			log_debug("Fetching info from: %s"%command)
 			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
 			if not ret == 0:
-				log_error("WARNING: Ignoring command: %s as it returned %d"%(command, ret))
+				#log_error("WARNING: Ignoring command: %s as it returned %d"%(command, ret))
 				return None
 			reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
 			for row in reader:
 				if len(row) <= 3:
-					log_error("WARNING: Ignoring invalid argument: %s"%(row))
+					#log_error("WARNING: Ignoring invalid argument: %s"%(row))
 					continue
 				hash = {}
 				hash['key'] = row[0]
