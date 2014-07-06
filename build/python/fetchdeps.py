@@ -228,8 +228,8 @@ class build_instruction:
 		self.exec_build(folder, source, self.pre_x64, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
-sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
-sources['cryptopp'].folder = 'cryptopp-5.6.1'
+#sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
+#sources['cryptopp'].folder = 'cryptopp-5.6.1'
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
@@ -237,7 +237,9 @@ sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/b
 
 #sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
 #sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
-sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
+#sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
+sources['openssl'] = source('openssl-1.0.1h.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1h.tar.gz', 'b2239599c8bf8f7fc48590a55205c26abe560bf8')
+
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
 sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
@@ -288,12 +290,12 @@ build['ZeroMQ'] = build_instruction(
 	)
 build['ZeroMQ'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
 
-build['cryptopp'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],
-	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
-	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
-	[]
-	)
+#build['cryptopp'] = build_instruction(
+#	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],
+#	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
+#	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
+#	[]
+#	)
 build['gtest'] = build_instruction(
 	[],
 	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & exit /b0"'],
