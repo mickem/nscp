@@ -1358,7 +1358,18 @@ void NSClientT::listPlugins() {
 		}
 	}
 }
-
+#ifndef WIN32
+boost::filesystem::path get_selfpath() {
+	char buff[1024];
+	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+	if (len != -1) {
+		buff[len] = '\0';
+		boost::filesystem::path p = std::string(buff);
+		return p.parent_path();
+	}
+	return boost::filesystem::initial_path();
+}
+#endif
 boost::filesystem::path NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
@@ -1375,8 +1386,8 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 	std::wstring::size_type pos = path.rfind('\\');
 	basePath = path.substr(0, pos) + _T("\\");
 	delete [] buffer;
-#else 
-	basePath = boost::filesystem::initial_path();
+#else
+	basePath = get_selfpath();
 #endif
 	try {
 		settings_manager::get_core()->set_base(basePath);
