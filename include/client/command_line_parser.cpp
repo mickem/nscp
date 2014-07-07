@@ -235,13 +235,13 @@ void client::command_manager::forward_query(client::configuration &config, Plugi
 					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
 					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
 					rsp_payload->set_command(req_payload->command());
-					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
+					nscapi::protobuf::functions::set_response_good(*rsp_payload, "Command will forward a query as-is to a remote node");
 					return;
 				} else if (req_payload->arguments(i) == "--help-csv" || req_payload->arguments(i) == "help-csv") {
 					nscapi::protobuf::functions::make_return_header(response.mutable_header(), request.header());
 					::Plugin::QueryResponseMessage::Response *rsp_payload = response.add_payload();
 					rsp_payload->set_command(req_payload->command());
-					nscapi::protobuf::functions::set_response_bad(*rsp_payload, "Command will forward a query as-is to a remote node");
+					nscapi::protobuf::functions::set_response_good(*rsp_payload, "NA,false,,Command will forward a query as-is to a remote node");
 					return;
 				}
 			}
