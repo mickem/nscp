@@ -5,10 +5,11 @@ SET(TARGET settings_manager)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
+SET(EXTRA_LIBS)
+
 SET(service_SRCS
 	settings_manager_impl.cpp
 	settings_handler_impl.cpp
-	StdAfx.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
@@ -17,7 +18,6 @@ SET(service_SRCS
 
 IF(WIN32)
 	SET(service_SRCS ${service_SRCS}
-		StdAfx.h
 		settings_manager_impl.h
 		settings_handler_impl.hpp
 		
@@ -43,9 +43,17 @@ ENDIF(WIN32)
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
+IF(CRYPTOPP_FOUND)
+	ADD_DEFINITIONS(-DHAVE_LIBCRYPTOPP)
+	INCLUDE_DIRECTORIES(${CRYPTOPP_INCLUDE_DIR})
+	SET(EXTRA_LIBS ${EXTRA_LIBS} ${CRYPTOPP_LIBRARIES})
+ENDIF(CRYPTOPP_FOUND)
+
+
+
 add_library (${TARGET} ${service_SRCS})
 
-target_link_libraries(${TARGET} protobuf)
+target_link_libraries(${TARGET} ${EXTRA_LIBS} protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
 

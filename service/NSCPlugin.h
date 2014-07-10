@@ -118,6 +118,7 @@ private:
 	nscapi::plugin_api::lpHasCommandHandler fHasCommandHandler;
 	nscapi::plugin_api::lpHasMessageHandler fHasMessageHandler;
 	nscapi::plugin_api::lpHandleCommand fHandleCommand;
+	nscapi::plugin_api::lpHandleSchedule fHandleSchedule;
 	nscapi::plugin_api::lpHandleMessage fHandleMessage;
 	nscapi::plugin_api::lpDeleteBuffer fDeleteBuffer;
 	nscapi::plugin_api::lpUnLoadModule fUnLoadModule;
@@ -143,6 +144,8 @@ public:
 	bool hasMessageHandler(void);
 	NSCAPI::nagiosReturn handleCommand(const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len);
 	NSCAPI::nagiosReturn handleCommand(const std::string request, std::string &reply);
+	NSCAPI::nagiosReturn handle_schedule(const char* dataBuffer, const unsigned int dataBuffer_len);
+	NSCAPI::nagiosReturn handle_schedule(const std::string &request);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	void deleteBuffer(char**buffer);

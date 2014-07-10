@@ -46,10 +46,6 @@ include <Windows.h>
 #include <boost/asio/ssl.hpp>
 #endif
 
-#include <config.h>
-#include <utils.h>
-
-#include <types.hpp>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 #include <nrpe/packet.hpp>

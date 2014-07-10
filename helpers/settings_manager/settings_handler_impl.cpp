@@ -1,5 +1,3 @@
-#include "StdAfx.h"
-
 #include "settings_handler_impl.hpp"
 
 settings::instance_ptr settings::settings_handler_impl::get() {
@@ -101,6 +99,13 @@ void settings::settings_handler_impl::destroy_all_instances() {
 	if (!mutex.owns_lock())
 		throw settings_exception("destroy_all_instances Failed to get mutex, cant get access settings");
 	instance_.reset();
+}
+
+void settings::settings_handler_impl::house_keeping() {
+	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!mutex.owns_lock())
+		throw settings_exception("destroy_all_instances Failed to get mutex, cant get access settings");
+	instance_->house_keeping();
 }
 
 

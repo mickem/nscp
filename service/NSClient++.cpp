@@ -17,6 +17,7 @@
 #include <settings/settings_core.hpp>
 #include <charEx.h>
 #include <config.h>
+#include <common.hpp>
 #ifdef WIN32
 #include <Userenv.h>
 #include <Lmcons.h>
@@ -29,9 +30,6 @@
 #include "core_api.h"
 #include "../helpers/settings_manager/settings_manager_impl.h"
 #include <settings/macros.h>
-// #include "simple_client.hpp"
-// #include "settings_client.hpp"
-// #include "service_manager.hpp"
 #include <nscapi/functions.hpp>
 
 #include <settings/client/settings_client.hpp>
@@ -631,10 +629,16 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		LOG_ERROR_CORE("Unknown exception loading plugins");
 		return false;
 	}
+	if (boot) {
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", settings::settings_core::key_string, "Maintenance interval", "How often settings shall reload config if it has changed", "5m", true, false);
+		std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
+		scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
+		scheduler_.start();
+	}
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
 	return true;
 }
-
+/*
 void NSClientT::startTrayIcons() {
 // 	if (shared_server_.get() == NULL) {
 // 		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
@@ -665,8 +669,9 @@ void NSClientT::startTrayIcon(DWORD dwSessionId) {
 // 		}
 // 	}
 }
-
+*/
 bool NSClientT::stop_unload_plugins_pre() {
+	scheduler_.stop();
 	LOG_DEBUG_CORE("Attempting to stop all plugins");
 	try {
 		LOG_DEBUG_CORE("Stopping all plugins");
@@ -732,7 +737,7 @@ bool NSClientT::stop_exit_post() {
 	}
 	return true;
 }
-
+/*
 void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
 // 	if (shared_server_.get() == NULL) {
 // 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
@@ -745,7 +750,7 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
 // 	}
 // 	tray_starter::start(dwSessionId);
 }
-
+*/
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
@@ -807,6 +812,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 			stop_unload_plugins_pre();
 			boot_load_all_plugins();
 			boot_start_plugins(true);
+			settings_manager::get_core()->set_reload(false);
 			return true;
 		} catch(const std::exception &e) {
 			LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
@@ -1328,17 +1334,24 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	return NSCAPI::isSuccess;
 }
 
-std::string NSClientT::get_plugin_module_name(unsigned int plugin_id) {
+NSClientT::plugin_type NSClientT::find_plugin(unsigned int plugin_id) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-		return "";
+		return plugin_type();
 	}
 	BOOST_FOREACH(plugin_type plugin, plugins_) {
 		if (plugin->get_id() == plugin_id)
-			return plugin->getModule();
+			return plugin;
 	}
-	return "";
+	return plugin_type();
+}
+
+std::string NSClientT::get_plugin_module_name(unsigned int plugin_id) {
+	plugin_type plugin = find_plugin(plugin_id);
+	if (!plugin)
+		return "";
+	return plugin->getModule();
 }
 void NSClientT::listPlugins() {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
@@ -1358,7 +1371,16 @@ void NSClientT::listPlugins() {
 		}
 	}
 }
-#ifndef WIN32
+#ifdef WIN32
+boost::filesystem::path get_selfpath() {
+	wchar_t buff[4096];
+	if (GetModuleFileName(NULL, buff, sizeof(buff)-1)) {
+		boost::filesystem::path p = std::wstring(buff);
+		return p.parent_path();
+	}
+	return boost::filesystem::initial_path();
+}
+#else
 boost::filesystem::path get_selfpath() {
 	char buff[1024];
 	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
@@ -1378,17 +1400,7 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 	}
 	if (!basePath.empty())
 		return basePath;
-#ifdef WIN32
-	unsigned int buf_len = 4096;
-	wchar_t* buffer = new wchar_t[buf_len+1];
-	GetModuleFileName(NULL, buffer, buf_len);
-	std::wstring path = buffer;
-	std::wstring::size_type pos = path.rfind('\\');
-	basePath = path.substr(0, pos) + _T("\\");
-	delete [] buffer;
-#else
 	basePath = get_selfpath();
-#endif
 	try {
 		settings_manager::get_core()->set_base(basePath);
 	} catch (settings::settings_exception e) {
@@ -1518,6 +1530,12 @@ std::string NSClientT::getFolder(std::string key) {
 		default_value = "${shared-path}/modules";
 	} else if (key == "web-path") {
 		default_value = "${shared-path}/web";
+	} else if (key == "scripts") {
+		default_value = "${shared-path}/scripts";
+	} else if (key == CACHE_FOLDER_KEY) {
+		default_value = DEFAULT_CACHE_PATH;
+	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
+		default_value = CRASH_ARCHIVE_FOLDER;
 	} else if (key == "base-path") {
 		default_value = getBasePath().string();
 	} else if (key == "temp") {
@@ -1534,7 +1552,7 @@ std::string NSClientT::getFolder(std::string key) {
 			default_value = getBasePath().string();
 	}
 #else
-	if (key == "etc") {
+	else if (key == "etc") {
 		default_value = "/etc";
 	}
 #endif

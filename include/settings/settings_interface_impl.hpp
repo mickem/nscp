@@ -120,6 +120,7 @@ namespace settings {
 				children_.clear();
 			}
 			real_clear_cache();
+			get_core()->set_reload(false);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -141,16 +142,18 @@ namespace settings {
 			return nsclient::logging::logger::get_logger();
 		}
 
-		void add_child(std::string context) {
+		instance_raw_ptr add_child(std::string context) {
 			try {
 				instance_raw_ptr child = get_core()->create_instance(context);
 				{
 					MUTEX_GUARD();
 					children_.push_back(child);
 				}
+				return child;
 			} catch (const std::exception &e) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child: " + utf8::utf8_from_native(e.what()));
 			}
+			return instance_raw_ptr();
 		}
 
 		void add_child_unsafe(std::string context) {
@@ -801,11 +804,14 @@ namespace settings {
 		}
 
 		inline std::string make_skey(std::string path, std::string key) {
-			return utf8::cvt<std::string>(path) + "." + utf8::cvt<std::string>(key);
+			return path + "." + key;
 		}
-		inline std::string make_skey(std::string path) {
-			return utf8::cvt<std::string>(path);
-		}
+
+		virtual void house_keeping() {
+			BOOST_FOREACH(parent_list_type::value_type i, children_) {
+				i->house_keeping();
+			}
+		} 
 
 	};
 }

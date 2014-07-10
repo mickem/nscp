@@ -1,5 +1,3 @@
-#include "StdAfx.h"
-
 #include "settings_manager_impl.h"
 
 #include <settings/impl/settings_ini.hpp>

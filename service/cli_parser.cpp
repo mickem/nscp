@@ -1,5 +1,3 @@
-#pragma once
-
 #include "cli_parser.hpp"
 #include "NSClient++.h"
 #include "settings_client.hpp"

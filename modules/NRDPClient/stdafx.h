@@ -28,7 +28,6 @@
 
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
-#include <config.h>
 #include <utils.h>
 #include <error.hpp>
 #include <strEx.h>

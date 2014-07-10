@@ -27,3 +27,10 @@
 #define IGNORE_PERFDATA "ignore-perf-data"
 #define CHECK_ALL "CheckAll"
 #define CHECK_ALL_OTHERS "CheckAllOthers"
+
+#define CRASH_ARCHIVE_FOLDER_KEY	"${crash-folder}"
+#define CACHE_FOLDER_KEY		"${cache-folder}"
+
+#define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
+
+

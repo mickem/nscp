@@ -27,8 +27,7 @@
 #include <unicode_char.hpp>
 #include <format.hpp>
 #include <file_helpers.hpp>
-
-#include <config.h>
+#include <common.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -44,19 +43,7 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	std::string path;
 	sh::settings_registry settings(get_settings_proxy());
-	settings.set_alias(alias, "crash");
-
-	settings.alias().add_path_to_settings()
-		("CRASH SECTION", "Configure crash handling properties.")
-		;
-
-	settings.alias().add_key_to_settings()
-		("archive folder", sh::path_key(&crashFolder, CRASH_ARCHIVE_FOLDER),
-		CRASH_ARCHIVE_FOLDER_KEY, "The archive folder for crash dumps.")
-		;
-
-	settings.register_all();
-	settings.notify();
+	crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER_KEY);
 	NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 	return true;
 }

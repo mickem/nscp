@@ -40,10 +40,6 @@ namespace settings {
 	static std::string key_to_string(std::string path, std::string key) {
 		return path + "." + key;
 	}
-	static std::string key_to_string(std::pair<std::string,std::string> key) {
-		return key.first + "." + key.second;
-	}
-
 	class settings_exception : public std::exception {
 		std::string error_;
 	public:
@@ -253,6 +249,8 @@ namespace settings {
 		virtual void set_ready(bool is_read = true) = 0;
 		virtual bool is_ready() = 0;
 
+		virtual void house_keeping() = 0;
+
 
 		virtual std::string find_file(std::string file, std::string fallback) = 0;
 
@@ -294,6 +292,8 @@ namespace settings {
 
 		virtual void set_dirty(bool flag = true) = 0;
 		virtual bool is_dirty() = 0;
+		virtual void set_reload(bool flag = true) = 0;
+		virtual bool needs_reload() = 0;
 
 	};
 
@@ -526,6 +526,8 @@ namespace settings {
 		}
 
 		virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
+
+		virtual void house_keeping() = 0;
 	};
 
 }

@@ -23,7 +23,6 @@
 #include "DistributedServer.h"
 #include <strEx.h>
 
-#include <config.h>
 #include "handler_impl.hpp"
 #include "queue_manager.hpp"
 #include "worker_manager.hpp"

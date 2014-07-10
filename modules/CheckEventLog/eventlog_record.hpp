@@ -1,7 +1,6 @@
 #pragma once
 
 #include "simple_registry.hpp"
-#include <config.h>
 #include <boost/tuple/tuple.hpp>
 #include <wstring.hpp>
 

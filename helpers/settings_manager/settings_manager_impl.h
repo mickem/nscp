@@ -3,7 +3,6 @@
 #include <settings/settings_core.hpp>
 #include <settings/client/settings_client.hpp>
 #include "settings_handler_impl.hpp"
-#include <config.h>
 
 namespace settings_manager {
 
@@ -53,7 +52,7 @@ namespace settings_manager {
 		}
 
 		std::string expand_simple_context(const std::string &key);
-		void boot(std::string file = BOOT_CONF_LOCATION);
+		void boot(std::string file);
 		std::string find_file(std::string file, std::string fallback = "");
 		std::string expand_path(std::string file);
 		std::string expand_context(const std::string &key);

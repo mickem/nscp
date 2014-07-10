@@ -41,9 +41,6 @@
 #include <settings/client/settings_client.hpp>
 #include <compat.hpp>
 
-#include <config.h>
-
-
 #include "check_drive.hpp"
 
 namespace sh = nscapi::settings_helper;

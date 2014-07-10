@@ -33,10 +33,6 @@
 
 #include <boost/asio.hpp>
 
-#include <config.h>
-#include <utils.h>
-#include <types.hpp>
-
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 namespace po = boost::program_options;

@@ -7,9 +7,16 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 
+#ifdef HAVE_LIBCRYPTOPP
+#include <sha.h>
+#include <hex.h>
+#include <files.h>
+#endif
+
 #include <http/client.hpp>
 #include <net/net.hpp>
 #include <file_helpers.hpp>
+#include <common.hpp>
 
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
@@ -29,7 +36,7 @@ namespace settings {
 	public:
 		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
 			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
-			boost::filesystem::path path = core->expand_path(DEFAULT_CACHE_PATH);
+			boost::filesystem::path path = core->expand_path(CACHE_FOLDER_KEY);
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path)) 
 					throw new settings_exception("Cache path not found: " + path.string());
@@ -39,26 +46,88 @@ namespace settings {
 			}
 			local_file = boost::filesystem::path(path) / "cached.ini";
 
-			reload_data();
-			add_child("ini:///" + local_file.string());
+			initial_load();
 		}
 
 		virtual void real_clear_cache() {
-			reload_data();
+		}
+
+		std::string hash_file(const boost::filesystem::path &file) {
+			std::string result;
+#ifdef HAVE_LIBCRYPTOPP
+			CryptoPP::SHA1 hash;
+			CryptoPP::FileSource(file.string().c_str(),true, 
+				new CryptoPP::HashFilter(hash, new CryptoPP::HexEncoder(
+				new CryptoPP::StringSink(result), true)));
+#endif
+			return result;
+		}
+		
+
+		boost::filesystem::path resolve_cache_file(const net::url &url) const {
+			boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER_KEY);
+			boost::filesystem::path remote_file_name = url.path;
+			local_file /= remote_file_name.filename();
+			return local_file;
+		}
+
+		bool cache_remote_file(const net::url &url, const boost::filesystem::path &local_file) {
+			boost::filesystem::path tmp_file = local_file.string() + ".tmp";
+			std::ofstream os(tmp_file.c_str());
+			std::string error;
+			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
+				os.close();
+				throw new settings_exception("Failed to download " + tmp_file.string() + ": " + error);
+			}
+			os.close();
+			if (!boost::filesystem::is_regular_file(tmp_file)) {
+				throw new settings_exception("Failed to find cached settings: " + tmp_file.string());
+			}
+			if (boost::filesystem::is_regular_file(local_file)) {
+				std::string old_hash = hash_file(local_file);
+				std::string new_hash = hash_file(tmp_file);
+				if (old_hash.empty() || old_hash != new_hash) {
+					if (old_hash.empty()) {
+						get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detech changes");
+					}
+					get_logger()->debug("settings", __FILE__, __LINE__, "File has changed: " + local_file.string());
+					boost::filesystem::rename(tmp_file, local_file);
+					return true;
+				}
+			} else {
+				boost::filesystem::rename(tmp_file, local_file);
+			}
+			return false;
+		}
+
+		void fetch_attachments(instance_raw_ptr child) {
+			if (!child)
+				return;
+			string_list keys = child->get_keys("/attachments");
+			BOOST_FOREACH(const std::string &k, keys) {
+				boost::filesystem::path target = get_core()->expand_path(k);
+				op_string str = child->get_string("/attachments", k);
+				if (!str)
+					continue;
+				net::url source = net::parse(*str);
+				get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_string() + " as " + target.string());
+				cache_remote_file(source, target);
+			}
+		}
+
+		void initial_load() {
+			boost::filesystem::path local_file = resolve_cache_file(remote_url);
+			cache_remote_file(remote_url, local_file);
+			fetch_attachments(add_child("ini://" + local_file.string()));
 		}
 
 		void reload_data() {
-			std::ofstream os(local_file.string().c_str());
-			std::string error;
-			if (!http::client::download(remote_url.protocol, remote_url.host, remote_url.path, os, error)) {
-				os.close();
-				get_logger()->error("settings",__FILE__, __LINE__, "Failed to download settings: " + error);
+			boost::filesystem::path local_file = resolve_cache_file(remote_url);
+			if (cache_remote_file(remote_url, local_file)) {
+				clear_cache();
+				fetch_attachments(add_child("ini://" + local_file.string()));
+				get_core()->set_reload(true);
 			}
-			os.close();
-			if (!boost::filesystem::is_regular_file(local_file)) {
-				throw new settings_exception("Failed to find cached settings: " + local_file.string());
-			}
-			add_child("ini://" + local_file.string());
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Create a new settings interface of "this kind"
@@ -126,7 +195,7 @@ namespace settings {
 		}
 
 		virtual void set_real_path(std::string path) {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + make_skey(path));
+			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + path);
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
 			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
@@ -172,6 +241,11 @@ namespace settings {
 		}
 
 		virtual std::string get_type() { return "http"; }
+
+
+		virtual void house_keeping() {
+			reload_data();
+		} 
 
 	private:
 

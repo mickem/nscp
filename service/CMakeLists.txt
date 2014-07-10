@@ -13,7 +13,6 @@ ELSE(JSON_SPIRIT_FOUND)
 	SET(JSON_LIB)
 ENDIF(JSON_SPIRIT_FOUND)
 
-
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 SET(service_SRCS
@@ -24,6 +23,8 @@ SET(service_SRCS
 	logger_impl.cpp
 	cli_parser.cpp
 	settings_client.cpp
+	task_scheduler.cpp
+	scheduler_handler.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
@@ -48,6 +49,8 @@ IF(WIN32)
 		simple_client.hpp
 		settings_client.hpp
 		cli_parser.hpp
+		task_scheduler.hpp
+		scheduler_handler.hpp
 		
 		plugin_list.hpp
 		commands.hpp

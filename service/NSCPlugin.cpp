@@ -248,6 +248,21 @@ NSCAPI::nagiosReturn NSCPlugin::handleCommand(const std::string request, std::st
 	return ret;
 }
 
+NSCAPI::nagiosReturn NSCPlugin::handle_schedule(const char* dataBuffer, const unsigned int dataBuffer_len) {
+	if (!isLoaded() || fHandleSchedule == NULL)
+		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
+	try {
+		return fHandleSchedule(plugin_id_, dataBuffer, dataBuffer_len);
+	} catch (...) {
+		throw NSPluginException(get_alias_or_name(), "Unhandled exception in handle_schedule.");
+	}
+}
+
+NSCAPI::nagiosReturn NSCPlugin::handle_schedule(const std::string &request) {
+	return handle_schedule(request.c_str(), request.size());
+}
+
+
 NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
@@ -343,6 +358,7 @@ void NSCPlugin::unload_dll() {
 	fHandleNotification = NULL;
 	fHasRoutingHandler = NULL;
 	fRouteMessage = NULL;
+	fHandleSchedule = NULL;
 	module_.unload_library();
 }
 bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
@@ -427,6 +443,9 @@ void NSCPlugin::loadRemoteProcs_(void) {
 
 		fHasRoutingHandler = (nscapi::plugin_api::lpHasRoutingHandler)module_.load_proc("NSHasRoutingHandler");
 		fRouteMessage = (nscapi::plugin_api::lpRouteMessage)module_.load_proc("NSRouteMessage");
+
+		fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
+		
 	} catch (NSPluginException &e) {
 		throw e;
  	} catch (dll::dll_exception &e) {

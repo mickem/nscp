@@ -34,11 +34,9 @@
 #endif
 
 
-//#include <config.h>
 #include <utils.h>
 #include <types.hpp>
 
-#include <config.h>
 #include <settings/macros.h>
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>

@@ -22,7 +22,6 @@
 #pragma once
 
 
-#include <types.hpp>
 #include <service/system_service.hpp>
 
 #include "NSCPlugin.h"
@@ -30,6 +29,7 @@
 #include "channels.hpp"
 #include "routers.hpp"
 #include <nsclient/logger.hpp>
+#include "scheduler_handler.hpp"
 
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
@@ -97,6 +97,8 @@ private:
 	unsigned int next_plugin_id_;
 	std::string service_name_;
 
+	task_scheduler::scheduler scheduler_;
+
 
 public:
 	typedef std::multimap<std::string,std::string> plugin_alias_list_type;
@@ -114,7 +116,7 @@ public:
 	bool stop_exit_pre();
 	bool stop_exit_post();
 	void set_settings_context(std::string context) { context_ = context; }
-	void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
+	//void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Service API
 	static NSClient* get_global_instance();
@@ -169,10 +171,11 @@ public:
 	std::string describeCommand(std::string command);
 	std::list<std::string> getAllCommandNames();
 	void registerCommand(unsigned int id, std::string cmd, std::string desc);
-	void startTrayIcons();
-	void startTrayIcon(DWORD dwSessionId);
+	//void startTrayIcons();
+	//void startTrayIcon(DWORD dwSessionId);
 
 	void listPlugins();
+	plugin_type find_plugin(unsigned int plugin_id);
 	plugin_info_list get_all_plugins();
 	std::string get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);

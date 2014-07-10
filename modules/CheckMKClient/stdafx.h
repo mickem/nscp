@@ -34,9 +34,6 @@
 #endif
 
 
-#include <config.h>
-#include <types.hpp>
-
 #include <NSCAPI.h>
 #include <nscapi/plugin.hpp>
 namespace po = boost::program_options;

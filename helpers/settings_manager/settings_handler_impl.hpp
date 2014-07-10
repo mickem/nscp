@@ -46,9 +46,10 @@ namespace settings {
 		reg_paths_type registred_paths_;
 		bool ready_flag;
 		bool dirty_flag;
+		bool reload_flag;
 
 	public:
-		settings_handler_impl() : ready_flag(false), dirty_flag(false) {}
+		settings_handler_impl() : ready_flag(false), dirty_flag(false), reload_flag(false) {}
 		~settings_handler_impl() {
 			destroy_all_instances();
 		}
@@ -63,6 +64,12 @@ namespace settings {
 		}
 		void set_dirty(bool flag=true) {
 			dirty_flag = flag;
+		}
+		void set_reload(bool flag = true) {
+			reload_flag = flag;
+		}
+		bool needs_reload() {
+			return reload_flag;
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -99,7 +106,7 @@ namespace settings {
 
 		settings::error_list validate();
 
-
+		void house_keeping();
 
 		instance_ptr get();
 		instance_ptr get_no_wait();

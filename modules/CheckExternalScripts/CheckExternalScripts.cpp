@@ -25,6 +25,7 @@
 
 #include <strEx.h>
 #include <file_helpers.hpp>
+#include <common.hpp>
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
@@ -36,8 +37,6 @@
 #include <nscapi/nscapi_program_options.hpp>
 
 #include <file_helpers.hpp>
-
-#include <config.h>
 
 namespace sh = nscapi::settings_helper;
 

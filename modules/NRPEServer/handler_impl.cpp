@@ -1,8 +1,8 @@
 #include "stdafx.h"
+#include <common.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include "handler_impl.hpp"
-#include <config.h>
 
 std::list<nrpe::packet> handler_impl::handle(nrpe::packet p) {
 	std::list<nrpe::packet> packets;

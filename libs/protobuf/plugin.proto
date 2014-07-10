@@ -263,6 +263,7 @@ message Registry {
 		QUERY_ALIAS = 5;
 		ROUTER = 6;
 		MODULE = 7;
+		SCHEDULE = 8;
 
 		ALL = 99;
 	};
@@ -281,6 +282,11 @@ message Registry {
 		optional bool advanced = 8;
 		repeated string plugin = 9;
 	};
+	message Schedule {
+		optional string id = 1;
+		optional string cron = 2;
+		optional string interval = 3;
+	};
 };
 
 message RegistryRequestMessage {
@@ -290,8 +296,11 @@ message RegistryRequestMessage {
 			required Registry.ItemType type = 2;
 			required string name = 3;
 			optional Registry.Information info = 4;
+			optional bool unregister = 5;
 			
 			repeated string alias = 9;
+
+			repeated Registry.Schedule schedule = 20;
 		};
 		message Inventory {
 			optional string plugin = 1;
@@ -319,6 +328,9 @@ message RegistryResponseMessage {
 			required Registry.ItemType type = 2;
 			required string name = 3;
 			optional Registry.Information info = 4;
+
+			repeated Registry.Schedule schedule = 20;
+
 		};
 		optional int64 id = 1;
 		required Common.Status result = 2;
@@ -330,6 +342,27 @@ message RegistryResponseMessage {
 	required Common.Header header = 1;
 	repeated Response payload = 2;
 };
+
+// // // // // // // // // // // // // // // // // // // // // // // // 
+//
+// Schedule Notification commands
+// Used when a schedule is executed
+//
+// // // // // // // // // // // // // // // // // // // // // // // // 
+
+message ScheduleNotificationMessage {
+	message Request {
+		optional int64 id = 1;
+		required int32 plugin_id = 3;
+
+		optional Registry.Information info = 4;
+
+		optional Registry.Schedule schedule = 20;
+	};
+	required Common.Header header = 1;
+	repeated Request payload = 2;
+};
+
 
 // // // // // // // // // // // // // // // // // // // // // // // // 
 //

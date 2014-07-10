@@ -143,5 +143,8 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+
+		typedef NSCAPI::errorReturn (*lpHandleSchedule)(unsigned int plugin_id, const char* in_buffer, const unsigned int in_buffer_len);
+
 	}
 }

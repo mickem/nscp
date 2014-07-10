@@ -25,7 +25,6 @@
 
 #include <strEx.h>
 #include <time.h>
-#include <config.h>
 #include "handler_impl.hpp"
 #include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
