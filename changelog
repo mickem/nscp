@@ -1,3 +1,25 @@
+2014-07-10 MickeM
+ * A rollup of all changes over the last month
+ * Refactored and removed precompiled headers
+ * Linux: referenced path is the exe file (not the current folder)
+ * Split documentation into a separate projects
+ * Bumped openssl version
+ * Fixed check_drivesize
+ * Fixed multiple return packets patch
+ * Fixed buffer overflow in external scripts
+ * Added option to install script from comand line
+     nscp ext --script scripts\foo.bat
+     nscp ext --script scripts\foo.bat --alias bar ..arguments test1
+ * Added command line interface to setup NRPE server
+  nscp nrpe -- install --help
+  nscp nrpe -- install --port 1234 --allowed-host foo.com --insecure
+  ... 
+ * Fixed some test failing and spli NSCA test into multiple ones
+ * Meged in some changes from 0.4.2
+ * Added support for generating certificates
+ * Added new option insecure which sets defaults to "legacy insecure NRPE"
+ * Fixed registry bug
+ 
 2014-04-23 MickeM
  * Added initial WebServer module
  * Fixed issue with check_nt INSTANCES
