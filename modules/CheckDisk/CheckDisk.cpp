@@ -18,7 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
 #include "CheckDisk.h"
 #include <time.h>
 #include <error.hpp>
@@ -34,7 +33,6 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 
-#include "file_info.hpp"
 #include "file_finder.hpp"
 #include "filter.hpp"
 #include <char_buffer.hpp>

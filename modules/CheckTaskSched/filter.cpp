@@ -1,5 +1,3 @@
-#include "StdAfx.h"
-
 #include <map>
 #include <list>
 

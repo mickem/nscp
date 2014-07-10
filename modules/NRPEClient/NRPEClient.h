@@ -27,6 +27,7 @@
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <socket/client.hpp>
 
 #include <nrpe/packet.hpp>

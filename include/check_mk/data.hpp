@@ -35,7 +35,7 @@ namespace check_mk {
 	class check_mk_exception : public std::exception {
 		std::string error_;
 	public:
-		check_mk_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
+//		check_mk_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
 		check_mk_exception(std::string error) : error_(error) {}
 		virtual ~check_mk_exception() throw() {}
 		virtual const char* what() const throw() {

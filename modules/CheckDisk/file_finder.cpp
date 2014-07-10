@@ -1,7 +1,6 @@
-#include "StdAfx.h"
-
 #include "file_finder.hpp"
-
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_plugin_interface.hpp>
 
 #ifndef INVALID_FILE_ATTRIBUTES
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)

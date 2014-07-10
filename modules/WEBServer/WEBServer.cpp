@@ -18,7 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
 #include <iostream>
 #include <fstream>
 #include "WEBServer.h"
@@ -32,7 +31,7 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <settings/client/settings_client.hpp>
-#include <socket/socket_settings_helper.hpp>
+//#include <socket/socket_settings_helper.hpp>
 
 
 namespace sh = nscapi::settings_helper;

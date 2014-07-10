@@ -21,9 +21,11 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf.hpp>
-#include <client/command_line_parser.hpp>
-#include <nscapi/nscapi_targets.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
+#include <nscapi/nscapi_targets.hpp>
+
+#include <client/command_line_parser.hpp>
 #include "nrdp.hpp"
 
 namespace po = boost::program_options;

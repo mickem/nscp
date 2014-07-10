@@ -7,7 +7,6 @@ PROJECT(${TARGET})
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
@@ -28,7 +27,6 @@ ENDIF(MONGOOSE_FOUND)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 

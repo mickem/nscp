@@ -1,7 +1,6 @@
-#include "stdafx.h"
-
 #include <boost/asio.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include "handler_impl.hpp"
 
 void nsca_handler_impl::handle(nsca::packet p) {

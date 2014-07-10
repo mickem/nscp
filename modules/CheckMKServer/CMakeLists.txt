@@ -10,7 +10,6 @@ SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	"${TARGET}.cpp"
 	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
@@ -29,7 +28,6 @@ ENDIF(OPENSSL_FOUND)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		"handler_impl.hpp"
 		${NSCP_INCLUDEDIR}/check_mk/server/server_protocol.hpp

@@ -1,5 +1,5 @@
-#include "stdafx.h"
 #include <common.hpp>
+#include <utf8.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include "handler_impl.hpp"

@@ -5,6 +5,8 @@
 
 #include <boost/noncopyable.hpp>
 
+#include <NSCAPI.h>
+
 namespace nrdp {
 	struct data : boost::noncopyable {
 		enum item_type_type {

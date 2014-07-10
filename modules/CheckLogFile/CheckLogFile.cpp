@@ -19,8 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include "stdafx.h"
-
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 

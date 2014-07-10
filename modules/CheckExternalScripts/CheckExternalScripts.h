@@ -21,6 +21,7 @@
 
 #include <map>
 #include <error.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <process/execute_process.hpp>
 #include "commands.hpp"
 #include "alias.hpp"

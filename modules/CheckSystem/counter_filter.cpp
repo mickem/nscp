@@ -1,6 +1,3 @@
-#include "stdafx.h"
-
-
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 

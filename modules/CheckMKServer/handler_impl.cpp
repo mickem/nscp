@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include "handler_impl.hpp"
 
 check_mk::packet handler_impl::process() {

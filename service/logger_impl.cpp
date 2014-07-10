@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+#include <boost/filesystem.hpp>
 
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>

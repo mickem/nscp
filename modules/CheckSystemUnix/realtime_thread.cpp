@@ -17,17 +17,12 @@
 //
 //////////////////////////////////////////////////////////////////////////
 
-#include "stdafx.h"
 #include "realtime_thread.hpp"
-//#include <sysinfo.h>
 #include "settings.hpp"
 
 #include <nscapi/nscapi_plugin_interface.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include "realtime_data.hpp"
-
-//typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::filter_config_object> cpu_filter_helper;
-//typedef parsers::where::realtime_filter_helper<check_mem_filter::runtime_data, filters::filter_config_object> mem_filter_helper;
 
 
 /**

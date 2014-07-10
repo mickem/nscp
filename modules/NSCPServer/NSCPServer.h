@@ -20,6 +20,7 @@
 ***************************************************************************/
 
 #include <nscp/server/protocol.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include "handler_impl.hpp"
 
 class NSCPServer : public nscapi::impl::simple_plugin {

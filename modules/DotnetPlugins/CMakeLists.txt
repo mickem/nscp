@@ -5,7 +5,6 @@ SET(TARGET DotnetPlugins)
 PROJECT(${TARGET})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	"${TARGET}.cpp"
 	plugin_instance.cpp
 	block_allocator.cpp
@@ -21,7 +20,6 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		plugin_instance.hpp
 		DotnetPlugins.def

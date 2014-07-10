@@ -26,6 +26,7 @@
 #include <boost/python.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 #include <scripts/functions.hpp>
 

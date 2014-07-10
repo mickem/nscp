@@ -21,6 +21,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 class CheckHelpers : public nscapi::impl::simple_plugin {
 public:

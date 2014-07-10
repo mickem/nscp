@@ -16,7 +16,6 @@ ENDIF(JSON_SPIRIT_FOUND)
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 SET(service_SRCS
-	StdAfx.cpp
 	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
@@ -41,7 +40,6 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
 	)
 	SET(service_SRCS ${service_SRCS}
-		StdAfx.h
 		NSClient++.h
 		NSClient++.rc
 		NSCPlugin.h

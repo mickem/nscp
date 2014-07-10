@@ -7,7 +7,6 @@ PROJECT(${TARGET})
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	CheckSystem.cpp
 	filter.cpp
 	${NSCP_DEF_PLUGIN_CPP}
@@ -22,7 +21,6 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		CheckSystem.h
 		filter.hpp
 

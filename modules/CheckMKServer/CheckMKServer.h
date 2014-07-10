@@ -19,6 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <check_mk/server/server_protocol.hpp>
 #include "handler_impl.hpp"
 

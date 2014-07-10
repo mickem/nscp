@@ -9,6 +9,8 @@
 #include <boost/asio/ssl/context.hpp>
 #endif
 
+#include <utf8.hpp>
+
 namespace socket_helpers {
 	namespace server {
 

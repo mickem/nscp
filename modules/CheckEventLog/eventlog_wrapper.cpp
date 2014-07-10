@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "eventlog_wrapper.hpp"
 #include "simple_registry.hpp"
 #include <nscapi/nscapi_plugin_interface.hpp>

@@ -18,7 +18,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
 #include "SamplePluginSimple.h"
 
 // Empty constructor is called by the infrastructure when our plugin is loaded (once for each instance).

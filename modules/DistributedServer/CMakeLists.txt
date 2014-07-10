@@ -8,7 +8,6 @@ PROJECT(${TARGET})
 SET_SOURCE_FILES_PROPERTIES(${PB_PLUGIN} PROPERTIES GENERATED TRUE)
 
 SET(SRCS
-	stdafx.cpp
 	"${TARGET}.cpp"
 	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/nscp/packet.cpp
@@ -20,7 +19,6 @@ SET(SRCS
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		${TARGET}.h
 		handler_impl.hpp
 		queue_manager.hpp

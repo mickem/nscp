@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <map>
 #include <list>
 
@@ -12,7 +10,6 @@
 #include <strEx.h>
 #include "filter.hpp"
 
-#include "file_info.hpp"
 #include "file_finder.hpp"
 
 using namespace boost::assign;

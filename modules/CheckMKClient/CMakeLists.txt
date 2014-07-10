@@ -7,7 +7,6 @@ PROJECT(${TARGET})
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
@@ -26,7 +25,6 @@ ENDIF(OPENSSL_FOUND)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/check_mk/data.hpp
 		${NSCP_INCLUDEDIR}/check_mk/parser.hpp

@@ -16,8 +16,6 @@
 // You are free to use/modify this code but leave this header intact.
 //
 //////////////////////////////////////////////////////////////////////////
-
-#include "stdafx.h"
 #include "pdh_thread.hpp"
 #include <sysinfo.h>
 #include "settings.hpp"

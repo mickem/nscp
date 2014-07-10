@@ -3,6 +3,9 @@
 #include <map>
 #include <string>
 
+#include <atlbase.h>
+#include <atlsafe.h>
+
 #include <MSTask.h>
 #include <taskschd.h>
 

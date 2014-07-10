@@ -24,6 +24,7 @@
 #include <boost/scoped_ptr.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <strEx.h>
 #include <utils.h>
 #include <scripts/functions.hpp>

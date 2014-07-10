@@ -1,4 +1,19 @@
-#include "stdafx.h"
+#include <types.hpp>
+#include <unicode_char.hpp>
+
+#include <string>
+#include <functional>
+
+#include <NSCAPI.h>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+
+
+
 
 #include <list>
 

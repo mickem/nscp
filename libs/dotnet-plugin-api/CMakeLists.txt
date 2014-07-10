@@ -5,8 +5,6 @@ IF(WIN32)
 	SET(SRCS
 		AssemblyInfo.cpp
 		NSCP.h
-		stdafx.cpp
-		stdafx.h
 	)
 
 	#ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})

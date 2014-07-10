@@ -1,7 +1,6 @@
 // systray_helper.cpp : Defines the entry point for the application.
 //
 
-#include "stdafx.h"
 #include "systray_helper.h"
 #include "TrayWidget.h"
 

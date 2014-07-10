@@ -5,7 +5,6 @@
 
 #include <file_helpers.hpp>
 
-#include "file_info.hpp"
 #include "filter.hpp"
 
 namespace file_finder {

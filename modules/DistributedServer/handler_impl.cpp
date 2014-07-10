@@ -1,11 +1,7 @@
-#include "stdafx.h"
-
 #include <boost/asio.hpp>
 #include <nscapi/functions.hpp>
 
 #include "handler_impl.hpp"
-
-#include "stdafx.h"
 
 #include <boost/asio.hpp>
 #include <nscapi/nscapi_protobuf.hpp>

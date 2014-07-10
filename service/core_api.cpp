@@ -12,8 +12,9 @@
 // You are free to use/modify this code but leave this header intact.
 //
 //////////////////////////////////////////////////////////////////////////
-#include "StdAfx.h"
 #include "NSClient++.h"
+
+#include <config.h>
 #include "core_api.h"
 #include <charEx.h>
 #include <string.h>
@@ -207,44 +208,44 @@ NSCAPI::errorReturn NSAPIReload(const char *module) {
 	}
 }
 
-LPVOID NSAPILoader(const char* buffer) {
+void* NSAPILoader(const char* buffer) {
 	if (strcmp(buffer, "NSAPIGetApplicationName") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationName);
+		return reinterpret_cast<void*>(&NSAPIGetApplicationName);
 	if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetApplicationVersionStr);
+		return reinterpret_cast<void*>(&NSAPIGetApplicationVersionStr);
 	if (strcmp(buffer, "NSAPIMessage") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIMessage);
+		return reinterpret_cast<void*>(&NSAPIMessage);
 	if (strcmp(buffer, "NSAPISimpleMessage") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISimpleMessage);
+		return reinterpret_cast<void*>(&NSAPISimpleMessage);
 	if (strcmp(buffer, "NSAPIInject") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIInject);
+		return reinterpret_cast<void*>(&NSAPIInject);
 	if (strcmp(buffer, "NSAPIExecCommand") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIExecCommand);
+		return reinterpret_cast<void*>(&NSAPIExecCommand);
 	if (strcmp(buffer, "NSAPICheckLogMessages") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPICheckLogMessages);
+		return reinterpret_cast<void*>(&NSAPICheckLogMessages);
 	if (strcmp(buffer, "NSAPIEncrypt") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIEncrypt);
+		return reinterpret_cast<void*>(&NSAPIEncrypt);
 	if (strcmp(buffer, "NSAPIDecrypt") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIDecrypt);
+		return reinterpret_cast<void*>(&NSAPIDecrypt);
 	if (strcmp(buffer, "NSAPINotify") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPINotify);
+		return reinterpret_cast<void*>(&NSAPINotify);
 	if (strcmp(buffer, "NSAPIDestroyBuffer") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIDestroyBuffer);
+		return reinterpret_cast<void*>(&NSAPIDestroyBuffer);
 	if (strcmp(buffer, "NSAPIExpandPath") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIExpandPath);
+		return reinterpret_cast<void*>(&NSAPIExpandPath);
 	if (strcmp(buffer, "NSAPIReload") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIReload);
+		return reinterpret_cast<void*>(&NSAPIReload);
 	if (strcmp(buffer, "NSAPIGetLoglevel") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIGetLoglevel);
+		return reinterpret_cast<void*>(&NSAPIGetLoglevel);
 	if (strcmp(buffer, "NSAPISettingsQuery") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPISettingsQuery);
+		return reinterpret_cast<void*>(&NSAPISettingsQuery);
 	if (strcmp(buffer, "NSAPIRegistryQuery") == 0)
-		return reinterpret_cast<LPVOID>(&NSAPIRegistryQuery);
+		return reinterpret_cast<void*>(&NSAPIRegistryQuery);
 #ifdef HAVE_JSON_SPIRIT
 	if (strcmp(buffer, "NSCAPIJson2Protobuf") == 0)
-		return reinterpret_cast<LPVOID>(&NSCAPIJson2Protobuf);
+		return reinterpret_cast<void*>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
-		return reinterpret_cast<LPVOID>(&NSCAPIProtobuf2Json);
+		return reinterpret_cast<void*>(&NSCAPIProtobuf2Json);
 #endif
 	LOG_ERROR_STD("Function not found: " + buffer);
 	return NULL;

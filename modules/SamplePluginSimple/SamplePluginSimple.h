@@ -21,6 +21,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 // Your implementation class can derive from various helper implementations
 // simple_plugin			- Hides ID handling in your plugin and allows you to register and access the various cores.

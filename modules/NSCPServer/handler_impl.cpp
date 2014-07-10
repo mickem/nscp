@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <boost/asio.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/functions.hpp>

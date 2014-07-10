@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #ifndef WIN32
 #include <poll.h>
 #include <sys/inotify.h>

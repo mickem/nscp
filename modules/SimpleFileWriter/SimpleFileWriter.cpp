@@ -19,8 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include "stdafx.h"
-
 #include <map>
 #include <vector>
 #include <ostream>
@@ -34,6 +32,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper.hpp>
 
 #include <parsers/expression/expression.hpp>
 
@@ -87,7 +86,7 @@ struct payload_message_functor {
 };
 struct payload_result_functor {
 	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
-		return utf8::cvt<std::string>(nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result())));
+		return nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
 struct payload_alias_or_command_functor {

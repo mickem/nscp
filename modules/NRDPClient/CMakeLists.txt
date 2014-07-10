@@ -7,7 +7,6 @@ PROJECT(${TARGET})
 CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
-	stdafx.cpp
 	"${TARGET}.cpp"
 	nrdp.cpp
 	${TINYXML2_INCLUDE_DIR}/tinyxml2.cpp
@@ -22,7 +21,6 @@ INCLUDE_DIRECTORIES(${TINYXML2_INCLUDE_DIR})
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		nrdp.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp

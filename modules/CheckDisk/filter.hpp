@@ -21,9 +21,6 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/helpers.hpp>
 
-#include "file_info.hpp"
-
-
 namespace file_filter {
 	struct file_object_exception : public std::exception {
 		std::string error_;

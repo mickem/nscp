@@ -20,6 +20,7 @@
 ***************************************************************************/
 #include <strEx.h>
 
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include "simple_scheduler.hpp"
 #include "schedules.hpp"
 

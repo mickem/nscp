@@ -24,7 +24,9 @@
 #include <settings/client/settings_client.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/macros.hpp>
 
 #include "WMIQuery.h"
 

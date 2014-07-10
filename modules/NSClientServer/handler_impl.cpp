@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

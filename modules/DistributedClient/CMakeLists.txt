@@ -5,7 +5,6 @@ SET(TARGET DistributedClient)
 PROJECT(${TARGET})
 
 SET(SRCS
-	stdafx.cpp
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nscp/packet.cpp
 	${NSCP_INCLUDEDIR}/nscp/handler.cpp
@@ -18,7 +17,6 @@ SET(SRCS
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
-		stdafx.h
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/nscp/packet.hpp
 		${NSCP_INCLUDEDIR}/nscp/handler.hpp

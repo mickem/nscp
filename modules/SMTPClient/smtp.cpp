@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "smtp.hpp"
 
 #include <boost/algorithm/string/case_conv.hpp>

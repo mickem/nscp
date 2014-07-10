@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "strEx.h"
 #include "NSClientSocket.h"
 

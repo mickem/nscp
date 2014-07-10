@@ -9,7 +9,7 @@
 
 #include <socket/socket_helpers.hpp>
 #include <socket/server.hpp>
-
+#include <utf8.hpp>
 
 #include <string/simple.hpp>
 #include "handler.hpp"

@@ -1,3 +1,19 @@
+#include <types.hpp>
+#include <unicode_char.hpp>
+
+#include <string>
+#include <functional>
+
+#include <NSCAPI.h>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+
+
+
 /**************************************************************************
 *   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
 *                                                                         *
@@ -18,8 +34,6 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
-
 #include <stack>
 #include <iostream>
 

@@ -19,8 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include "stdafx.h"
-
 #include <map>
 #include <vector>
 
@@ -35,6 +33,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper.hpp>
 
 #include <parsers/expression/expression.hpp>
 

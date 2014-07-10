@@ -20,6 +20,7 @@
 ***************************************************************************/
 
 #include <nsca/server/protocol.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 
 class NSCAServer : public nscapi::impl::simple_plugin {
 

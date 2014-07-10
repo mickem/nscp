@@ -20,6 +20,9 @@
 ***************************************************************************/
 
 #include <nrpe/server/protocol.hpp>
+#include <nscapi/nscapi_targets.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+
 #include "handler_impl.hpp"
 
 class NRPEServer : public nscapi::impl::simple_plugin {

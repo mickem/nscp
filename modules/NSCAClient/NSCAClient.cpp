@@ -18,13 +18,11 @@
 *   Free Software Foundation, Inc.,                                       *
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
-#include "stdafx.h"
 #include "NSCAClient.h"
 
 #include <utils.h>
 #include <strEx.h>
 
-//#include <nscpcrypt/nscpcrypt.hpp>
 #include <nsca/nsca_packet.hpp>
 
 #include <nsca/client/nsca_client_protocol.hpp>
