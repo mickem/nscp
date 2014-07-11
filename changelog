@@ -1,4 +1,7 @@
 2014-07-10 MickeM
+ * Changed so plugin generator uses jinja (instead of strings)
+
+2014-07-10 MickeM
  * A rollup of all changes over the last month
  * Refactored and removed precompiled headers
  * Linux: referenced path is the exe file (not the current folder)
