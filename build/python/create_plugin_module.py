@@ -405,33 +405,73 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 		nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); 
 	}
 {%if module.log_handler %}
-NSC_WRAPPERS_HANDLE_MSG_DEF()
+extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigned int request_buffer_len) {
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleMessage(request_buffer, request_buffer_len);
+}
+extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) {
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasMessageHandler();
+}
 {% else %}
-NSC_WRAPPERS_IGNORE_MSG_DEF()
+extern void NSHandleMessage(unsigned int, const char*, unsigned int) {}
+extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int) { return NSCAPI::isfalse; }
 {% endif %}
 {% if module.commands or module.command_fallback%}
-NSC_WRAPPERS_HANDLE_CMD_DEF()
+extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleCommand(request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); 
+}
+extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) {
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasCommandHandler(); 
+}
 {% else %}
-NSC_WRAPPERS_IGNORE_CMD_DEF()
+extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int, const char*, const unsigned int, char**, unsigned int*) {  return NSCAPI::returnIgnored; }
+extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int) { return NSCAPI::isfalse; }
 {% endif %}
 {% if module.cli %}
-NSC_WRAPPERS_CLI_DEF()
+extern int NSCommandLineExec(unsigned int id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
+	nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); 
+}
 {% endif %}
 {% if module.channels %}
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF()
+extern int NSHandleNotification(unsigned int id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleNotification(channel, buffer, buffer_len, response_buffer, response_buffer_len); 
+}
+extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasNotificationHandler(); 
+}
 {% endif %}
 """
-
 
 HPP_TEMPLATE = """#pragma once
 #include <boost/shared_ptr.hpp>
 
 #include <nscapi/nscapi_plugin_interface.hpp>
 
-NSC_WRAPPERS_MAIN();
-
-{%if module.cli %}NSC_WRAPPERS_CLI(){% endif %}
-{% if module.channels %}NSC_WRAPPERS_CHANNELS(){% endif %}
+extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
+extern "C" int NSLoadModule();
+extern "C" int NSLoadModuleEx(unsigned int plugin_id, char* alias, int mode);
+extern "C" void NSDeleteBuffer(char**buffer);
+extern "C" int NSGetModuleName(char* buf, int buflen);
+extern "C" int NSGetModuleDescription(char* buf, int buflen);
+extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision);
+extern "C" NSCAPI::boolReturn NSHasCommandHandler(unsigned int plugin_id);
+extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id);
+extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len);
+extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len);
+extern "C" int NSUnloadModule(unsigned int plugin_id);
+{%if module.cli %}
+extern "C" int NSCommandLineExec(unsigned int plugin_id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
+{% endif %}
+{% if module.channels %}
+extern "C" int NSHasNotificationHandler(unsigned int plugin_id);
+extern "C" int NSHandleNotification(unsigned int plugin_id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
 
 
 #include "{{options.source}}/{{module.name}}.h"
