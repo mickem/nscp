@@ -194,6 +194,8 @@ void NSCAClient::add_command(std::string name, std::string args) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool NSCAClient::unloadModule() {
+	targets.clear();
+	commands.clear();
 	return true;
 }
 
@@ -269,6 +271,9 @@ void NSCAClient::add_local_options(po::options_description &desc, client::config
 
 		("time-offset", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "time offset", _1)), 
 		"")
+
+		("retries", po::value<int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "retries", _1)), 
+		"Number of times to retry a failed connection attempt")
 		;
 }
 

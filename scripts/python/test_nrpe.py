@@ -222,7 +222,7 @@ class NRPEServerTest(BasicTest):
 		conf.set_int('/settings/NRPE/test_nrpe_client/targets/valid', 'payload length', length)
 		self.core.reload('test_nrpe_client')
 		
-		result = TestResult()
+		result = TestResult('ssl=%s, length=%s'%(ssl, length))
 		result.add_message(isOpen('127.0.0.1', 15666), 'Checking that port is open (server is up)')
 		result.add(self.test_one(ssl, length, state = status.UNKNOWN, tag = 'unknown'))
 		result.add(self.test_one(ssl, length, state = status.OK, tag = 'ok'))

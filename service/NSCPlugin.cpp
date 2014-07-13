@@ -110,7 +110,7 @@ void NSCPlugin::load_dll() {
 }
 
 bool NSCPlugin::load_plugin(NSCAPI::moduleLoadMode mode) {
-	if (loaded_)
+	if (loaded_ && mode != NSCAPI::reloadStart)
 		return true;
 	if (!fLoadModule)
 		throw NSPluginException(get_alias_or_name(), "Critical error (fLoadModule)");

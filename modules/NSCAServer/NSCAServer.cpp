@@ -33,6 +33,16 @@ NSCAServer::NSCAServer() : handler_(new nsca_handler_impl(1024)) {}
 
 bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
+	try {
+		if (server_) {
+			server_->stop();
+			server_.reset();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR_STD("Failed to stop server");
+		return false;
+	}
+
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("NSCA", alias, "server");
 
@@ -88,7 +98,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	NSC_LOG_ERROR_LISTS(errors);
 	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
 
-	if (mode == NSCAPI::normalStart) {
+	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 
 		server_.reset(new nsca::server::server(info_, handler_));
 		if (!server_) {

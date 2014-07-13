@@ -191,6 +191,11 @@ namespace nscapi {
 				return object_list.empty();
 			}
 
+			void clear() {
+				object_list.clear();
+				template_list.clear();
+			}
+
 
 			std::string to_string() {
 				std::stringstream ss;

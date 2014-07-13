@@ -167,6 +167,7 @@ public:
 
 	//plugin_type loadPlugin(const boost::filesystem::path plugin, std::wstring alias);
 	void loadPlugins(NSCAPI::moduleLoadMode mode);
+	void reloadPlugins();
 	void unloadPlugins();
 	std::string describeCommand(std::string command);
 	std::list<std::string> getAllCommandNames();

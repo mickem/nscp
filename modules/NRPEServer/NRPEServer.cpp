@@ -34,6 +34,17 @@ NRPEServer::NRPEServer() : handler_(new handler_impl(1024)) {
 NRPEServer::~NRPEServer() {}
 
 bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+
+	try {
+		if (server_) {
+			server_->stop();
+			server_.reset();
+		}
+	} catch (...) {
+		NSC_LOG_ERROR_STD("Failed to stop server");
+		return false;
+	}
+
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("NRPE", alias, "server");
 
@@ -98,7 +109,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 #endif
-	if (mode == NSCAPI::normalStart) {
+	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 
 		if (handler_->get_payload_length() != 1024)
 			NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(handler_->get_payload_length()));

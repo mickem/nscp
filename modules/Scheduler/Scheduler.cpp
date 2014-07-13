@@ -80,6 +80,7 @@ void Scheduler::add_schedule(std::string key, std::string arg) {
 bool Scheduler::unloadModule() {
 	scheduler_.unset_handler();
 	scheduler_.stop();
+	schedules_.clear();
 	return true;
 }
 

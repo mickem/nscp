@@ -120,6 +120,10 @@ namespace client {
 		typedef boost::unordered_map<std::string, command_container> command_type;
 		command_type commands;
 
+		void clear() {
+			commands.clear();
+		}
+
 		std::string add_command(std::string name, std::string args);
 		int exec_simple(configuration &config, const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &response);
 

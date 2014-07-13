@@ -4,6 +4,7 @@
 		"description"	: "A server that listens for incoming NRPE connection and processes incoming requests.",
 		"name"			: "NRPEServer",
 		"alias"			: "nrpe",
-		"version"		: "auto"
+		"version"		: "auto",
+		"reload"		: true
 	}
 }

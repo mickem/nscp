@@ -651,6 +651,16 @@ void NSClientT::unloadPlugins() {
 		plugins_.clear();
 	}
 }
+void NSClientT::reloadPlugins() {
+	scheduler_.stop();
+	loadPlugins(NSCAPI::reloadStart);
+	boot_load_all_plugins();
+	loadPlugins(NSCAPI::normalStart);
+	// TODO: Figure out changed set and remove/add delete/added modules.
+	settings_manager::get_core()->set_reload(false);
+	scheduler_.start();
+	LOG_ERROR_CORE("reload<<<");
+}
 
 bool NSClientT::do_reload(const bool delay, const std::string module) {
 	if (delay) {
@@ -668,10 +678,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 	} else if (module == "service") {
 		try {
 			LOG_DEBUG_CORE_STD(std::string("Reloading all modules ") + (delay?"(delayed)":"") + ".");
-			stop_unload_plugins_pre();
-			boot_load_all_plugins();
-			boot_start_plugins(true);
-			settings_manager::get_core()->set_reload(false);
+			reloadPlugins();
 			return true;
 		} catch(const std::exception &e) {
 			LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
@@ -687,8 +694,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
 				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading " + (delay?"(delayed)":"") + ".");
-				p->unload_plugin();
-				p->load_plugin(NSCAPI::normalStart);
+				p->load_plugin(NSCAPI::reloadStart);
 				return true;
 			}
 		}
@@ -713,9 +719,9 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	{
-		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-		if (!readLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!writeLock.owns_lock()) {
+			LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 			return;
 		}
 		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {

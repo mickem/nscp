@@ -212,6 +212,7 @@ class NSCAServerTest(BasicTest):
 		(result_code, err) = self.core.submit('nsca_test_outbox', message.SerializeToString())
 
 		result = TestResult('Testing payload submission (via API): %s'%tag)
+		result.add_message(result_code, 'Submission succedded %s/exec:1'%tag)
 		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
 		self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		return result
@@ -223,6 +224,7 @@ class NSCAServerTest(BasicTest):
 			#'--exec', 'submit', 
 			'--alias', uid, 
 			'--result', '%d'%status, 
+			'--retries', '0',
 			'--message', '%s - %s'%(uid, msg), 
 			'--target', target,
 			]
@@ -242,6 +244,7 @@ class NSCAServerTest(BasicTest):
 		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag)
 		if len(result_message) == 1:
 			result.assert_equals(result_message[0], "Submission successful", 'Testing to send message using %s/exec:3'%tag)
+		self.wait_and_validate(uid, result, msg, perf, '%s/seb'%tag)
 		return result
 
 	def test_one_crypto_full(self, encryption, state, key, target, length):

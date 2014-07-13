@@ -270,7 +270,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			}
 			//PyEval_ReleaseLock();
 			BOOST_FOREACH(script_container &script, scripts_) {
-				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), root_.string(), utf8::cvt<std::string>(alias), script)));
+				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), root_.string(), alias, script)));
 			}
 
 		} catch (std::exception &e) {
@@ -325,6 +325,7 @@ bool PythonScript::loadScript(std::string alias, std::string file) {
 
 bool PythonScript::unloadModule() {
 	instances_.clear();
+	scripts_.clear();
 	//Py_Finalize();
 	return true;
 }

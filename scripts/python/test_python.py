@@ -1,4 +1,4 @@
-from NSCP import Settings, Registry, Core, log, status, log_error, sleep
+from NSCP import Settings, Registry, Core, log, status, log_error, log_debug, sleep
 from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
 from time import time
@@ -26,7 +26,7 @@ class PythonTest(BasicTest):
 	def stress_handler(channel, source, command, code, message, perf):
 		instance = PythonTest.getInstance()
 		instance.stress_count = instance.stress_count + 1
-		#log('Got message %d/%d on %s'%(instance.stress_count, instance.noop_count, channel))
+		log_debug('Got message %d/%d on %s'%(instance.stress_count, instance.noop_count, channel))
 	stress_handler = Callable(stress_handler)
 	
 	def desc(self):

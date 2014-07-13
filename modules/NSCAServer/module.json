@@ -4,6 +4,8 @@
 		"description"	: "A server that listens for incoming NSCA connection and processes incoming requests.",
 		"name"			: "NSCAServer",
 		"alias"			: "nsca",
-		"version"		: "auto"
+		"version"		: "auto",
+		"load"			: "both",
+		"reload"		: true
 		}
 }

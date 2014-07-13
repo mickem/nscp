@@ -26,6 +26,7 @@ namespace NSCAPI {
 
 	const int normalStart = 0;
 	const int dontStart = 1;
+	const int reloadStart = 2;
 	const int returnOK = 0;
 	const int returnWARN = 1;
 	const int returnCRIT = 2;

@@ -32,6 +32,7 @@ namespace scheduler {
 
 	void simple_scheduler::start() {
 		running_ = true;
+		stop_requested_ = false;
 		start_thread();
 	}
 	void simple_scheduler::stop() {
@@ -39,6 +40,11 @@ namespace scheduler {
 		stop_requested_ = true;
 		threads_.interrupt_all();
 		threads_.join_all();
+		targets_.clear();
+		while (!queue_.empty()) {
+			queue_.pop();
+		}
+//		queue_.clear();
 	}
 
 	void simple_scheduler::start_thread() {

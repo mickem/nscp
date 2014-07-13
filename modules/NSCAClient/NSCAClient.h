@@ -144,6 +144,7 @@ public:
 			ssl.dh_key = arguments.get_string_data("dh");
 			ssl.verify_mode = arguments.get_string_data("verify mode");
 			timeout = arguments.get_int_data("timeout", 30);
+			retry = arguments.get_int_data("retries", 3);
 			buffer_length = arguments.get_int_data("payload length", 512);
 			password = arguments.get_string_data("password");
 			encryption = arguments.get_string_data("encryption");

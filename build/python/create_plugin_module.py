@@ -47,12 +47,25 @@ namespace ch = nscapi::command_helper;
  */
 bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
-		if (impl_) {
-			unloadModule();
+		if (mode == NSCAPI::reloadStart) {
+{% if module.reload %}
+			return impl_->loadModuleEx(alias, mode);
+{% else %}
+{% if module.loaders == "both" or module.loaders == "unload" %}
+			if (impl_) {
+				impl_->unloadModule();
+			}
+{% endif %}
+			mode = NSCAPI::normalStart;
+{% endif %}
+		} else {
+			if (impl_) {
+				unloadModule();
+			}
+			impl_.reset(new {{module.name}});
+			impl_->set_id(get_id());
+			registerCommands(get_command_proxy());
 		}
-		impl_.reset(new {{module.name}});
-		impl_->set_id(get_id());
-		registerCommands(get_command_proxy());
 {% if module.loaders == "both" or module.loaders == "load" %}
 		return impl_->loadModuleEx(alias, mode);
 {% else %}
@@ -351,8 +364,46 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 }
 {% endif %}
 
-NSC_WRAP_DLL()
-NSC_WRAPPERS_MAIN_DEF({{module.name}}Module, "{{module.alias}}")
+#ifdef _WIN32
+	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; }
+#endif
+	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
+	typedef {{module.name}}Module plugin_impl_class;
+	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance;
+	extern int NSModuleHelperInit(unsigned int, nscapi::core_api::lpNSAPILoader f) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); 
+	}
+	extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) {
+		if (mode == NSCAPI::normalStart || mode == NSCAPI::dontStart) {
+			nscapi::basic_wrapper_static<plugin_impl_class>::set_alias("{{module.alias}}", alias);
+		}
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+		return wrapper.NSLoadModuleEx(id, alias, mode); 
+	}
+	extern int NSLoadModule() {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule();
+	}
+	extern int NSGetModuleName(char* buf, int buflen) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleName(buf, buflen);
+	}
+	extern int NSGetModuleDescription(char* buf, int buflen) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleDescription(buf, buflen);
+	}
+	extern int NSGetModuleVersion(int *major, int *minor, int *revision) {
+		return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleVersion(major, minor, revision);
+	}
+	extern int NSUnloadModule(unsigned int id) {
+		int ret;
+		{
+			nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+			ret = wrapper.NSUnloadModule();
+		}
+		plugin_instance.erase(id);
+		return ret;
+	}
+	extern void NSDeleteBuffer(char**buffer) {
+		nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); 
+	}
 {%if module.log_handler %}
 NSC_WRAPPERS_HANDLE_MSG_DEF()
 {% else %}
@@ -515,6 +566,10 @@ class Module:
 			self.loaders = data['load']
 		else:
 			self.loaders = "both"
+		if 'reload' in data:
+			self.reload = data['reload']
+		else:
+			self.reload = False
 
 	def __repr__(self):
 		return self.name
