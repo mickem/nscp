@@ -1,3 +1,6 @@
+2014-07-14 MickeM
+ * Fixed so all files are copied for WebServer
+
 2014-07-13 MickeM
  * Improved reload handling.
    Plugins are now reloaded and if they support reload messages can do whatever they want.

@@ -5,8 +5,14 @@ PROJECT(copy_scripts)
 FILE (GLOB_RECURSE resources_CSS "*.css")
 FILE (GLOB_RECURSE resources_JS "*.js")
 FILE (GLOB_RECURSE resources_HTML "*.html")
-
-SET(resources_ALL ${resources_HTML} ${resources_JS} ${resources_CSS})
+FILE (GLOB_RECURSE resources_PNG "*.png")
+FILE (GLOB_RECURSE resources_GIF "*.gif")
+FILE (GLOB_RECURSE resources_F1 "*.eot")
+FILE (GLOB_RECURSE resources_F2 "*.svg")
+FILE (GLOB_RECURSE resources_F3 "*.ttf")
+FILE (GLOB_RECURSE resources_F4 "*.woff")
+SET(resources_FNT ${resources_F1} ${resources_F2} ${resources_F3} ${resources_F4})
+SET(resources_ALL ${resources_HTML} ${resources_JS} ${resources_CSS} ${resources_PNG} ${resources_GIF} ${resources_FNT})
 SET(ALL_RESOURCES)
 
 FOREACH(file ${resources_ALL})
@@ -20,3 +26,5 @@ ENDFOREACH(file ${resources_ALL})
 
 ADD_CUSTOM_TARGET(copy_resources ALL DEPENDS ${ALL_RESOURCES})
 SET_TARGET_PROPERTIES(copy_resources PROPERTIES FOLDER "files")
+ 
+
