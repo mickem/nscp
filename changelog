@@ -32,6 +32,9 @@
  * Added support for generating certificates
  * Added new option insecure which sets defaults to "legacy insecure NRPE"
  * Fixed registry bug
+ * Much improved HTTP settings
+ * HTTP Settings will now refresh/reload whenever the remote file is changed (will poll every x minutes)
+ * HTTP Settings can now download attached files (scripts etc.)
  
 2014-04-23 MickeM
  * Added initial WebServer module
