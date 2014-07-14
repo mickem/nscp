@@ -308,39 +308,41 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 
 		nsclient_core::settings_client client(core_, def, rem_def, load_all, use_samples, filter);
 		int ret = -1;
-
-		if (vm.count("generate")) {
-			std::string option = vm["generate"].as<std::string>();
-			ret = client.generate(option);
-		} else if (vm.count("migrate-to")) {
-			ret = client.migrate_to(vm["migrate-to"].as<std::string>());
-		} else if (vm.count("migrate-from")) {
-			ret = client.migrate_from(vm["migrate-from"].as<std::string>());
-		} else if (vm.count("set")) {
-			ret = client.set(vm["path"].as<std::string>(), vm["key"].as<std::string>(), vm["set"].as<std::string>());
-		} else if (vm.count("list")) {
-			ret = client.list(vm["path"].as<std::string>());
-		} else if (vm.count("show")) {
-			if (vm.count("path") > 0 && vm.count("key") > 0)
-				ret = client.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
-			else {
-				std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
-				ret = -1;
+		try {
+			if (vm.count("generate")) {
+				std::string option = vm["generate"].as<std::string>();
+				ret = client.generate(option);
+			} else if (vm.count("migrate-to")) {
+				ret = client.migrate_to(vm["migrate-to"].as<std::string>());
+			} else if (vm.count("migrate-from")) {
+				ret = client.migrate_from(vm["migrate-from"].as<std::string>());
+			} else if (vm.count("set")) {
+				ret = client.set(vm["path"].as<std::string>(), vm["key"].as<std::string>(), vm["set"].as<std::string>());
+			} else if (vm.count("list")) {
+				ret = client.list(vm["path"].as<std::string>());
+			} else if (vm.count("show")) {
+				if (vm.count("path") > 0 && vm.count("key") > 0)
+					ret = client.show(vm["path"].as<std::string>(), vm["key"].as<std::string>());
+				else {
+					std::cerr << "Invalid command line please use --path and --key with show" << std::endl;
+					ret = -1;
+				}
+			} else if (vm.count("activate-module")) {
+				client.activate(vm["activate-module"].as<std::string>());
+			} else if (vm.count("validate")) {
+				ret = client.validate();
+			} else if (vm.count("switch")) {
+				client.switch_context(vm["switch"].as<std::string>());
+				client.list_settings_info();
+				ret = 0;
+			} else {
+				std::cout << all << std::endl;
+				client.list_settings_info();
+				return 1;
 			}
-		} else if (vm.count("activate-module")) {
-			client.activate(vm["activate-module"].as<std::string>());
-		} else if (vm.count("validate")) {
-			ret = client.validate();
-		} else if (vm.count("switch")) {
-			client.switch_context(vm["switch"].as<std::string>());
-			client.list_settings_info();
-			ret = 0;
-		} else {
-			std::cout << all << std::endl;
-			client.list_settings_info();
-			return 1;
+		} catch(const std::exception & e) {
+			std::cerr << e.what() << "\n";
 		}
-
 		return ret;
 	} catch(const std::exception & e) {
 		std::cerr << std::string("Unable to parse command line (settings): ") << e.what() << "\n";

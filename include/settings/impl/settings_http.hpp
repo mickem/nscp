@@ -192,16 +192,20 @@ namespace settings {
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
+			throw settings_exception("Cannot save settings over HTTP");
 		}
 
 		virtual void set_real_path(std::string path) {
 			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + path);
+			throw settings_exception("Cannot save settings over HTTP");
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
 			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
+			throw settings_exception("Cannot save settings over HTTP");
 		}
 		virtual void remove_real_path(std::string path) {
 			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
+			throw settings_exception("Cannot save settings over HTTP");
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -231,6 +235,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void save() {
+			get_logger()->error("settings",__FILE__, __LINE__, "Cannot save settings over HTTP");
+			throw settings_exception("Cannot save settings over HTTP");
 		}
 
 		settings::error_list validate() {
