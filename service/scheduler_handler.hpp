@@ -7,7 +7,7 @@ namespace task_scheduler {
 
 	struct schedule_metadata {
 		enum task_source {
-			PLUGIN,
+			MODULE,
 			SETTINGS
 		};
 		int plugin_id;

@@ -47,7 +47,7 @@ namespace task_scheduler {
 
 	void scheduler::handle_schedule(scheduled_task item) {
 		schedule_metadata metadata = get(item.id);
-		if (metadata.source == schedule_metadata::PLUGIN) {
+		if (metadata.source == schedule_metadata::MODULE) {
 			handle_plugin(metadata);
 		} else if (metadata.source == schedule_metadata::SETTINGS) {
 			handle_settings();

@@ -1,21 +1,3 @@
-function PathNode(parent, path) {
-	var self = this;
-	self.href = "/settings.html?path=" + parent + "/" + path
-	self.title = "Show all keys under: " + parent + "/" + path
-	self.name = path
-}
-	
-function make_paths_from_string(path) {
-	paths = []
-	trail = "";
-	path.split('/').forEach(function(entry) {
-		if (entry.length > 0) {
-			self.paths.push(new PathNode(trail, entry))
-			trail = trail + "/" + entry
-		}
-	});
-	return paths
-}
 
 function SettingsStatus(elem) {
 	var self = this;
@@ -33,22 +15,6 @@ function SettingsStatus(elem) {
 	
 }
 
-function PathEntry(entry) {
-	var self = this;
-	
-	self.path = entry['node']['path'];
-	self.title = entry['info']['title'];
-	self.href = "/settings.html?path=" + self.path
-	self.paths = make_paths_from_string(self.path)
-	self.desc = entry['info']['description'];
-	self.plugs = entry['info']['plugin'];
-	self.showDetails = ko.observable(false);
-	
-	self.showMore = function() {
-		self.showDetails(!self.showDetails());
-	}
-}
-
 
 function LocalKeyEntry(path) {
 	var self = this;
@@ -58,45 +24,19 @@ function LocalKeyEntry(path) {
 	self.type = 'string'
 }
 
-function KeyEntry(entry) {
-	var self = this;
-	self.value = ko.observable('')
-
-	if (entry['value'])
-		self.value(entry['value']['value'])
-	self.path = entry['node']['path'];
-	self.key = ''
-	if (entry['node']['key'])
-		self.key = entry['node']['key'];
-	self.paths = make_paths_from_string(self.path)
-	self.title = entry['info']['title'];
-	self.desc = entry['info']['description'];
-	self.plugs = entry['info']['plugin'];
-	self.advanced = entry['info']['advanced'];
-	self.default_value = ''
-	self.type = 'string'
-	if (entry['info']['default_value']) {
-		self.default_value = entry['info']['default_value']['value'];
-		self.type = entry['info']['default_value']['type'];
-	}
-	if (self.value() == self.default_value)
-		self.value('')
-	self.old_value = self.value()
-	
+var refresh_count = 0;
+function done_refresh(self, count) {
+	if (!count)
+		count = 1
+	refresh_count-=count
+	if (refresh_count < 0)
+		refresh_count = 0
+	if (refresh_count==0)
+		self.nscp_status().not_busy()
 }
-
-function build_settings_payload(value) {
-	console.log(value.key + "=" + value.value())
-	payload = {}
-	payload['plugin_id'] = 1234
-	payload['update'] = {}
-	payload['update']['node'] = {}
-	payload['update']['node']['path'] = value.path
-	payload['update']['node']['key'] = value.key
-	payload['update']['value'] = {}
-	payload['update']['value']['type'] = 'string'
-	payload['update']['value']['value'] = value.value()
-	return payload
+function init_refresh(self) {
+	self.nscp_status().busy('Refreshing', 'Refreshing data...')
+	refresh_count += 2;
 }
 
 function CommandViewModel() {
@@ -114,6 +54,7 @@ function CommandViewModel() {
 	self.status = ko.observable(new SettingsStatus());
 	self.addNew = ko.observable(new LocalKeyEntry(path));
 
+	init_refresh(self);
 	self.showAddKey = function(command) {
 		$("#addKey").modal('show');
 	}
@@ -121,6 +62,7 @@ function CommandViewModel() {
 		$("#adkeys").modal($('#myModal').hasClass('in')?'hide':'show');
 	}
 	self.addNewKey = function(command) {
+		init_refresh(self);
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -132,6 +74,7 @@ function CommandViewModel() {
 		})
 	}
 	self.save = function(command) {
+		init_refresh(self);
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -139,11 +82,11 @@ function CommandViewModel() {
 		root['payload'] = [];
 		self.keys().forEach(function(entry) {
 			if (entry.old_value != entry.value())
-				root['payload'].push(build_settings_payload(entry))
+				root['payload'].push(entry.build_payload())
 		})
 		self.akeys().forEach(function(entry) {
 			if (entry.old_value != entry.value())
-				root['payload'].push(build_settings_payload(entry))
+				root['payload'].push(entry.build_payload())
 		})
 		if (root['payload'].length > 0) {
 			$.post("/settings/query.json", JSON.stringify(root), function(data) {
@@ -151,10 +94,11 @@ function CommandViewModel() {
 			})
 		} else {
 			self.nscp_status().message("warn", "Settings not saved", "No changes detected");
+			done_refresh(self, 2);
 		}
-		
 	}
 	self.loadStore = function(command) {
+		init_refresh(self);
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -170,6 +114,7 @@ function CommandViewModel() {
 		})
 	}
 	self.saveStore = function(command) {
+		init_refresh(self);
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -196,6 +141,7 @@ function CommandViewModel() {
 					}
 				});
 			}
+			done_refresh(self);
 		})
 		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
 			self.keys.removeAll()
@@ -209,6 +155,7 @@ function CommandViewModel() {
 						self.keys.push(key);
 				});
 			}
+			done_refresh(self);
 		})
 		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
@@ -222,3 +169,4 @@ function CommandViewModel() {
 	self.refresh()
 }
 ko.applyBindings(new CommandViewModel());
+

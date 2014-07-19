@@ -6,6 +6,7 @@
 		"alias"			: "web",
 		"version"		: "auto"
 	},
+	"command line exec" : true,
 	"log messages" : true
 
 }

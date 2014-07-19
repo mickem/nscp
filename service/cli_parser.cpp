@@ -156,6 +156,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
 	aliases["mk"] = "CheckMKClient";
 	aliases["ext-scr"] = "CheckExternalScripts";
 	aliases["ext"] = "CheckExternalScripts";
+	aliases["web"] = "WEBServer";
 	return aliases;
 }
 

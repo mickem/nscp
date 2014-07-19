@@ -60,7 +60,12 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  *
  */
 class NSClientT {
-
+	struct plugin_cache_item {
+		std::string name;
+		std::string title;
+		std::string desc;
+	};
+	typedef std::list<plugin_cache_item> plugin_cache_list;
 public:
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 	struct plugin_info_type {
@@ -71,6 +76,8 @@ public:
 	};
 	typedef std::list<plugin_info_type> plugin_info_list;
 private:
+
+	plugin_cache_list  plugin_cache_;
 
 	class NSException {
 		std::wstring what_;

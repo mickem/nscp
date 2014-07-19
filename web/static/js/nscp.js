@@ -80,8 +80,6 @@ function NSCPStatus(state) {
 			}]
 		});	
 	
-		self.message_header(header)
-		self.message_text(text)
 		$("#busy").modal({"backdrop" : "hide", "show": "true"});
 	}
 		
@@ -143,3 +141,141 @@ function NSCPStatus(state) {
 	}
 }
 
+function toggleChevron(e) {
+    $(e.target)
+        .prev('.panel-heading')
+        .find("i.indicator")
+        .toggleClass('glyphicon-chevron-down glyphicon-chevron-up');
+}
+
+function convertToObservable(list) 
+{ 
+    var newList = []; 
+    $.each(list, function (i, obj) {
+        var newObj = {}; 
+        Object.keys(obj).forEach(function (key) { 
+            newObj[key] = ko.observable(obj[key]); 
+        }); 
+        newList.push(newObj); 
+    }); 
+    return newList; 
+}
+
+function PathNode(parent, path) {
+	var self = this;
+	self.href = "/settings.html?path=" + parent + "/" + path
+	self.title = "Show all keys under: " + parent + "/" + path
+	self.name = path
+}
+
+
+function make_paths_from_string(path) {
+	paths = []
+	trail = "";
+	path.split('/').forEach(function(entry) {
+		if (entry.length > 0) {
+			self.paths.push(new PathNode(trail, entry))
+			trail = trail + "/" + entry
+		}
+	});
+	return paths
+}
+
+function groupBy( array , f )
+{
+  var groups = {};
+  array.forEach( function( o )
+  {
+    var group = JSON.stringify( f(o) );
+    groups[group] = groups[group] || [];
+    groups[group].push( o );  
+  });
+  return Object.keys(groups).map( function( group )
+  {
+    return groups[group]; 
+  })
+}
+
+
+
+function PathEntry(entry) {
+	var self = this;
+	
+	self.path = entry['node']['path'];
+	self.title = entry['info']['title'];
+	self.href = "/settings.html?path=" + self.path
+	self.paths = make_paths_from_string(self.path)
+	self.desc = entry['info']['description'];
+	self.plugs = entry['info']['plugin'];
+	self.showDetails = ko.observable(false);
+	
+	self.showMore = function() {
+		self.showDetails(!self.showDetails());
+	}
+}
+
+function KeyEntry(entry) {
+	var self = this;
+	self.value = ko.observable('')
+
+	if (entry['value'])
+		self.value(entry['value']['value'])
+	self.path = entry['node']['path'];
+	self.key = ''
+	if (entry['node']['key'])
+		self.key = entry['node']['key'];
+	self.paths = make_paths_from_string(self.path)
+	self.title = entry['info']['title'];
+	self.desc = entry['info']['description'];
+	self.plugs = entry['info']['plugin'];
+	self.advanced = entry['info']['advanced'];
+	self.default_value = ''
+	self.type = 'string'
+	if (entry['info']['default_value']) {
+		self.default_value = entry['info']['default_value']['value'];
+		self.type = entry['info']['default_value']['type'];
+	}
+	if (self.value() == self.default_value)
+		self.value('')
+	self.old_value = self.value()
+	
+	self.build_payload = function() {
+		payload = {}
+		payload['plugin_id'] = 1234
+		payload['update'] = {}
+		payload['update']['node'] = {}
+		payload['update']['node']['path'] = self.path
+		payload['update']['node']['key'] = self.key
+		payload['update']['value'] = {}
+		payload['update']['value']['type'] = 'string'
+		payload['update']['value']['value'] = self.value()
+		return payload
+	}
+}
+
+ko.extenders.scrollFollow = function (target, selector) {
+	target.subscribe(function (newval) {
+		var el = document.querySelector(selector);
+		// the scroll bar is all the way down, so we know they want to follow the text
+		if (el.scrollTop == el.scrollHeight - el.clientHeight) {
+			// have to push our code outside of this thread since the text hasn't updated yet
+			setTimeout(function () { el.scrollTop = el.scrollHeight - el.clientHeight; }, 0);
+		}
+	});
+	
+	return target;
+};
+
+ko.bindingHandlers.actionKey = {
+    init: function(element, valueAccessor, allBindings) {
+		var keys = allBindings.get('keys') || [13];
+		if (!Array.isArray(keys))
+			keys = [keys];
+
+		$(element).keyup(function(event) {
+			if (keys.indexOf(event.keyCode) > -1) {
+				valueAccessor()(event);
+			};
+		});
+    }
+};

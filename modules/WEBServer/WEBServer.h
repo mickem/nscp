@@ -34,14 +34,22 @@ struct error_handler {
 		std::string last_error;
 		unsigned int error_count;
 	};
+	struct log_entry {
+		int line;
+		std::string type;
+		std::string file;
+		std::string message;
+		std::string date;
+	};
+	typedef std::vector<log_entry> log_list;
 	error_handler() : error_count_(0) {}
-	void add_message(bool is_error, std::string message);
+	void add_message(bool is_error, const log_entry &message);
 	void reset();
 	status get_status();
-	std::string get_errors(int &position);
+	log_list get_errors(int &position);
 private:
 	boost::timed_mutex mutex_;
-	std::list<std::string> log_entries;
+	log_list log_entries;
 	std::string last_error_;
 	unsigned int error_count_;
 
@@ -54,7 +62,9 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
-
+	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	bool install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	bool password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 private:
 
 	boost::shared_ptr<Mongoose::Server> server;

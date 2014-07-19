@@ -1,3 +1,9 @@
+2014-07-19 MickeM
+ * Extensive additions to the WEB UI
+ * Console can be used much like nscp tesat
+ * Log view is enhaned
+ * Modules view added
+
 2014-07-14 MickeM
  * Fixed so all files are copied for WebServer
 

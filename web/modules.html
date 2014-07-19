@@ -7,14 +7,14 @@
 		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
 		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
 		<link rel="stylesheet" href="/static/css/nscp.css" />
-		<title>NSClient++ Settings</title>
+		<title>NSClient++ Module</title>
 		
 		<script type="text/javascript" src="/static/js/jquery-1.11.1.min.js"></script>
 		<script type="text/javascript" src="/static/js/knockout-3.1.0.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
 		<script type="text/javascript" src="/static/js/nscp.js"></script>
-		<script type="text/javascript" src="/static/js/settings.js" defer="defer"></script>
+		<script type="text/javascript" src="/static/js/modules.js" defer="defer"></script>
 	</head>
 	<body>
 		<div class="container">
@@ -45,6 +45,9 @@
 							</li>
 							<li>
 								<a href="/log.html">Log</a>
+							</li>
+							<li>
+								<a href="/console.html">Console</a>
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
@@ -90,6 +93,41 @@
 					<button type="button" class="btn btn-danger" data-bind="click: nscp_status().reset">Discard</button>
 				</div>
 			</div>
+			
+			<ol class="breadcrumb">
+				<li><a href="/modules.html"><i class="glyphicon glyphicon-home"></i></a></li>
+			</ol>
+			
+			<form class="form-horizontal" role="form">
+				<div class="panel panel-primary" data-bind="visible: modules().length > 0">
+					<div class="panel-heading">
+						<h3 class="panel-title">Modules</h3>
+					</div>
+					<div class="panel-body">
+						<div class="list-group" data-bind="foreach: modules">
+							<a href="#" class="list-group-item" data-bind="visible: is_loaded(), attr: { href: 'module.html?module=' + name, title: desc }">
+								<div class="pull-left">
+									<h4 class="list-group-item-heading" data-bind="text: title"></h4>
+									<p class="list-group-item-text" data-bind="text: desc"></p>
+								</div>
+								<div class="pull-right">
+									<button data-bind="click: $root.unload" class="btn btn-danger">Unload</button>
+								</div>
+								<div class="clearfix"></div>
+							</a>
+							<span class="list-group-item" data-bind="visible: !is_loaded()">
+								<div class="pull-left">
+									<h4 class="list-group-item-heading" data-bind="text: title"></h4>
+									<p class="list-group-item-text" data-bind="text: desc"></p>
+								</div>
+								<div class="pull-right">
+									<button data-bind="click: $root.load" class="btn btn-success">Load</button>
+								</div>
+								<div class="clearfix"></div>
+							</span>
+						</div>
+				</div>
+			</form>
 
 		</div>
 	</body>

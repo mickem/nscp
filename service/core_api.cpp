@@ -358,8 +358,8 @@ void parse_json_registry_common_type(T* gpb, const json_spirit::Object::value_ty
 			gpb->set_type(Plugin::Registry::COMMAND);
 		else if (node.second == "HANDLER")
 			gpb->set_type(Plugin::Registry::HANDLER);
-		else if (node.second == "PLUGIN")
-			gpb->set_type(Plugin::Registry::PLUGIN);
+		else if (node.second == "MODULE")
+			gpb->set_type(Plugin::Registry::MODULE);
 		else if (node.second == "QUERY_ALIAS")
 			gpb->set_type(Plugin::Registry::QUERY_ALIAS);
 		else if (node.second == "ROUTER")
@@ -395,12 +395,10 @@ void parse_json_settings_common_info(Plugin::Settings::Information* gpb, const j
 		SET_STR_LIST(gpb, node, plugin);
 	}
 }
-
 void parse_json_registry_common_info(Plugin::Registry::Information* gpb, const json_spirit::Object &json) {
 	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
 		SET_STR(gpb, node, title);
 		SET_STR(gpb, node, description);
-		// TODO: metadata
 		SET_STR(gpb, node, min_version);
 		SET_STR(gpb, node, max_version);
 		SET_BOOL(gpb, node, advanced);
@@ -421,6 +419,31 @@ void parse_json_registry_payload_registration(Plugin::RegistryRequestMessage::Re
 		SET_STR(gpb, node, name);
 		DELEGATE_OBJ(gpb, node, info, parse_json_registry_common_info);
 		SET_STR_LIST(gpb, node, alias);
+	}
+}
+/*
+message Control {
+required Registry.Command command = 1;
+required Registry.ItemType type = 2;
+optional string name = 3;
+optional string alias = 4;
+};
+HEREHERE
+*/
+void parse_json_registry_payload_control(Plugin::RegistryRequestMessage::Request::Control* gpb, const json_spirit::Object &json) {
+	BOOST_FOREACH(const json_spirit::Object::value_type &node, json) {
+		if (node.second.isString() && node.first == "command") {
+			std::string key = boost::to_upper_copy(node.second.getString());
+			if (key == "LOAD")
+				gpb->set_command(Plugin::Registry_Command_LOAD);
+			else if (key == "UNLOAD")
+				gpb->set_command(Plugin::Registry_Command_UNLOAD);
+			else if (key == "RELOAD")
+				gpb->set_command(Plugin::Registry_Command_RELOAD);
+		}
+		parse_json_registry_common_type(gpb, node, "type");
+		SET_STR(gpb, node, name);
+		SET_STR(gpb, node, alias);
 	}
 }
 void parse_json_settings_payload_query(Plugin::SettingsRequestMessage::Request::Query* gpb, const json_spirit::Object &json) {
@@ -484,6 +507,7 @@ void parse_json_registry_payload(Plugin::RegistryRequestMessage_Request* gpb, co
 		SET_INT64(gpb, node, id);
 		//SET_INT(gpb, node, plugin_id);
 		DELEGATE_OBJ(gpb, node, registration, parse_json_registry_payload_registration);
+		DELEGATE_OBJ(gpb, node, control, parse_json_registry_payload_control);
 		//DELEGATE_OBJ(gpb, node, inventory, parse_json_settings_payload_query);
 	}
 }
@@ -711,12 +735,27 @@ optional string max_version = 6;
 optional bool advanced = 8;
 repeated string plugin = 9;
 */
-
+json_spirit::Object build_json_common_kvp(const Plugin::Common::KeyValue &gpb) {
+	json_spirit::Object node;
+	SET_JSON_VALUE(gpb, node, key);
+	SET_JSON_VALUE(gpb, node, value);
+	return node;
+}
 json_spirit::Object build_json_registry_response_payload_inventory_info(const Plugin::Registry::Information &gpb) {
 	json_spirit::Object node;
 	SET_JSON_VALUE(gpb, node, title);
 	SET_JSON_VALUE(gpb, node, description);
-	// TODO: metadata
+
+	if (gpb.metadata_size() > 0) { 
+		json_spirit::Object arr; 
+		for (int i=0;i<gpb.metadata_size();++i) { 
+			const Plugin::Common::KeyValue &kvp = gpb.metadata(i);
+			arr.insert(json_spirit::Object::value_type(kvp.key(), kvp.value())); 
+		}
+		node.insert(json_spirit::Object::value_type("metadata", arr)); 
+	}
+
+	SET_JSON_DELEGATE_LIST(gpb, node, metadata, build_json_common_kvp);
 	SET_JSON_VALUE(gpb, node, min_version);
 	SET_JSON_VALUE(gpb, node, max_version);
 	SET_JSON_VALUE(gpb, node, advanced);
@@ -738,6 +777,12 @@ json_spirit::Object build_json_registry_response_payload_inventory(const Plugin:
 //	SET_JSON_NILL(gpb, node, control);
 	return node;
 }
+json_spirit::Object build_json_registry_response_payload_control(const Plugin::RegistryResponseMessage::Response::Control &gpb) {
+	json_spirit::Object node;
+	return node;
+}
+
+
 
 json_spirit::Object build_json_registry_response_payload(const Plugin::RegistryResponseMessage::Response &gpb) {
 	json_spirit::Object node;
@@ -745,6 +790,7 @@ json_spirit::Object build_json_registry_response_payload(const Plugin::RegistryR
 	SET_JSON_DELEGATE(gpb, node, result, build_json_common_status);
 	SET_JSON_DELEGATE(gpb, node, registration, build_json_registry_response_payload_registration);
 	SET_JSON_DELEGATE_LIST(gpb, node, inventory, build_json_registry_response_payload_inventory);
+	SET_JSON_DELEGATE(gpb, node, control, build_json_registry_response_payload_control);
 	return node;
 }
 

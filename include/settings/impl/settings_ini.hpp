@@ -263,8 +263,9 @@ namespace settings {
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
 				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string, 
-					"INCLUDED FILE", child, child, false, false);
-				add_child_unsafe(child);
+					"INCLUDED FILE", "Included configuration", "", true, false);
+				if (!child.empty())
+					add_child_unsafe(child);
 			}
 			is_loaded_ = true;
 		}

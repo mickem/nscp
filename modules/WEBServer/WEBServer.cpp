@@ -27,11 +27,15 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/program_options.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+
 #include <settings/client/settings_client.hpp>
-//#include <socket/socket_settings_helper.hpp>
+#include <json_spirit.h>
 
 
 namespace sh = nscapi::settings_helper;
@@ -85,6 +89,117 @@ public:
 		status = status_;
 	}
 
+	void output_message(const std::string &msg) {
+		error_handler::log_entry e;
+		e.date = "";
+		e.file = "";
+		e.line = 0;
+		e.message = msg;
+		e.type = "out";
+		log_data.add_message(false, e);
+	}
+	void handle_command(const std::string &command) {
+		if (command == "plugins") {
+			Plugin::RegistryRequestMessage rrm;
+			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
+			std::string pb_response;
+			core->registry_query(rrm.SerializeAsString(), pb_response);
+			Plugin::RegistryResponseMessage response_message;
+			response_message.ParseFromString(pb_response);
+			std::string list;
+			for (int i=0;i<response_message.payload_size();i++) {
+				const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
+				for (int j=0;j<pl.inventory_size();j++) {
+					if (!list.empty())
+						list += "\n";
+					list += pl.inventory(j).name() + "\t-" + pl.inventory(j).info().description();
+				}
+				if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+					output_message(response_message.payload(i).result().message());
+				}
+			}
+			if (list.empty())
+				output_message("Nothing found");
+			else
+				output_message(list);
+		} else if (command == "help") {
+			output_message("Commands: \n\thelp\t-get help\n\tlist\t-queries queries\n\tplugins\t-list plugins\t<any command>\t-Will be executed as a query");
+		} else if (command.size() > 4 && command.substr(0,4) == "load") {
+			Plugin::RegistryRequestMessage rrm;
+			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+			std::string name = command.substr(5);
+			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+			payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+			payload->mutable_control()->set_name(name);
+			std::string pb_response, json_response;
+			core->registry_query(rrm.SerializeAsString(), pb_response);
+			Plugin::RegistryResponseMessage response_message;
+			response_message.ParseFromString(pb_response);
+			bool has_errors = false;
+			for (int i=0;i<response_message.payload_size();i++) {
+				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+					output_message("Failed to load module: " + response_message.payload(i).result().message());
+					has_errors = true;
+				}
+			}
+			if (!has_errors)
+				output_message("Module loaded successfully...");
+		} else if (command == "queries" || command == "list" || command == "commands") {
+			Plugin::RegistryRequestMessage rrm;
+			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
+			std::string pb_response;
+			core->registry_query(rrm.SerializeAsString(), pb_response);
+			Plugin::RegistryResponseMessage response_message;
+			response_message.ParseFromString(pb_response);
+			std::string list;
+			for (int i=0;i<response_message.payload_size();i++) {
+				const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
+				for (int j=0;j<pl.inventory_size();j++) {
+					if (!list.empty())
+						list += "\n";
+					list += pl.inventory(j).name() + "\t-" + pl.inventory(j).info().description();
+				}
+				if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+					output_message("Failed to load module: " + response_message.payload(i).result().message());
+				}
+			}
+			if (list.empty())
+				output_message("Nothing found");
+			else
+				output_message(list);
+		} else if (!command.empty()) {
+			try {
+				std::list<std::string> args;
+				strEx::s::parse_command(command, args);
+				std::string cmd = args.front(); args.pop_front();
+				std::string msg, perf;
+				NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd, args, msg, perf);
+				if (ret == NSCAPI::returnIgnored) {
+					output_message("No handler for command: " + cmd);
+				} else {
+					output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
+					if (!perf.empty())
+						output_message(" Performance data: " + perf);
+				}
+			} catch (const std::exception &e) {
+				output_message("Exception: " + utf8::utf8_from_native(e.what()));
+			} catch (...) {
+				output_message("Unknown exception");
+			}
+		}
+	}
+	void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+		std::string command = request.get("command", "help");
+		handle_command(command);
+		response << "{\"status\" : \"ok\"}";
+	}
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
 			return;
@@ -100,8 +215,8 @@ public:
 			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
 		else if (type == "command")
 			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_COMMAND);
-		else if (type == "plugin")
-			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_PLUGIN);
+		else if (type == "module")
+			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
 		else if (type == "query-alias")
 			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY_ALIAS);
 		else if (type == "all")
@@ -111,6 +226,57 @@ public:
 			response << "500 Invalid type. Possible types are: query, command, plugin, query-alias, all";
 			return;
 		}
+		std::string pb_response, json_response;
+		core->registry_query(rrm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+	void registry_control_module_load(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+
+		Plugin::RegistryRequestMessage rrm;
+		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		std::string name = request.get("name", "");
+
+		payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+		payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+		payload->mutable_control()->set_name(name);
+		std::string pb_response, json_response;
+		core->registry_query(rrm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+	void registry_control_module_unload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+
+		Plugin::RegistryRequestMessage rrm;
+		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		std::string name = request.get("name", "");
+
+		payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+		payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
+		payload->mutable_control()->set_name(name);
+		std::string pb_response, json_response;
+		core->registry_query(rrm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+	void registry_inventory_modules(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response))
+			return;
+
+		Plugin::RegistryRequestMessage rrm;
+		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		if (request.get("all", "true") == "true")
+			payload->mutable_inventory()->set_fetch_all(true);
+		std::string type = request.get("type", "query");
+
+		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
 		std::string pb_response, json_response;
 		core->registry_query(rrm.SerializeAsString(), pb_response);
 		core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
@@ -139,6 +305,9 @@ public:
 		std::string key = request.get("key", "");
 		if (!key.empty())
 			payload->mutable_inventory()->mutable_node()->set_key(key);
+		std::string module = request.get("module", "");
+		if (!module.empty())
+			payload->mutable_inventory()->set_plugin(key);
 		payload->set_plugin_id(plugin_id);
 
 		std::string pb_response, json_response;
@@ -175,7 +344,7 @@ public:
 
 
 	void auth_login(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (password != request.get("password")) {
+		if (password.empty() || password != request.get("password")) {
 			response.setCode(302);
 			response.setHeader("Location", "/index.html?error=Invalid+password");
 		} else {
@@ -206,13 +375,24 @@ public:
 	void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
 			return;
+		json_spirit::Object root, log;
+		json_spirit::Array data;
+
 		std::string str_position = request.get("pos", "0");
 		int pos = strEx::s::stox<int>(str_position);
-		std::string data = log_data.get_errors(pos);
-		boost::replace_all(data, "\"", "'");
-		boost::replace_all(data, "\\", "\\\\");
-		boost::replace_all(data, "\n", "\\n");
-		response << "{\"log\" : { \"data\" : \"" << data << "\", \"pos\" : \"" << pos << "\"} }";
+		BOOST_FOREACH(const error_handler::log_entry &e, log_data.get_errors(pos)) {
+			json_spirit::Object node;
+			node.insert(json_spirit::Object::value_type("file", e.file));
+			node.insert(json_spirit::Object::value_type("line", e.line));
+			node.insert(json_spirit::Object::value_type("type", e.type));
+			node.insert(json_spirit::Object::value_type("date", e.date));
+			node.insert(json_spirit::Object::value_type("message", e.message));
+			data.push_back(node);
+		}
+		log.insert(json_spirit::Object::value_type("data", data));
+		log.insert(json_spirit::Object::value_type("pos", pos));
+		root.insert(json_spirit::Object::value_type("log", log));
+		response << json_spirit::write(root);
 	}
 	void log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
@@ -233,7 +413,10 @@ public:
 
 	void setup()
 	{
+		addRoute("GET", "/registry/control/module/load", BaseController, registry_control_module_load);
+		addRoute("GET", "/registry/control/module/unload", BaseController, registry_control_module_unload);
 		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
+		addRoute("GET", "/registry/inventory/modules", BaseController, registry_inventory_modules);
 		addRoute("GET", "/settings/inventory", BaseController, settings_inventory);
 		addRoute("POST", "/settings/query.json", BaseController, settings_query);
 		addRoute("GET", "/settings/status", BaseController, settings_status);
@@ -246,6 +429,7 @@ public:
 		addRoute("POST", "/auth/logout", BaseController, auth_logout);
 		addRoute("GET", "/core/reload", BaseController, reload);
 		addRoute("GET", "/core/isalive", BaseController, alive);
+		addRoute("GET", "/console/exec", BaseController, console_exec);
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
@@ -424,7 +608,7 @@ bool WEBServer::unloadModule() {
 }
 
 
-void error_handler::add_message(bool is_error, std::string message) {
+void error_handler::add_message(bool is_error, const log_entry &message) {
 	{
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!lock.owns_lock())
@@ -432,7 +616,7 @@ void error_handler::add_message(bool is_error, std::string message) {
 		log_entries.push_back(message);
 		if (is_error) {
 			error_count_++;
-			last_error_ = message;
+			last_error_ = message.message;
 		}
 	}
 }
@@ -453,22 +637,272 @@ error_handler::status error_handler::get_status() {
 	ret.last_error = last_error_;
 	return ret;
 }
-std::string error_handler::get_errors(int &position) {
-	std::string ret;
+error_handler::log_list error_handler::get_errors(int &position) {
+	log_list ret;
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())
-		return "";
-	int count = log_entries.size()-position;
-	std::list<std::string>::reverse_iterator cit = log_entries.rbegin();
-	std::list<std::string>::reverse_iterator end = log_entries.rend();
+		return ret;
+	log_list::iterator cit = log_entries.begin()+position;
+	log_list::iterator end = log_entries.end();
 
-	for (;cit != end && count > 0;++cit, --count, ++position) {
-		ret += *cit;
-		ret += "\n";
+	for (;cit != end;++cit) {
+		ret.push_back(*cit);
+		position++;
 	}
 	return ret;
 }
 
 void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
-	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, message.message());
+	using namespace boost::posix_time;
+	using namespace boost::gregorian;
+	
+	error_handler::log_entry entry;
+	entry.line = message.line();
+	entry.file = message.file();
+	entry.message = message.message();
+	entry.date = to_simple_string(second_clock::local_time());
+
+	switch (message.level()) {
+	case Plugin::LogEntry_Entry_Level_LOG_CRITICAL:
+		entry.type = "critical";
+		break;
+	case Plugin::LogEntry_Entry_Level_LOG_DEBUG:
+		entry.type = "debug";
+		break;
+	case Plugin::LogEntry_Entry_Level_LOG_ERROR:
+		entry.type = "error";
+		break;
+	case Plugin::LogEntry_Entry_Level_LOG_INFO:
+		entry.type = "info";
+		break;
+	case Plugin::LogEntry_Entry_Level_LOG_WARNING:
+		entry.type = "warning";
+		break;
+	default:
+		entry.type = "unknown";
+
+	}
+	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
+}
+
+
+bool WEBServer::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	if (request.arguments_size() > 0 && request.arguments(0) == "install")
+		return install_server(request, response);
+	if (request.arguments_size() > 0 && request.arguments(0) == "password")
+		return password(request, response);
+	nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password] --help");
+	return true;
+}
+
+bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure;
+	unsigned int length = 1024;
+	const std::string path = "/settings/NRPE/server";
+
+	pf::settings_query q(get_id());
+	q.get("/settings/default", "allowed hosts", "127.0.0.1");
+	q.get(path, "insecure", "false");
+	q.get(path, "certificate", "${certificate-path}/certificate.pem");
+	q.get(path, "certificate key", "${certificate-path}/certificate_key.pem");
+	q.get(path, "allow arguments", false);
+	q.get(path, "allow nasty characters", false);
+	q.get(path, "allowed ciphers", "");
+
+
+	get_core()->settings_query(q.request(), q.response());
+	if (!q.validate_response()) {
+		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+		return true;
+	}
+	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		if (val.path == "/settings/default" && val.key && *val.key == "allowed hosts")
+			allowed_hosts = val.get_string();
+		else if (val.path == path && val.key && *val.key == "certificate")
+			cert = val.get_string();
+		else if (val.path == path && val.key && *val.key == "certificate key")
+			key = val.get_string();
+		else if (val.path == path && val.key && *val.key == "allowed ciphers")
+			chipers = val.get_string();
+		else if (val.path == path && val.key && *val.key == "insecure")
+			insecure = val.get_string();
+		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
+			arguments = "true";
+		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
+			arguments = "safe";
+	}
+	if (chipers == "ADH")
+		insecure = "true";
+	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
+		insecure = "false";
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), 
+		"Set which hosts are allowed to connect")
+
+		("certificate", po::value<std::string>(&cert)->default_value(cert), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key", po::value<std::string>(&key)->default_value(key), 
+		"Client certificate to use")
+
+		("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"), 
+		"Use \"old\" legacy NRPE.")
+
+		("payload-length,l", po::value<unsigned int>(&length)->default_value(1024), 
+		"Length of payload (has to be same as on both the server and client)")
+
+		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"), 
+		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+		std::stringstream result;
+
+		nscapi::protobuf::functions::settings_query s(get_id());
+		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
+		s.set("/settings/default", "allowed hosts", allowed_hosts);
+		s.set("/modules", "NRPEServer", "enabled");
+		s.set("/settings/NRPE/server", "ssl", "true");
+		if (insecure == "true") {
+			result << "WARNING: NRPE is currently insecure." << std::endl;
+			s.set("/settings/NRPE/server", "insecure", "true");
+			s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
+		} else {
+			result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
+			s.set("/settings/NRPE/server", "insecure", "false");
+			s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+			s.set("/settings/NRPE/server", "certificate", cert);
+			s.set("/settings/NRPE/server", "certificate key", key);
+		}
+		if (arguments == "all" || arguments == "unsafe") {
+			result << "UNSAFE Arguments are allowed." << std::endl;
+			s.set(path, "allow arguments", "true");
+			s.set(path, "allow nasty characters", "true");
+		} else if (arguments == "safe" || arguments == "true") {
+			result << "SAFE Arguments are allowed." << std::endl;
+			s.set(path, "allow arguments", "true");
+			s.set(path, "allow nasty characters", "false");
+		} else {
+			result << "Arguments are NOT allowed." << std::endl;
+			s.set(path, "allow arguments", "false");
+			s.set(path, "allow nasty characters", "false");
+		}
+		s.set(path, "payload length", strEx::s::xtos(length));
+		if (length != 1024)
+			result << "NRPE is using non standard payload length " << length << " please use same configuration in check_nrpe." << std::endl;
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return true;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, result.str());
+		return true;
+	} catch (const std::exception &e) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+		return true;
+	} catch (...) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+		return true;
+	}
+}
+
+
+bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+
+	std::string password;
+	bool display = false, setweb = false;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("set,s", po::value<std::string>(&password), 
+		"Set the new password")
+
+		("display,d", po::bool_switch(&display), 
+		"Display the current configured password")
+
+		("only-web", po::bool_switch(&setweb), 
+		"Set the password for WebServer only (if not specified the default password is used)")
+
+		;
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+	} catch (const std::exception &e) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+		return true;
+	}
+
+	if (display) {
+		sh::settings_registry settings(get_settings_proxy());
+		settings.set_alias("WEB", "", "server");
+
+		settings.alias().add_parent("/settings/default").add_key_to_settings()
+
+			("password", sh::string_key(&password),
+			"PASSWORD", "Password used to authenticate against server")
+
+			;
+
+		settings.register_all();
+		settings.notify();
+		if (password.empty())
+			nscapi::protobuf::functions::set_response_good(*response, "No password set you will not be able to login");
+		else
+			nscapi::protobuf::functions::set_response_good(*response, "Current password: " + password);
+	} else if (!password.empty()) {
+		nscapi::protobuf::functions::settings_query s(get_id());
+		if (setweb) {
+			s.set("/settings/default", "password", password);
+			s.set("/settings/WEB/server", "password", "");
+		} else {
+			s.set("/settings/WEB/server", "password", password);
+		}
+
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return true;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, "Password updated successfully, please restart nsclient++ for changes to affect.");
+
+	} else {
+		nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
+		return true;
+	}
 }

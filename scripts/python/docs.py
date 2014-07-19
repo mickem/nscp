@@ -468,7 +468,7 @@ class DocumentationHelper(object):
 		return []
 
 	def get_plugins(self):
-		(code, data) = self.registry.query(self.build_command_request(4))
+		(code, data) = self.registry.query(self.build_command_request(7))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)

@@ -48,6 +48,9 @@
 							<li>
 								<a href="/log.html">Log</a>
 							</li>
+							<li>
+								<a href="/console.html">Console</a>
+							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
 							<li>
@@ -102,6 +105,7 @@
 					<a href="#" data-bind="click: $root.refresh" class="btn btn-default"><span class="glyphicon glyphicon-refresh"/></a>
 					<a href="#" data-bind="click: $root.showAddKey" class="btn btn-success"><span class="glyphicon glyphicon-plus"/></a>
 				</div>
+				<div class="clearfix"></div>
 			</ol>
 
 
@@ -163,7 +167,7 @@
 				<h3><span data-bind="text: current().title"></span></h3>
 				<p><span data-bind="text: current().desc"></span></p>
 				<!-- /ko -->
-			
+
 				<div class="panel panel-primary" data-bind="visible: paths().length > 0">
 					<div class="panel-heading">
 						<h3 class="panel-title">Sections</h3>
@@ -178,20 +182,25 @@
 					</div>
 				</div>
 
+				<div class="alert alert-warning" data-bind="visible: keys().length == 0 && akeys().length == 0">
+					<p>There are no configured keys in this section, press <a href="#" data-bind="click: $root.showAddKey" class="btn btn-success"><span class="glyphicon glyphicon-plus"/></a> to add a custom key.</p>
+				</div>  
 				<div class="panel panel-primary" data-bind="visible: keys().length > 0 || akeys().length > 0">
 					<div class="panel-heading">
 						<h3 class="panel-title">Keys</h3>
 					</div>
-					<div class="panel-body">
-					
+
 					<div class="panel-group" id="accordion">
 						<div class="panel panel-default">
+							<!-- ko if: keys().length > 0 -->
 							<div class="panel-heading">
 								<h4 class="panel-title">
-									<a data-toggle="collapse" data-parent="#accordion" href="#collapseKeys">Configuration Keys</a>
+									<a class="accordion-toggle" href="#collapseKeys" 
+										data-toggle="collapse" data-parent="#accordion" 
+										data-bind="css: { collapsed: keys().length == 0 } ">Basic Configuration</a>
 								</h4>
 							</div>
-							<div id="collapseKeys" class="panel-collapse collapse in">
+							<div id="collapseKeys" class="panel-collapse collapse" data-bind="css: { in: keys().length > 0 } ">
 								<div class="panel-body">
 									<div class="form-horizontal" data-bind="foreach: keys">
 										<div class="form-group">
@@ -205,15 +214,21 @@
 											</div>
 										</div>
 									</div>
-									<a data-toggle="collapse" data-parent="#accordion" href="#collapseMore">Advanced configuration keys...</a>
+									<!-- ko if: akeys().length > 0 -->
+										<a data-toggle="collapse" data-parent="#accordion" href="#collapseMore">Advanced configuration...</a>
+									<!-- /ko -->
 								</div>
 							</div>
+							<!-- /ko -->
+							<!-- ko if: akeys().length > 0 -->
 							<div class="panel-heading">
 								<h4 class="panel-title">
-									<a data-toggle="collapse" data-parent="#accordion" href="#collapseMore">Advanced Configuration Keys</a>
+									<a class="accordion-toggle" href="#collapseMore"
+										data-toggle="collapse" data-parent="#accordion"
+										data-bind="css: { collapsed: keys().length > 0 || akeys().length == 0} ">Advanced Configuration</a>
 								</h4>
 							</div>
-							<div id="collapseMore" class="panel-collapse collapse">
+							<div id="collapseMore" class="panel-collapse collapse" data-bind="css: { in: keys().length == 0 && akeys().length > 0 } ">
 								<div class="panel-body">
 									<div class="form-horizontal" data-bind="foreach: akeys">
 										<div class="form-group" id="adkeys">
@@ -227,9 +242,12 @@
 											</div>
 										</div>
 									</div>
-									<a data-toggle="collapse" data-parent="#accordion" href="#collapseKeys">Basic configuration keys...</a>
+									<!-- ko if: keys().length > 0 -->
+										<a data-toggle="collapse" data-parent="#accordion" href="#collapseKeys">Basic configuration...</a>
+									<!-- /ko -->
 								</div>
 							</div>
+							<!-- /ko -->
 						</div>
 					</div>
 					<div class="form-group">

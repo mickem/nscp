@@ -287,6 +287,11 @@ message Registry {
 		optional string cron = 2;
 		optional string interval = 3;
 	};
+	enum Command {
+		LOAD	= 1;
+		UNLOAD	= 2;
+		RELOAD	= 3;
+	};
 };
 
 message RegistryRequestMessage {
@@ -311,9 +316,16 @@ message RegistryRequestMessage {
 			optional bool fetch_all = 6;
 			optional bool fetch_information = 7;
 		};
+		message Control {
+			required Registry.Command command = 1;
+			required Registry.ItemType type = 2;
+			optional string name = 3;
+			optional string alias = 4;
+		};
 		optional int64 id = 1;
 		optional Registration registration = 3;
 		optional Inventory inventory = 4;
+		optional Control control = 5;
 	};
 	required Common.Header header = 1;
 	repeated Request payload = 2;
@@ -332,11 +344,14 @@ message RegistryResponseMessage {
 			repeated Registry.Schedule schedule = 20;
 
 		};
+		message Control {
+		};
 		optional int64 id = 1;
 		required Common.Status result = 2;
 
 		optional Registration registration = 3;
 		repeated Inventory inventory = 4;
+		optional Control control = 5;
 	};
 
 	required Common.Header header = 1;
@@ -414,6 +429,7 @@ message SettingsRequestMessage {
 			optional Common.AnyDataType value = 2;
 		};
 		message Inventory {
+			optional string plugin = 11;
 			optional Settings.Node node = 1;
 			optional Settings.Query query = 10;
 			optional bool recursive_fetch = 2;
