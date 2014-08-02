@@ -1,0 +1,20 @@
+IF (WIN32)
+	SET(EXE_NAME protoc-gen-json.cmd)
+ELSE(WIN32)
+	SET(EXE_NAME protoc-gen-json)
+ENDIF(WIN32)
+FIND_PROGRAM(PROTOC_GEN_JSON_BIN
+	NAMES
+		${EXE_NAME}
+	PATHS 
+		${CMAKE_SOURCE_DIR}/ext/json-protobuf
+		${PROTOC_GEN_JSON}
+		/usr/local/bin/
+		/usr/bin/
+		${PYTHON_ROOT}/Scripts
+)
+IF(PROTOC_GEN_JSON_BIN)
+	SET(PROTOC_GEN_JSON_FOUND TRUE)
+ELSE()
+	SET(PROTOC_GEN_JSON_FOUND FALSE)
+ENDIF()

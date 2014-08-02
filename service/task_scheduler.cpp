@@ -63,7 +63,14 @@ namespace task_scheduler {
 			if (instance) {
 				boost::posix_time::time_duration off = now() - (*instance).time;
 				if (off.total_seconds() > 5) {
-					log_error("Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+					if (thread_count_ < 0)
+						thread_count_++;
+					std::size_t missing_threads = thread_count_ - threads_.size();
+					if (missing_threads > 0) {
+						start_thread();
+					} else {
+						log_error("Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+					}
 				}
 			}
 			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));

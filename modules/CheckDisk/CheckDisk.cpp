@@ -199,7 +199,7 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	bool total = false;
 
 	file_filter::filter filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK: All files ok");
+	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "OK: All files ok");
 	filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", filter.get_format_syntax(), "${name}", "${name}");
 	filter_helper.get_desc().add_options()
 		("path", po::value<std::vector<std::string> >(&file_list),	"The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."

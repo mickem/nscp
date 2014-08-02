@@ -2,7 +2,6 @@
 #include "NSClient++.h"
 #include "settings_client.hpp"
 #include "service_manager.hpp"
-#include "simple_client.hpp"
 #include <config.h>
 #include <nsclient/logger.hpp>
 
@@ -27,7 +26,6 @@ cli_parser::cli_parser(NSClient* core)
 	, service("Service Options")
 	, client("Client Options")
 	, unittest("Unit-test Options")
-	, test("Test Options")
 	, help(false)
 	, version(false)
 	, log_debug(false)
@@ -90,9 +88,6 @@ cli_parser::cli_parser(NSClient* core)
 		("raw-argument", po::wvalue<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
 		;
 
-	test.add_options()
-		;
-
 }
 
 void cli_parser::init_logger() {
@@ -134,7 +129,6 @@ cli_parser::handler_map cli_parser::get_handlers() {
 	handlers["settings"] = boost::bind(&cli_parser::parse_settings, this, _1, _2);
 	handlers["service"] = boost::bind(&cli_parser::parse_service, this, _1, _2);
 	handlers["client"] = boost::bind(&cli_parser::parse_client, this, _1, _2, "");
-	handlers["test"] = boost::bind(&cli_parser::parse_test, this, _1, _2);
 	handlers["help"] = boost::bind(&cli_parser::parse_help, this, _1, _2);
 	handlers["unit"] = boost::bind(&cli_parser::parse_unittest, this, _1, _2);
 	return handlers;
@@ -157,6 +151,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
 	aliases["ext-scr"] = "CheckExternalScripts";
 	aliases["ext"] = "CheckExternalScripts";
 	aliases["web"] = "WEBServer";
+	aliases["test"] = "CommandClient";
 	return aliases;
 }
 
@@ -255,36 +250,6 @@ void cli_parser::display_help() {
 int cli_parser::parse_help(int argc, char* argv[]) {
 	display_help();
 	return 1;
-}
-
-int cli_parser::parse_test(int argc, char* argv[]) {
-	try {
-
-		po::options_description all("Allowed options (test)");
-		all.add(common).add(test);
-
-		po::variables_map vm;
-		po::store(do_parse(argc, argv, all), vm);
-		po::notify(vm);
-
-		BOOST_FOREACH(const std::string &s, log_level) {
-			std::cout << s << std::endl;
-		}
-		if (log_level.empty()) {
-			log_level.push_back("debug");
-			log_level.push_back("console");
-		}
-
-		if (process_common_options("test", all))
-			return 1;
-
-		nsclient::simple_client client(core_);
-		client.start();
-		return 0;
-	} catch(const std::exception & e) {
-		std::cerr << std::string("Unable to parse command line (test): ") << e.what() << "\n";
-		return 1;
-	}
 }
 
 int cli_parser::parse_settings(int argc, char* argv[]) {
@@ -452,12 +417,14 @@ struct client_arguments {
 
 	int exec_client_mode(NSClient* core_) {
 		try {
+			if (module == "CommandClient")
+				boot = true;
 			debug();
 
 			core_->boot_init(true);
 			if (load_all)                                                                                                                                                    
 				core_->preboot_load_all_plugin_files();
-			if (module.empty())
+			if (module.empty() || module == "CommandClient")
 				core_->boot_load_all_plugins();
 			else
 				core_->boot_load_plugin(module);
@@ -529,6 +496,10 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		po::variables_map vm;
 		po::store(do_parse(argc, argv, all), vm);
 		po::notify(vm);
+
+		if (module_ == "CommandClient" &&  vm.count("log") == 0) {
+			nsclient::logging::logger::set_log_level("debug");
+		}
 
 		if (process_common_options("client", all))
 			return 1;

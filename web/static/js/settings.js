@@ -43,18 +43,17 @@ function CommandViewModel() {
 	var self = this;
 
 	self.nscp_status = ko.observable(new NSCPStatus());
-	path = getUrlVars()['path']
-	if (!path)
-		path = '/'
-	self.currentPath = ko.observableArray(make_paths_from_string(path))
+	self.current_paths = ko.observableArray([]);
 	self.paths = ko.observableArray([]);
 	self.keys = ko.observableArray([]);
 	self.akeys = ko.observableArray([]);
 	self.current = ko.observable();
+	self.path = ko.observable('/');
 	self.status = ko.observable(new SettingsStatus());
-	self.addNew = ko.observable(new LocalKeyEntry(path));
+	self.addNew = ko.observable(new LocalKeyEntry(self.path));
+	self.currentPath = ko.observableArray(make_paths_from_string(self.path()))
+	self.path_map = {}
 
-	init_refresh(self);
 	self.showAddKey = function(command) {
 		$("#addKey").modal('show');
 	}
@@ -67,6 +66,7 @@ function CommandViewModel() {
 		root['header'] = {};
 		root['header']['version'] = 1;
 		root['type'] = 'SettingsRequestMessage';
+		self.addNew().path = self.path()
 		root['payload'] = [build_settings_payload(self.addNew())];
 
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
@@ -110,6 +110,7 @@ function CommandViewModel() {
 		root['payload'] = [ payload ];
 		
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			done_refresh(self, 2);
 			self.refresh()
 		})
 	}
@@ -126,23 +127,37 @@ function CommandViewModel() {
 		
 		root['payload'] = [ payload ];
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			done_refresh(self, 2);
 			self.refresh()
 		})
 	}
-	self.refresh = function() {
-		$.getJSON("/settings/inventory?path=" + path + "&recursive=true&paths=true", function(data) {
-			self.paths.removeAll()
-			if (data['payload'][0]['inventory']) {
-				data['payload'][0]['inventory'].forEach(function(entry) {
-					if (path == entry['node']['path']) {
-						self.current(new PathEntry(entry))
-					} else {
-						self.paths.push(new PathEntry(entry));
-					}
-				});
+	self.update_current_paths = function() {
+		self.current_paths.removeAll()
+		ko.utils.arrayForEach(self.paths(), function(p) {
+			if (p.path.indexOf(path) == 0 && p.path != path )  {
+				self.current_paths.push(p)
 			}
+		});
+	}
+	self.refresh = function() {
+		init_refresh(self);
+		path = self.path()
+		if (self.paths().length == 0) {
+			$.getJSON("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
+				if (data['payload'][0]['inventory']) {
+					data['payload'][0]['inventory'].forEach(function(entry) {
+						p = new PathEntry(entry)
+						self.paths.push(p);
+						self.path_map[p.path] = p
+					});
+				}
+				self.update_current_paths();
+				done_refresh(self);
+			})
+		} else {
+			self.update_current_paths();
 			done_refresh(self);
-		})
+		}
 		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
 			self.keys.removeAll()
 			self.akeys.removeAll()
@@ -155,16 +170,31 @@ function CommandViewModel() {
 						self.keys.push(key);
 				});
 			}
+			self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
+			self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 			done_refresh(self);
 		})
-		self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
-		self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		$.getJSON("/settings/status", function(data) {
 			self.status().update(data['payload'][0]['status'])
 		})
 	}
 	self.set_default_value = function(key) {
-		key.value('') // key.default_value
+		key.value('')
+	}
+	self.change_path = function(path) {
+		p = self.path_map[path]
+		if (!p)
+			p = new LocalKeyEntry(path)
+		self.current(p)
+		self.path(self.current().path)
+		self.currentPath(make_paths_from_string(self.path()))
+		self.refresh()
+	}
+	self.set_root_path = function(command) {
+		self.change_path('/')
+	}
+	self.set_current_path = function(command) {
+		self.change_path(command.path)
 	}
 	self.refresh()
 }

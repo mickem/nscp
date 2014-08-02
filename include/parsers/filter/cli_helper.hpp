@@ -45,33 +45,49 @@ namespace modern_filter {
 		boost::program_options::options_description& get_desc() {
 			return desc;
 		}
-
-		void add_options(std::string filter_syntax, std::string empty_text = "No matches", std::string empty_state = "unknown") {
+		void add_options(std::string warn, std::string crit, std::string filter, std::string filter_syntax, std::string empty_text = "No matches", std::string empty_state = "unknown") {
 			nscapi::program_options::add_help(desc);
+			boost::program_options::typed_value<std::string> *filter_op = boost::program_options::value<std::string>(&data.filter_string);
+			boost::program_options::typed_value<std::string> *warn_op = boost::program_options::value<std::string>(&data.warn_string);
+			boost::program_options::typed_value<std::string> *crit_op = boost::program_options::value<std::string>(&data.crit_string);
+			boost::program_options::typed_value<std::string> *empty_text_op = boost::program_options::value<std::string>(&data.empty_detail);
+			boost::program_options::typed_value<std::string> *empty_state_op = boost::program_options::value<std::string>(&data.empty_state);
+			if (!filter.empty())
+				filter_op->default_value(filter);
+			if (!warn.empty())
+				warn_op->default_value(warn);
+			if (!crit.empty())
+				crit_op->default_value(crit);
+			if (!empty_text.empty())
+				empty_text_op->default_value(empty_text);
+			if (!empty_state.empty())
+				empty_state_op->default_value(empty_state);
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
 				"Show debugging information in the log")
 				("show-all", boost::program_options::bool_switch(&show_all),
 				"Show debugging information in the log")
-				("filter", boost::program_options::value<std::string>(&data.filter_string),
+				("filter", filter_op,
 				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("warning", boost::program_options::value<std::string>(&data.warn_string),
+				("warning", warn_op,
 				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("warn", boost::program_options::value<std::string>(&data.warn_string),
+				("warn", boost::program_options::value<std::string>(),
 				"Short alias for warning")
-				("critical", boost::program_options::value<std::string>(&data.crit_string),
+				("critical", crit_op,
 				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("crit", boost::program_options::value<std::string>(&data.crit_string),
+				("crit", boost::program_options::value<std::string>(),
 				"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
 				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("empty-syntax", boost::program_options::value<std::string>(&data.empty_detail)->default_value(empty_text), 
+				("empty-syntax", empty_text_op, 
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-				("empty-state", boost::program_options::value<std::string>(&data.empty_state)->default_value(empty_state), 
+				("empty-state", empty_state_op, 
 				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
 				"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
 				;
+
+
 		}
 
 		bool parse_options() {
@@ -80,6 +96,10 @@ namespace modern_filter {
 				return false;
 			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
+			if (vm.count("warn"))
+				data.warn_string = vm["warn"].as<std::string>();
+			if (vm.count("crit"))
+				data.crit_string = vm["crit"].as<std::string>();
 			return true;
 		}
 		bool parse_options(std::vector<std::string> &extra) {

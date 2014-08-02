@@ -35,6 +35,8 @@
 #include <nscapi/nscapi_core_helper.hpp>
 
 #include <settings/client/settings_client.hpp>
+#include <client/simple_client.hpp>
+
 #include <json_spirit.h>
 
 
@@ -64,6 +66,36 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 	return true;
 }
 
+class cli_handler : public client::cli_handler {
+	nscapi::core_wrapper* core;
+public:
+	cli_handler(nscapi::core_wrapper* core) : core(core) {}
+
+
+	void output_message(const std::string &msg) {
+		error_handler::log_entry e;
+		e.date = "";
+		e.file = "";
+		e.line = 0;
+		e.message = msg;
+		e.type = "out";
+		log_data.add_message(false, e);
+	}
+	virtual void log_debug(std::string module, std::string file, int line, std::string msg) const {
+		if (core->should_log(NSCAPI::log_level::debug)) {
+			core->log(NSCAPI::log_level::debug, file, line, msg);
+		}
+	}
+
+	virtual void log_error(std::string module, std::string file, int line, std::string msg) const
+	{
+		if (core->should_log(NSCAPI::log_level::debug)) {
+			core->log(NSCAPI::log_level::error, file, line, msg);
+		}
+	}
+
+};
+
 class BaseController : public Mongoose::WebController
 {
 	const std::string password;
@@ -71,10 +103,16 @@ class BaseController : public Mongoose::WebController
 	const unsigned int plugin_id;
 	std::string status;
 	boost::shared_mutex mutex_;
+	client::cli_client client_;
 
 public: 
 
-	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) : password(password), core(core), plugin_id(plugin_id), status("ok") {}
+	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) 
+		: password(password)
+		, core(core)
+		, plugin_id(plugin_id)
+		, status("ok")
+		, client_(client::cli_handler_ptr(new cli_handler(core))){}
 
 	std::string get_status() {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
@@ -87,117 +125,17 @@ public:
 		if (!lock.owns_lock()) 
 			return false;
 		status = status_;
+		return true;
 	}
 
-	void output_message(const std::string &msg) {
-		error_handler::log_entry e;
-		e.date = "";
-		e.file = "";
-		e.line = 0;
-		e.message = msg;
-		e.type = "out";
-		log_data.add_message(false, e);
-	}
-	void handle_command(const std::string &command) {
-		if (command == "plugins") {
-			Plugin::RegistryRequestMessage rrm;
-			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
-			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
-			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_MODULE);
-			std::string pb_response;
-			core->registry_query(rrm.SerializeAsString(), pb_response);
-			Plugin::RegistryResponseMessage response_message;
-			response_message.ParseFromString(pb_response);
-			std::string list;
-			for (int i=0;i<response_message.payload_size();i++) {
-				const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
-				for (int j=0;j<pl.inventory_size();j++) {
-					if (!list.empty())
-						list += "\n";
-					list += pl.inventory(j).name() + "\t-" + pl.inventory(j).info().description();
-				}
-				if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
-					output_message(response_message.payload(i).result().message());
-				}
-			}
-			if (list.empty())
-				output_message("Nothing found");
-			else
-				output_message(list);
-		} else if (command == "help") {
-			output_message("Commands: \n\thelp\t-get help\n\tlist\t-queries queries\n\tplugins\t-list plugins\t<any command>\t-Will be executed as a query");
-		} else if (command.size() > 4 && command.substr(0,4) == "load") {
-			Plugin::RegistryRequestMessage rrm;
-			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
-			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
-			std::string name = command.substr(5);
-			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
-			payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
-			payload->mutable_control()->set_name(name);
-			std::string pb_response, json_response;
-			core->registry_query(rrm.SerializeAsString(), pb_response);
-			Plugin::RegistryResponseMessage response_message;
-			response_message.ParseFromString(pb_response);
-			bool has_errors = false;
-			for (int i=0;i<response_message.payload_size();i++) {
-				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
-					output_message("Failed to load module: " + response_message.payload(i).result().message());
-					has_errors = true;
-				}
-			}
-			if (!has_errors)
-				output_message("Module loaded successfully...");
-		} else if (command == "queries" || command == "list" || command == "commands") {
-			Plugin::RegistryRequestMessage rrm;
-			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
-			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
-			payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
-			std::string pb_response;
-			core->registry_query(rrm.SerializeAsString(), pb_response);
-			Plugin::RegistryResponseMessage response_message;
-			response_message.ParseFromString(pb_response);
-			std::string list;
-			for (int i=0;i<response_message.payload_size();i++) {
-				const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
-				for (int j=0;j<pl.inventory_size();j++) {
-					if (!list.empty())
-						list += "\n";
-					list += pl.inventory(j).name() + "\t-" + pl.inventory(j).info().description();
-				}
-				if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
-					output_message("Failed to load module: " + response_message.payload(i).result().message());
-				}
-			}
-			if (list.empty())
-				output_message("Nothing found");
-			else
-				output_message(list);
-		} else if (!command.empty()) {
-			try {
-				std::list<std::string> args;
-				strEx::s::parse_command(command, args);
-				std::string cmd = args.front(); args.pop_front();
-				std::string msg, perf;
-				NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd, args, msg, perf);
-				if (ret == NSCAPI::returnIgnored) {
-					output_message("No handler for command: " + cmd);
-				} else {
-					output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
-					if (!perf.empty())
-						output_message(" Performance data: " + perf);
-				}
-			} catch (const std::exception &e) {
-				output_message("Exception: " + utf8::utf8_from_native(e.what()));
-			} catch (...) {
-				output_message("Unknown exception");
-			}
-		}
-	}
+
+
 	void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
 			return;
 		std::string command = request.get("command", "help");
-		handle_command(command);
+
+		client_.handle_command(command);
 		response << "{\"status\" : \"ok\"}";
 	}
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -307,7 +245,7 @@ public:
 			payload->mutable_inventory()->mutable_node()->set_key(key);
 		std::string module = request.get("module", "");
 		if (!module.empty())
-			payload->mutable_inventory()->set_plugin(key);
+			payload->mutable_inventory()->set_plugin(module);
 		payload->set_plugin_id(plugin_id);
 
 		std::string pb_response, json_response;

@@ -508,7 +508,7 @@ public:
 		return version;
 	}
 	static std::string getModuleDescription() {
-		return "{{module.description}}";
+		return "{{module.description|cstring}}";
 	}
 
 {% if module.commands or module.command_fallback%}
@@ -746,6 +746,9 @@ def render_template(hash, template, filename):
 	f.write(data)
 	f.close()
 
+def escape_cstring(str):
+	return str.replace('"', '\\"')
+
 module.commands = commands
 module.cli = cli
 module.channels = channels
@@ -753,6 +756,7 @@ module.log_handler = log_handler
 module.command_fallback = command_fallback
 
 env = Environment(extensions=["jinja2.ext.do",])
+env.filters['cstring'] = escape_cstring
 
 data = {'module': module, 'options': options}
 render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.target)

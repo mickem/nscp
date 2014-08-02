@@ -1,6 +1,6 @@
 package Plugin;
 
-option optimize_for = LITE_RUNTIME;
+// option optimize_for = LITE_RUNTIME;
 
 message Common {
 
@@ -19,7 +19,6 @@ message Common {
 	};
 	
 	message AnyDataType {
-		required Common.DataType type = 1;
 		optional string string_data = 2;
 		optional int64 int_data = 3;
 		optional double float_data = 4;
@@ -126,20 +125,6 @@ message Common {
 		optional string message = 2;
 		optional string data = 3;
 	}
-	message ResponseData {
-		message ResponseDataCell {
-			required Common.AnyDataType data = 1;
-			optional string tag = 2;
-		}
-		message ResponseDataRow {
-			repeated ResponseDataCell cells = 1;
-		}
-		required string alias = 1;
-		optional ResponseDataRow headers = 2;
-		repeated ResponseDataRow rows = 3;
-
-	}
-	
 };
 
 // // // // // // // // // // // // // // // // // // // // // // // // 
@@ -175,6 +160,7 @@ message QueryResponseMessage {
 		
 		required Common.ResultCode result = 4;
 		required string message = 5;
+		optional bytes data = 8;
 		repeated Common.PerformanceData perf = 6;
 		repeated Common.Attachment attachments = 17;
 		
@@ -212,8 +198,8 @@ message ExecuteResponseMessage {
 		
 		required Common.ResultCode result = 9;
 		required string message = 10;
+		optional bytes data = 7;
 		
-		optional Common.ResponseData data = 11;
 		repeated Common.Attachment attachments = 17;
 		
 	}
@@ -282,6 +268,27 @@ message Registry {
 		optional bool advanced = 8;
 		repeated string plugin = 9;
 	};
+	message KeyWordDescription {
+		required string parameter = 1;
+		optional string context = 2;
+		required string key = 3;
+		optional string short_description = 5;
+		optional string long_description = 6;
+	};
+	message ParameterDetail {
+		optional string name = 1;
+		optional string default_value = 2;
+		optional bool required = 3;
+		optional bool repeatable = 4;
+		optional Common.DataType content_type = 5;
+		optional string short_description = 6;
+		optional string long_description = 7;
+		repeated KeyWordDescription keyword = 8;
+	};
+	message ParameterDetails {
+		repeated ParameterDetail parameter = 1;
+	}
+
 	message Schedule {
 		optional string id = 1;
 		optional string cron = 2;
@@ -340,6 +347,7 @@ message RegistryResponseMessage {
 			required Registry.ItemType type = 2;
 			required string name = 3;
 			optional Registry.Information info = 4;
+			optional Registry.ParameterDetails parameters = 5;
 
 			repeated Registry.Schedule schedule = 20;
 

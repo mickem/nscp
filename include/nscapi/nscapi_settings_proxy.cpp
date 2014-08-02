@@ -38,7 +38,6 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, int
 	regitem->mutable_node()->set_path(path);
 	regitem->mutable_info()->set_title(title);
 	regitem->mutable_info()->set_description(description);
-	regitem->mutable_info()->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 	regitem->mutable_info()->mutable_default_value()->set_string_data(defValue);
 	regitem->mutable_info()->set_advanced(advanced);
 	regitem->mutable_info()->set_sample(sample);
@@ -59,7 +58,6 @@ std::string nscapi::settings_proxy::get_string(std::string path, std::string key
 	item->mutable_node()->set_path(path);
 	item->set_type(Plugin::Common_DataType_STRING);
 	item->set_recursive(false);
-	item->mutable_default_value()->set_type(Plugin::Common_DataType_STRING);
 	item->mutable_default_value()->set_string_data(def);
 
 	std::string response_string;
@@ -79,7 +77,6 @@ void nscapi::settings_proxy::set_string(std::string path, std::string key, std::
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
 	item->mutable_node()->set_key(key);
 	item->mutable_node()->set_path(path);
-	item->mutable_value()->set_type(Plugin::Common_DataType_STRING);
 	item->mutable_value()->set_string_data(value);
 
 	std::string response_string;
@@ -98,7 +95,6 @@ int nscapi::settings_proxy::get_int(std::string path, std::string key, int def) 
 	item->mutable_node()->set_path(path);
 	item->set_type(Plugin::Common_DataType_INT);
 	item->set_recursive(false);
-	item->mutable_default_value()->set_type(Plugin::Common_DataType_INT);
 	item->mutable_default_value()->set_int_data(def);
 
 	std::string response_string;
@@ -118,7 +114,6 @@ void nscapi::settings_proxy::set_int(std::string path, std::string key, int valu
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
 	item->mutable_node()->set_key(key);
 	item->mutable_node()->set_path(path);
-	item->mutable_value()->set_type(Plugin::Common_DataType_INT);
 	item->mutable_value()->set_int_data(value);
 
 	std::string response_string;
@@ -137,7 +132,6 @@ bool nscapi::settings_proxy::get_bool(std::string path, std::string key, bool de
 	item->mutable_node()->set_path(path);
 	item->set_type(Plugin::Common_DataType_BOOL);
 	item->set_recursive(false);
-	item->mutable_default_value()->set_type(Plugin::Common_DataType_BOOL);
 	item->mutable_default_value()->set_bool_data(def);
 
 	std::string response_string;
@@ -157,7 +151,6 @@ void nscapi::settings_proxy::set_bool(std::string path, std::string key, bool va
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
 	item->mutable_node()->set_key(key);
 	item->mutable_node()->set_path(path);
-	item->mutable_value()->set_type(Plugin::Common_DataType_BOOL);
 	item->mutable_value()->set_bool_data(value);
 
 	std::string response_string;

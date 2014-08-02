@@ -183,7 +183,8 @@ public:
 	//void startTrayIcon(DWORD dwSessionId);
 
 	void listPlugins();
-	plugin_type find_plugin(unsigned int plugin_id);
+	plugin_type find_plugin(const unsigned int plugin_id);
+	plugin_type find_plugin(const std::string plugin_id);
 	plugin_info_list get_all_plugins();
 	std::string get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);

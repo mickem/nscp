@@ -172,6 +172,31 @@ void nscapi::core_helper::core_proxy::register_command(std::string command, std:
 	}
 }
 
+void nscapi::core_helper::core_proxy::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
+
+	Plugin::RegistryRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+
+	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->set_plugin_id(plugin_id_);
+	regitem->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
+	regitem->set_name(command);
+	regitem->mutable_info()->set_title(command);
+	regitem->mutable_info()->set_description(description);
+	BOOST_FOREACH(const std::string &alias, aliases) {
+		regitem->add_alias(alias);
+	}
+	std::string response_string;
+	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(response_string);
+	for (int i=0;i<response.payload_size();i++) {
+		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
+	}
+}
+
 void nscapi::core_helper::core_proxy::register_channel(const std::string channel)
 {
 	Plugin::RegistryRequestMessage request;

@@ -31,6 +31,11 @@ function getUrlVars() {
     return vars;
 }
 
+
+settings_get_value = function (val) {
+	if (val.string_data)
+		return val.string_data
+}
 function NSCPStatus(state) {
 	var self = this;
 	self.poller_state = typeof state !== 'undefined' ? state : true;
@@ -80,7 +85,7 @@ function NSCPStatus(state) {
 			}]
 		});	
 	
-		$("#busy").modal({"backdrop" : "hide", "show": "true"});
+		//$("#busy").modal({"backdrop" : "hide", "show": "true"});
 	}
 		
 	self.do_update = function(elem) {
@@ -166,6 +171,7 @@ function PathNode(parent, path) {
 	self.href = "/settings.html?path=" + parent + "/" + path
 	self.title = "Show all keys under: " + parent + "/" + path
 	self.name = path
+	self.path = parent + "/" + path
 }
 
 
@@ -196,8 +202,6 @@ function groupBy( array , f )
   })
 }
 
-
-
 function PathEntry(entry) {
 	var self = this;
 	
@@ -219,22 +223,23 @@ function KeyEntry(entry) {
 	self.value = ko.observable('')
 
 	if (entry['value'])
-		self.value(entry['value']['value'])
+		self.value(settings_get_value(entry['value']))
 	self.path = entry['node']['path'];
 	self.key = ''
 	if (entry['node']['key'])
 		self.key = entry['node']['key'];
 	self.paths = make_paths_from_string(self.path)
 	self.title = entry['info']['title'];
-	self.desc = entry['info']['description'];
+	if (entry['info']['description'])
+		self.desc = entry['info']['description'];
+	else
+		self.desc = 'UNDEFINED KEY'
 	self.plugs = entry['info']['plugin'];
 	self.advanced = entry['info']['advanced'];
 	self.default_value = ''
 	self.type = 'string'
-	if (entry['info']['default_value']) {
-		self.default_value = entry['info']['default_value']['value'];
-		self.type = entry['info']['default_value']['type'];
-	}
+	if (entry['info']['default_value'])
+		self.default_value = settings_get_value(entry['info']['default_value']);
 	if (self.value() == self.default_value)
 		self.value('')
 	self.old_value = self.value()
@@ -247,8 +252,7 @@ function KeyEntry(entry) {
 		payload['update']['node']['path'] = self.path
 		payload['update']['node']['key'] = self.key
 		payload['update']['value'] = {}
-		payload['update']['value']['type'] = 'string'
-		payload['update']['value']['value'] = self.value()
+		payload['update']['value']['string_data'] = self.value()
 		return payload
 	}
 }

@@ -108,11 +108,12 @@
 					<h4 class="modal-title">Execution result</h4>
 				  </div>
 				  <div class="modal-body">
-						<table class="table">
+				  <!--
+						<table class="table" data-bind="visible: result()">
 							<tbody>
 								<tr>
 									<td>
-										<button class="btn" data-bind="css: resultCSS">
+										<button class="btn" data-bind="css: result().resultCSS">
 											<span data-bind="text: result().resultText"></span>
 										</button>
 									</td>
@@ -124,6 +125,7 @@
 								</tr>
 							</tbody>
 						</table>
+						-->
 				  </div>
 				  <div class="modal-footer">
 					<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>

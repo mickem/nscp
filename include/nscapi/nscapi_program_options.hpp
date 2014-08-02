@@ -111,7 +111,7 @@ namespace nscapi {
 		static void add_help(po::options_description &desc) {
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
-				("help-csv",	"Show help screen as a comma separated list. \nThis is useful for parsing the output in scripts and generate documentation etc")
+				("help-pb",		"Show help screen as a protocol buffer payload")
 				("help-short",	"Show help screen (short format).")
 				;
 		}
@@ -315,8 +315,12 @@ namespace nscapi {
 					ret = arg.substr(0, arg.size()-2);
 				strEx::replace(ret, "arg (=", "");
 				strEx::replace(ret, "[=arg(=", "");
+				if (ret == "arg")
+					return "";
 				return ret;
 			} else {
+				if (arg == "arg")
+					return "";
 				return arg;
 			}
 		}
@@ -422,6 +426,22 @@ namespace nscapi {
 			return main_stream.str();
 		}
 
+		inline std::string help_pb(const boost::program_options::options_description &desc) {
+			::Plugin::Registry::ParameterDetails details;
+			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+				::Plugin::Registry::ParameterDetail *detail = details.add_parameter();
+				detail->set_name(op->long_name());
+				bool hasargs = op->semantic()->max_tokens() != 0;
+				if (hasargs) {
+					detail->set_content_type(Plugin::Common::STRING);
+					detail->set_default_value(strip_default_value(op->format_parameter()));
+				} else
+					detail->set_content_type(Plugin::Common::BOOL);
+				detail->set_long_description(op->description());
+			}
+			return details.SerializeAsString();
+		}
+
 		typedef std::vector<std::string> unrecognized_map;
 		
 		template<class T, class U>
@@ -441,8 +461,8 @@ namespace nscapi {
 				unrecognized_map un = po::collect_unrecognized(parsed.options, po::include_positional);
 				unrecognized.insert(unrecognized.end(), un.begin(), un.end());
 
-				if (vm.count("help-csv")) {
-					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+				if (vm.count("help-pb")) {
+					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
 				}
 				if (vm.count("help-short")) {
@@ -474,8 +494,8 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("help-csv")) {
-					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+				if (vm.count("help-pb")) {
+					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
 				}
 				if (vm.count("help-short")) {
@@ -510,8 +530,8 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("help-csv")) {
-					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+				if (vm.count("help-pb")) {
+					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
 				}
 				if (vm.count("help-short")) {
@@ -546,8 +566,8 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("help-csv")) {
-					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, request.command()));
+				if (vm.count("help-pb")) {
+					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
 				}
 				if (vm.count("help-short")) {
@@ -583,8 +603,8 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("help-csv")) {
-					nscapi::protobuf::functions::set_response_good(response, help_csv(desc, command));
+				if (vm.count("help-pb")) {
+					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
 				}
 				if (vm.count("help-short")) {

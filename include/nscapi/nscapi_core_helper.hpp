@@ -33,10 +33,10 @@ namespace nscapi {
 			int plugin_id_;
 			core_proxy(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
 			void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+			void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
 			void register_channel(const std::string channel);
 		};
  		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf);
-// 		NSCAPI::nagiosReturn simple_query(const std::wstring command, const std::list<std::wstring> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::vector<std::string> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf);

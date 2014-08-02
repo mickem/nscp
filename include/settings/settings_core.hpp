@@ -101,7 +101,9 @@ namespace settings {
 				plugins = other.plugins;
 				return *this;
 			}
-
+			bool has_plugin(unsigned int plugin_id) const {
+				return plugins.find(plugin_id) != plugins.end();
+			}
 			void append_plugin(unsigned int plugin_id) {
 				plugins.insert(plugin_id);
 			}

@@ -90,6 +90,21 @@ namespace nscapi {
 				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_OK);
 				response.mutable_status()->set_message(message);
 			}
+			inline void set_response_good_wdata(::Plugin::QueryResponseMessage::Response &response, std::string message) {
+				response.set_result(::Plugin::Common_ResultCode_OK);
+				response.set_data(message);
+				response.set_message("see data segment");
+			}
+			inline void set_response_good_wdata(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
+				response.set_result(::Plugin::Common_ResultCode_OK);
+				response.set_data(message);
+				response.set_message("see data segment");
+			}
+			inline void set_response_good_wdata(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
+				response.mutable_status()->set_status(::Plugin::Common_Status_StatusType_STATUS_OK);
+				response.mutable_status()->set_data(message);
+				response.mutable_status()->set_message("see data segment");
+			}
 
 			inline void set_response_bad(::Plugin::QueryResponseMessage::Response &response, std::string message) {
 				response.set_result(Plugin::Common_ResultCode_UNKNOWN);

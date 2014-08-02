@@ -526,7 +526,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "CPU Load ok");
+	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "CPU Load ok");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${time}: ${load}%", "${core} ${time}");
 	filter_helper.get_desc().add_options()
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
@@ -534,9 +534,6 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 
 	if (!filter_helper.parse_options())
 		return;
-
-	filter_helper.set_default("load > 80", "load > 90");
-	filter_helper.set_default_filter("core = 'total'");
 
 	if (times.empty()) {
 		times.push_back("5m");
@@ -611,15 +608,11 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "Uptime ok");
+	filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "Uptime ok");
 	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		filter_helper.set_default("uptime < 2d", "uptime < 1d");
-	}
 
 	if (!filter_helper.build_filter(filter))
 		return;
@@ -648,15 +641,11 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "Version ok");
+	filter_helper.add_options("version > 50", "version > 50", "", filter.get_filter_syntax(), "Version ok");
 	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version");
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		filter_helper.set_default("version > 50", "version > 50");
-	}
 
 	if (!filter_helper.build_filter(filter))
 		return;
@@ -746,7 +735,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	std::string computer;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK all services are ok.");
+	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "OK all services are ok.");
 	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
@@ -758,10 +747,6 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		filter_helper.set_default("not state_is_perfect()", "not state_is_ok()");
-	}
 
 	if (services.empty()) {
 		services.push_back("*");
@@ -802,15 +787,11 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK pagefile within bounds.");
+	filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "OK pagefile within bounds.");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}");
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		filter_helper.set_default("used > 60%", "used > 80%");
-	}
 
 	if (!filter_helper.build_filter(filter))
 		return;
@@ -882,7 +863,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	std::vector<std::string> types;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK memory within bounds.");
+	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "OK memory within bounds.");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${type} = ${used}", "${type}");
 	filter_helper.get_desc().add_options()
 		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
@@ -890,10 +871,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		filter_helper.set_default("used > 80%", "used > 90%");
-	}
 
 	if (types.empty()) {
 		types.push_back("committed");
@@ -1016,7 +993,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "OK all processes are ok.");
+	filter_helper.add_options("state not in ('started')", "state = 'stopped'", "state != 'unreadable'", filter.get_filter_syntax(), "OK all processes are ok.");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
@@ -1028,12 +1005,6 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		if (data.filter_string.empty())
-			data.filter_string = "state != 'unreadable'";
-		filter_helper.set_default("state not in ('started')", "state = 'stopped'");
-	}
 
 	if (processes.empty()) {
 		processes.push_back("*");

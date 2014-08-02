@@ -162,10 +162,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			core.register_command(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
+			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
 		}
 		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			core.register_command(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
+			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");
@@ -374,9 +374,10 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	std::list<std::string> args = cd.arguments;
 	bool missing_args = false;
 	BOOST_FOREACH(const std::string &s, src_args) {
-		if (s == "help-csv") {
+		if (s == "help-pb") {
 			std::stringstream ss;
 			int i=1;
+			// TODO: CHange this top use protobuffer!
 			bool found = true;
 			while (found) {
 				found = false;

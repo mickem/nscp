@@ -39,10 +39,7 @@ function CommandViewModel() {
 
 	self.nscp_status = ko.observable(new NSCPStatus());
 	self.commands = ko.observableArray([]);
-	self.result = ko.observable("TODO");
-	self.resultCSS = ko.computed(function() {
-		return parseNagiosResultCSS(this.result().result);
-		}, self);
+	self.result = ko.observable();
 
 	self.execute = function(command) {
 		$("#result").modal('show');
@@ -58,14 +55,15 @@ function CommandViewModel() {
 	}
 	self.load = function() {
 		$.getJSON("/registry/inventory", function(data) {
-			self.commands.removeAll()
-			if (data['payload'] && data['payload']['inventory']) {
-				data['payload']['inventory'].forEach(function(entry) {
+			console.log(data)
+			if (data['payload'][0] && data['payload'][0]['inventory']) {
+				self.commands.removeAll()
+				data['payload'][0]['inventory'].forEach(function(entry) {
 					self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
 				});
 			}
+			self.commands.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		})
-		self.commands.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 	}
 	self.load()
 }

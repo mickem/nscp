@@ -415,7 +415,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	int truncate_message = 0;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax());
+	filter_helper.add_options("count > 0", "count > 5", "level in ('error', 'warning')", filter.get_filter_syntax());
 	filter_helper.add_index(filter.get_format_syntax(), "");
 	filter_helper.add_syntax("${status}: ${problem_count}/${count} ${problem_list}", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}");
 	filter_helper.get_desc().add_options()
@@ -428,13 +428,8 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	if (!filter_helper.parse_options())
 		return;
 
-	if (filter_helper.empty()) {
-		filter_helper.set_default_filter("level in ('error', 'warning')");
-		filter_helper.set_default("count > 0", "count > 5");
-		filter_helper.set_default_index("${log}-${source}-${id}");
-		if (scan_range.empty())
-			scan_range = "-24h";
-	}
+	if (scan_range.empty())
+		scan_range = "-24h";
 
 	if (unique) {
 		filter_helper.set_default_index("${log}-${source}-${id}");

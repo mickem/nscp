@@ -115,16 +115,17 @@ A quick reference for all avalible queries (check commands) in the {{module.key}
 **Usage:**
 
 {% set table = [] %}
-{% for help in query.help -%}
-    {% do table.append([help.key|rst_link('option'), help.arg, help.desc|firstline]) %}
+{% for help in query.params -%}{% if help.content_type == 4 -%}
+    {% do table.append([help.name|rst_link('option'),'N/A', help.long_description|firstline]) %}{% else -%}
+    {% do table.append([help.name|rst_link('option'),help.default_value, help.long_description|firstline]) %}{%- endif %}
 {%- endfor %}
 {{table|rst_csvtable('Option', 'Default Value', 'Description')}}
 
 Arguments
 *********
-{% for help in query.help -%}
-.. option:: {{help.key}}
-    :synopsis: {{help.desc|firstline}}
+{% for help in query.params -%}
+.. option:: {{help.name}}
+    :synopsis: {{help.long_description|firstline}}
 
 {%if help.ext -%}
 {{help.ext.head|block_pad(4, '| ')}}
@@ -134,7 +135,7 @@ Arguments
 {{help.ext.tail|block_pad(4, '| ')}}
 
 {% else -%}
-{{help.desc|block_pad(4, '| ')}}
+{{help.long_description|block_pad(4, '| ')}}
 {%- endif %}
 {{'\n'}}
 {%- endfor %}
@@ -269,8 +270,10 @@ class path_container(object):
 
 class command_container(object):
 	info = None
+	parameters = None
 	def __init__(self, info = None):
 		self.info = info.info
+		self.parameters = info.parameters
 
 class plugin_container(object):
 	info = None
@@ -380,7 +383,7 @@ def render_template(hash, template, filename):
 	f = open(filename,"w")
 	f.write(data)
 	f.close()
-	
+
 class DocumentationHelper(object):
 	plugin_id = None
 	plugin_alias = None
@@ -494,50 +497,41 @@ class DocumentationHelper(object):
 		return root
 		
 	def fetch_command(self, command, cinfo):
-		cinfo.help = []
-		cinfo.sample = ''
 		if command in self.command_cache:
 			return self.command_cache[command]
-		try:
-			log_debug("Fetching info from: %s"%command)
-			(ret, msg, perf) = self.core.simple_query(command.encode('ascii', 'ignore'), ['help-csv'])
-			if not ret == 0:
-				log_error("WARNING: Ignoring command %s: %d, %s"%(command, ret, msg))
-				return None
-			reader = csv.reader(StringIO.StringIO(msg), delimiter=',')
-			for row in reader:
-				if len(row) <= 3:
-					log_error("WARNING: Ignoring invalid argument: %s"%(row))
-					continue
-				hash = {}
-				hash['key'] = row[0]
-				hash['arg'] = 'N/A' if row[1] == "false" or row[2] == 'arg' else row[2]
-				hash['desc'] = row[3].replace('\\n', '\n').replace('\\t', '\t')
-				hash['sample'] = ''
-				
-				spos = hash['desc'].find('\n\n')
-				extdata = {}
-				if spos != -1:
-					desc = hash['desc']
-					epos = desc.find('\n\n', spos+2)
-					if epos != -1:
-						pos = desc.find('\t', spos+2, epos)
-						if pos != -1:
-							extdata['head'] = desc[:spos]
-							extdata['tail'] = desc[epos+2:]
-							data = desc[spos+2:epos]
-							rows = data.split('\n')
-							tbl = []
-							for r in rows:
-								tbl.append(r.split('\t'))
-							extdata['data'] = tbl
-				hash['ext'] = extdata
-				cinfo.help.append(hash)
-			self.command_cache[command] = cinfo
-			return cinfo
-		except Exception as e:
-			log_error('ERROR: failed to process %s %s'%(command, e))
-			return None
+		params = []
+		for p in cinfo.parameters.parameter:
+			spos = p.long_description.find('\n\n')
+			extdata = {}
+			if spos != -1:
+				desc = p.long_description
+				epos = desc.find('\n\n', spos+2)
+				if epos != -1:
+					pos = desc.find('\t', spos+2, epos)
+					if pos != -1:
+						extdata['head'] = desc[:spos]
+						extdata['tail'] = desc[epos+2:]
+						data = desc[spos+2:epos]
+						rows = data.split('\n')
+						tbl = []
+						for r in rows:
+							tbl.append(r.split('\t'))
+						extdata['data'] = tbl
+					np = {}
+					np['long_description'] = p.long_description
+					np['default_value'] = p.default_value
+					np['name'] = p.name
+					np['ext'] = extdata
+					np['content_type'] = p.content_type
+					params.append(np)
+				else:
+					params.append(p)
+			else:
+				params.append(p)
+		cinfo.params = params
+			
+		self.command_cache[command] = cinfo
+		return cinfo
 
 	def generate_rst(self, input_dir, output_dir):
 		root = self.get_info()

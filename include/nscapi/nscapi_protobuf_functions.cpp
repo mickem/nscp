@@ -874,7 +874,6 @@ namespace nscapi {
 				r->mutable_update()->mutable_node()->set_path(path);
 				r->mutable_update()->mutable_node()->set_key(key);
 				r->mutable_update()->mutable_value()->set_string_data(value);
-				r->mutable_update()->mutable_value()->set_type(::Plugin::Common_DataType_STRING);
 			}
 			void settings_query::get(const std::string path, const std::string key, const std::string def) {
 				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
@@ -883,7 +882,6 @@ namespace nscapi {
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
 				r->mutable_query()->mutable_default_value()->set_string_data(def);
-				r->mutable_query()->mutable_default_value()->set_type(::Plugin::Common_DataType_STRING);
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const char* def) {
@@ -893,7 +891,6 @@ namespace nscapi {
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
 				r->mutable_query()->mutable_default_value()->set_string_data(def);
-				r->mutable_query()->mutable_default_value()->set_type(::Plugin::Common_DataType_STRING);
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const long long def) {
@@ -903,7 +900,6 @@ namespace nscapi {
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_INT);
 				r->mutable_query()->mutable_default_value()->set_int_data(def);
-				r->mutable_query()->mutable_default_value()->set_type(::Plugin::Common_DataType_INT);
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const bool def) {
@@ -913,7 +909,6 @@ namespace nscapi {
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_BOOL);
 				r->mutable_query()->mutable_default_value()->set_bool_data(def);
-				r->mutable_query()->mutable_default_value()->set_type(::Plugin::Common_DataType_BOOL);
 				r->mutable_query()->set_recursive(false);
 			}
 
@@ -960,11 +955,11 @@ namespace nscapi {
 					if (pl.has_query()) {
 						::Plugin::SettingsResponseMessage::Response::Query q = pl.query();
 						if (q.node().has_key() && q.has_value()) {
-							if (q.value().type() == Plugin::Common_DataType_STRING)
+							if (q.value().has_string_data())
 								ret.push_back(key_values(q.node().path(), q.node().key(), q.value().string_data()));
-							else if (q.value().type() == Plugin::Common_DataType_INT)
+							else if (q.value().has_int_data())
 								ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.value().int_data())));
-							else if (q.value().type() == Plugin::Common_DataType_BOOL)
+							else if (q.value().has_bool_data())
 								ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
 						} else {
 							ret.push_back(key_values(q.node().path()));

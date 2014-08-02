@@ -89,10 +89,11 @@ namespace nsclient {
 			command_list_type::iterator it = commands_.begin();
 			while (it != commands_.end()) {
 				if ((*it).second->get_id() == id) {
-					command_list_type::iterator toerase = it;
+					std::string key = (*it).first;
+					command_list_type::iterator to_erase = it;
 					++it;
-					commands_.erase(toerase);
-					description_list_type::iterator dit = descriptions_.find((*toerase).first);
+					commands_.erase(to_erase);
+					description_list_type::iterator dit = descriptions_.find(key);
 					if (dit != descriptions_.end())
 						descriptions_.erase(dit);
 				} else
@@ -264,5 +265,6 @@ public:
 		inline bool have_plugin(unsigned long plugin_id) {
 			return !(plugins_.find(plugin_id) == plugins_.end());
 		}
+
 	};
 }

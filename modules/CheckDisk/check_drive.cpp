@@ -605,7 +605,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	double magic;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "All drives ok");
+	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "All drives ok");
 	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives), 
@@ -620,9 +620,6 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty())
-		filter_helper.set_default("used > 80%", "used > 90%");
 
 	if (!filter_helper.build_filter(filter))
 		return;

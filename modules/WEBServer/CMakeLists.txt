@@ -17,8 +17,8 @@ ENDIF(JSON_SPIRIT_FOUND)
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
-	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/client/simple_client.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -38,6 +38,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/client/simple_client.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

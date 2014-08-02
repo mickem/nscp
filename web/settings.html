@@ -97,9 +97,9 @@
 			</div>
 
 			<ol class="breadcrumb">
-				<li><a href="/settings.html"><i class="glyphicon glyphicon-home"></i></a></li>
+				<li><a href="#" data-bind="click: $root.set_root_path"><i class="glyphicon glyphicon-home"></i></a></li>
 				<!--ko foreach: currentPath -->
-					<li><a data-bind="attr: { href: href, title: title }, text: name"></a></li>
+					<li><a href="#" data-bind="click: $root.set_current_path, attr: { title: title }, text: name"></a></li>
 				<!-- /ko -->
 				<div class="btn-group btn-group-sm pull-right">
 					<a href="#" data-bind="click: $root.refresh" class="btn btn-default"><span class="glyphicon glyphicon-refresh"/></a>
@@ -168,13 +168,13 @@
 				<p><span data-bind="text: current().desc"></span></p>
 				<!-- /ko -->
 
-				<div class="panel panel-primary" data-bind="visible: paths().length > 0">
+				<div class="panel panel-primary" data-bind="visible: current_paths().length > 0">
 					<div class="panel-heading">
 						<h3 class="panel-title">Sections</h3>
 					</div>
 					<div class="panel-body">
-						<div class="list-group" data-bind="foreach: paths">
-							<a href="#" class="list-group-item" data-bind="attr: { href: href, title: desc }">
+						<div class="list-group" data-bind="foreach: current_paths">
+							<a href="#" class="list-group-item" data-bind="click: $root.set_current_path">
 								<h4 class="list-group-item-heading" data-bind="text: path"></h4>
 								<p class="list-group-item-text" data-bind="text: desc"></p>
 							</a>
@@ -209,8 +209,8 @@
 												<input class="form-control" data-bind="attr: {id: key, title: 'Default value: ' + default_value, placeholder: default_value, visible: type=='string'}, value: value"></input>
 												<span class="help-block" data-bind="text: desc, visible: desc.length > 0"></span>
 											</div>
-											<div class="col-md-1">
-												<button data-bind="click: $root.set_default_value" class="btn btn-warning">Clear</button>
+											<div class="col-md-1" data-bind="visible: value() != ''">
+												<button data-bind="click: $root.set_default_value" class="btn btn-warning"><span class="glyphicon glyphicon-trash"></span></button>
 											</div>
 										</div>
 									</div>
@@ -237,8 +237,8 @@
 												<input class="form-control" data-bind="attr: {id: key, title: 'Default value: ' + default_value, placeholder: default_value, visible: type=='string'}, value: value"></input>
 												<span class="help-block" data-bind="text: desc, visible: desc.length > 0"></span>
 											</div>
-											<div class=".col-md-1">
-												<button data-bind="click: $root.set_default_value" class="btn btn-warning">Clear</button>
+											<div class=".col-md-1" data-bind="visible: value() != ''">
+												<button data-bind="click: $root.set_default_value" class="btn btn-warning"><span class="glyphicon glyphicon-trash"></span></button>
 											</div>
 										</div>
 									</div>

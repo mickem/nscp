@@ -137,7 +137,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	bool recursive;
 
 	filter_type filter;
-	filter_helper.add_options(filter.get_filter_syntax(), "All stats ok");
+	filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "All stats ok");
 	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")
@@ -150,13 +150,6 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 
 	if (!filter_helper.parse_options())
 		return;
-
-	if (filter_helper.empty()) {
-		if (data.filter_string.empty()) {
-			data.filter_string = "enabled = 1";
-		}
-		filter_helper.set_default("exit_code != 0", "exit_code < 0");
-	}
 
 	if (!filter_helper.build_filter(filter))
 		return;

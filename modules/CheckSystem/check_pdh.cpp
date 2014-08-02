@@ -130,7 +130,7 @@ namespace check_pdh {
 		std::string time;
 
 		filter_type filter;
-		filter_helper.add_options(filter.get_filter_syntax(), "Everything looks good");
+		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "Everything looks good");
 		filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${counter} = ${value}", "${alias}");
 		filter_helper.get_desc().add_options()
 			("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
