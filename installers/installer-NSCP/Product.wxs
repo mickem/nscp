@@ -28,7 +28,6 @@
 					<Component Id="MainClient" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
 						<File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nscp.exe" Vital="yes">
-							<fire:FirewallException Id="FWX1" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
 						</File>
 						<RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
 						<ServiceInstall Id="SWCNSCP"
@@ -41,6 +40,10 @@
 						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
 						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
 					</Component>
+					<Component Id="FWException" Guid="7A02C807-749C-4F10-B7C3-8B50BFA74204" Win64="$(var.Win64)">
+            <fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
+            <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
+          </Component>
           <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
             <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
@@ -169,50 +172,53 @@
 				<ComponentRef Id="RandomFiles" />
 				<ComponentRef Id="GeneratedConfigUser" />
 				<ComponentRef Id="GeneratedConfig" />
-        <Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="disallow">
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="allow">
           <ComponentRef Id="Shortcuts" />
         </Feature>
-        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="disallow">
+        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="allow">
           <ComponentRef Id="SampleConfig" />
         </Feature>
+        <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
+          <ComponentRef Id="FWException" />
+        </Feature>
       </Feature>
-			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
+			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1" Absent="allow">
 				<ComponentRef Id="NSCPDocumentation" />
 			</Feature>
-			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
+			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
           <ComponentRef Id="Plugins" />
         </Feature>
-				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
+				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="allow">
 					<ComponentRef Id="NRPEServer" />
 					<ComponentRef Id="NRPEServerCert" />
 					<ComponentRef Id="CheckNRPE" />
 				</Feature>
-				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
+				<Feature Id="NSCPlugins" Title="check_nt support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="allow">
 					<ComponentRef Id="NSCServer" />
 				</Feature>
-				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="disallow">
+				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
 					<ComponentRef Id="WEBServer" />
           <ComponentGroupRef Id="WEBResources" />
         </Feature>
-				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
+				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
 					<ComponentRef Id="NSCA" />
 				</Feature>
-				<Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="disallow">
+				<Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="allow">
 					<ComponentRef Id="ExtraClients" />
 				</Feature>
-				<Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="disallow">
+				<Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
 					<ComponentRef Id="PythonScript" />
-          <Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="disallow">
+          <Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="allow">
             <ComponentRef Id="PythonBin" />
           </Feature>
         </Feature>
-        <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="disallow">
-        </Feature>
-        <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="disallow">
-          <ComponentGroupRef Id="ScriptResources" />
+        <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
         </Feature>
 			</Feature>
+        <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
+          <ComponentGroupRef Id="ScriptResources" />
+        </Feature>
 		</Feature>
 
 		<CustomAction Id='ImportConfig'			BinaryKey='InstallerHelper' DllEntry='ImportConfig'			Impersonate='yes' Execute="immediate" Return="check" />

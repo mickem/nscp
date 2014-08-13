@@ -25,7 +25,7 @@ SET(LOCALIZATIONS
 	en-us
 )
 
-SET(WIX_CANDLE_FLAGS -dboost=true -darch=${VERSION_ARCH} 
+SET(WIX_CANDLE_FLAGS -dboost=true -darch=${VERSION_ARCH} -arch ${VERSION_ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" -dSource=${NSCP_PROJECT_BINARY_DIR} -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
 	)

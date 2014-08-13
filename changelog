@@ -1,3 +1,7 @@
+2014-08-13 MickeM
+ * Fixed installer issues
+ * Added firewall exception as a separate component
+
 2014-08-12 MickeM
  * Reworked the dot-net API
    Now actually works and is much much improved.
@@ -11,6 +15,7 @@
  * Cleaned up the cmake build a bit
  * Removed some old stale artifacts
  * Changed name of nscapi_plugin_interface.hpp to nscapi_helper_singleton.hpp to better reflect what it is
+ * Fixed build on apple osx
 
 2014-08-01 MickeM
  * Major refactoring of json handling
