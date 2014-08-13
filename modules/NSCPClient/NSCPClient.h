@@ -27,7 +27,8 @@
 #include <client/command_line_parser.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
 #include <socket/client.hpp>

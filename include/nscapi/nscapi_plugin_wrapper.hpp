@@ -20,8 +20,6 @@
 ***************************************************************************/
 #pragma once
 
-#include <unicode_char.hpp>
-
 #include <string>
 #include <list>
 #include <map>
@@ -34,11 +32,17 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <utf8.hpp>
 
 namespace nscapi {
+
+	struct module_version {
+		int major;
+		int minor;
+		int revision;
+	};
 	template<class impl_type>
 	struct plugin_instance_data {
 		typedef std::map<unsigned int, boost::shared_ptr<impl_type> > plugin_list_type;
@@ -61,7 +65,9 @@ namespace nscapi {
 	};
 
 	struct helpers {
-		static void wrap_string(std::string &string, char** buffer, unsigned int *buffer_len) {
+
+
+		static void wrap_string(const std::string &string, char** buffer, unsigned int *buffer_len) {
 			// TODO: Make this global to allow remote deletion!!!
 			size_t buf_len = string.size();
 			*buffer = new char[buf_len + 10];
@@ -70,16 +76,6 @@ namespace nscapi {
 			(*buffer)[buf_len+1] = 0;
 			*buffer_len = static_cast<unsigned int>(buf_len);
 		}
-		int static wrap_string(wchar_t *buffer, std::size_t bufLen, std::wstring str, int defaultReturnCode ) {
-			// @todo deprecate this
-			if (str.length() >= bufLen) {
-				std::wstring sstr = str.substr(0, bufLen-2);
-				return NSCAPI::isInvalidBufferLen;
-			}
-			wcsncpy(buffer, str.c_str(), bufLen);
-			return defaultReturnCode;
-		}
-
 		int static wrap_string(char *buffer, std::size_t bufLen, std::string str, int defaultReturnCode ) {
 			// @todo deprecate this
 			if (str.length() >= bufLen) {
@@ -125,7 +121,7 @@ namespace nscapi {
 		} 
 		static int NSGetModuleVersion(int *major, int *minor, int *revision) { 
 			try { 
-				nscapi::plugin_wrapper::module_version version = impl_class::getModuleVersion();
+				nscapi::module_version version = impl_class::getModuleVersion();
 				*major = version.major;
 				*minor = version.minor;
 				*revision = version.revision;
@@ -149,14 +145,18 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		basic_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 		int NSLoadModuleEx(unsigned int id, char* alias, int mode) { 
-			try { 
-				instance->set_id(id);
-				if (instance->loadModuleEx(alias, mode))
-					return NSCAPI::isSuccess;
+			try {
+				return NSLoadModuleExNoExcept(id, alias, mode);
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR_EXR("NSLoadModuleEx", e);
 			} catch (...) {
 				NSC_LOG_CRITICAL("Unknown exception in: NSLoadModuleEx");
 			} 
 			return NSCAPI::hasFailed;
+		} 
+		int NSLoadModuleExNoExcept(unsigned int id, char* alias, int mode) { 
+			instance->set_id(id);
+			return instance->loadModuleEx(alias, mode)?NSCAPI::isSuccess:NSCAPI::hasFailed;
 		} 
 		int NSUnloadModule() { 
 			try { 

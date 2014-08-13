@@ -90,6 +90,7 @@ namespace nscapi {
 		std::string getApplicationVersionString(void);
 
 		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) const ;
+		void log(std::string message) const ;
 		bool should_log(NSCAPI::nagiosReturn msgType) const ;
 		NSCAPI::log_level::level get_loglevel() const ;
 		void DestroyBuffer(char**buffer) const;

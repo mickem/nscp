@@ -19,7 +19,6 @@
 #include <charEx.h>
 #include <string.h>
 #include <settings/settings_core.hpp>
-#include "../helpers/settings_manager/settings_manager_impl.h"
 #include <nscapi/nscapi_helper.hpp>
 #ifdef _WIN32
 #include <ServiceCmd.h>
@@ -104,41 +103,7 @@ NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t*, unsigne
 		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
 	}
-	/*
-	TODO reimplement this
 
-	std::wstring key = settings_manager::get_settings()->get_string(SETTINGS_KEY(protocol_def::MASTER_KEY));
-	int tcharInBufLen = 0;
-	char *c = charEx::tchar_to_char(inBuffer, inBufLen, tcharInBufLen);
-	std::wstring::size_type j=0;
-	for (int i=0;i<tcharInBufLen;i++,j++) {
-		if (j > key.size())
-			j = 0;
-		c[i] ^= key[j];
-	}
-	size_t cOutBufLen = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, NULL, NULL);
-	if (!outBuf) {
-		*outBufLen = static_cast<unsigned int>(cOutBufLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
-		return NSCAPI::isSuccess;
-	}
-	char *cOutBuf = new char[cOutBufLen+1];
-	size_t len = b64::b64_encode(reinterpret_cast<void*>(c), tcharInBufLen, cOutBuf, cOutBufLen);
-	delete [] c;
-	if (len == 0) {
-		LOG_ERROR(_T("Invalid out buffer length."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	int realOutLen;
-	wchar_t *realOut = charEx::char_to_tchar(cOutBuf, cOutBufLen, realOutLen);
-	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
-		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	wcsncpy(outBuf, *outBufLen, realOut);
-	delete [] realOut;
-	outBuf[realOutLen] = 0;
-	*outBufLen = static_cast<unsigned int>(realOutLen);
-	*/
 	return NSCAPI::isSuccess;
 }
 
@@ -147,41 +112,6 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t*, unsigne
 		LOG_ERROR("Unknown algortihm requested.");
 		return NSCAPI::hasFailed;
 	}
-	/*
-	int inBufLenC = 0;
-	char *inBufferC = charEx::tchar_to_char(inBuffer, inBufLen, inBufLenC);
-	size_t cOutLen =  b64::b64_decode(inBufferC, inBufLenC, NULL, NULL);
-	if (!outBuf) {
-		*outBufLen = static_cast<unsigned int>(cOutLen*2); // TODO: Guessing wildly here but no proper way to tell without a lot of extra work
-		return NSCAPI::isSuccess;
-	}
-	char *cOutBuf = new char[cOutLen+1];
-	size_t len = b64::b64_decode(inBufferC, inBufLenC, reinterpret_cast<void*>(cOutBuf), cOutLen);
-	delete [] inBufferC;
-	if (len == 0) {
-		LOG_ERROR(_T("Invalid out buffer length."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	int realOutLen;
-
-	std::wstring key = settings_manager::get_settings()->get_string(SETTINGS_KEY(protocol_def::MASTER_KEY));
-	std::wstring::size_type j=0;
-	for (int i=0;i<cOutLen;i++,j++) {
-		if (j > key.size())
-			j = 0;
-		cOutBuf[i] ^= key[j];
-	}
-
-	wchar_t *realOut = charEx::char_to_tchar(cOutBuf, cOutLen, realOutLen);
-	if (static_cast<unsigned int>(realOutLen) >= *outBufLen) {
-		LOG_ERROR_STD(_T("Invalid out buffer length: ") + strEx::itos(realOutLen) + _T(" was needed but only ") + strEx::itos(*outBufLen) + _T(" was allocated."));
-		return NSCAPI::isInvalidBufferLen;
-	}
-	wcsncpy(outBuf, *outBufLen, realOut);
-	delete [] realOut;
-	outBuf[realOutLen] = 0;
-	*outBufLen = static_cast<unsigned int>(realOutLen);
-	*/
 	return NSCAPI::isSuccess;
 }
 

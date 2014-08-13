@@ -1,7 +1,7 @@
 #include "scheduler_handler.hpp"
 
 #include <nsclient/logger.hpp>
-#include "../helpers/settings_manager/settings_manager_impl.h"
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 #include "NSClient++.h"
 

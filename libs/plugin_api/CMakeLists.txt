@@ -15,7 +15,7 @@ SET(SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
@@ -38,7 +38,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_core_helper.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
-		${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.hpp

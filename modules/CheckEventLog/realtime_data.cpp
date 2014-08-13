@@ -5,7 +5,8 @@
 
 #include <strEx.h>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 bool runtime_data::has_changed(transient_data_type record) const {
 	if (files.empty())

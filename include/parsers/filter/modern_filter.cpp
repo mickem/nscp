@@ -1,5 +1,6 @@
 #include <parsers/filter/modern_filter.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 namespace modern_filter {
 

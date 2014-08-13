@@ -1,7 +1,8 @@
 #include <boost/optional.hpp>
 
 #include <nscapi/functions.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 

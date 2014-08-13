@@ -19,18 +19,28 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-#include <nscapi/nscapi_plugin_interface.hpp>
 
-NSC_WRAPPERS_MAIN();
+extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
+extern "C" int NSLoadModule();
+extern "C" int NSLoadModuleEx(unsigned int plugin_id, char* alias, int mode);
+extern "C" void NSDeleteBuffer(char**buffer);
+extern "C" int NSGetModuleName(char* buf, int buflen);
+extern "C" int NSGetModuleDescription(char* buf, int buflen);
+extern "C" int NSGetModuleVersion(int *major, int *minor, int *revision);
+extern "C" NSCAPI::boolReturn NSHasCommandHandler(unsigned int plugin_id);
+extern "C" NSCAPI::boolReturn NSHasMessageHandler(unsigned int plugin_id);
+extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsigned int len);
+extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len);
+extern "C" int NSUnloadModule(unsigned int plugin_id);
 
 #include "plugin_instance.hpp"
 
-class DotnetPlugins : public plugin_manager {
+
+class DotnetPlugins : public plugin_manager_interface {
 private:
 
-	typedef boost::shared_ptr<plugin_instance> plugin_type;
-	typedef std::list<plugin_type> plugins_type;
-	std::wstring root_path;
+	typedef std::list<internal_plugin_instance_ptr> plugins_type;
+	std::string root_path;
 	int id_;
 	plugins_type plugins;
 public:
@@ -41,7 +51,7 @@ public:
 		id_ = id;
 	}
 
-	typedef std::map<std::wstring, plugin_type> commands_type;
+	typedef std::map<std::string, internal_plugin_instance_ptr> commands_type;
 	commands_type commands;
 	commands_type channels;
 
@@ -49,8 +59,8 @@ public:
 	static std::string getModuleName() {
 		return "DotnetPlugin";
 	}
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
+	static nscapi::module_version getModuleVersion() {
+		nscapi::module_version version = {0, 3, 0 };
 		return version;
 	}
 	static std::string getModuleDescription() {
@@ -67,9 +77,11 @@ public:
 	NSCAPI::nagiosReturn handleRAWCommand(const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn handleRAWNotification(const std::string &channel, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
+	void DotnetPlugins::handleMessageRAW(std::string data);
 
-	bool register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description);
-	bool register_channel(std::wstring channel, plugin_instance::plugin_type plugin);
+	bool register_command(std::string command, internal_plugin_instance_ptr plugin);
+	bool register_channel(std::wstring channel, internal_plugin_instance_ptr plugin);
+
 	bool settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced);
 	bool settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced);
 	nscapi::core_wrapper* get_core();
@@ -77,15 +89,8 @@ public:
 	bool settings_query(const std::string &request_json, std::string &response_json);
 	bool registry_query(const std::string &request_json, std::string &response_json);
 
-	void registry_reg_command(const std::string command, const std::string description, int plugin_id);
-
 private:
-	void load(std::string key, std::string val);
-	std::list<std::string> settings_get_list(const std::string path);
-	void settings_reg_path(const std::string path, const std::string title, const std::string desc);
-	void settings_reg_key(const std::string path, const std::string key, const std::string title, const std::string desc);
-	std::string settings_get_string(const std::string path, const std::string key, const std::string value);
-	int settings_get_int(const std::string path, const std::string key, const int value);
+	void load(std::string key, std::string factory, std::string val);
 	int registry_reg_module(const std::string module);
 
 };

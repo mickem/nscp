@@ -20,7 +20,8 @@
 #include "realtime_thread.hpp"
 #include "settings.hpp"
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include "realtime_data.hpp"
 

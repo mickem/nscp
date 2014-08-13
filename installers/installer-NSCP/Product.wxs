@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+
+  <?include setup.wxs ?>
+
+	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
+	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
+
+	<?include config.wxs ?>
+
+	<Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
+
+		<Package Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
+						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
+
+		<Upgrade Id="$(var.UpgradeCode)">
+			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
+			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
+		</Upgrade>
+
+		<?if "$(var.arch)" = "x64"?>
+		<Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
+		<?endif?>
+		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high" />
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="$(var.ProgramFiles)">
+				<Directory Id="INSTALLLOCATION" Name="$(var.App.Path)">
+					<Component Id="MainClient" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
+						<File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes"
+								Source="$(var.Source)/nscp.exe" Vital="yes">
+							<fire:FirewallException Id="FWX1" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
+						</File>
+						<RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
+						<ServiceInstall Id="SWCNSCP"
+							Name="[SERVICE_NAME]" DisplayName="$(var.App.Title) ($(var.arch))"
+							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
+							Description="Monitoring agent for nagios (and others) used to respond to status queries"
+							Arguments="service --run --name [SERVICE_NAME]">
+							<!--<ServiceDependency Id="Tcpip" />-->
+						</ServiceInstall>
+						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
+						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
+					</Component>
+          <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
+            <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
+								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
+          </Component>
+          <Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
+						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" 
+                      Target="[INSTALLLOCATION]nscp.exe"
+                        WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
+                      Arguments="test" Description="Run $(var.App.Title) in test mode" />
+						<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="Start $(var.App.Title) ($(var.arch))"
+                      Target="[INSTALLLOCATION]nscp.exe"
+								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
+								  Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
+						<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="Stop $(var.App.Title) ($(var.arch))"
+                      Target="[INSTALLLOCATION]nscp.exe"
+								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
+								  Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
+						<Shortcut Id="StarmentNSCHelp" Directory="ProgramMenuDir" Name="Documentation"
+								  Target="[HELP_LINK]" Icon="doc.ico"
+								  Description="Visit the NSClient++ WIKI for documentation">
+						</Shortcut>
+						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="shortcuts" Type="integer" Value="1" KeyPath="yes"/>
+					</Component>
+					<Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
+						<File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
+					</Component>
+					<Component Id="GeneratedConfigUser" Guid="BF040814-8FAB-47b9-B700-1E1F0BF420FC" Win64="$(var.Win64)">
+						<File Id="NSClientINIUser" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes">
+							<Permission User="[USERGROUP_USERS]" GenericRead="yes" Read="yes" GenericWrite="yes" Write="yes"/>
+						</File>
+						<RemoveFile Id="PurgeConfigFilesUser" Name="*.ini" On="uninstall" />
+						<Condition>INSTALL_SAMPLE_CONFIG AND USER_WRITABLE_CONFIG</Condition>
+					</Component>
+					<Component Id="GeneratedConfig" Guid="73B35DA2-C6D5-45d4-940F-E7D3CACB2ACF" Win64="$(var.Win64)">
+						<File Id="NSClientINI" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes" />
+						<RemoveFile Id="PurgeConfigFiles" Name="*.ini" On="uninstall" />
+						<Condition>INSTALL_SAMPLE_CONFIG AND NOT USER_WRITABLE_CONFIG</Condition>
+					</Component>
+					<Component Id="RandomFiles" Guid="E23865C3-C11F-4d11-BE63-C670D60B0CD0" Win64="$(var.Win64)">
+						<File Id="Changelog" Name="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no" />
+						<File Id="License" Name="license.txt" DiskId="1" Source="$(var.Source)/license.txt" Vital="no" KeyPath="yes" />
+						<File Id="settingsMap" Name="old-settings.map" DiskId="1" Source="$(var.Source)/old-settings.map" Vital="no" />
+
+						<RemoveFile Id="LogFile1" Name="nsclient.log" On="uninstall" />
+						<RemoveFile Id="LogFile2" Name="nsc.log" On="uninstall" />
+						<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
+						<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
+					</Component>
+					<Component Id="NSCPDocumentation" Guid="DE136675-CBBD-49c4-B3DB-B3D5DA90BDD1" Win64="$(var.Win64)">
+						<File Id="doc.usage.nagios" Name="NSCP.pdf" DiskId="1" Source="$(var.Source)/NSCP.pdf" Vital="no" KeyPath="yes">
+							<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="NSClient++ Documentation" Advertise="yes"
+									  WorkingDirectory="INSTALLDIR" Description="NSClient++ Documentation"/>
+						</File>
+					</Component>
+					<Directory Id="INSTALLLOCATION_SECURITY" Name="security">
+						<Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
+							<File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
+						</Component>
+					</Directory>
+					<Directory Id="INSTALLLOCATION_MODS" Name="modules">
+						<Component Id="NRPEServer" Guid="E00E8CFD-ADA6-47bd-84F0-DD00F07AD326" Win64="$(var.Win64)">
+							<File Id="NRPEServerDLL" Name="NRPEServer.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
+							<File Id="NRPEClientDLL" Name="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
+						</Component>
+						<Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
+							<File Id="CheckNRPEExe" Name="check_nrpe.dll" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
+						</Component>
+						
+						<Component Id="NSCServer" Guid="64CEEE94-4E45-48ca-B120-81DA3F3E081A" Win64="$(var.Win64)">
+							<File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
+						</Component>
+						<Component Id="WEBServer" Guid="6B28E09F-E5C3-458F-9C60-E9335AEE44D3" Win64="$(var.Win64)">
+							<File Id="WEBServerDLL" Name="WEBServer.dll" DiskId="1" Source="$(var.Source)/modules/WEBServer.dll" Vital="no" />
+						</Component>
+						<Component Id="NSCA" Guid="C2C9E95A-28A6-4ea0-BF71-73B8CE509369" Win64="$(var.Win64)">
+							<File Id="NSCAClientDLL" Name="NSCAClient.dll" DiskId="1" Source="$(var.Source)/modules/NSCAClient.dll" Vital="no" />
+							<File Id="NSCAServerDLL" Name="NSCAServer.dll" DiskId="1" Source="$(var.Source)/modules/NSCAServer.dll" Vital="no" />
+							<File Id="SchedulerDLL" Name="Scheduler.dll" DiskId="1" Source="$(var.Source)/modules/Scheduler.dll" Vital="no" />
+						</Component>
+						<Component Id="PythonScript" Guid="49C2120D-634D-48ef-B82E-F2E9B219A768" Win64="$(var.Win64)">
+							<File Id="PythonScript" Name="PythonScript.dll" DiskId="1" Source="$(var.Source)/modules/PythonScript.dll" Vital="no" />
+						</Component>
+						<Component Id="ExtraClients" Guid="57D203AF-0A5F-4fca-BA6E-8B8767F97B8D" Win64="$(var.Win64)">
+							<File Id="GraphiteClient" Name="GraphiteClient.dll" DiskId="1" Source="$(var.Source)/modules/GraphiteClient.dll" Vital="no" />
+							<File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
+              <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
+              <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
+            </Component>
+						<Component Id="Plugins" Guid="BBE40548-4061-43fc-A720-96BFFDEFD34E" Win64="$(var.Win64)">
+							<File Id="ModCheckEventLog.dll" Name="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
+							<File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
+							<File Id="ModCheckHelpers.dll" Name="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
+							<File Id="ModCheckSystem.dll" Name="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
+							<File Id="ModCheckWMI.dll" Name="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
+							<File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
+							<File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
+							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
+							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
+              <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
+              <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
+              <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
+              <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
+            </Component>
+					</Directory>
+          <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
+            <File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
+            <File Id="PythonZIP" Name="python27.zip" DiskId="1" Source="$(var.Source)/../python-dist/python27.zip" Vital="no" />
+            <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/../python-dist/_socket.pyd" Vital="no" />
+            <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/../python-dist/unicodedata.pyd" Vital="no" />
+          </Component>
+				</Directory>
+			</Directory>
+
+			<!-- ### Start Menu Items ### -->
+			<Directory Id="ProgramMenuFolder" Name="Programs">
+				<Directory Id="ProgramMenuDir" Name="$(var.App.StartMenuPath)" />
+			</Directory>
+		</Directory>
+
+		<!-- ### FEATURES START ### -->
+		<Feature Id="ProductFeature" Title="NSClient++ $(var.arch)" Description="Binaries for $(var.arch)"
+							 Display="expand"  Level="1" ConfigurableDirectory="INSTALLLOCATION" Absent="disallow">
+			<Feature Id="MainProgram" Title="Program" Description="Main Service" Level="1" Absent="disallow">
+				<ComponentRef Id="MainClient" />
+				<ComponentRef Id="Helpers" />
+				<ComponentRef Id="RandomFiles" />
+				<ComponentRef Id="GeneratedConfigUser" />
+				<ComponentRef Id="GeneratedConfig" />
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="disallow">
+          <ComponentRef Id="Shortcuts" />
+        </Feature>
+        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="disallow">
+          <ComponentRef Id="SampleConfig" />
+        </Feature>
+      </Feature>
+			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1">
+				<ComponentRef Id="NSCPDocumentation" />
+			</Feature>
+			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="disallow">
+				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
+          <ComponentRef Id="Plugins" />
+        </Feature>
+				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="disallow">
+					<ComponentRef Id="NRPEServer" />
+					<ComponentRef Id="NRPEServerCert" />
+					<ComponentRef Id="CheckNRPE" />
+				</Feature>
+				<Feature Id="NSCPlugins" Title="NSClient support" Description="NSClient Server Plugin. Support for the old NSClient protocol (check_nt)" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCServer" />
+				</Feature>
+				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="disallow">
+					<ComponentRef Id="WEBServer" />
+          <ComponentGroupRef Id="WEBResources" />
+        </Feature>
+				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="disallow">
+					<ComponentRef Id="NSCA" />
+				</Feature>
+				<Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="disallow">
+					<ComponentRef Id="ExtraClients" />
+				</Feature>
+				<Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="disallow">
+					<ComponentRef Id="PythonScript" />
+          <Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="disallow">
+            <ComponentRef Id="PythonBin" />
+          </Feature>
+        </Feature>
+        <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="disallow">
+        </Feature>
+        <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="disallow">
+          <ComponentGroupRef Id="ScriptResources" />
+        </Feature>
+			</Feature>
+		</Feature>
+
+		<CustomAction Id='ImportConfig'			BinaryKey='InstallerHelper' DllEntry='ImportConfig'			Impersonate='yes' Execute="immediate" Return="check" />
+		<CustomAction Id='ScheduleWriteConfig'	BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig'	Impersonate='yes' Execute="immediate" Return="check" />
+		<CustomAction Id="ExecWriteConfig"		BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	Impersonate="no" Execute="deferred" Return="check"  />
+
+		<CustomAction Id='NeedUninstall'		BinaryKey='InstallerHelper' DllEntry='NeedUninstall'	Impersonate='yes' Execute="immediate" Return="check" />
+		<CustomAction Id="PreventDowngrading"	Error="Newer version already installed." />
+
+
+		<CustomAction Id="GenConfig.Command" Property="GenConfig" Value="&quot;[#NSClientEXE]&quot; settings --generate ini"/>
+		<CustomAction Id="GenConfig" BinaryKey="WixCA" DllEntry="CAQuietExec" Impersonate="no" Return="ignore" Execute="deferred"/>
+
+		<CustomAction Id="SetUserGroupUsers" Property="TRANSLATE_SID" Value="S-1-5-32-545" Return="check" />
+		<CustomAction Id="SetUserGroupUsersProp" Property="TRANSLATE_SID_PROPERTY" Value="USERGROUP_USERS" Return="check" />
+		<CustomAction Id="TranslateUserGroupUsers" BinaryKey="InstallerHelper" DllEntry="TranslateSid"/>
+
+		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/main_dll.dll' />
+
+		<InstallExecuteSequence>
+			<RemoveExistingProducts After='InstallInitialize'/>
+			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+			<Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT REMOVE</Custom>
+			<Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
+			<Custom Action="GenConfig" After="GenConfig.Command">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
+
+			<Custom Action="SetUserGroupUsers" After="LaunchConditions">NOT Installed</Custom>
+			<Custom Action="SetUserGroupUsersProp" After="SetUserGroupUsers">NOT Installed</Custom>
+			<Custom Action="TranslateUserGroupUsers" After="SetUserGroupUsersProp">NOT Installed</Custom>
+
+		</InstallExecuteSequence>
+
+		<InstallUISequence>
+			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
+			<Custom Action="NeedUninstall" After="FindRelatedProducts">1</Custom>
+			<Custom Action="ImportConfig" After="CostFinalize">NOT REMOVE</Custom>
+		</InstallUISequence>
+
+		<Property Id="ALLUSERS">
+			<![CDATA[2]]>
+		</Property>
+		<?include properties.wxs ?>
+
+		<!-- ### User Interfaces ### -->
+		<UIRef Id="WixUI_MondoNSCP" />
+		<UIRef Id="WixUI_ErrorProgressText" />
+
+		<!-- ### Icons -->
+		<Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
+		<Icon Id="doc.ico" SourceFile="../../resources/help.ico"/>
+		<Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
+	</Product>
+</Wix>

@@ -20,10 +20,10 @@
 ***************************************************************************/
 #pragma once
 #include <string>
-// #include <sstream>
+#include <sstream>
 // #include <iomanip>
 // #include <utility>
-// #include <list>
+#include <list>
 // #include <functional>
 // #include <time.h>
 // #include <algorithm>
@@ -31,6 +31,7 @@
 // #include <iostream>
 #include <boost/tokenizer.hpp>
 #include <boost/foreach.hpp>
+#include <boost/lexical_cast.hpp>
 
 
 namespace strEx {

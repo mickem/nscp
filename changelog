@@ -1,6 +1,20 @@
+2014-08-12 MickeM
+ * Reworked the dot-net API
+   Now actually works and is much much improved.
+ * Change the dotnetplugin.dll name to NSCP.Core.dll
+ * Removed all "helpers" from the API and added a separate NSCP.Helpers.dll
+ * All C# code is now built using cmake
+ * CSharpSample plugin is now included in cmake build
+ * Added protobuf_net and a compiled proto file to NSCP.Protobuf.dll
+ * Much bugfixing and tweaks and changes to dot-net plugin
+ * Change the directory structure of various components to make things easier to find
+ * Cleaned up the cmake build a bit
+ * Removed some old stale artifacts
+ * Changed name of nscapi_plugin_interface.hpp to nscapi_helper_singleton.hpp to better reflect what it is
+
 2014-08-01 MickeM
  * Major refactoring of json handling
- * now uses exact same messages as protobuf (compiled from protobuf)
+   now uses exact same messages as protobuf (compiled from protobuf)
  * Added json-protobuf (library to compile protobuf to json spirit)
  * Added help-pb to get help as protobuf from commands
  * Removed help-csv since help-pb is better (and built-in to inventory)

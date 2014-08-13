@@ -1,14 +1,11 @@
 #include "settings_client.hpp"
 
 
-//#include <settings/settings_core.hpp>
-//#include <nsclient/logger.hpp>
 #ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
 #endif
-//#include "NSClient++.h"
 
-#include "../helpers/settings_manager/settings_manager_impl.h"
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 settings::settings_core* nsclient_core::settings_client::get_core() const {
 	return settings_manager::get_core();

@@ -1,6 +1,7 @@
 #pragma once
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include <check_nt/packet.hpp>
 #include <check_nt/server/handler.hpp>

@@ -13,7 +13,8 @@
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 namespace sh = nscapi::settings_helper;
 

@@ -19,11 +19,10 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <iostream>
+//#include <iostream>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper.hpp>
-#include <utf8.hpp>
 #include <nscp_string.hpp>
 
 #define CORE_LOG_ERROR_STD(msg) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, (std::string)msg); }
@@ -55,6 +54,25 @@ bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
 * @param message Message in human readable format
 * @throws nscapi::nscapi_exception When core pointer set is unavailable.
 */
+void nscapi::core_wrapper::log(std::string message) const {
+	if (!fNSAPIMessage) {
+		return;
+	}
+	try {
+		return fNSAPIMessage(message.c_str(), message.size());
+	} catch (...) {
+	}
+}
+
+/**
+* Callback to send a message through to the core
+*
+* @param msgType Message type (debug, warning, etc.)
+* @param file File where message was generated (__FILE__)
+* @param line Line where message was generated (__LINE__)
+* @param message Message in human readable format
+* @throws nscapi::nscapi_exception When core pointer set is unavailable.
+*/
 void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string logMessage) const {
 	if (!should_log(msgType))
 		return;
@@ -62,7 +80,7 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 		return;
 	}
 	try {
-		return fNSAPISimpleMessage(utf8::cvt<std::string>(alias).c_str(), msgType, file.c_str(), line, logMessage.c_str());
+		return fNSAPISimpleMessage(alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
 	} catch (...) {
 	}
 }
@@ -73,13 +91,6 @@ NSCAPI::log_level::level nscapi::core_wrapper::get_loglevel() const {
 	}
 	return fNSAPIGetLoglevel();
 }
-
-/**
-* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
-* @param command Command to inject (password should not be included.
-* @return The result (if any) of the command.
-* @throws nscapi::nscapi_exception When core pointer set is unavailable or an unknown inject error occurs.
-*/
 
 /**
 * Inject a request command in the core (this will then be sent to the plug-in stack for processing)

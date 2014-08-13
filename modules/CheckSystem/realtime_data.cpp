@@ -5,7 +5,8 @@
 
 #include <strEx.h>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 namespace check_cpu_filter {
 	void runtime_data::add(const std::string &time) {
