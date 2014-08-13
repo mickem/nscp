@@ -8,7 +8,8 @@ namespace error {
 	public:
 		static std::string from_system(int dwError) {
 			char buf [1024];
-			return ::strerror_r(dwError, buf, sizeof (buf));
+			::strerror_r(dwError, buf, sizeof (buf));
+            return buf;
 		}
 		static std::string from_module(std::wstring module, unsigned long dwError) {
 			return "ERROR TODO";
