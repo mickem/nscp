@@ -36,18 +36,6 @@ namespace nscapi {
 				static const T get_replace_perf_coma_tgt();
 			};
 
-// 			template<>
-// 			struct perf_data_consts<std::wstring> {
-// 				static const std::wstring get_valid_perf_numbers() {
-// 					return _T("0123456789,.-");
-// 				}
-// 				static const std::wstring get_replace_perf_coma_src() {
-// 					return _T(",");
-// 				}
-// 				static const std::wstring get_replace_perf_coma_tgt() {
-// 					return _T(".");
-// 				}
-// 			};
 			template<>
 			struct perf_data_consts<std::string> {
 				static const std::string get_valid_perf_numbers() {

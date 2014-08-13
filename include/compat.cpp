@@ -2,7 +2,8 @@
 
 #include <vector>
 #include <nscapi/macros.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 namespace compat {
 

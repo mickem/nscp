@@ -9,7 +9,8 @@ extern "C" {
 #include <strEx.h>
 #include <utf8.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
 #ifndef TRUE

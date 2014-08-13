@@ -27,7 +27,7 @@
 
 #include <utf8.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

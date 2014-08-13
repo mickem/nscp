@@ -2,7 +2,7 @@
 
 #include <boost/tuple/tuple.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 #include <nsca/nsca_packet.hpp>
 //#include <cryptopp/cryptopp.hpp>
@@ -58,13 +58,13 @@ public:
 	}
 
 	void log_debug(std::string module, std::string file, int line, std::string msg) const {
-		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
+		if (nscapi::plugin_singleton->get_core()->should_log(NSCAPI::log_level::debug)) {
+			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::debug, file, line, msg);
 		}
 	}
 	void log_error(std::string module, std::string file, int line, std::string msg) const {
-		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
+		if (nscapi::plugin_singleton->get_core()->should_log(NSCAPI::log_level::error)) {
+			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, file, line, msg);
 		}
 	}
 };

@@ -1,6 +1,7 @@
 #include "eventlog_wrapper.hpp"
 #include "simple_registry.hpp"
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 eventlog_wrapper::eventlog_wrapper(const std::string &s_name) : hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
 	name = find_eventlog_name(s_name);

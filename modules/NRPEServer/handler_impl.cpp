@@ -2,6 +2,7 @@
 #include <utf8.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/macros.hpp>
 #include "handler_impl.hpp"
 
 std::list<nrpe::packet> handler_impl::handle(nrpe::packet p) {

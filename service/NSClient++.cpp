@@ -29,7 +29,7 @@
 #include <timer.hpp>
 
 #include "core_api.h"
-#include "../helpers/settings_manager/settings_manager_impl.h"
+#include "../libs/settings_manager/settings_manager_impl.h"
 #include <settings/macros.h>
 #include <nscapi/functions.hpp>
 
@@ -198,7 +198,7 @@ void NSClientT::preboot_load_all_plugin_files() {
 			return;
 		}
 		BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins(false)) {
-			if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET")
+			if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
 				continue;
 			try {
 				addPlugin(pluginPath / v.second, v.first);
@@ -720,25 +720,40 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	{
-		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
-		if (!writeLock.owns_lock()) {
-			LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
-			return;
+		std::set<long> broken;
+		{
+			boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+				return;
+			}
+			BOOST_FOREACH(plugin_type &plugin, plugins_) {
+				LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_description());
+				try {
+					if (!plugin->load_plugin(mode)) {
+						LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->get_description());
+						broken.insert(plugin->get_id());
+					}
+				} catch (NSPluginException e) {
+					broken.insert(plugin->get_id());
+					LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
+				} catch (...) {
+					broken.insert(plugin->get_id());
+					LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_description());
+				}
+			}
 		}
-		for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
-			LOG_DEBUG_CORE_STD("Loading plugin: " + (*it)->get_description());
-			try {
-				if (!(*it)->load_plugin(mode)) {
-					LOG_ERROR_CORE_STD("Plugin refused to load: " + (*it)->get_description());
+		if (broken.size() > 0) {
+			boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!writeLock.owns_lock()) {
+				LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+				return;
+			}
+			for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
+				if (broken.find((*it)->get_id()) != broken.end())
 					it = plugins_.erase(it);
-				} else
+				else 
 					++it;
-			} catch (NSPluginException e) {
-				it = plugins_.erase(it);
-				LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
-			} catch (...) {
-				it = plugins_.erase(it);
-				LOG_ERROR_CORE_STD("Could not load plugin: " + (*it)->get_description());
 			}
 		}
 	}

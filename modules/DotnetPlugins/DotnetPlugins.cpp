@@ -1,19 +1,3 @@
-#include <types.hpp>
-#include <unicode_char.hpp>
-
-#include <string>
-#include <functional>
-
-#include <NSCAPI.h>
-#include <nscapi/nscapi_plugin_wrapper.hpp>
-#include <nscapi/nscapi_core_wrapper.hpp>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-
-
-
 /**************************************************************************
 *   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
 *                                                                         *
@@ -37,352 +21,183 @@
 #include <stack>
 #include <iostream>
 
-#include <boost/assign.hpp>
-
-#include "DotnetPlugins.h"
-
-#include <strEx.h>
-#include <utf8.hpp>
-
 #include "Vcclr.h"
-#include "json.h"
-#include "block_allocator.h"
+
+
+#include <string>
+#include <functional>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include "Vcclr.h"
+
+#include <NSCAPI.h>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+#include <nscapi/nscapi_core_wrapper.hpp>
+
+
+#include <nscp_string.hpp>
+#include <utf8.hpp>
 
 #include <tchar.h>
 
-NSC_WRAPPERS_MAIN_DEF(DotnetPlugins, "dotnet");
-NSC_WRAPPERS_IGNORE_MSG_DEF();
-NSC_WRAPPERS_HANDLE_CMD_DEF();
-NSC_WRAPPERS_CLI_DEF();
-NSC_WRAPPERS_HANDLE_NOTIFICATION_DEF();
+#include "DotnetPlugins.h"
 
+typedef DotnetPlugins plugin_impl_class; 
+static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance; 
+extern int NSModuleHelperInit(unsigned int, nscapi::core_api::lpNSAPILoader f) { 
+	return nscapi::basic_wrapper_static<plugin_impl_class>::NSModuleHelperInit(f); 
+} 
+extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) {
+	try {
+		nscapi::basic_wrapper_static<plugin_impl_class>::set_alias("dotnet", alias); 
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); 
+		return wrapper.NSLoadModuleExNoExcept(id, alias, mode);
+	} catch (System::Exception^ e) {
+		NSC_LOG_ERROR("Exception in NSLoadModuleEx: " + to_nstring(e->Message));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("NSLoadModuleEx", e);
+	} catch (...) {
+		NSC_LOG_CRITICAL("Unknown exception in: NSLoadModuleEx");
+	}
+	return NSCAPI::hasFailed;
+} 
+extern int NSLoadModule() {
+	return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule(); 
+} 
+extern int NSGetModuleName(char* buf, int buflen) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleName(buf, buflen); } 
+extern int NSGetModuleDescription(char* buf, int buflen) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleDescription(buf, buflen); } 
+extern int NSGetModuleVersion(int *major, int *minor, int *revision) { return nscapi::basic_wrapper_static<plugin_impl_class>::NSGetModuleVersion(major, minor, revision); } 
+extern int NSUnloadModule(unsigned int id) { 
+	int ret; 
+	{
+		nscapi::basic_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id)); 
+		ret = wrapper.NSUnloadModule();
+	}
+	plugin_instance.erase(id); 
+	return ret;
+} 
+extern void NSDeleteBuffer(char**buffer) { nscapi::basic_wrapper_static<plugin_impl_class>::NSDeleteBuffer(buffer); }
+
+extern void NSHandleMessage(unsigned int id, const char* request_buffer, unsigned int request_buffer_len) {
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleMessage(request_buffer, request_buffer_len); 
+}
+extern NSCAPI::boolReturn NSHasMessageHandler(unsigned int id) {
+	nscapi::message_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasMessageHandler(); 
+}
+extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len) {
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleCommand(request_buffer, request_buffer_len, reply_buffer, reply_buffer_len); 
+}
+extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) {
+	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasCommandHandler(); 
+}
+extern int NSCommandLineExec(unsigned int id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
+	nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); 
+}
+extern int NSHandleNotification(unsigned int id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHandleNotification(channel, buffer, buffer_len, response_buffer, response_buffer_len); 
+}
+extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
+	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSHasNotificationHandler(); 
+}
 
 const std::string settings_path = "/modules/dotnet";
 const std::string module_path = "${exe-path}/modules/dotnet";
 const std::string factory_key = "factory class";
 const std::string factory_default = "NSCP.Plugin.PluginFactory";
 
-bool DotnetPlugins::settings_query(const std::string &request_json, std::string &response_json) {
-	std::string request_message, response_message;
-	if (!get_core()->json_to_protobuf(request_json, request_message)) {
-		NSC_LOG_ERROR("Failed to convert request: " + request_json);
-		return false;
-	}
-	if (!get_core()->settings_query(request_message, response_message)) {
-		NSC_LOG_ERROR("Failed to query");
-		return false;
-	}
-	if (!get_core()->protobuf_to_json("SettingsResponseMessage", response_message, response_json)) {
-		NSC_LOG_ERROR("Failed to convert response");
-		return false;
-	}
-	return true;
-}
 
-bool DotnetPlugins::registry_query(const std::string &request_json, std::string &response_json) {
-	std::string request_message, response_message;
-	if (!get_core()->json_to_protobuf(request_json, request_message)) {
-		NSC_LOG_ERROR("Failed to convert request: " + request_json);
-		return false;
-	}
-	if (!get_core()->registry_query(request_message, response_message)) {
-		NSC_LOG_ERROR("Failed to query");
-		return false;
-	}
-	if (!get_core()->protobuf_to_json("RegistryResponseMessage", response_message, response_json)) {
-		NSC_LOG_ERROR("Failed to convert response");
-		return false;
-	}
-	return true;
-}
-
-json_value* find_node(json_value *node, std::list<std::string> &trail) {
-	if (trail.empty())
-		return node;
-	std::string target = trail.front();
-	trail.pop_front();
-	for (json_value *it = node->first_child; it; it = it->next_sibling) {
-		if (it->name && target == it->name) {
-			return find_node(it, trail);
-		}
-	}
-	trail.push_front(target);
-	for (json_value *it = node->first_child; it; it = it->next_sibling) {
-		if (!it->name) {
-			json_value * tmp = find_node(it, trail);
-			if (tmp != NULL)
-				return tmp;
-		}
-	}
-	NSC_DEBUG_MSG("Failed to find node: " + target);
-	return NULL;
-}
-std::string json_string(json_value *node) {
-	if (node == NULL || node->type != JSON_STRING)
-		return "";
-	return node->string_value;
-}
-int json_int(json_value *node) {
-	if (node == NULL || node->type != JSON_INT)
-		return -1;
-	return node->int_value;
-}
-
-std::list<std::string> json_list(json_value *node) {
-	std::list<std::string> ret;
-	if (node == NULL || node->type != JSON_ARRAY)
-		return ret;
-	for (json_value *it = node->first_child; it; it = it->next_sibling) {
-		ret.push_back(json_string(it));
-	}
-	return ret;
-}
-
-struct json_object : boost::noncopyable{
-	json_value* root;
-	block_allocator allocator;
-	char* buffer;
-	std::string last_error;
-
-	json_object() : root(NULL), allocator(1 << 10), buffer(NULL) {}
-	~json_object() {
-		if (buffer)
-			delete [] buffer;
-	}
-
-	bool parse(const std::string &json) {
-		char *errorPos = 0, *errorDesc = 0;
-		int errorLine = 0;
-		buffer = new char[json.size()+10];
-		memcpy(buffer, json.c_str(), json.size()+1);
-		root = json_parse(buffer, &errorPos, &errorDesc, &errorLine, &allocator);
-
-		if (errorPos == 0)
-			return true;
-		last_error = std::string("Parsing failed: ") + errorDesc;
-		return false;
-	}
-
-	std::string to_string(json_value* node = NULL, int level = 0) {
-		if (node == NULL)
-			node = root;
-		std::stringstream ss;
-		std::string pad(level, ' ');
-		ss << pad;
-		if (node->name)
-		{
-			ss << node->name << " = ";
-		}
-
-		switch(node->type)
-		{
-		case JSON_NULL:
-			ss << "null\n";
-			break;
-		case JSON_STRING:
-			ss << "\"" << node->string_value << "\"\n";
-			break;
-		case JSON_INT:
-			ss << node->int_value << "\n";
-			break;
-		case JSON_FLOAT:
-			ss << node->float_value << "\n";
-			break;
-		case JSON_BOOL:
-			ss << (node->int_value ? "true\n" : "false\n");
-			break;
-		case JSON_OBJECT:
-		case JSON_ARRAY:
-			ss << (node->type==JSON_ARRAY?"[\n":"{\n");
-			for (json_value *it = node->first_child; it; it = it->next_sibling) {
-				ss << to_string(it, level+4);
-			}
-			ss << pad << (node->type==JSON_ARRAY?"]\n":"}\n");
-			break;
-		default:
-			ss << "???\n";
-		}
-		return ss.str();
-	}
-
-};
-
-void json_error(const json_object &json, const std::string &data) {
-	std::cout << json.last_error << std::endl;
-	std::cout << data << std::endl;
-}
-
-
-
-using namespace boost::assign;
-
-std::list<std::string> DotnetPlugins::settings_get_list(const std::string path) {
-	std::list<std::string> ret;
-	std::string list_req = "{ \"type\": \"SettingsRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": { \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"query\": { \"node\": { \"path\": \"" + path + "\"}, \"recursive\": false, \"type\": \"LIST\" } } }";
-	std::string list_res;
-	if (!settings_query(list_req, list_res)) {
-		NSC_LOG_ERROR("Failed to query: " + path);
-		return ret;
-	}
-	json_object json;
-	if (!json.parse(list_res)) {
-		json_error(json, list_res);
-		return ret;
-	}
-
-	std::list<std::string> trail = list_of("payload")("query")("value")("list_data");
-	return json_list(find_node(json.root, trail));
-}
-
-void DotnetPlugins::settings_reg_path(const std::string path, const std::string title, const std::string desc) {
-	std::string req = "{ \"type\": \"SettingsRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": { \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"registration\": { \"node\": { \"path\": \"" + path + "\"}, \"info\": { \"title\": \"" + title + "\", \"description\": \"" + desc + "\"} } } }";
-	std::string res;
-	if (!settings_query(req, res)) {
-		NSC_LOG_ERROR("Failed to describe path: " + path);
-		return;
-	}
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return;
-	}
-	std::list<std::string> trail = list_of("payload")("result")("status");
-	json_value* resnode = find_node(json.root, trail);
-	if (json_int(resnode) != 0) {
-		NSC_LOG_ERROR("Failed to describe path: " + path + " (" + json_string(resnode) + ")");
-	}
-}
-
-void DotnetPlugins::settings_reg_key(const std::string path, const std::string key, const std::string title, const std::string desc) {
-	std::string req = "{ \"type\": \"SettingsRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": { \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"registration\": { \"node\": { \"path\": \"" + path + "\", \"key\": \"" + key + "\"}, \"info\": { \"title\": \"" + title + "\", \"description\": \"" + desc + "\"} } } }";
-	std::string res;
-	if (!settings_query(req, res))
-		std::cout << "Failed to describe key: " << path << "." << key << "\n";
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return;
-	}
-	std::list<std::string> trail = list_of("payload")("result")("status");
-	if (json_int(find_node(json.root, trail)) != 0) {
-		std::cout << "Failed to describe key: " << path << "." << key << "\n";
-	}
-}
-
-std::string DotnetPlugins::settings_get_string(const std::string path, const std::string key, const std::string value) {
-	std::string req = "{ \"type\": \"SettingsRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": { \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"query\": { \"node\": { \"path\": \"" + path + "\", \"key\": \"" + key + "\"}, \"type\": \"STRING\", \"default_value\": {\"type\": \"STRING\", \"string_data\": \"" + value + "\"} } } }";
-	std::string res;
-	if (!settings_query(req, res))
-		std::cout << "Failed to describe key: " << path << "." << key << "\n";
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return "";
-	}
-	std::list<std::string> trail = list_of("payload")("result")("status");
-	if (json_int(find_node(json.root, trail)) != 0) {
-		std::cout << "Failed to get key: " << path << "." << key << "\n";
-		return "";
-	}
-	std::list<std::string> value_trail = list_of("payload")("query")("value")("string_data");
-	return json_string(find_node(json.root, value_trail));
-}
-int DotnetPlugins::settings_get_int(const std::string path, const std::string key, const int value) {
-	std::string req = "{ \"type\": \"SettingsRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": { \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"query\": { \"node\": { \"path\": \"" + path + "\", \"key\": \"" + key + "\"}, \"type\": \"INT\", \"default_value\": {\"type\": \"INT\", \"int_data\": " + strEx::s::xtos(value) + "} } } }";
-	std::string res;
-	if (!settings_query(req, res))
-		std::cout << "Failed to describe key: " << path << "." << key << "\n";
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return -1;
-	}
-	std::list<std::string> trail = list_of("payload")("result")("status");
-	if (json_int(find_node(json.root, trail)) != 0) {
-		std::cout << "Failed to get key: " << path << "." << key << "\n";
-		return -1;
-	}
-	std::list<std::string> value_trail = list_of("payload")("query")("value")("string_data");
-	return json_int(find_node(json.root, value_trail));
-}
-
+using namespace Plugin;
 
 int DotnetPlugins::registry_reg_module(const std::string module) {
-	std::string req = "{ \"type\": \"RegistryRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": {\"registration\": {  \"plugin_id\": " + strEx::s::xtos(get_id()) + ", \"type\": \"PLUGIN\", \"name\": \"" + module + "\" } } }";
-	std::string res;
-	if (!registry_query(req, res)) {
-		NSC_LOG_ERROR("Failed to register module: " + module);
-		return -1;
+	RegistryRequestMessage::Builder^ message_builder = RegistryRequestMessage::CreateBuilder();
+	message_builder->SetHeader(Common::Types::Header::CreateBuilder()->SetVersion(Common::Types::Version::VERSION_1)->Build());
+	RegistryRequestMessage::Types::Request::Types::Registration::Builder^ query_builder = RegistryRequestMessage::Types::Request::Types::Registration::CreateBuilder();
+	query_builder->SetName(to_mstring(module));
+	query_builder->SetPluginId(get_id());
+	query_builder->SetType(Registry::Types::ItemType::MODULE);
+	message_builder->AddPayload(RegistryRequestMessage::Types::Request::CreateBuilder()->SetRegistration(query_builder->Build())->Build());
+	System::IO::MemoryStream^ stream = gcnew System::IO::MemoryStream();
+	message_builder->Build()->WriteTo(stream);
+	std::string response_buffer;
+	if (!get_core()->registry_query(to_nstring(stream->ToArray()), response_buffer)) {
+		NSC_LOG_ERROR("Failed to register: " + module);
+		return 0;
 	}
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return -1;
+	RegistryResponseMessage^ response_message = RegistryResponseMessage::ParseFrom(to_pbd(response_buffer));
+	if (response_message->GetPayload(0)->Result->Status_ != Common::Types::Status::Types::StatusType::STATUS_OK) {
+		NSC_LOG_ERROR("Failed to register: " + module);
+		return 0;
 	}
-	std::list<std::string> trail = list_of("payload")("registration")("item_id");
-	return json_int(find_node(json.root, trail));
+	return response_message->GetPayload(0)->Registration->ItemId;
 }
-
-void DotnetPlugins::registry_reg_command(const std::string command, const std::string description, const int plugin_id) {
-	std::string req = "{ \"type\": \"RegistryRequestMessage\", \"header\": { \"version\": \"1\"}, \"payload\": {\"registration\": {  \"plugin_id\": " + strEx::s::xtos(plugin_id) + ", \"type\": \"QUERY\", \"name\": \"" + command + "\", \"info\": { \"description\": \"" + description + "\"} } } }";
-	std::string res;
-	if (!registry_query(req, res)) {
-		NSC_LOG_ERROR("Failed to register: " + command);
-		return;
-	}
-	json_object json;
-	if (!json.parse(res)) {
-		json_error(json, res);
-		return;
-	}
-	std::list<std::string> trail = list_of("payload")("result")("status");
-	if (json_int(find_node(json.root, trail)) != 0) {
-		NSC_LOG_ERROR("Failed to register: " + command);
-	}
-}
-
-
 
 bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	root_path = utf8::cvt<std::wstring>(get_core()->expand_path(utf8::cvt<std::string>(module_path)));
+ 	root_path = get_core()->expand_path(utf8::cvt<std::string>(module_path));
+	NSCP::Helpers::SettingsHelper^ settings = gcnew NSCP::Helpers::SettingsHelper(gcnew CoreImpl(this), get_id());
 
-	settings_reg_path(settings_path, "DOT NET MODULES", "Modules written in dotnet/CLR");
+	settings->registerPath(to_mstring(settings_path), "DOT NET MODULES", "Modules written in dotnet/CLR", false);
 
-	BOOST_FOREACH(const std::string &s, settings_get_list("/modules/dotnet")) {
-		settings_reg_key(settings_path, s, "DOT NET Module", "dotnet plugin");
-		std::string v = settings_get_string(settings_path, s, "");
+	for each (System::String^ s in settings->getKeys("/modules/dotnet"))
+	{
+		settings->registerKey(to_mstring(settings_path), s, 0, "DOT NET Module", "dotnet plugin", "", false);
+		std::string v = to_nstring(settings->getString(to_mstring(settings_path), s, ""));
+		std::string factory = to_nstring(settings->getString(to_mstring(settings_path + "/" + to_nstring(s)), to_mstring(factory_key), to_mstring(factory_default)));
 		if (mode == NSCAPI::normalStart) {
-			load(s, v);
+			load(to_nstring(s), factory, v);
 		}
+
 	}
 	return true;
 }
 bool DotnetPlugins::unloadModule() {
-	BOOST_FOREACH(plugin_type p, plugins) {
-		p->unload();
-		plugin_instance.erase(p->get_id());
+	BOOST_FOREACH(internal_plugin_instance_ptr p, plugins) {
+		p->unload_plugin();
+		plugin_instance.erase(p->get_instance()->PluginID);
 	}
 	plugins.clear();
 	return true;
 }
 
-void DotnetPlugins::load(std::string key, std::string val) {
+bool file_exists(const TCHAR * file) {
+	WIN32_FIND_DATA FindFileData;
+	HANDLE handle = FindFirstFile(file, &FindFileData) ;
+	bool found = handle != INVALID_HANDLE_VALUE;
+	if(found) 
+		FindClose(handle);
+	return found;
+}
+void DotnetPlugins::load(std::string key, std::string factory, std::string val) {
 	try {
-		std::wstring alias = utf8::cvt<std::wstring>(key);
-		std::wstring plugin = utf8::cvt<std::wstring>(val);
+		std::string alias = key;
+		std::string plugin = val;
 		if (val == "enabled") {
 			plugin = alias;
-			alias = std::wstring();
+			alias = std::string();
 		}
 		if (val.empty())
 			plugin = alias;
-		std::wstring factory = utf8::cvt<std::wstring>(settings_get_string(settings_path + "/" + key, factory_key, factory_default));
+		std::string ppath = root_path + "\\" + plugin;
+		if (!file_exists(utf8::cvt<std::wstring>(ppath).c_str())) {
+			ppath = root_path  + "\\" +  plugin + ".dll";
+			if (!file_exists(utf8::cvt<std::wstring>(ppath).c_str())) {
+				NSC_LOG_ERROR("Plugin not found: " + plugin);
+				return;
+			}
+		}
 		int id = registry_reg_module(key);
 		plugin_instance.add_alias(get_id(), id);
-		NSC_LOG_ERROR("Adding: " + strEx::s::xtos((id)));
-		plugin_type instance = plugin_instance::create(this, factory, plugin, root_path + _T("\\") + plugin, id);
+		internal_plugin_instance_ptr instance (new internal_plugin_instance(ppath, factory));
 		plugins.push_back(instance);
-		instance->load(alias, 1);
+		instance->load_dll(instance, this, alias, id);
+		instance->load_plugin(1); // TODO: Fix correct load level
 	} catch(System::Exception ^e) {
 		NSC_LOG_ERROR_STD("Failed to load module: " + to_nstring(e->ToString()));
 	} catch(const std::exception &e) {
@@ -391,22 +206,11 @@ void DotnetPlugins::load(std::string key, std::string val) {
 		NSC_LOG_ERROR_STD("CLR failed to load!");
 	}
 }
-bool DotnetPlugins::settings_register_key(std::wstring path, std::wstring key, NSCAPI::settings_type type, std::wstring title, std::wstring description, std::wstring defaultValue, bool advanced) {
-	// 	get_core()->settings_register_key(id_, path, key, type, title, description, defaultValue, advanced);
+bool DotnetPlugins::register_command(std::string command, internal_plugin_instance_ptr plugin) {
+	commands[command] = plugin;
 	return true;
 }
-bool DotnetPlugins::settings_register_path(std::wstring path, std::wstring title, std::wstring description, bool advanced) {
-	// 	get_core()->settings_register_path(id_, path, title, description, advanced);
-	return true;
-}
-
-bool DotnetPlugins::register_command(std::wstring command, plugin_instance::plugin_type plugin, std::wstring description) {
-
-	// 	commands[command] = plugin;
-	// 	get_core()->registerCommand(id_, command, description);
-	return true;
-}
-bool DotnetPlugins::register_channel(std::wstring channel, plugin_instance::plugin_type plugin) {
+bool DotnetPlugins::register_channel(std::wstring channel, internal_plugin_instance_ptr plugin) {
 	// 	channels[channel] = plugin;
 	// 	get_core()->registerSubmissionListener(id_, channel);
 	return true;
@@ -426,18 +230,22 @@ bool DotnetPlugins::hasNotificationHandler() {
 }
 
 NSCAPI::nagiosReturn DotnetPlugins::handleRAWCommand(const std::string &request, std::string &response) {
-	// 	std::wstring command(char_command);
-	// 	try {
-	// 		commands_type::const_iterator cit = commands.find(command);
-	// 		if (cit == commands.end())
-	// 			return NSCAPI::returnIgnored;
-	// 		return cit->second->onCommand(command, request, response);
-	// 	} catch(System::Exception ^e) {
-	// 		NSC_LOG_ERROR_STD("Failed to execute command " + utf8::cvt<std::string>(command) + ": " + to_nsstring(e->ToString()));
-	// 	} catch (const std::exception &e) {
-	// 		NSC_LOG_ERROR_STD("Failed to execute command " + utf8::cvt<std::string>(command), e);
-	// 	}
+	QueryRequestMessage^ msg = QueryRequestMessage::ParseFrom(to_pbd(request));
+	std::string command = to_nstring(msg->GetPayload(0)->Command);
+	try {
+		commands_type::const_iterator cit = commands.find(command);
+		if (cit == commands.end())
+			return NSCAPI::returnIgnored;
+		return cit->second->onCommand(command, request, response);
+	} catch(System::Exception ^e) {
+		NSC_LOG_ERROR_STD("Failed to execute command " + command + ": " + to_nstring(e->ToString()));
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_STD("Failed to execute command " + command, e);
+	}
 	return NSCAPI::returnIgnored;
+}
+
+void DotnetPlugins::handleMessageRAW(std::string data) {
 }
 
 NSCAPI::nagiosReturn DotnetPlugins::handleRAWNotification(const std::string &channel, std::string &request, std::string &response) {

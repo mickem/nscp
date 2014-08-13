@@ -29,7 +29,8 @@
 #include <file_helpers.hpp>
 #include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include "script_wrapper.hpp"
 

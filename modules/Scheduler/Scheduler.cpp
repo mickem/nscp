@@ -25,7 +25,8 @@
 #include <settings/macros.h>
 
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 #include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;

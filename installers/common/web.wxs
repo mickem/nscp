@@ -1,0 +1,178 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="TARGETDIR">
+            <Directory Id="dir930BEE7F86DAA1C8405267E730B9DBEB" Name="web" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <ComponentGroup Id="WEBResources">
+            <Component Id="cmpEE558BA88D4F28ED6B12100E1F6233A6" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{95349802-20FD-4156-9C39-CE1AC7EC6781}">
+                <File Id="fil74535863953BA78D6FF7196430878A08" KeyPath="yes" Source="$(var.WebSource)\CMakeLists.txt" />
+            </Component>
+            <Component Id="cmp8864F7643F85D488DD5FF84A17647F13" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{7A1F1990-DA2A-4046-876D-BF768E16D8AE}">
+                <File Id="filCB96FC07C7D1DE413DB4C5C691FA7E57" KeyPath="yes" Source="$(var.WebSource)\console.html" />
+            </Component>
+            <Component Id="cmp485CE892B8DAB39BFD30CFAEBD43E9A7" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{FC05DD3B-DDF6-419F-929A-8AB975B974F1}">
+                <File Id="fil2D9426884C302798BE657A8AFEAF3719" KeyPath="yes" Source="$(var.WebSource)\index.html" />
+            </Component>
+            <Component Id="cmpCB0808B4DE90FEA5D99C05EB8AD129F1" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{A969ECC4-AA63-4412-B98A-D25D752BD682}">
+                <File Id="fil4DD8DDC9B5598E64527960B59F2971D8" KeyPath="yes" Source="$(var.WebSource)\log.html" />
+            </Component>
+            <Component Id="cmp1095E8F9F9D6E15CBEA478BCD38F1B7C" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{EB7FAFFE-B391-4880-8368-992387061B36}">
+                <File Id="filF3A52DADA652EB21F1A49C428DCAF093" KeyPath="yes" Source="$(var.WebSource)\login.html" />
+            </Component>
+            <Component Id="cmpDB0701FE4B4846EA4D3181D70122D658" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{68AC021E-1C56-4910-A4B5-1D547D53E85F}">
+                <File Id="filBA6E0875BBF20C36E8A980D61FFB5B83" KeyPath="yes" Source="$(var.WebSource)\modules.html" />
+            </Component>
+            <Component Id="cmp923B78BF3F7A3B3D4642DC3964B20AC0" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{6439FA87-8B2E-48EA-B977-9622BB44D6ED}">
+                <File Id="fil862BD37A3282062872D84ACEA24B5481" KeyPath="yes" Source="$(var.WebSource)\queries.html" />
+            </Component>
+            <Component Id="cmp29805B9AA2626E56A1C4097F5B2316DC" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{16020CEC-CA0E-4003-A261-8AAF6BF34D80}">
+                <File Id="fil8A197000CAF978DABEA74BF99E0AB4B1" KeyPath="yes" Source="$(var.WebSource)\settings.html" />
+            </Component>
+            <Component Id="cmp7F2A058609CCAB00F7E9B5E7A505041F" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{D39DEBFF-E005-4153-A8CD-1B85E5A48D78}">
+                <File Id="fil06D2C7641A440F7A5B48D8EC304EADFF" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap-dialog.min.css" />
+            </Component>
+            <Component Id="cmp6CCE95045CE8E5E08954D76E8AFACC7D" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{53E1C12E-5C2F-4516-A4EE-F6542EFC6C19}">
+                <File Id="fil4631E41B0456AD1A32F1CF056D2A4A41" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap-select.min.css" />
+            </Component>
+            <Component Id="cmpC02FAB736515C9E4D6F5493D5FD3D201" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{679E8DA7-E1A2-44F1-866A-D6F73B9FCA3C}">
+                <File Id="fil18DE1317D101AF8D967C75C262D220F2" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap-theme.css" />
+            </Component>
+            <Component Id="cmp9BF1127D296C8EE101A5C993D442178F" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{25E23CBA-C14A-45A4-B347-1D8F19ADE21D}">
+                <File Id="filCC3F65FB042B2773FCE124C458FB9ED4" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap-theme.css.map" />
+            </Component>
+            <Component Id="cmpDCBD3028EC925B67E1BE36926ABC3B4A" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{5C96A28C-B4CC-4B5D-A532-12B8BEAE2F23}">
+                <File Id="filA0909497C3A2309DC785404AAFAA520C" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap-theme.min.css" />
+            </Component>
+            <Component Id="cmp071F502981718274F8B7EABB93D6E325" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{6FCB2854-4EF5-4701-9177-0FC72B1F8853}">
+                <File Id="filD2099F245748A0BCA0396FBCD8FCC3B3" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap.css" />
+            </Component>
+            <Component Id="cmpCF894F9F13FC74A7356277BC2F6F92CC" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{4F611DFF-B99C-4E84-989A-62355F762C41}">
+                <File Id="fil8281797FF7E95D5293818E364769D154" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap.css.map" />
+            </Component>
+            <Component Id="cmp58139DEA0575E70CEB21F3E52C8BF6C6" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{451B068F-07C9-4300-BC6B-6062EE25B105}">
+                <File Id="filA3120993F99FF328885BA7032648B2E6" KeyPath="yes" Source="$(var.WebSource)\static\css\bootstrap.min.css" />
+            </Component>
+            <Component Id="cmpAE47B02564BF541902A321F8D50FB8B7" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{14AD6D52-7608-44E5-99FE-6EF4FA43BD4E}">
+                <File Id="fil5ED518B8DE9D0730C6DFCC02B408460E" KeyPath="yes" Source="$(var.WebSource)\static\css\font-awesome.min.css" />
+            </Component>
+            <Component Id="cmp60706B1E0B12DFE206DE374006305FCF" Directory="dir45D5958FB55F62A688C3DA6978C5145D" Guid="{4F14C9A4-014D-4CCE-B90A-54F9EA7B88E9}">
+                <File Id="fil37AFB7BDE1509C036B38B387B0B68470" KeyPath="yes" Source="$(var.WebSource)\static\css\nscp.css" />
+            </Component>
+            <Component Id="cmp85BE73A25BA0115EB3111024AE200BB6" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{4AD69550-B6EF-4D7A-A84F-F3D7E564E03C}">
+                <File Id="fil1A321506D0070FEC982C63B2582C0F77" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.eot" />
+            </Component>
+            <Component Id="cmpBBBCBC333521D3F5E7AB8BAE9F43D34D" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{2CC17CD2-B132-47EB-95B0-B3A275D6C47C}">
+                <File Id="filC40F209BAAB2544E59113C6DB1B954B5" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.svg" />
+            </Component>
+            <Component Id="cmp13AAB835CE2527CEAA9DAD8341E8BB06" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{B90C7458-D9F7-4A62-933F-EA9188F81137}">
+                <File Id="fil41900E0AB78D1CDCBB26280796287285" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.ttf" />
+            </Component>
+            <Component Id="cmpBC44656F4493739EE1E000BEBFDF18A2" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{601D5CD2-F67F-4D28-BB1A-FB4A930B0D1E}">
+                <File Id="fil04403AA83A04C0B882E71C19B847EEE1" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.woff" />
+            </Component>
+            <Component Id="cmp342C707594321A5ED29B1E88DB5C341E" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{AAB6F94A-B9CE-469A-9394-BD96809F2C32}">
+                <File Id="filCEB6106071A33E5204DDC43D5E96122E" KeyPath="yes" Source="$(var.WebSource)\static\fonts\FontAwesome.otf" />
+            </Component>
+            <Component Id="cmp1592E1864267162479A74834840838E8" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{0D5EDB65-EA0F-4D5F-B1F9-5D818BF65D76}">
+                <File Id="fil68E17643A8B2EC21EA955F9C642352F0" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.eot" />
+            </Component>
+            <Component Id="cmpD78E34A37EE3AEE4FC92EB3EF463BB37" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{0DD3ED18-8892-4C8E-827B-53C9983E09FB}">
+                <File Id="fil946AECAFB196A35A5F06591B836C0D5E" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.svg" />
+            </Component>
+            <Component Id="cmp8401711F3FAC5AD3D3E93B80005852B6" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{F7D43283-1CD5-4827-97D5-B75D52AC3E19}">
+                <File Id="fil6E0AFE90228ACB6937E28A4087353A1F" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.ttf" />
+            </Component>
+            <Component Id="cmpD6DF769B6BAE4B6BC4431897B94B0B48" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{ECE58FBD-2392-44F5-B3F9-9130C5FD24E4}">
+                <File Id="fil078FEFE2E0535ABC72482DE288479B89" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.woff" />
+            </Component>
+            <Component Id="cmp881391C9B6A8E971045EF4A0FA39869B" Directory="dir68CF2C518D88CE02E32C32DA294151EA" Guid="{C13DB95E-5221-4980-BFB1-AD39967C645B}">
+                <File Id="filB8EB7E9853613EFA4AE2CD6E0A7114FE" KeyPath="yes" Source="$(var.WebSource)\static\images\ajax-loader.gif" />
+            </Component>
+            <Component Id="cmp736CA45327A9109F12CEA6CB52D1C313" Directory="dir68CF2C518D88CE02E32C32DA294151EA" Guid="{9EB60F66-9AE2-484B-AA87-7B3CA2E3CA23}">
+                <File Id="fil58FA5426EC9FD9270EDE0C1A2057C546" KeyPath="yes" Source="$(var.WebSource)\static\images\favicon.png" />
+            </Component>
+            <Component Id="cmp916F992529FEA79F4A403169CC98A073" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{B35151E0-E505-4344-9ACF-03112ADCCB5C}">
+                <File Id="filDF3115C3785FAF8FD9FC6B06B35C51C8" KeyPath="yes" Source="$(var.WebSource)\static\js\bootstrap-dialog.min.js" />
+            </Component>
+            <Component Id="cmp9DE9083B209DF7CC615086F978D92732" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{76C094AD-3F82-4EE4-92DB-96578ABF8426}">
+                <File Id="filACAB48BDCE238D7121A4814EF24FBC8C" KeyPath="yes" Source="$(var.WebSource)\static\js\bootstrap-select.min.js" />
+            </Component>
+            <Component Id="cmpC1BE2248630BF34C7E804C4D56354925" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{18FD817C-0DE0-4063-98BB-6699F570D4D4}">
+                <File Id="filBBDF515AB4505A8D73AC1EC71290A39D" KeyPath="yes" Source="$(var.WebSource)\static\js\bootstrap.js" />
+            </Component>
+            <Component Id="cmp96F263FB30289453FB9AA06A9E7566A8" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{963D75EA-4AB3-41BB-BF57-33AA84BCE148}">
+                <File Id="fil0FDE0D215E571FFB4A438B62F98EE7C9" KeyPath="yes" Source="$(var.WebSource)\static\js\bootstrap.min.js" />
+            </Component>
+            <Component Id="cmp338D262ED1543ECFB16F2134B4B845D4" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{D862D882-8CD0-43FD-8040-E9881B06CC8A}">
+                <File Id="filBD6E2CE43B4C705D1B463ED7B25B6DB9" KeyPath="yes" Source="$(var.WebSource)\static\js\index.js" />
+            </Component>
+            <Component Id="cmpA095EDB1C0350E9752D2625916F5FB4D" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{A8FEFC2F-9301-4892-9859-771DA5B0318F}">
+                <File Id="filB9D356F367C772F853F8FC88D0636094" KeyPath="yes" Source="$(var.WebSource)\static\js\jquery-1.11.1.min.js" />
+            </Component>
+            <Component Id="cmp06F5D3A4D4F0E22FE3ECC1668F447C37" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{D304ADCE-8CA1-4F3E-BE3E-18EF75431A88}">
+                <File Id="fil74AC0A7371C9FA2F807CA311AC5BD711" KeyPath="yes" Source="$(var.WebSource)\static\js\knockout-3.1.0.js" />
+            </Component>
+            <Component Id="cmpA09DF3C8CB979D22EDF81CEAAD51BCA3" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{98E0001D-F4F1-4269-A33D-13E1D175BF3D}">
+                <File Id="fil9D87706486B044253D639BC184E46FF3" KeyPath="yes" Source="$(var.WebSource)\static\js\log.js" />
+            </Component>
+            <Component Id="cmp509B291E1944792968A9D526EDF30734" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{027BD7E7-DC21-4D6A-A178-F07739EC1560}">
+                <File Id="fil9759F686D4F99FDA450631B75FB9FB0A" KeyPath="yes" Source="$(var.WebSource)\static\js\login.js" />
+            </Component>
+            <Component Id="cmp6FE7D4734F984C4F1897ECDF71A0CC44" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{08C99D53-A014-405B-8E2A-F153AEB4C5B6}">
+                <File Id="filBDC1F9EDC303B17DE83F2CFFB74D2C31" KeyPath="yes" Source="$(var.WebSource)\static\js\modules.js" />
+            </Component>
+            <Component Id="cmpFBB41706D2A5E63B5D3D867630490FEB" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{6047DE4D-0D6E-4139-86BE-2A665956F3F5}">
+                <File Id="fil3ABA4669470973B9C8B95C3727F14B82" KeyPath="yes" Source="$(var.WebSource)\static\js\nscp.js" />
+            </Component>
+            <Component Id="cmpCA65EC11941ACD6119B35349477E841D" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{55CA3E1E-F30C-4532-8723-AC708110780A}">
+                <File Id="fil6EC9BB2F140F6308386098BB8075B445" KeyPath="yes" Source="$(var.WebSource)\static\js\query.js" />
+            </Component>
+            <Component Id="cmp7DC4D11E22907FC802B17D844A40D532" Directory="dir117188EFCD9A9BF213452F72AC57B559" Guid="{3EF851EC-DAA3-4CBB-AEDE-D0560565810E}">
+                <File Id="fil8C7A8E45C7E1E4A4E01A2A7F282FEE19" KeyPath="yes" Source="$(var.WebSource)\static\js\settings.js" />
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir45D5958FB55F62A688C3DA6978C5145D" />
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir90D733247A092FB47018E63E8A0BE3FA" />
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir68CF2C518D88CE02E32C32DA294151EA" />
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir117188EFCD9A9BF213452F72AC57B559" />
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir930BEE7F86DAA1C8405267E730B9DBEB" />
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dirA6BF7C3800848C7B37A2872B5FE08CAE">
+            <Directory Id="dir117188EFCD9A9BF213452F72AC57B559" Name="js" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dirA6BF7C3800848C7B37A2872B5FE08CAE">
+            <Directory Id="dir45D5958FB55F62A688C3DA6978C5145D" Name="css" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dirA6BF7C3800848C7B37A2872B5FE08CAE">
+            <Directory Id="dir68CF2C518D88CE02E32C32DA294151EA" Name="images" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dirA6BF7C3800848C7B37A2872B5FE08CAE">
+            <Directory Id="dir90D733247A092FB47018E63E8A0BE3FA" Name="fonts" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir930BEE7F86DAA1C8405267E730B9DBEB">
+            <Directory Id="dirA6BF7C3800848C7B37A2872B5FE08CAE" Name="static" />
+        </DirectoryRef>
+    </Fragment>
+</Wix>

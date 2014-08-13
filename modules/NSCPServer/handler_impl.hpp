@@ -2,7 +2,8 @@
 
 #include <boost/tuple/tuple.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include <nscp/packet.hpp>
 #include <nscp/server/handler.hpp>

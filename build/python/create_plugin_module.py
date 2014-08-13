@@ -30,7 +30,7 @@ EXPORTS
 {% endif %}
 """
 
-CPP_TEMPLATE = """#include <nscapi/nscapi_plugin_interface.hpp>
+CPP_TEMPLATE = """#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 
@@ -451,7 +451,7 @@ extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
 HPP_TEMPLATE = """#pragma once
 #include <boost/shared_ptr.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
 
 extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
 extern "C" int NSLoadModule();
@@ -503,8 +503,8 @@ public:
 	* Module version
 	* @return module version
 	*/
-	static nscapi::plugin_wrapper::module_version getModuleVersion() {
-		nscapi::plugin_wrapper::module_version version = {0, 3, 0 };
+	static nscapi::module_version getModuleVersion() {
+		nscapi::module_version version = {0, 3, 0 };
 		return version;
 	}
 	static std::string getModuleDescription() {

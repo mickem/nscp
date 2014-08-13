@@ -24,6 +24,7 @@
 
 #include <socket/socket_settings_helper.hpp>
 #include <settings/client/settings_client.hpp>
+#include <nscapi/macros.hpp>
 
 namespace sh = nscapi::settings_helper;
 

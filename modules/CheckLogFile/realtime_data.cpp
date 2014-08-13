@@ -5,7 +5,8 @@
 
 #include <strEx.h>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 void runtime_data::touch(boost::posix_time::ptime now) {
 	BOOST_FOREACH(file_container &fc, files) {

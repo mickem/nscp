@@ -10,7 +10,7 @@
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
-#include "../helpers/settings_manager/settings_manager_impl.h"
+#include "../libs/settings_manager/settings_manager_impl.h"
 
 #include <settings/client/settings_client.hpp>
 

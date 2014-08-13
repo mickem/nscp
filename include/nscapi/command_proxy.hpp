@@ -11,11 +11,6 @@ namespace nscapi {
 
 	public:
 		command_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
-/*
-		virtual void register_command(std::string command, std::string description) {
-			core_->registerCommand(plugin_id_, command, description);
-		}
-		*/
 		virtual void registry_query(const std::string &request, std::string &response) {
 			if (core_->registry_query(request, response) != NSCAPI::isSuccess) {
 				throw "TODO: FIXME: DAMN!!!";

@@ -228,7 +228,7 @@ if (WIN32)
 		WIX_COMPILE("${_sources}" WIX_OBJ_LIST "${_dependencies}")
 		SET(TNAME "${_target}-${VERSION_SERIES}.${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_BUILD}-${VERSION_ARCH}.msi")
 		WIX_LINK(${TNAME} WIX_OBJ_LIST "${_loc_files}")
-		ADD_CUSTOM_TARGET(${_target}_installer 
+		ADD_CUSTOM_TARGET(installer_${_target} 
 			ALL
 			DEPENDS ${TNAME}
 			SOURCES ${_sources}

@@ -5,7 +5,8 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <error.hpp>
 
-#include <nscapi/nscapi_plugin_interface.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 namespace smtp { 
 	namespace client {

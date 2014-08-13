@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 2.6)
+
+PROJECT(NSCP.Plugin.CSharpSample)
+	
+SET(CSHARP_BINARY_DIRECTORY ${NSCP_PROJECT_BINARY_DIR}/modules/dotnet)
+INCLUDE(${CSHARP_USE_FILE})
+	
+	
+CSHARP_ADD_LIBRARY(NSCP.Plugin.CSharpSample
+	${CMAKE_CURRENT_SOURCE_DIR}/SamplePlugin.cs
+	${NSCP_PROJECT_BINARY_DIR}/Google.ProtocolBuffers.dll
+	${NSCP_PROJECT_BINARY_DIR}/NSCP.Core.dll
+	${NSCP_PROJECT_BINARY_DIR}/NSCP.Protobuf.dll
+)
+ADD_DEPENDENCIES(NSCP.Plugin.CSharpSample NSCP.Core)
+ADD_DEPENDENCIES(NSCP.Plugin.CSharpSample NSCP.Protobuf)
+SET_TARGET_PROPERTIES(NSCP.Plugin.CSharpSample PROPERTIES FOLDER "modules/dotnet")
+
