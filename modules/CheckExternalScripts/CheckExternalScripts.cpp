@@ -162,10 +162,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		nscapi::core_helper::core_proxy core(get_core(), get_id());
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
+			core.register_alias(o.second.tpl.alias, "External script: " + o.second.command);
 		}
 		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.tpl.alias);
+			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.command);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");

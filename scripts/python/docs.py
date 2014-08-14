@@ -49,10 +49,10 @@ A list of all short hand aliases for queries (check commands)
 {% for key,query in module.aliases|dictsort  -%}
 	{% if query.info.description.startswith('Alternative name for:') -%}
 		{% set command = query.info.description[22:] -%}
-		{% do table.append([query.key, command|rst_link('query')]) -%}
+		{% do table.append([query.key, "Alias for: " + command|rst_link('query')]) -%}
 	{%- elif query.info.description.startswith('Alias for:') -%}
 		{% set command = query.info.description[11:] -%}
-		{% do table.append([query.key, command|rst_link('query')]) -%}
+		{% do table.append([query.key, "Alias for: " + command|rst_link('query')]) -%}
 	{%- else -%}
 		{% do table.append([query.key, query.info.description|firstline]) -%}
 	{%- endif %}
@@ -153,7 +153,11 @@ Samples
 
 {% for pkey,path in module.paths|dictsort %}
 {% set common_heading=module.paths.keys()|common_head|length %}
+{% if common_heading != pkey|length -%}
 {{("… " + pkey[common_heading:])|replace("/", " / ")|rst_heading}}
+{%- else -%}
+{{pkey|replace("/", " / ")|rst_heading}}
+{%- endif %}
 .. confpath:: {{pkey}}
     :synopsis: {{path.info.title|firstline}}
 
@@ -167,40 +171,40 @@ Samples
     {% set kkey = k|rst_link('confkey') -%}
     {% do table.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
 {%- endfor %}
-{{table|rst_csvtable('Key', 'Default Value', 'Description')}}
-
-**Sample**::
-
-    # {{path.info.title}}
-    # {{path.info.description|firstline}}
-    [{{path.key}}]
-{% for kkey,key in path.keys|dictsort %}    {{kkey}}={{key.info.default_value|extract_value}}
-{% endfor %}
-{% for kkey,key in path.keys|dictsort %}
-.. confkey:: {{kkey}}
-    :synopsis: {{key.info.title}}
-
-    **{{key.info.title}}**
-
-{{key.info.description|block_pad(4, '| ')}}
-
-{% if key.info.advanced %}    **Advanced** (means it is not commonly used)
-
-{% endif %}    **Path**: {{path.key}}
-
-    **Key**: {{kkey}}
-
-{% if key.info.default_value %}    **Default value**: {{key.info.default_value|extract_value}}
-
-{% endif %}{% if key.info.sample %}    **Sample key**: This key is provided as a sample to show how to configure objects
-
-{% endif %}    **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+{{table|rst_csvtable('Key', 'Default Value', 'Description')|block_pad(4)}}
 
     **Sample**::
 
+        # {{path.info.title}}
+        # {{path.info.description|firstline}}
         [{{path.key}}]
-        # {{key.info.title}}
-        {{kkey}}={{key.info.default_value|extract_value}}
+{% for kkey,key in path.keys|dictsort %}        {{kkey}}={{key.info.default_value|extract_value}}
+{% endfor %}
+{% for kkey,key in path.keys|dictsort %}
+    .. confkey:: {{kkey}}
+        :synopsis: {{key.info.title}}
+
+        **{{key.info.title}}**
+
+{{key.info.description|block_pad(8, '| ')}}
+
+{% if key.info.advanced %}        **Advanced** (means it is not commonly used)
+
+{% endif %}        **Path**: {{path.key}}
+
+        **Key**: {{kkey}}
+
+{% if key.info.default_value %}        **Default value**: {{key.info.default_value|extract_value}}
+
+{% endif %}{% if key.info.sample %}        **Sample key**: This key is provided as a sample to show how to configure objects
+
+{% endif %}        **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+
+        **Sample**::
+
+            [{{path.key}}]
+            # {{key.info.title}}
+            {{kkey}}={{key.info.default_value|extract_value}}
 
 {% endfor %}
 {% endfor %}
@@ -380,7 +384,7 @@ def render_template(hash, template, filename):
 			return
 
 	log_debug('Writing file: %s'%filename)
-	f = open(filename,"w")
+	f = open(filename,"wb")
 	f.write(data)
 	f.close()
 
