@@ -1911,13 +1911,23 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 										const std::string module = NSCPlugin::file_to_module(file);
 										plugin_cache_item itm;
 										try {
-											plugin_type plugin(new NSCPlugin(-1, (pluginPath / file).normalize(), ""));
-											plugin->load_dll();
+											plugin_type plugin = find_plugin(module);
+											bool has_plugin = plugin;
+											if (!has_plugin) {
+												boost::filesystem::path p = (pluginPath / file).normalize();
+												LOG_DEBUG_CORE("Loading " + p.string());
+												plugin_type plugin(new NSCPlugin(-1, p, ""));
+												plugin->load_dll();
+											} else {
+												LOG_DEBUG_CORE("Found cached " + module);
+											}
 											itm.name = plugin->getModule();
 											itm.title = plugin->getName();
 											itm.desc = plugin->getDescription();
 											tmp_plugin_cache.push_back(itm);
-											plugin->unload_dll();
+											if (!has_plugin) {
+												plugin->unload_dll();
+											}
 										} catch (const std::exception &e) {
 											LOG_DEBUG_CORE("Failed to load " + file.string() + ": " + utf8::utf8_from_native(e.what()));
 											continue;

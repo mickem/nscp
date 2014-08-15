@@ -236,7 +236,7 @@
 		<CustomAction Id="SetUserGroupUsersProp" Property="TRANSLATE_SID_PROPERTY" Value="USERGROUP_USERS" Return="check" />
 		<CustomAction Id="TranslateUserGroupUsers" BinaryKey="InstallerHelper" DllEntry="TranslateSid"/>
 
-		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/main_dll.dll' />
+		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_lib.dll' />
 
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallInitialize'/>

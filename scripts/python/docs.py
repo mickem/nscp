@@ -156,8 +156,9 @@ Samples
 {% if common_heading != pkey|length -%}
 {{("… " + pkey[common_heading:])|replace("/", " / ")|rst_heading}}
 {%- else -%}
-{{pkey|replace("/", " / ")|rst_heading}}
+{{pkey|replace("/", "/ ")|rst_heading}}
 {%- endif %}
+
 .. confpath:: {{pkey}}
     :synopsis: {{path.info.title|firstline}}
 
@@ -451,30 +452,33 @@ class DocumentationHelper(object):
 		return []
 
 	def get_queries(self):
+		log_debug('Fetching queries...')
 		(code, data) = self.registry.query(self.build_command_request(1))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.inventory:
-					log_debug('Found %d commands'%len(payload.inventory))
+					log_debug('Found %d queries'%len(payload.inventory))
 					return payload.inventory
-		log_error('No commands found')
+		log_error('No queries found')
 		return []
 
 	def get_query_aliases(self):
+		log_debug('Fetching aliases...')
 		(code, data) = self.registry.query(self.build_command_request(5))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.inventory:
-					log_debug('Found %d commands'%len(payload.inventory))
+					log_debug('Found %d aliases'%len(payload.inventory))
 					return payload.inventory
-		log_error('No commands found')
+		log_error('No aliases found')
 		return []
 
 	def get_plugins(self):
+		log_debug('Fetching plugins...')
 		(code, data) = self.registry.query(self.build_command_request(7))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
