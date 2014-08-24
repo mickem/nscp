@@ -11,6 +11,7 @@ SET(SRCS ${SRCS}
 	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/utils.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -34,6 +35,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/server.hpp
 		${NSCP_INCLUDEDIR}/socket/connection.hpp
+		${NSCP_INCLUDEDIR}/utils.h
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

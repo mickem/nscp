@@ -33,8 +33,9 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <settings/client/settings_client.hpp>
 #include <client/simple_client.hpp>
 
 #include <json_spirit.h>
@@ -67,9 +68,10 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 }
 
 class cli_handler : public client::cli_handler {
+	int plugin_id;
 	nscapi::core_wrapper* core;
 public:
-	cli_handler(nscapi::core_wrapper* core) : core(core) {}
+	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 
 	void output_message(const std::string &msg) {
@@ -94,6 +96,9 @@ public:
 		}
 	}
 
+	virtual int get_plugin_id() const { return plugin_id; }
+	virtual nscapi::core_wrapper* get_core() const { return core; }
+
 };
 
 class BaseController : public Mongoose::WebController
@@ -112,7 +117,7 @@ public:
 		, core(core)
 		, plugin_id(plugin_id)
 		, status("ok")
-		, client_(client::cli_handler_ptr(new cli_handler(core))){}
+		, client_(client::cli_handler_ptr(new cli_handler(core, plugin_id))){}
 
 	std::string get_status() {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));

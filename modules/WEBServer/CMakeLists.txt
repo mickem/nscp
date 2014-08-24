@@ -56,4 +56,3 @@ target_link_libraries(${TARGET}
 	${JSON_LIB}
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
-SOURCE_GROUP("Socket" REGULAR_EXPRESSION .*include/socket/.*)

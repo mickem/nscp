@@ -34,6 +34,7 @@
 #include <NSCAPI.h>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 
 #include <nscp_string.hpp>

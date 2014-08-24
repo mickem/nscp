@@ -1,7 +1,9 @@
 #pragma once
 
+#include <boost/shared_ptr.hpp>
+
 #include <settings/settings_core.hpp>
-#include <settings/client/settings_client.hpp>
+#include <settings/client/settings_client_interface.hpp>
 #include "settings_handler_impl.hpp"
 
 namespace settings_manager {
@@ -69,7 +71,7 @@ namespace settings_manager {
 	settings::instance_ptr get_settings();
 	settings::instance_ptr get_settings_no_wait();
 	settings::settings_core* get_core();
-	nscapi::settings_helper::settings_impl_interface_ptr get_proxy();
+	boost::shared_ptr<nscapi::settings_helper::settings_impl_interface>  get_proxy();
 	void destroy_settings();
 	bool init_settings(provider_interface *provider, std::string context = "");
 	void change_context(std::string context);

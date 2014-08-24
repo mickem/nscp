@@ -36,8 +36,9 @@
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

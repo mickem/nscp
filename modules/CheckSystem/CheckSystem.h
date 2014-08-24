@@ -28,7 +28,6 @@
 
 
 #include <nscapi/nscapi_protobuf.hpp>
-#include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
@@ -43,7 +42,7 @@ inline void import_string(T &object, T &parent) {
 class CheckSystem : public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;
-	pdh_thread collector;
+	boost::shared_ptr<pdh_thread> collector;
 
 	typedef std::map<std::string,std::string> counter_map_type;
 	counter_map_type counters;

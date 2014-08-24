@@ -24,9 +24,10 @@
 #include <list>
 
 #include <NSCAPI.h>
+#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
-	class core_wrapper {
+	class NSCAPI_EXPORT core_wrapper {
 	private:
 		std::string alias;	// This is actually the wrong value if multiple modules are loaded!
 		nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
@@ -50,14 +51,6 @@ namespace nscapi {
 		
 
 	public:
-
-		struct plugin_info_type {
-			std::wstring dll;
-			std::wstring name;
-			std::wstring version;
-			std::wstring description;
-		};
-		typedef std::list<plugin_info_type> plugin_info_list;
 
 		core_wrapper() 
 			: fNSAPIGetApplicationName(NULL)

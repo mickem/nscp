@@ -67,6 +67,7 @@ private:
 		noPerfData_ = !v;
 	}
 	bool isPasswordOk(std::string remotePassword);
+	std::string list_instance(std::string counter);
 
 private:
 	bool noPerfData_;

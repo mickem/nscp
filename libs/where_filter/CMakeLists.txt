@@ -5,7 +5,7 @@ SET(TARGET where_filter)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
-SET(service_SRCS
+SET(SRCS
 	${NSCP_INCLUDEDIR}/parsers/where.cpp
 	${NSCP_INCLUDEDIR}/parsers/operators.cpp
 	${NSCP_INCLUDEDIR}/parsers/helpers.cpp
@@ -18,15 +18,13 @@ SET(service_SRCS
 	${NSCP_INCLUDEDIR}/parsers/where/unary_op.cpp
 	${NSCP_INCLUDEDIR}/parsers/where/value_node.cpp
 	${NSCP_INCLUDEDIR}/parsers/where/variable.cpp
-	
-	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.cpp
+	${NSCP_INCLUDEDIR}/parsers/where/engine.cpp
 
-	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+	${NSCP_INCLUDEDIR}/parsers/where/grammar/grammar.cpp
 )
 
 IF(WIN32)
-	SET(service_SRCS ${service_SRCS}
-		
+	SET(SRCS ${SRCS}
 		${NSCP_INCLUDEDIR}/parsers/operators.hpp
 		${NSCP_INCLUDEDIR}/parsers/helpers.hpp
 		${NSCP_INCLUDEDIR}/parsers/where.hpp
@@ -46,19 +44,24 @@ IF(WIN32)
 
 		${NSCP_INCLUDEDIR}/parsers/where/engine.hpp
 		${NSCP_INCLUDEDIR}/parsers/where/engine_impl.hpp
-
-		${NSCP_INCLUDEDIR}/parsers/filter/cli_helper.hpp
-		${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
-		
 	)
 ENDIF(WIN32)
-add_library (${TARGET} ${service_SRCS})
 
-target_link_libraries(${TARGET} protobuf)
-IF(CMAKE_COMPILER_IS_GNUCXX)
-	IF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+IF(USE_STATIC_RUNTIME)
+	ADD_LIBRARY(${TARGET} STATIC ${SRCS})
+	IF(CMAKE_COMPILER_IS_GNUCXX AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
 		SET_TARGET_PROPERTIES(${TARGET} PROPERTIES COMPILE_FLAGS -fPIC)
-	ENDIF("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
-ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+	ENDIF(CMAKE_COMPILER_IS_GNUCXX AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "x86_64" AND NOT APPLE)
+ELSE(USE_STATIC_RUNTIME)
+	ADD_LIBRARY(${TARGET} SHARED ${SRCS})
+	SET_LIBRARY_OUT_FOLDER(${TARGET})
+ENDIF(USE_STATIC_RUNTIME)
 
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
+SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
+TARGET_LINK_LIBRARIES(${TARGET}
+	${Boost_SYSTEM_LIBRARY}
+	${Boost_FILESYSTEM_LIBRARY}
+	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_REGEX_LIBRARY}
+
+)

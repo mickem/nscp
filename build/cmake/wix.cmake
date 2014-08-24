@@ -25,6 +25,8 @@ if (WIN32)
         "$ENV{WIX}"
         "$ENV{WIX_ROOT_DIR}"
         "$ENV{ProgramFiles}/WiX Toolset v3.7"
+        "$ENV{ProgramFiles}/WiX Toolset v3.8"
+        "$ENV{ProgramFiles}/Windows Installer XML v3.8"
         "$ENV{ProgramFiles}/Windows Installer XML v3.7"
         "$ENV{ProgramFiles}/Windows Installer XML v3.5"
         "$ENV{ProgramFiles}/Windows Installer XML v3"
@@ -203,7 +205,7 @@ if (WIN32)
 							-out "${_target}" 
 							${${_sources}}
 				DEPENDS   ${${_sources}}
-				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LIGHT} ${WIX_LINK_FLAGS_A} -ext WixUIExtension -ext WixFirewallExtension -out "${_target}" ${${_sources}})"
+				COMMENT   "Linking ${${_sources}} -> ${_target} (${WIX_LIGHT} ${WIX_LINK_FLAGS_A} -ext WixUIExtension -ext WixFirewallExtension -out \"${_target}\" ${${_sources}})"
 				)
 		ELSE(${WIX_VERSION} EQUAL 3)
 			ADD_CUSTOM_COMMAND(
@@ -234,5 +236,24 @@ if (WIN32)
 			SOURCES ${_sources}
 			)
     ENDMACRO(ADD_WIX_INSTALLER)
+
+	MACRO(WIX_FIND_MERGE_MODULE _VAR _FILE)
+		IF(CMAKE_CL_64)
+			SET(ARCH x64)
+		ELSE(CMAKE_CL_64)
+			SET(ARCH x86)
+		ENDIF(CMAKE_CL_64)
+		FIND_FILE(${_VAR}
+			NAMES 
+			"${_FILE}.msm"
+			"${_FILE}_${ARCH}.msm"
+			PATHS 
+			${WIX_MERGE_MODULE_PATH}
+			"$ENV{ProgramFiles}/Common Files/Merge Modules"
+			"$ENV{ProgramFiles(x86)}/Common Files/Merge Modules"
+			${WIX_POSSIBLE_ROOT_DIRS}
+			)
+		SET(${_VAR} ${${_VAR}} PARENT_SCOPE)
+	ENDMACRO(WIX_FIND_MERGE_MODULE)
 
 endif(WIN32)

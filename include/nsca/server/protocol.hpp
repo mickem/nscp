@@ -22,7 +22,7 @@ namespace nsca {
 		static const bool debug_trace = false;
 
 		typedef std::string outbound_buffer_type;
-		typedef boost::shared_ptr<nsca::server::handler> handler_type;
+		typedef nsca::server::handler *handler_type;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
 		enum state {

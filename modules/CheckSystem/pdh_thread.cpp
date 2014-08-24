@@ -95,8 +95,8 @@ void pdh_thread::thread_proc() {
 	}
 
 	bool has_realtime = !filters_.empty();
-	cpu_filter_helper cpu_helper;
-	mem_filter_helper mem_helper;
+	cpu_filter_helper cpu_helper(core, plugin_id);
+	mem_filter_helper mem_helper(core, plugin_id);
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
 		if (object.check == "memory") {
 			check_mem_filter::runtime_data data;

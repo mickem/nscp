@@ -33,7 +33,7 @@
 #include <boost/shared_ptr.hpp>
  
 #include <utils.h>
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <parsers/filter/cli_helper.hpp>
 

@@ -28,7 +28,6 @@
 #include <unicode_char.hpp>
 #include <strEx.h>
 
-#include <protobuf/ipc.pb.h>
 #include <nscapi/nscapi_protobuf.hpp>
 
 namespace check_mk {

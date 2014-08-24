@@ -33,7 +33,7 @@
 #include <settings/macros.h>
 #include <nscapi/functions.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include "cli_parser.hpp"
 #include "../version.hpp"
 
@@ -1916,7 +1916,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 											if (!has_plugin) {
 												boost::filesystem::path p = (pluginPath / file).normalize();
 												LOG_DEBUG_CORE("Loading " + p.string());
-												plugin_type plugin(new NSCPlugin(-1, p, ""));
+												plugin = plugin_type(new NSCPlugin(-1, p, ""));
 												plugin->load_dll();
 											} else {
 												LOG_DEBUG_CORE("Found cached " + module);
@@ -2050,10 +2050,10 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 								if ((*it)->getModule() == control.name()) {
 									plugin_type instance = *it;
 									unsigned int plugin_id = instance->get_id();
+									commands_.remove_plugin(plugin_id);
 									it = plugins_.erase(it);
 									instance->unload_plugin();
 									instance->unload_dll();
-									commands_.remove_plugin(plugin_id);
 									if (it == plugins_.end())
 										break;
 								} else {

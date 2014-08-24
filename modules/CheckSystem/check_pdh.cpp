@@ -31,6 +31,8 @@
 #include <boost/make_shared.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+
 #include <parsers/filter/cli_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -116,7 +118,7 @@ namespace check_pdh {
 		}
 	}
 
-	void check::check_pdh(pdh_thread &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	void check::check_pdh(boost::shared_ptr<pdh_thread> &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 		typedef filter filter_type;
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -247,9 +249,9 @@ namespace check_pdh {
 
 				value_list_type values;
 				if (time.empty()) {
-					values = collector.get_value(vc.second);
+					values = collector->get_value(vc.second);
 				} else {
-					values = collector.get_average(vc.second, strEx::stoui_as_time(time)/1000);
+					values = collector->get_average(vc.second, strEx::stoui_as_time(time)/1000);
 				}
 				if (values.empty())
 					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");

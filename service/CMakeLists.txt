@@ -25,8 +25,14 @@ SET(service_SRCS
 	task_scheduler.cpp
 	scheduler_handler.cpp
 
+
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 	${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
@@ -83,7 +89,7 @@ IF (PROTOC_GEN_JSON_FOUND)
 	INCLUDE_DIRECTORIES(${NSCP_PROJECT_BINARY_DIR}/libs/json_pb)
 	INCLUDE_DIRECTORIES(${NSCP_PROJECT_BINARY_DIR}/libs/protobuf)
 ENDIF()
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
 
 # Add python
 IF(PYTHONLIBSEX_FOUND)
@@ -113,12 +119,16 @@ ADD_CUSTOM_TARGET(${TARGET}_full_config
 	DEPENDS ${TARGET})
 
 TARGET_LINK_LIBRARIES(${TARGET}
+	${CMAKE_THREAD_LIBS_INIT}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
 	${Boost_THREAD_LIBRARY}
-	${NSCP_DEF_PLUGIN_LIB}
+	${Boost_SYSTEM_LIBRARY}
+	${PROTOBUF_LIBRARY}
+	${ICONV_LIBRARIES}
 	${EXTRA_LIBS}
 	${JSON_LIB}
+	protobuf
 	settings_manager
 )
 INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
@@ -141,13 +151,6 @@ IF(GTEST_FOUND)
 		performance_data_test.cpp
 		various_test.cpp
 	)
-	IF(NOT GTEST_GTEST_FOUND OR NOT GTEST_GTEST_MAIN_FOUND)
-		INCLUDE_DIRECTORIES(${GTEST_SRC_DIR})
-		SET(SRCS ${SRCS}
-			${GTEST_SRC_DIR}/src/gtest_main.cc
-			${GTEST_SRC_DIR}/src/gtest-all.cc
-		)
-	ENDIF(NOT GTEST_GTEST_FOUND OR NOT GTEST_GTEST_MAIN_FOUND)
 	ADD_EXECUTABLE(${TARGET}_test ${SRCS})
 	ADD_TEST(${TARGET}_test ${TARGET}_test)
 	TARGET_LINK_LIBRARIES(${TARGET}_test

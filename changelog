@@ -1,3 +1,7 @@
+2014-08-24 MickeM
+ * Cleaned up cmake files and added internal gtest distribution
+ * Added support for building with shared runtime
+
 2014-08-14 MickeM
  * Fixed some documentaion issues (not using crlf on windows, lookups were wrong, alias handling was wrong, settings keys were broken, settingks keys were scoped wrong)
  * Fixed so alias descriptions in external scripts are render better

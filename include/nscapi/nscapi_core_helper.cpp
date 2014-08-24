@@ -27,7 +27,7 @@
 
 #include <utf8.hpp>
 
-#include <nscapi/nscapi_helper_singleton.hpp>
+//#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -37,10 +37,8 @@
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);
 #define CORE_LOG_ERROR_EXR(msg, ex) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, std::string("Exception in: ") + msg + utf8::utf8_from_native(ex.what()));
 
-extern nscapi::helper_singleton* nscapi::plugin_singleton;
-
-nscapi::core_wrapper* get_core() {
-	return nscapi::plugin_singleton->get_core();
+nscapi::core_wrapper* nscapi::core_helper::get_core() {
+	return core_;
 }
 
 bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
@@ -82,26 +80,6 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 	}
 	return NSCAPI::returnUNKNOWN;
 }
-/**
-* Inject a request command in the core (this will then be sent to the plug-in stack for processing)
-* @param command Command to inject (password should not be included.
-* @param argLen The length of the argument buffer
-* @param **argument The argument buffer
-* @param message The return message buffer
-* @param perf The return performance data buffer
-* @return The return of the command
-*/
-// NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::wstring command, const std::list<std::wstring> & arguments, std::string & result) 
-// {
-// 	std::string request;
-// 	try {
-// 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
-// 	} catch (const std::exception &e) {
-// 		CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
-// 		return NSCAPI::returnUNKNOWN;
-// 	}
-// 	return get_core()->query(command.c_str(), request, result);
-// }
 
 NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & arguments, std::string & result) 
 {
@@ -147,7 +125,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string 
 
 
 
-void nscapi::core_helper::core_proxy::register_command(std::string command, std::string description, std::list<std::string> aliases) {
+void nscapi::core_helper::register_command(std::string command, std::string description, std::list<std::string> aliases) {
 
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
@@ -163,16 +141,16 @@ void nscapi::core_helper::core_proxy::register_command(std::string command, std:
 		regitem->add_alias(alias);
 	}
 	std::string response_string;
-	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
-			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
 
-void nscapi::core_helper::core_proxy::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
+void nscapi::core_helper::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
 
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
@@ -188,16 +166,16 @@ void nscapi::core_helper::core_proxy::register_alias(std::string command, std::s
 		regitem->add_alias(alias);
 	}
 	std::string response_string;
-	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
-			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
 
-void nscapi::core_helper::core_proxy::register_channel(const std::string channel)
+void nscapi::core_helper::register_channel(const std::string channel)
 {
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
@@ -210,11 +188,11 @@ void nscapi::core_helper::core_proxy::register_channel(const std::string channel
 	regitem->mutable_info()->set_title(channel);
 	regitem->mutable_info()->set_description("Handler for: " + channel);
 	std::string response_string;
-	nscapi::plugin_singleton->get_core()->registry_query(request.SerializeAsString(), response_string);
+	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
 		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
-			nscapi::plugin_singleton->get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
 	}
 }

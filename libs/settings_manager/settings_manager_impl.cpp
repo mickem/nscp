@@ -9,7 +9,6 @@
 #endif
 
 #include <settings/client/settings_proxy.hpp>
-#include <settings/client/settings_client.hpp>
 #include <file_helpers.hpp>
 #include <config.h>
 
@@ -24,8 +23,8 @@ namespace settings_manager {
 			throw settings::settings_exception("Settings has not been initiated!");
 		return settings_impl;
 	}
-	nscapi::settings_helper::settings_impl_interface_ptr get_proxy() {
-		return nscapi::settings_helper::settings_impl_interface_ptr(new settings_client::settings_proxy(internal_get()));
+	boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy() {
+		return boost::shared_ptr<nscapi::settings_helper::settings_impl_interface>(new settings_client::settings_proxy(internal_get()));
 	}
 	settings::instance_ptr get_settings() {
 		return internal_get()->get();

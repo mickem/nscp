@@ -100,25 +100,21 @@ namespace script_wrapper {
 
 	struct function_wrapper {
 	private:
-		nscapi::core_wrapper* raw_core;
+		nscapi::core_wrapper* core;
 		unsigned int plugin_id;
-		nscapi::core_helper::core_proxy core;
 	public:
-		function_wrapper(const function_wrapper &other) : raw_core(other.raw_core), plugin_id(other.plugin_id), core(other.raw_core, other.plugin_id) {}
+		function_wrapper(const function_wrapper &other) : core(other.core), plugin_id(other.plugin_id) {}
 		function_wrapper& operator=(const function_wrapper &other) {
-			raw_core = other.raw_core;
-			plugin_id = other.plugin_id;
 			core = other.core;
+			plugin_id = other.plugin_id;
 			return *this;
 		}
-		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : raw_core(core), plugin_id(plugin_id), core(core, plugin_id) {}
+		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 		typedef std::map<std::string,PyObject*> function_map_type;
 		//typedef boost::python::tuple simple_return;
 
 
-		static boost::shared_ptr<function_wrapper> create(unsigned int plugin_id) {
-			return boost::shared_ptr<function_wrapper>(new function_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
-		}
+		static boost::shared_ptr<function_wrapper> create(unsigned int plugin_id);
 
 		void register_simple_cmdline(std::string name, PyObject* callable);
 		void register_cmdline(std::string name, PyObject* callable);
@@ -148,19 +144,17 @@ namespace script_wrapper {
 	struct command_wrapper {
 	private:
 		nscapi::core_wrapper* core;
+		unsigned int plugin_id;
 	public:
-		command_wrapper() : core(NULL) {}
 		command_wrapper(const command_wrapper &other) : core(other.core) {}
 		command_wrapper& operator=(const command_wrapper &other) {
 			core = other.core;
 			return *this;
 		}
-		command_wrapper(nscapi::core_wrapper* core) : core(core) {}
+		command_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 	public:
-		static boost::shared_ptr<command_wrapper> create(unsigned int) {
-			return boost::shared_ptr<command_wrapper>(new command_wrapper(nscapi::plugin_singleton->get_core()));
-		}
+		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id);
 
 		tuple simple_query(std::string command, boost::python::list args);
 		tuple query(std::string command, std::string request);
@@ -177,7 +171,6 @@ namespace script_wrapper {
 		nscapi::core_wrapper* core;
 		unsigned int plugin_id;
 		nscapi::settings_proxy settings;
-		settings_wrapper() : core(NULL), plugin_id(-1), settings(-1, NULL) {}
 	public:
 		settings_wrapper(const settings_wrapper &other) : core(other.core), plugin_id(other.plugin_id), settings(other.plugin_id, other.core) {}
 		settings_wrapper& operator=(const settings_wrapper &other) {
@@ -189,10 +182,7 @@ namespace script_wrapper {
 		settings_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id), settings(plugin_id, core) {}
 
 	public:
-		static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id) {
-			return boost::shared_ptr<settings_wrapper>(new settings_wrapper(nscapi::plugin_singleton->get_core(), plugin_id));
-		}
-		
+		static boost::shared_ptr<settings_wrapper> create(unsigned int plugin_id);
 
 		std::string get_string(std::string path, std::string key, std::string def = "");
 		void set_string(std::string path, std::string key, std::string value);

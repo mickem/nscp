@@ -35,12 +35,14 @@
 #include <EnumProcess.h>
 #include <sysinfo.h>
 #include <simple_registry.hpp>
-#include <settings/client/settings_client.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
 #include <pdh/pdh_enumerations.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
 
@@ -125,6 +127,7 @@ void load_counters(std::map<std::string,std::string> &counters, sh::settings_reg
  */
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
+	collector.reset(new pdh_thread(get_core(), get_id()));
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("system", alias, "windows");
 	std::string counter_path = settings.alias().get_settings_path("counters");
@@ -135,7 +138,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 // 		load_counters(counters, settings);
 // 	}
 
-	collector.filters_path_ = settings.alias().get_settings_path("real-time/checks");
+	collector->filters_path_ = settings.alias().get_settings_path("real-time/checks");
 
 	settings.alias().add_path_to_settings()
 		("WINDOWS CHECK SYSTEM", "Section for system checks and system settings")
@@ -148,17 +151,17 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, &collector, get_settings_proxy(), _1, _2)),  
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, collector, get_settings_proxy(), _1, _2)),  
 		"REALTIME FILTERS", "A set of filters to use in real-time mode",
 		"FILTER", "For more configuration options add a dedicated section")
 
 		;
 
 	settings.alias().add_key_to_settings()
-		("default buffer length", sh::string_key(&collector.default_buffer_size, "1h"),
+		("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
 		"DEFAULT LENGTH", "Used to define the default interval for range buffer checks (ie. CPU).")
 
-		("subsystem", sh::string_key(&collector.subsystem, "default"),
+		("subsystem", sh::string_key(&collector->subsystem, "default"),
 		"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
@@ -194,7 +197,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		filters::filter_config_handler::add_samples(get_settings_proxy(), collector.filters_path_);
+		filters::filter_config_handler::add_samples(get_settings_proxy(), collector->filters_path_);
 		
 	if (mode == NSCAPI::normalStart) {
 
@@ -209,12 +212,12 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 				counter.set_buffer_size(object.buffer_size);
 				counter.set_type(object.type);
 
-				collector.add_counter(counter);
+				collector->add_counter(counter);
 			} catch (const PDH::pdh_exception &e) {
 				NSC_LOG_ERROR("Failed to load: " + object.tpl.alias + ": " + e.reason());
 			}
 		}
-		collector.start();
+		collector->start();
 	}
 
 	return true;
@@ -227,7 +230,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool CheckSystem::unloadModule() {
-	if (!collector.stop()) {
+	if (!collector->stop()) {
 		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
 	}
 	return true;
@@ -545,7 +548,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 		return;
 
 	BOOST_FOREACH(const std::string &time, times) {
-		std::map<std::string,windows::system_info::load_entry> vals = collector.get_cpu_load(format::decode_time<long>(time, 1));
+		std::map<std::string,windows::system_info::load_entry> vals = collector->get_cpu_load(format::decode_time<long>(time, 1));
 		typedef std::map<std::string,windows::system_info::load_entry>::value_type vt;
 		BOOST_FOREACH(vt v, vals) {
 			boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));

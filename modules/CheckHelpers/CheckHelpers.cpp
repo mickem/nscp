@@ -31,8 +31,8 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
-#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -88,9 +88,10 @@ void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &req
 	nscapi::protobuf::functions::set_response_good(*response, utf8::cvt<std::string>(get_core()->getApplicationVersionString()));
 }
 
-bool simple_query(const std::string &command, const std::vector<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
+bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
 	std::string local_response_buffer;
-	if (nscapi::core_helper::simple_query(command, arguments, local_response_buffer) != NSCAPI::isSuccess) {
+	nscapi::core_helper ch(get_core(), get_id());
+	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::isSuccess) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		return false;
 	}
@@ -217,8 +218,9 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 }
 
 struct worker_object {
-	void proc(std::string command, std::vector<std::string> arguments) {
-		nscapi::core_helper::simple_query(command, arguments, response_buffer);
+	void proc(nscapi::core_wrapper *core, int plugin_id, std::string command, std::vector<std::string> arguments) {
+		nscapi::core_helper ch(core, plugin_id);
+		ch.simple_query(command, arguments, response_buffer);
 	}
 	NSCAPI::nagiosReturn ret;
 	std::string response_buffer;
@@ -242,7 +244,7 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 
 	worker_object obj;
-	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, command, arguments)));
+	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, get_core(), get_id(), command, arguments)));
 
 	if (t->timed_join(boost::posix_time::seconds(timeout))) {
 		if (obj.ret != NSCAPI::isSuccess) {

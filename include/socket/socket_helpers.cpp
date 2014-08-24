@@ -240,12 +240,16 @@ void genkey_callback(int p, int n, void *arg) {
 	// Ignored as we dont want to show progress...
 }
 
-int add_ext(X509 *cert, int nid, char *value) {
+int add_ext(X509 *cert, int nid, const char *value) {
+	int len = strlen(value);
+	char *tmp = new char[len+10];
+	strncpy(tmp, value, len);
 	X509_EXTENSION *ex;
 	X509V3_CTX ctx;
 	X509V3_set_ctx_nodb(&ctx);
 	X509V3_set_ctx(&ctx, cert, cert, NULL, NULL, 0);
-	ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, value);
+	ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, tmp);
+	delete [] tmp;
 	if (!ex)
 		return 0;
 	X509_add_ext(cert,ex,-1);

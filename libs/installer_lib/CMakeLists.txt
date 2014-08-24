@@ -8,6 +8,13 @@ IF(WIN32)
 	SET(SRCS
 		${TARGET}.cpp
 		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
+			
+		../settings_manager/settings_manager_impl.cpp
+		../settings_manager/settings_handler_impl.cpp
+
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+		${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+		
 	)
 
 	ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -40,7 +47,6 @@ IF(WIN32)
 		${Boost_SYSTEM_LIBRARY}
 		${EXTRA_LIBS}
 		Msi.lib
-		settings_manager
 	)
 
 	SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "installer-dll")

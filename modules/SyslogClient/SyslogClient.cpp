@@ -28,9 +28,9 @@
 
 #include <strEx.h>
 
-#include <settings/client/settings_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
@@ -115,7 +115,7 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		targets.add_samples(get_settings_proxy(), target_path);
 		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("load", e);
@@ -147,7 +147,7 @@ void SyslogClient::add_target(std::string key, std::string arg) {
 
 void SyslogClient::add_command(std::string name, std::string args) {
 	try {
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		std::string key = commands.add_command(name, args);
 		if (!key.empty())
 			core.register_command(key.c_str(), "NRPE relay for: " + name);

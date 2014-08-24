@@ -21,11 +21,12 @@
 #include <boost/optional.hpp>
 
 #include <strEx.h>
-#include <settings/client/settings_client.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
 #include "WMIQuery.h"

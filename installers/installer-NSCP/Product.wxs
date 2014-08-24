@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
 
-  <?include setup.wxs ?>
+	<?include setup.wxs ?>
 
 	<?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
 	<?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
@@ -10,8 +10,8 @@
 
 	<Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
-		<Package Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
-						 Comments="This will appear in the file summary stream." InstallerVersion="200" Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
+		<Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
+						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
 
 		<Upgrade Id="$(var.UpgradeCode)">
 			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
@@ -19,17 +19,20 @@
 		</Upgrade>
 
 		<?if "$(var.arch)" = "x64"?>
-		<Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
+			<Condition Message="x64 bit version not supported on Win32 bit platform (get Win32 instead)">VersionNT64</Condition>
 		<?endif?>
 		<Media Id="1" Cabinet="Product.cab" EmbedCab="yes" CompressionLevel="high" />
 		<Directory Id="TARGETDIR" Name="SourceDir">
 			<Directory Id="$(var.ProgramFiles)">
 				<Directory Id="INSTALLLOCATION" Name="$(var.App.Path)">
-					<Component Id="MainClient" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
-						<File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes"
-								Source="$(var.Source)/nscp.exe" Vital="yes">
-						</File>
-						<RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
+			    <?if "$(var.Runtime)" = "dynamic"?>
+  			    <Merge Id="VCRedist110" SourceFile="$(var.CRTMergeModule)" DiskId="1" Language="0" />
+		 	    <?endif ?>
+					<Component Id="NSCPEXE" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
+						<File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes" Source="$(var.Source)/nscp.exe" Vital="yes" />
+					</Component>
+					<Component Id="NSCPSERVICE" Guid="1A9F7631-5754-48F7-9712-0B5DAD51AB54" Win64="$(var.Win64)">
+						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="service" Type="integer" Value="1" KeyPath="yes"/>
 						<ServiceInstall Id="SWCNSCP"
 							Name="[SERVICE_NAME]" DisplayName="$(var.App.Title) ($(var.arch))"
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
@@ -38,32 +41,35 @@
 							<!--<ServiceDependency Id="Tcpip" />-->
 						</ServiceInstall>
 						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
+					</Component>
+					<Component Id="MainClient" Guid="205D4F6B-03F0-4298-90CA-58A2AAB499B6" Win64="$(var.Win64)">
+						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="main client" Type="integer" Value="1" KeyPath="yes"/>
+						<RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
 						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
 					</Component>
 					<Component Id="FWException" Guid="7A02C807-749C-4F10-B7C3-8B50BFA74204" Win64="$(var.Win64)">
-            <fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
-            <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
-          </Component>
-          <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
-            <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
+						<fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
+						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
+					</Component>
+					<Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
+						<File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
-          </Component>
-          <Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
-						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" 
-                      Target="[INSTALLLOCATION]nscp.exe"
-                        WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
-                      Arguments="test" Description="Run $(var.App.Title) in test mode" />
+					</Component>
+					<Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
+						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" Target="[INSTALLLOCATION]nscp.exe"
+									WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
+									Arguments="test" Description="Run $(var.App.Title) in test mode" />
 						<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="Start $(var.App.Title) ($(var.arch))"
                       Target="[INSTALLLOCATION]nscp.exe"
-								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-								  Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
+									WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
+									Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
 						<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="Stop $(var.App.Title) ($(var.arch))"
-                      Target="[INSTALLLOCATION]nscp.exe"
-								  WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-								  Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
+									Target="[INSTALLLOCATION]nscp.exe"
+									WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
+									Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
 						<Shortcut Id="StarmentNSCHelp" Directory="ProgramMenuDir" Name="Documentation"
-								  Target="[HELP_LINK]" Icon="doc.ico"
-								  Description="Visit the NSClient++ WIKI for documentation">
+									Target="[HELP_LINK]" Icon="doc.ico"
+									Description="Visit the NSClient++ WIKI for documentation">
 						</Shortcut>
 						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="shortcuts" Type="integer" Value="1" KeyPath="yes"/>
 					</Component>
@@ -102,6 +108,11 @@
 						<Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
 							<File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
 						</Component>
+						<Component Id="GeneratedCerts" Guid="3E6F62A4-9157-48B6-8396-1FB54E0C5F82" Win64="$(var.Win64)">
+							<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="remove certificates" Type="integer" Value="1" KeyPath="yes"/>
+							<RemoveFile Id="removeCertificate" Name="certificate.pem" On="uninstall" />
+							<RemoveFile Id="removeCertificateKey" Name="certificate_key.pem" On="uninstall" />
+						</Component>
 					</Directory>
 					<Directory Id="INSTALLLOCATION_MODS" Name="modules">
 						<Component Id="NRPEServer" Guid="E00E8CFD-ADA6-47bd-84F0-DD00F07AD326" Win64="$(var.Win64)">
@@ -111,7 +122,7 @@
 						<Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
 							<File Id="CheckNRPEExe" Name="check_nrpe.dll" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
 						</Component>
-						
+
 						<Component Id="NSCServer" Guid="64CEEE94-4E45-48ca-B120-81DA3F3E081A" Win64="$(var.Win64)">
 							<File Id="NSCServerDLL" Name="NSClientServer.dll" DiskId="1" Source="$(var.Source)/modules/NSClientServer.dll" Vital="no" />
 						</Component>
@@ -129,9 +140,12 @@
 						<Component Id="ExtraClients" Guid="57D203AF-0A5F-4fca-BA6E-8B8767F97B8D" Win64="$(var.Win64)">
 							<File Id="GraphiteClient" Name="GraphiteClient.dll" DiskId="1" Source="$(var.Source)/modules/GraphiteClient.dll" Vital="no" />
 							<File Id="SMTPClient" Name="SMTPClient.dll" DiskId="1" Source="$(var.Source)/modules/SMTPClient.dll" Vital="no" />
-              <File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
-              <File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
-            </Component>
+							<File Id="SyslogClient" Name="SyslogClient.dll" DiskId="1" Source="$(var.Source)/modules/SyslogClient.dll" Vital="no" />
+							<File Id="NRDPClient" Name="NRDPClient.dll" DiskId="1" Source="$(var.Source)/modules/NRDPClient.dll" Vital="no" />
+						</Component>
+						<Component Id="RequiredPlugins" Guid="A20AFC9C-C36F-4CCE-9D38-3C232235F545" Win64="$(var.Win64)">
+							<File Id="ModCommandClient.dll" Name="CommandClient.dll" DiskId="1" Source="$(var.Source)/modules/CommandClient.dll" Vital="yes" />
+						</Component>
 						<Component Id="Plugins" Guid="BBE40548-4061-43fc-A720-96BFFDEFD34E" Win64="$(var.Win64)">
 							<File Id="ModCheckEventLog.dll" Name="CheckEventLog.dll" DiskId="1" Source="$(var.Source)/modules/CheckEventLog.dll" Vital="no" />
 							<File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
@@ -142,18 +156,25 @@
 							<File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
-              <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
-              <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
-              <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
-              <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
-            </Component>
+							<File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
+							<File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
+							<File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
+						</Component>
+						<Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
+							<File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
+						</Component>
 					</Directory>
-          <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
-            <File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
-            <File Id="PythonZIP" Name="python27.zip" DiskId="1" Source="$(var.Source)/../python-dist/python27.zip" Vital="no" />
-            <File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/../python-dist/_socket.pyd" Vital="no" />
-            <File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/../python-dist/unicodedata.pyd" Vital="no" />
-          </Component>
+					<Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
+						<File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
+						<File Id="PythonZIP" Name="python27.zip" DiskId="1" Source="$(var.Source)/../python-dist/python27.zip" Vital="no" />
+						<File Id="PythonPYD1" Name="_socket.pyd" DiskId="1" Source="$(var.Source)/../python-dist/_socket.pyd" Vital="no" />
+						<File Id="PythonPYD2" Name="unicodedata.pyd" DiskId="1" Source="$(var.Source)/../python-dist/unicodedata.pyd" Vital="no" />
+					</Component>
+					<Component Id="LibDotNet" Guid="29AC2A9A-D1D1-4E86-BEE0-5428C86422F6">
+						<File Id="DOTNET_PB" Name="Google.ProtocolBuffers.dll" DiskId="1" Source="$(var.Source)/Google.ProtocolBuffers.dll" Vital="yes" />
+						<File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/NSCP.Core.dll" Vital="yes" />
+						<File Id="DOTNET_NSPB" Name="NSCP.Protobuf.dll" DiskId="1" Source="$(var.Source)/NSCP.Protobuf.dll" Vital="yes" />
+					</Component>
 				</Directory>
 			</Directory>
 
@@ -170,25 +191,38 @@
 				<ComponentRef Id="MainClient" />
 				<ComponentRef Id="Helpers" />
 				<ComponentRef Id="RandomFiles" />
+				<ComponentRef Id="NSCPSERVICE" />
+				<ComponentRef Id="NSCPEXE" />
+				<ComponentRef Id="GeneratedCerts" />
+        <?if "$(var.Runtime)" = "dynamic"?>
+        <MergeRef Id="VCRedist110"/>
+        <ComponentRef Id="LibCommon"/>
+				<ComponentRef Id="LibNSCP"/>
+				<?endif?>
 				<ComponentRef Id="GeneratedConfigUser" />
 				<ComponentRef Id="GeneratedConfig" />
-        <Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="allow">
-          <ComponentRef Id="Shortcuts" />
-        </Feature>
-        <Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="allow">
-          <ComponentRef Id="SampleConfig" />
-        </Feature>
-        <Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
-          <ComponentRef Id="FWException" />
-        </Feature>
-      </Feature>
+				<ComponentRef Id="RequiredPlugins"/>
+				<Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="allow">
+					<ComponentRef Id="Shortcuts" />
+				</Feature>
+				<Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="allow">
+					<ComponentRef Id="SampleConfig" />
+				</Feature>
+				<Feature Id="FirewallConfig" Title="Firewall Exception" Description="A firewall exception to allow NSClient++ to open ports" Level="1" Absent="allow">
+					<ComponentRef Id="FWException" />
+				</Feature>
+				<Feature Id="DotNetPluginSupport" Title=".net plugin support" Description="Support for loading modules written in .dot net (Requires installing .net framework)" Level="1" Absent="allow">
+					<ComponentRef Id="LibDotNet" />
+					<ComponentRef Id="DotNetPlugins" />
+				</Feature>
+			</Feature>
 			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1" Absent="allow">
 				<ComponentRef Id="NSCPDocumentation" />
 			</Feature>
 			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
-          <ComponentRef Id="Plugins" />
-        </Feature>
+					<ComponentRef Id="Plugins" />
+				</Feature>
 				<Feature Id="NRPEPlugins" Title="NRPE Support" Description="NRPE Server Plugin. Support for the more vercitile NRPE protocol (check_nrpe)" Level="1" Absent="allow">
 					<ComponentRef Id="NRPEServer" />
 					<ComponentRef Id="NRPEServerCert" />
@@ -199,8 +233,8 @@
 				</Feature>
 				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
 					<ComponentRef Id="WEBServer" />
-          <ComponentGroupRef Id="WEBResources" />
-        </Feature>
+					<ComponentGroupRef Id="WEBResources" />
+				</Feature>
 				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
 					<ComponentRef Id="NSCA" />
 				</Feature>
@@ -209,16 +243,16 @@
 				</Feature>
 				<Feature Id="PythonScript" Title="Python Scripting" Description="Allows running INTERNAL scripts written in Python" Level="1" Absent="allow">
 					<ComponentRef Id="PythonScript" />
-          <Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="allow">
-            <ComponentRef Id="PythonBin" />
-          </Feature>
-        </Feature>
-        <Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
-        </Feature>
+					<Feature Id="PythonScriptPythonRuntime" Title="Python 2.7 Runtime" Description="Runtime enviornment for python 2.7 (if you already have python install down install this)" Level="1" Absent="allow">
+						<ComponentRef Id="PythonBin" />
+					</Feature>
+				</Feature>
+				<Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
+				</Feature>
 			</Feature>
-        <Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
-          <ComponentGroupRef Id="ScriptResources" />
-        </Feature>
+			<Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
+				<ComponentGroupRef Id="ScriptResources" />
+			</Feature>
 		</Feature>
 
 		<CustomAction Id='ImportConfig'			BinaryKey='InstallerHelper' DllEntry='ImportConfig'			Impersonate='yes' Execute="immediate" Return="check" />

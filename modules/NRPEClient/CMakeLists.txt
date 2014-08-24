@@ -13,6 +13,7 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
+	${NSCP_INCLUDEDIR}/utils.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -34,6 +35,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/socket/client.hpp
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
+		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)

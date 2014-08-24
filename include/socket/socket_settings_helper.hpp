@@ -2,9 +2,9 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <settings/client/settings_client.hpp>
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace socket_helpers {
 	struct settings_helper {

@@ -18,7 +18,6 @@
 #include <nscapi/macros.hpp>
 
 #include <simple_timer.hpp>
-#include <settings/client/settings_client.hpp>
 
 #include "realtime_thread.hpp"
 #include "filter.hpp"
@@ -30,7 +29,7 @@ typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_con
 
 void real_time_thread::thread_proc() {
 
-	filter_helper helper;
+	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
 	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {

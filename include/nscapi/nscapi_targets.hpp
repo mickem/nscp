@@ -7,10 +7,12 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
+
+#include <nscapi/dll_defines.hpp>
 
 #include <net/net.hpp>
 
@@ -156,7 +158,7 @@ namespace nscapi {
 		template<class custom_reader>
 		struct handler : public nscapi::settings_objects::object_handler<target_object, split_object_reader<custom_reader > > {};
 		struct helpers {
-			static void verify_file(target_object &target, std::string key, std::list<std::string> &errors);
+			static NSCAPI_EXPORT void verify_file(target_object &target, std::string key, std::list<std::string> &errors);
 		};
 
 	}

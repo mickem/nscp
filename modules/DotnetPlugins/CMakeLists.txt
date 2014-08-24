@@ -16,7 +16,7 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp
 )
 
-ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES} -Dplugin_api_NOLIB)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
@@ -34,7 +34,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
-		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 #		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 	)
 ENDIF(WIN32)

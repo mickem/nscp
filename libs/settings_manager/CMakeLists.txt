@@ -12,7 +12,7 @@ SET(service_SRCS
 	settings_handler_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+#	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 )
 
@@ -27,7 +27,7 @@ IF(WIN32)
 
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
-		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+#		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 
 
 		${NSCP_INCLUDEDIR}/settings/impl/settings_ini.hpp

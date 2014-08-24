@@ -22,6 +22,7 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
+	${NSCP_INCLUDEDIR}/utils.cpp
 
 	../../resources/nsclient.ico
 )
@@ -37,6 +38,7 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		check_nrpe.hpp
 		../../modules/NRPEClient/nrpe_client.hpp
+		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
 		${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp

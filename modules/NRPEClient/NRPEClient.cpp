@@ -23,7 +23,7 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -73,7 +73,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		targets.add_samples(get_settings_proxy(), target_path);
 		targets.ensure_default(get_settings_proxy(), target_path);
 		core.register_channel(channel_);
@@ -103,7 +103,7 @@ void NRPEClient::add_target(std::string key, std::string arg) {
 
 void NRPEClient::add_command(std::string name, std::string args) {
 	try {
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		std::string key = commands.add_command(name, args);
 		if (!key.empty())
 			core.register_command(key.c_str(), "NRPE relay for: " + name);

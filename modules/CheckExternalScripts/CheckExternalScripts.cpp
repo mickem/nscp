@@ -29,11 +29,11 @@
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
 
-#include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 #include <file_helpers.hpp>
 
@@ -160,7 +160,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		}
 		root_ = get_base_path();
 
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
 			core.register_alias(o.second.tpl.alias, "External script: " + o.second.command);
 		}
@@ -406,7 +406,8 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		NSC_DEBUG_MSG("Potential missing argument for: " + cd.tpl.alias);
 	}
 	std::string buffer;
-	int result = nscapi::core_helper::simple_query(cd.command, args, buffer);
+	nscapi::core_helper ch(get_core(), get_id());
+	int result = ch.simple_query(cd.command, args, buffer);
 	if (result == NSCAPI::returnIgnored) {
 		nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.command);
 		return;

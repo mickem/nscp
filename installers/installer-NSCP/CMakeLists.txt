@@ -15,7 +15,13 @@ SET(SRCS
 	../common/web.wxs
 	../common/scripts.wxs
 )
-#	WixUI.wixlib
+IF(USE_STATIC_RUNTIME)
+	SET(RUNTIME "static")
+ELSE(USE_STATIC_RUNTIME)
+	SET(SRCS ${SRCS} RUNTIME_DLL.wxs)
+	SET(RUNTIME "dynamic")
+ENDIF(USE_STATIC_RUNTIME)
+
 SET(DEPENDENCIES
 	installer_lib
 )
@@ -25,9 +31,19 @@ SET(LOCALIZATIONS
 	en-us
 )
 
-SET(WIX_CANDLE_FLAGS -dboost=true -darch=${VERSION_ARCH} -arch ${VERSION_ARCH}
+SET(ARCH x86)
+IF(CMAKE_CL_64)
+	SET(ARCH x64)
+ENDIF(CMAKE_CL_64)
+
+WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC110_CRT")
+
+
+SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" -dSource=${NSCP_PROJECT_BINARY_DIR} -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
+	-dCRTMergeModule=${CRT_MERGE_MODULE}
+	-dRuntime=${RUNTIME}
 	)
 SOURCE_GROUP(Generated FILES ${SRCS})
 #set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)

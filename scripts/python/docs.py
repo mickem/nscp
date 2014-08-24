@@ -5,10 +5,8 @@ import plugin_pb2
 from optparse import OptionParser
 from sets import Set
 import os
-import csv
 import traceback
-import StringIO
-import string
+#import string
 from jinja2 import Template, Environment
 import hashlib
 helper = None

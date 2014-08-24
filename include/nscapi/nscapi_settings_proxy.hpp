@@ -7,8 +7,10 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
+#include <nscapi/dll_defines.hpp>
+
 namespace nscapi {
-	class settings_proxy : public nscapi::settings_helper::settings_impl_interface {
+	class NSCAPI_EXPORT settings_proxy : public nscapi::settings_helper::settings_impl_interface {
 	private:
 		unsigned int plugin_id_;
 		nscapi::core_wrapper* core_;

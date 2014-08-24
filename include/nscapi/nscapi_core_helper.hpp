@@ -25,23 +25,27 @@
 #include <vector>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
-	namespace core_helper {
-		struct core_proxy {
-			nscapi::core_wrapper *core_;
-			int plugin_id_;
-			core_proxy(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
-			void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
-			void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
-			void register_channel(const std::string channel);
-		};
- 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf);
+	class NSCAPI_EXPORT core_helper {
+		nscapi::core_wrapper *core_;
+		int plugin_id_;
+	public:
+		core_helper(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
+		void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+		void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+		void register_channel(const std::string channel);
+
+		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf);
 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::vector<std::string> & argument, std::string & result);
 		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf);
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
 		bool submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);
-	}
+
+	private:
+		nscapi::core_wrapper* get_core();
+	};
 }

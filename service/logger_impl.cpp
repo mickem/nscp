@@ -12,7 +12,7 @@
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 
 nsclient::logging::impl::raw_subscribers subscribers_;

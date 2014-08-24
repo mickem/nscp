@@ -12,8 +12,9 @@ namespace py = boost::python;
 
 boost::shared_ptr<script_wrapper::functions> script_wrapper::functions::instance;
 
-//extern PythonScript gPythonScript;
-
+nscapi::core_wrapper* get_core() {
+	return  nscapi::plugin_singleton->get_core();
+}
 
 script_wrapper::status script_wrapper::nagios_return_to_py(int code) {
 	if (code == NSCAPI::returnOK)
@@ -153,11 +154,7 @@ void script_wrapper::sleep(unsigned int ms) {
 		}
 	}
 }
-/*
-std::string script_wrapper::get_alias() {
-	return utf8::cvt<std::string>(gPythonScript.get_alias());
-}
-*/
+
 
 void script_wrapper::log_exception() {
 	try {
@@ -176,9 +173,14 @@ void script_wrapper::log_exception() {
 	}
 }
 
+boost::shared_ptr<script_wrapper::function_wrapper> script_wrapper::function_wrapper::create(unsigned int plugin_id) {
+	return boost::shared_ptr<function_wrapper>(new function_wrapper(get_core(), plugin_id));
+}
+
 void script_wrapper::function_wrapper::subscribe_simple_function(std::string channel, PyObject* callable) {
 	try {
-		core.register_channel(channel);
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_channel(channel);
 		boost::python::handle<> h(boost::python::borrowed(callable));
 		//return boost::python::object o(h);
 		functions::get()->simple_handler[channel] = h;
@@ -190,7 +192,8 @@ void script_wrapper::function_wrapper::subscribe_simple_function(std::string cha
 }
 void script_wrapper::function_wrapper::subscribe_function(std::string channel, PyObject* callable) {
 	try {
-		core.register_channel(channel);
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_channel(channel);
 		boost::python::handle<> h(boost::python::borrowed(callable));
 		functions::get()->normal_handler[channel] = h;
 	} catch (const std::exception &e) {
@@ -203,7 +206,8 @@ void script_wrapper::function_wrapper::subscribe_function(std::string channel, P
 
 void script_wrapper::function_wrapper::register_simple_function(std::string name, PyObject* callable, std::string desc) {
 	try {
-		core.register_command(name, desc);
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_command(name, desc);
 		boost::python::handle<> h(boost::python::borrowed(callable));
 		functions::get()->simple_functions[name] = h;
 	} catch (const std::exception &e) {
@@ -214,9 +218,10 @@ void script_wrapper::function_wrapper::register_simple_function(std::string name
 }
 void script_wrapper::function_wrapper::register_function(std::string name, PyObject* callable, std::string desc) {
 	try {
-		core.register_command(name, desc);
-	boost::python::handle<> h(boost::python::borrowed(callable));
-	functions::get()->normal_functions[name] = h;
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_command(name, desc);
+		boost::python::handle<> h(boost::python::borrowed(callable));
+		functions::get()->normal_functions[name] = h;
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register " + name + ": ", e);
 	} catch (...) {
@@ -247,7 +252,7 @@ void script_wrapper::function_wrapper::register_cmdline(std::string name, PyObje
 tuple script_wrapper::function_wrapper::query(std::string request) {
 	try {
 		std::string response;
-		NSCAPI::errorReturn ret = raw_core->registry_query(request, response);
+		NSCAPI::errorReturn ret = core->registry_query(request, response);
 		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed: ", e);
@@ -509,13 +514,18 @@ std::string script_wrapper::function_wrapper::get_commands() {
 //////////////////////////////////////////////////////////////////////////
 // Callouts from python into NSClient++
 //
+boost::shared_ptr<script_wrapper::command_wrapper> script_wrapper::command_wrapper::create(unsigned int plugin_id) {
+	return boost::shared_ptr<command_wrapper>(new command_wrapper(get_core(), plugin_id));
+}
+
 tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf) {
 	NSCAPI::nagiosReturn c = py_to_nagios_return(code);
 	std::string resp;
+	nscapi::core_helper ch(core, plugin_id);
 	bool ret = false;
 	{
 		thread_unlocker unlocker;
-		ret = nscapi::core_helper::submit_simple_message(channel, command, c, message, perf, resp);
+		ret = ch.submit_simple_message(channel, command, c, message, perf, resp);
 	}
 	return boost::python::make_tuple(ret, resp);
 }
@@ -552,10 +562,11 @@ std::string script_wrapper::command_wrapper::expand_path(std::string aPath) {
 tuple script_wrapper::command_wrapper::simple_query(std::string command, py::list args) {
 	std::string msg, perf;
 	const std::list<std::string> arguments = convert(args);
+	nscapi::core_helper ch(core, plugin_id);
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = nscapi::core_helper::simple_query(command, arguments, msg, perf);
+		ret = ch.simple_query(command, arguments, msg, perf);
 	}
 	return boost::python::make_tuple(nagios_return_to_py(ret), msg, perf);
 }
@@ -573,10 +584,11 @@ tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::stri
 	try {
 		std::list<std::string> result;
 		int ret = 0;
+		nscapi::core_helper ch(core, plugin_id);
 		const std::list<std::string> arguments = convert(args);
 		{
 			thread_unlocker unlocker;
-			ret = nscapi::core_helper::exec_simple_command(target, command, arguments, result);
+			ret = ch.exec_simple_command(target, command, arguments, result);
 		}
 		return make_tuple(ret, convert(result));
 	} catch (const std::exception &e) {
@@ -603,6 +615,9 @@ tuple script_wrapper::command_wrapper::exec(std::string target, std::string requ
 	}
 }
 
+boost::shared_ptr<script_wrapper::settings_wrapper> script_wrapper::settings_wrapper::create(unsigned int plugin_id) {
+	return boost::shared_ptr<settings_wrapper>(new settings_wrapper(get_core(), plugin_id));
+}
 
 std::string script_wrapper::settings_wrapper::get_string(std::string path, std::string key, std::string def) {
 	return settings.get_string(path, key, def);

@@ -27,9 +27,9 @@
 
 #include <strEx.h>
 #include <file_helpers.hpp>
-#include <settings/client/settings_client.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 
 #include "script_wrapper.hpp"
@@ -37,7 +37,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -75,7 +75,7 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
 		.def("query", &script_wrapper::function_wrapper::query)
 		;
-	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", init<>())
+	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
 		.def("get",&script_wrapper::command_wrapper::create)
 		.staticmethod("get")
 		.def("create",&script_wrapper::command_wrapper::create)

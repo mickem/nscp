@@ -23,14 +23,13 @@
 #include "handler_impl.hpp"
 
 #include <socket/socket_settings_helper.hpp>
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/macros.hpp>
 
 namespace sh = nscapi::settings_helper;
-
-NSCAServer::NSCAServer() : handler_(new nsca_handler_impl(1024)) {}
-
-
 
 bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
@@ -55,13 +54,13 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("port", sh::string_key(&info_.port_, "5667"),
 		"PORT NUMBER", "Port to use for NSCA.")
 
-		("payload length", sh::int_fun_key<unsigned int>(boost::bind(&nsca::server::handler::set_payload_length, handler_, _1), 512),
+		("payload length", sh::uint_key(&payload_length_, 512),
 		"PAYLOAD LENGTH", "Length of payload to/from the NSCA agent. This is a hard specific value so you have to \"configure\" (read recompile) your NSCA agent to use the same value for it to work.")
 
-		("performance data", sh::bool_fun_key<bool>(boost::bind(&nsca::server::handler::set_perf_data, handler_, _1), true),
+		("performance data", sh::bool_fun_key<bool>(boost::bind(&NSCAServer::set_perf_data, this, _1), true),
 		"PERFORMANCE DATA", "Send performance data back to nagios (set this to false to remove all performance data).")
 
-		("encryption", sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_encryption, handler_, _1), "aes"),
+		("encryption", sh::string_fun_key<std::string>(boost::bind(&NSCAServer::set_encryption, this, _1), "aes"),
 		"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your agent i using or it wont work at all."
 			"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
 
@@ -72,10 +71,10 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
-		("password", sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_password, handler_, _1), ""),
+		("password", sh::string_key(&password_, ""),
 		"PASSWORD", "Password to use")
 
-		("inbox", sh::string_fun_key<std::string>(boost::bind(&nsca::server::handler::set_channel, handler_, _1), "inbox"),
+		("inbox", sh::string_key(&channel_, "inbox"),
 		"INBOX", "The default channel to post incoming messages on")
 
 		;
@@ -90,8 +89,8 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 #endif
-	if (handler_->get_payload_length() != 512)
-		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(handler_->get_payload_length()));
+	if (payload_length_ != 512)
+		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(payload_length_));
 	NSC_LOG_ERROR_LISTS(info_.validate());
 
 	std::list<std::string> errors;
@@ -101,7 +100,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 
-		server_.reset(new nsca::server::server(info_, handler_));
+		server_.reset(new nsca::server::server(info_, this));
 		if (!server_) {
 			NSC_LOG_ERROR_STD("Failed to create server instance!");
 			return false;
@@ -123,3 +122,23 @@ bool NSCAServer::unloadModule() {
 	}
 	return true;
 }
+
+
+void NSCAServer::handle(nsca::packet p) {
+	std::string response;
+	std::string::size_type pos = p.result.find('|');
+	nscapi::core_helper helper(get_core(), get_id());
+	if (pos != std::string::npos) {
+		std::string msg = p.result.substr(0, pos);
+		std::string perf = p.result.substr(++pos);
+		helper.submit_simple_message(channel_, p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
+	} else {
+		std::string empty, msg = p.result;
+		helper.submit_simple_message(channel_, p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+	}
+}
+
+
+
+
+

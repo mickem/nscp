@@ -4,7 +4,7 @@
 #include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
 
-#include <protobuf/ipc.pb.h>
+#include <nscapi/nscapi_ipc.hpp>
 #include "handler.hpp"
 
 namespace nscp {
