@@ -42,7 +42,6 @@ private:
 	std::string channel_;
 	std::string target_path;
 
-//	nscapi::targets::handler<nrpe_client::custom_reader> targets;
 	client::command_manager commands;
 
 

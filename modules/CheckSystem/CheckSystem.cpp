@@ -165,28 +165,6 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
-// 	settings.alias().add_key_to_settings("service mapping")
-// 
-// 		("BOOT_START", sh::string_vector_key(&lookups_, SERVICE_BOOT_START, "ignored"),
-// 		"SERVICE_BOOT_START", "TODO", true)
-// 
-// 		("SYSTEM_START", sh::string_vector_key(&lookups_, SERVICE_SYSTEM_START, "ignored"),
-// 		"SERVICE_SYSTEM_START", "TODO", true)
-// 
-// 		("AUTO_START", sh::string_vector_key(&lookups_, SERVICE_AUTO_START, "started"),
-// 		"SERVICE_AUTO_START", "TODO", true)
-// 
-// 		("DEMAND_START", sh::string_vector_key(&lookups_, SERVICE_DEMAND_START, "ignored"),
-// 		"SERVICE_DEMAND_START", "TODO", true)
-// 
-// 		("DISABLED", sh::string_vector_key(&lookups_, SERVICE_DISABLED, "stopped"),
-// 		"SERVICE_DISABLED", "TODO", true)
-// 
-// 		("DELAYED", sh::string_vector_key(&lookups_, NSCP_SERVICE_DELAYED, "ignored"),
-// 		"SERVICE_DELAYED", "TODO", true)
-// 		;
-
-
 	bool reg_alias;
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 

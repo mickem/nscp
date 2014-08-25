@@ -51,7 +51,7 @@ ENDIF(CRYPTOPP_FOUND)
 
 
 
-add_library (${TARGET} ${service_SRCS})
+add_library (${TARGET} STATIC ${service_SRCS})
 
 target_link_libraries(${TARGET} ${EXTRA_LIBS} protobuf)
 

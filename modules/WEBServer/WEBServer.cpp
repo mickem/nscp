@@ -541,7 +541,7 @@ bool WEBServer::unloadModule() {
 	try {
 		if (server) {
 			server->stop();
-			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(2));
+			server.reset();
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("unload");

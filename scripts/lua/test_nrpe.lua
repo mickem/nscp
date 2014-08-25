@@ -27,9 +27,11 @@ function TestNRPE:install(arguments)
 	conf:set_string('/settings/NRPE/test_nrpe_server', 'port', '15666')
 	conf:set_string('/settings/NRPE/test_nrpe_server', 'inbox', 'nrpe_test_inbox')
 	conf:set_string('/settings/NRPE/test_nrpe_server', 'encryption', '1')
+	conf:set_string('/settings/NRPE/test_nrpe_server', 'insecure', 'true')
 
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets', 'nrpe_test_local', 'nrpe://127.0.0.1:15666')
 	conf:set_string('/settings/NRPE/test_nrpe_client', 'channel', 'nrpe_test_outbox')
+	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'insecure', 'true')
 	--conf:save()
 end
 
@@ -210,6 +212,7 @@ function TestNRPE:do_one_test(ssl, length)
 	conf:set_int('/settings/NRPE/test_nrpe_server', 'payload length', length)
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'use ssl', ssl)
 	conf:set_bool('/settings/NRPE/test_nrpe_server', 'allow arguments', true)
+	conf:set_bool('/settings/NRPE/test_nrpe_server', 'extended response', false)
 	core:reload('test_nrpe_server')
 
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')

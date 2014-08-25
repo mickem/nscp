@@ -18,7 +18,6 @@ SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
 #SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
 #SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
-SET(GTEST_ROOT "$${LIBRARY_ROOT_FOLDER}/${gtest}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
 SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua}")
@@ -80,8 +79,7 @@ targets = [
 	'boost',
 	'openssl',
 	'protobuf',
-	'breakpad',
-	'gtest'
+	'breakpad'
 ]
 
 class source:
@@ -230,7 +228,6 @@ sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/b
 sources['openssl'] = source('openssl-1.0.1h.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1h.tar.gz', 'b2239599c8bf8f7fc48590a55205c26abe560bf8')
 
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
-sources['gtest'] = source('gtest-1.6.0.zip', 'http://googletest.googlecode.com/files/gtest-1.6.0.zip', '00d6be170eb9fc3b2198ffdcb1f1d6ba7fc6e621')
 
 build = {}
 post_build = {}
@@ -294,13 +291,6 @@ build['protobuf-s'] = build_instruction(
 	]
 	)
 build['protobuf-s'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
-
-build['gtest'] = build_instruction(
-	[],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & exit /b0"'],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & exit /b0"'],
-	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
-	)
 
 boost_version = {}
 boost_version['2005'] = "msvc-8.0"

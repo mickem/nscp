@@ -48,6 +48,8 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
+		targets.clear();
+		commands.clear();
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NRPE", alias, "client");
 		target_path = settings.alias().get_settings_path("targets");

@@ -88,7 +88,7 @@ namespace socket_helpers {
 				ss << endpoint;
 				if (endpoint.address().is_v4()) {
 					ss << "(ipv4)";
-					logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str());
+					logger_->log_debug(__FILE__, __LINE__, "Binding to: " + ss.str() + ", reopen: " + (reopen?"true":"false") + ", reuse: " + (reuse?"true":"false"));
 					return setup_acceptor(acceptor_v4, endpoint, reopen, reuse);
 				} else if (endpoint.address().is_v6()) {
 					ss << "(ipv6)";
@@ -189,7 +189,7 @@ namespace socket_helpers {
 					boost::asio::socket_base::reuse_address option(true);
 					acceptor.set_option(option, er);
 					if (er) {
-						logger_->log_error(__FILE__, __LINE__, "Failed to open socket: " + er.message());
+						logger_->log_error(__FILE__, __LINE__, "Failed to set option: " + er.message());
 						acceptor.close();
 						return false;
 					}
