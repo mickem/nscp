@@ -1402,7 +1402,7 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 }
 #endif
 
-typedef boost::unordered_map<std::string, std::string> paths_type;
+typedef std::map<std::string, std::string> paths_type;
 paths_type paths;
 #define CONFIG_PATHS "/paths"
 

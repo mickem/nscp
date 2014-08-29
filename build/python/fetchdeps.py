@@ -9,18 +9,18 @@ from string import Template
 
 msver = '2005'
 CONFIG_TEMPLATE = """
+SET(USE_STATIC_RUNTIME FALSE)
 SET(LIBRARY_ROOT_FOLDER	"${root}")
-set(Boost_USE_STATIC_LIBS		ON)
-set(Boost_USE_STATIC_RUNTIME	ON)
-set(BOOST_USE_MULTITHREADED		ON)
 SET(BOOST_ROOT "$${LIBRARY_ROOT_FOLDER}/${boost}")
 SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
-#SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
-#SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
 SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua}")
+#SET(PYTHON_ROOT "TODO")
+#SET(BREAKPAD_ROOT "TODO")
+#SET(ARCHIVE_FOLDER "TODO")
+#SET(TARGET_SITE "TODO")
 """
 
 def find_compressor(path):
@@ -233,16 +233,10 @@ build = {}
 post_build = {}
 
 
-build['boost-d'] = build_instruction(
+build['boost'] = build_instruction(
 	['bootstrap.bat'], 
-	['bjam --toolset=$boost-version$ runtime-link=shared link=shared'],
-	['bjam --toolset=$boost-version$ runtime-link=shared link=shared address-model=64'],
-	[]
-	)
-build['boost-s'] = build_instruction(
-	['bootstrap.bat'], 
-	['bjam --toolset=$boost-version$ runtime-link=static'],
-	['bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
+	['bjam --toolset=$boost-version$ runtime-link=shared link=shared', 'bjam --toolset=$boost-version$ runtime-link=static'],
+	['bjam --toolset=$boost-version$ runtime-link=shared link=shared address-model=64', 'bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
 	[]
 	)
 

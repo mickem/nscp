@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
 SET(TARGET perfconfig_parser)
+ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
 SET(SRCS
 	${NSCP_INCLUDEDIR}/parsers/perfconfig/perfconfig.cpp
