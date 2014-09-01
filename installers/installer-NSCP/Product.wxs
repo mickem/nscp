@@ -30,9 +30,6 @@
 		 	    <?endif ?>
 					<Component Id="NSCPEXE" Guid="5C45463A-4AE9-4325-96DB-6E239C034F93" Win64="$(var.Win64)">
 						<File Id="NSClientEXE" Name="nscp.exe" DiskId="1" KeyPath="yes" Source="$(var.Source)/nscp.exe" Vital="yes" />
-					</Component>
-					<Component Id="NSCPSERVICE" Guid="1A9F7631-5754-48F7-9712-0B5DAD51AB54" Win64="$(var.Win64)">
-						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="service" Type="integer" Value="1" KeyPath="yes"/>
 						<ServiceInstall Id="SWCNSCP"
 							Name="[SERVICE_NAME]" DisplayName="$(var.App.Title) ($(var.arch))"
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
@@ -191,7 +188,6 @@
 				<ComponentRef Id="MainClient" />
 				<ComponentRef Id="Helpers" />
 				<ComponentRef Id="RandomFiles" />
-				<ComponentRef Id="NSCPSERVICE" />
 				<ComponentRef Id="NSCPEXE" />
 				<ComponentRef Id="GeneratedCerts" />
         <?if "$(var.Runtime)" = "dynamic"?>
