@@ -99,9 +99,9 @@ namespace charEx {
 			throw std::exception();
 		wchar_t *p = wcschr(buffer, split);
 		if (!p)
-			return token(buffer, NULL);
+			return token(buffer, (wchar_t*)NULL);
 		if (!p[1])
-			return token(std::wstring(buffer, p-buffer), NULL);
+			return token(std::wstring(buffer, p-buffer), (wchar_t*)NULL);
 		p++;
 		return token(std::wstring(buffer, p-buffer-1), p);
 	}
