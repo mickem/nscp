@@ -132,6 +132,12 @@ namespace modern_filter {
 			std::string tmp_msg;
 			if (data.filter_string == "none")
 				data.filter_string = "";
+			if (data.ok_string == "none")
+				data.ok_string = "";
+			if (data.warn_string == "none")
+				data.warn_string = "";
+			if (data.crit_string == "none")
+				data.crit_string = "";
 
 			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, tmp_msg)) {
 				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);

@@ -11,7 +11,7 @@
 
 namespace parsers {
 	namespace where {
-		static bool debug_enabled = false;
+		static bool debug_enabled = true;
 		static int debug_level = 15;
 
 		namespace operator_impl {

@@ -14,7 +14,7 @@
 	<Property Id="CONF_NSCLIENT_DEFAULT">0</Property>
 	<Property Id="CONF_NRPE_DEFAULT">0</Property>
 	<Property Id="CONF_NSCA_DEFAULT">0</Property>
-	<Property Id="CONF_WMI_DEFAULT">0</Property>
+	<Property Id="CONF_WEB_DEFAULT">0</Property>
 	<Property Id="ALLOWED_HOSTS_DEFAULT"></Property>
 	<Property Id="NSCLIENT_PWD_DEFAULT"></Property>
    -->
@@ -34,6 +34,8 @@
 	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
   <Property Id="GENERATE_SAMPLE_CONFIG">1</Property>
   <Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
+
+  <Property Id="NRPEMODE">SAFE</Property>
 
   <!-- CONFIGURE THE INSTALLER -->
   <Property Id="ALLOW_CONFIGURATION">1</Property>

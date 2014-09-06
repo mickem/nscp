@@ -133,10 +133,10 @@ namespace modern_filter {
 
 	class error_handler_impl : public parsers::where::error_handler_interface {
 		std::string error;
-		bool debug;
+		bool debug_;
 		error_handler_impl() {}
 	public:
-		error_handler_impl(bool debug) : debug(debug) {}
+		error_handler_impl(bool debug) : debug_(debug) {}
 		void log_error(const std::string error);
 		void log_warning(const std::string error);
 		void log_debug(const std::string error);

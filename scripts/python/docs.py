@@ -185,7 +185,16 @@ Samples
 
         **{{key.info.title}}**
 
+{%if key.ext -%}
+{{key.ext.head|block_pad(8, '| ')}}
+
+{{key.ext.data|rst_table|block_pad(8, '  ')}}
+
+{{key.ext.tail|block_pad(8, '| ')}}
+
+{% else -%}
 {{key.info.description|block_pad(8, '| ')}}
+{%- endif %}
 
 {% if key.info.advanced %}        **Advanced** (means it is not commonly used)
 
@@ -208,6 +217,24 @@ Samples
 {% endfor %}
 {% endfor %}
 """
+
+def split_argllist(name, desc):
+	extdata = {}
+	spos = desc.find('\n\n')
+	if spos != -1:
+		epos = desc.find('\n\n', spos+2)
+		if epos != -1:
+			pos = desc.find('\t', spos+2, epos)
+			if pos != -1:
+				extdata['head'] = desc[:spos]
+				extdata['tail'] = desc[epos+2:]
+				data = desc[spos+2:epos]
+				rows = data.split('\n')
+				tbl = []
+				for r in rows:
+					tbl.append(r.split('\t'))
+				extdata['data'] = tbl
+	return extdata
 
 class root_container(object):
 	paths = {}
@@ -269,7 +296,15 @@ class path_container(object):
 		self.info = info.info
 		
 	def append_key(self, info):
-		self.keys[info.node.key] = info
+		extdata = split_argllist(info.node.key, info.info.description)
+		if extdata:
+			ninfo = {}
+			ninfo['info'] = info.info
+			ninfo['node'] = info.node
+			ninfo['ext'] = extdata
+			self.keys[info.node.key] = ninfo
+		else:
+			self.keys[info.node.key] = info
 
 class command_container(object):
 	info = None
@@ -502,36 +537,21 @@ class DocumentationHelper(object):
 			root.append_plugin(p)
 		return root
 		
+
 	def fetch_command(self, command, cinfo):
 		if command in self.command_cache:
 			return self.command_cache[command]
 		params = []
 		for p in cinfo.parameters.parameter:
-			spos = p.long_description.find('\n\n')
-			extdata = {}
-			if spos != -1:
-				desc = p.long_description
-				epos = desc.find('\n\n', spos+2)
-				if epos != -1:
-					pos = desc.find('\t', spos+2, epos)
-					if pos != -1:
-						extdata['head'] = desc[:spos]
-						extdata['tail'] = desc[epos+2:]
-						data = desc[spos+2:epos]
-						rows = data.split('\n')
-						tbl = []
-						for r in rows:
-							tbl.append(r.split('\t'))
-						extdata['data'] = tbl
-					np = {}
-					np['long_description'] = p.long_description
-					np['default_value'] = p.default_value
-					np['name'] = p.name
-					np['ext'] = extdata
-					np['content_type'] = p.content_type
-					params.append(np)
-				else:
-					params.append(p)
+			extdata = split_argllist(p.name, p.long_description)
+			if extdata:
+				np = {}
+				np['long_description'] = p.long_description
+				np['default_value'] = p.default_value
+				np['name'] = p.name
+				np['ext'] = extdata
+				np['content_type'] = p.content_type
+				params.append(np)
 			else:
 				params.append(p)
 		cinfo.params = params

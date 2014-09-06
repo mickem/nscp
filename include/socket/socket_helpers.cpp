@@ -33,6 +33,13 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 		} else 
 			list.push_back("Certificate not found: " + ssl.certificate);
 	}
+	if (!ssl.ca_path.empty() && !boost::filesystem::is_regular(ssl.ca_path)) {
+		if (boost::algorithm::ends_with(ssl.ca_path, "/ca.pem")) {
+			list.push_back("CA not found: " + ssl.ca_path + " (generating a default CA)");
+			write_certs(ssl.ca_path, ssl.certificate_key);
+		} else 
+			list.push_back("CA Certificate not found: " + ssl.ca_path);
+	}
 	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
 	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))

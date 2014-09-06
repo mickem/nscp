@@ -110,9 +110,14 @@ public:
 			setProperty(key, val);
 	}
 	void setPropertyAndOld(std::wstring key, std::wstring value) {
-		logMessage(_T("Reading old value for ") + key + _T("=") + value);
+		logMessage(_T("Setting ") + key + _T("=") + value);
+		logMessage(_T("Setting ") + key + _T("_OLD=") + value);
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
 		MsiSetProperty(hInstall_, (key+_T("_OLD")).c_str(), value.c_str());
+	}
+	void setPropertyAndOldBool(std::wstring key, bool value) {
+		std::wstring v = value?L"1":L"0";
+		setPropertyAndOld(key, v);
 	}
 	void setProperty(std::wstring key, std::wstring value) {
 		MsiSetProperty (hInstall_, key.c_str(), value.c_str());

@@ -34,11 +34,6 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 
 }
 
-// std::string nsclient::logging::logger_helper::create(const std::wstring &module, NSCAPI::log_level::level level, const char* file, const int line, const std::wstring &message) {
-// 	if (level < NSCAPI::log_level::info)
-// 		return "E" + utf8::cvt<std::string>(message);
-// 	return "I" + utf8::cvt<std::string>(message);
-// }
 std::string nsclient::logging::logger_helper::create(const std::string&, NSCAPI::log_level::level level, const char*, const int, const std::string &message) {
 	if (level < NSCAPI::log_level::info)
 		return "E" + message;
@@ -122,8 +117,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	}
 };
 
-std::wstring has_key(std::string path, std::string key) {
-	return settings_manager::get_settings()->has_key(path, key)?_T("1"):_T("");
+bool has_mod(std::string key) {
+	std::string val = settings_manager::get_settings()->get_string("/modules", key, "0");
+	return val == "enabled" || val == "1";
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,6 +155,7 @@ std::wstring read_map_data(msi_helper &h) {
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
 	try {
+		h.logMessage("importing config");
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
 		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
@@ -176,7 +173,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			return ERROR_SUCCESS;
 		}
 
- 		if (!boost::filesystem::is_regular(utf8::cvt<std::string>(target))) {
+ 		if (!boost::filesystem::is_directory(utf8::cvt<std::string>(target))) {
  			h.logMessage(_T("Target folder not found: ") + target);
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
  			h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
@@ -248,24 +245,28 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		h.setPropertyAndOld(_T("ALLOWED_HOSTS"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", "")));
 		h.setPropertyAndOld(_T("NSCLIENT_PWD"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
 
-		std::string modpath = "/modules";
-		h.setPropertyAndOld(_T("CONF_NRPE"), has_key(modpath, "NRPEServer"));
-		h.setPropertyAndOld(_T("CONF_SCHEDULER"), has_key(modpath, "Scheduler"));
-		h.setPropertyAndOld(_T("CONF_NSCA"), has_key(modpath, "NSCAClient"));
-		h.setPropertyAndOld(_T("CONF_NSCLIENT"), has_key(modpath, "NSClientServer"));
-		h.setPropertyAndOld(_T("CONF_WMI"), has_key(modpath, "CheckWMI"));
+		h.setPropertyAndOldBool(_T("CONF_NRPE"), has_mod("NRPEServer"));
+		h.setPropertyAndOldBool(_T("CONF_SCHEDULER"), has_mod("Scheduler"));
+		h.setPropertyAndOldBool(_T("CONF_NSCA"), has_mod("NSCAClient"));
+		h.setPropertyAndOldBool(_T("CONF_NSCLIENT"), has_mod("NSClientServer"));
+		h.setPropertyAndOldBool(_T("CONF_WEB"), has_mod("WEBServer"));
 
-		if (settings_manager::get_settings()->has_key(modpath, "CheckSystem") &&
-			settings_manager::get_settings()->has_key(modpath, "CheckDisk") &&
-			settings_manager::get_settings()->has_key(modpath, "CheckEventLog") &&
-			settings_manager::get_settings()->has_key(modpath, "CheckHelpers") &&
-			settings_manager::get_settings()->has_key(modpath, "CheckExternalScripts") &&
-			settings_manager::get_settings()->has_key(modpath, "CheckNSCP")
-			) {
-				h.setPropertyAndOld(_T("CONF_CHECKS"), _T("1"));
-		} else {
-			h.setPropertyAndOld(_T("CONF_CHECKS"), _T("0"));
-		}
+		std::string insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
+		std::string verify = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
+		h.logMessage(_T("insecure: ") + utf8::cvt<std::wstring>(insecure));
+		h.logMessage(_T("verify: ") + utf8::cvt<std::wstring>(verify));
+		if (insecure == "true" || insecure == "1")
+			h.setPropertyAndOld(_T("NRPEMODE"), _T("LEGACY"));
+		else if (verify == "peer-cert")
+			h.setPropertyAndOld(_T("NRPEMODE"), _T("SECURE"));
+		else
+			h.setPropertyAndOld(_T("NRPEMODE"), _T("SAFE"));
+		h.logMessage(_T("NRPEMODE: ") + h.getPropery(_T("NRPEMODE")));
+
+		h.setPropertyAndOld(_T("NSCLIENT_PWD"), utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
+
+		h.setPropertyAndOldBool(_T("CONF_CHECKS"), has_mod("CheckSystem") && has_mod("CheckDisk") && has_mod("CheckEventLog") && has_mod("CheckHelpers") &&
+					has_mod("CheckExternalScripts") && has_mod("CheckNSCP"));
 		settings_manager::destroy_settings();
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to read old configuration file: ") + e.what());
@@ -336,6 +337,17 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			write_key(data, 1, modpath, _T("CheckHelpers"), modval);
 			write_key(data, 1, modpath, _T("CheckExternalScripts"), modval);
 			write_key(data, 1, modpath, _T("CheckNSCP"), modval);
+		}
+		if (h.getPropery(_T("CONF_NRPE")) == _T("1")) {
+			std::wstring mode = h.getPropery(_T("NRPEMODE"));
+			if (mode == _T("LEGACY"))
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("true"));
+			else
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("false"));
+			if (mode == _T("SAFE"))
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("peer-cert"));
+			else
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("none"));
 		}
 
 		std::wstring defpath = _T("/settings/default");
