@@ -1,3 +1,8 @@
+2014-09-08 MickeM
+ * Added SSL support for mongoose and WEBServer
+ * Removed options when nscp <context> is used (to make -- less necessary)
+ * improved documentation
+
 2014-09-06 MickeM
  * Added keyword rendering to settings key descriptions
 

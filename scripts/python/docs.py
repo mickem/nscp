@@ -242,6 +242,10 @@ class root_container(object):
 	aliases = {}
 	plugins = {}
 	windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins']
+	check_modules = ['CheckDisk',  'CheckEventLog',  'CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP',  'CheckSystem',  'CheckSystemUnix',  'CheckTaskSched',  'CheckWMI']
+	client_modules = ['GraphiteClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
+	generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter',  'WEBServer']
+
 	def __init__(self):
 		self.paths = {}
 		self.commands = {}
@@ -277,6 +281,15 @@ class root_container(object):
 		namespace = ''
 		if name in self.windows_modules:
 			namespace = 'windows'
+		elif name in self.check_modules:
+			namespace = 'check'
+		elif name in self.client_modules:
+			namespace = 'client'
+		elif name in self.generic_modules:
+			namespace = 'generic'
+		else:
+			namespace = 'misc'
+			
 		if not name in self.plugins:
 			self.plugins[name] = plugin_container(info, namespace)
 			

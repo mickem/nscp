@@ -28,6 +28,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/program_options.hpp>
+#include <boost/filesystem/operations.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -304,7 +305,7 @@ public:
 		response.setHeader("Location", "/index.html?msg=Logged+out");
 	}
 
-	void redirect_index(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+	void redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
 		response.setCode(302);
 		response.setHeader("Location", "/index.html");
 	}
@@ -502,15 +503,20 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("WEB", alias, "server");
 
-	int port;
+	std::string port;
 	std::string password;
+	std::string certificate;
 
 	settings.alias().add_path_to_settings()
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 		;
 	settings.alias().add_key_to_settings()
-		("port", sh::int_key(&port, 8080),
-		"PORT NUMBER", "Port to use for WEB.")
+		("port", sh::string_key(&port, "8443s"),
+		"PORT NUMBER", "Port to use for WEB server.")
+		;
+	settings.alias().add_key_to_settings()
+		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
+		"CERTIFICATE", "Ssl certificate to use for the ssl server")
 		;
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
@@ -524,14 +530,28 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 	if (mode == NSCAPI::normalStart) {
-
-		server.reset(new Mongoose::Server(port));
-		server->registerController(new StaticController(get_core()->expand_path("${web-path}")));
-		server->registerController(new BaseController(password, get_core(), get_id()));
-		server->registerController(new RESTController(password, get_core()));
+		try {
+// 			std::list<std::string> errors;
+// 			socket_helpers::validate_certificate(certificate, errors);
+// 			NSC_LOG_ERROR_LISTS(errors);
+			
+			std::string path = get_core()->expand_path("${web-path}");
+			boost::filesystem::path cert = get_core()->expand_path(certificate);
+			server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
+			server->setOption("ssl_certificate", cert.string());
+			server->registerController(new StaticController(path));
+			server->registerController(new BaseController(password, get_core(), get_id()));
+			server->registerController(new RESTController(password, get_core()));
 		
-		server->setOption("extra_mime_types", ".inc=text/html,.css=text/css,.js=application/javascript");
-		server->start();
+			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
+			server->start();
+		} catch (const std::string &e) {
+			NSC_LOG_ERROR("Error: " + e);
+			return false;
+		} catch (...) {
+			NSC_LOG_ERROR("Error: ");
+			return false;
+		}
 
 	}
 	return true;
@@ -846,6 +866,6 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 
 	} else {
 		nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
-		return true;
 	}
+	return true;
 }

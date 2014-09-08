@@ -37,7 +37,7 @@
 
 namespace settings {
 
-	static std::string key_to_string(std::string path, std::string key) {
+	inline std::string key_to_string(std::string path, std::string key) {
 		return path + "." + key;
 	}
 	class settings_exception : public std::exception {

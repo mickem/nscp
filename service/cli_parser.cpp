@@ -21,6 +21,7 @@ void info(unsigned int line, const std::string &message, const std::string &utf)
 
 cli_parser::cli_parser(NSClient* core) 
 	: core_(core)
+	, common_light("Common options")
 	, common("Common options")
 	, settings("Settings options")
 	, service("Service Options")
@@ -31,11 +32,14 @@ cli_parser::cli_parser(NSClient* core)
 	, log_debug(false)
 	, no_stderr(false)
 {
-	common.add_options()
+	common_light.add_options()
 		("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
-		("help", po::bool_switch(&help), "produce help message")
 		("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
 		("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
+		;
+
+	common.add_options()
+		("help", po::bool_switch(&help), "produce help message")
 		("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
 		("version", po::bool_switch(&version), "Show version information")
 		;
@@ -224,7 +228,7 @@ po::basic_parsed_options<char> cli_parser::do_parse(int argc, char* argv[], po::
 void cli_parser::display_help() {
 	try {
 		po::options_description all("Allowed options");
-		all.add(common).add(service).add(settings).add(client).add(test).add(unittest);
+		all.add(common_light).add(common).add(service).add(settings).add(client).add(test).add(unittest);
 		std::cout << all << std::endl;
 
 		std::cout << "First argument has to be one of the following: ";
@@ -255,7 +259,7 @@ int cli_parser::parse_help(int argc, char* argv[]) {
 int cli_parser::parse_settings(int argc, char* argv[]) {
 	try {
 		po::options_description all("Allowed options (settings)");
-		all.add(common).add(settings);
+		all.add(common_light).add(common).add(settings);
 
 		po::variables_map vm;
 		po::store(do_parse(argc, argv, all), vm);
@@ -320,7 +324,7 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 int cli_parser::parse_service(int argc, char* argv[]) {
 	try {
 		po::options_description all("Allowed options (service)");
-		all.add(common).add(service);
+		all.add(common_light).add(common).add(service);
 
 		po::variables_map vm;
 		po::store(do_parse(argc, argv, all), vm);
@@ -488,7 +492,10 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 
 		args.module = module_;
 		po::options_description all("Allowed options (client)");
-		all.add(common).add(client);
+		if (!module_.empty())
+			all.add(common_light);
+		else
+			all.add(common_light).add(common).add(client);
 
 		po::positional_options_description p;
 		p.add("arguments", -1);
@@ -571,7 +578,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		client_arguments args;
 		settings_store = "dummy";
 		po::options_description all("Allowed options (client)");
-		all.add(common).add(unittest);
+		all.add(common_light).add(common).add(unittest);
 
 		po::positional_options_description p;
 		p.add("arguments", -1);

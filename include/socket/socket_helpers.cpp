@@ -16,6 +16,19 @@ namespace ip = boost::asio::ip;
 std::list<std::string> socket_helpers::connection_info::validate() {
 	return validate_ssl();
 }
+void socket_helpers::validate_certificate(const std::string &certificate, std::list<std::string> &list) {
+#ifdef USE_SSL
+	if (!certificate.empty() && !boost::filesystem::is_regular(certificate)) {
+		if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
+			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
+			write_certs(certificate);
+		} else 
+			list.push_back("Certificate not found: " + certificate);
+	}
+#else
+	list.push_back("SSL is not supported (not compiled with openssl)");
+#endif
+}
 
 std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	std::list<std::string> list;
@@ -29,14 +42,14 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate)) {
 		if (boost::algorithm::ends_with(ssl.certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + ssl.certificate + " (generating a default certificate)");
-			write_certs(ssl.certificate, ssl.certificate_key);
+			write_certs(ssl.certificate);
 		} else 
 			list.push_back("Certificate not found: " + ssl.certificate);
 	}
 	if (!ssl.ca_path.empty() && !boost::filesystem::is_regular(ssl.ca_path)) {
 		if (boost::algorithm::ends_with(ssl.ca_path, "/ca.pem")) {
 			list.push_back("CA not found: " + ssl.ca_path + " (generating a default CA)");
-			write_certs(ssl.ca_path, ssl.certificate_key);
+			write_certs(ssl.ca_path);
 		} else 
 			list.push_back("CA Certificate not found: " + ssl.ca_path);
 	}
@@ -183,7 +196,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 		} else {
 			context.use_private_key_file(certificate, get_certificate_key_format(), er);
 			if (er)
-				errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
+				errors.push_back("Failed to load certificate (as key) " + certificate + ": " + utf8::utf8_from_native(er.message()));
 		}
 	}
 	context.set_verify_mode(get_verify_mode(), er);
@@ -243,12 +256,12 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 }
 
 
-void genkey_callback(int p, int n, void *arg) {
+void genkey_callback(int, int, void*) {
 	// Ignored as we dont want to show progress...
 }
 
 int add_ext(X509 *cert, int nid, const char *value) {
-	int len = strlen(value);
+	std::size_t len = strlen(value);
 	char *tmp = new char[len+10];
 	strncpy(tmp, value, len);
 	X509_EXTENSION *ex;
@@ -268,7 +281,6 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 	EVP_PKEY *pk;
 	RSA *rsa;
 	X509_NAME *name=NULL;
-
 	if ((pkeyp == NULL) || (*pkeyp == NULL)) {
 		if ((pk=EVP_PKEY_new()) == NULL)
 			throw socket_helpers::socket_exception("Failed to create private key");
@@ -286,6 +298,8 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 		throw socket_helpers::socket_exception("Failed to assign RSA data");
 	rsa=NULL;
 
+
+
 	X509_set_version(x,2);
 	ASN1_INTEGER_set(X509_get_serialNumber(x),serial);
 	X509_gmtime_adj(X509_get_notBefore(x),0);
@@ -295,7 +309,7 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 	name=X509_get_subject_name(x);
 
 	//X509_NAME_add_entry_by_txt(name,"C", MBSTRING_ASC, (unsigned char*)"NA", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name,"CN", MBSTRING_ASC, (unsigned char*)"NSClient++", -1, -1, 0);
+	X509_NAME_add_entry_by_txt(name,"CN", MBSTRING_ASC, (unsigned char*)"localhost", -1, -1, 0);
 
 	X509_set_issuer_name(x,name);
 
@@ -305,13 +319,15 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 	add_ext(x, NID_netscape_cert_type, "sslCA");
 	add_ext(x, NID_netscape_comment, "example comment extension");
 
-	if (!X509_sign(x,pk,EVP_md5()))
+	if (!X509_sign(x,pk,EVP_sha1()))
 		throw socket_helpers::socket_exception("Failed to sign certificate");
 
 	*x509p=x;
 	*pkeyp=pk;
 }
-void socket_helpers::write_certs(std::string cert, std::string key) {
+
+
+void socket_helpers::write_certs(std::string cert) {
 	BIO *bio_err;
 	X509 *x509=NULL;
 	EVP_PKEY *pkey=NULL;
@@ -323,10 +339,8 @@ void socket_helpers::write_certs(std::string cert, std::string key) {
 	make_certificate(&x509,&pkey,2048,0,365);
 
 	FILE *fout = fopen(cert.c_str(), "wb");
-	PEM_write_X509(fout,x509);
-	fclose(fout);
-	fout = fopen(key.c_str(), "wb");
 	PEM_write_PrivateKey(fout,pkey,NULL,NULL,0,NULL, NULL);
+	PEM_write_X509(fout,x509);
 	fclose(fout);
 
 	X509_free(x509);
@@ -340,6 +354,5 @@ void socket_helpers::write_certs(std::string cert, std::string key) {
 	CRYPTO_mem_leaks(bio_err);
 	BIO_free(bio_err);
 }
-
 
 #endif

@@ -8,6 +8,7 @@ namespace po = boost::program_options;
 class cli_parser : public boost::noncopyable {
 
 	NSClient* core_;
+	po::options_description common_light;
 	po::options_description common;
 	po::options_description settings;
 	po::options_description service;

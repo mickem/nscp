@@ -16,8 +16,9 @@
 namespace socket_helpers {
 
 #ifdef USE_SSL
-	void write_certs(std::string cert, std::string key);
+	void write_certs(std::string cert);
 #endif
+	void validate_certificate(const std::string &certificate, std::list<std::string> &list);
 
 	class socket_exception : public std::exception {
 		std::string error;
