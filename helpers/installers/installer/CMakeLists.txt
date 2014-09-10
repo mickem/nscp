@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
 SET(ALIAS NSCP)
-SET(TARGET ${ALIAS}_installer)
+SET(TARGET installer_${ALIAS})
 	
 PROJECT(${TARGET})
 

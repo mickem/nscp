@@ -1,3 +1,7 @@
+2014-09-09 MickeM
+ * implemented some build concepts from 0.4.3 (i.e. less dependencies)
+ * Moved docs to external repo
+
 2014-04-16 MickeM
  * Added filter functions to documentation
  * Fixed issue with conversion of CheckServiceState #707

@@ -15,15 +15,11 @@ set(Boost_USE_STATIC_RUNTIME	ON)
 set(BOOST_USE_MULTITHREADED		ON)
 SET(BOOST_ROOT "$${LIBRARY_ROOT_FOLDER}/${boost}")
 SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
-SET(TINYXML2_DIR "$${LIBRARY_ROOT_FOLDER}/${TinyXML2}")
 #SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
 #SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
-SET(GTEST_ROOT "$${LIBRARY_ROOT_FOLDER}/${gtest}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
-SET(ZEROMQ_ROOT "$${LIBRARY_ROOT_FOLDER}/${ZeroMQ}")
-SET(CRYPTOPP_DIR "$${LIBRARY_ROOT_FOLDER}/${cryptopp}")
 SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua}")
 """
 
@@ -79,15 +75,11 @@ def get_root_from_file(path):
 	return None
 
 targets = [
-	'cryptopp',
 	'lua',
 	'boost',
 	'openssl',
 	'protobuf',
-	'TinyXML2',
-	'ZeroMQ',
-	'breakpad',
-	'gtest'
+	'breakpad'
 ]
 
 class source:
@@ -228,8 +220,6 @@ class build_instruction:
 		self.exec_build(folder, source, self.pre_x64, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
-sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
-sources['cryptopp'].folder = 'cryptopp-5.6.1'
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
@@ -239,9 +229,6 @@ sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/b
 #sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
 sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
-sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
-sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
-sources['gtest'] = source('gtest-1.6.0.zip', 'http://googletest.googlecode.com/files/gtest-1.6.0.zip', '00d6be170eb9fc3b2198ffdcb1f1d6ba7fc6e621')
 
 build = {}
 post_build = {}
@@ -277,29 +264,6 @@ build['protobuf'] = build_instruction(
 	]
 	)
 build['protobuf'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
-
-build['ZeroMQ'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'
-#		,'$$TODO: Apply debug patch$$'
-		], 
-	[],
-	[],
-	['msbuild builds\\msvc\\msvc.sln /p:Configuration=Release', 'msbuild builds\\msvc\\msvc.sln /p:Configuration=Release']
-	)
-build['ZeroMQ'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
-
-build['cryptopp'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],
-	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
-	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
-	[]
-	)
-build['gtest'] = build_instruction(
-	[],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & exit /b0"'],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & exit /b0"'],
-	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
-	)
 
 boost_version = {}
 boost_version['2005'] = "msvc-8.0"
