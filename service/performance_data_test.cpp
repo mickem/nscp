@@ -1,6 +1,7 @@
 #include <vector>
 #include <string>
 #include <nscapi/functions.hpp>
+#include <format.hpp>
 
 #include <gtest/gtest.h>
 
@@ -70,6 +71,12 @@ TEST(PerfDataTest, value_without____uom) {
 TEST(PerfDataTest, float_value) {
 	EXPECT_EQ("'aaa'=0gig;;;0;5", do_parse("aaa=0.00gig;;;0;5"));
 }
+TEST(PerfDataTest, float_value_rounding_1) {
+	EXPECT_EQ("'aaa'=1.01g;1.02;1.03;1.04;1.05", do_parse("aaa=1.01g;1.02;1.03;1.04;1.05"));
+}
+TEST(PerfDataTest, float_value_rounding_2) {
+	EXPECT_EQ("'aaa'=1.0001g;1.02;1.03;1.04;1.05", do_parse("aaa=1.0001g;1.02;1.03;1.04;1.05"));
+}
 
 TEST(PerfDataTest, problem_701_001) {
 	EXPECT_EQ("'TotalGetRequests__Total'=0requests/s;;;0", do_parse("'TotalGetRequests__Total'=0.00requests/s;;;0;"));
@@ -90,4 +97,21 @@ TEST(PerfDataTest, value_various_reparse) {
 	BOOST_FOREACH(std::string s, strings) {
 		EXPECT_EQ(s.c_str(), do_parse(s));
 	}
+}
+
+TEST(PerfDataTest, unit_conversion_b) {
+	double d = format::convert_to_byte_units(1234567890, "B");
+	ASSERT_DOUBLE_EQ(1234567890, d);
+}
+TEST(PerfDataTest, unit_conversion_k) {
+	double d = format::convert_to_byte_units(1234567890, "K");
+	ASSERT_DOUBLE_EQ(1205632.705078125, d);
+}
+TEST(PerfDataTest, unit_conversion_m) {
+	double d = format::convert_to_byte_units(1234567890, "M");
+	ASSERT_DOUBLE_EQ(1177.3756885528564, d);
+}
+TEST(PerfDataTest, unit_conversion_g) {
+	double d = format::convert_to_byte_units(1234567890, "G");
+	ASSERT_DOUBLE_EQ(1.1497809458523989, d);
 }

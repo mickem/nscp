@@ -230,7 +230,7 @@ namespace modern_filter {
 					perfData->set_maximum(*value.maximum);
 			} else if (data.value_double) {
 				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
-				perf->set_type(::Plugin::Common_DataType_INT);
+				perf->set_type(::Plugin::Common_DataType_FLOAT);
 				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);

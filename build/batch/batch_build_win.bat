@@ -12,7 +12,7 @@ cd %ROOT%\x64\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
+cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
 ; cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 

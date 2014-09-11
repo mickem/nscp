@@ -1,4 +1,8 @@
 2014-09-08 MickeM
+ * More build tweaks (does it ever end?)
+ * Fixed performance data rounding issue
+
+2014-09-08 MickeM
  * Added SSL support for mongoose and WEBServer
  * Removed options when nscp <context> is used (to make -- less necessary)
  * improved documentation

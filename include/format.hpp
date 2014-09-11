@@ -330,7 +330,7 @@ namespace format {
 		return ret;
 	}
 	template<class T>
-	inline T convert_to_byte_units(T i, std::string unit) {
+	inline double convert_to_byte_units(T i, std::string unit) {
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
 		if (unit.size() == 0) {
@@ -339,12 +339,12 @@ namespace format {
 		double cpy = static_cast<double>(i);
 		while (idx<BKMG_SIZE) {
 			if (unit[0] == postfix[idx]) {
-				return static_cast<T>(cpy);
+				return cpy;
 			}
-			cpy/=1024;
+			cpy/=1024.0;
 			idx++;
 		}
-		return static_cast<T>(cpy);
+		return cpy;
 	}
 	template<class T>
 	inline std::string format_byte_units(T i, std::string unit) {

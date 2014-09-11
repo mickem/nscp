@@ -28,34 +28,11 @@
 
 namespace nscapi {
 	namespace protobuf {
-		namespace traits {
-			template<class T>
-			struct perf_data_consts {
-				static const T get_valid_perf_numbers();
-				static const T get_replace_perf_coma_src();
-				static const T get_replace_perf_coma_tgt();
-			};
-
-			template<>
-			struct perf_data_consts<std::string> {
-				static const std::string get_valid_perf_numbers() {
-					return "0123456789,.-";
-				}
-				static const std::string get_replace_perf_coma_src() {
-					return ",";
-				}
-				static const std::string get_replace_perf_coma_tgt() {
-					return ".";
-				}
-			};
-		}
-
-		template<class T>
-		double trim_to_double(T s) {
-			typename T::size_type pend = s.find_first_not_of(traits::perf_data_consts<T>::get_valid_perf_numbers());
-			if (pend != T::npos)
+		double trim_to_double(std::string s) {
+			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
+			if (pend != std::string::npos)
 				s = s.substr(0,pend);
-			strEx::replace(s, traits::perf_data_consts<T>::get_replace_perf_coma_src(), traits::perf_data_consts<T>::get_replace_perf_coma_tgt());
+			strEx::replace(s, ",", ".");
 			if (s.empty()) {
 				return 0.0;
 			}
