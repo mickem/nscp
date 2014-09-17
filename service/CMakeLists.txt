@@ -8,7 +8,7 @@ IF(JSON_SPIRIT_FOUND)
 	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
 	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
 	ADD_DEFINITIONS(-DJSON_SPIRIT_STATIC_LINKED)
-	SET(JSON_LIB json_spirit json_pb)
+	SET(JSON_LIB json_spirit nscp_json_pb)
 ELSE(JSON_SPIRIT_FOUND)
 	SET(JSON_LIB)
 ENDIF(JSON_SPIRIT_FOUND)
@@ -128,7 +128,7 @@ TARGET_LINK_LIBRARIES(${TARGET}
 	${ICONV_LIBRARIES}
 	${EXTRA_LIBS}
 	${JSON_LIB}
-	protobuf
+	nscp_protobuf
 	settings_manager
 )
 INSTALL(TARGETS ${TARGET} RUNTIME DESTINATION .)
@@ -150,6 +150,9 @@ IF(GTEST_FOUND)
 	SET(SRCS
 		performance_data_test.cpp
 		various_test.cpp
+		
+		../include/nscapi/nscapi_protobuf_functions.cpp
+		../include/nscapi/nscapi_protobuf_functions.hpp
 	)
 	ADD_EXECUTABLE(${TARGET}_test ${SRCS})
 	ADD_TEST(${TARGET}_test ${TARGET}_test)

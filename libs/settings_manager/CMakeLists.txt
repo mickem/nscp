@@ -53,7 +53,7 @@ ENDIF(CRYPTOPP_FOUND)
 
 add_library (${TARGET} STATIC ${service_SRCS})
 
-target_link_libraries(${TARGET} ${EXTRA_LIBS} protobuf)
+target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
 

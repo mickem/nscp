@@ -13,5 +13,13 @@
     #endif /* plugin_api_EXPORTS */
   #endif /* plugin_api_NOLIB */
 #else /* defined (_WIN32) */
- #define NSCAPI_EXPORT
+  #if defined(plugin_api_NOLIB)
+    #define NSCAPI_EXPORT
+  #else
+    #if defined(plugin_api_EXPORTS)
+      #define NSCAPI_EXPORT __attribute__ ((visibility("default")))
+    #else
+      #define NSCAPI_EXPORT
+    #endif /* plugin_api_EXPORTS */
+  #endif /* plugin_api_NOLIB */
 #endif
