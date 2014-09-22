@@ -17,7 +17,8 @@
     #define NSCAPI_EXPORT
   #else
     #if defined(plugin_api_EXPORTS)
-      #define NSCAPI_EXPORT __attribute__ ((visibility("default")))
+//      #define NSCAPI_EXPORT __attribute__ ((visibility("default")))
+      #define NSCAPI_EXPORT
     #else
       #define NSCAPI_EXPORT
     #endif /* plugin_api_EXPORTS */

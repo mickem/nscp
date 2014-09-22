@@ -46,7 +46,7 @@ SET(MODULE_TARGET_FOLDER lib/nsclient/modules)
 SET(LIB_TARGET_FOLDER lib)
 
 IF(NOT DEFINED USE_STATIC_RUNTIME)
-	SET(USE_STATIC_RUNTIME FALSE)
+	SET(USE_STATIC_RUNTIME TRUE)
 ENDIF(NOT DEFINED USE_STATIC_RUNTIME)
 IF(USE_STATIC_RUNTIME)
 	MESSAGE(STATUS "Using static runtime")
@@ -298,7 +298,20 @@ SET(CONFIG_DEFAULT_CONF_OLD_LOCATION	"old://\${exe-path}/nsc.ini" CACHE STRING "
 SET(CONFIG_DEFAULT_CONF_INI_LOCATION	"${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini" CACHE STRING "Default location for ini files")
 SET(CONFIG_BOOT_CONF_LOCATION			"dummy://" CACHE STRING "Default location for dummy settings stores")
 
-SET(CONFIG_DEFAULT_CACHE_PATH			"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+
+IF(WIN32)
+	SET(CONFIG_MODULE_FOLDER "\${shared-path}/modules" CACHE STRING "modules folder")
+	SET(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
+	SET(CONFIG_SCRIPTS_FOLDER "\${shared-path}/scripts" CACHE STRING "script folder")
+	SET(CONFIG_CERT_FOLDER "\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
+	SET(CONFIG_DEFAULT_CACHE_PATH "\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+ELSE()
+	SET(CONFIG_MODULE_FOLDER "${CMAKE_INSTALL_PREFIX}/lib/nsclient/modules" CACHE STRING "modules folder")
+	SET(CONFIG_WEB_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/web" CACHE STRING "web folder")
+	SET(CONFIG_SCRIPTS_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/scripts" CACHE STRING "script folder")
+	SET(CONFIG_CERT_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/security" CACHE STRING "securoty (certificates) folder")
+	SET(CONFIG_DEFAULT_CACHE_PATH "${CMAKE_INSTALL_PREFIX}/share/nsclient/cache" CACHE STRING "Path for caching stuff")
+ENDIF()
 
 CONFIGURE_FILE(
   ${NSCP_INCLUDEDIR}/config.h.in

@@ -32,7 +32,6 @@ SET(service_SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 	${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.cpp
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c

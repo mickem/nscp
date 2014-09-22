@@ -22,7 +22,6 @@
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>
-#include <settings/macros.h>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>

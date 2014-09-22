@@ -118,7 +118,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
 };
 
 bool has_mod(std::string key) {
-	std::string val = settings_manager::get_settings()->get_string("/modules", key, "0");
+	std::string val = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "0");
 	return val == "enabled" || val == "1";
 }
 
@@ -321,7 +321,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		data.write_string(h.getPropery(_T("RESTORE_FILE")));
 		data.write_int(h.getPropery(_T("ADD_DEFAULTS"))==_T("1")?1:0);
 
-		std::wstring modpath = _T("/modules");
+		std::wstring modpath = _T(MAIN_MODULES_SECTION);
 		std::wstring modval = _T("");
 		write_changed_key(h, data, _T("CONF_NRPE"), modpath, _T("NRPEServer"), modval);
 		write_changed_key(h, data, _T("CONF_SCHEDULER"), modpath, _T("Scheduler"), modval);

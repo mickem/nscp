@@ -58,6 +58,7 @@ bool pdh_thread::stop() {
 	return true;
 }
 void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+/*
 	try {
 		filters_.add(proxy, filters_path_, key, query, key == "default");
 	} catch (const std::exception &e) {
@@ -65,4 +66,5 @@ void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> p
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to add command: " + utf8::cvt<std::string>(key));
 	}
+*/
 }

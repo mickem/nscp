@@ -33,6 +33,8 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 
+#include <settings/config.hpp>
+
 namespace sh = nscapi::settings_helper;
 
 NSClientServer::NSClientServer() 
@@ -75,7 +77,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 #ifndef USE_SSL
 	if (info_.use_ssl) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+		NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
 	}
 #endif
 	NSC_LOG_ERROR_LISTS(info_.validate());
@@ -158,7 +160,7 @@ void split_to_list(std::list<std::string> &list, const std::string str, const st
 
 void log_bad_command(const std::string &cmd) {
 	if (cmd == "check_cpu" || cmd == "check_uptime" || cmd == "check_memory") {
-		NSC_LOG_ERROR(cmd + " failed to execute have you loaded CheckSystem? ([/modules] CheckSystem=enabled)");
+		NSC_LOG_ERROR(cmd + std::string(" failed to execute have you loaded CheckSystem? ([" MAIN_MODULES_SECTION "] CheckSystem=enabled)"));
 	} else {
 		NSC_LOG_ERROR("Unknown command: " + cmd);
 	}

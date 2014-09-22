@@ -29,6 +29,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <settings/config.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -263,7 +264,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		nscapi::protobuf::functions::settings_query s(get_id());
 		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
-		s.set("/modules", "NRPEServer", "enabled");
+		s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
 		s.set("/settings/NRPE/server", "ssl", "true");
 		if (insecure == "true") {
 			result << "WARNING: NRPE is currently insecure." << std::endl;

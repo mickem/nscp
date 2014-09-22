@@ -35,6 +35,8 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
+#include <settings/config.hpp>
+
 #include <file_helpers.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -243,7 +245,7 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 
 	nscapi::protobuf::functions::settings_query s(get_id());
 	s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
-	s.set("/modules", "CheckExternalScripts", "enabled");
+	s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
 	s.save();
 	get_core()->settings_query(s.request(), s.response());
 	if (!s.validate_response()) {

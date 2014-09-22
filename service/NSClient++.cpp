@@ -30,7 +30,7 @@
 
 #include "core_api.h"
 #include "../libs/settings_manager/settings_manager_impl.h"
-#include <settings/macros.h>
+#include <settings/config.hpp>
 #include <nscapi/functions.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -266,7 +266,7 @@ bool NSClientT::boot_init(const bool override_log) {
 		sh::settings_registry settings(settings_manager::get_proxy());
 
 		settings.add_path()
-			("/modules",			"MODULES", "A list of modules.")
+			(MAIN_MODULES_SECTION,			"MODULES", "A list of modules.")
 			;
 
 		settings.add_path_to_settings()
@@ -805,7 +805,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		settings_manager::get_core()->register_key(0xffff, "/modules", plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
+		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 	}
 	return plugin;
 }
@@ -944,7 +944,8 @@ int NSClientT::load_and_run(std::string module, run_function fun, std::list<std:
 		}
 	} else if (!module.empty()) {
 		try {
-			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path("modules"), module);
+			boost::filesystem::path pluginPath = expand_path("${module-path}");
+			boost::filesystem::path file = NSCPlugin::get_filename(pluginPath, module);
 			if (boost::filesystem::is_regular(file)) {
 				plugin_type plugin = addPlugin(file, "");
 				if (plugin) {
@@ -952,20 +953,20 @@ int NSClientT::load_and_run(std::string module, run_function fun, std::list<std:
 					plugin->load_plugin(NSCAPI::dontStart);
 					ret = fun(plugin);
 				} else {
-					errors.push_back("Failed to load: " + utf8::cvt<std::string>(module));
+					errors.push_back("Failed to load: " + file.string());
 					return 1;
 				}
 			} else {
-				errors.push_back("Failed to load: " + utf8::cvt<std::string>(module));
+				errors.push_back("File not found: " + file.string());
 				return 1;
 			}
 		} catch (const NSPluginException &e) {
 			errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
 		} catch(const std::exception &e) {
-			errors.push_back(std::string("Module (") + utf8::cvt<std::string>(module) + ") was not found: " + utf8::utf8_from_native(e.what()));
+			errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
 			return 1;
 		} catch(...) {
-			errors.push_back("Module (" + utf8::cvt<std::string>(module) + ") was not found...");
+			errors.push_back("Module (" + module + ") was not found...");
 			return 1;
 		}
 	}
@@ -1404,7 +1405,6 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 
 typedef std::map<std::string, std::string> paths_type;
 paths_type paths;
-#define CONFIG_PATHS "/paths"
 
 std::string NSClientT::getFolder(std::string key) {
 	paths_type::const_iterator p = paths.find(key);
@@ -1412,13 +1412,13 @@ std::string NSClientT::getFolder(std::string key) {
 		return p->second;
 	std::string default_value = getBasePath().string();
 	if (key == "certificate-path") {
-		default_value = "${shared-path}/security";
+		default_value = CERT_FOLDER;
 	} else if (key == "module-path") {
-		default_value = "${shared-path}/modules";
+		default_value = MODULE_FOLDER;
 	} else if (key == "web-path") {
-		default_value = "${shared-path}/web";
+		default_value = WEB_FOLDER;
 	} else if (key == "scripts") {
-		default_value = "${shared-path}/scripts";
+		default_value = SCRIPTS_FOLDER;
 	} else if (key == CACHE_FOLDER_KEY) {
 		default_value = DEFAULT_CACHE_PATH;
 	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
