@@ -339,6 +339,9 @@ void socket_helpers::write_certs(std::string cert) {
 	make_certificate(&x509,&pkey,2048,0,365);
 
 	FILE *fout = fopen(cert.c_str(), "wb");
+	if (fout == NULL)
+		throw socket_helpers::socket_exception("Failed to open file: " + cert);
+
 	PEM_write_PrivateKey(fout,pkey,NULL,NULL,0,NULL, NULL);
 	PEM_write_X509(fout,x509);
 	fclose(fout);

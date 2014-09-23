@@ -46,13 +46,13 @@ SET(MODULE_TARGET_FOLDER lib/nsclient/modules)
 SET(LIB_TARGET_FOLDER lib)
 
 IF(NOT DEFINED USE_STATIC_RUNTIME)
-	SET(USE_STATIC_RUNTIME TRUE)
+	SET(USE_STATIC_RUNTIME FALSE)
 ENDIF(NOT DEFINED USE_STATIC_RUNTIME)
 IF(USE_STATIC_RUNTIME)
 	MESSAGE(STATUS "Using static runtime")
 	SET(BUILD_SHARED_LIBS			OFF)
 	SET(NSCP_GLOBAL_DEFINES ${NSCP_GLOBAL_DEFINES} -DBOOST_ALL_NO_LIB)
-	add_definitions(-Dprotobuf_NOLIB -Dplugin_api_NOLIB -Dwhere_filter_NOLIB -Djson_protobuf_NOLIB -Dlua_protobuf_NOLIB)
+	add_definitions(-Dnscp_protobuf_NOLIB -Dplugin_api_NOLIB -Dwhere_filter_NOLIB -Djson_protobuf_NOLIB -Dlua_protobuf_NOLIB)
 IF(WIN32)
 	SET(Boost_USE_STATIC_LIBS		ON)
 	SET(Boost_USE_STATIC_RUNTIME	ON)
@@ -528,7 +528,4 @@ set(CPACK_DEBIAN_PACKAGE_PRIORITY    "optional")
 set(CPACK_DEBIAN_PACKAGE_SECTION     "devel")
 
 include(CPack)
-
-
-INCLUDE(CPack)
 

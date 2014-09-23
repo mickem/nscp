@@ -1449,6 +1449,8 @@ std::string NSClientT::getFolder(std::string key) {
 			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, settings::settings_core::key_string, "Path for " + key, "", default_value, false, false);
 			paths[key] = path;
 			return path;
+		} else {
+			LOG_DEBUG_CORE("Settings not ready so we cant lookup: " + key);
 		}
 	} catch (const settings::settings_exception &e) {
 		// TODO: Maybe this should be fixed!
@@ -2020,6 +2022,16 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 						if (SUCCEEDED(hr)) {
 							tmp = sfi.szDisplayName;
 							module = pluginPath / utf8::cvt<std::string>(tmp);
+						}
+#else
+						if(!boost::filesystem::is_regular_file(module)) {
+							boost::filesystem::directory_iterator it(pluginPath), eod;
+							std::string tmp = boost::algorithm::to_lower_copy(NSCPlugin::get_plugin_file(control.name()));
+							BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+								if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename()) == tmp) {
+									 module = p;
+								} 
+							}
 						}
 #endif
 

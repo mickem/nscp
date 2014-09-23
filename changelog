@@ -1,3 +1,13 @@
+2014-09-23 MickeM
+ * Fixed annoying cmake issue
+   note to self: dont use macros in cmake!
+ * Fixed some exceptions when certificates cannot be created
+ * Added --define to set config options on command line
+ * Refactored so all paths and such are defines (and not hard coded strings)
+ * Started to move things to sensible places on linux
+ * Fixed web server install (no longer installed NRPE)
+ * Loading case-insensetive modules now works on cli on linux
+
 2014-09-08 MickeM
  * More build tweaks (does it ever end?)
  * Fixed performance data rounding issue

@@ -9,10 +9,10 @@ building a DLL on windows.
 // We are using the Visual Studio Compiler and building Shared libraries
 
 #if defined (WIN32) 
-  #if defined(protobuf_NOLIB)
+  #if defined(nscp_protobuf_NOLIB)
     #define NSCAPI_PROTOBUF_EXPORT
   #else
-    #if defined(protobuf_EXPORTS)
+    #if defined(nscp_protobuf_EXPORTS)
       #define NSCAPI_PROTOBUF_EXPORT __declspec(dllexport)
     #else
       #define NSCAPI_PROTOBUF_EXPORT __declspec(dllimport)

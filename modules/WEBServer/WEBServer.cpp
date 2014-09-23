@@ -534,17 +534,27 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 // 			std::list<std::string> errors;
 // 			socket_helpers::validate_certificate(certificate, errors);
 // 			NSC_LOG_ERROR_LISTS(errors);
-			
 			std::string path = get_core()->expand_path("${web-path}");
 			boost::filesystem::path cert = get_core()->expand_path(certificate);
+			if(!boost::filesystem::is_regular_file(cert) && port == "8443s")
+				port = "8080";
+			
 			server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
-			server->setOption("ssl_certificate", cert.string());
+			if(!boost::filesystem::is_regular_file(cert)) {
+				NSC_LOG_ERROR("Certificate not found (disabling SSL): " + cert.string());
+			} else {
+				server->setOption("ssl_certificate", cert.string());
+			}
 			server->registerController(new StaticController(path));
 			server->registerController(new BaseController(password, get_core(), get_id()));
 			server->registerController(new RESTController(password, get_core()));
 		
 			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
 			server->start();
+			NSC_DEBUG_MSG("Loading webserver on port: " + port);
+			if (password.empty()) {
+				NSC_LOG_ERROR("No password set please run nscp web --help");
+			}
 		} catch (const std::string &e) {
 			NSC_LOG_ERROR("Error: " + e);
 			return false;
@@ -664,18 +674,14 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure;
-	unsigned int length = 1024;
-	const std::string path = "/settings/NRPE/server";
+	std::string allowed_hosts, cert, key, port;
+	const std::string path = "/settings/WEB/server";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
-	q.get(path, "insecure", "false");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
 	q.get(path, "certificate key", "${certificate-path}/certificate_key.pem");
-	q.get(path, "allow arguments", false);
-	q.get(path, "allow nasty characters", false);
-	q.get(path, "allowed ciphers", "");
+	q.get(path, "port", "8443s");
 
 
 	get_core()->settings_query(q.request(), q.response());
@@ -690,19 +696,9 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 			cert = val.get_string();
 		else if (val.path == path && val.key && *val.key == "certificate key")
 			key = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allowed ciphers")
-			chipers = val.get_string();
-		else if (val.path == path && val.key && *val.key == "insecure")
-			insecure = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
-			arguments = "true";
-		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
-			arguments = "safe";
+		else if (val.path == path && val.key && *val.key == "port")
+			port = val.get_string();
 	}
-	if (chipers == "ADH")
-		insecure = "true";
-	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
-		insecure = "false";
 
 	desc.add_options()
 		("help", "Show help.")
@@ -716,14 +712,8 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		("certificate-key", po::value<std::string>(&key)->default_value(key), 
 		"Client certificate to use")
 
-		("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"), 
-		"Use \"old\" legacy NRPE.")
-
-		("payload-length,l", po::value<unsigned int>(&length)->default_value(1024), 
-		"Length of payload (has to be same as on both the server and client)")
-
-		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"), 
-		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+		("port", po::value<std::string>(&port)->default_value(port), 
+		"Port to use suffix with s for ssl")
 
 		;
 
@@ -742,37 +732,15 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		std::stringstream result;
 
 		nscapi::protobuf::functions::settings_query s(get_id());
-		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
+		result << "Enabling WEB from (currently not supported): " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
-		s.set("/modules", "NRPEServer", "enabled");
-		s.set("/settings/NRPE/server", "ssl", "true");
-		if (insecure == "true") {
-			result << "WARNING: NRPE is currently insecure." << std::endl;
-			s.set("/settings/NRPE/server", "insecure", "true");
-			s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
-		} else {
-			result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
-			s.set("/settings/NRPE/server", "insecure", "false");
-			s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-			s.set("/settings/NRPE/server", "certificate", cert);
-			s.set("/settings/NRPE/server", "certificate key", key);
-		}
-		if (arguments == "all" || arguments == "unsafe") {
-			result << "UNSAFE Arguments are allowed." << std::endl;
-			s.set(path, "allow arguments", "true");
-			s.set(path, "allow nasty characters", "true");
-		} else if (arguments == "safe" || arguments == "true") {
-			result << "SAFE Arguments are allowed." << std::endl;
-			s.set(path, "allow arguments", "true");
-			s.set(path, "allow nasty characters", "false");
-		} else {
-			result << "Arguments are NOT allowed." << std::endl;
-			s.set(path, "allow arguments", "false");
-			s.set(path, "allow nasty characters", "false");
-		}
-		s.set(path, "payload length", strEx::s::xtos(length));
-		if (length != 1024)
-			result << "NRPE is using non standard payload length " << length << " please use same configuration in check_nrpe." << std::endl;
+		s.set("/modules", "WEBServer", "enabled");
+		if (port.find('s') != std::string::npos)
+			result << "HTTP(s) is enabled using " << cert << " and " << key << "." << std::endl;
+		s.set(path, "certificate", cert);
+		s.set(path, "certificate key", key);
+		result << "Point your browser to: " << port << std::endl;
+		s.set(path, "port", port);
 		s.save();
 		get_core()->settings_query(s.request(), s.response());
 		if (!s.validate_response()) {

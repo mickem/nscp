@@ -23,7 +23,7 @@ IF(WIN32)
 		
 		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
-		${NSCP_INCLUDEDIR}/settings/macros.h
+		${NSCP_INCLUDEDIR}/settings/config.hpp
 
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp

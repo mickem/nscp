@@ -15,6 +15,7 @@
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>
 #include <wstring.hpp>
+#include <settings/config.hpp>
 
 const UINT COST_SERVICE_INSTALL = 2000;
 

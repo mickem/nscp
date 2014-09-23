@@ -5,6 +5,10 @@
 #include <config.h>
 #include <nsclient/logger.hpp>
 
+#include <settings/settings_core.hpp>
+#include "../libs/settings_manager/settings_manager_impl.h"
+
+
 namespace po = boost::program_options;
 nsclient::logging::logger_interface* get_logger() {
 	return nsclient::logging::logger::get_logger(); 
@@ -36,6 +40,7 @@ cli_parser::cli_parser(NSClient* core)
 		("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
 		("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
 		("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
+		("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
 		;
 
 	common.add_options()
@@ -419,13 +424,26 @@ struct client_arguments {
 
 	}
 
-	int exec_client_mode(NSClient* core_) {
+	int exec_client_mode(NSClient* core_, const std::vector<std::string> &defines) {
 		try {
 			if (module == "CommandClient")
 				boot = true;
 			debug();
 
 			core_->boot_init(true);
+			BOOST_FOREACH(const std::string &s, defines) {
+				std::string::size_type p1 = s.find(":");
+				if (p1 == std::string::npos) {
+					std::cerr << "Failed to parse: " << s << std::endl;
+					continue;
+				}
+				std::string::size_type p2 = s.find("=", p1);
+				if (p2 == std::string::npos) {
+					std::cerr << "Failed to parse: " << s << std::endl;
+					continue;
+				}
+				settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1+1, p2-p1-1), s.substr(p2+1));
+			}
 			if (load_all)                                                                                                                                                    
 				core_->preboot_load_all_plugin_files();
 			if (module.empty() || module == "CommandClient")
@@ -563,7 +581,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 				args.arguments.push_back(s.substr(pos+1));
 			}
 		}
-		return args.exec_client_mode(core_);
+		return args.exec_client_mode(core_, defines);
 	} catch(const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
@@ -646,7 +664,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 				args.arguments.push_back(s.substr(pos+1));
 			}
 		}
-		return args.exec_client_mode(core_);
+		return args.exec_client_mode(core_, defines);
 	} catch(const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
