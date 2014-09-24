@@ -283,3 +283,19 @@ ko.bindingHandlers.actionKey = {
 		});
     }
 };
+
+ko.bindingHandlers.expand = {
+    init: function (element, valueAccessor, allBindingsAccessor, viewModel) {
+        if ($(element).hasClass('ui-expander')) {
+            var expander = element;
+            var head = $(expander).find('.ui-expander-head');
+            var content = $(expander).find('.ui-expander-content');
+        
+            $(head).click(function () {
+                      $(head).toggleClass('ui-expander-head-collapsed');
+                      $(content).toggle();
+            });
+        }
+    }
+};
+

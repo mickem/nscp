@@ -437,7 +437,13 @@ namespace nscapi {
 					detail->set_default_value(strip_default_value(op->format_parameter()));
 				} else
 					detail->set_content_type(Plugin::Common::BOOL);
-				detail->set_long_description(op->description());
+                std::string desc =op->description();
+                std::string::size_type pos = desc.find("\n");
+                if (pos == std::string::npos)
+                    detail->set_short_description(desc);
+                else
+                    detail->set_short_description(desc.substr(0, pos));
+				detail->set_long_description(desc);
 			}
 			return details.SerializeAsString();
 		}

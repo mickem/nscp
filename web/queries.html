@@ -95,19 +95,61 @@
 				</div>
 			</div>
 
-			<ol class="breadcrumb">
-				<li><a href="/queries.html"><i class="glyphicon glyphicon-home"></i></a></li>
-			</ol>
-
-			
 			<div id="result" class="modal fade">
-			  <div class="modal-dialog">
-				<div class="modal-content">
+			  <div class="modal-dialog modal-lg">
+				<div class="modal-content" data-bind="with: query"s>
 				  <div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-					<h4 class="modal-title">Execution result</h4>
+					<h4  data-bind="text: name" class="modal-title"></h4>
 				  </div>
 				  <div class="modal-body">
+                      <form class="form-horizontal" role="form">
+                          <div id="accordion" class="panel-group">
+                              <div class="panel panel-default">
+                                  <div class="panel-heading">
+                                      <h4 class="panel-title">
+                                          <a class="accordion-toggle" href="#collapseDesc" class="collapsed"
+                                              data-toggle="collapse" data-parent="#accordion">Module</a>
+                                      </h4>
+                                  </div>
+                                  <div id="collapseDesc" class="panel-collapse collapse in">
+                                      <div class="panel-body">
+                                          <ul class="list-group">
+                                              <li class="list-group-item">
+                                                  <h4 class="list-group-item-heading">
+                                                      <span data-bind="text: name" class="modal-title"></span>
+                                                  </h4>
+                                                  <p class="list-group-item-text" data-bind="text: desc"></p>
+                                                  </h4>
+                                              </li>
+                                          </ul>
+                                      </div>
+                                  </div>
+                                  
+                                  <div class="panel-heading">
+                                      <h4 class="panel-title">
+                                          <a class="accordion-toggle" href="#collapseHelp" class="collapsed"
+                                              data-toggle="collapse" data-parent="#accordion">Help</a>
+                                      </h4>
+                                  </div>
+                                  <div id="collapseHelp" class="panel-collapse collapse">
+                                      <div class="panel-body">
+                                          <ul class="list-group" data-bind="foreach: params">
+                                              <li class="list-group-item">
+                                                  <h4 class="list-group-item-heading">
+                                                      <span data-bind="text: name" class="modal-title"></span>
+                                                  </h4>
+                                                  <p class="list-group-item-text" data-bind="text: first_line"></p>
+                                                  <p class="list-group-item-text" data-bind="text: first_line"></p>
+                                                  </h4>
+                                              </li>
+                                          </ul>
+                                      </div>
+                                  </div>
+                                  
+                              </div>
+                          </div>
+                  </form>
 				  <!--
 						<table class="table" data-bind="visible: result()">
 							<tbody>
@@ -134,46 +176,25 @@
 			  </div>
 			</div>
 			
-			<div class="panel panel-default">
-				<div class="panel-heading">Avalible queries: <span data-bind="text: commands().length"></span>
-				<div class="actions">
-					<div class="button-group">
-						<button class="minibutton" data-bind="click: load">refresh</button>
+			<div class="panel panel-primary">
+				<div class="panel-heading clearfix">
+					<h3 class="panel-title pull-left">Queries</h3>
+					<div class="actions pull-right">
+						<a href="#" data-bind="click: $root.show" class="btn-sm btn-default"><span class="glyphicon glyphicon-refresh"/></a>
 					</div>
 				</div>
-				</div>
 				<div class="panel-body">
-					<form class="form-inline" role="form">
-						<table class="table table-hover">
-							<thead>
-								<tr>
-									<th>Command</th>
-									<th>Description</th>
-									<th>Action</th>
-								</tr>
-							</thead>
-							<tbody data-bind="foreach: commands">
-								<tr data-bind="click: $data.showMore">
-									<td>
-										<span data-bind="text: name"></span>
-									</td>
-									<td>
-										<span data-bind="text: desc"></span>
-										<span data-bind="visible: showDetails"><br/>
-										<b>Plugin(s): </b>
-										<span data-bind="foreach: {data: plugs, as: 'p'}">
-											<span data-bind="if: $index &gt; 0">, </span>
-											<span data-bind="text: p"></span>
-										</span>
-										</span>
-									</td>
-									<td>
-										<a href="#" class="btn btn-primary" data-bind="click: $root.execute">Execute</a>
-									</td>
-								</tr>
-							</tbody>
-						</table>
-					</form>
+					<div class="list-group" data-bind="foreach: commands">
+                        <a class="list-group-item" href="#" data-bind="click: $root.show, attr: { title: desc }">
+                            <div class="pull-left">
+                                <h4 class="list-group-item-heading">
+                                    <span data-bind="text: name"></span>
+                                </h4>
+                                <p class="list-group-item-text" data-bind="text: desc"></p>
+                            </div>
+							<div class="clearfix"></div>
+                        </a>
+                    </div>
 				</div>
 			</div>
 		</div>

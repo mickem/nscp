@@ -1,10 +1,18 @@
 // Class to represent a row in the seat reservations grid
-function CommandEntry(name, desc, plugs) {
+function CommandEntry(entry) {
 	var self = this;
-	self.name = name;
-	self.desc = desc;
-	self.plugs = plugs;
+    console.log(entry)
+	self.name = entry['name'];
+	self.desc = entry['info']['description'];
+	self.plugs = entry['info']['plugin'];
+    self.params = []
+    entry['parameters']['parameter'].forEach(function(entry) {
+        entry.first_line = entry.short_description
+        self.params.push(entry)
+    })
+    self.params = entry['parameters']['parameter']
 	self.showDetails = ko.observable(false);
+    console.log(self.params)
 	
 	self.showMore = function() {
 		self.showDetails(!self.showDetails());
@@ -40,6 +48,7 @@ function CommandViewModel() {
 	self.nscp_status = ko.observable(new NSCPStatus());
 	self.commands = ko.observableArray([]);
 	self.result = ko.observable();
+    self.query = ko.observable();
 
 	self.execute = function(command) {
 		$("#result").modal('show');
@@ -53,18 +62,21 @@ function CommandViewModel() {
 		})
 		
 	}
-	self.load = function() {
+	self.show = function(command) {
+        self.query(command)
+		$("#result").modal('show');
+    }
+	self.refresh = function() {
 		$.getJSON("/registry/inventory", function(data) {
-			console.log(data)
 			if (data['payload'][0] && data['payload'][0]['inventory']) {
 				self.commands.removeAll()
 				data['payload'][0]['inventory'].forEach(function(entry) {
-					self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
+					self.commands.push(new CommandEntry(entry));
 				});
 			}
 			self.commands.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 		})
 	}
-	self.load()
+	self.refresh()
 }
 ko.applyBindings(new CommandViewModel());
