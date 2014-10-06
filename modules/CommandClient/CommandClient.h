@@ -8,8 +8,8 @@
 
 struct client_handler : public client::cli_handler {
 private:
+    nscapi::core_wrapper* core;
 	int plugin_id;
-	nscapi::core_wrapper* core;
 
 public:
 	client_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}

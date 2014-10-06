@@ -1,22 +1,21 @@
 #pragma once
-#include <iostream>
+#include <string>
 #ifdef _WIN32
 #include <utf8.hpp>
 #endif
 
 namespace service_helper {
-	class service_exception {
+    class service_exception : public std::exception {
 		std::string what_;
 	public:
 		service_exception(std::string what) : what_(what) {
 #ifdef _WIN32
 			OutputDebugString(utf8::cvt<std::wstring>(std::string("ERROR:") + what).c_str());
-#else
-			std::cout << what << std::endl;
 #endif
 		}
-		std::string what() {
-			return what_;
+        virtual ~service_exception() throw() {}
+        virtual const char* what() const throw() {
+			return what_.c_str();
 		}
 	};
 }

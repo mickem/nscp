@@ -39,6 +39,7 @@
 #include <nscp_string.hpp>
 
 namespace strEx {
+    /*
 	class string_exception : public std::exception {
 		std::wstring _what;
 	public:
@@ -48,6 +49,7 @@ namespace strEx {
 		}
 		virtual ~string_exception() throw();
 	};
+     */
 
 	inline void append_list(std::string &lst, const std::string &append, const std::string sep = ", ") {
 		if (append.empty())

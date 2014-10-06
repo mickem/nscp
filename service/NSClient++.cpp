@@ -2028,7 +2028,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 							boost::filesystem::directory_iterator it(pluginPath), eod;
 							std::string tmp = boost::algorithm::to_lower_copy(NSCPlugin::get_plugin_file(control.name()));
 							BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-								if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename()) == tmp) {
+								if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename().string()) == tmp) {
 									 module = p;
 								} 
 							}

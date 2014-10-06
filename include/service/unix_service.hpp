@@ -29,16 +29,6 @@
 #include <strEx.h>
 
 namespace service_helper_impl {
-	class service_exception {
-		std::string what_;
-	public:
-		service_exception(std::string what) : what_(what) {
-			std::cout << "ERROR:" <<  what;
-		}
-		std::string what() {
-			return what_;
-		}
-	};
 	/**
 	* @ingroup NSClient++
 	* Helper class to implement a NT service
@@ -88,13 +78,13 @@ namespace service_helper_impl {
 			TBase::get_global_instance()->stop_service();
 		}
 /** start */
-		void start_and_wait(std::wstring name) {
+		void start_and_wait(std::string name) {
 			is_running_ = true;
 
 			if (signal(SIGTERM, unix_service<TBase>::handleSigTerm) == SIG_ERR) 
-				handle_error(__LINE__, __FILE__, L"Failed to hook SIGTERM!");
+				handle_error(__LINE__, __FILE__, "Failed to hook SIGTERM!");
 			if (signal(SIGINT, unix_service<TBase>::handleSigInt) == SIG_ERR) 
-				handle_error(__LINE__, __FILE__, L"Failed to hook SIGTERM!");
+				handle_error(__LINE__, __FILE__, "Failed to hook SIGTERM!");
 
 			TBase::handle_startup("TODO");
 
@@ -116,7 +106,7 @@ namespace service_helper_impl {
 			}
 			shutdown_condition_.notify_one();
 		}
-		static void handle_error(unsigned int line, const char *file, std::wstring message) {
+		static void handle_error(unsigned int line, const char *file, std::string message) {
 			TBase::get_global_instance()->handle_error(line, file, message);
 		}
 	};
