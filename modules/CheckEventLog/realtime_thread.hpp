@@ -8,6 +8,8 @@
 #include "filter_config_object.hpp"
 
 struct real_time_thread {
+	nscapi::core_wrapper *core;
+	int plugin_id;
 	bool enabled_;
 	unsigned long long start_age_;
 	boost::shared_ptr<boost::thread> thread_;
@@ -19,7 +21,7 @@ struct real_time_thread {
 	bool debug_;
 	std::string filters_path_;
 
-	real_time_thread() : enabled_(false), start_age_(0), debug_(false), cache_(false) {
+	real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), start_age_(0), debug_(false), cache_(false) {
 		set_start_age("30m");
 	}
 

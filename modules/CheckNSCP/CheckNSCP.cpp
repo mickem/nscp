@@ -34,7 +34,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

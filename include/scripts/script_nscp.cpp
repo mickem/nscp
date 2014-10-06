@@ -63,7 +63,7 @@ void scripts::nscp::settings_provider_impl::save()
 void scripts::nscp::nscp_runtime_impl::register_command(const std::string type, const std::string &command, const std::string &description) 
 {
 	if (type == tags::query_tag || type == tags::simple_query_tag) {
-		nscapi::core_helper::core_proxy proxy(core_, plugin_id);
+		nscapi::core_helper proxy(core_, plugin_id);
 		proxy.register_command(command, description);
 	}
 }

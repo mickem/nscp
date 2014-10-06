@@ -29,7 +29,7 @@
 #include <strEx.h>
 #include <utf8.hpp>
 
-#include <protobuf/ipc.pb.h>
+#include <nscapi/nscapi_ipc.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 
 //////////////////////////////////////////////////////////////////////////

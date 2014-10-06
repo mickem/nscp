@@ -28,6 +28,7 @@
 #include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/dll_defines.hpp>
 
 #include <strEx.h>
 
@@ -38,14 +39,14 @@ namespace nscapi {
 			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 			
-			class settings_query {
+			class NSCAPI_EXPORT settings_query {
 				::Plugin::SettingsRequestMessage request_message;
 				::Plugin::SettingsResponseMessage response_message;
 				std::string response_buffer;
 				int plugin_id;
 
 			public:
-				struct key_values {
+				struct NSCAPI_EXPORT key_values {
 					std::string path;
 					boost::optional<std::string> key;
 					boost::optional<std::string> str_value;
@@ -119,9 +120,9 @@ namespace nscapi {
 				response.mutable_status()->set_message(message);
 			}
 
-			Plugin::Common::ResultCode parse_nagios(const std::string &status);
-			Plugin::Common::ResultCode nagios_status_to_gpb(int ret);
-			int gbp_to_nagios_status(Plugin::Common::ResultCode ret);
+			NSCAPI_EXPORT Plugin::Common::ResultCode parse_nagios(const std::string &status);
+			NSCAPI_EXPORT Plugin::Common::ResultCode nagios_status_to_gpb(int ret);
+			NSCAPI_EXPORT int gbp_to_nagios_status(Plugin::Common::ResultCode ret);
 			inline Plugin::Common::Status::StatusType status_to_gpb(int ret) {
 				if (ret == NSCAPI::isSuccess)
 					return Plugin::Common_Status_StatusType_STATUS_OK;
@@ -159,45 +160,45 @@ namespace nscapi {
 			NSCAPI::messageTypes gpb_to_log(Plugin::LogEntry::Entry::Level ret);
 
 
-			void create_simple_header(Plugin::Common::Header* hdr);
-			void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
-			bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
+			NSCAPI_EXPORT void create_simple_header(Plugin::Common::Header* hdr);
+			NSCAPI_EXPORT void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
+			NSCAPI_EXPORT bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
 
-			void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "", const std::string source = "");
-			void make_query_from_exec(std::string &data);
-			void make_query_from_submit(std::string &data);
-			void make_exec_from_submit(std::string &data);
-			void make_exec_from_query(std::string &data);
-			void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source);
+			NSCAPI_EXPORT void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "", const std::string source = "");
+			NSCAPI_EXPORT void make_query_from_exec(std::string &data);
+			NSCAPI_EXPORT void make_query_from_submit(std::string &data);
+			NSCAPI_EXPORT void make_exec_from_submit(std::string &data);
+			NSCAPI_EXPORT void make_exec_from_query(std::string &data);
+			NSCAPI_EXPORT void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source);
 
-			void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
-			void create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer);
-			void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
-			void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
+			NSCAPI_EXPORT void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
+			NSCAPI_EXPORT void create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer);
+			NSCAPI_EXPORT void create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
+			NSCAPI_EXPORT void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
 
-			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf);
- 			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
- 			int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
-			NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string &response);
-			NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
-			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
-			NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
-			void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
+			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf);
+ 			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
+ 			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
+			NSCAPI_EXPORT NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string &response);
+			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
+			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);
+			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
+			NSCAPI_EXPORT void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
 
 
-			void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
-			void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::string command, int ret, std::string msg);
-			void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, int ret, std::string msg);
-			void append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments);
-			void append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments);
-			void parse_simple_query_request(std::list<std::string> &args, const std::string &request);
-			decoded_simple_command_data parse_simple_query_request(const char* char_command, const std::string &request);
-			decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
-			decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
-			int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
-			void create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request);
-			void create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request);
-			int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
+			NSCAPI_EXPORT void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
+			NSCAPI_EXPORT void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::string command, int ret, std::string msg);
+			NSCAPI_EXPORT void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, int ret, std::string msg);
+			NSCAPI_EXPORT void append_simple_query_request_payload(Plugin::QueryRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments);
+			NSCAPI_EXPORT void append_simple_exec_request_payload(Plugin::ExecuteRequestMessage::Request *payload, std::string command, std::vector<std::string> arguments);
+			NSCAPI_EXPORT void parse_simple_query_request(std::list<std::string> &args, const std::string &request);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_query_request(const char* char_command, const std::string &request);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
+			NSCAPI_EXPORT int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
+			NSCAPI_EXPORT void create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request);
+			NSCAPI_EXPORT void create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request);
+			NSCAPI_EXPORT int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
 
 			template<class T>
 			void append_response_payloads(T &target_message, std::string &payload) {
@@ -207,18 +208,18 @@ namespace nscapi {
 					target_message.add_payload()->CopyFrom(source_message.payload(i));
 			}
 
-			int create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response);
-			int create_simple_exec_response_unknown(std::string command, std::string result, std::string &response);
-			decoded_simple_command_data parse_simple_exec_request(const std::string &request);
-			decoded_simple_command_data parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message);
-			decoded_simple_command_data parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload);
+			NSCAPI_EXPORT int create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response);
+			NSCAPI_EXPORT int create_simple_exec_response_unknown(std::string command, std::string result, std::string &response);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_exec_request(const std::string &request);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message);
+			NSCAPI_EXPORT decoded_simple_command_data parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload);
 
-			void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perf);
-			std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload);
+			NSCAPI_EXPORT void parse_performance_data(Plugin::QueryResponseMessage::Response *payload, const std::string &perf);
+			NSCAPI_EXPORT std::string build_performance_data(Plugin::QueryResponseMessage::Response const &payload);
 
-			std::string extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf);
-			long long extract_perf_value_as_int(const ::Plugin::Common_PerformanceData &perf);
-			std::string extract_perf_maximum_as_string(const ::Plugin::Common_PerformanceData &perf);
+			NSCAPI_EXPORT std::string extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf);
+			NSCAPI_EXPORT long long extract_perf_value_as_int(const ::Plugin::Common_PerformanceData &perf);
+			NSCAPI_EXPORT std::string extract_perf_maximum_as_string(const ::Plugin::Common_PerformanceData &perf);
 		}
 	}
 }

@@ -4,6 +4,7 @@
 #include <string>
 
 #include <boost/shared_ptr.hpp>
+#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 	class command_proxy;
@@ -32,7 +33,7 @@ namespace nscapi {
 		};
 
 		class command_registry;
-		class register_command_helper {
+		class NSCAPI_EXPORT register_command_helper {
 		public:
 			register_command_helper(command_registry* owner_) : owner(owner_) {}
 			virtual ~register_command_helper() {}
@@ -73,7 +74,7 @@ namespace nscapi {
 		};	
 
 
-		class command_registry {
+		class NSCAPI_EXPORT command_registry {
 			typedef std::list<boost::shared_ptr<command_info> > command_list;
 			command_list commands;
 			command_proxy_ptr core_;

@@ -30,10 +30,10 @@
 
 #include "core_api.h"
 #include "../libs/settings_manager/settings_manager_impl.h"
-#include <settings/macros.h>
+#include <settings/config.hpp>
 #include <nscapi/functions.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include "cli_parser.hpp"
 #include "../version.hpp"
 
@@ -266,7 +266,7 @@ bool NSClientT::boot_init(const bool override_log) {
 		sh::settings_registry settings(settings_manager::get_proxy());
 
 		settings.add_path()
-			("/modules",			"MODULES", "A list of modules.")
+			(MAIN_MODULES_SECTION,			"MODULES", "A list of modules.")
 			;
 
 		settings.add_path_to_settings()
@@ -805,7 +805,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
-		settings_manager::get_core()->register_key(0xffff, "/modules", plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
+		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 	}
 	return plugin;
 }
@@ -944,7 +944,8 @@ int NSClientT::load_and_run(std::string module, run_function fun, std::list<std:
 		}
 	} else if (!module.empty()) {
 		try {
-			boost::filesystem::path file = NSCPlugin::get_filename(getBasePath() / boost::filesystem::path("modules"), module);
+			boost::filesystem::path pluginPath = expand_path("${module-path}");
+			boost::filesystem::path file = NSCPlugin::get_filename(pluginPath, module);
 			if (boost::filesystem::is_regular(file)) {
 				plugin_type plugin = addPlugin(file, "");
 				if (plugin) {
@@ -952,20 +953,20 @@ int NSClientT::load_and_run(std::string module, run_function fun, std::list<std:
 					plugin->load_plugin(NSCAPI::dontStart);
 					ret = fun(plugin);
 				} else {
-					errors.push_back("Failed to load: " + utf8::cvt<std::string>(module));
+					errors.push_back("Failed to load: " + file.string());
 					return 1;
 				}
 			} else {
-				errors.push_back("Failed to load: " + utf8::cvt<std::string>(module));
+				errors.push_back("File not found: " + file.string());
 				return 1;
 			}
 		} catch (const NSPluginException &e) {
 			errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
 		} catch(const std::exception &e) {
-			errors.push_back(std::string("Module (") + utf8::cvt<std::string>(module) + ") was not found: " + utf8::utf8_from_native(e.what()));
+			errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
 			return 1;
 		} catch(...) {
-			errors.push_back("Module (" + utf8::cvt<std::string>(module) + ") was not found...");
+			errors.push_back("Module (" + module + ") was not found...");
 			return 1;
 		}
 	}
@@ -1402,9 +1403,8 @@ __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, in
 }
 #endif
 
-typedef boost::unordered_map<std::string, std::string> paths_type;
+typedef std::map<std::string, std::string> paths_type;
 paths_type paths;
-#define CONFIG_PATHS "/paths"
 
 std::string NSClientT::getFolder(std::string key) {
 	paths_type::const_iterator p = paths.find(key);
@@ -1412,13 +1412,13 @@ std::string NSClientT::getFolder(std::string key) {
 		return p->second;
 	std::string default_value = getBasePath().string();
 	if (key == "certificate-path") {
-		default_value = "${shared-path}/security";
+		default_value = CERT_FOLDER;
 	} else if (key == "module-path") {
-		default_value = "${shared-path}/modules";
+		default_value = MODULE_FOLDER;
 	} else if (key == "web-path") {
-		default_value = "${shared-path}/web";
+		default_value = WEB_FOLDER;
 	} else if (key == "scripts") {
-		default_value = "${shared-path}/scripts";
+		default_value = SCRIPTS_FOLDER;
 	} else if (key == CACHE_FOLDER_KEY) {
 		default_value = DEFAULT_CACHE_PATH;
 	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
@@ -1449,6 +1449,8 @@ std::string NSClientT::getFolder(std::string key) {
 			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, settings::settings_core::key_string, "Path for " + key, "", default_value, false, false);
 			paths[key] = path;
 			return path;
+		} else {
+			LOG_DEBUG_CORE("Settings not ready so we cant lookup: " + key);
 		}
 	} catch (const settings::settings_exception &e) {
 		// TODO: Maybe this should be fixed!
@@ -1911,13 +1913,23 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 										const std::string module = NSCPlugin::file_to_module(file);
 										plugin_cache_item itm;
 										try {
-											plugin_type plugin(new NSCPlugin(-1, (pluginPath / file).normalize(), ""));
-											plugin->load_dll();
+											plugin_type plugin = find_plugin(module);
+											bool has_plugin = plugin;
+											if (!has_plugin) {
+												boost::filesystem::path p = (pluginPath / file).normalize();
+												LOG_DEBUG_CORE("Loading " + p.string());
+												plugin = plugin_type(new NSCPlugin(-1, p, ""));
+												plugin->load_dll();
+											} else {
+												LOG_DEBUG_CORE("Found cached " + module);
+											}
 											itm.name = plugin->getModule();
 											itm.title = plugin->getName();
 											itm.desc = plugin->getDescription();
 											tmp_plugin_cache.push_back(itm);
-											plugin->unload_dll();
+											if (!has_plugin) {
+												plugin->unload_dll();
+											}
 										} catch (const std::exception &e) {
 											LOG_DEBUG_CORE("Failed to load " + file.string() + ": " + utf8::utf8_from_native(e.what()));
 											continue;
@@ -2011,6 +2023,16 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 							tmp = sfi.szDisplayName;
 							module = pluginPath / utf8::cvt<std::string>(tmp);
 						}
+#else
+						if(!boost::filesystem::is_regular_file(module)) {
+							boost::filesystem::directory_iterator it(pluginPath), eod;
+							std::string tmp = boost::algorithm::to_lower_copy(NSCPlugin::get_plugin_file(control.name()));
+							BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+								if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename()) == tmp) {
+									 module = p;
+								} 
+							}
+						}
 #endif
 
 						LOG_DEBUG_CORE_STD("Module name: " + module.string());
@@ -2040,10 +2062,10 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 								if ((*it)->getModule() == control.name()) {
 									plugin_type instance = *it;
 									unsigned int plugin_id = instance->get_id();
+									commands_.remove_plugin(plugin_id);
 									it = plugins_.erase(it);
 									instance->unload_plugin();
 									instance->unload_dll();
-									commands_.remove_plugin(plugin_id);
 									if (it == plugins_.end())
 										break;
 								} else {

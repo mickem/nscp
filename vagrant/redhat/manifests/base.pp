@@ -66,6 +66,10 @@ package { "protobuf-python": ensure => present
 } ->
 package { "cryptopp": ensure => present
 } ->
+package { "python-jinja2": ensure => present
+} ->
+package { "python-argparse": ensure => present
+} ->
 file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler": 
 	ensure    => "directory", 	
 } ->

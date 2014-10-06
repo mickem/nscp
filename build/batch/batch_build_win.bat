@@ -13,11 +13,11 @@ if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
 cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
+; cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building x64 
-msbuild /p:Configuration=RelWithDebInfo NSCP.sln
+msbuild /p:Configuration=RelWithDebInfo /p:Platform=x64 NSCP.sln
 if %ERRORLEVEL% == 1 goto :error
 
 title Packaging x64 
@@ -33,11 +33,10 @@ if %ERRORLEVEL% == 1 goto :error
 
 title Generating w32
 cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" -T v110_xp %SOURCE%
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 
 title Building w32
-msbuild /p:Configuration=RelWithDebInfo NSCP.sln
+msbuild /p:Configuration=RelWithDebInfo /p:Platform=Win32 NSCP.sln
 if %ERRORLEVEL% == 1 goto :error
 
 title Packaging w32

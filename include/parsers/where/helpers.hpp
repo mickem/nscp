@@ -6,19 +6,20 @@
 #include <boost/shared_ptr.hpp>
 
 #include <parsers/where/node.hpp>
+#include <parsers/where/dll_defines.hpp>
 
 namespace parsers {
 	namespace where {
 		namespace helpers {
-			std::string type_to_string(value_type type);
-			bool type_is_int(value_type type);
-			bool type_is_string(value_type type);
-			value_type get_return_type(operators op, value_type type);
-			std::string operator_to_string(operators const& identifier);
-			value_type infer_binary_type(object_converter converter, node_type &left, node_type &right);
-			bool can_convert(value_type src, value_type dst);
-			bool is_upper(operators op);
-			bool is_lower(operators op);
+			NSCAPI_EXPORT std::string type_to_string(value_type type);
+			NSCAPI_EXPORT bool type_is_int(value_type type);
+			NSCAPI_EXPORT bool type_is_string(value_type type);
+			NSCAPI_EXPORT value_type get_return_type(operators op, value_type type);
+			NSCAPI_EXPORT std::string operator_to_string(operators const& identifier);
+			NSCAPI_EXPORT value_type infer_binary_type(object_converter converter, node_type &left, node_type &right);
+			NSCAPI_EXPORT bool can_convert(value_type src, value_type dst);
+			NSCAPI_EXPORT bool is_upper(operators op);
+			NSCAPI_EXPORT bool is_lower(operators op);
 		}
 	}
 }

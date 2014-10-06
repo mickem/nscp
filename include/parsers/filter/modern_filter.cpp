@@ -22,9 +22,9 @@ namespace modern_filter {
 	}
 
 	bool error_handler_impl::is_debug() const {
-		return debug;
+		return debug_;
 	}
-	void error_handler_impl::set_debug(bool debug_) {
-		debug = debug_;
+	void error_handler_impl::set_debug(bool debug) {
+		debug_ = debug;
 	}
 }

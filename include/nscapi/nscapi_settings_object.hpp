@@ -13,7 +13,9 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <settings/client/settings_client_interface.hpp>
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+
+#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 
@@ -226,7 +228,7 @@ namespace nscapi {
 			}
 		};
 
-		struct template_object {
+		struct NSCAPI_EXPORT template_object {
 
 			template_object() : is_template(false)  {}
 						

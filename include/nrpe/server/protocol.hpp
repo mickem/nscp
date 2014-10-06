@@ -33,7 +33,7 @@ namespace nrpe {
 
 
 		typedef std::vector<char> outbound_buffer_type;
-		typedef boost::shared_ptr<nrpe::server::handler> handler_type;
+		typedef nrpe::server::handler *handler_type;
 		typedef boost::array<char, socket_bufer_size>::iterator iterator_type;
 
 		enum state {

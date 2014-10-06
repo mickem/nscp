@@ -28,13 +28,15 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/program_options.hpp>
+#include <boost/filesystem/operations.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <settings/client/settings_client.hpp>
 #include <client/simple_client.hpp>
 
 #include <json_spirit.h>
@@ -67,9 +69,10 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 }
 
 class cli_handler : public client::cli_handler {
+	int plugin_id;
 	nscapi::core_wrapper* core;
 public:
-	cli_handler(nscapi::core_wrapper* core) : core(core) {}
+	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 
 	void output_message(const std::string &msg) {
@@ -94,6 +97,9 @@ public:
 		}
 	}
 
+	virtual int get_plugin_id() const { return plugin_id; }
+	virtual nscapi::core_wrapper* get_core() const { return core; }
+
 };
 
 class BaseController : public Mongoose::WebController
@@ -112,7 +118,7 @@ public:
 		, core(core)
 		, plugin_id(plugin_id)
 		, status("ok")
-		, client_(client::cli_handler_ptr(new cli_handler(core))){}
+		, client_(client::cli_handler_ptr(new cli_handler(core, plugin_id))){}
 
 	std::string get_status() {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
@@ -299,7 +305,7 @@ public:
 		response.setHeader("Location", "/index.html?msg=Logged+out");
 	}
 
-	void redirect_index(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+	void redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
 		response.setCode(302);
 		response.setHeader("Location", "/index.html");
 	}
@@ -497,15 +503,20 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("WEB", alias, "server");
 
-	int port;
+	std::string port;
 	std::string password;
+	std::string certificate;
 
 	settings.alias().add_path_to_settings()
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 		;
 	settings.alias().add_key_to_settings()
-		("port", sh::int_key(&port, 8080),
-		"PORT NUMBER", "Port to use for WEB.")
+		("port", sh::string_key(&port, "8443s"),
+		"PORT NUMBER", "Port to use for WEB server.")
+		;
+	settings.alias().add_key_to_settings()
+		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
+		"CERTIFICATE", "Ssl certificate to use for the ssl server")
 		;
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
@@ -519,14 +530,38 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.notify();
 
 	if (mode == NSCAPI::normalStart) {
-
-		server.reset(new Mongoose::Server(port));
-		server->registerController(new StaticController(get_core()->expand_path("${web-path}")));
-		server->registerController(new BaseController(password, get_core(), get_id()));
-		server->registerController(new RESTController(password, get_core()));
+		try {
+// 			std::list<std::string> errors;
+// 			socket_helpers::validate_certificate(certificate, errors);
+// 			NSC_LOG_ERROR_LISTS(errors);
+			std::string path = get_core()->expand_path("${web-path}");
+			boost::filesystem::path cert = get_core()->expand_path(certificate);
+			if(!boost::filesystem::is_regular_file(cert) && port == "8443s")
+				port = "8080";
+			
+			server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
+			if(!boost::filesystem::is_regular_file(cert)) {
+				NSC_LOG_ERROR("Certificate not found (disabling SSL): " + cert.string());
+			} else {
+				server->setOption("ssl_certificate", cert.string());
+			}
+			server->registerController(new StaticController(path));
+			server->registerController(new BaseController(password, get_core(), get_id()));
+			server->registerController(new RESTController(password, get_core()));
 		
-		server->setOption("extra_mime_types", ".inc=text/html,.css=text/css,.js=application/javascript");
-		server->start();
+			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
+			server->start();
+			NSC_DEBUG_MSG("Loading webserver on port: " + port);
+			if (password.empty()) {
+				NSC_LOG_ERROR("No password set please run nscp web --help");
+			}
+		} catch (const std::string &e) {
+			NSC_LOG_ERROR("Error: " + e);
+			return false;
+		} catch (...) {
+			NSC_LOG_ERROR("Error: ");
+			return false;
+		}
 
 	}
 	return true;
@@ -536,7 +571,7 @@ bool WEBServer::unloadModule() {
 	try {
 		if (server) {
 			server->stop();
-			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(2));
+			server.reset();
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("unload");
@@ -639,18 +674,14 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure;
-	unsigned int length = 1024;
-	const std::string path = "/settings/NRPE/server";
+	std::string allowed_hosts, cert, key, port;
+	const std::string path = "/settings/WEB/server";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
-	q.get(path, "insecure", "false");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
 	q.get(path, "certificate key", "${certificate-path}/certificate_key.pem");
-	q.get(path, "allow arguments", false);
-	q.get(path, "allow nasty characters", false);
-	q.get(path, "allowed ciphers", "");
+	q.get(path, "port", "8443s");
 
 
 	get_core()->settings_query(q.request(), q.response());
@@ -665,19 +696,9 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 			cert = val.get_string();
 		else if (val.path == path && val.key && *val.key == "certificate key")
 			key = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allowed ciphers")
-			chipers = val.get_string();
-		else if (val.path == path && val.key && *val.key == "insecure")
-			insecure = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
-			arguments = "true";
-		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
-			arguments = "safe";
+		else if (val.path == path && val.key && *val.key == "port")
+			port = val.get_string();
 	}
-	if (chipers == "ADH")
-		insecure = "true";
-	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
-		insecure = "false";
 
 	desc.add_options()
 		("help", "Show help.")
@@ -691,14 +712,8 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		("certificate-key", po::value<std::string>(&key)->default_value(key), 
 		"Client certificate to use")
 
-		("insecure", po::value<std::string>(&insecure)->default_value(insecure)->implicit_value("true"), 
-		"Use \"old\" legacy NRPE.")
-
-		("payload-length,l", po::value<unsigned int>(&length)->default_value(1024), 
-		"Length of payload (has to be same as on both the server and client)")
-
-		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"), 
-		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+		("port", po::value<std::string>(&port)->default_value(port), 
+		"Port to use suffix with s for ssl")
 
 		;
 
@@ -717,37 +732,15 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		std::stringstream result;
 
 		nscapi::protobuf::functions::settings_query s(get_id());
-		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
+		result << "Enabling WEB from (currently not supported): " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
-		s.set("/modules", "NRPEServer", "enabled");
-		s.set("/settings/NRPE/server", "ssl", "true");
-		if (insecure == "true") {
-			result << "WARNING: NRPE is currently insecure." << std::endl;
-			s.set("/settings/NRPE/server", "insecure", "true");
-			s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
-		} else {
-			result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
-			s.set("/settings/NRPE/server", "insecure", "false");
-			s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-			s.set("/settings/NRPE/server", "certificate", cert);
-			s.set("/settings/NRPE/server", "certificate key", key);
-		}
-		if (arguments == "all" || arguments == "unsafe") {
-			result << "UNSAFE Arguments are allowed." << std::endl;
-			s.set(path, "allow arguments", "true");
-			s.set(path, "allow nasty characters", "true");
-		} else if (arguments == "safe" || arguments == "true") {
-			result << "SAFE Arguments are allowed." << std::endl;
-			s.set(path, "allow arguments", "true");
-			s.set(path, "allow nasty characters", "false");
-		} else {
-			result << "Arguments are NOT allowed." << std::endl;
-			s.set(path, "allow arguments", "false");
-			s.set(path, "allow nasty characters", "false");
-		}
-		s.set(path, "payload length", strEx::s::xtos(length));
-		if (length != 1024)
-			result << "NRPE is using non standard payload length " << length << " please use same configuration in check_nrpe." << std::endl;
+		s.set("/modules", "WEBServer", "enabled");
+		if (port.find('s') != std::string::npos)
+			result << "HTTP(s) is enabled using " << cert << " and " << key << "." << std::endl;
+		s.set(path, "certificate", cert);
+		s.set(path, "certificate key", key);
+		result << "Point your browser to: " << port << std::endl;
+		s.set(path, "port", port);
 		s.save();
 		get_core()->settings_query(s.request(), s.response());
 		if (!s.validate_response()) {
@@ -841,6 +834,6 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 
 	} else {
 		nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
-		return true;
 	}
+	return true;
 }

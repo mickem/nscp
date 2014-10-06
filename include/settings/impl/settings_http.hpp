@@ -73,7 +73,7 @@ namespace settings {
 
 		bool cache_remote_file(const net::url &url, const boost::filesystem::path &local_file) {
 			boost::filesystem::path tmp_file = local_file.string() + ".tmp";
-			std::ofstream os(tmp_file.c_str());
+			std::ofstream os(tmp_file.string().c_str());
 			std::string error;
 			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
 				os.close();

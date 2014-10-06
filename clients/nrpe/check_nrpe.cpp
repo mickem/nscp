@@ -112,13 +112,13 @@ struct client_handler : public socket_helpers::client::client_handler {
 	std::string getFolder(std::string key) {
 		std::string default_value = getBasePath().string();
 		if (key == "certificate-path") {
-			default_value = "${shared-path}/security";
+			default_value = CERT_FOLDER;
 		} else if (key == "module-path") {
-			default_value = "${shared-path}/modules";
+			default_value = MODULE_FOLDER;
 		} else if (key == "web-path") {
-			default_value = "${shared-path}/web";
+			default_value = WEB_FOLDER;
 		} else if (key == "scripts") {
-			default_value = "${shared-path}/scripts";
+			default_value = SCRIPTS_FOLDER;
 		} else if (key == CACHE_FOLDER_KEY) {
 			default_value = DEFAULT_CACHE_PATH;
 		} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {

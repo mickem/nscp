@@ -19,8 +19,8 @@ ENDIF(WIN32)
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 
-ADD_LIBRARY(${TARGET} ${SRCS})
-target_link_libraries(${TARGET} protobuf)
+ADD_LIBRARY(${TARGET} STATIC ${SRCS})
+target_link_libraries(${TARGET} nscp_protobuf)
 ADD_DEPENDENCIES(${TARGET} protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")

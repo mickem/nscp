@@ -21,6 +21,13 @@
 
 #include <boost/shared_ptr.hpp>
 
+#include <socket/socket_helpers.hpp>
+
+//#define MONGOOSE_NO_FILESYSTEM
+#define MONGOOSE_NO_AUTH
+#define MONGOOSE_NO_CGI
+#define MONGOOSE_NO_SSI
+
 #include <mongoose/Server.h>
 #include <mongoose/WebController.h>
 #include <mongoose/StreamResponse.h>

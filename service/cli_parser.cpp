@@ -5,6 +5,10 @@
 #include <config.h>
 #include <nsclient/logger.hpp>
 
+#include <settings/settings_core.hpp>
+#include "../libs/settings_manager/settings_manager_impl.h"
+
+
 namespace po = boost::program_options;
 nsclient::logging::logger_interface* get_logger() {
 	return nsclient::logging::logger::get_logger(); 
@@ -21,6 +25,7 @@ void info(unsigned int line, const std::string &message, const std::string &utf)
 
 cli_parser::cli_parser(NSClient* core) 
 	: core_(core)
+	, common_light("Common options")
 	, common("Common options")
 	, settings("Settings options")
 	, service("Service Options")
@@ -31,11 +36,15 @@ cli_parser::cli_parser(NSClient* core)
 	, log_debug(false)
 	, no_stderr(false)
 {
-	common.add_options()
+	common_light.add_options()
 		("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
-		("help", po::bool_switch(&help), "produce help message")
 		("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
 		("log", po::value<std::vector<std::string> >(&log_level), "The log level to use")
+		("define", po::value<std::vector<std::string> >(&defines), "Defines to use to override settings. Syntax is PATH:KEY=VALUE")
+		;
+
+	common.add_options()
+		("help", po::bool_switch(&help), "produce help message")
 		("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
 		("version", po::bool_switch(&version), "Show version information")
 		;
@@ -224,7 +233,7 @@ po::basic_parsed_options<char> cli_parser::do_parse(int argc, char* argv[], po::
 void cli_parser::display_help() {
 	try {
 		po::options_description all("Allowed options");
-		all.add(common).add(service).add(settings).add(client).add(test).add(unittest);
+		all.add(common_light).add(common).add(service).add(settings).add(client).add(test).add(unittest);
 		std::cout << all << std::endl;
 
 		std::cout << "First argument has to be one of the following: ";
@@ -255,7 +264,7 @@ int cli_parser::parse_help(int argc, char* argv[]) {
 int cli_parser::parse_settings(int argc, char* argv[]) {
 	try {
 		po::options_description all("Allowed options (settings)");
-		all.add(common).add(settings);
+		all.add(common_light).add(common).add(settings);
 
 		po::variables_map vm;
 		po::store(do_parse(argc, argv, all), vm);
@@ -320,7 +329,7 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 int cli_parser::parse_service(int argc, char* argv[]) {
 	try {
 		po::options_description all("Allowed options (service)");
-		all.add(common).add(service);
+		all.add(common_light).add(common).add(service);
 
 		po::variables_map vm;
 		po::store(do_parse(argc, argv, all), vm);
@@ -415,13 +424,26 @@ struct client_arguments {
 
 	}
 
-	int exec_client_mode(NSClient* core_) {
+	int exec_client_mode(NSClient* core_, const std::vector<std::string> &defines) {
 		try {
 			if (module == "CommandClient")
 				boot = true;
 			debug();
 
 			core_->boot_init(true);
+			BOOST_FOREACH(const std::string &s, defines) {
+				std::string::size_type p1 = s.find(":");
+				if (p1 == std::string::npos) {
+					std::cerr << "Failed to parse: " << s << std::endl;
+					continue;
+				}
+				std::string::size_type p2 = s.find("=", p1);
+				if (p2 == std::string::npos) {
+					std::cerr << "Failed to parse: " << s << std::endl;
+					continue;
+				}
+				settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1+1, p2-p1-1), s.substr(p2+1));
+			}
 			if (load_all)                                                                                                                                                    
 				core_->preboot_load_all_plugin_files();
 			if (module.empty() || module == "CommandClient")
@@ -488,7 +510,10 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 
 		args.module = module_;
 		po::options_description all("Allowed options (client)");
-		all.add(common).add(client);
+		if (!module_.empty())
+			all.add(common_light);
+		else
+			all.add(common_light).add(common).add(client);
 
 		po::positional_options_description p;
 		p.add("arguments", -1);
@@ -556,7 +581,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 				args.arguments.push_back(s.substr(pos+1));
 			}
 		}
-		return args.exec_client_mode(core_);
+		return args.exec_client_mode(core_, defines);
 	} catch(const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
@@ -571,7 +596,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		client_arguments args;
 		settings_store = "dummy";
 		po::options_description all("Allowed options (client)");
-		all.add(common).add(unittest);
+		all.add(common_light).add(common).add(unittest);
 
 		po::positional_options_description p;
 		p.add("arguments", -1);
@@ -639,7 +664,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 				args.arguments.push_back(s.substr(pos+1));
 			}
 		}
-		return args.exec_client_mode(core_);
+		return args.exec_client_mode(core_, defines);
 	} catch(const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;

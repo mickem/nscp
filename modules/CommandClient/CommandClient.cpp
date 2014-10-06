@@ -19,6 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include "CommandClient.h"
+#include <iostream>
 
 #include <boost/make_shared.hpp>
 
@@ -26,46 +27,37 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
 
 
 namespace sh = nscapi::settings_helper;
 
 using namespace std;
 
-struct client_handler : public client::cli_handler {
-
-
-	virtual void output_message(const std::string &msg)  {
-		if (msg.find("\n") == std::string::npos) {
-			NSC_LOG_MESSAGE(msg);
-		} else {
-			NSC_LOG_MESSAGE("Long message\n" + msg);
-		}
+void client_handler::output_message(const std::string &msg)  {
+	if (msg.find("\n") == std::string::npos) {
+		NSC_LOG_MESSAGE(msg);
+	} else {
+		NSC_LOG_MESSAGE("Long message\n" + msg);
 	}
-
-	virtual void log_debug(std::string module, std::string file, int line, std::string msg) const {
-		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			 GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
-		}
-	}
-
-	virtual void log_error(std::string module, std::string file, int line, std::string msg) const
-	{
-		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
-		}
-	}
-
-};
-
-CommandClient::CommandClient() : client(client::cli_handler_ptr(new client_handler())) {
 }
-CommandClient::~CommandClient() {}
 
+void client_handler::log_debug(std::string module, std::string file, int line, std::string msg) const {
+	if (get_core()->should_log(NSCAPI::log_level::debug)) {
+		get_core()->log(NSCAPI::log_level::debug, file, line, msg);
+	}
+}
 
-
+void client_handler::log_error(std::string module, std::string file, int line, std::string msg) const
+{
+	if (get_core()->should_log(NSCAPI::log_level::debug)) {
+		get_core()->log(NSCAPI::log_level::error, file, line, msg);
+	}
+}
 
 bool CommandClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+	client::cli_handler_ptr handler(new client_handler(get_core(), get_id()));
+	client.reset(new client::cli_client(handler));
 	return true;
 }
 
@@ -119,10 +111,10 @@ bool CommandClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request
 		std::string s;
 		std::getline(std::cin, s);
 		if (s == "exit") {
-			nscapi::protobuf::functions::set_response_bad(*response, "Done");
+			nscapi::protobuf::functions::set_response_good(*response, "Done");
 			return true;
 		}
-		client.handle_command(s);
+		client->handle_command(s);
 
 	}
 }

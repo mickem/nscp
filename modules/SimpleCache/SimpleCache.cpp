@@ -38,7 +38,7 @@
 
 #include <parsers/expression/expression.hpp>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 #include "SimpleCache.h"
 
@@ -138,7 +138,7 @@ bool SimpleCache::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
-	nscapi::core_helper::core_proxy core(get_core(), get_id());
+	nscapi::core_helper core(get_core(), get_id());
 	core.register_channel(channel);
 
 	parsers::simple_expression parser;

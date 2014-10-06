@@ -9,22 +9,18 @@ from string import Template
 
 msver = '2005'
 CONFIG_TEMPLATE = """
+SET(USE_STATIC_RUNTIME FALSE)
 SET(LIBRARY_ROOT_FOLDER	"${root}")
-set(Boost_USE_STATIC_LIBS		ON)
-set(Boost_USE_STATIC_RUNTIME	ON)
-set(BOOST_USE_MULTITHREADED		ON)
 SET(BOOST_ROOT "$${LIBRARY_ROOT_FOLDER}/${boost}")
 SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
-SET(TINYXML2_DIR "$${LIBRARY_ROOT_FOLDER}/${TinyXML2}")
-#SET(PROTOC_GEN_LUA "C:/Python/27x64/Scripts/")
-#SET(PROTOBUF_LIBRARY_SUFFIX "-lite")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf}")
-SET(GTEST_ROOT "$${LIBRARY_ROOT_FOLDER}/${gtest}")
 SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/out32")
 SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl}/include")
-SET(ZEROMQ_ROOT "$${LIBRARY_ROOT_FOLDER}/${ZeroMQ}")
-SET(CRYPTOPP_DIR "$${LIBRARY_ROOT_FOLDER}/${cryptopp}")
 SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua}")
+#SET(PYTHON_ROOT "TODO")
+#SET(BREAKPAD_ROOT "TODO")
+#SET(ARCHIVE_FOLDER "TODO")
+#SET(TARGET_SITE "TODO")
 """
 
 def find_compressor(path):
@@ -79,15 +75,11 @@ def get_root_from_file(path):
 	return None
 
 targets = [
-	'cryptopp',
 	'lua',
 	'boost',
 	'openssl',
 	'protobuf',
-	'TinyXML2',
-	'ZeroMQ',
-	'breakpad',
-	'gtest'
+	'breakpad'
 ]
 
 class source:
@@ -228,22 +220,14 @@ class build_instruction:
 		self.exec_build(folder, source, self.pre_x64, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
-#sources['cryptopp'] = source('cryptopp561.zip', 'http://www.cryptopp.com/cryptopp561.zip', '31dbb456c21f50865218c57b7eaf4c955a222ba1')
-#sources['cryptopp'].folder = 'cryptopp-5.6.1'
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
 sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.52.0/boost_1_52_0.zip/download', '5cfe29351e0b734993a2e6717e22b709680dd132')
 
-#sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
-#sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
-#sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
 sources['openssl'] = source('openssl-1.0.1h.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1h.tar.gz', 'b2239599c8bf8f7fc48590a55205c26abe560bf8')
 
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
-sources['TinyXML2'] = source('tinyxml2-master.zip', 'https://github.com/leethomason/tinyxml2/zipball/master')
-sources['ZeroMQ'] = source('zeromq-2.2.0.zip', 'http://download.zeromq.org/zeromq-2.2.0.zip')
-sources['gtest'] = source('gtest-1.6.0.zip', 'http://googletest.googlecode.com/files/gtest-1.6.0.zip', '00d6be170eb9fc3b2198ffdcb1f1d6ba7fc6e621')
 
 build = {}
 post_build = {}
@@ -251,57 +235,56 @@ post_build = {}
 
 build['boost'] = build_instruction(
 	['bootstrap.bat'], 
-	['bjam --toolset=$boost-version$ runtime-link=static'],
-	['bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
+	['bjam --toolset=$boost-version$ runtime-link=shared link=shared', 'bjam --toolset=$boost-version$ runtime-link=static'],
+	['bjam --toolset=$boost-version$ runtime-link=shared link=shared address-model=64', 'bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
 	[]
 	)
 
-build['openssl'] = build_instruction(
+build['openssl-d'] = build_instruction(
+	[], 
+	['perl Configure VC-WIN32', 'ms\\do_ms'],
+	['perl Configure VC-WIN64A', 'ms\\do_win64a'],
+	['nmake -f ms\\ntdll.mak']
+	)
+build['openssl-s'] = build_instruction(
 	[], 
 	['perl Configure VC-WIN32', 'ms\\do_ms'],
 	['perl Configure VC-WIN64A', 'ms\\do_win64a'],
 	['nmake -f ms\\nt.mak']
 	)
 
-build['protobuf'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'], 
+build['protobuf-d'] = build_instruction(
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'], 
 	[],
 	[],
 	[
-		'msbuild vsprojects\\libprotobuf.vcproj /p:Configuration=Release',
-		'msbuild vsprojects\\libprotobuf.vcproj /p:Configuration=Debug',
-		'msbuild vsprojects\\libprotoc.vcproj /p:Configuration=Release',
-		'msbuild vsprojects\\libprotoc.vcproj /p:Configuration=Debug',
-		'msbuild vsprojects\\protoc.vcproj /p:Configuration=Release',
-		'msbuild vsprojects\\protoc.vcproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug',
 		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release',
 		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug'
 	]
 	)
-build['protobuf'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
-
-build['ZeroMQ'] = build_instruction(
-	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'
-#		,'$$TODO: Apply debug patch$$'
-		], 
+build['protobuf-d'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
+build['protobuf-s'] = build_instruction(
+	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-static.py', 'python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'], 
 	[],
 	[],
-	['msbuild builds\\msvc\\msvc.sln /p:Configuration=Release', 'msbuild builds\\msvc\\msvc.sln /p:Configuration=Release']
+	[
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug'
+	]
 	)
-build['ZeroMQ'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
-
-#build['cryptopp'] = build_instruction(
-#	['python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x.py $$MSVER$$'],
-#	['msbuild cryptlib.vcproj /p:Configuration=Release', 'msbuild cryptlib.vcproj /p:Configuration=Debug'],
-#	['msbuild cryptlib.vcproj /p:Configuration=Release /p:Platform=x64', 'msbuild cryptlib.vcproj /p:Configuration=Debug /p:Platform=x64'],
-#	[]
-#	)
-build['gtest'] = build_instruction(
-	[],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$" & exit /b0"'],
-	['cmd /c "cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & cmake . -Dgtest_disable_pthreads=true -G "$$CMAKE_GENERATOR$$ Win64" & exit /b0"'],
-	['msbuild gtest.sln /p:Configuration=Release', 'msbuild gtest.sln /p:Configuration=Debug']
-	)
+build['protobuf-s'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
 
 boost_version = {}
 boost_version['2005'] = "msvc-8.0"
@@ -354,17 +337,26 @@ def decompress_sources(root):
 		else:
 			print 'ERR  %s has to be manually downloaded'%t
 
-def build_source(root, target, source):
+def build_source(root, target, source, dyn):
 	for t in targets:
-		if t in build:
+		suffix = 's'
+		if dyn:
+			suffix = 'd'
+		key = '%s-%s'%(t,suffix)
+		builder = None
+		if key in build:
+			builder = build[key]
+		elif t in build:
+			builder = build[t]
+
+		if builder:
 			folder = root
 			if t in sources:
 				folder = sources[t].get_target_folder(root)
-			b = build[t]
 			if target == 'x64':
-				b.build_x64(folder, source)
+				builder.build_x64(folder, source)
 			else:
-				b.build_w32(folder, source)
+				builder.build_w32(folder, source)
 		else:
 			print 'OK   %s does not require building'%t
 
@@ -418,6 +410,7 @@ parser.add_option("-t", "--target", help="Which target architecture to build (wi
 parser.add_option("-c", "--cmake-config", help="Folder to place cmake configuration file in")
 parser.add_option("-D", "--cmake-define", action="append", help="Set other variables in the cmake config file")
 parser.add_option("-s", "--source", help="Location of the nscp source folder")
+parser.add_option("-y", "--dyn", action="store_true", help="Use dynamic link")
 parser.add_option("--msver", default='2005', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
@@ -440,7 +433,7 @@ if not os.path.exists(options.source):
 
 fetch_sources(options.directory)
 decompress_sources(options.directory)
-build_source(options.directory, options.target, options.source)
+build_source(options.directory, options.target, options.source, options.dyn)
 if options.cmake_config:
 	write_config(options.directory, options.cmake_config, options.cmake_define)
 	post_build_source(options.directory, options.cmake_config, options.target, options.source)

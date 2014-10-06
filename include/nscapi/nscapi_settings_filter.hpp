@@ -3,15 +3,17 @@
 #include <map>
 #include <string>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
+#include <nscapi/dll_defines.hpp>
+
 namespace nscapi {
 	namespace settings_filters {
-		struct filter_object {
+		struct NSCAPI_EXPORT filter_object {
 
 			bool debug;
 

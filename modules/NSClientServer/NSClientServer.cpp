@@ -25,13 +25,15 @@
 #include <strEx.h>
 #include <time.h>
 #include "handler_impl.hpp"
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
+
+#include <settings/config.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -75,7 +77,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 #ifndef USE_SSL
 	if (info_.use_ssl) {
-		NSC_LOG_ERROR_STD(_T("SSL not avalible! (not compiled with openssl support)"));
+		NSC_LOG_ERROR_STD(_T("SSL not available! (not compiled with openssl support)"));
 	}
 #endif
 	NSC_LOG_ERROR_LISTS(info_.validate());
@@ -158,7 +160,7 @@ void split_to_list(std::list<std::string> &list, const std::string str, const st
 
 void log_bad_command(const std::string &cmd) {
 	if (cmd == "check_cpu" || cmd == "check_uptime" || cmd == "check_memory") {
-		NSC_LOG_ERROR(cmd + " failed to execute have you loaded CheckSystem? ([/modules] CheckSystem=enabled)");
+		NSC_LOG_ERROR(cmd + std::string(" failed to execute have you loaded CheckSystem? ([" MAIN_MODULES_SECTION "] CheckSystem=enabled)"));
 	} else {
 		NSC_LOG_ERROR("Unknown command: " + cmd);
 	}
@@ -175,9 +177,10 @@ inline long long extract_perf_value_i(const ::Plugin::Common_PerformanceData &pe
 }
 
 
-std::string list_instance(std::string counter) {
+std::string NSClientServer::list_instance(std::string counter) {
 	std::list<std::string> exeresult;
-	nscapi::core_helper::exec_simple_command("CheckSystem", "pdh", boost::assign::list_of(std::string("--list"))("--porcelain")("--counter")(counter)("--no-counters"), exeresult);
+	nscapi::core_helper ch(get_core(), get_id());
+	ch.exec_simple_command("CheckSystem", "pdh", boost::assign::list_of(std::string("--list"))("--porcelain")("--counter")(counter)("--no-counters"), exeresult);
 	std::string result;
 
 	typedef std::basic_istringstream<char> wistringstream;
@@ -248,7 +251,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			args.push_back("perf-config=used(unit:B)free(unit:B)");
 			break;
 		case REQ_CLIENTVERSION:
-			return check_nt::packet(nscapi::plugin_singleton->get_core()->getApplicationName() + " " + nscapi::plugin_singleton->get_core()->getApplicationVersionString());
+			return check_nt::packet(get_core()->getApplicationName() + " " + get_core()->getApplicationVersionString());
 		case REQ_SERVICESTATE:
 			cmd.first = "check_service";
 			split_to_list(args, cmd.second, "service");
@@ -301,7 +304,8 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	}
 
 	std::string response;
-	NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd.first, args, response);
+	nscapi::core_helper ch(get_core(), get_id());
+	NSCAPI::nagiosReturn ret = ch.simple_query(cmd.first, args, response);
 	if (ret != NSCAPI::isSuccess) {
 		log_bad_command(cmd.first);
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");

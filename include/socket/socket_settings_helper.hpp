@@ -2,9 +2,9 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include <settings/client/settings_client.hpp>
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace socket_helpers {
 	struct settings_helper {
@@ -17,7 +17,7 @@ namespace socket_helpers {
 				;
 		}
 
-		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string certificate = "${certificate-path}/certificate.pem", std::string key = "${certificate-path}/certificate_key.pem", std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
+		static void add_ssl_server_opts(nscapi::settings_helper::settings_registry &settings, socket_helpers::connection_info &info_, bool ssl_default, std::string certificate = "${certificate-path}/certificate.pem", std::string key = "", std::string default_cipher = "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") {
 			settings.alias().add_key_to_settings()
 
 				("use ssl", nscapi::settings_helper::bool_key(&info_.ssl.enabled, ssl_default),
@@ -42,7 +42,15 @@ namespace socket_helpers {
 				"ALLOWED CIPHERS", "", true)
 
 				("verify mode", nscapi::settings_helper::string_key(&info_.ssl.verify_mode, "none"),
-				"VERIFY MODE", "", true)
+				"VERIFY MODE", "Comma separated list of verification flags to set on the SSL socket.\n\n"
+				"none\tThe server will not send a client certificate request to the client, so the client will not send a certificate.\n"
+				"peer\tThe server sends a client certificate request to the client and the certificate returned (if any) is checked.\n"
+				"fail-if-no-cert\tif the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together with peer.\n"
+				"peer-cert\tAlias for peer and fail-if-no-cert.\n"
+				"workarounds\tVarious bug workarounds.\n"
+				"single\tAlways create a new key when using tmp_dh parameters.\n"
+				"client-once\tOnly request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer\n"
+				"\n\n", true)
 
 				;
 		}

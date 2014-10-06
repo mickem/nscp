@@ -24,7 +24,7 @@
 
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
@@ -35,7 +35,7 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	thread_.reset(new real_time_thread);
+	thread_.reset(new real_time_thread(get_core(), get_id()));
 
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "logfile");

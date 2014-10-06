@@ -12,7 +12,7 @@
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 
 nsclient::logging::impl::raw_subscribers subscribers_;
@@ -156,23 +156,24 @@ public:
 				}
 				delete [] tmpBuffer;
 			}
-			std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
-			if (!stream) {
-				log_fatal("File could not be opened, Discarding: " + format::strip_ctrl_chars(data));
-			}
 			std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
 
 			Plugin::LogEntry message;
 			if (!message.ParseFromString(data)) {
 				log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			} else {
+				std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
 				for (int i=0;i<message.entry_size();i++) {
 					Plugin::LogEntry::Entry msg = message.entry(i);
-					stream << date
-						<< (": ") << utf8::cvt<std::string>(render_log_level_long(msg.level()))
-						<< (":") << msg.file()
-						<< (":") << msg.line()
-						<< (": ") << msg.message() << "\n";
+					if (!stream) {
+						log_fatal("File could not be opened, Discarding: " + utf8::cvt<std::string>(render_log_level_long(msg.level())) + ": " + msg.message());
+					} else {
+						stream << date
+							<< (": ") << utf8::cvt<std::string>(render_log_level_long(msg.level()))
+							<< (":") << msg.file()
+							<< (":") << msg.line()
+							<< (": ") << msg.message() << "\n";
+					}
 				}
 			}
 		} catch (std::exception &e) {

@@ -23,7 +23,7 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -112,7 +112,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			add_script("default", "default_check_mk.lua");
 		}
 
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
 
 		scripts_->load_all();
@@ -172,7 +172,7 @@ void CheckMKClient::add_target(std::string key, std::string arg) {
 
 void CheckMKClient::add_command(std::string name, std::string args) {
 	try {
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		std::string key = commands.add_command(name, args);
 		if (!key.empty())
 			core.register_command(key.c_str(), "check_mk relay for: " + name);
@@ -296,16 +296,6 @@ CheckMKClient::connection_data parse_header(const ::Plugin::Common_Header &heade
 // Parser implementations
 //
 
-std::string gather_and_log_errors(std::string  &payload) {
-	NSCPIPC::ErrorMessage message;
-	message.ParseFromString(payload);
-	std::string ret;
-	for (int i=0;i<message.error_size();i++) {
-		ret += message.error(i).message();
-		NSC_LOG_ERROR_STD("Error: " + message.error(i).message());
-	}
-	return ret;
-}
 int CheckMKClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	const ::Plugin::Common_Header& request_header = request_message.header();
 	int ret = NSCAPI::returnUNKNOWN;

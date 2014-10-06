@@ -7,11 +7,14 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/optional.hpp>
 
+#include <parsers/where/dll_defines.hpp>
+
 namespace parsers {
 	namespace where {
 
-		struct filter_exception : public std::exception {
+		class NSCAPI_EXPORT filter_exception : public std::exception {
 			std::string what_;
+		public:
 			filter_exception(std::string what) : what_(what) {}
 			~filter_exception() throw () {}
 			const char* what() const throw () {
@@ -24,7 +27,7 @@ namespace parsers {
 			op_eq, op_le, op_lt, op_gt, op_ge, op_ne, op_in, op_nin, op_or, op_and, op_inv, op_not, op_like, op_not_like, op_binand, op_binor, op_regexp, op_not_regexp
 		};
 
-		enum value_type {
+		enum NSCAPI_EXPORT value_type {
 			type_invalid = 99, type_tbd = 66, type_multi = 88,
 			type_int = 1, type_bool = 2, 
 			type_string = 10, 
@@ -107,7 +110,7 @@ namespace parsers {
 			performance_node() {}
 
 		};
-		struct performance_collector {
+		struct NSCAPI_EXPORT performance_collector {
 			typedef std::map<std::string,performance_node> boundries_type;
 		private:
 			boundries_type boundries;
@@ -160,7 +163,7 @@ namespace parsers {
 		};
 		typedef boost::shared_ptr<object_factory_interface> object_factory;
 
-		struct any_node {
+		struct NSCAPI_EXPORT any_node {
 		private:
 			value_type type;
 		public:
@@ -207,21 +210,21 @@ namespace parsers {
 
 
 		struct factory {
-			static node_type create_list(const std::list<std::string> &other);
-			static list_node_type create_list();
-			static node_type create_list(const std::list<long long> &other);
-			static node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
-			static node_type create_un_op(const operators op, node_type node);
-			static node_type create_conversion(node_type node);
-			static node_type create_fun(object_factory factory, const std::string op, node_type node);
-			static node_type create_string(const std::string &value);
-			static node_type create_int(const long long &value);
-			static node_type create_ios(const long long &value);
-			static node_type create_ios(const std::string &value);
-			static node_type create_neg_int(const long long &value);
-			static node_type create_variable(object_factory factory, const std::string &name);
-			static node_type create_false();
-			static node_type create_true();
+			static NSCAPI_EXPORT node_type create_list(const std::list<std::string> &other);
+			static NSCAPI_EXPORT list_node_type create_list();
+			static NSCAPI_EXPORT node_type create_list(const std::list<long long> &other);
+			static NSCAPI_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
+			static NSCAPI_EXPORT node_type create_un_op(const operators op, node_type node);
+			static NSCAPI_EXPORT node_type create_conversion(node_type node);
+			static NSCAPI_EXPORT node_type create_fun(object_factory factory, const std::string op, node_type node);
+			static NSCAPI_EXPORT node_type create_string(const std::string &value);
+			static NSCAPI_EXPORT node_type create_int(const long long &value);
+			static NSCAPI_EXPORT node_type create_ios(const long long &value);
+			static NSCAPI_EXPORT node_type create_ios(const std::string &value);
+			static NSCAPI_EXPORT node_type create_neg_int(const long long &value);
+			static NSCAPI_EXPORT node_type create_variable(object_factory factory, const std::string &name);
+			static NSCAPI_EXPORT node_type create_false();
+			static NSCAPI_EXPORT node_type create_true();
 		};
 	}
 }

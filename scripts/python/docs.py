@@ -5,10 +5,8 @@ import plugin_pb2
 from optparse import OptionParser
 from sets import Set
 import os
-import csv
 import traceback
-import StringIO
-import string
+#import string
 from jinja2 import Template, Environment
 import hashlib
 helper = None
@@ -49,10 +47,10 @@ A list of all short hand aliases for queries (check commands)
 {% for key,query in module.aliases|dictsort  -%}
 	{% if query.info.description.startswith('Alternative name for:') -%}
 		{% set command = query.info.description[22:] -%}
-		{% do table.append([query.key, command|rst_link('query')]) -%}
+		{% do table.append([query.key, "Alias for: " + command|rst_link('query')]) -%}
 	{%- elif query.info.description.startswith('Alias for:') -%}
 		{% set command = query.info.description[11:] -%}
-		{% do table.append([query.key, command|rst_link('query')]) -%}
+		{% do table.append([query.key, "Alias for: " + command|rst_link('query')]) -%}
 	{%- else -%}
 		{% do table.append([query.key, query.info.description|firstline]) -%}
 	{%- endif %}
@@ -153,7 +151,12 @@ Samples
 
 {% for pkey,path in module.paths|dictsort %}
 {% set common_heading=module.paths.keys()|common_head|length %}
+{% if common_heading != pkey|length -%}
 {{("… " + pkey[common_heading:])|replace("/", " / ")|rst_heading}}
+{%- else -%}
+{{pkey|replace("/", "/ ")|rst_heading}}
+{%- endif %}
+
 .. confpath:: {{pkey}}
     :synopsis: {{path.info.title|firstline}}
 
@@ -167,44 +170,71 @@ Samples
     {% set kkey = k|rst_link('confkey') -%}
     {% do table.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
 {%- endfor %}
-{{table|rst_csvtable('Key', 'Default Value', 'Description')}}
-
-**Sample**::
-
-    # {{path.info.title}}
-    # {{path.info.description|firstline}}
-    [{{path.key}}]
-{% for kkey,key in path.keys|dictsort %}    {{kkey}}={{key.info.default_value|extract_value}}
-{% endfor %}
-{% for kkey,key in path.keys|dictsort %}
-.. confkey:: {{kkey}}
-    :synopsis: {{key.info.title}}
-
-    **{{key.info.title}}**
-
-{{key.info.description|block_pad(4, '| ')}}
-
-{% if key.info.advanced %}    **Advanced** (means it is not commonly used)
-
-{% endif %}    **Path**: {{path.key}}
-
-    **Key**: {{kkey}}
-
-{% if key.info.default_value %}    **Default value**: {{key.info.default_value|extract_value}}
-
-{% endif %}{% if key.info.sample %}    **Sample key**: This key is provided as a sample to show how to configure objects
-
-{% endif %}    **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+{{table|rst_csvtable('Key', 'Default Value', 'Description')|block_pad(4)}}
 
     **Sample**::
 
+        # {{path.info.title}}
+        # {{path.info.description|firstline}}
         [{{path.key}}]
-        # {{key.info.title}}
-        {{kkey}}={{key.info.default_value|extract_value}}
+{% for kkey,key in path.keys|dictsort %}        {{kkey}}={{key.info.default_value|extract_value}}
+{% endfor %}
+{% for kkey,key in path.keys|dictsort %}
+    .. confkey:: {{kkey}}
+        :synopsis: {{key.info.title}}
+
+        **{{key.info.title}}**
+
+{%if key.ext -%}
+{{key.ext.head|block_pad(8, '| ')}}
+
+{{key.ext.data|rst_table|block_pad(8, '  ')}}
+
+{{key.ext.tail|block_pad(8, '| ')}}
+
+{% else -%}
+{{key.info.description|block_pad(8, '| ')}}
+{%- endif %}
+
+{% if key.info.advanced %}        **Advanced** (means it is not commonly used)
+
+{% endif %}        **Path**: {{path.key}}
+
+        **Key**: {{kkey}}
+
+{% if key.info.default_value %}        **Default value**: {{key.info.default_value|extract_value}}
+
+{% endif %}{% if key.info.sample %}        **Sample key**: This key is provided as a sample to show how to configure objects
+
+{% endif %}        **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+
+        **Sample**::
+
+            [{{path.key}}]
+            # {{key.info.title}}
+            {{kkey}}={{key.info.default_value|extract_value}}
 
 {% endfor %}
 {% endfor %}
 """
+
+def split_argllist(name, desc):
+	extdata = {}
+	spos = desc.find('\n\n')
+	if spos != -1:
+		epos = desc.find('\n\n', spos+2)
+		if epos != -1:
+			pos = desc.find('\t', spos+2, epos)
+			if pos != -1:
+				extdata['head'] = desc[:spos]
+				extdata['tail'] = desc[epos+2:]
+				data = desc[spos+2:epos]
+				rows = data.split('\n')
+				tbl = []
+				for r in rows:
+					tbl.append(r.split('\t'))
+				extdata['data'] = tbl
+	return extdata
 
 class root_container(object):
 	paths = {}
@@ -212,6 +242,10 @@ class root_container(object):
 	aliases = {}
 	plugins = {}
 	windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins']
+	check_modules = ['CheckDisk',  'CheckEventLog',  'CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP',  'CheckSystem',  'CheckSystemUnix',  'CheckTaskSched',  'CheckWMI']
+	client_modules = ['GraphiteClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
+	generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter',  'WEBServer']
+
 	def __init__(self):
 		self.paths = {}
 		self.commands = {}
@@ -247,6 +281,15 @@ class root_container(object):
 		namespace = ''
 		if name in self.windows_modules:
 			namespace = 'windows'
+		elif name in self.check_modules:
+			namespace = 'check'
+		elif name in self.client_modules:
+			namespace = 'client'
+		elif name in self.generic_modules:
+			namespace = 'generic'
+		else:
+			namespace = 'misc'
+			
 		if not name in self.plugins:
 			self.plugins[name] = plugin_container(info, namespace)
 			
@@ -266,7 +309,15 @@ class path_container(object):
 		self.info = info.info
 		
 	def append_key(self, info):
-		self.keys[info.node.key] = info
+		extdata = split_argllist(info.node.key, info.info.description)
+		if extdata:
+			ninfo = {}
+			ninfo['info'] = info.info
+			ninfo['node'] = info.node
+			ninfo['ext'] = extdata
+			self.keys[info.node.key] = ninfo
+		else:
+			self.keys[info.node.key] = info
 
 class command_container(object):
 	info = None
@@ -380,7 +431,7 @@ def render_template(hash, template, filename):
 			return
 
 	log_debug('Writing file: %s'%filename)
-	f = open(filename,"w")
+	f = open(filename,"wb")
 	f.write(data)
 	f.close()
 
@@ -447,30 +498,33 @@ class DocumentationHelper(object):
 		return []
 
 	def get_queries(self):
+		log_debug('Fetching queries...')
 		(code, data) = self.registry.query(self.build_command_request(1))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.inventory:
-					log_debug('Found %d commands'%len(payload.inventory))
+					log_debug('Found %d queries'%len(payload.inventory))
 					return payload.inventory
-		log_error('No commands found')
+		log_error('No queries found')
 		return []
 
 	def get_query_aliases(self):
+		log_debug('Fetching aliases...')
 		(code, data) = self.registry.query(self.build_command_request(5))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
 			message.ParseFromString(data)
 			for payload in message.payload:
 				if payload.inventory:
-					log_debug('Found %d commands'%len(payload.inventory))
+					log_debug('Found %d aliases'%len(payload.inventory))
 					return payload.inventory
-		log_error('No commands found')
+		log_error('No aliases found')
 		return []
 
 	def get_plugins(self):
+		log_debug('Fetching plugins...')
 		(code, data) = self.registry.query(self.build_command_request(7))
 		if code == 1:
 			message = plugin_pb2.RegistryResponseMessage()
@@ -496,36 +550,21 @@ class DocumentationHelper(object):
 			root.append_plugin(p)
 		return root
 		
+
 	def fetch_command(self, command, cinfo):
 		if command in self.command_cache:
 			return self.command_cache[command]
 		params = []
 		for p in cinfo.parameters.parameter:
-			spos = p.long_description.find('\n\n')
-			extdata = {}
-			if spos != -1:
-				desc = p.long_description
-				epos = desc.find('\n\n', spos+2)
-				if epos != -1:
-					pos = desc.find('\t', spos+2, epos)
-					if pos != -1:
-						extdata['head'] = desc[:spos]
-						extdata['tail'] = desc[epos+2:]
-						data = desc[spos+2:epos]
-						rows = data.split('\n')
-						tbl = []
-						for r in rows:
-							tbl.append(r.split('\t'))
-						extdata['data'] = tbl
-					np = {}
-					np['long_description'] = p.long_description
-					np['default_value'] = p.default_value
-					np['name'] = p.name
-					np['ext'] = extdata
-					np['content_type'] = p.content_type
-					params.append(np)
-				else:
-					params.append(p)
+			extdata = split_argllist(p.name, p.long_description)
+			if extdata:
+				np = {}
+				np['long_description'] = p.long_description
+				np['default_value'] = p.default_value
+				np['name'] = p.name
+				np['ext'] = extdata
+				np['content_type'] = p.content_type
+				params.append(np)
 			else:
 				params.append(p)
 		cinfo.params = params

@@ -16,6 +16,10 @@ namespace parsers {
 		template<class runtime_data, class config_object>
 		struct realtime_filter_helper {
 
+			nscapi::core_wrapper *core;
+			int plugin_id;
+			realtime_filter_helper(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id) {}
+
 			typedef typename runtime_data::filter_type filter_type;
 			typedef typename runtime_data::transient_data_type transient_data_type;
 			typedef boost::optional<boost::posix_time::time_duration> op_duration;
@@ -93,7 +97,8 @@ namespace parsers {
 
 			void process_timeout(const container_type item) {
 				std::string response;
-				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
+				nscapi::core_helper ch(core, plugin_id);
+				if (!ch.submit_simple_message(item->target, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
 					NSC_LOG_ERROR("Failed to submit result: " + response);
 				}
 			}
@@ -108,10 +113,11 @@ namespace parsers {
 					return false;
 				}
 
+				nscapi::core_helper ch(core, plugin_id);
 				std::string message = item->filter.get_message();
 				if (message.empty())
 					message = "Nothing matched";
-				if (!nscapi::core_helper::submit_simple_message(item->target, item->command, item->filter.summary.returnCode, message, "", response)) {
+				if (!ch.submit_simple_message(item->target, item->command, item->filter.summary.returnCode, message, "", response)) {
 					NSC_LOG_ERROR("Failed to submit '" + message);
 				}
 				return true;

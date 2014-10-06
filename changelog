@@ -1,3 +1,47 @@
+2014-09-23 MickeM
+ * Fixed annoying cmake issue
+   note to self: dont use macros in cmake!
+ * Fixed some exceptions when certificates cannot be created
+ * Added --define to set config options on command line
+ * Refactored so all paths and such are defines (and not hard coded strings)
+ * Started to move things to sensible places on linux
+ * Fixed web server install (no longer installed NRPE)
+ * Loading case-insensetive modules now works on cli on linux
+
+2014-09-08 MickeM
+ * More build tweaks (does it ever end?)
+ * Fixed performance data rounding issue
+
+2014-09-08 MickeM
+ * Added SSL support for mongoose and WEBServer
+ * Removed options when nscp <context> is used (to make -- less necessary)
+ * improved documentation
+
+2014-09-06 MickeM
+ * Added keyword rendering to settings key descriptions
+
+2014-09-05 MickeM
+ * Fixed NRPE mode selector in the installer
+ * Fixed installer not reading old config
+
+2014-09-03 MickeM
+ * Fixed so warn/crit can be set to none
+ * Fixed "funky logging" if log file could not be opened
+ * Fixed #730 check_tasksched / most_recent_run_time not working
+ * Fixed debug option for filters
+
+2014-08-24 MickeM
+ * Cleaned up cmake files and added internal gtest distribution
+ * Added support for building with shared runtime
+
+2014-08-14 MickeM
+ * Fixed some documentaion issues (not using crlf on windows, lookups were wrong, alias handling was wrong, settings keys were broken, settingks keys were scoped wrong)
+ * Fixed so alias descriptions in external scripts are render better
+
+2014-08-13 MickeM
+ * Fixed installer issues
+ * Added firewall exception as a separate component
+
 2014-08-12 MickeM
  * Reworked the dot-net API
    Now actually works and is much much improved.
@@ -11,6 +55,7 @@
  * Cleaned up the cmake build a bit
  * Removed some old stale artifacts
  * Changed name of nscapi_plugin_interface.hpp to nscapi_helper_singleton.hpp to better reflect what it is
+ * Fixed build on apple osx
 
 2014-08-01 MickeM
  * Major refactoring of json handling

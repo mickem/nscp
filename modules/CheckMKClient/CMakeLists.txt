@@ -43,7 +43,7 @@ OPENSSL_LINK_FIX(${TARGET})
 
 SET(LUA_PB)
 IF (PROTOC_GEN_LUA_FOUND)
-	SET(LUA_PB lua_pb)
+	SET(LUA_PB nscp_lua_pb)
 ENDIF()
 
 target_link_libraries(${TARGET}

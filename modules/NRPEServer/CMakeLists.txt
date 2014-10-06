@@ -11,6 +11,7 @@ SET(SRCS ${SRCS}
 	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/utils.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -20,6 +21,9 @@ IF(OPENSSL_FOUND)
 	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 	ADD_DEFINITIONS(-DUSE_SSL)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
+	IF(WIN32 AND NOT USE_STATIC_RUNTIME)
+		SET(SRCS ${SRCS} ${OPENSSL_INCLUDE_DIR}/../inc32/openssl/applink.c)
+	ENDIF(WIN32 AND NOT USE_STATIC_RUNTIME)
 ENDIF(OPENSSL_FOUND)
 
 IF(WIN32)
@@ -32,8 +36,10 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_settings_helper.hpp
 		${NSCP_INCLUDEDIR}/socket/server.hpp
 		${NSCP_INCLUDEDIR}/socket/connection.hpp
+		${NSCP_INCLUDEDIR}/utils.h
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

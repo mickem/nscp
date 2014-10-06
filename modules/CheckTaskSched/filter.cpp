@@ -6,8 +6,10 @@
 #include "filter.hpp"
 #include <error_com.hpp>
 
+using namespace parsers::where;
 
-parsers::where::node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+
+node_type fun_convert_status(boost::shared_ptr<tasksched_filter::filter_obj> object, evaluation_context context, node_type subject) {
 	std::string status = subject->get_string_value(context);
 	long long istat = 0;
 	if (object->is_new()) {
@@ -41,7 +43,7 @@ parsers::where::node_type fun_convert_status(boost::shared_ptr<tasksched_filter:
 		else 
 			context->error("Failed to convert: " + status);
 	}
-	return parsers::where::factory::create_int(istat);
+	return factory::create_int(istat);
 }
 
 tasksched_filter::filter_obj_handler::filter_obj_handler() {
@@ -64,7 +66,7 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
  		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "Retrieves the maximum length of time the task can run.")
  		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
  		("status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
- 		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
+ 		("most_recent_run_time", type_date, boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
 		;
 
 	registry_.add_human_string()
@@ -74,7 +76,7 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 
 	registry_.add_converter()
  		(type_custom_state, &fun_convert_status)
-// 		(parsers::where::type_int, type_custom_hresult, &fun_convert_status)
+// 		(type_int, type_custom_hresult, &fun_convert_status)
  		;
 }
 

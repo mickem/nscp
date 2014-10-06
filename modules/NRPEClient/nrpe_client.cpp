@@ -15,7 +15,8 @@ namespace nrpe_client {
 			target.set_property_string("certificate format", "PEM");
 			target.set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			target.set_property_string("verify mode", "none");
-			target.set_property_bool("insecure", false);
+			if (!target.has_option("insecure"))
+				target.set_property_bool("insecure", false);
 			target.set_property_bool("ssl", true);
 			target.set_property_int("payload length", 1024);
 		}
@@ -181,7 +182,7 @@ namespace nrpe_client {
 				if (responses.size() > 0)
 					result = static_cast<int>(responses.front().getResult());
 				BOOST_FOREACH(const nrpe::packet &p, responses) {
-					payload += p.getPayload();
+ 					payload += p.getPayload();
 				}
 				return boost::make_tuple(result, payload);
 			} catch (nrpe::nrpe_exception &e) {

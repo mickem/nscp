@@ -30,18 +30,19 @@
 #include <NSCAPI.h>
 #include <net/net.hpp>
 #include <strEx.h>
+#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 	namespace protobuf {
 		namespace types {
 	
-			struct decoded_simple_command_data {
+			struct NSCAPI_EXPORT decoded_simple_command_data {
 				std::string command;
 				std::string target;
 				std::list<std::string> args;
 			};
 
-			struct destination_container {
+			struct NSCAPI_EXPORT destination_container {
 				std::string id;
 				net::url address;
 				std::string comment;

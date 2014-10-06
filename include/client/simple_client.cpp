@@ -6,13 +6,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
-extern nscapi::helper_singleton* nscapi::plugin_singleton;
-
-static nscapi::core_wrapper* get_core() {
-	return nscapi::plugin_singleton->get_core();
-}
-
-static void create_registry_query(const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
+static void create_registry_query(nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
 	Plugin::RegistryRequestMessage rrm;
 	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -22,7 +16,7 @@ static void create_registry_query(const std::string command, const Plugin::Regis
 	}
 	payload->mutable_inventory()->add_type(type);
 	std::string pb_response;
-	get_core()->registry_query(rrm.SerializeAsString(), pb_response);
+	core->registry_query(rrm.SerializeAsString(), pb_response);
 	response_message.ParseFromString(pb_response);
 }
 
@@ -74,7 +68,7 @@ namespace client {
 	void cli_client::handle_command(const std::string &command) {
 		if (command == "plugins") {
 			Plugin::RegistryResponseMessage response_message;
-			create_registry_query("", Plugin::Registry_ItemType_MODULE, response_message);
+			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_MODULE, response_message);
 			std::string list = render_list(response_message, &render_plugin);
 			handler->output_message(list.empty()?"Nothing found":list);
 		} else if (command == "help") {
@@ -88,7 +82,7 @@ namespace client {
 			payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
 			payload->mutable_control()->set_name(name);
 			std::string pb_response, json_response;
-			get_core()->registry_query(rrm.SerializeAsString(), pb_response);
+			handler->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
 			Plugin::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
@@ -109,7 +103,7 @@ namespace client {
 			payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
 			payload->mutable_control()->set_name(name);
 			std::string pb_response, json_response;
-			get_core()->registry_query(rrm.SerializeAsString(), pb_response);
+			handler->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
 			Plugin::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
@@ -123,24 +117,24 @@ namespace client {
 				handler->output_message(name + " unloaded successfully...");
 		} else if (command == "queries" || command == "commands") {
 			Plugin::RegistryResponseMessage response_message;
-			create_registry_query("", Plugin::Registry_ItemType_QUERY, response_message);
+			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
 			handler->output_message(list.empty()?"Nothing found":list);
 		} else if (command == "aliases") {
 			Plugin::RegistryResponseMessage response_message;
-			create_registry_query("", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
+			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			std::string list = render_list(response_message, &render_query);
 			handler->output_message(list.empty()?"Nothing found":list);
 		} else if (command.size() > 5 && command.substr(0,4) == "desc") {
 			Plugin::RegistryResponseMessage response_message;
-			create_registry_query(command.substr(5), Plugin::Registry_ItemType_QUERY, response_message);
+			create_registry_query(handler->get_core(), command.substr(5), Plugin::Registry_ItemType_QUERY, response_message);
 			std::string data = render_list(response_message, &render_command);
 			handler->output_message(data.empty()?"Command not found":data);
 		} else if (command == "list") {
 			Plugin::RegistryResponseMessage response_message;
-			create_registry_query("", Plugin::Registry_ItemType_QUERY, response_message);
+			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
-			create_registry_query("", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
+			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			list = render_list(response_message, &render_query);
 			handler->output_message(list.empty()?"Nothing found":list);
 		} else if (!command.empty()) {
@@ -149,7 +143,8 @@ namespace client {
 				strEx::s::parse_command(command, args);
 				std::string cmd = args.front(); args.pop_front();
 				std::string msg, perf;
-				NSCAPI::nagiosReturn ret = nscapi::core_helper::simple_query(cmd, args, msg, perf);
+				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
+				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, msg, perf);
 				if (ret == NSCAPI::returnIgnored) {
 					handler->output_message("No handler for command: " + cmd);
 				} else {

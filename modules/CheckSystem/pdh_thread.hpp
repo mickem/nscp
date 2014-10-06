@@ -130,6 +130,8 @@ private:
 	boost::shared_ptr<boost::thread> thread_;
 	boost::shared_mutex mutex_;
 	HANDLE stop_event_;
+	int plugin_id;
+	nscapi::core_wrapper *core;
 
 	std::list<PDH::pdh_object> configs_;
 	std::list<PDH::pdh_instance> counters_;
@@ -143,7 +145,7 @@ public:
 
 public:
 
-	pdh_thread() {
+	pdh_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id) {
 		mutex_.lock();
 	}
 	void add_counter(const PDH::pdh_object &counter);

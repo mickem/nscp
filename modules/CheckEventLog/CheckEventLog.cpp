@@ -19,7 +19,7 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 
-#include <Sddl.h>
+//#include <Sddl.h>
 
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
@@ -48,10 +48,10 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -73,7 +73,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "eventlog");
 		
-	thread_.reset(new real_time_thread());
+	thread_.reset(new real_time_thread(get_core(), get_id()));
 	if (!thread_) {
 		NSC_LOG_ERROR_STD("Failed to create thread container");
 		return false;

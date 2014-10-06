@@ -8,6 +8,7 @@ namespace po = boost::program_options;
 class cli_parser : public boost::noncopyable {
 
 	NSClient* core_;
+	po::options_description common_light;
 	po::options_description common;
 	po::options_description settings;
 	po::options_description service;
@@ -20,6 +21,7 @@ class cli_parser : public boost::noncopyable {
 	bool log_debug;
 	bool no_stderr;
 	std::vector<std::string> log_level;
+	std::vector<std::string> defines;
 	std::string settings_store;
 	std::vector<std::string> unknown_options;
 	

@@ -12,7 +12,7 @@ SET(service_SRCS
 	settings_handler_impl.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
+#	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 )
 
@@ -23,11 +23,11 @@ IF(WIN32)
 		
 		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
-		${NSCP_INCLUDEDIR}/settings/macros.h
+		${NSCP_INCLUDEDIR}/settings/config.hpp
 
 		${NSCP_INCLUDEDIR}/settings/settings_core.hpp
 		${NSCP_INCLUDEDIR}/settings/settings_interface_impl.hpp
-		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
+#		${NSCP_INCLUDEDIR}/settings/client/settings_client.hpp
 
 
 		${NSCP_INCLUDEDIR}/settings/impl/settings_ini.hpp
@@ -51,9 +51,9 @@ ENDIF(CRYPTOPP_FOUND)
 
 
 
-add_library (${TARGET} ${service_SRCS})
+add_library (${TARGET} STATIC ${service_SRCS})
 
-target_link_libraries(${TARGET} ${EXTRA_LIBS} protobuf)
+target_link_libraries(${TARGET} ${EXTRA_LIBS} nscp_protobuf)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "core")
 

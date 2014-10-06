@@ -23,7 +23,7 @@
 #include <time.h>
 #include "handler_impl.hpp"
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
 
 namespace sh = nscapi::settings_helper;

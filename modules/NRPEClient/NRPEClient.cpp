@@ -23,12 +23,13 @@
 #include <time.h>
 #include <strEx.h>
 
-#include <settings/client/settings_client.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <settings/config.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -48,6 +49,8 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
+		targets.clear();
+		commands.clear();
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NRPE", alias, "client");
 		target_path = settings.alias().get_settings_path("targets");
@@ -73,7 +76,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		targets.add_samples(get_settings_proxy(), target_path);
 		targets.ensure_default(get_settings_proxy(), target_path);
 		core.register_channel(channel_);
@@ -103,7 +106,7 @@ void NRPEClient::add_target(std::string key, std::string arg) {
 
 void NRPEClient::add_command(std::string name, std::string args) {
 	try {
-		nscapi::core_helper::core_proxy core(get_core(), get_id());
+		nscapi::core_helper core(get_core(), get_id());
 		std::string key = commands.add_command(name, args);
 		if (!key.empty())
 			core.register_command(key.c_str(), "NRPE relay for: " + name);
@@ -261,7 +264,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		nscapi::protobuf::functions::settings_query s(get_id());
 		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
-		s.set("/modules", "NRPEServer", "enabled");
+		s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
 		s.set("/settings/NRPE/server", "ssl", "true");
 		if (insecure == "true") {
 			result << "WARNING: NRPE is currently insecure." << std::endl;

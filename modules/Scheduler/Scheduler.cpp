@@ -22,12 +22,11 @@
 #include <strEx.h>
 #include <time.h>
 #include <utils.h>
-#include <settings/macros.h>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/macros.hpp>
-#include <settings/client/settings_client.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -92,7 +91,8 @@ void Scheduler::on_error(std::string error) {
 void Scheduler::handle_schedule(schedules::schedule_object item) {
 	try {
 		std::string response;
-		NSCAPI::nagiosReturn code = nscapi::core_helper::simple_query(item.command.c_str(), item.arguments, response);
+		nscapi::core_helper ch(get_core(), get_id());
+		NSCAPI::nagiosReturn code = ch.simple_query(item.command.c_str(), item.arguments, response);
 		if (code == NSCAPI::returnIgnored) {
 			NSC_LOG_ERROR_WA("Command was not found: ", item.command);
 			if (item.channel.empty()) {

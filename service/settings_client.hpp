@@ -5,13 +5,6 @@
 
 #include <settings/settings_core.hpp>
 
-//#include <settings/settings_core.hpp>
-//#include <nsclient/logger.hpp>
-//#ifdef HAVE_JSON_SPIRIT
-//#include <json_spirit.h>
-//#endif
-
-//class NSClient;
 namespace nsclient_core {
 	class settings_client {
 		bool started_;

@@ -7,6 +7,8 @@
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
+#include <settings/config.hpp>
+
 settings::settings_core* nsclient_core::settings_client::get_core() const {
 	return settings_manager::get_core();
 }
@@ -245,7 +247,7 @@ void nsclient_core::settings_client::activate(const std::string &module)
 		std::cerr << "Failed to load module (Wont activate): " << module << std::endl;
 	}
 	core_->boot_start_plugins(false);
-	get_core()->get()->set_string("/modules", module, "enabled");
+	get_core()->get()->set_string(MAIN_MODULES_SECTION, module, "enabled");
 	if (default_) {
 		get_core()->update_defaults();
 	}
