@@ -92,6 +92,9 @@ function CommandViewModel() {
 				}
 			});
 			done()
+		}).error(function(xhr, error, status) {
+			self.nscp_status().not_busy()
+			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	
@@ -113,6 +116,9 @@ function CommandViewModel() {
 		$.getJSON("/console/exec?command="+encodeURIComponent(command), function(data) {
 			self.nscp_status().not_busy()
 			self.refreshOne(function() {})
+		}).error(function(xhr, error, status) {
+			self.nscp_status().not_busy()
+			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	 self.action = function(event){

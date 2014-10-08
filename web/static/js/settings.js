@@ -153,6 +153,9 @@ function CommandViewModel() {
 				}
 				self.update_current_paths();
 				done_refresh(self);
+			}).error(function(xhr, error, status) {
+				self.nscp_status().not_busy()
+				self.nscp_status().set_error(xhr.responseText)
 			})
 		} else {
 			self.update_current_paths();
@@ -173,6 +176,9 @@ function CommandViewModel() {
 			self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 			self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 			done_refresh(self);
+		}).error(function(xhr, error, status) {
+			self.nscp_status().not_busy()
+			self.nscp_status().set_error(xhr.responseText)
 		})
 		$.getJSON("/settings/status", function(data) {
 			self.status().update(data['payload'][0]['status'])
