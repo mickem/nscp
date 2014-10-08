@@ -52,7 +52,10 @@ function Module(entry) {
 					result = groupBy(keys, function(item) { return [item.path]; })
 					self.keys(result);
 					//root.nscp_status().not_busy()
-				});
+				}).error(function(xhr, error, status) {
+					self.nscp_status().not_busy()
+					self.nscp_status().set_error(xhr.responseText)
+				})
 			}
 		} else {
 			self.keys.removeAll();
@@ -70,8 +73,7 @@ function build_settings_payload(value) {
 	payload['update']['node']['path'] = value.path
 	payload['update']['node']['key'] = value.key
 	payload['update']['value'] = {}
-	payload['update']['value']['type'] = 'string'
-	payload['update']['value']['value'] = value.value()
+	payload['update']['value']['string_data'] = value.value()
 	return payload
 }
 
@@ -110,6 +112,9 @@ function CommandViewModel() {
 				});
 			}
 			self.nscp_status().not_busy()
+		}).error(function(xhr, error, status) {
+			self.nscp_status().not_busy()
+			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	self.refresh_modules = function() {
@@ -134,6 +139,9 @@ function CommandViewModel() {
 			if (added_item)
 				self.modules.sort(function(left, right) { return left.name() == right.name() ? 0 : (left.name() < right.name() ? -1 : 1) })
 			self.refresh_settings()
+		}).error(function(xhr, error, status) {
+			self.nscp_status().not_busy()
+			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	self.refresh = function() {
@@ -164,8 +172,7 @@ function CommandViewModel() {
 		payload['update']['node']['path'] = '/modules'
 		payload['update']['node']['key'] = name
 		payload['update']['value'] = {}
-		payload['update']['value']['type'] = 'string'
-		payload['update']['value']['value'] = status
+		payload['update']['value']['string_data'] = status
 		root['payload'].push(payload)
 		self.nscp_status().busy('Saving', 'Refresing ' + name + '...')
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {

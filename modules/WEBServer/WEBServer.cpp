@@ -69,8 +69,8 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 }
 
 class cli_handler : public client::cli_handler {
-	int plugin_id;
 	nscapi::core_wrapper* core;
+    int plugin_id;
 public:
 	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
@@ -387,6 +387,8 @@ public:
 
 
 	Response *process(Request &request) {
+        if (!handles(request.getMethod(), request.getUrl()))
+            return NULL;
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
 		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
 		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
@@ -481,6 +483,8 @@ public:
 
 
 	Response *process(Request &request) {
+        if (!handles(request.getMethod(), request.getUrl()))
+            return NULL;
 		StreamResponse *response = new StreamResponse();
 		std::string url = request.getUrl();
 		if (boost::algorithm::starts_with(url, "/query/")) {

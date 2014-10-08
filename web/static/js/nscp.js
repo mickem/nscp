@@ -53,6 +53,11 @@ function NSCPStatus(state) {
 		self.last_error(elem['error'])
 		self.has_issues(self.error_count() > 0)
 	}
+	self.set_error = function(text) {
+		self.error_count(self.error_count()+1)
+		self.last_error(text)
+		self.has_issues(self.error_count() > 0)
+	}
 	self.busy = function(header, text) {
 		if (self.poller_state)
 			self.cancelPoller();

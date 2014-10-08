@@ -39,18 +39,6 @@
 #include <nscp_string.hpp>
 
 namespace strEx {
-    /*
-	class string_exception : public std::exception {
-		std::wstring _what;
-	public:
-		string_exception(std::wstring what) : _what(what) {}
-		std::wstring what() {
-			return _what;
-		}
-		virtual ~string_exception() throw();
-	};
-     */
-
 	inline void append_list(std::string &lst, const std::string &append, const std::string sep = ", ") {
 		if (append.empty())
 			return;
