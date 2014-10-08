@@ -1,0 +1,54 @@
+# -*- rpm-spec -*-
+BuildRoot:	@CMAKE_CURRENT_BINARY_DIR@/_CPack_Packages/Linux/RPM/@CPACK_PACKAGE_FILE_NAME@
+Summary:	Simple yet powerful and secure monitoring daemon originally built for Nagios/Icinga
+Name:		@CPACK_PACKAGE_NAME@
+Version:	@CPACK_PACKAGE_VERSION@
+Release:	@CPACK_PACKAGE_RELEASE@
+License:	@CPACK_RPM_PACKAGE_LICENSE@
+Group:		@CPACK_RPM_PACKAGE_GROUP@
+Vendor:		@CPACK_PACKAGE_VENDOR@
+#Prefix:		@CPACK_PACKAGING_INSTALL_PREFIX@
+#URL:		@CPACK_RPM_PACKAGE_URL@
+#Source0:	https://github.com/mickem/nscp/tree/master/releases/%{version}.tar.gz
+#Packager:	@CPACK_PACKAGE_CONTACT@
+Requires:	@CPACK_RPM_PACKAGE_REQUIRES@
+#BuildRequires:  cmake
+#BuildRequires:  python 
+#BuildRequires:  openssl-devel
+#BuildRequires:  boost-devel
+#BuildRequires:  python-devel
+#BuildRequires:  protobuf-devel
+#BuildRequires:  protobuf-compiler
+#BuildRequires:  rst2pdf 
+
+#%define prefix @CMAKE_INSTALL_PREFIX@
+%define _rpmdir @CPACK_RPM_DIRECTORY@
+%define _rpmfilename @CPACK_RPM_FILE_NAME@
+%define _unpackaged_files_terminate_build 0
+%define _topdir @CPACK_RPM_DIRECTORY@
+
+# rpmbuild 4.7+ will remove the buildroot dir during pre-install
+%global __spec_install_pre %{___build_pre}
+
+%description
+@CPACK_RPM_PACKAGE_DESCRIPTION@
+
+#%prep
+
+#%build
+
+#%install
+
+%clean
+
+%files
+%defattr(-,root,root,-)
+#%dir %{prefix}
+#%{prefix}/*
+/*
+
+%changelog
+* Sun Sep 27 2014 Michael Medin <michael@medin.name> 0.4.3-1
+- Reworked to use cmake/cpack
+* Wed Oct 16 2013 Pall Sigurdsson <palli@opensource.is> 0.4.1-3
+- Initial Packaging

@@ -12,11 +12,11 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 	${NSCP_INCLUDEDIR}/utils.cpp
 	
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
+#	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
+#	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
+#	${NSCP_INCLUDEDIR}/nscapi/nscapi_targets.cpp
+#	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
+#	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 
 	../../resources/nsclient.ico
 )

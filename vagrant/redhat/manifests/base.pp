@@ -37,12 +37,22 @@ define yumgroup(
 }
 package { "git": ensure => present }
 package { "cmake": ensure => present }
+->
+file { "/usr/share/cmake/Modules/CPackRPM.cmake":
+    ensure  => "present",
+    mode    => 644,
+	owner   => 'root',
+	group   => 'root',
+	source  => "/etc/puppet/files/build.sh"
+}
+
 package { "python-devel": ensure => present }
 package { "openssl-devel": ensure => present }
 package { "boost-devel": ensure => present }
 #TODO package { "rst2pdf": ensure => present }
 #package { "python-sphinx": ensure => present }
 package { "lua-devel": ensure => present }
+package { "redhat-lsb": ensure => present }
 #TODO package { "libgtest-dev": ensure => present }
 
 yumgroup { "Development Tools": ensure => present  }

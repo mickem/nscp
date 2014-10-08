@@ -156,7 +156,7 @@ namespace service_helper_impl {
 			try {
 				service_ctrl_dispatch_ex(dwCtrlCode, 0, NULL, NULL);
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
 				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}
@@ -193,7 +193,7 @@ namespace service_helper_impl {
 				TBase::get_global_instance()->_report_status_to_SCMgr();
 				return 0;
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
 				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}
@@ -203,7 +203,7 @@ namespace service_helper_impl {
 			try {
 				TBase::get_global_instance()->_service_main(dwArgc, lpszArgv);
 			} catch (service_helper::service_exception e) {
-				handle_error(__LINE__, __FILE__, "Unknown service error: " + e.what());
+				handle_error(__LINE__, __FILE__, "Unknown service error: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
 				handle_error(__LINE__, __FILE__, "Unknown service error!");
 			}

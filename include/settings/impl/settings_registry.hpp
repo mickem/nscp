@@ -8,7 +8,7 @@
 
 #include <settings/settings_core.hpp>
 #include <error.hpp>
-#include <settings/macros.h>
+#include <settings/config.hpp>
 
 #include <handle.hpp>
 #include <buffer.hpp>

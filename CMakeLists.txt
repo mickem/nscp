@@ -288,32 +288,28 @@ SET(CONFIG_DEFAULT_SERVICE_DEPS "" CACHE STRING "Any service dependencies to use
 SET(CONFIG_CRASH_SUBMIT_URL "http://crash.nsclient.org/submit" CACHE STRING "Where to submit crash dump files")
 SET(CONFIG_CRASH_ARCHIVE_FOLDER "\${shared-path}crash-dumps" CACHE STRING "Where to archive chras dump files on the local filesystem")
 
-IF(WIN32)
-	SET(CONFIG_DEFAULT_CONF_LOCATION "old" CACHE STRING "Default configuration store")
-ELSE(WIN32)
-	SET(CONFIG_DEFAULT_CONF_LOCATION "ini" CACHE STRING "Default configuration store")
-ENDIF(WIN32)
-SET(CONFIG_BOOT_CONF_LOCATION			"\${exe-path}/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
-SET(CONFIG_DEFAULT_CONF_INI_BASE		"ini://\${shared-path}/" CACHE STRING "Base location for ini files")
 SET(CONFIG_DEFAULT_CONF_REG_LOCATION	"registry://HKEY_LOCAL_MACHINE/software/NSClient++" CACHE STRING "Default location for registry based settings")
 SET(CONFIG_DEFAULT_CONF_OLD_LOCATION	"old://\${exe-path}/nsc.ini" CACHE STRING "Default location for old config file")
-SET(CONFIG_DEFAULT_CONF_INI_LOCATION	"${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini" CACHE STRING "Default location for ini files")
-SET(CONFIG_BOOT_CONF_LOCATION			"dummy://" CACHE STRING "Default location for dummy settings stores")
-
-
 IF(WIN32)
-	SET(CONFIG_MODULE_FOLDER "\${shared-path}/modules" CACHE STRING "modules folder")
-	SET(CONFIG_WEB_FOLDER "\${shared-path}/web" CACHE STRING "web folder")
-	SET(CONFIG_SCRIPTS_FOLDER "\${shared-path}/scripts" CACHE STRING "script folder")
-	SET(CONFIG_CERT_FOLDER "\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
-	SET(CONFIG_DEFAULT_CACHE_PATH "\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+	SET(CONFIG_BOOT_CONF_LOCATION		"\${exe-path}/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
+	SET(CONFIG_DEFAULT_CONF_LOCATION	"old" CACHE STRING "Default configuration store")
+	SET(CONFIG_DEFAULT_CONF_INI_BASE	"ini://\${shared-path}/" CACHE STRING "Base location for ini files")
+	SET(CONFIG_MODULE_FOLDER			"\${shared-path}/modules" CACHE STRING "modules folder")
+	SET(CONFIG_WEB_FOLDER				"\${shared-path}/web" CACHE STRING "web folder")
+	SET(CONFIG_SCRIPTS_FOLDER			"\${shared-path}/scripts" CACHE STRING "script folder")
+	SET(CONFIG_CERT_FOLDER				"\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
+	SET(CONFIG_DEFAULT_CACHE_PATH		"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
 ELSE()
-	SET(CONFIG_MODULE_FOLDER "${CMAKE_INSTALL_PREFIX}/lib/nsclient/modules" CACHE STRING "modules folder")
-	SET(CONFIG_WEB_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/web" CACHE STRING "web folder")
-	SET(CONFIG_SCRIPTS_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/scripts" CACHE STRING "script folder")
-	SET(CONFIG_CERT_FOLDER "${CMAKE_INSTALL_PREFIX}/share/nsclient/security" CACHE STRING "securoty (certificates) folder")
-	SET(CONFIG_DEFAULT_CACHE_PATH "${CMAKE_INSTALL_PREFIX}/share/nsclient/cache" CACHE STRING "Path for caching stuff")
+	SET(CONFIG_BOOT_CONF_LOCATION		"${CMAKE_INSTALL_PREFIX}/etc/nsclient/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
+	SET(CONFIG_DEFAULT_CONF_LOCATION 	"ini" CACHE STRING "Default configuration store")
+	SET(CONFIG_DEFAULT_CONF_INI_BASE	"ini://${CMAKE_INSTALL_PREFIX}/etc/nsclient/" CACHE STRING "Base location for ini files")
+	SET(CONFIG_MODULE_FOLDER			"${CMAKE_INSTALL_PREFIX}/lib/nsclient/modules" CACHE STRING "modules folder")
+	SET(CONFIG_WEB_FOLDER				"${CMAKE_INSTALL_PREFIX}/share/nsclient/web" CACHE STRING "web folder")
+	SET(CONFIG_SCRIPTS_FOLDER			"${CMAKE_INSTALL_PREFIX}/share/nsclient/scripts" CACHE STRING "script folder")
+	SET(CONFIG_CERT_FOLDER				"${CMAKE_INSTALL_PREFIX}/share/nsclient/security" CACHE STRING "securoty (certificates) folder")
+	SET(CONFIG_DEFAULT_CACHE_PATH		"${CMAKE_INSTALL_PREFIX}/share/nsclient/cache" CACHE STRING "Path for caching stuff")
 ENDIF()
+SET(CONFIG_DEFAULT_CONF_INI_LOCATION	"${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini" CACHE STRING "Default location for ini files")
 
 CONFIGURE_FILE(
   ${NSCP_INCLUDEDIR}/config.h.in
@@ -490,44 +486,73 @@ ENDIF(WIN32)
 
 #############################################################################
 #
-# CPacke setup (currently not used)
+# CPacke setup
 #
 #############################################################################
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NSClient++")
-SET(CPACK_PACKAGE_VENDOR "nsclient.org")
+set(CPACK_PACKAGE_VENDOR "MySolutions NORDIC")
+set(CPACK_PACKAGE_CONTACT "Michael Medin <michael@medin.name>")
 #SET(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/docs/readme.txt")
 #SET(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/Copyright.txt")
 
-SET(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_SERIES}.${VERSION_MAJOR}")
-SET(CPACK_PACKAGE_VERSION_MINOR ${VERSION_MINOR})
-SET(CPACK_PACKAGE_VERSION_PATCH ${VERSION_BUILD})
+set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
 
-SET(CPACK_PACKAGE_INSTALL_DIRECTORY "CMake ${CMake_VERSION_MAJOR}.${CMake_VERSION_MINOR}")
-IF(WIN32 AND NOT UNIX)
+
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Monitoring Agent")
+set(CPACK_PACKAGE_NAME "nscp")
+SET(CPACK_PACKAGE_VERSION_MAJOR "${VERSION_MAJOR}")
+SET(CPACK_PACKAGE_VERSION_MINOR "${VERSION_MINOR}")
+SET(CPACK_PACKAGE_VERSION_PATCH "${VERSION_BUILD}")
+set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "nscp-folder")
+set(CPACK_RPM_PACKAGE_DESCRIPTION "NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Nagios/Icinga, but nothing in the daemon is Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.")
+
+IF(WIN32)
 	SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
 	SET(CPACK_GENERATOR ZIP)
-ELSE(WIN32 AND NOT UNIX)
-	SET(CPACK_STRIP_FILES "bin/MyExecutable")
-	SET(CPACK_SOURCE_STRIP_FILES "")
-	SET(CPACK_PACKAGE_EXECUTABLES "nscp")
-ENDIF(WIN32 AND NOT UNIX)
-
-set(CPACK_PACKAGE_VERSION ${NSCP_FULL_VERSION})
-set(CPACK_GENERATOR "RPM")
-set(CPACK_PACKAGE_NAME "nscp")
-set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_CONTACT "Michael Medin")
-set(CPACK_PACKAGE_VENDOR "MySolutions NORDIC")
-set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
-
-# Debian package stuff
-set(CPACK_DEBIAN_PACKAGE_NAME        ${CPACK_PACKAGE_NAME})
-#set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libboost-all-dev, libfftw3-dev")
-set(CPACK_PACKAGE_CONTACT "Michael Medin <michael@medin.name>")
-set(CPACK_DEBIAN_PACKAGE_PRIORITY    "optional")
-set(CPACK_DEBIAN_PACKAGE_SECTION     "devel")
+ELSE()
+	execute_process(COMMAND lsb_release -si OUTPUT_VARIABLE DISTRIBUTION OUTPUT_STRIP_TRAILING_WHITESPACE)
+	#execute_process(COMMAND lsb_release -sc OUTPUT_VARIABLE RELEASE OUTPUT_STRIP_TRAILING_WHITESPACE)
+	IF(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
+		#
+		# Need to patch cmake /usr/share/cmake/Modules/CPackRPM.cmake with the following
+		#    COMMAND "${RPMBUILD_EXECUTABLE}" -bb
+		#        --define "_topdir ${CPACK_RPM_DIRECTORY}"
+		#        --buildroot "${CPACK_RPM_DIRECTORY}/${CPACK_PACKAGE_FILE_NAME}${CPACK_RPM_PACKAGE_COMPONENT_PART_PATH}"
+		#        "${CPACK_RPM_BINARY_SPECFILE}"
+		#
+		#configure_file("${CMAKE_CURRENT_SOURCE_DIR}/nscp.spec.in" "${CMAKE_CURRENT_BINARY_DIR}/nscp.spec" @ONLY IMMEDIATE)
+		#set(CPACK_RPM_USER_BINARY_SPECFILE "${CMAKE_CURRENT_BINARY_DIR}/nscp.spec")
+		set(CPACK_RPM_USER_BINARY_SPECFILE "${CMAKE_CURRENT_SOURCE_DIR}/nscp.spec.in")
+	
+		set(CPACK_GENERATOR "RPM")
+		SET(CPACK_RPM_PACKAGE_DEBUG 1)
+		set(CPACK_PACKAGE_RELEASE 1)
+		set(CPACK_RPM_PACKAGE_GROUP "System Environment/Daemons")
+		set(CPACK_RPM_PACKAGE_LICENSE "GPLv2")		
+		set(CPACK_RPM_PACKAGE_URL "http://www.nsclient.org")
+		set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+		set(CPACK_RPM_PACKAGE_REQUIRES "boost-filesystem boost-program-options boost-thread protobuf")
+		#set(CPACK_RPM_PACKAGE_ARCHITECTURE "noarch")
+		set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
+		
+		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/build/sh/copy_package.sh.in" "${CMAKE_CURRENT_BINARY_DIR}/copy_package.sh" @ONLY IMMEDIATE)
+		#set(CPACK_RPM_USER_BINARY_SPECFILE "${CMAKE_CURRENT_BINARY_DIR}/nscp.spec")
+		set(CPACK_RPM_USER_BINARY_SPECFILE "${CMAKE_CURRENT_SOURCE_DIR}/nscp.spec.in")
+		
+	ELSEIF(DISTRIBUTION STREQUAL "Ubuntu")
+		set(CPACK_GENERATOR "DEB")	
+		set(CPACK_DEBIAN_PACKAGE_NAME        ${CPACK_PACKAGE_NAME})
+		#set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
+		set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libboost-all-dev, libfftw3-dev")
+		set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "http://www.nsclient.org")
+		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael Medin")
+		set(CPACK_DEBIAN_PACKAGE_PRIORITY    "optional")
+		set(CPACK_DEBIAN_PACKAGE_SECTION     "net")
+		set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}-${RELEASE}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE})
+		#set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/postinst;${CMAKE_CURRENT_SOURCE_DIR}/postrm;" )
+	ENDIF()
+ENDIF()
 
 include(CPack)
 
