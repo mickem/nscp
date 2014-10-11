@@ -5,6 +5,7 @@ function CommandEntry(entry) {
 	self.name = entry['name'];
 	self.desc = entry['info']['description'];
 	self.plugs = entry['info']['plugin'];
+	self.command = ko.observable(self.name)
     self.params = []
     entry['parameters']['parameter'].forEach(function(entry) {
         entry.first_line = entry.short_description
@@ -17,6 +18,27 @@ function CommandEntry(entry) {
 	self.showMore = function() {
 		self.showDetails(!self.showDetails());
 	}
+}
+
+function parseCommand(cmd) {
+	args = cmd.match(/\w+|"(?:\\"|[^"])+"/g);
+	str = args[0]
+	
+	for (var i = 1; i < args.length; i++) {
+		var sep = "&"
+		if (i == 0)
+			sep = ""
+		if (i == 1)
+			sep = "?"
+		var s = args[i]
+		as = s.split('=', 2);
+		if (as.length > 1) {
+			str = str + sep +  encodeURIComponent(as[0]) + "=" + encodeURIComponent(as[1])
+		} else {
+			str = str + sep +  encodeURIComponent(s)
+		}
+	}
+	return str
 }
 
 function parseNagiosResult(id) {
@@ -48,14 +70,17 @@ function CommandViewModel() {
 	self.nscp_status = ko.observable(new NSCPStatus());
 	self.commands = ko.observableArray([]);
 	self.result = ko.observable();
-    self.query = ko.observable();
+	self.query = ko.observable();
+	self.execCommand = ko.observable();
 
 	self.execute = function(command) {
-		$("#result").modal('show');
-		
-		$.getJSON("/query/" + command.name, function(data) {
-			data['payload'].resultText = parseNagiosResult(data['payload'].result)
-			self.result(data['payload'])
+		cmd_query = parseCommand(command.command())
+		console.log(cmd_query)
+		$.getJSON("/query/" + cmd_query, function(data) {
+			r = data['payload'][0]
+			r.resultText = parseNagiosResult(r.result)
+			self.result(r)
+			console.log(r)
 			//data['payload']['inventory'].forEach(function(entry) {
 			//	self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
 			//});
@@ -63,7 +88,8 @@ function CommandViewModel() {
 		
 	}
 	self.show = function(command) {
-        self.query(command)
+	        self.query(command)
+		self.result(null)
 		$("#result").modal('show');
     }
 	self.refresh = function() {
@@ -78,5 +104,10 @@ function CommandViewModel() {
 		})
 	}
 	self.refresh()
+	
+	self.addArgument = function(item, event) {
+		self.query().command(self.query().command() + " " + event.val)
+		$("#command").focus()
+	}
 }
 ko.applyBindings(new CommandViewModel());
