@@ -7,6 +7,8 @@
 		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
 		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
 		<link rel="stylesheet" href="/static/css/nscp.css" />
+		<link rel="stylesheet" href="/static/css/select2.css" />
+		<link rel="stylesheet" href="/static/css/select2-bootstrap.css" />
 
 		<title>NSClient++ Queries</title>
 
@@ -15,6 +17,34 @@
 		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
 		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
 		<script type="text/javascript" src="/static/js/nscp.js"></script>
+		<script type="text/javascript" src="/static/js/select2.min.js"></script>
+		
+    <script>
+function format(state) {
+    var originalOption = state.element;
+    return "<b>" + state.text + "</b>: " + $(originalOption).data('desc');
+}
+ko.bindingHandlers.select2 = {
+	init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+		ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
+			//$(element).select2('destroy');
+		});
+		
+		select2 = ko.utils.unwrapObservable(allBindings().select2);
+		$(element).select2(select2);
+	},
+	update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+		/*
+		$(element).select2({
+			formatResult: format,
+			formatSelection: format,
+			placeholder: "Add argument",
+			escapeMarkup: function(m) { return m; }
+		});
+		*/
+	}
+};
+    </script>
 		<script type="text/javascript" src="/static/js/query.js" defer="defer"></script>
 	</head>
 	<body>
@@ -97,77 +127,79 @@
 
 			<div id="result" class="modal fade">
 			  <div class="modal-dialog modal-lg">
-				<div class="modal-content" data-bind="with: query"s>
+				<div class="modal-content" data-bind="with: query">
 				  <div class="modal-header">
 					<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
 					<h4  data-bind="text: name" class="modal-title"></h4>
 				  </div>
 				  <div class="modal-body">
                       <form class="form-horizontal" role="form">
-                          <div id="accordion" class="panel-group">
-                              <div class="panel panel-default">
-                                  <div class="panel-heading">
-                                      <h4 class="panel-title">
-                                          <a class="accordion-toggle" href="#collapseDesc" class="collapsed"
-                                              data-toggle="collapse" data-parent="#accordion">Module</a>
-                                      </h4>
-                                  </div>
-                                  <div id="collapseDesc" class="panel-collapse collapse in">
-                                      <div class="panel-body">
-                                          <ul class="list-group">
-                                              <li class="list-group-item">
-                                                  <h4 class="list-group-item-heading">
-                                                      <span data-bind="text: name" class="modal-title"></span>
-                                                  </h4>
-                                                  <p class="list-group-item-text" data-bind="text: desc"></p>
-                                                  </h4>
-                                              </li>
-                                          </ul>
-                                      </div>
-                                  </div>
+			
+			
+			<ul class="nav nav-tabs"">
+				<li class="active"><a href="#desc" data-toggle="tab"><span class="glyphicon glyphicon-home"></span> Overview</a></li>
+				<li><a href="#help" data-toggle="tab"><span class="glyphicon glyphicon-question-sign"></span> Help</a></li>
+				<li><a href="#run" data-toggle="tab"><span class="glyphicon glyphicon-fire"></span> Run</a></li>
+			</ul>
+			
+                          <div id="accordion" class="tab-content">
+				<div class="tab-pane active" id="desc">
+					<div class="panel-body">
+						<h2 data-bind="text: name"></h2>
+						<p data-bind="text: desc"></p>
+					</div>
+				</div>
                                   
-                                  <div class="panel-heading">
-                                      <h4 class="panel-title">
-                                          <a class="accordion-toggle" href="#collapseHelp" class="collapsed"
-                                              data-toggle="collapse" data-parent="#accordion">Help</a>
-                                      </h4>
-                                  </div>
-                                  <div id="collapseHelp" class="panel-collapse collapse">
-                                      <div class="panel-body">
+                                  <div class="tab-pane" id="help">
                                           <ul class="list-group" data-bind="foreach: params">
                                               <li class="list-group-item">
                                                   <h4 class="list-group-item-heading">
                                                       <span data-bind="text: name" class="modal-title"></span>
                                                   </h4>
                                                   <p class="list-group-item-text" data-bind="text: first_line"></p>
-                                                  <p class="list-group-item-text" data-bind="text: first_line"></p>
                                                   </h4>
                                               </li>
                                           </ul>
-                                      </div>
                                   </div>
-                                  
+                                  <div class="tab-pane" id="run">
+					<form class="form" role="form" data-bind="submit: $root.exec">
+						<div class="form-group">
+								<label for="command" class="control-label">Command</label>
+							<input id="command" type="text" placeholder="Command" data-bind="value: command" class="form-control"></input>
+							<p class="help-block">Enter command and click run.</p>
+						</div>
+						<div class="form-group">
+								<label for="command" class="control-label">Add argument to command</label>
+							<select id="cmdOpts" class="form-control" style="width: 100%;"
+								data-bind="foreach: params, event: { change: $root.addArgument }, select2: { formatResult: format, formatSelection: format,  placeholder: 'Add argument', allowClear: true}">
+								<option data-bind="value: name, text: name, attr: {'data-desc': first_line, 'data-type': content_type}"></option>
+							</select>
+						</div>
+						<div class="form-group">
+								<button class="btn btn-default btn-success" data-bind="click: $root.execute" type="button">Run</button>
+						</div>
+						<!-- ko if: $root.result -->
+						<hr/>
+						<div class="input-group" data-bind="with: $root.result">
+								<label for="command" class="control-label">Result</label>
+							<div class="form-control">
+								<span data-bind="text: result, css: { 'label-success': result=='OK', 'label-danger': ( result=='UNKNOWN' || result=='CRITICAL', 'label-warning': result=='WARNING' }"></span>
+								<span data-bind="text: message"></span>
+								
+							</div>
+						</div>
+						<div class="input-group" data-bind="with: $root.result">
+								<label for="command" class="control-label">Performance data</label>
+							<div class="form-control">
+								<span data-bind=""></span>
+								
+							</div>
+						</div>
+						<!-- /ko -->
+					</form>
+                                  </div>
                               </div>
-                          </div>
                   </form>
-				  <!--
-						<table class="table" data-bind="visible: result()">
-							<tbody>
-								<tr>
-									<td>
-										<button class="btn" data-bind="css: result().resultCSS">
-											<span data-bind="text: result().resultText"></span>
-										</button>
-									</td>
-									<td><span data-bind="text: result().message"></span></td>
-								</tr>
-								<tr>
-									<td><b>Perf&nbsp;data:</b></td>
-									<td><span data-bind="text: result().perf"></span></td>
-								</tr>
-							</tbody>
-						</table>
-						-->
 				  </div>
 				  <div class="modal-footer">
 					<button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
