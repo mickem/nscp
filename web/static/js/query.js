@@ -1,7 +1,6 @@
 // Class to represent a row in the seat reservations grid
 function CommandEntry(entry) {
 	var self = this;
-    console.log(entry)
 	self.name = entry['name'];
 	self.desc = entry['info']['description'];
 	self.plugs = entry['info']['plugin'];
@@ -13,15 +12,26 @@ function CommandEntry(entry) {
     })
     self.params = entry['parameters']['parameter']
 	self.showDetails = ko.observable(false);
-    console.log(self.params)
 	
 	self.showMore = function() {
 		self.showDetails(!self.showDetails());
 	}
+	
+	self.getArgument = function(key) {
+		for (var i = 0; i < self.params.length; i++) {
+			if (self.params[i].name == key)
+				return self.params[i]
+		}
+		return null
+	}
+}
+
+function format(state) {
+    return "<b>" + state.text + "</b>: " + $(state.element).data('desc');
 }
 
 function parseCommand(cmd) {
-	args = cmd.match(/\w+|"(?:\\"|[^"])+"/g);
+	args = cmd.match(/\w+|"(?:\\"|[^"]|=)+"/g);
 	str = args[0]
 	
 	for (var i = 1; i < args.length; i++) {
@@ -38,6 +48,7 @@ function parseCommand(cmd) {
 			str = str + sep +  encodeURIComponent(s)
 		}
 	}
+	console.log(str)
 	return str
 }
 
@@ -53,7 +64,6 @@ function parseNagiosResult(id) {
 	return "INVALID(" + id + ")"
 }
 function parseNagiosResultCSS(id) {
-	console.log(id)
 	if (id == 0)
 		return "btn-success"
 	if (id == 1)
@@ -75,15 +85,31 @@ function CommandViewModel() {
 
 	self.execute = function(command) {
 		cmd_query = parseCommand(command.command())
-		console.log(cmd_query)
 		$.getJSON("/query/" + cmd_query, function(data) {
 			r = data['payload'][0]
-			r.resultText = parseNagiosResult(r.result)
+			if (r.perf) {
+				for (var i=0;i<r.perf.length;i++) {
+					if (r.perf[i].int_value) {
+						r.perf[i].int_value.r_value = r.perf[i].int_value.value
+						r.perf[i].int_value.r_warning = r.perf[i].int_value.warning
+						r.perf[i].int_value.r_critical = r.perf[i].int_value.critical
+						r.perf[i].int_value.r_minimum = r.perf[i].int_value.minimum
+						r.perf[i].int_value.r_maximum = r.perf[i].int_value.maximum
+						r.perf[i].value = r.perf[i].int_value
+					} else if (r.perf[i].float_value) {
+						r.perf[i].float_value.r_value = Math.round(r.perf[i].float_value.value * 100) / 100
+						r.perf[i].float_value.r_warning = Math.round(r.perf[i].float_value.warning * 100) / 100
+						r.perf[i].float_value.r_critical = Math.round(r.perf[i].float_value.critical * 100) / 100
+						r.perf[i].float_value.r_minimum = Math.round(r.perf[i].float_value.minimum * 100) / 100
+						r.perf[i].float_value.r_maximum = Math.round(r.perf[i].float_value.maximum * 100) / 100
+						r.perf[i].value = r.perf[i].float_value
+					}
+					console.log(r.perf[i])
+				}
+			} else {
+				r.perf = []
+			}
 			self.result(r)
-			console.log(r)
-			//data['payload']['inventory'].forEach(function(entry) {
-			//	self.commands.push(new CommandEntry(entry['name'], entry['info']['description'], entry['info']['plugin']));
-			//});
 		})
 		
 	}
@@ -106,7 +132,14 @@ function CommandViewModel() {
 	self.refresh()
 	
 	self.addArgument = function(item, event) {
-		self.query().command(self.query().command() + " " + event.val)
+		var e = item.getArgument(event.val)
+		if (e == null)
+			return
+		var type = e['content_type']
+		if (type == 'STRING')
+			self.query().command(self.query().command() + " " + event.val + '="" ')
+		else
+			self.query().command(self.query().command() + " " + event.val + " ")
 		$("#command").focus()
 	}
 }

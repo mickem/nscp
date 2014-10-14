@@ -523,7 +523,11 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool has_section(std::string path) {
-			throw settings_exception("TODO: FIX ME: has_section");
+			MUTEX_GUARD();
+			path_cache_type::const_iterator cit = path_cache_.find(path);
+			if (cit != path_cache_.end())
+				return true;
+			return has_real_path(path);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the key exists?
@@ -578,7 +582,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void reload() {
-			throw settings_exception("TODO: FIX ME: reload");
+			load();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Copy the settings store to another settings store
@@ -682,7 +686,13 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void load() {
-			throw settings_exception("TODO: FIX ME: load");
+			MUTEX_GUARD();
+			settings_delete_cache_.clear();
+			settings_delete_path_cache_.clear();
+			path_cache_.clear();
+			key_cache_.clear();
+			settings_cache_.clear();
+			get_core()->set_dirty(false);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -764,6 +774,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual bool has_real_key(settings_core::key_path_type key) = 0;
+		virtual bool has_real_path(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get the type this settings store represent.
 		///

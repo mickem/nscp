@@ -470,10 +470,15 @@ public:
 		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::QueryRequestMessage::Request *payload = rm.add_payload();
 
-
 		payload->set_command(obj);
-		if (request.hasVariable("help"))
-			payload->add_arguments("help");
+		Request::arg_vector args = request.getVariablesVector();
+
+		BOOST_FOREACH(const Request::arg_entry &e, args) {
+			if (e.second.empty())
+				payload->add_arguments(e.first);
+			else
+				payload->add_arguments(e.first + "=" + e.second);
+		}
 
 		std::string pb_response, json_response;
 		core->query(rm.SerializeAsString(), pb_response);

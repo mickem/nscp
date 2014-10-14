@@ -36,6 +36,28 @@ settings_get_value = function (val) {
 	if (val.string_data)
 		return val.string_data
 }
+
+function SettingsStatus(elem) {
+	var self = this;
+	self.has_changed = ko.observable('')
+	self.context = ko.observable('')
+	self.type = ko.observable('')
+	self.showMore = function() {
+		self.showDetails(!self.showDetails());
+	}
+	self.update = function(elem) {
+		self.context(elem['context'])
+		self.type(elem['type'])
+		self.has_changed(elem['has_changed'])
+	}
+	self.refresh = function() {
+		$.getJSON("/settings/status", function(data) {
+			self.update(data['payload'][0]['status'])
+		})
+	}	
+}
+
+
 function NSCPStatus(state) {
 	var self = this;
 	self.poller_state = typeof state !== 'undefined' ? state : true;
@@ -44,6 +66,7 @@ function NSCPStatus(state) {
 	self.last_error = ko.observable('')
 	self.busy_header = ko.observable('')
 	self.busy_text = ko.observable('')
+	self.settings = ko.observable(new SettingsStatus());
 	self.poller = null;
 	self.showMore = function() {
 		self.showDetails(!self.showDetails());
@@ -97,6 +120,7 @@ function NSCPStatus(state) {
 		$.getJSON("/log/status", function(data) {
 			self.update(data['status']);
 		})
+		self.settings_refresh()
 	}
 	self.poll = function() {
 		self.do_update();
@@ -141,7 +165,9 @@ function NSCPStatus(state) {
 			self.schedule_restart_poll();
 		})
 	}
-	
+	self.settings_refresh = function() {
+		self.settings().refresh()
+	}
 
 	self.start = function() {
 		self.poll();
@@ -234,17 +260,23 @@ function KeyEntry(entry) {
 	if (entry['node']['key'])
 		self.key = entry['node']['key'];
 	self.paths = make_paths_from_string(self.path)
-	self.title = entry['info']['title'];
-	if (entry['info']['description'])
-		self.desc = entry['info']['description'];
-	else
-		self.desc = 'UNDEFINED KEY'
-	self.plugs = entry['info']['plugin'];
-	self.advanced = entry['info']['advanced'];
+	if (entry['info']) {
+		info = entry['info']
+		if (info['title'])
+			self.title = info['title'];
+		else
+			self.title = 'UNDEFINED KEY'
+		if (info['description'])
+			self.desc = info['description'];
+		else
+			self.desc = 'UNDEFINED KEY'
+		self.plugs = info['plugin'];
+		self.advanced = info['advanced'];
+		if (info['default_value'])
+			self.default_value = settings_get_value(info['default_value']);
+	}
 	self.default_value = ''
 	self.type = 'string'
-	if (entry['info']['default_value'])
-		self.default_value = settings_get_value(entry['info']['default_value']);
 	if (self.value() == self.default_value)
 		self.value('')
 	self.old_value = self.value()
@@ -304,3 +336,23 @@ ko.bindingHandlers.expand = {
     }
 };
 
+ko.bindingHandlers.select2 = {
+	init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+		ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
+			//$(element).select2('destroy');
+		});
+		
+		select2 = ko.utils.unwrapObservable(allBindings().select2);
+		$(element).select2(select2);
+	},
+	update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
+		/*
+		$(element).select2({
+			formatResult: format,
+			formatSelection: format,
+			placeholder: "Add argument",
+			escapeMarkup: function(m) { return m; }
+		});
+		*/
+	}
+};

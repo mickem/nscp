@@ -1,20 +1,4 @@
 
-function SettingsStatus(elem) {
-	var self = this;
-	self.has_changed = ko.observable('')
-	self.context = ko.observable('')
-	self.type = ko.observable('')
-	self.showMore = function() {
-		self.showDetails(!self.showDetails());
-	}
-	self.update = function(elem) {
-		self.context(elem['context'])
-		self.type(elem['type'])
-		self.has_changed(elem['has_changed'])
-	}
-	
-}
-
 
 function LocalKeyEntry(path) {
 	var self = this;
@@ -28,6 +12,7 @@ var refresh_count = 0;
 function done_refresh(self, count) {
 	if (!count)
 		count = 1
+	console.log("done: " + refresh_count + "-" + count)
 	refresh_count-=count
 	if (refresh_count < 0)
 		refresh_count = 0
@@ -49,8 +34,7 @@ function CommandViewModel() {
 	self.akeys = ko.observableArray([]);
 	self.current = ko.observable();
 	self.path = ko.observable('/');
-	self.status = ko.observable(new SettingsStatus());
-	self.addNew = ko.observable(new LocalKeyEntry(self.path));
+	self.addNew = ko.observable(new KeyEntry({ 'node': {'path': self.path()} }));
 	self.currentPath = ko.observableArray(make_paths_from_string(self.path()))
 	self.path_map = {}
 
@@ -66,11 +50,11 @@ function CommandViewModel() {
 		root['header'] = {};
 		root['header']['version'] = 1;
 		root['type'] = 'SettingsRequestMessage';
-		self.addNew().path = self.path()
-		root['payload'] = [build_settings_payload(self.addNew())];
+		root['payload'] = [self.addNew().build_payload()];
 
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.refresh()
+			done_refresh(self, 2);
 		})
 	}
 	self.save = function(command) {
@@ -91,6 +75,7 @@ function CommandViewModel() {
 		if (root['payload'].length > 0) {
 			$.post("/settings/query.json", JSON.stringify(root), function(data) {
 				self.refresh()
+				done_refresh(self, 2);
 			})
 		} else {
 			self.nscp_status().message("warn", "Settings not saved", "No changes detected");
@@ -110,8 +95,8 @@ function CommandViewModel() {
 		root['payload'] = [ payload ];
 		
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
-			done_refresh(self, 2);
 			self.refresh()
+			done_refresh(self, 2);
 		})
 	}
 	self.saveStore = function(command) {
@@ -127,8 +112,8 @@ function CommandViewModel() {
 		
 		root['payload'] = [ payload ];
 		$.post("/settings/query.json", JSON.stringify(root), function(data) {
-			done_refresh(self, 2);
 			self.refresh()
+			done_refresh(self, 2);
 		})
 	}
 	self.update_current_paths = function() {
@@ -142,6 +127,7 @@ function CommandViewModel() {
 	self.refresh = function() {
 		init_refresh(self);
 		path = self.path()
+		console.log("paths: " + self.paths())
 		if (self.paths().length == 0) {
 			$.getJSON("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
 				if (data['payload'][0]['inventory']) {
@@ -180,9 +166,6 @@ function CommandViewModel() {
 			self.nscp_status().not_busy()
 			self.nscp_status().set_error(xhr.responseText)
 		})
-		$.getJSON("/settings/status", function(data) {
-			self.status().update(data['payload'][0]['status'])
-		})
 	}
 	self.set_default_value = function(key) {
 		key.value('')
@@ -192,6 +175,7 @@ function CommandViewModel() {
 		if (!p)
 			p = new LocalKeyEntry(path)
 		self.current(p)
+		self.addNew(new KeyEntry({ 'node': {'path': path} }))
 		self.path(self.current().path)
 		self.currentPath(make_paths_from_string(self.path()))
 		self.refresh()

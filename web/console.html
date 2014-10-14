@@ -42,13 +42,13 @@
 								<a href="/modules.html">Modules</a>
 							</li>
 							<li>
-								<a href="/settings.html">Settings</a>
+								<a href="/settings.html"><span class="label label-danger" data-bind="visible: nscp_status().settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
 							</li>
 							<li>
 								<a href="/queries.html">Queries</a>
 							</li>
 							<li>
-								<a href="/log.html">Log</a>
+								<a href="/log.html"><span class="label label-danger" data-bind="visible: nscp_status().has_issues"><span class="glyphicon glyphicon-warning-sign"></span></span> Log</a>
 							</li>
 							<li class="active">
 								<a href="/console.html">Console</a>

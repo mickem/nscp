@@ -92,6 +92,11 @@ namespace settings {
 			return ini.GetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str()) != NULL;
 		}
 
+		virtual bool has_real_path(std::string path) {
+			return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0;
+		}
+
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///

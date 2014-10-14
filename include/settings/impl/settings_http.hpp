@@ -183,6 +183,9 @@ namespace settings {
 		virtual bool has_real_key(settings_core::key_path_type key) {
 			return false;
 		}
+		virtual bool has_real_path(std::string path) {
+			return false;
+		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///

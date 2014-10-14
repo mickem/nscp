@@ -274,6 +274,9 @@ namespace settings {
 			settings_core::key_path_type old = map.key(key);
 			return has_key_int(old.first, old.second);
 		}
+		virtual bool has_real_path(std::string path) {
+			return false;
+		}
 
 
 		std::set<std::string> internal_read_keys_from_section(std::string section, unsigned int bufferLength = 1024) {
