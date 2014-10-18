@@ -63,7 +63,7 @@ namespace task_scheduler {
 			if (instance) {
 				boost::posix_time::time_duration off = now() - (*instance).time;
 				if (off.total_seconds() > 5) {
-					if (thread_count_ < 0)
+					if (thread_count_ < 10)
 						thread_count_++;
 					std::size_t missing_threads = thread_count_ - threads_.size();
 					if (missing_threads > 0) {
