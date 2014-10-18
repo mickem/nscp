@@ -357,7 +357,7 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 
 		if (vm.count("run")) {
 			try {
-				core_->start_and_wait(utf8::cvt<std::wstring>(name));
+				core_->start_and_wait(name);
 			} catch (...) {
 				log_error(__LINE__, "Unknown exception in service");
 			}
