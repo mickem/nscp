@@ -105,6 +105,7 @@ IF (LUA_FOUND)
 			--language lua
 			--script ${script}.lua
 			--log error
+			--define "/paths:module-path=\\\${base-path}/modules"
 		)
 ELSE (LUA_FOUND)
 	MESSAGE(STATUS "Skipping test ${name} since lua is not avalible")
