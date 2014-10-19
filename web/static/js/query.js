@@ -8,6 +8,8 @@ function CommandEntry(entry) {
     self.params = []
     entry['parameters']['parameter'].forEach(function(entry) {
         entry.first_line = entry.short_description
+		entry.desc = entry.long_description.replace(/\n/g, '<br/>')
+		console.log(entry.long_description)
         self.params.push(entry)
     })
     self.params = entry['parameters']['parameter']

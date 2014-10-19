@@ -1778,7 +1778,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 	return NSCAPI::hasFailed;
 }
 
-boost::optional<boost::filesystem::path> locateFileICase(boost::filesystem::path path, std::string filename) {
+boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem::path path, const std::string filename) {
 	boost::filesystem::path fullpath = path / filename;
 #ifdef WIN32
 	std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
@@ -1787,7 +1787,8 @@ boost::optional<boost::filesystem::path> locateFileICase(boost::filesystem::path
 	HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi),SHGFI_DISPLAYNAME);
 	if (SUCCEEDED(hr)) {
 		tmp = sfi.szDisplayName;
-		return path / utf8::cvt<std::string>(tmp);
+		boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
+		return rpath;
 	}
 #else
 	if(boost::filesystem::is_regular_file(fullpath))
@@ -1796,7 +1797,7 @@ boost::optional<boost::filesystem::path> locateFileICase(boost::filesystem::path
 	std::string tmp = boost::algorithm::to_lower_copy(filename);
 	BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
 		if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename().string()) == tmp) {
-			 return p;
+			return p;
 		} 
 	}
 #endif
@@ -2046,23 +2047,27 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 						boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath,  NSCPlugin::get_plugin_file(control.name()));
 						if (!module)
 							module = locateFileICase(boost::filesystem::path("./modules"),  NSCPlugin::get_plugin_file(control.name()));
-						LOG_DEBUG_CORE_STD("Module name: " + module->string());
+						if (!module) {
+							LOG_ERROR_CORE("Failed to find: " + control.name());
+						} else {
+							LOG_DEBUG_CORE_STD("Module name: " + module->string());
 
-						try {
-							plugin_type instance = addPlugin(*module, control.alias());
-							instance->load_plugin(NSCAPI::normalStart);
-						} catch(const NSPluginException& e) {
-							if (e.file().find("FileLogger") != std::string::npos) {
-								LOG_DEBUG_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
-							} else {
-								LOG_ERROR_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
+							try {
+								plugin_type instance = addPlugin(*module, control.alias());
+								instance->load_plugin(NSCAPI::normalStart);
+							} catch(const NSPluginException& e) {
+								if (e.file().find("FileLogger") != std::string::npos) {
+									LOG_DEBUG_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
+								} else {
+									LOG_ERROR_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
+								}
+							} catch (const std::exception &e) {
+								LOG_ERROR_CORE_STD("exception loading plugin " + module->string() + ": " + utf8::utf8_from_native(e.what()));
+								return false;
+							} catch (...) {
+								LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module->string());
+								return false;
 							}
-						} catch (const std::exception &e) {
-							LOG_ERROR_CORE_STD("exception loading plugin " + module->string() + ": " + utf8::utf8_from_native(e.what()));
-							return false;
-						} catch (...) {
-							LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module->string());
-							return false;
 						}
 					} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
 						boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));

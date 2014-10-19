@@ -136,10 +136,10 @@ namespace service_helper_impl {
 		}
 
 /** start */
-		void start_and_wait(std::wstring name) {
-			name_ = name;
-			print_debug(_T("Starting: ") + name);
-			create_dispatch_table(name);
+		void start_and_wait(std::string name) {
+			name_ = utf8::cvt<std::wstring>(name);
+			print_debug(_T("Starting: ") + name_);
+			create_dispatch_table(name_);
 			StartServiceCtrlDispatcher();
 		}
 

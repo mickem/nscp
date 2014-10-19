@@ -92,10 +92,9 @@
 
 			<div id="result" class="modal fade">
 				<div class="modal-dialog modal-lg">
-
 					<div class="modal-content" data-bind="with: query">
 						<div class="modal-header">
-							<input type="button" class="close" data-dismiss="modal" aria-hidden="true"/>
+							<button class="close" data-dismiss="modal" aria-hidden="true">x</button>
 							<h4 data-bind="text: name" class="modal-title"></h4>
 						</div>
 						<div class="modal-body">
@@ -124,15 +123,25 @@
 
 								<div class="tab-pane" id="help">
 									<div class="panel-body">
-										<ul class="list-group" data-bind="foreach: params">
-											<li class="list-group-item">
-												<h4 class="list-group-item-heading">
-													<span data-bind="text: name" class="modal-title"></span>
-												</h4>
-												<p class="list-group-item-text" data-bind="text: first_line"></p>
-											</h4>
-											</li>
-										</ul>
+										<div id="accordion" class="panel-group">
+											<!-- ko foreach: params -->
+											<div class="panel panel-default">
+												<div class="panel-heading">
+													<h4 class="panel-title">
+														<b><a class="accordion-toggle" href="#" class=""
+															data-toggle="collapse" data-parent="#accordion" 
+															data-bind="text: name, attr: {href: '#collapse' + $index()}"></a></b> : 
+															<span data-bind="text: first_line"></span>
+													</h4>
+												</div>
+												<div class="panel-collapse collapse" data-bind="attr: {id: 'collapse' + $index()}">
+													<div class="panel-body">
+														<span data-bind="html: desc"></span>
+													</div>
+												</div>
+											</div>
+											<!-- /ko -->
+										</div>
 									</div>
 								</div>
 								
@@ -190,11 +199,11 @@
 																	</td>
 																	<td>
 																		<span data-bind="text: value.r_minimum"></span>
-																		<span data-bind="text: value.unit"></span>
+																		<span data-bind="visible: value.r_minimum, text: value.unit"></span>
 																	</td>
 																	<td>
 																		<span data-bind="text: value.r_maximum"></span>
-																		<span data-bind="text: value.unit"></span>
+																		<span data-bind="visible: value.r_maximum, text: value.unit"></span>
 																	</td>
 																</tr>
 															<!-- /ko -->
