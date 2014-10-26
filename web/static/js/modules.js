@@ -39,8 +39,8 @@ function Module(entry) {
 	self.refresh_settings = function() {
 		if (self.is_loaded()) {
 			if (self.keys.length == 0) {
-				//root.nscp_status().busy('Loading', 'Refresing ' + self.name() + '...')
-				$.getJSON("/settings/inventory?path=/&recursive=true&keys=true&module=" + self.name(), function(data) {
+				root.nscp_status().busy('Loading', 'Refresing ' + self.name() + '...')
+				json_get("/settings/inventory?path=/&recursive=true&keys=true&module=" + self.name(), function(data) {
 					keys = []
 					if (data['payload'][0]['inventory']) {
 						data['payload'][0]['inventory'].forEach(function(entry) {
@@ -51,10 +51,7 @@ function Module(entry) {
 					}
 					result = groupBy(keys, function(item) { return [item.path]; })
 					self.keys(result);
-					//root.nscp_status().not_busy()
-				}).error(function(xhr, error, status) {
-					self.nscp_status().not_busy()
-					self.nscp_status().set_error(xhr.responseText)
+					root.nscp_status().not_busy()
 				})
 			}
 		} else {
@@ -80,11 +77,12 @@ function build_settings_payload(value) {
 function CommandViewModel() {
 	var self = this;
 
-	self.nscp_status = ko.observable(new NSCPStatus());
+	self.nscp_status = ko.observable(global_status);
 	self.modules = ko.observableArray([]);
 	self.currentName = ko.observable('')
 	self.module = ko.observable(new Module())
 	self.paths = ko.observableArray([]);
+	global_status.set_on_logout(function () {self.modules([]); self.paths([])})
 
 	self.addNewKey = function(command) {
 		root={}
@@ -99,7 +97,7 @@ function CommandViewModel() {
 	}
 	self.refresh_settings = function() {
 		self.nscp_status().busy('Loading', 'Refresing module list...')
-		$.getJSON("/settings/inventory?path=/modules&recursive=false&keys=true", function(data) {
+		json_get("/settings/inventory?path=/modules&recursive=false&keys=true", function(data) {
 			if (data['payload'] && data['payload'][0]['inventory']) {
 				data['payload'][0]['inventory'].forEach(function(entry) {
 					name = entry['node']['key']
@@ -112,14 +110,11 @@ function CommandViewModel() {
 				});
 			}
 			self.nscp_status().not_busy()
-		}).error(function(xhr, error, status) {
-			self.nscp_status().not_busy()
-			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	self.refresh_modules = function() {
 		self.nscp_status().busy('Loading', 'Refresing module list...')
-		$.getJSON("/registry/inventory/modules", function(data) {
+		json_get("/registry/inventory/modules", function(data) {
 			added_item = false;
 			if (data['payload'][0]['inventory']) {
 				data['payload'][0]['inventory'].forEach(function(entry) {
@@ -139,9 +134,6 @@ function CommandViewModel() {
 			if (added_item)
 				self.modules.sort(function(left, right) { return left.name() == right.name() ? 0 : (left.name() < right.name() ? -1 : 1) })
 			self.refresh_settings()
-		}).error(function(xhr, error, status) {
-			self.nscp_status().not_busy()
-			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	self.refresh = function() {
@@ -149,13 +141,13 @@ function CommandViewModel() {
 	}
 	self.load = function(command) {
 		self.nscp_status().busy('Loading', 'Loading ' + command.name())
-		$.getJSON("/registry/control/module/load?name="+command.name(), function(data) {
+		json_get("/registry/control/module/load?name="+command.name(), function(data) {
 			self.refresh()
 		})
 	}
 	self.unload = function(command) {
 		self.nscp_status().busy('Loading', 'Unloading ' + command.name())
-		$.getJSON("/registry/control/module/unload?name="+command.name(), function(data) {
+		json_get("/registry/control/module/unload?name="+command.name(), function(data) {
 			self.refresh()
 		})
 	}

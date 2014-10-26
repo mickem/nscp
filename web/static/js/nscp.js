@@ -51,23 +51,72 @@ function SettingsStatus(elem) {
 		self.has_changed(elem['has_changed'])
 	}
 	self.refresh = function() {
-		$.getJSON("/settings/status", function(data) {
+		json_get("/settings/status", function(data) {
 			self.update(data['payload'][0]['status'])
 		})
 	}	
 }
 
+function auth_token_class() {
+	var self = this
+	console.log(global_token)
+	self.token = global_token
+	self.get = function() {
+		return self.token;
+	}
+	self.set = function(token) {
+		self.token = token;
+		console.log("New token: " + token)
+		//window.localStorage.setItem('access_token', token);
+	}
+}
+var auth_token = new auth_token_class()
 
 function NSCPStatus(state) {
 	var self = this;
 	self.poller_state = typeof state !== 'undefined' ? state : true;
 	self.has_issues = ko.observable('')
+	self.is_loggedin = ko.observable(auth_token.get()!='')
 	self.error_count = ko.observable('')
 	self.last_error = ko.observable('')
 	self.busy_header = ko.observable('')
 	self.busy_text = ko.observable('')
 	self.settings = ko.observable(new SettingsStatus());
+	self.password = ko.observable('');
+	self.count = 0;
+	
 	self.poller = null;
+	self.on_login = function() {}
+	self.set_on_login = function(f) { self.on_login = f} 
+	self.on_logout = function() {}
+	self.set_on_logout = function(f) { self.on_logout = f} 
+	self.login_error_message = ko.observable('')
+	
+	self.login = function() {
+		$.getJSON("/auth/token?password="+self.password(), function(data, textStatus, xhr) {
+			auth_token.set(xhr.getResponseHeader("__TOKEN"));
+			href = window.location.href
+			pos = href.indexOf('?__TOKEN')
+			if (pos != -1)
+				href =  href.substr(0, pos)
+			href = href + '?__TOKEN='+auth_token.get()
+			console.log("redirectin to: " + href)
+			window.location.href = href;
+			self.password('')
+			self.is_loggedin(true)
+			self.on_login()
+		})
+	}
+	self.logout = function() {
+		$.getJSON("/auth/logout?token="+auth_token.get(), function(data, textStatus, xhr) {
+			auth_token.set('');
+			self.password('')
+			self.is_loggedin(false)
+			self.on_logout()
+		})
+	}
+	
+	
 	self.showMore = function() {
 		self.showDetails(!self.showDetails());
 	}
@@ -77,23 +126,42 @@ function NSCPStatus(state) {
 		self.has_issues(self.error_count() > 0)
 	}
 	self.set_error = function(text) {
+		console.log("Error: " + text)
 		self.error_count(self.error_count()+1)
 		self.last_error(text)
 		self.has_issues(self.error_count() > 0)
 	}
-	self.busy = function(header, text) {
+	self.busy = function(header, text, count) {
+		if (self.count < 0)
+			self.count = 0
+		if (count == null)
+			count = 1
+		self.count = count
 		if (self.poller_state)
 			self.cancelPoller();
 		self.busy_header(header)
 		self.busy_text(text)
-		$("#busy").modal({"backdrop" : "static", "show": "true"});
+		$('#busy').modal();
+		console.log("Busy: " + self.busy_header() + ", " + self.count  + ", " + count)
 	}
-	self.not_busy = function() {
-		$("#busy").modal('hide');
-		self.busy_header('')
-		self.busy_text('')
-		if (self.poller_state)
-			self.start();
+	self.not_busy = function(count, start_poller) {
+		console.log("Not Busy: " + self.busy_header() + ", " + self.count  + ", " + count)
+		if (start_poller == null)
+			start_poller = true;
+		if (count == null)
+			count = 1
+		self.count -= count
+		if (self.count <= 0) {
+			$('#busy').modal('hide');
+			console.log(self.count)
+			self.busy_header('')
+			self.busy_text('')
+			console.log("poller: " +start_poller)
+			//if (self.poller_state && start_poller)
+			//	self.start();
+		} else {
+			console.log("done: " + self.count)
+		}
 	}
 	
 	self.message = function(type, title, message) {
@@ -112,23 +180,32 @@ function NSCPStatus(state) {
 				}
 			}]
 		});	
-	
-		//$("#busy").modal({"backdrop" : "hide", "show": "true"});
 	}
 		
 	self.do_update = function(elem) {
-		$.getJSON("/log/status", function(data) {
+		json_get("/log/status", function(data) {
 			self.update(data['status']);
+		}).error(function(xhr, error, status) {
+			if (xhr.status == 200)
+				return;
+			console.log("Status got error: " + xhr.status);
+			if (xhr.status == 403) {
+				global_status.is_loggedin(false);
+			}
+			global_status.set_error(xhr.responseText)
+			global_status.not_busy(100, false)
 		})
 		self.settings_refresh()
 	}
 	self.poll = function() {
-		self.do_update();
+		if (self.is_loggedin()) {
+			self.do_update();
+		}
 		self.poller = setTimeout(self.poll, 5000);
 	}
 
 	self.reset = function() {
-		$.getJSON("/log/reset", function(data) {
+		json_get("/log/reset", function(data) {
 			self.do_update();
 		})
 	}
@@ -148,7 +225,6 @@ function NSCPStatus(state) {
             success: function (data, status, xhttp) {
 				if (data['status'] && data['status'] == "ok") {
 					clearTimeout(self.restart_waiter);
-					self.not_busy();
 				} else {
 					self.restart_waiter = setTimeout(self.restart_poll, 1000);
 				}
@@ -161,12 +237,12 @@ function NSCPStatus(state) {
 	}
 	self.restart = function() {
 		self.busy("Restarting...", "Please wait while we restart...");
-		$.getJSON("/core/reload", function(data) {
+		json_get("/core/reload", function(data) {
 			self.schedule_restart_poll();
 		})
 	}
 	self.settings_refresh = function() {
-		self.settings().refresh()
+		self.settings().refresh();
 	}
 
 	self.start = function() {
@@ -176,6 +252,54 @@ function NSCPStatus(state) {
 		self.start()
 	}
 }
+
+
+var global_status = new NSCPStatus();
+
+
+function json_get(url, success) {
+	return $.ajax({
+		url: url,
+		type: 'GET',
+		dataType: 'json',
+		success: success,
+		error: function(xhr, error, status) {
+			if (xhr.status == 403) {
+				global_status.is_loggedin(false);
+			}
+			global_status.set_error(xhr.responseText)
+			global_status.not_busy(100, false)
+		},
+		beforeSend: function (xhr) {
+			xhr.setRequestHeader('TOKEN', auth_token.get());
+		}
+	});
+}
+
+function json_post(url, data, success) {
+	return $.ajax({
+		url: url,
+		type: 'POST',
+		dataType: 'json',
+		data: data,
+		success: success,
+		error: function(xhr, error, status) {
+			if (xhr.status == 403) {
+				global_status.is_loggedin(false);
+			}
+			global_status.set_error(xhr.responseText)
+			global_status.not_busy(100, false)
+		},
+		beforeSend: function (xhr) {
+			xhr.setRequestHeader('TOKEN', auth_token.get());
+		}
+	});
+}
+
+
+
+
+
 
 function toggleChevron(e) {
     $(e.target)
@@ -355,4 +479,74 @@ ko.bindingHandlers.select2 = {
 		});
 		*/
 	}
+};
+/*
+ko.bindingHandlers.typeahead = {
+	init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
+		var $element = $(element);
+		var typeaheadOpts = { source: ko.utils.unwrapObservable(valueAccessor()) };
+
+		if (allBindings().typeaheadOptions) {
+			$.each(allBindings().typeaheadOptions, function(optionName, optionValue) {
+				typeaheadOpts[optionName] = ko.utils.unwrapObservable(optionValue);
+			});
+		}
+		console.log(typeaheadOpts)
+		console.log($element)
+		console.log($element.attr)
+		console.log($element.attr("autocomplete", "off"))
+		$element.attr("autocomplete", "off").typeahead(typeaheadOpts);
+	}
+};
+*/
+
+var substringMatcher = function(strs) {
+  return function findMatches(q, cb) {
+	console.log("-----------")
+    var matches, substrRegex;
+ 
+    // an array that will be populated with substring matches
+    matches = [];
+ 
+    // regex used to determine if a string contains the substring `q`
+    substrRegex = new RegExp(q, 'i');
+ 
+    // iterate through the pool of strings and for any string that
+    // contains the substring `q`, add it to the `matches` array
+    $.each(strs, function(i, str) {
+      if (substrRegex.test(str)) {
+        // the typeahead jQuery plugin expects suggestions to a
+        // JavaScript object, refer to typeahead docs for more info
+        matches.push({ value: str });
+      }
+    });
+ 
+    cb(matches);
+  };
+};
+
+ko.bindingHandlers.typeahead = {
+    init: function(element, valueAccessor) {
+        var options = ko.unwrap(valueAccessor()) || {},
+            $el = $(element),
+            triggerChange = function() {
+                $el.change();   
+            }
+
+        //initialize widget and ensure that change event is triggered when updated
+		$el.typeahead({
+		  hint: true,
+		  highlight: true,
+		  minLength: 1
+		},options)
+            .on("typeahead:selected", triggerChange)
+            .on("typeahead:autocompleted", triggerChange);        
+			
+
+        //if KO removes the element via templating, then destroy the typeahead
+        ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
+            $el.typeahead("destroy"); 
+            $el = null;
+        }); 
+    }
 };

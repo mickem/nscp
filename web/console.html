@@ -1,27 +1,19 @@
 <html lang="en">
 	<head>
-		<meta charset="utf-8" />
-		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<link rel="shortcut icon" href="/static/images/favicon.png">
-		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
-		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
-		<link rel="stylesheet" href="/static/css/nscp.css" />
+		<script type="text/javascript">
+			log_direction = false;
+			global_token='<%=TOKEN%>';
+		</script>
+
+		<%=INCLUDE:HEAD_META%>
 
 		<title>NSClient++ Console</title>
 
-		<script type="text/javascript" src="/static/js/jquery-1.11.1.min.js"></script>
-		<script type="text/javascript" src="/static/js/knockout-3.1.0.js"></script>
-		<script type="text/javascript" src="/static/js/bootstrap.min.js"></script>
-		<script type="text/javascript" src="/static/js/bootstrap-select.min.js"></script>
-		<script type="text/javascript" src="/static/js/nscp.js"></script>
-		<script type="text/javascript">
-			log_direction = false;
-		</script>
 		<script type="text/javascript" src="/static/js/log.js" defer="defer"></script>
 	</head>
 	<body>
 		<div class="container">
+
 			<nav class="navbar navbar-default" role="navigation">
 				<div class="container-fluid">
 					<!-- Brand and toggle get grouped for better mobile display -->
@@ -32,65 +24,59 @@
 							<span class="icon-bar"/>
 							<span class="icon-bar"/>
 						</button>
-						<a class="navbar-brand" href="/index.html">NSClient++</a>
+						<a class="navbar-brand" href="/index.html<%=TOKEN_TAG%>">NSClient++</a>
 					</div>
 
 					<!-- Collect the nav links, forms, and other content for toggling -->
 					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 						<ul class="nav navbar-nav">
 							<li>
-								<a href="/modules.html">Modules</a>
+								<a href="/modules.html<%=TOKEN_TAG%>">Modules</a>
 							</li>
 							<li>
-								<a href="/settings.html"><span class="label label-danger" data-bind="visible: nscp_status().settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
+								<a href="/settings.html<%=TOKEN_TAG%>"><span class="label label-danger" data-bind="visible: nscp_status().settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
 							</li>
 							<li>
-								<a href="/queries.html">Queries</a>
+								<a href="/queries.html<%=TOKEN_TAG%>">Queries</a>
 							</li>
 							<li>
-								<a href="/log.html"><span class="label label-danger" data-bind="visible: nscp_status().has_issues"><span class="glyphicon glyphicon-warning-sign"></span></span> Log</a>
+								<a href="/log.html<%=TOKEN_TAG%>"><span class="label label-danger" data-bind="visible: nscp_status().has_issues"><span class="glyphicon glyphicon-warning-sign"></span></span> Log</a>
 							</li>
 							<li class="active">
-								<a href="/console.html">Console</a>
+								<a href="/console.html<%=TOKEN_TAG%>">Console</a>
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
-							<li>
-								<a href="http://docs.nsclient.org">Help</a>
+							<li class="dropdown">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-globe"></span> Help</a>
+								<ul class="dropdown-menu">
+									<li>
+										<a href="http://www.nsclient.org"><span class="glyphicon glyphicon-globe"></span> NSClient++ Website</a>
+										<a href="http://docs.nsclient.org"><span class="glyphicon glyphicon-globe"></span> NSClient++ online Help</a>
+									</li>
+								</ul>
 							</li>
 							<li class="dropdown">
-								<a href="#" class="dropdown-toggle" data-toggle="dropdown">Restart <b class="caret"></b></a>
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-repeat"></span> Restart <b class="caret"></b></a>
 								<ul class="dropdown-menu">
-									<li><a data-bind="click: nscp_status().restart">Restart NSClient++</a></li>
+									<li>
+										<a data-bind="click: nscp_status().restart"><span class="glyphicon glyphicon-repeat"></span> Restart NSClient++</a>
+									</li>
 								</ul>
 							</li>
 							<li>
-								<a href="/auth/logout" class="glyphicon glyphicon-log-out"></a>
+								<a class="glyphicon glyphicon-log-out" data-bind="click: $root.nscp_status().logout"></a>
 							</li>
 						</ul>
 					</div>
 				</div>
 			</nav>
+			
+			<%=INCLUDE:DIALOGS%>
+			
+			<!-- console page -->
 
-			<div id="busy" class="modal fade">
-				<div class="modal-dialog">
-					<div class="modal-content">
-						<div class="modal-header">
-							<h4 class="modal-title"><span data-bind="text: nscp_status().busy_header"></span></h4>
-						</div>
-						<div class="modal-body">
-							<img src="/static/images/ajax-loader.gif" />
-							<span data-bind="text: nscp_status().busy_text"></span>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<ol class="breadcrumb">
-				<li><a href="/log.html">Log</a></li>
-			</ol>
-
-			<div class="panel panel-primary">
+			<div class="panel panel-primary" data-bind="visible: nscp_status().is_loggedin()">
 				<div class="panel-heading">
 					<h3 class="panel-title pull-left">Log</h3>
 					<div class="btn-group pull-right">
@@ -132,7 +118,7 @@
 						<div class="input-group">
 							<input id="command" type="text" data-bind="value: command, valueUpdate: 'keyup', actionKey: action, keys: [38, 40]" class="form-control">
 							<span class="input-group-btn">
-								<button class="btn btn-default" type="button">Run</button>
+								<button class="btn btn-default" type="submit">Run</button>
 							</span>
 						</div>
 					</form>

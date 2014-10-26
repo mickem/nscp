@@ -1,5 +1,3 @@
-
-
 function LocalKeyEntry(path) {
 	var self = this;
 	self.value = ko.observable('')
@@ -8,26 +6,11 @@ function LocalKeyEntry(path) {
 	self.type = 'string'
 }
 
-var refresh_count = 0;
-function done_refresh(self, count) {
-	if (!count)
-		count = 1
-	console.log("done: " + refresh_count + "-" + count)
-	refresh_count-=count
-	if (refresh_count < 0)
-		refresh_count = 0
-	if (refresh_count==0)
-		self.nscp_status().not_busy()
-}
-function init_refresh(self) {
-	self.nscp_status().busy('Refreshing', 'Refreshing data...')
-	refresh_count += 2;
-}
-
 function CommandViewModel() {
 	var self = this;
+	
 
-	self.nscp_status = ko.observable(new NSCPStatus());
+	self.nscp_status = ko.observable(global_status);
 	self.current_paths = ko.observableArray([]);
 	self.paths = ko.observableArray([]);
 	self.keys = ko.observableArray([]);
@@ -45,20 +28,19 @@ function CommandViewModel() {
 		$("#adkeys").modal($('#myModal').hasClass('in')?'hide':'show');
 	}
 	self.addNewKey = function(command) {
-		init_refresh(self);
+		self.nscp_status().busy('Add new key', 'Adding data...')
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
 		root['type'] = 'SettingsRequestMessage';
 		root['payload'] = [self.addNew().build_payload()];
 
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+		json_post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.refresh()
-			done_refresh(self, 2);
 		})
 	}
 	self.save = function(command) {
-		init_refresh(self);
+		self.nscp_status().busy('Save', 'Saving data...')
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -73,17 +55,16 @@ function CommandViewModel() {
 				root['payload'].push(entry.build_payload())
 		})
 		if (root['payload'].length > 0) {
-			$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			json_post("/settings/query.json", JSON.stringify(root), function(data) {
 				self.refresh()
-				done_refresh(self, 2);
 			})
 		} else {
 			self.nscp_status().message("warn", "Settings not saved", "No changes detected");
-			done_refresh(self, 2);
+			self.nscp_status().not_busy()
 		}
 	}
 	self.loadStore = function(command) {
-		init_refresh(self);
+		self.nscp_status().busy('Loading', 'Loading data...')
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -94,13 +75,12 @@ function CommandViewModel() {
 		payload['control']['command'] = 'LOAD'
 		root['payload'] = [ payload ];
 		
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+		json_post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.refresh()
-			done_refresh(self, 2);
 		})
 	}
 	self.saveStore = function(command) {
-		init_refresh(self);
+		self.nscp_status().busy('Saving', 'Saving data...')
 		root={}
 		root['header'] = {};
 		root['header']['version'] = 1;
@@ -111,9 +91,8 @@ function CommandViewModel() {
 		payload['control']['command'] = 'SAVE'
 		
 		root['payload'] = [ payload ];
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+		json_post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.refresh()
-			done_refresh(self, 2);
 		})
 	}
 	self.update_current_paths = function() {
@@ -125,11 +104,10 @@ function CommandViewModel() {
 		});
 	}
 	self.refresh = function() {
-		init_refresh(self);
 		path = self.path()
-		console.log("paths: " + self.paths())
 		if (self.paths().length == 0) {
-			$.getJSON("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
+			self.nscp_status().busy('Refreshing', 'Refreshing data...', 2)
+			json_get("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
 				if (data['payload'][0]['inventory']) {
 					data['payload'][0]['inventory'].forEach(function(entry) {
 						p = new PathEntry(entry)
@@ -138,16 +116,13 @@ function CommandViewModel() {
 					});
 				}
 				self.update_current_paths();
-				done_refresh(self);
-			}).error(function(xhr, error, status) {
-				self.nscp_status().not_busy()
-				self.nscp_status().set_error(xhr.responseText)
+				self.nscp_status().not_busy();
 			})
 		} else {
+			self.nscp_status().busy('Refreshing', 'Refreshing data...')
 			self.update_current_paths();
-			done_refresh(self);
 		}
-		$.getJSON("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
+		json_get("/settings/inventory?path=" + path + "&recursive=false&keys=true", function(data) {
 			self.keys.removeAll()
 			self.akeys.removeAll()
 			if (data['payload'][0]['inventory']) {
@@ -161,10 +136,7 @@ function CommandViewModel() {
 			}
 			self.keys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
 			self.akeys.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
-			done_refresh(self);
-		}).error(function(xhr, error, status) {
-			self.nscp_status().not_busy()
-			self.nscp_status().set_error(xhr.responseText)
+			self.nscp_status().not_busy();
 		})
 	}
 	self.set_default_value = function(key) {
@@ -186,6 +158,9 @@ function CommandViewModel() {
 	self.set_current_path = function(command) {
 		self.change_path(command.path)
 	}
+	global_status.set_on_login( function() {
+		self.refresh()
+	});
 	self.refresh()
 }
 ko.applyBindings(new CommandViewModel());

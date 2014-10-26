@@ -82,7 +82,7 @@ function CommandViewModel() {
 	};
 	self.rev = log_direction;
 	self.refreshOne = function(done) {
-		$.getJSON("/log/messages?pos="+self.pos(), function(data) {
+		json_get("/log/messages?pos="+self.pos(), function(data) {
 			self.pos(data['log']['pos'])
 			data['log']['data'].forEach(function(entry) {
 				if (self.rev) {
@@ -92,9 +92,6 @@ function CommandViewModel() {
 				}
 			});
 			done()
-		}).error(function(xhr, error, status) {
-			self.nscp_status().not_busy()
-			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	
@@ -102,7 +99,7 @@ function CommandViewModel() {
 		self.refreshOne(function() {setTimeout(self.refresh, 1000)})
 	}
 	self.reset = function(command) {
-		$.getJSON("/log/reset", function(data) {
+		json_get("/log/reset", function(data) {
 			self.log("")
 			self.pos(0)
 		})
@@ -113,12 +110,9 @@ function CommandViewModel() {
 		history_index = -1
 		self.nscp_status().busy('Executing...', command)
 		self.command('')
-		$.getJSON("/console/exec?command="+encodeURIComponent(command), function(data) {
+		json_get("/console/exec?command="+encodeURIComponent(command), function(data) {
 			self.nscp_status().not_busy()
 			self.refreshOne(function() {})
-		}).error(function(xhr, error, status) {
-			self.nscp_status().not_busy()
-			self.nscp_status().set_error(xhr.responseText)
 		})
 	}
 	 self.action = function(event){

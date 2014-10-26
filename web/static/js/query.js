@@ -9,7 +9,6 @@ function CommandEntry(entry) {
     entry['parameters']['parameter'].forEach(function(entry) {
         entry.first_line = entry.short_description
 		entry.desc = entry.long_description.replace(/\n/g, '<br/>')
-		console.log(entry.long_description)
         self.params.push(entry)
     })
     self.params = entry['parameters']['parameter']
@@ -26,6 +25,28 @@ function CommandEntry(entry) {
 		}
 		return null
 	}
+	self.commandTips = function() {
+		return function findMatches(q, cb) {
+			var matches, substrRegex;
+			var pos = q.lastIndexOf(' ')
+			var prefix = ''
+			if (pos != -1) {
+				prefix = q.substr(0,pos+1)
+				q = q.substr(pos+1)
+			}
+			matches = [];
+			substrRegex = new RegExp(q, 'i');
+			$.each(self.params, function(i, item) {
+				if (substrRegex.test(item.name)) {
+					if (item.content_type == "BOOL")
+						matches.push({ value: prefix+item.name, key: item.name, tip: item.first_line });
+					else
+						matches.push({ value: prefix+'"'+item.name+'="', key: item.name, tip: item.first_line });
+				}
+			});
+			cb(matches);
+		};
+	}
 }
 
 function format(state) {
@@ -33,7 +54,7 @@ function format(state) {
 }
 
 function parseCommand(cmd) {
-	args = cmd.match(/\w+|"(?:\\"|[^"]|=)+"/g);
+	args = cmd.match(/[\w=-]+|"(?:\\"|[^"]|[=-])+"/g);
 	str = args[0]
 	
 	for (var i = 1; i < args.length; i++) {
@@ -43,6 +64,8 @@ function parseCommand(cmd) {
 		if (i == 1)
 			sep = "?"
 		var s = args[i]
+		if (s.substring(0, 1) === '"' && s.substr(s.length-1) === '"')
+			s = s.substring(1, s.length-1)
 		as = s.split('=', 2);
 		if (as.length > 1) {
 			str = str + sep +  encodeURIComponent(as[0]) + "=" + encodeURIComponent(as[1])
@@ -50,7 +73,6 @@ function parseCommand(cmd) {
 			str = str + sep +  encodeURIComponent(s)
 		}
 	}
-	console.log(str)
 	return str
 }
 
@@ -79,15 +101,15 @@ function parseNagiosResultCSS(id) {
 function CommandViewModel() {
 	var self = this;
 
-	self.nscp_status = ko.observable(new NSCPStatus());
+	self.nscp_status = ko.observable(global_status);
 	self.commands = ko.observableArray([]);
 	self.result = ko.observable();
 	self.query = ko.observable();
 	self.execCommand = ko.observable();
 
 	self.execute = function(command) {
-		cmd_query = parseCommand(command.command())
-		$.getJSON("/query/" + cmd_query, function(data) {
+		cmd_query = parseCommand(self.query().command())
+		json_get("/query/" + cmd_query, function(data) {
 			r = data['payload'][0]
 			if (r.perf) {
 				for (var i=0;i<r.perf.length;i++) {
@@ -106,7 +128,6 @@ function CommandViewModel() {
 						r.perf[i].float_value.r_maximum = Math.round(r.perf[i].float_value.maximum * 100) / 100
 						r.perf[i].value = r.perf[i].float_value
 					}
-					console.log(r.perf[i])
 				}
 			} else {
 				r.perf = []
@@ -116,12 +137,13 @@ function CommandViewModel() {
 		
 	}
 	self.show = function(command) {
-	        self.query(command)
+		self.query(command)
 		self.result(null)
 		$("#result").modal('show');
     }
 	self.refresh = function() {
-		$.getJSON("/registry/inventory", function(data) {
+		self.nscp_status().busy('Refreshing', 'Refreshing data...')
+		json_get("/registry/inventory", function(data) {
 			if (data['payload'][0] && data['payload'][0]['inventory']) {
 				self.commands.removeAll()
 				data['payload'][0]['inventory'].forEach(function(entry) {
@@ -129,6 +151,7 @@ function CommandViewModel() {
 				});
 			}
 			self.commands.sort(function(left, right) { return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1) })
+			self.nscp_status().not_busy();
 		})
 	}
 	self.refresh()

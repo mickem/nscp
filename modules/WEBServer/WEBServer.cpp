@@ -29,6 +29,7 @@
 #include <boost/thread/shared_mutex.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -51,17 +52,50 @@ WEBServer::WEBServer() {
 }
 WEBServer::~WEBServer() {}
 
-
-
-Sessions g_sessions("nscpsessid");
 error_handler log_data;
+static const char alphanum[] = "0123456789" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz";
+class token_store {
+	typedef boost::unordered_set<std::string> token_set;
+
+
+	token_set tokens;
+	std::string seed_token(int len) {
+		std::string ret;
+		for(int i=0; i < len; i++)
+			ret += alphanum[rand() %  sizeof(alphanum)-1];
+		return ret;
+	}
+
+public:
+	bool validate(const std::string &token) {
+		return tokens.find(token) != tokens.end();
+	}
+
+	std::string generate() {
+		std::string token = seed_token(32);
+		tokens.emplace(token);
+		return token;
+	}
+
+	void revoke(const std::string &token) {
+		token_set::iterator it = tokens.find(token);
+		if (it != tokens.end())
+			tokens.erase(it);
+	}
+
+};
+
+
+token_store tokens;
 
 bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, bool respond = true) {
-	Mongoose::Session &session = g_sessions.get(request, response);
-	if (session.get("auth") != "true") {
+	std::string token = request.readHeader("TOKEN");
+	if (token.empty())
+		token = request.get("__TOKEN", "");
+	if (!tokens.validate(token)) {
 		if (respond) {
 			response.setCode(HTTP_FORBIDDEN);
-			response << "500 Please login first";
+			response << "403 Please login first";
 		}
 		return false;
 	}
@@ -285,24 +319,22 @@ public:
 		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
 		response << json_response;
 	}
+	
 
-
-	void auth_login(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+	void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (password.empty() || password != request.get("password")) {
-			response.setCode(302);
-			response.setHeader("Location", "/index.html?error=Invalid+password");
+			response.setHeader("error", "Invalid password");
 		} else {
-			Mongoose::Session &session = g_sessions.get(request, response);
-			session.setValue("auth", "true");
-			response.setCode(302);
-			response.setHeader("Location", request.getCookie("original_url", "/index.html"));
+			std::string token = tokens.generate();
+			response.setHeader("__TOKEN", token);
+			response << "{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }";
 		}
 	}
 	void auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		Mongoose::Session &session = g_sessions.get(request, response);
-		session.setValue("auth", "false");
-		response.setCode(302);
-		response.setHeader("Location", "/index.html?msg=Logged+out");
+		std::string token = request.get("token");
+		tokens.revoke(token);
+		response.setHeader("__TOKEN", "");
+		response << "{ \"status\" : \"ok\", \"auth token\": \"\" }";
 	}
 
 	void redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
@@ -314,7 +346,9 @@ public:
 		if (!is_loggedin(request, response))
 			return;
 		error_handler::status status = log_data.get_status();
-		response << "{ \"status\" : { \"count\" : " << status.error_count << ", \"error\" : \"" << status.last_error << "\"} }";
+		std::string tmp = status.last_error;
+		boost::replace_all(tmp, "\\", "/");
+		response << "{ \"status\" : { \"count\" : " << status.error_count << ", \"error\" : \"" << tmp << "\"} }";
 	}
 	void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response))
@@ -367,9 +401,9 @@ public:
 		addRoute("GET", "/log/status", BaseController, log_status);
 		addRoute("GET", "/log/reset", BaseController, log_reset);
 		addRoute("GET", "/log/messages", BaseController, log_messages);
-		addRoute("GET", "/auth/login", BaseController, auth_login);
+		addRoute("GET", "/auth/token", BaseController, auth_token);
 		addRoute("GET", "/auth/logout", BaseController, auth_logout);
-		addRoute("POST", "/auth/login", BaseController, auth_login);
+		addRoute("POST", "/auth/token", BaseController, auth_token);
 		addRoute("POST", "/auth/logout", BaseController, auth_logout);
 		addRoute("GET", "/core/reload", BaseController, reload);
 		addRoute("GET", "/core/isalive", BaseController, alive);
@@ -377,6 +411,14 @@ public:
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
+
+
+bool nonAsciiChar(const char c) {  
+	return !( (c>='A' && c < 'Z') || (c>='a' && c < 'z') || (c>='0' && c < '9') || c == '_');
+} 
+void stripNonAscii(string &str) { 
+	str.erase(std::remove_if(str.begin(),str.end(), nonAsciiChar), str.end());
+}
 
 #define BUF_SIZE 4096
 
@@ -389,6 +431,7 @@ public:
 	Response *process(Request &request) {
         if (!handles(request.getMethod(), request.getUrl()))
             return NULL;
+
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
 		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
 		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
@@ -402,6 +445,8 @@ public:
 			return NULL;
 
 		boost::filesystem::path file = base / request.getUrl();
+		file = boost::filesystem::canonical(file);
+		NSC_DEBUG_MSG("-->" + file.string());
 
 		StreamResponse *sr = new StreamResponse();
 		if (is_js)
@@ -417,9 +462,6 @@ public:
 		else if (is_png)
 			sr->setHeader("Content-Type", "image/png");
 		else {
-			if (!is_loggedin(request, *sr, false))
-				file = base / "login.html";
-			sr->setCookie("original_url", request.getUrl());
 			sr->setHeader("Content-Type", "text/html");
 		}
 		if (is_css || is_font || is_gif || is_png || is_jpg) {
@@ -429,11 +471,52 @@ public:
 		std::ifstream in(file.string().c_str(), ios_base::in|ios_base::binary);
 		char buf[BUF_SIZE];
 
-		do {
-			in.read(&buf[0], BUF_SIZE);
-			sr->write(&buf[0], in.gcount());
-		} while (in.gcount() > 0);
-
+		std::string token = request.get("__TOKEN");
+		if (!tokens.validate(token))
+			token = "";
+		if (is_html) {
+			std::string line;
+			while (std::getline(in, line)) {
+				if (line.empty())
+					continue;
+				std::string::size_type pos = line.find("<%=");
+				if (pos != std::string::npos) {
+					std::string::size_type end = line.find("%>", pos);
+					if (end != std::string::npos) {
+						pos+=3;
+						std::string key = line.substr(pos, end-pos);
+						NSC_DEBUG_MSG("Found tag: " + key);
+						if (boost::starts_with(key, "INCLUDE:")) {
+							std::string fname = key.substr(8);
+							stripNonAscii(fname);
+							fname += ".html";
+							boost::filesystem::path file2 = base / "include" / fname;
+							NSC_DEBUG_MSG("File: " + file2.string());
+							std::ifstream in2(file2.string().c_str(), ios_base::in|ios_base::binary);
+							do {
+								in2.read(&buf[0], BUF_SIZE);
+								sr->write(&buf[0], in2.gcount());
+							} while (in2.gcount() > 0);
+							in2.close();
+							line = line.substr(0, pos-3) + line.substr(end+2);
+							boost::replace_all(line, "<%=TOKEN%>", token);
+						} else {
+							boost::replace_all(line, "<%=TOKEN%>", token);
+							if (!token.empty())
+								boost::replace_all(line, "<%=TOKEN_TAG%>", "?__TOKEN=" + token);
+							else
+								boost::replace_all(line, "<%=TOKEN_TAG%>", "");
+						}
+					}
+				}
+				sr->write(line.c_str(), line.size());
+			}
+		} else {
+			do {
+				in.read(&buf[0], BUF_SIZE);
+				sr->write(&buf[0], in.gcount());
+			} while (in.gcount() > 0);
+		}
 		in.close();
 		return sr;
 	}
