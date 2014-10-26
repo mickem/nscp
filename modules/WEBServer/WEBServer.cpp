@@ -445,8 +445,6 @@ public:
 			return NULL;
 
 		boost::filesystem::path file = base / request.getUrl();
-		file = boost::filesystem::canonical(file);
-		NSC_DEBUG_MSG("-->" + file.string());
 
 		StreamResponse *sr = new StreamResponse();
 		if (is_js)
