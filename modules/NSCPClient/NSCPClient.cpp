@@ -328,7 +328,7 @@ nscp::packet NSCPClient::clp_handler_impl::send(connection_data con, nscp::packe
 	try {
 		if (con.ssl.enabled) {
 #ifndef USE_SSL
-			NSC_LOG_ERROR_STD("SSL not avalible (compiled without USE_SSL)");
+			NSC_LOG_ERROR_STD("SSL not available (compiled without USE_SSL)");
 			return response;
 #endif
 		}

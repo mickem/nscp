@@ -68,17 +68,17 @@ namespace modern_filter {
 				("show-all", boost::program_options::bool_switch(&show_all),
 				"Show debugging information in the log")
 				("filter", filter_op,
-				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warning", warn_op,
-				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warn", boost::program_options::value<std::string>(),
 				"Short alias for warning")
 				("critical", crit_op,
-				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("crit", boost::program_options::value<std::string>(),
 				"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
-				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvalible options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("empty-syntax", empty_text_op, 
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", empty_state_op, 

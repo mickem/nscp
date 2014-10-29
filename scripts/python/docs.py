@@ -22,7 +22,7 @@ module_template = u""".. default-domain:: nscp
 {% if module.queries -%}
 **Queries (Overview)**:
 
-A list of all avalible queries (check commands)
+A list of all available queries (check commands)
 {% set table = [] -%}
 {% for key,query in module.queries|dictsort  -%}
 	{% if query.info.description.startswith('Alternative name for:') -%}
@@ -102,7 +102,7 @@ Sample keys:
 
 Queries
 =======
-A quick reference for all avalible queries (check commands) in the {{module.key}} module.
+A quick reference for all available queries (check commands) in the {{module.key}} module.
 
 {% for k,query in module.queries|dictsort -%}
 

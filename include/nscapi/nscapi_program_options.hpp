@@ -656,7 +656,7 @@ namespace nscapi {
 				"Consider an item matching the following \"warning=foo > 500\" which escalates the item to warning status."
 				"If the same item also matches the following ok filter \"ok=500 > 1000\" this will override the previous escalation and revert the status to ok.")
 				("top-syntax", po::value<std::string>(&filter.syntax_top)->default_value(default_top_syntax), (std::string("Top level syntax.\n") + top_keylist).c_str())
-				("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvalible keys are: \n") + keylist).c_str())
+				("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvailable keys are: \n") + keylist).c_str())
 				("empty-syntax", po::value<std::string>(&filter.empty_detail)->default_value("CPULoad OK"), 
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"), 

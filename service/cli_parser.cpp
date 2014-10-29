@@ -194,7 +194,7 @@ int cli_parser::parse(int argc, char* argv[]) {
 		}
 	}
 	std::cout << "Usage: nscp <context>" << std::endl;
-	std::cout << "  The <ontext> is the mode of operation ie. a type of command. " << std::endl;
+	std::cout << "  The <context> is the mode of operation ie. a type of command. " << std::endl;
 	std::cout << "You can also use aliases here which are shorthands for 'nscp client --module <plugin>'" << std::endl;
 	std::cout << "  Available context are: " << std::endl;
 	std::string all_context;
