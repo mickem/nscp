@@ -1,7 +1,8 @@
 #pragma once
 
 #include <boost/noncopyable.hpp>
-#include <utf8.hpp>
+
+#include <nsclient/logger.hpp>
 
 namespace nsclient {
 

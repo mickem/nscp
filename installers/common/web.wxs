@@ -19,9 +19,6 @@
             <Component Id="cmpCB0808B4DE90FEA5D99C05EB8AD129F1" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{A969ECC4-AA63-4412-B98A-D25D752BD682}">
                 <File Id="fil4DD8DDC9B5598E64527960B59F2971D8" KeyPath="yes" Source="$(var.WebSource)\log.html" />
             </Component>
-            <Component Id="cmp1095E8F9F9D6E15CBEA478BCD38F1B7C" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{EB7FAFFE-B391-4880-8368-992387061B36}">
-                <File Id="filF3A52DADA652EB21F1A49C428DCAF093" KeyPath="yes" Source="$(var.WebSource)\login.html" />
-            </Component>
             <Component Id="cmpDB0701FE4B4846EA4D3181D70122D658" Directory="dir930BEE7F86DAA1C8405267E730B9DBEB" Guid="{68AC021E-1C56-4910-A4B5-1D547D53E85F}">
                 <File Id="filBA6E0875BBF20C36E8A980D61FFB5B83" KeyPath="yes" Source="$(var.WebSource)\modules.html" />
             </Component>

@@ -3,7 +3,6 @@
 #include <boost/thread/mutex.hpp>
 
 namespace nsclient {
-//		typedef boost::shared_ptr<nsclient::logging::logging_interface_impl> log_impl_type;
 
 	namespace logging {
 		namespace impl {

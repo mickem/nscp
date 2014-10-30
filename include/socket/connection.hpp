@@ -226,7 +226,7 @@ namespace socket_helpers {
 
 			virtual void start() {
 				this->trace("ssl::start_read_request()");
-				boost::shared_ptr<my_type> self = boost::shared_dynamic_cast<my_type>(this->shared_from_this());
+				boost::shared_ptr<my_type> self = boost::dynamic_pointer_cast<my_type>(this->shared_from_this());
 				ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,parent_type::strand_.wrap(
 					boost::bind(&ssl_connection::handle_handshake, self, boost::asio::placeholders::error)
 					));

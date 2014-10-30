@@ -97,7 +97,9 @@ void nsclient_core::settings_client::dump_path(std::string root) {
 			dump_path(path);
 	}
 	BOOST_FOREACH(std::string key, get_core()->get()->get_keys(root)) {
-		std::cout << root << "." << key << "=" << get_core()->get()->get_string(root, key) << std::endl;
+		settings::settings_interface::op_string val = get_core()->get()->get_string(root, key);
+		if (val)
+			std::cout << root << "." << key << "=" << *val << std::endl;
 	}
 }
 
@@ -201,7 +203,9 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 	return 0;
 }
 int nsclient_core::settings_client::show(std::string path, std::string key) {
-	std::cout << get_core()->get()->get_string(path, key);
+	settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
+	if (val)
+		 std::cout << *val;
 	return 0;
 }
 int nsclient_core::settings_client::list(std::string path) {

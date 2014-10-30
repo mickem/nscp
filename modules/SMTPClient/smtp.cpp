@@ -3,6 +3,7 @@
 #include <boost/algorithm/string/case_conv.hpp>
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/lock_guard.hpp> 
 #include <error.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>

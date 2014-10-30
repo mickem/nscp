@@ -8,11 +8,15 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
+#if BOOST_VERSION >= 105300
+#define BOOST_SPIRIT_USE_PHOENIX_V3 1
+#endif
+
 namespace parsers {
 	namespace where {
 
 		struct build_function_convert {
-			template <typename A, typename B>
+			template <typename A>
 			struct result { typedef node_type type; };
 			node_type operator()(const long long value, const char unit) const {
 				list_node_type args = factory::create_list();
