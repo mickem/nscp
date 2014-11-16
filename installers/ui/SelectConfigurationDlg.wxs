@@ -15,10 +15,12 @@
                     <Condition Action="enable">CONFIGURATION_TYPE = "ini://${exe-path}/nsclient.ini"</Condition>
                     <Condition Action="disable"><![CDATA[CONFIGURATION_TYPE <> "ini://${exe-path}/nsclient.ini"]]></Condition>
                 </Control>
+<!--
                 <Control Id="userWriteConfig" Type="CheckBox" X="60" Y="88" Width="260" Height="15" Property="USER_WRITABLE_CONFIG" Text="Allow all users to write config file" CheckBoxValue="1">
                     <Condition Action="enable">CONFIGURATION_TYPE = "ini://${exe-path}/nsclient.ini" AND INSTALL_SAMPLE_CONFIG</Condition>
                     <Condition Action="disable"><![CDATA[CONFIGURATION_TYPE <> "ini://${exe-path}/nsclient.ini" OR NOT INSTALL_SAMPLE_CONFIG]]></Condition>
                 </Control>
+-->
                 <Control Id="line" Type="Line" X="10" Y="105" Width="353" Height="10" />
                 <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
                 </Control>

@@ -184,8 +184,10 @@ bool CheckExternalScripts::commandLineExec(const Plugin::ExecuteRequestMessage::
 	try {
 		if (request.arguments_size() > 0 && request.arguments(0) == "add")
 			add_script(request, response);
+		else if (request.arguments_size() > 0 && request.arguments(0) == "install")
+			configure(request, response);
 		else if (request.arguments_size() > 0 && request.arguments(0) == "help") {
-
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr add --help");
 		} else 
 			return false;
 	} catch (const std::exception &e) {
@@ -204,6 +206,7 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	po::variables_map vm;
 	po::options_description desc;
 	std::string script, arguments, alias;
+	bool wrapped;
 
 	desc.add_options()
 		("help", "Show help.")
@@ -216,6 +219,9 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 
 		("arguments", po::value<std::string>(&arguments), 
 		"Arguments for script.")
+
+		("wrapped", po::bool_switch(&wrapped), 
+		"Add this to add a wrapped script such as ps1, vbs or similar..")
 
 		;
 
@@ -235,16 +241,21 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		return;
 	}
 	boost::filesystem::path file = get_core()->expand_path(script);
-	if (!boost::filesystem::is_regular(file)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
-		return;
+	if (!wrapped) {
+		if (!boost::filesystem::is_regular(file)) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
+			return;
+		}
 	}
 	if (alias.empty()) {
 		alias = boost::filesystem::basename(file.filename());
 	}
 
 	nscapi::protobuf::functions::settings_query s(get_id());
-	s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+	if (!wrapped)
+		s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+	else
+		s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
 	s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
 	s.save();
 	get_core()->settings_query(s.request(), s.response());
@@ -252,7 +263,84 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
 		return;
 	}
-	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script);
+	std::string actual = "";
+	if (wrapped)
+		actual = "\nActual command is: " + generate_wrapped_command(script + " " + arguments);
+	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
+}
+
+
+void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string arguments = "false";
+	const std::string path = "/settings/external scripts/server";
+
+	pf::settings_query q(get_id());
+	q.get(path, "allow arguments", false);
+	q.get(path, "allow nasty characters", false);
+
+
+	get_core()->settings_query(q.request(), q.response());
+	if (!q.validate_response()) {
+		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+		return;
+	}
+	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
+			arguments = "true";
+		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
+			arguments = "safe";
+	}
+	desc.add_options()
+		("help", "Show help.")
+
+		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"), 
+		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+	std::stringstream result;
+
+	nscapi::protobuf::functions::settings_query s(get_id());
+	s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
+	if (arguments == "all" || arguments == "unsafe") {
+		result << "UNSAFE Arguments are allowed." << std::endl;
+		s.set(path, "allow arguments", "true");
+		s.set(path, "allow nasty characters", "true");
+	} else if (arguments == "safe" || arguments == "true") {
+		result << "SAFE Arguments are allowed." << std::endl;
+		s.set(path, "allow arguments", "true");
+		s.set(path, "allow nasty characters", "false");
+	} else {
+		result << "Arguments are NOT allowed." << std::endl;
+		s.set(path, "allow arguments", "false");
+		s.set(path, "allow nasty characters", "false");
+	}
+	s.save();
+	get_core()->settings_query(s.request(), s.response());
+	if (!s.validate_response())
+		nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+	else
+		nscapi::protobuf::functions::set_response_good(*response, result.str());
 }
 
 
@@ -279,6 +367,27 @@ void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 		NSC_LOG_ERROR_EX("Failed to add: " + key);
 	}
 }
+
+std::string CheckExternalScripts::generate_wrapped_command(std::string command) {
+	strEx::s::token tok = strEx::s::getToken(command, ' ');
+	std::string::size_type pos = tok.first.find_last_of(".");
+	std::string type = "none";
+	if (pos != std::wstring::npos)
+		type = tok.first.substr(pos+1);
+	std::string tpl = wrappings_[type];
+	if (tpl.empty()) {
+		NSC_LOG_ERROR("Failed to find wrapping for type: " + type);
+	} else {
+		strEx::replace(tpl, "%SCRIPT%", tok.first);
+		strEx::replace(tpl, "%ARGS%", tok.second);
+		return tpl;
+	}
+	return "";
+}
+void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
+	add_command(key,generate_wrapped_command(command));
+}
+
 
 
 void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {

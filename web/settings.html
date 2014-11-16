@@ -45,7 +45,20 @@
 								<a href="/console.html<%=TOKEN_TAG%>">Console</a>
 							</li>
 						</ul>
+						
 						<ul class="nav navbar-nav navbar-right">
+
+							<li class="dropdown" data-bind="visible: nscp_status().settings().has_changed">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+									<span class="label label-danger"><span class="glyphicon glyphicon-warning-sign"></span></span>
+										Unsaved Changes <b class="caret"></b>
+								</a>
+								<ul class="dropdown-menu">
+									<li><a data-bind="click: $root.loadStore"><span class="glyphicon glyphicon-floppy-remove"></span> Discard changes (reload file)</a></li>
+									<li><a data-bind="click: $root.saveStore"><span class="glyphicon glyphicon-floppy-save"></span> Save changes (save file)</a></li>
+								</ul>
+							</li>
+						
 							<li class="dropdown">
 								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-globe"></span> Help</a>
 								<ul class="dropdown-menu">

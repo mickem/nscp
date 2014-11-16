@@ -72,7 +72,15 @@ namespace client {
 			std::string list = render_list(response_message, &render_plugin);
 			handler->output_message(list.empty()?"Nothing found":list);
 		} else if (command == "help") {
-			handler->output_message("Commands: \n\thelp\t-get help\n\tlist\t-queries queries\n\tplugins\t-list plugins\t<any command>\t-Will be executed as a query");
+			handler->output_message("Commands: \n"
+				"\thelp\t\t\t-get help\n"
+				"\tqueries\t\t\t-List all available queries\n"
+				"\taliases\t\t\t-List all available aliases\n"
+				"\tload <module>\t\t-Will load the module\n"
+				"\tunload <module>\t\t-Will unload the module\n"
+				"\tdesc <query>\t\t-Describe a query\n"
+				"\tplugins\t\t\t-list all plugins\n"
+				"\t<any other command>\t-Will be executed as a query");
 		} else if (command.size() > 4 && command.substr(0,4) == "load") {
 			Plugin::RegistryRequestMessage rrm;
 			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());

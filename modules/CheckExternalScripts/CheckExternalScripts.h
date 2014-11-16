@@ -59,21 +59,8 @@ private:
 	void addAllScriptsFrom(std::string path);
 	void add_command(std::string key, std::string arg);
 	void add_alias(std::string key, std::string command);
-	void add_wrapping(std::string key, std::string command) {
-		strEx::s::token tok = strEx::s::getToken(command, ' ');
-		std::string::size_type pos = tok.first.find_last_of(".");
-		std::string type;
-		if (pos != std::wstring::npos)
-			type = tok.first.substr(pos+1);
-
-		std::string tpl = wrappings_[type];
-		if (tpl.empty()) {
-			NSC_LOG_ERROR("Failed to find wrapping for type: " + type);
-		} else {
-			strEx::replace(tpl, "%SCRIPT%", tok.first);
-			strEx::replace(tpl, "%ARGS%", tok.second);
-			add_command(key,tpl);
-		}
-	}
+	void add_wrapping(std::string key, std::string command);
+	std::string generate_wrapped_command(std::string command);
+	void configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 };
 

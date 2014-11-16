@@ -91,7 +91,7 @@ function CommandViewModel() {
 		root['type'] = 'SettingsRequestMessage';
 		root['payload'] = [build_settings_payload(self.addNew())];
 
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+		json_post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.refresh()
 		})
 	}
@@ -167,7 +167,7 @@ function CommandViewModel() {
 		payload['update']['value']['string_data'] = status
 		root['payload'].push(payload)
 		self.nscp_status().busy('Saving', 'Refresing ' + name + '...')
-		$.post("/settings/query.json", JSON.stringify(root), function(data) {
+		json_post("/settings/query.json", JSON.stringify(root), function(data) {
 			self.nscp_status().not_busy()
 		})
 	}
@@ -194,7 +194,7 @@ function CommandViewModel() {
 		root['header']['version'] = 1;
 		root['type'] = 'SettingsRequestMessage';
 		root['payload'] = [];
-		self.keys().forEach(function(e1) {
+		self.module().keys().forEach(function(e1) {
 			e1.forEach(function (entry) {
 				if (entry.old_value != entry.value()) {
 					root['payload'].push(entry.build_payload())
@@ -203,7 +203,7 @@ function CommandViewModel() {
 		})
 		if (root['payload'].length > 0) {
 			self.nscp_status().busy('Saving', 'Refresing ' + self.currentName() + '...')
-			$.post("/settings/query.json", JSON.stringify(root), function(data) {
+			json_post("/settings/query.json", JSON.stringify(root), function(data) {
 				self.nscp_status().not_busy()
 			})
 		} else {

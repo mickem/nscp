@@ -52,6 +52,7 @@ function SettingsStatus(elem) {
 	}
 	self.refresh = function() {
 		json_get("/settings/status", function(data) {
+			console.log(data)
 			self.update(data['payload'][0]['status'])
 		})
 	}	
@@ -59,14 +60,12 @@ function SettingsStatus(elem) {
 
 function auth_token_class() {
 	var self = this
-	console.log(global_token)
 	self.token = global_token
 	self.get = function() {
 		return self.token;
 	}
 	self.set = function(token) {
 		self.token = token;
-		console.log("New token: " + token)
 		//window.localStorage.setItem('access_token', token);
 	}
 }
@@ -100,12 +99,15 @@ function NSCPStatus(state) {
 			if (pos != -1)
 				href =  href.substr(0, pos)
 			href = href + '?__TOKEN='+auth_token.get()
-			console.log("redirectin to: " + href)
 			window.location.href = href;
 			self.password('')
 			self.is_loggedin(true)
 			self.on_login()
+		}).error(function(xhr, error, status) {
+		console.log(error)
+			self.login_error_message(xhr.responseText)
 		})
+
 	}
 	self.logout = function() {
 		$.getJSON("/auth/logout?token="+auth_token.get(), function(data, textStatus, xhr) {
@@ -132,35 +134,31 @@ function NSCPStatus(state) {
 		self.has_issues(self.error_count() > 0)
 	}
 	self.busy = function(header, text, count) {
+		console.log("++busy: " + count)
 		if (self.count < 0)
 			self.count = 0
-		if (count == null)
-			count = 1
+		count = typeof count !== 'undefined' ? count : 1;
 		self.count = count
+		console.log("::busy: " + self.count)
 		if (self.poller_state)
 			self.cancelPoller();
 		self.busy_header(header)
 		self.busy_text(text)
 		$('#busy').modal();
-		console.log("Busy: " + self.busy_header() + ", " + self.count  + ", " + count)
 	}
 	self.not_busy = function(count, start_poller) {
-		console.log("Not Busy: " + self.busy_header() + ", " + self.count  + ", " + count)
-		if (start_poller == null)
-			start_poller = true;
-		if (count == null)
-			count = 1
+		console.log("--busy: " + count)
+		start_poller = typeof start_poller !== 'undefined' ? start_poller : true;
+		count = typeof count !== 'undefined' ? count : 1;
 		self.count -= count
+		console.log("::busy: " + self.count + ", " + start_poller)
 		if (self.count <= 0) {
 			$('#busy').modal('hide');
-			console.log(self.count)
 			self.busy_header('')
 			self.busy_text('')
-			console.log("poller: " +start_poller)
-			//if (self.poller_state && start_poller)
-			//	self.start();
-		} else {
-			console.log("done: " + self.count)
+			console.log("::HIT ME: " + self.poller_state + ", " + start_poller)
+			if (self.poller_state && start_poller)
+				self.start();
 		}
 	}
 	
@@ -184,6 +182,7 @@ function NSCPStatus(state) {
 		
 	self.do_update = function(elem) {
 		json_get("/log/status", function(data) {
+		console.log(data)
 			self.update(data['status']);
 		}).error(function(xhr, error, status) {
 			if (xhr.status == 200)
@@ -210,9 +209,11 @@ function NSCPStatus(state) {
 		})
 	}
 	self.cancelPoller = function() {
+		console.log("Stopping poller")
 		clearTimeout(self.poller);
 	}
 	self.schedule_restart_poll = function() {
+		console.log("Starting  poller")
 		self.restart_waiter = setTimeout(self.restart_poll, 1000);
 	}
 	self.restart_poll = function() {

@@ -149,7 +149,6 @@
 							<File Id="ModCheckHelpers.dll" Name="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
 							<File Id="ModCheckSystem.dll" Name="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
 							<File Id="ModCheckWMI.dll" Name="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
-							<File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
 							<File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
 							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
@@ -157,7 +156,10 @@
 							<File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
 							<File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
 						</Component>
-						<Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
+            <Component Id="LuaScript" Guid="C5A3C7E2-77A0-4BE2-B60D-808F4B14F56F" Win64="$(var.Win64)">
+              <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
+            </Component>
+            <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
 							<File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
 						</Component>
 					</Directory>
@@ -244,7 +246,8 @@
 					</Feature>
 				</Feature>
 				<Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
-				</Feature>
+          <ComponentRef Id="LuaScript" />
+        </Feature>
 			</Feature>
 			<Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
 				<ComponentGroupRef Id="ScriptResources" />

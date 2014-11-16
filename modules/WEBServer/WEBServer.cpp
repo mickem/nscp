@@ -88,11 +88,20 @@ public:
 
 token_store tokens;
 
-bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, bool respond = true) {
+bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, std::string gpassword, bool respond = true) {
 	std::string token = request.readHeader("TOKEN");
 	if (token.empty())
 		token = request.get("__TOKEN", "");
-	if (!tokens.validate(token)) {
+	bool auth = false;
+	if (token.empty()) {
+		std::string password = request.readHeader("password");
+		if (password.empty())
+			password = request.get("password", "");
+		auth = !password.empty() && password == gpassword;
+	} else {
+		auth = tokens.validate(token);
+	}
+	if (!auth) {
 		if (respond) {
 			response.setCode(HTTP_FORBIDDEN);
 			response << "403 Please login first";
@@ -171,7 +180,7 @@ public:
 
 
 	void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		std::string command = request.get("command", "help");
 
@@ -179,7 +188,7 @@ public:
 		response << "{\"status\" : \"ok\"}";
 	}
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
@@ -210,7 +219,7 @@ public:
 		response << json_response;
 	}
 	void registry_control_module_load(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
@@ -227,7 +236,7 @@ public:
 		response << json_response;
 	}
 	void registry_control_module_unload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
@@ -244,7 +253,7 @@ public:
 		response << json_response;
 	}
 	void registry_inventory_modules(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
@@ -262,7 +271,7 @@ public:
 	}
 
 	void settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		Plugin::SettingsRequestMessage rm;
 		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
@@ -294,7 +303,7 @@ public:
 		response << json_response;
 	}
 	void settings_query(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		std::string request_pb, response_pb, response_json;
 		if (!core->json_to_protobuf(request.getData(), request_pb)) {
@@ -306,7 +315,7 @@ public:
 		response << response_json;
 	}
 	void settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		Plugin::SettingsRequestMessage rm;
 		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
@@ -323,7 +332,8 @@ public:
 
 	void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (password.empty() || password != request.get("password")) {
-			response.setHeader("error", "Invalid password");
+			response.setCode(HTTP_FORBIDDEN);
+			response << "403 Invalid password";
 		} else {
 			std::string token = tokens.generate();
 			response.setHeader("__TOKEN", token);
@@ -343,7 +353,7 @@ public:
 	}
 
 	void log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		error_handler::status status = log_data.get_status();
 		std::string tmp = status.last_error;
@@ -351,7 +361,7 @@ public:
 		response << "{ \"status\" : { \"count\" : " << status.error_count << ", \"error\" : \"" << tmp << "\"} }";
 	}
 	void log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		json_spirit::Object root, log;
 		json_spirit::Array data;
@@ -373,13 +383,13 @@ public:
 		response << json_spirit::write(root);
 	}
 	void log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		log_data.reset();
 		response << "{\"status\" : \"ok\"}";
 	}
 	void reload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 		core->reload("delayed,service");
 		set_status("reload");
@@ -483,7 +493,6 @@ public:
 					if (end != std::string::npos) {
 						pos+=3;
 						std::string key = line.substr(pos, end-pos);
-						NSC_DEBUG_MSG("Found tag: " + key);
 						if (boost::starts_with(key, "INCLUDE:")) {
 							std::string fname = key.substr(8);
 							stripNonAscii(fname);
@@ -544,7 +553,7 @@ public:
 
 
 	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-		if (!is_loggedin(request, response))
+		if (!is_loggedin(request, response, password))
 			return;
 
 		Plugin::QueryRequestMessage rm;
@@ -861,7 +870,7 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 	desc.add_options()
 		("help", "Show help.")
 
-		("set,s", po::value<std::string>(&password), 
+		("password,s", po::value<std::string>(&password), 
 		"Set the new password")
 
 		("display,d", po::bool_switch(&display), 

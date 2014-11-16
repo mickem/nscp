@@ -11,7 +11,7 @@ namespace nrpe_client {
 			target.set_property_int("timeout", 30);
 			//target.set_property_string("dh", "${certificate-path}/nrpe_dh_512.pem");
 			target.set_property_string("certificate", "${certificate-path}/certificate.pem");
-			target.set_property_string("certificate key", "${certificate-path}/certificate_key.pem");
+			target.set_property_string("certificate key", "");
 			target.set_property_string("certificate format", "PEM");
 			target.set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			target.set_property_string("verify mode", "none");

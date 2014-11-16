@@ -162,6 +162,10 @@ void NRPEClient::nrpe_forward(const std::string &command, Plugin::QueryRequestMe
 bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	if (request.arguments_size() > 0 && request.arguments(0) == "install")
 		return install_server(request, response);
+	if (request.arguments_size() == 0 || request.arguments(0) == "help") {
+		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp nrpe [install] --help");
+		return true;
+	}
 	client::configuration config(nrpe_client::command_prefix, 
 		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
 		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
@@ -192,7 +196,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
 	q.get(path, "insecure", "false");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
-	q.get(path, "certificate key", "${certificate-path}/certificate_key.pem");
+	q.get(path, "certificate key", "");
 	q.get(path, "allow arguments", false);
 	q.get(path, "allow nasty characters", false);
 	q.get(path, "allowed ciphers", "");
@@ -203,7 +207,8 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
 		return true;
 	}
-	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
+	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
 		if (val.path == "/settings/default" && val.key && *val.key == "allowed hosts")
 			allowed_hosts = val.get_string();
 		else if (val.path == path && val.key && *val.key == "certificate")
@@ -215,10 +220,15 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		else if (val.path == path && val.key && *val.key == "insecure")
 			insecure = val.get_string();
 		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
-			arguments = "true";
-		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
 			arguments = "safe";
 	}
+	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+		if (val.path == path && val.key && *val.key == "allow nasty characters") {
+			if (arguments == "safe" && val.get_bool())
+				arguments = "all";
+		}
+	}
+	NSC_DEBUG_MSG("-->" + arguments);
 	if (chipers == "ADH")
 		insecure = "true";
 	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
@@ -271,7 +281,10 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			s.set("/settings/NRPE/server", "insecure", "true");
 			s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
 		} else {
-			result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
+			if (key.empty())
+				result << "NRPE is currently reasonably secure using " << cert << "." << std::endl;
+			else
+				result << "NRPE is currently reasonably secure using " << cert << " and " << key << "." << std::endl;
 			s.set("/settings/NRPE/server", "insecure", "false");
 			s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			s.set("/settings/NRPE/server", "certificate", cert);

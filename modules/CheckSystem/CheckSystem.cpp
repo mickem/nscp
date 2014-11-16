@@ -781,8 +781,8 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	BOOST_FOREACH(const windows::system_info::pagefile_info &info, windows::system_info::get_pagefile_info()) {
 		boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(info));
 		modern_filter::match_result ret = filter.match(record);
-		if (ret.matched_bound)
-			total.add(info);
+		//if (ret.matched_bound)
+		total.add(info);
 	}
 	boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
 	filter.match(record);

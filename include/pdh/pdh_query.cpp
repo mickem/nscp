@@ -90,6 +90,11 @@ namespace PDH {
 		collect();
 		BOOST_FOREACH(counter_type c, counters_) {
 			pdh_error status = c->collect();
+			if (status.is_invalid_data()) {
+				Sleep(1000);
+				collect();
+				status = c->collect();
+			}
 			if (status.is_negative_denominator()) {
 				Sleep(500);
 				collect();

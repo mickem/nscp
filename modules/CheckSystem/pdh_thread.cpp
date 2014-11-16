@@ -65,11 +65,11 @@ void pdh_thread::thread_proc() {
 
 	if (check_pdh) {
 		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH,SUBLANG_ENGLISH_US),SORT_DEFAULT));
-		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-		if (!writeLock.owns_lock()) {
-			NSC_LOG_ERROR_STD("Failed to get mutex when trying to start thread.");
-			return;
-		}
+// 		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+// 		if (!writeLock.owns_lock()) {
+// 			NSC_LOG_ERROR_STD("Failed to get mutex when trying to start thread.");
+// 			return;
+// 		}
 		pdh.removeAllCounters();
 		BOOST_FOREACH(PDH::pdh_instance c, counters_) {
 			try {

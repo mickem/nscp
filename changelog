@@ -1,3 +1,11 @@
+2014-11-09 MickeM
+ * Fixed help issues for ext-scr
+ * Added --wrapped to add wrapped script with ext-scr command line
+
+2014-10-31 MickeM
+ * Major improvements to web UI
+ * Fixed issue mutex issue with predefined coutners
+
 2014-09-23 MickeM
  * Fixed annoying cmake issue
    note to self: dont use macros in cmake!
