@@ -6,11 +6,13 @@ function CommandEntry(entry) {
 	self.plugs = entry['info']['plugin'];
 	self.command = ko.observable(self.name)
     self.params = []
-    entry['parameters']['parameter'].forEach(function(entry) {
-        entry.first_line = entry.short_description
-		entry.desc = entry.long_description.replace(/\n/g, '<br/>')
-        self.params.push(entry)
-    })
+	if (entry['parameters']['parameter']) {
+		entry['parameters']['parameter'].forEach(function(entry) {
+			entry.first_line = entry.short_description
+			entry.desc = entry.long_description.replace(/\n/g, '<br/>')
+			self.params.push(entry)
+		})
+	}
     self.params = entry['parameters']['parameter']
 	self.showDetails = ko.observable(false);
 	
