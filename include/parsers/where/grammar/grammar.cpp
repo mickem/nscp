@@ -16,8 +16,13 @@ namespace parsers {
 	namespace where {
 
 		struct build_function_convert {
+#if BOOST_VERSION >= 105300
 			template <typename A>
 			struct result { typedef node_type type; };
+#else
+			template <typename A, typename B>
+			struct result { typedef node_type type; };
+#endif
 			node_type operator()(const long long value, const char unit) const {
 				list_node_type args = factory::create_list();
 				std::string unit_s(1, unit);
