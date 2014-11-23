@@ -454,9 +454,15 @@ public:
 		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png)
 			return NULL;
 
+        StreamResponse *sr = new StreamResponse();
 		boost::filesystem::path file = base / request.getUrl();
+        if(!boost::filesystem::is_regular_file(file)) {
+            NSC_LOG_ERROR("Failed to find: " + file.string());
+            sr->setCode(404);
+            *sr << "Not found: " << request.getUrl();
+            return sr;
+        }
 
-		StreamResponse *sr = new StreamResponse();
 		if (is_js)
 			sr->setHeader("Content-Type", "application/javascript");
 		else if (is_css)
@@ -642,6 +648,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			if(!boost::filesystem::is_regular_file(cert)) {
 				NSC_LOG_ERROR("Certificate not found (disabling SSL): " + cert.string());
 			} else {
+                NSC_DEBUG_MSG("Using certificate: " + cert.string());
 				server->setOption("ssl_certificate", cert.string());
 			}
 			server->registerController(new StaticController(path));
