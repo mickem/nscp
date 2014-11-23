@@ -76,29 +76,35 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.alias().add_path_to_settings()
 
 			("wrappings", sh::string_map_path(&wrappings_)
-			, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts",
-			"SCRIPT", "For more configuration options add a dedicated section")
+			, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts.\n%SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
+			"WRAPPING", "An external script wrapping")
 
 			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)), 
 			"ALIAS SECTION", "A list of aliases available.\n"
-			"An alias is an internal command that has been \"wrapped\" (to add arguments). Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
-			"ALIAS", "For more configuration options add a dedicated section")
+			"An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
+			"ALIAS", "Query alias")
 
 			;
 
 		settings.register_all();
 		settings.notify();
 		settings.clear();
-
-		if (wrappings_.empty()) {
-			NSC_DEBUG_MSG("No wrappings found (adding default: vbs, ps1 and bat)");
-			wrappings_["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
-			wrappings_["ps1"] = "cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -";
-			wrappings_["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "VISUAL BASIC WRAPPING", "", wrappings_["vbs"], false);
-			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "", wrappings_["ps1"], false);
-			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "BATCH FILE WRAPPING", "", wrappings_["bat"], false);
-		}
+        
+        if (wrappings_.find("ps1") == wrappings_.end()) {
+            wrappings_["ps1"] = "cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -";
+            settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "", "", false);
+            settings.set_static_key(wrappings_path, "ps1", wrappings_["ps1"]);
+        }
+        if (wrappings_.find("vbs") == wrappings_.end()) {
+            wrappings_["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
+            settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "VISUAL BASIC WRAPPING", "", "", false);
+            settings.set_static_key(wrappings_path, "vbs", wrappings_["vbs"]);
+        }
+        if (wrappings_.find("bat") == wrappings_.end()) {
+            wrappings_["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
+            settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "BATCH FILE WRAPPING", "", "", false);
+            settings.set_static_key(wrappings_path, "bat", wrappings_["bat"]);
+        }
 
 		if (aliases_.empty()) {
 			NSC_DEBUG_MSG("No aliases found (adding default)");
@@ -131,11 +137,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
 			"SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>",
-			"SCRIPT", "For more configuration options add a dedicated section")
+			"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
 			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)), 
-			"WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. using the template mechanism)",
-			"WRAPPED SCRIPT", "For more configuration options add a dedicated section")
+			"WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. scruts using a template mechanism). The template used will be defined by the extension of the script.",
+			"WRAPPED SCRIPT", "A wrapped script defenitions")
 
 			;
 
