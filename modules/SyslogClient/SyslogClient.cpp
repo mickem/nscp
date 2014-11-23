@@ -34,6 +34,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
+#include <format.hpp>
+
 namespace sh = nscapi::settings_helper;
 namespace ip = boost::asio::ip;
 
@@ -274,7 +276,9 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 	std::list<std::string> messages;
 	for (int i=0;i < request_message.payload_size(); ++i) {
 		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
-		std::string date = "Nov 10 00:12:00"; // TODO is this actually used?
+
+		boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+		std::string date = format::format_date(now, "%b %e %H:%M:%S");
 		std::string tag = con.tag_syntax;
 		std::string message = con.message_syntax;
 		strEx::replace(message, "%message%", payload.message());
