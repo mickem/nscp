@@ -62,7 +62,7 @@ class token_store {
 	std::string seed_token(int len) {
 		std::string ret;
 		for(int i=0; i < len; i++)
-			ret += alphanum[rand() %  sizeof(alphanum)-1];
+			ret += alphanum[rand() %  (sizeof(alphanum)-1)];
 		return ret;
 	}
 
@@ -337,7 +337,7 @@ public:
 		} else {
 			std::string token = tokens.generate();
 			response.setHeader("__TOKEN", token);
-			response << "{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }";
+			response << "{ \"status\" : \"ok\", \"auth token\": \"" << token << "\" }";
 		}
 	}
 	void auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -472,7 +472,7 @@ public:
 		else {
 			sr->setHeader("Content-Type", "text/html");
 		}
-		if (is_css || is_font || is_gif || is_png || is_jpg) {
+		if (is_css || is_font || is_gif || is_png || is_jpg || is_js) {
 			sr->setHeader("Cache-Control", "max-age=3600"); //1 hour (60*60)
 
 		}
