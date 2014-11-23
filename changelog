@@ -1,3 +1,20 @@
+2014-11-23 MickeM
+ * Fixed issue with arguments on some (primarily external scripts) command definitions (thank you #osmc)
+ * Fixed annyoing login bug in webserver
+ * Added caching to javascripts
+ * Fixed invalid date in syslog messages (now use current)
+ * Fixed accidental TODO in registry settings name (thank you #osmc)
+ * Fixed boost compatiblity issues with 1.53 (windows) and 1.48 (linux)
+
+2014-11-16 MickeM
+ * Added help to command line client
+ * Changed so averages are used if polling failes
+ * Fixed installer issues
+ * Fixed extern script command line interface
+ * Fixed issue with total and check_pagefile
+ * Fixed some command line bugs
+ * Added password header for rest API
+
 2014-11-09 MickeM
  * Fixed help issues for ext-scr
  * Added --wrapped to add wrapped script with ext-scr command line
