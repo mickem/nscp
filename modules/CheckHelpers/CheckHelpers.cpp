@@ -39,18 +39,15 @@ namespace po = boost::program_options;
 
 void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
 	po::options_description desc = nscapi::program_options::create_desc(request);
+    std::string msg;
+    desc.add_options()
+        ("message",	po::value<std::string>(&msg)->default_value("No message"), "Message to return")
+    ;
 	po::variables_map vm;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
 		return;
 	response->set_result(status);
-	if (request.arguments_size() == 0) {
-		response->set_message("No message.");
-	} else {
-		std::string msg;
-		for (int i=0;i<request.arguments_size();i++)
-			msg += request.arguments(i);
-		response->set_message(msg);
-	}
+    response->set_message(msg);
 }
 
 void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode result)
@@ -85,6 +82,11 @@ void CheckHelpers::check_ok(const Plugin::QueryRequestMessage::Request &request,
 	check_simple_status(Plugin::Common_ResultCode_OK, request, response);
 }
 void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+    po::options_description desc = nscapi::program_options::create_desc(request);
+    std::string msg;
+    po::variables_map vm;
+    if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
+        return;
 	nscapi::protobuf::functions::set_response_good(*response, utf8::cvt<std::string>(get_core()->getApplicationVersionString()));
 }
 
