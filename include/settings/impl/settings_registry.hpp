@@ -365,7 +365,7 @@ namespace settings {
 		}
 
 		virtual std::string get_info() {
-			return "Registry settings: (" + context_ + ",TODO)";
+			return "Registry settings: (" + context_ + "," + root.to_string() + ")";
 		}
 		virtual std::string get_type() { return "registry"; }
 
