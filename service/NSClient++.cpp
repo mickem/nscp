@@ -32,6 +32,7 @@
 #include "../libs/settings_manager/settings_manager_impl.h"
 #include <settings/config.hpp>
 #include <nscapi/functions.hpp>
+#include <parsers/expression/expression.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include "cli_parser.hpp"
@@ -1464,20 +1465,19 @@ std::string NSClientT::getFolder(std::string key) {
 }
 
 std::string NSClientT::expand_path(std::string file) {
-	std::string::size_type pos = file.find('$');
-	while (pos != std::string::npos) {
-		std::string::size_type pstart = file.find('{', pos);
-		std::string::size_type pend = file.find('}', pstart);
-		std::string key = file.substr(pstart+1, pend-2);
+	if (file.empty())
+		return file;
+	parsers::simple_expression::result_type expr;
+	parsers::simple_expression::parse(file, expr);
 
-		std::string tmp = file;
-		strEx::replace(file, "${" + key + "}", getFolder(key));
-		if (file == tmp)
-			pos = file.find_first_of('$', pos+1);
+	std::string ret;
+	BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
+		if (!e.is_variable)
+			ret += e.name;
 		else
-			pos = file.find_first_of('$');
+			ret += expand_path(getFolder(e.name));
 	}
-	return file;
+	return ret;
 }
 
 typedef std::map<unsigned int, std::string> modules_type;

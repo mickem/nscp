@@ -23,6 +23,6 @@ namespace parsers {
 			}
 		};
 		typedef std::vector<entry> result_type;
-		bool parse(const std::string &str, result_type& v);
+		static bool parse(const std::string &str, result_type& v);
 	};
 }

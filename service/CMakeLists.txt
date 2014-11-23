@@ -122,6 +122,7 @@ TARGET_LINK_LIBRARIES(${TARGET}
 	${JSON_LIB}
 	nscp_protobuf
 	settings_manager
+	expression_parser
 )
 
 SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
