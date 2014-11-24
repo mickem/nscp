@@ -37,7 +37,7 @@
 							Arguments="service --run --name [SERVICE_NAME]">
 							<!--<ServiceDependency Id="Tcpip" />-->
 						</ServiceInstall>
-						<ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall" />
+            <ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall"/>
 					</Component>
 					<Component Id="MainClient" Guid="205D4F6B-03F0-4298-90CA-58A2AAB499B6" Win64="$(var.Win64)">
 						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="main client" Type="integer" Value="1" KeyPath="yes"/>
