@@ -27,6 +27,7 @@
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <timer.hpp>
+#include <file_helpers.hpp>
 
 #include "core_api.h"
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -1796,7 +1797,7 @@ boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem
 	boost::filesystem::directory_iterator it(path), eod;
 	std::string tmp = boost::algorithm::to_lower_copy(filename);
 	BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-		if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(p.filename().string()) == tmp) {
+		if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
 			return p;
 		} 
 	}
