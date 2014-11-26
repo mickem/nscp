@@ -15,6 +15,14 @@ package { "libgtest-dev": ensure => present }
 package { "ttf-dejavu": ensure => present }
 package { "fontconfig": ensure => present }
 
+file { "/usr/share/pyshared/google": 
+	ensure    => "directory", 
+	subscribe => Package['python-protobuf']
+}
+file { "/usr/share/pyshared/google/protobuf": 
+	ensure    => "directory", 
+	subscribe => Package['python-protobuf']
+}
 file { "/usr/share/pyshared/google/protobuf/compiler": 
 	ensure    => "directory", 
 	subscribe => Package['python-protobuf']

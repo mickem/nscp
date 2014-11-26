@@ -36,14 +36,18 @@ define yumgroup(
   }
 }
 package { "git": ensure => present }
-package { "cmake": ensure => present }
-->
-file { "/usr/share/cmake/Modules/CPackRPM.cmake":
-    ensure  => "present",
-    mode    => 644,
-	owner   => 'root',
-	group   => 'root',
-	source  => "/etc/puppet/files/build.sh"
+if ($::operatingsystemmajrelease < 7) {
+	package { "cmake": ensure => present }
+	->
+	file { "/usr/share/cmake/Modules/CPackRPM.cmake":
+		ensure  => "present",
+		mode    => 644,
+		owner   => 'root',
+		group   => 'root',
+		source  => "/etc/puppet/files/CPackRPM.cmake"
+	}
+} else {
+	package { "cmake": ensure => present }
 }
 
 package { "python-devel": ensure => present }
@@ -77,19 +81,21 @@ package { "protobuf-python": ensure => present
 package { "cryptopp": ensure => present
 } ->
 package { "python-jinja2": ensure => present
-} ->
-package { "python-argparse": ensure => present
-} ->
-file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler": 
-	ensure    => "directory", 	
-} ->
-file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py": 
-	ensure    => present, 
-	source  => "/etc/puppet/files/plugin_pb2.py"
-} ->
-file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py": 
-	ensure    => present,
 }
 
+if ($::operatingsystemmajrelease < 7) {
+	package { "python-argparse": ensure => present
+	}
+	file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler": 
+		ensure    => "directory", 	
+	} ->
+	file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py": 
+		ensure    => present, 
+		source  => "/etc/puppet/files/plugin_pb2.py"
+	} ->
+	file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py": 
+		ensure    => present,
+	}
+}
 
 #Exec["yum-update"] -> Package <| |>
