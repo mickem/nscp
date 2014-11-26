@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "WEB server",
-		"description"	: "A server that listens for incoming HTTP connection and processes incoming requests.",
+		"description"	: "A server that listens for incoming HTTP connection and processes incoming requests. It provides both a WEB UI as well as a REST API in addition to simplifying configuration of WEB Server module.",
 		"name"			: "WEBServer",
 		"alias"			: "web",
 		"version"		: "auto"
