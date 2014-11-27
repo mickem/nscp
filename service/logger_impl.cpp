@@ -4,6 +4,7 @@
 #include <nsclient/base_logger_impl.hpp>
 #include <format.hpp>
 #include "logger_impl.hpp"
+#include <config.h>
 
 #include <concurrent_queue.hpp>
 
@@ -202,7 +203,7 @@ public:
 
 
 			settings.add_key_to_settings("log")
-				("file name", sh::string_key(&ret.file, "${exe-path}/nsclient.log"),
+				("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION),
 				"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
 
 				("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"),
