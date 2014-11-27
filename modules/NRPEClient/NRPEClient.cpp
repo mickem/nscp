@@ -191,6 +191,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure;
 	unsigned int length = 1024;
 	const std::string path = "/settings/NRPE/server";
+	std::string verify = "peer-cert";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
@@ -200,6 +201,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	q.get(path, "allow arguments", false);
 	q.get(path, "allow nasty characters", false);
 	q.get(path, "allowed ciphers", "");
+	q.get(path, "verify mode", verify);
 
 	
 	get_core()->settings_query(q.request(), q.response());
@@ -221,6 +223,9 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			insecure = val.get_string();
 		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
 			arguments = "safe";
+		else if (val.path == path && val.key && *val.key == "verify")
+			verify = val.get_string();
+		
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
 		if (val.path == path && val.key && *val.key == "allow nasty characters") {
@@ -228,7 +233,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 				arguments = "all";
 		}
 	}
-	NSC_DEBUG_MSG("-->" + arguments);
+
 	if (chipers == "ADH")
 		insecure = "true";
 	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
@@ -255,6 +260,9 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"), 
 		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
 
+		("verify", po::value<std::string>(&verify)->default_value(verify)->implicit_value("yes"), 
+		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+
 		;
 
 	try {
@@ -272,7 +280,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		std::stringstream result;
 
 		nscapi::protobuf::functions::settings_query s(get_id());
-		result << "Enabling NRPE via SSH from: " << allowed_hosts << std::endl;
+		result << "Enabling NRPE via SSL from: " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
 		s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
 		s.set("/settings/NRPE/server", "ssl", "true");

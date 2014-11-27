@@ -204,4 +204,4 @@ public:
 };
 
 
-extern NSClient mainClient;	// Global core instance forward declaration.
+extern NSClient *mainClient;	// Global core instance forward declaration.

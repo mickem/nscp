@@ -44,7 +44,7 @@
 
 NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer,unsigned int bufLen) {
 	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient.expand_path(key), NSCAPI::isSuccess);
+		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::isSuccess);
 	} catch (...) {
 		LOG_ERROR_STD("Failed to getString: " + utf8::cvt<std::string>(key));
 		return NSCAPI::hasFailed;
@@ -65,11 +65,11 @@ void NSAPIMessage(const char* data, unsigned int count) {
 	nsclient::logging::logger::get_logger()->raw(message);
 }
 void NSAPIStopServer(void) {
-	mainClient.get_service_control().stop();
+	mainClient->get_service_control().stop();
 }
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient.injectRAW(request, response);
+	NSCAPI::nagiosReturn ret = mainClient->injectRAW(request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
@@ -82,7 +82,7 @@ NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int 
 
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient.exec_command(target, request, response);
+	NSCAPI::nagiosReturn ret = mainClient->exec_command(target, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
@@ -116,10 +116,10 @@ NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t*, unsigne
 }
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	return mainClient.settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+	return mainClient->settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
 }
 NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	return mainClient.registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+	return mainClient->registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
 }
 
 wchar_t* copyString(const std::wstring &str) {
@@ -132,7 +132,7 @@ wchar_t* copyString(const std::wstring &str) {
 
 NSCAPI::errorReturn NSAPIReload(const char *module) {
 	try {
-		return mainClient.reload(module);
+		return mainClient->reload(module);
 	} catch (...) {
 		LOG_ERROR_STD("Reload failed");
 		return NSCAPI::hasFailed;
@@ -182,7 +182,7 @@ void* NSAPILoader(const char* buffer) {
 
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	std::string request (request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient.send_notification(channel, request, response);
+	NSCAPI::nagiosReturn ret = mainClient->send_notification(channel, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;

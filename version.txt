@@ -1,3 +1,3 @@
 version=0.4.3
-build=58
-date=2014-11-23
+build=60
+date=2014-11-27

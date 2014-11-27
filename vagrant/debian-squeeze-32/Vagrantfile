@@ -6,8 +6,7 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-  config.vm.box = "squeeze32"
-  config.vm.box_url = "http://dl.dropbox.com/u/40989391/vagrant-boxes/debian-squeeze-i386.box"
+  config.vm.box = "puppetlabs/debian-6.0.9-32-puppet"
   config.vm.hostname = "squeeze32.build.nscp.org"
 
 
