@@ -337,6 +337,9 @@ class threaded_logger : public nsclient::logging::logging_interface_impl {
 	concurrent_queue<std::string> log_queue_;
 	boost::thread thread_;
 
+	boost::timed_mutex mutext_started;
+
+
 	log_impl_type background_logger_;
 
 public:
@@ -355,11 +358,15 @@ public:
 
 	void thread_proc() {
 		std::string data;
+		bool first = true;
 		while (true) {
+			if (first)
+				mutext_started.unlock();
+			first = false;
 			try {
 				log_queue_.wait_and_pop(data);
 				if (data == QUIT_MESSAGE) {
-					break;
+					return;
 				} else if (data == CONFIGURE_MESSAGE) {
 					if (background_logger_)
 						background_logger_->asynch_configure();
@@ -394,7 +401,10 @@ public:
 	bool startup() {
 		if (nsclient::logging::logging_interface_impl::is_started())
 			return true;
+		mutext_started.lock();
 		thread_ = boost::thread(boost::bind(&threaded_logger::thread_proc, this));
+		if (!mutext_started.timed_lock(boost::posix_time::seconds(10)))
+			log_fatal("Failed to wait for logger thread");
 		return nsclient::logging::logging_interface_impl::startup();
 	}
 	bool shutdown() {

@@ -54,7 +54,7 @@ com_helper::initialize_com com_helper_;
 static ExceptionManager *g_exception_manager = NULL;
 #endif
 
-NSClient mainClient;	// Global core instance.
+NSClient *mainClient = NULL;	// Global core instance.
 
 #define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal("core", __FILE__, __LINE__, msg);}
 #define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::string(msg))
@@ -98,9 +98,12 @@ int main(int argc, char* argv[]) {
 
 int nscp_main(int argc, char* argv[])
 {
+	mainClient = new NSClient();
 	srand( (unsigned)time( NULL ) );
-	cli_parser parser(&mainClient);
-	return parser.parse(argc, argv);
+	cli_parser parser(mainClient);
+	int exit = parser.parse(argc, argv);
+	delete mainClient;
+	return exit;
 }
 
 std::list<std::string> NSClientT::list_commands() {
@@ -222,7 +225,7 @@ void NSClientT::preboot_load_all_plugin_files() {
 
 struct nscp_settings_provider : public settings_manager::provider_interface {
 	virtual std::string expand_path(std::string file) {
-		return mainClient.expand_path(file);
+		return mainClient->expand_path(file);
 	}
 	std::string get_data(std::string key) {
 		// TODO
@@ -538,7 +541,7 @@ bool NSClientT::stop_unload_plugins_pre() {
 	LOG_DEBUG_CORE("Attempting to stop all plugins");
 	try {
 		LOG_DEBUG_CORE("Stopping all plugins");
-		mainClient.unloadPlugins();
+		mainClient->unloadPlugins();
 	} catch(NSPluginException e) {
 		LOG_ERROR_CORE_STD("Exception raised when unloading non msg plguins: " + e.reason() + " in module: " + e.file());
 	} catch(...) {
@@ -1339,7 +1342,7 @@ boost::filesystem::path NSClientT::getTempPath() {
 
 // Service API
 NSClient* NSClientT::get_global_instance() {
-	return &mainClient;
+	return mainClient;
 }
 void NSClientT::handle_startup(std::string service_name) {
 	LOG_DEBUG_CORE("Starting: " + utf8::cvt<std::string>(service_name));

@@ -467,7 +467,7 @@ struct client_arguments {
 					resp.push_back("Available commands: " + commands);
 				}
 			} else if (mode == client_arguments::exec || mode == client_arguments::combined) {
-				ret = mainClient.simple_exec(module + "." + command, arguments, resp);
+				ret = core_->simple_exec(module + "." + command, arguments, resp);
 				if (ret == NSCAPI::returnIgnored) {
 					ret = 1;
 					resp.push_back("Command not found: " + command);

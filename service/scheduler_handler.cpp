@@ -5,7 +5,7 @@
 
 #include "NSClient++.h"
 
-extern NSClient mainClient;
+extern NSClient *mainClient;
 
 namespace task_scheduler {
 
@@ -14,13 +14,13 @@ namespace task_scheduler {
 		return metadata[id];
 	}
 	void scheduler::handle_plugin(const schedule_metadata &metadata) {
-		NSClientT::plugin_type plugin = mainClient.find_plugin(metadata.plugin_id);
+		NSClientT::plugin_type plugin = mainClient->find_plugin(metadata.plugin_id);
 		plugin->handle_schedule("");
 	}
 	void scheduler::handle_settings() {
 		settings_manager::get_core()->house_keeping();
 		if (settings_manager::get_core()->needs_reload()) {
-			mainClient.reload("delayed,service");
+			mainClient->reload("delayed,service");
 		}
 	}
 
