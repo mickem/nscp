@@ -551,8 +551,8 @@ public:
 
 
 class RESTController : public Mongoose::WebController {
-	const nscapi::core_wrapper* core;
 	const std::string password;
+	const nscapi::core_wrapper* core;
 public: 
 
 	RESTController(std::string password, nscapi::core_wrapper* core) : password(password), core(core) {}
