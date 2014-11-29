@@ -45,7 +45,7 @@ MACRO(copy_single_file _TARGET_LIST src destDir)
 		DEPENDS ${source_file}
 		)
 	SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
-	INSTALL(FILES ${target_file} DESTINATION share/nsclient/${destDir})
+	INSTALL(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
 ENDMACRO(copy_single_file)
 
 MACRO(copy_single_file_755 _TARGET_LIST src destDir)
@@ -74,7 +74,7 @@ ELSE(WIN32)
 		)
 ENDIF(WIN32)
 	SET(${_TARGET_LIST} ${${_TARGET_LIST}} ${target_file})
-	INSTALL(FILES ${target_file} DESTINATION ${destDir})
+	INSTALL(FILES ${target_file} DESTINATION ${INSTALL_FILES_BASE}${destDir})
 ENDMACRO(copy_single_file_755)
 
 MACRO(add_nscp_py_test name script)

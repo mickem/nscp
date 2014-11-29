@@ -41,9 +41,11 @@
 					</Component>
 					<Component Id="MainClient" Guid="205D4F6B-03F0-4298-90CA-58A2AAB499B6" Win64="$(var.Win64)">
 						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="main client" Type="integer" Value="1" KeyPath="yes"/>
-						<RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
-						<RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
-					</Component>
+            <RemoveFile Id="PurgeLogFiles" Name="*.log" On="uninstall" />
+            <RemoveFile Id="PurgeBootInit" Name="boot.ini" On="uninstall" />
+            <RemoveFolder Id="RemoveMenuShortcuts" Directory="ProgramMenuDir" On="uninstall" />
+            <RemoveFolder Id="RemoveSecurityFolder" Directory="INSTALLLOCATION_SECURITY" On="uninstall" />
+          </Component>
 					<Component Id="FWException" Guid="7A02C807-749C-4F10-B7C3-8B50BFA74204" Win64="$(var.Win64)">
 						<fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
 						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
@@ -51,24 +53,6 @@
 					<Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
 						<File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
-					</Component>
-					<Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
-						<Shortcut Id="StartmenuNSClientTest" Directory="ProgramMenuDir" Name="$(var.App.Title) ($(var.arch), test)" Target="[INSTALLLOCATION]nscp.exe"
-									WorkingDirectory="INSTALLDIR" Icon="nscp.exe" IconIndex="0" 
-									Arguments="test" Description="Run $(var.App.Title) in test mode" />
-						<Shortcut Id="StartmenuNSClientStart" Directory="ProgramMenuDir" Name="Start $(var.App.Title) ($(var.arch))"
-                      Target="[INSTALLLOCATION]nscp.exe"
-									WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-									Arguments="service --name [SERVICE_NAME] --start" Description="Start the $(var.App.Title) service" />
-						<Shortcut Id="StartmenuNSClientStop" Directory="ProgramMenuDir" Name="Stop $(var.App.Title) ($(var.arch))"
-									Target="[INSTALLLOCATION]nscp.exe"
-									WorkingDirectory='INSTALLDIR' Icon="nscp.exe" IconIndex="0"
-									Arguments="service --name [SERVICE_NAME] --stop" Description="Stop the $(var.App.Title) service" />
-						<Shortcut Id="StarmentNSCHelp" Directory="ProgramMenuDir" Name="Documentation"
-									Target="[HELP_LINK]" Icon="doc.ico"
-									Description="Visit the NSClient++ WIKI for documentation">
-						</Shortcut>
-						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="shortcuts" Type="integer" Value="1" KeyPath="yes"/>
 					</Component>
 					<Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
 						<File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
@@ -95,12 +79,15 @@
 						<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
 						<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 					</Component>
+          <!--
 					<Component Id="NSCPDocumentation" Guid="DE136675-CBBD-49c4-B3DB-B3D5DA90BDD1" Win64="$(var.Win64)">
-						<File Id="doc.usage.nagios" Name="NSCP.pdf" DiskId="1" Source="$(var.Source)/NSCP.pdf" Vital="no" KeyPath="yes">
-							<Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="NSClient++ Documentation" Advertise="yes"
-									  WorkingDirectory="INSTALLDIR" Description="NSClient++ Documentation"/>
+            <Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="NSClient++ Documentation" Advertise="yes" 
+                  WorkingDirectory="INSTALLDIR" Description="NSClient++ Documentation"/>
+            <ComponentGroupRef Id="HTMLHelp" />
+            <File Id="doc.usage.nagios" Name="NSCP.pdf" DiskId="1" Source="$(var.Source)/NSCP.pdf" Vital="no" KeyPath="yes">
 						</File>
 					</Component>
+          -->
 					<Directory Id="INSTALLLOCATION_SECURITY" Name="security">
 						<Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
 							<File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
@@ -109,6 +96,7 @@
 							<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="remove certificates" Type="integer" Value="1" KeyPath="yes"/>
 							<RemoveFile Id="removeCertificate" Name="certificate.pem" On="uninstall" />
 							<RemoveFile Id="removeCertificateKey" Name="certificate_key.pem" On="uninstall" />
+            <RemoveFile Id="removeCA" Name="ca.pem" On="uninstall" />
 						</Component>
 					</Directory>
 					<Directory Id="INSTALLLOCATION_MODS" Name="modules">
@@ -179,9 +167,15 @@
 
 			<!-- ### Start Menu Items ### -->
 			<Directory Id="ProgramMenuFolder" Name="Programs">
-				<Directory Id="ProgramMenuDir" Name="$(var.App.StartMenuPath)" />
-			</Directory>
-		</Directory>
+        <Directory Id="ProgramMenuDir" Name="$(var.App.StartMenuPath)">
+					<Component Id="Shortcuts" Guid="4BCF8026-B209-4d33-B323-5B2ACC43A258" Win64="$(var.Win64)">
+            <util:InternetShortcut Id="StartmenuWeb"
+                        Name="Display the $(var.App.Title) online web ui (SSL)" Target="https://localhost:8443" />
+						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="shortcuts" Type="integer" Value="1" KeyPath="yes"/>
+					</Component>
+      </Directory>
+     </Directory>
+	</Directory>
 
 		<!-- ### FEATURES START ### -->
 		<Feature Id="ProductFeature" Title="NSClient++ $(var.arch)" Description="Binaries for $(var.arch)"
@@ -200,9 +194,6 @@
 				<ComponentRef Id="GeneratedConfigUser" />
 				<ComponentRef Id="GeneratedConfig" />
 				<ComponentRef Id="RequiredPlugins"/>
-				<Feature Id="Shortcuts" Title="Shortcuts" Description="Main Service" Level="1" Absent="allow">
-					<ComponentRef Id="Shortcuts" />
-				</Feature>
 				<Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="allow">
 					<ComponentRef Id="SampleConfig" />
 				</Feature>
@@ -214,8 +205,11 @@
 					<ComponentRef Id="DotNetPlugins" />
 				</Feature>
 			</Feature>
-			<Feature Id="Documentation" Title="Documentation (pdf)" Description="Documentation for NSClient++ and how to use it from Nagios" Level="1" Absent="allow">
-				<ComponentRef Id="NSCPDocumentation" />
+			<Feature Id="Documentation" Title="Documentation (html)" Description="Documentation for NSClient++" Level="1" Absent="allow">
+        <ComponentGroupRef Id="HTMLHelp" />
+				<Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
+					<ComponentRef Id="Shortcuts" />
+				</Feature>
 			</Feature>
 			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
@@ -232,7 +226,7 @@
 				<Feature Id="WEBPlugins" Title="WEB Server" Description="NSClient WEB Server. Use this to administrate or check NSCLient via a browser or REST API" Level="1" Absent="allow">
 					<ComponentRef Id="WEBServer" />
 					<ComponentGroupRef Id="WEBResources" />
-				</Feature>
+        </Feature>
 				<Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
 					<ComponentRef Id="NSCA" />
 				</Feature>

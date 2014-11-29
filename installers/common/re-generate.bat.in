@@ -1,2 +1,3 @@
 "@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\web -cg WEBResources -gg -out web.wxs
 "@WIX_ROOT_DIR@\bin\heat.exe" dir ..\..\scripts -cg ScriptResources -gg -out scripts.wxs
+"@WIX_ROOT_DIR@\bin\heat.exe" dir "@NSCP_PROJECT_BINARY_DIR_NATIVE@\ext\docs\html" -cg HTMLHelp -gg -out html_help.wxs

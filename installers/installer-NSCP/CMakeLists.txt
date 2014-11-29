@@ -14,6 +14,7 @@ SET(SRCS
 	../ui/WixUI_MondoNSCP.wxs
 	../common/web.wxs
 	../common/scripts.wxs
+	../common/html_help.wxs
 )
 IF(USE_STATIC_RUNTIME)
 	SET(RUNTIME "static")
@@ -41,7 +42,7 @@ WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC110_CRT")
 
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
-	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" -dSource=${NSCP_PROJECT_BINARY_DIR} -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
+	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html" "-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" -dSource=${NSCP_PROJECT_BINARY_DIR} -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
 	)
@@ -50,6 +51,6 @@ SOURCE_GROUP(Generated FILES ${SRCS})
 	
 SOURCE_GROUP(Sources FILES ${SRCS})
 ADD_WIX_INSTALLER(${ALIAS} "${SRCS}" "${DEPENDENCIES}" "${LOCALIZATIONS}")
-ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_pdf copy_scripts copy_resources)
+ADD_DEPENDENCIES(${TARGET} ${MAIN_NSCP_TARGET} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} ${DEPENDENCIES} ${ALL_CLIENT_NAMES} copy_files build_docs_html copy_scripts copy_resources)
 
 SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "installers")

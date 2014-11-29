@@ -73,23 +73,14 @@
             <Component Id="cmpBBBCBC333521D3F5E7AB8BAE9F43D34D" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{2CC17CD2-B132-47EB-95B0-B3A275D6C47C}">
                 <File Id="filC40F209BAAB2544E59113C6DB1B954B5" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.svg" />
             </Component>
-            <Component Id="cmp13AAB835CE2527CEAA9DAD8341E8BB06" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{B90C7458-D9F7-4A62-933F-EA9188F81137}">
-                <File Id="fil41900E0AB78D1CDCBB26280796287285" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.ttf" />
-            </Component>
             <Component Id="cmpBC44656F4493739EE1E000BEBFDF18A2" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{601D5CD2-F67F-4D28-BB1A-FB4A930B0D1E}">
                 <File Id="fil04403AA83A04C0B882E71C19B847EEE1" KeyPath="yes" Source="$(var.WebSource)\static\fonts\fontawesome-webfont.woff" />
-            </Component>
-            <Component Id="cmp342C707594321A5ED29B1E88DB5C341E" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{AAB6F94A-B9CE-469A-9394-BD96809F2C32}">
-                <File Id="filCEB6106071A33E5204DDC43D5E96122E" KeyPath="yes" Source="$(var.WebSource)\static\fonts\FontAwesome.otf" />
             </Component>
             <Component Id="cmp1592E1864267162479A74834840838E8" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{0D5EDB65-EA0F-4D5F-B1F9-5D818BF65D76}">
                 <File Id="fil68E17643A8B2EC21EA955F9C642352F0" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.eot" />
             </Component>
             <Component Id="cmpD78E34A37EE3AEE4FC92EB3EF463BB37" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{0DD3ED18-8892-4C8E-827B-53C9983E09FB}">
                 <File Id="fil946AECAFB196A35A5F06591B836C0D5E" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.svg" />
-            </Component>
-            <Component Id="cmp8401711F3FAC5AD3D3E93B80005852B6" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{F7D43283-1CD5-4827-97D5-B75D52AC3E19}">
-                <File Id="fil6E0AFE90228ACB6937E28A4087353A1F" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.ttf" />
             </Component>
             <Component Id="cmpD6DF769B6BAE4B6BC4431897B94B0B48" Directory="dir90D733247A092FB47018E63E8A0BE3FA" Guid="{ECE58FBD-2392-44F5-B3F9-9130C5FD24E4}">
                 <File Id="fil078FEFE2E0535ABC72482DE288479B89" KeyPath="yes" Source="$(var.WebSource)\static\fonts\glyphicons-halflings-regular.woff" />
@@ -149,21 +140,6 @@
                 <File Id="fil89AF898A7054152EB86941958D05B271" KeyPath="yes" Source="$(var.WebSource)\static\js\typeahead.jquery.min.js" />
             </Component>
         </ComponentGroup>
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir45D5958FB55F62A688C3DA6978C5145D" />
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir90D733247A092FB47018E63E8A0BE3FA" />
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir68CF2C518D88CE02E32C32DA294151EA" />
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir117188EFCD9A9BF213452F72AC57B559" />
-    </Fragment>
-    <Fragment>
-        <DirectoryRef Id="dir930BEE7F86DAA1C8405267E730B9DBEB" />
     </Fragment>
     <Fragment>
         <DirectoryRef Id="dirA6BF7C3800848C7B37A2872B5FE08CAE">

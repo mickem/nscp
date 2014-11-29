@@ -153,6 +153,14 @@ std::wstring read_map_data(msi_helper &h) {
 	return ret;
 }
 
+
+static const wchar_t alphanum[] = _T("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+std::wstring genpwd(const int len) {
+	std::wstring ret;
+	for(int i=0; i < len; i++)
+		ret += alphanum[rand() %  ((sizeof(alphanum)/sizeof(wchar_t))-1)];
+	return ret;
+}
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
 	try {
@@ -161,6 +169,12 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
 		std::wstring custom = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
 		std::wstring allow = h.getPropery(_T("ALLOW_CONFIGURATION"));
+
+		std::wstring pwd = h.getPropery(_T("NSCLIENT_PWD"));
+		if (pwd == _T("$GEN$")) {
+			h.setProperty(_T("NSCLIENT_PWD"), genpwd(16));
+		}
+		
 
 		std::wstring tmpPath = h.getTempPath();
 
