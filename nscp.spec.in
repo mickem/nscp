@@ -45,7 +45,14 @@ Requires:	@CPACK_RPM_PACKAGE_REQUIRES@
 %defattr(-,root,root,-)
 #%dir %{prefix}
 #%{prefix}/*
-/*
+/usr/local/bin/check_nrpe
+/usr/local/share/nsclient/*
+/usr/local/sbin/nscp
+/usr/local/sbin/reporter
+/usr/local/lib/nsclient
+/usr/local/lib/libnscp*
+/usr/local/lib/libplugin_api*
+/usr/local/lib/libwhere_filter*
 
 %changelog
 * Sun Sep 27 2014 Michael Medin <michael@medin.name> 0.4.3-1
