@@ -8,5 +8,16 @@ copy_single_file(ALL_FILES old-settings.map .)
 copy_single_file(ALL_FILES nsclient.dist .)
 copy_single_file(ALL_FILES ../changelog .)
 
+IF(NOT WIN32)
+	CONFIGURE_FILE(
+	  unix-nsclient.conf.in
+	  ${PROJECT_BINARY_DIR}/unix-nsclient.conf
+	  @ONLY
+	)
+	INSTALL(FILES ${PROJECT_BINARY_DIR}/unix-nsclient.conf 
+		DESTINATION ${INSTALL_FILES_BASE}etc/nsclient
+		RENAME nsclient.ini)
+ENDIF()
+
 ADD_CUSTOM_TARGET(copy_files ALL DEPENDS ${ALL_FILES})
 SET_TARGET_PROPERTIES(copy_files PROPERTIES FOLDER "files")

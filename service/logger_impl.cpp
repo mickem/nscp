@@ -3,6 +3,7 @@
 #include <nsclient/logger.hpp>
 #include <nsclient/base_logger_impl.hpp>
 #include <format.hpp>
+#include <file_helpers.hpp>
 #include "logger_impl.hpp"
 #include <config.h>
 
@@ -15,6 +16,7 @@
 
 #include <nscapi/nscapi_settings_helper.hpp>
 
+#include "NSClient++.h"
 
 nsclient::logging::impl::raw_subscribers subscribers_;
 
@@ -157,6 +159,15 @@ public:
 				}
 				delete [] tmpBuffer;
 			}
+			if (!boost::filesystem::exists(file_.c_str())) {
+				boost::filesystem::path parent = file_helpers::meta::get_path(file_);
+				if (!boost::filesystem::exists(parent.c_str())) {
+					boost::system::error_code ec;
+					if (!boost::filesystem::create_directories(parent, ec)) {
+						log_fatal("Failed to create directory: " + parent.string());
+					}
+				}
+			}
 			std::string date = nsclient::logging::logger_helper::get_formated_date(format_);
 
 			Plugin::LogEntry message;
@@ -167,7 +178,7 @@ public:
 				for (int i=0;i<message.entry_size();i++) {
 					Plugin::LogEntry::Entry msg = message.entry(i);
 					if (!stream) {
-						log_fatal("File could not be opened, Discarding: " + utf8::cvt<std::string>(render_log_level_long(msg.level())) + ": " + msg.message());
+						log_fatal(file_ + " could not be opened, Discarding: " + utf8::cvt<std::string>(render_log_level_long(msg.level())) + ": " + msg.message());
 					} else {
 						stream << date
 							<< (": ") << utf8::cvt<std::string>(render_log_level_long(msg.level()))
@@ -218,6 +229,8 @@ public:
 
 			settings.register_all();
 			settings.notify();
+
+			ret.file = mainClient->expand_path(ret.file);
 
 		} catch (nscapi::nscapi_exception &e) {
 			log_fatal(std::string("Failed to register command: ") + e.what());
@@ -338,9 +351,6 @@ class threaded_logger : public nsclient::logging::logging_interface_impl {
 	concurrent_queue<std::string> log_queue_;
 	boost::thread thread_;
 
-//	boost::timed_mutex mutext_started;
-
-
 	log_impl_type background_logger_;
 
 public:
@@ -359,11 +369,7 @@ public:
 
 	void thread_proc() {
 		std::string data;
-		bool first = true;
 		while (true) {
-//			if (first)
-//				mutext_started.unlock();
-			first = false;
 			try {
 				log_queue_.wait_and_pop(data);
 				if (data == QUIT_MESSAGE) {
@@ -402,10 +408,7 @@ public:
 	bool startup() {
 		if (nsclient::logging::logging_interface_impl::is_started())
 			return true;
-//		mutext_started.lock();
 		thread_ = boost::thread(boost::bind(&threaded_logger::thread_proc, this));
-//		if (!mutext_started.timed_lock(boost::posix_time::seconds(10)))
-//			log_fatal("Failed to wait for logger thread");
 		return nsclient::logging::logging_interface_impl::startup();
 	}
 	bool shutdown() {
@@ -476,7 +479,6 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 
 
 #define DEFAULT_BACKEND THREADED_FILE_BACKEND
-//#define DEFAULT_BACKEND CONSOLE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
 	if (logger_impl_ == NULL)
 		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);

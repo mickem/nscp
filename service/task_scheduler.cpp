@@ -89,7 +89,6 @@ namespace task_scheduler {
 				}
 
 				try {
-					boost::posix_time::time_duration off = now() - (*instance).time;
 					boost::thread::sleep((*instance).time);
 				} catch (const boost::thread_interrupted &) {
 					if (!queue_.push(*instance))

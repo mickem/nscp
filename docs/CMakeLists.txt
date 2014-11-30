@@ -6,7 +6,6 @@ IF(WIN32)
 ELSE()
 	SET(DEFINEARG "/paths:module-path=%(base-path)/modules")
 ENDIF()
-MESSAGE(STATUS "------------->${DEFINEARG}")
 ADD_CUSTOM_TARGET(generate_doc_sources
 	COMMAND ${CMAKE_BINARY_DIR}/nscp client 
 		--module PythonScript 

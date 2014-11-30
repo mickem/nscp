@@ -183,7 +183,6 @@ std::string NSClientServer::list_instance(std::string counter) {
 	ch.exec_simple_command("CheckSystem", "pdh", boost::assign::list_of(std::string("--list"))("--porcelain")("--counter")(counter)("--no-counters"), exeresult);
 	std::string result;
 
-	typedef std::basic_istringstream<char> wistringstream;
 	typedef boost::tokenizer< boost::escaped_list_separator<char>, std::string::const_iterator, std::string > Tokenizer;
 	BOOST_FOREACH(const std::string &s, exeresult) {
 		std::istringstream iss(s);

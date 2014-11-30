@@ -20,7 +20,7 @@
 ***************************************************************************/
 #pragma once
 
-#include "../version.hpp"
+#include "version.hpp"
 #include <string>
 
 #define APPLICATION_NAME "NSClient++"
@@ -58,4 +58,5 @@
 #define WEB_FOLDER			"@CONFIG_WEB_FOLDER@"
 #define SCRIPTS_FOLDER			"@CONFIG_SCRIPTS_FOLDER@"
 #define CERT_FOLDER			"@CONFIG_CERT_FOLDER@"
+#define LOG_FOLDER			"@CONFIG_LOG_FOLDER@"
 

@@ -28,6 +28,9 @@ class VersionHandler:
 
 	def write(self):
 		try:
+			d = os.path.dirname(f)
+			if not os.path.exists(d):
+				os.makedirs(d)
 			f = open(self.file, 'w')
 			f.write('version=%d.%d.%d\n'%(self.major, self.minor, self.revision))
 			f.write('build=%d\n'%(self.build))
@@ -97,6 +100,9 @@ class VersionHandler:
 		print '%d.%d.%d.%d'%(self.major, self.minor, self.revision, self.build)
 	
 	def write_hpp(self, file):
+		d = os.path.dirname(file)
+		if not os.path.exists(d):
+			os.makedirs(d)
 		f = open(file, 'w')
 		(ignored, filename) = os.path.split(file)
 		name = filename.upper().replace('.', '_')

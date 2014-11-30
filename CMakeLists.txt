@@ -176,7 +176,7 @@ EXECUTE_PROCESS(
 		--file ${VERSION_TXT} 
 		--display 
 		--update build
-		--generate-hpp ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp
+		--generate-hpp ${PROJECT_BINARY_DIR}/include/version.hpp
 	OUTPUT_VARIABLE TMP_VERSION_OUT
 	)
 ENDIF("${INCREASE_BUILD}" STREQUAL "1")
@@ -186,7 +186,7 @@ EXECUTE_PROCESS(
 		"${BUILD_PYTHON_FOLDER}/version.py" 
 		--file ${VERSION_TXT} 
 		--display 
-		--generate-hpp ${CMAKE_CURRENT_SOURCE_DIR}/version.hpp
+		--generate-hpp ${PROJECT_BINARY_DIR}/include/version.hpp
 	OUTPUT_VARIABLE TMP_VERSION_OUT
 	)
 	
@@ -314,25 +314,27 @@ IF(WIN32)
 	SET(CONFIG_SCRIPTS_FOLDER			"\${shared-path}/scripts" CACHE STRING "script folder")
 	SET(CONFIG_CERT_FOLDER				"\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
 	SET(CONFIG_DEFAULT_CACHE_PATH		"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+	SET(CONFIG_LOG_FOLDER				"\${shared-path}/log" CACHE STRING "Path for log files")
 	SET(CONFIG_DEFAULT_LOG_LOCATION		"${exe-path}/nsclient.log" CACHE STRING "PAth for log file")
 ELSE()
-	SET(INSTALL_FILES_BASE				"share/nsclient")
+	SET(INSTALL_FILES_BASE				"share/nsclient/")
 
 	SET(CONFIG_BOOT_CONF_LOCATION		"${CMAKE_INSTALL_PREFIX}/etc/nsclient/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
 	SET(CONFIG_DEFAULT_CONF_LOCATION 	"ini" CACHE STRING "Default configuration store")
 	SET(CONFIG_DEFAULT_CONF_INI_BASE	"ini://${CMAKE_INSTALL_PREFIX}/etc/nsclient/" CACHE STRING "Base location for ini files")
-	SET(CONFIG_MODULE_FOLDER			"${CMAKE_INSTALL_PREFIX}/lib/nsclient/modules" CACHE STRING "modules folder")
-	SET(CONFIG_WEB_FOLDER				"${CMAKE_INSTALL_PREFIX}/share/nsclient/web" CACHE STRING "web folder")
-	SET(CONFIG_SCRIPTS_FOLDER			"${CMAKE_INSTALL_PREFIX}/share/nsclient/scripts" CACHE STRING "script folder")
-	SET(CONFIG_CERT_FOLDER				"${CMAKE_INSTALL_PREFIX}/share/nsclient/security" CACHE STRING "securoty (certificates) folder")
-	SET(CONFIG_DEFAULT_CACHE_PATH		"${CMAKE_INSTALL_PREFIX}/share/nsclient/cache" CACHE STRING "Path for caching stuff")
-	SET(CONFIG_DEFAULT_LOG_LOCATION		"/var/log/nsclient.log" CACHE STRING "PAth for log file")
+	SET(CONFIG_MODULE_FOLDER			"\${shared-path}/modules" CACHE STRING "modules folder")
+	SET(CONFIG_WEB_FOLDER				"\${shared-path}/web" CACHE STRING "web folder")
+	SET(CONFIG_SCRIPTS_FOLDER			"\${shared-path}/scripts" CACHE STRING "script folder")
+	SET(CONFIG_CERT_FOLDER				"\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
+	SET(CONFIG_DEFAULT_CACHE_PATH		"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
+	SET(CONFIG_LOG_FOLDER				"\${shared-path}/log" CACHE STRING "Path for log files")
+	SET(CONFIG_DEFAULT_LOG_LOCATION		"\${shared-path}/log/nsclient.log" CACHE STRING "PAth for log file")
 ENDIF()
 SET(CONFIG_DEFAULT_CONF_INI_LOCATION	"${CONFIG_DEFAULT_CONF_INI_BASE}nsclient.ini" CACHE STRING "Default location for ini files")
 
 CONFIGURE_FILE(
   ${NSCP_INCLUDEDIR}/config.h.in
-  ${NSCP_INCLUDEDIR}/config.h
+  ${PROJECT_BINARY_DIR}/include/config.h
   @ONLY
 )
 CONFIGURE_FILE(
@@ -344,7 +346,8 @@ CONFIGURE_FILE(
   ${BUILD_TARGET_EXE_PATH}/config.py
 )
 
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+#INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR})
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})
 # WHat does this do? INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
 
@@ -570,7 +573,15 @@ ELSE()
 		set(CPACK_RPM_PACKAGE_GROUP "System Environment/Daemons")
 		set(CPACK_RPM_PACKAGE_LICENSE "GPLv2")		
 		set(CPACK_RPM_PACKAGE_URL "http://www.nsclient.org")
-		set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_§INSTALL_PREFIX})
+		set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+		set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST
+			/usr
+			/usr/local
+			/usr/local/bin
+			/usr/local/lib
+			/usr/local/sbin
+			/usr/local/share
+		)
 		set(CPACK_RPM_PACKAGE_REQUIRES "boost-filesystem boost-program-options boost-thread protobuf")
 		#set(CPACK_RPM_PACKAGE_ARCHITECTURE "noarch")
 		set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")

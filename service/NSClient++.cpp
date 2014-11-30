@@ -37,7 +37,7 @@
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include "cli_parser.hpp"
-#include "../version.hpp"
+#include <version.hpp>
 
 #include <config.h>
 
@@ -1428,6 +1428,8 @@ std::string NSClientT::getFolder(std::string key) {
 		default_value = WEB_FOLDER;
 	} else if (key == "scripts") {
 		default_value = SCRIPTS_FOLDER;
+	} else if (key == "log-path") {
+		default_value = LOG_FOLDER;
 	} else if (key == CACHE_FOLDER_KEY) {
 		default_value = DEFAULT_CACHE_PATH;
 	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
