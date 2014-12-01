@@ -83,7 +83,6 @@ MACRO(add_nscp_py_test name script)
 			unit
 			--language python
 			--script ${script}
-			--define "/paths:module-path=\\\${base-path}/modules"
 		)
 ENDMACRO(add_nscp_py_test)
 MACRO(add_nscp_py_test_case name script case)
@@ -93,7 +92,6 @@ MACRO(add_nscp_py_test_case name script case)
 			--language python
 			--script ${script}
 			--case ${case}
-			--define "/paths:module-path=\\\${base-path}/modules"
 		)
 ENDMACRO(add_nscp_py_test_case)
 
@@ -105,7 +103,6 @@ IF (LUA_FOUND)
 			--language lua
 			--script ${script}.lua
 			--log error
-			--define "/paths:module-path=\\\${base-path}/modules"
 		)
 ELSE (LUA_FOUND)
 	MESSAGE(STATUS "Skipping test ${name} since lua is not available")

@@ -79,15 +79,6 @@
 						<RemoveFile Id="OldConfig" Name="nsc.old" On="uninstall" />
 						<RemoveFile Id="NewConfig" Name="nsc.new" On="uninstall" />
 					</Component>
-          <!--
-					<Component Id="NSCPDocumentation" Guid="DE136675-CBBD-49c4-B3DB-B3D5DA90BDD1" Win64="$(var.Win64)">
-            <Shortcut Id="Startmenu.doc.nagios" Directory="ProgramMenuDir" Name="NSClient++ Documentation" Advertise="yes" 
-                  WorkingDirectory="INSTALLDIR" Description="NSClient++ Documentation"/>
-            <ComponentGroupRef Id="HTMLHelp" />
-            <File Id="doc.usage.nagios" Name="NSCP.pdf" DiskId="1" Source="$(var.Source)/NSCP.pdf" Vital="no" KeyPath="yes">
-						</File>
-					</Component>
-          -->
 					<Directory Id="INSTALLLOCATION_SECURITY" Name="security">
 						<Component Id="NRPEServerCert" Guid="4129415B-4907-4c63-A7D7-4EF7B37969D1" Win64="$(var.Win64)">
 							<File Id="NRPECert" Name="nrpe_dh_512.pem" DiskId="1" Source="$(var.Source)/security/nrpe_dh_512.pem" Vital="no"/>
