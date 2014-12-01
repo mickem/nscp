@@ -4,6 +4,7 @@
 #include "service_manager.hpp"
 #include <config.h>
 #include <nsclient/logger.hpp>
+#include <pid_file.hpp>
 
 #include <settings/settings_core.hpp>
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -77,6 +78,7 @@ cli_parser::cli_parser(NSClient* core)
 		("info", "Show information about service")
 		("run", "Run as a service")
 		("name", po::value<std::string>(), "Name of service")
+		("pid", po::value<std::string>()->implicit_value(pidfile::get_default_pidfile("nscp")), "Create a pid file")
 		("description", po::value<std::string>()->default_value(""), "Description of service")
 		;
 
@@ -354,9 +356,14 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 			info(__LINE__, "Service name: ", name);
 			info(__LINE__, "Service description: ", desc);
 		}
-
 		if (vm.count("run")) {
 			try {
+				std::string pfile = pidfile::get_default_pidfile("nscp");
+				if (vm.count("pid"))
+					pfile = vm["pid"].as<std::string>();
+				pidfile pid(pfile);
+				if (vm.count("pid"))
+					pid.create();
 				core_->start_and_wait(name);
 			} catch (...) {
 				log_error(__LINE__, "Unknown exception in service");

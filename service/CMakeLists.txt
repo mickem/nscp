@@ -36,6 +36,7 @@ SET(service_SRCS
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
+	${NSCP_INCLUDEDIR}/pid_file.cpp
 
 	../resources/nsclient.ico
 )
@@ -74,6 +75,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
 		${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.hpp
 		${NSCP_INCLUDEDIR}/nsclient/logger.hpp
+
+		${NSCP_INCLUDEDIR}/pid_file.hpp
 
 	)
 	SET(service_SRCS ${service_SRCS}
