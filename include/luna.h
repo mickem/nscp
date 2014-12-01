@@ -382,6 +382,7 @@ public:
 		{
 			//cout << "Cleaning up a " << T::className << "." << endl;
 			delete(*obj);
+			*obj = NULL;
 		}
 
 		return 0;

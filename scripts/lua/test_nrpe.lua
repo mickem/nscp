@@ -314,10 +314,10 @@ function TestNRPE:run()
 	result:add(self:do_one_test(true, 65536))
 	result:add(self:do_one_test(true, 1048576))
 
-	result:add(self:test_timeout(false, 30, 1, 1048576000))
-	result:add(self:test_timeout(false, 1, 30, 1048576000))
-	result:add(self:test_timeout(true, 30, 1, 1048576000))
-	result:add(self:test_timeout(true, 1, 30, 1048576000))
+	result:add(self:test_timeout(false, 30, 1, 104857600))
+	result:add(self:test_timeout(false, 1, 30, 104857600))
+	result:add(self:test_timeout(true, 30, 1, 104857600))
+	result:add(self:test_timeout(true, 1, 30, 104857600))
 	return result
 end
 

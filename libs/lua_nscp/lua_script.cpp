@@ -21,7 +21,7 @@ const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";
 
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
-lua::core_wrapper::core_wrapper(lua_State *L, bool) {
+lua::core_wrapper::core_wrapper(lua_State *L, bool) : isExisting(false) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -176,7 +176,7 @@ const Luna<lua::core_wrapper>::PropertyType lua::core_wrapper::Properties[] = {{
 // Registry wrapper
 
 
-lua::registry_wrapper::registry_wrapper(lua_State *L, bool) {
+lua::registry_wrapper::registry_wrapper(lua_State *L, bool) : isExisting(false) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
@@ -276,7 +276,7 @@ const Luna<lua::registry_wrapper>::PropertyType lua::registry_wrapper::Propertie
 //////////////////////////////////////////////////////////////////////////
 // Settings
 
-lua::settings_wrapper::settings_wrapper(lua_State *L, bool) : info(NULL) {
+lua::settings_wrapper::settings_wrapper(lua_State *L, bool) : info(NULL), isExisting(false) {
 	lua::lua_wrapper instance(L);
 	info = instance.get_userdata<script_information*>(lua::lua_traits::user_data_tag);
 }
