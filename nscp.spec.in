@@ -58,15 +58,15 @@ getent passwd nsclient >/dev/null || \
 %files
 %defattr(-,root,root,-)
 /lib/systemd/system/nscp.service
-/usr/bin/check_nrpe
-/usr/sbin/nscp
-/usr/sbin/reporter
-/usr/lib/libnscp*
-/usr/lib/libplugin_api*
-/usr/lib/libwhere_filter*
-/usr/lib/nsclient
-%attr(-,nsclient,nsclient) /usr/share/nsclient
-%attr(-,nsclient,nsclient) /etc/nsclient
+%{_bindir}/check_nrpe
+%{_sbindir}/nscp
+%{_sbindir}/reporter
+%{_libdir}/libnscp*
+%{_libdir}/libplugin_api*
+%{_libdir}/libwhere_filter*
+%{_libdir}/nsclient
+%attr(-,nsclient,nsclient) %_datadir/nsclient
+%attr(-,nsclient,nsclient) %{_sysconfdir}/nsclient
 %attr(-,nsclient,nsclient) /var/log/nsclient
 
 %changelog
