@@ -1,6 +1,9 @@
 
 [/paths]
 
-shared-path=@CMAKE_INSTALL_PREFIX@@INSTALL_FILES_BASE@
+shared-path=@CMAKE_INSTALL_PREFIX@/@INSTALL_FILES_BASE@
 module-path=@CMAKE_INSTALL_PREFIX@/lib/nsclient/modules/
-log-path=@CMAKE_INSTALL_PREFIX@/var/log/
+log-path=/var/log/nsclient
+
+[/settings/log]
+file name=${log-path}/nsclient.log

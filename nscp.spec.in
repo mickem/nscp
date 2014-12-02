@@ -12,6 +12,7 @@ Vendor:		@CPACK_PACKAGE_VENDOR@
 #Source0:	https://github.com/mickem/nscp/tree/master/releases/%{version}.tar.gz
 #Packager:	@CPACK_PACKAGE_CONTACT@
 Requires:	@CPACK_RPM_PACKAGE_REQUIRES@
+Requires(pre): shadow-utils
 #BuildRequires:  cmake
 #BuildRequires:  python 
 #BuildRequires:  openssl-devel
@@ -33,29 +34,43 @@ Requires:	@CPACK_RPM_PACKAGE_REQUIRES@
 %description
 @CPACK_RPM_PACKAGE_DESCRIPTION@
 
+
+%pre
+getent group nsclient >/dev/null || groupadd -r nsclient
+getent passwd nsclient >/dev/null || \
+    useradd -r -g nsclient -d /usr/share/nsclient -s /sbin/nologin \
+    -c "NSClient++ Monitoring Agent User" nsclient
+
 #%prep
 
 #%build
 
 #%install
 
+%post
+/sbin/ldconfig
+
+%postun
+/sbin/ldconfig
+
 %clean
 
 %files
 %defattr(-,root,root,-)
-#%dir %{prefix}
-#%{prefix}/*
-/usr/local/bin/check_nrpe
-/usr/local/share/nsclient/*
-/usr/local/sbin/nscp
-/usr/local/sbin/reporter
-/usr/local/lib/nsclient
-/usr/local/lib/libnscp*
-/usr/local/lib/libplugin_api*
-/usr/local/lib/libwhere_filter*
+/lib/systemd/system/nscp.service
+/usr/bin/check_nrpe
+/usr/sbin/nscp
+/usr/sbin/reporter
+/usr/lib/libnscp*
+/usr/lib/libplugin_api*
+/usr/lib/libwhere_filter*
+/usr/lib/nsclient
+%attr(-,nsclient,nsclient) /usr/share/nsclient
+%attr(-,nsclient,nsclient) /etc/nsclient
+%attr(-,nsclient,nsclient) /var/log/nsclient
 
 %changelog
-* Sun Sep 27 2014 Michael Medin <michael@medin.name> 0.4.3-1
+* Sat Sep 27 2014 Michael Medin <michael@medin.name> 0.4.3-1
 - Reworked to use cmake/cpack
 * Wed Oct 16 2013 Pall Sigurdsson <palli@opensource.is> 0.4.1-3
 - Initial Packaging

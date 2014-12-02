@@ -50,7 +50,7 @@ IF(WIN32)
 	STRING(REPLACE "/" "\\" NSCP_PROJECT_BINARY_DIR_NATIVE ${NSCP_PROJECT_BINARY_DIR_NATIVE})
 ENDIF()
 IF(NOT CMAKE_INSTALL_PREFIX)
-	SET(CMAKE_INSTALL_PREFIX "/usr/local")
+	SET(CMAKE_INSTALL_PREFIX "/usr")
 ENDIF()
 SET(MODULE_TARGET_FOLDER lib/nsclient/modules)
 SET(LIB_TARGET_FOLDER lib)
@@ -86,6 +86,18 @@ ENDIF(WIN32)
 	SET(JSON_SPIRIT_LIBRARY_TYPE	"SHARED")
 	SET(BUILD_STATIC_LIBS			OFF)
 ENDIF(USE_STATIC_RUNTIME)
+
+IF(WIN32)
+	SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
+	SET(CPACK_GENERATOR ZIP)
+ELSE()
+	execute_process(COMMAND lsb_release -si OUTPUT_VARIABLE DISTRIBUTION OUTPUT_STRIP_TRAILING_WHITESPACE)
+	IF(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
+		SET(CMAKE_INSTALL_PREFIX "/usr")
+		SET(SYSTEMD ON)
+	ENDIF()
+ENDIF()
+
 
 INCLUDE(${BUILD_CMAKE_FOLDER}/SetMultiThread.cmake)
 INCLUDE(${BUILD_CMAKE_FOLDER}/GoogleProtoBuf.cmake)
@@ -319,9 +331,9 @@ IF(WIN32)
 ELSE()
 	SET(INSTALL_FILES_BASE				"share/nsclient/")
 
-	SET(CONFIG_BOOT_CONF_LOCATION		"${CMAKE_INSTALL_PREFIX}/etc/nsclient/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
+	SET(CONFIG_BOOT_CONF_LOCATION		"/etc/nsclient/boot.ini" CACHE STRING "Location of boot ini (the file which specified where to load the config)")
 	SET(CONFIG_DEFAULT_CONF_LOCATION 	"ini" CACHE STRING "Default configuration store")
-	SET(CONFIG_DEFAULT_CONF_INI_BASE	"ini://${CMAKE_INSTALL_PREFIX}/etc/nsclient/" CACHE STRING "Base location for ini files")
+	SET(CONFIG_DEFAULT_CONF_INI_BASE	"ini:///etc/nsclient/" CACHE STRING "Base location for ini files")
 	SET(CONFIG_MODULE_FOLDER			"\${shared-path}/modules" CACHE STRING "modules folder")
 	SET(CONFIG_WEB_FOLDER				"\${shared-path}/web" CACHE STRING "web folder")
 	SET(CONFIG_SCRIPTS_FOLDER			"\${shared-path}/scripts" CACHE STRING "script folder")
@@ -553,7 +565,6 @@ IF(WIN32)
 	SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
 	SET(CPACK_GENERATOR ZIP)
 ELSE()
-	execute_process(COMMAND lsb_release -si OUTPUT_VARIABLE DISTRIBUTION OUTPUT_STRIP_TRAILING_WHITESPACE)
 	#execute_process(COMMAND lsb_release -sc OUTPUT_VARIABLE RELEASE OUTPUT_STRIP_TRAILING_WHITESPACE)
 	IF(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
 		#
@@ -576,11 +587,11 @@ ELSE()
 		set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
 		set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST
 			/usr
-			/usr/local
-			/usr/local/bin
-			/usr/local/lib
-			/usr/local/sbin
-			/usr/local/share
+			/usr/
+			/usr/bin
+			/usr/lib
+			/usr/sbin
+			/usr/share
 		)
 		set(CPACK_RPM_PACKAGE_REQUIRES "boost-filesystem boost-program-options boost-thread protobuf")
 		#set(CPACK_RPM_PACKAGE_ARCHITECTURE "noarch")

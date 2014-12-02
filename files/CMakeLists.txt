@@ -15,8 +15,14 @@ IF(NOT WIN32)
 	  @ONLY
 	)
 	INSTALL(FILES ${PROJECT_BINARY_DIR}/unix-nsclient.conf 
-		DESTINATION ${INSTALL_FILES_BASE}etc/nsclient
+		DESTINATION /etc/nsclient
 		RENAME nsclient.ini)
+	file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/log)
+	install(DIRECTORY "log" DESTINATION "/var/log/nsclient")
+ENDIF()
+IF(SYSTEMD)
+	INSTALL(FILES nscp.service
+		DESTINATION /lib/systemd/system)
 ENDIF()
 
 ADD_CUSTOM_TARGET(copy_files ALL DEPENDS ${ALL_FILES})
