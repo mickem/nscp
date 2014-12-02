@@ -62,9 +62,9 @@ void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin
 		response->set_result(result);
 	else if (response->result() == Plugin::Common_ResultCode_WARNING)
 		return;
-	else if (response->result() == Plugin::Common_ResultCode_CRITCAL && result != Plugin::Common_ResultCode_CRITCAL)
+	else if (response->result() == Plugin::Common_ResultCode_CRITICAL && result != Plugin::Common_ResultCode_CRITICAL)
 		response->set_result(result);
-	else if (response->result() == Plugin::Common_ResultCode_CRITCAL)
+	else if (response->result() == Plugin::Common_ResultCode_CRITICAL)
 		return;
 	else if (response->result() == Plugin::Common_ResultCode_UNKNOWN && result != Plugin::Common_ResultCode_UNKNOWN)
 		response->set_result(result);
@@ -73,7 +73,7 @@ void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin
 }
 
 void CheckHelpers::check_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_simple_status(Plugin::Common_ResultCode_CRITCAL, request, response);
+	check_simple_status(Plugin::Common_ResultCode_CRITICAL, request, response);
 }
 void CheckHelpers::check_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	check_simple_status(Plugin::Common_ResultCode_WARNING, request, response);
@@ -125,7 +125,7 @@ void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const
 	response->set_result(status);
 }
 void CheckHelpers::check_always_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	check_change_status(Plugin::Common_ResultCode_CRITCAL, request, response);
+	check_change_status(Plugin::Common_ResultCode_CRITICAL, request, response);
 }
 void CheckHelpers::check_always_warning(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	check_change_status(Plugin::Common_ResultCode_WARNING, request, response);
@@ -157,7 +157,7 @@ void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &requ
 	response->CopyFrom(local_response);
 	::Plugin::Common_ResultCode new_o =  ::Plugin::Common_ResultCode_OK;
 	::Plugin::Common_ResultCode new_w =  ::Plugin::Common_ResultCode_WARNING;
-	::Plugin::Common_ResultCode new_c =  ::Plugin::Common_ResultCode_CRITCAL;
+	::Plugin::Common_ResultCode new_c =  ::Plugin::Common_ResultCode_CRITICAL;
 	::Plugin::Common_ResultCode new_u =  ::Plugin::Common_ResultCode_UNKNOWN;
 	
 	if (vm.count("ok"))
@@ -172,7 +172,7 @@ void CheckHelpers::check_negate(const Plugin::QueryRequestMessage::Request &requ
 		response->set_result(new_o);
 	if (response->result() == Plugin::Common_ResultCode_WARNING)
 		response->set_result(new_w);
-	if (response->result() == Plugin::Common_ResultCode_CRITCAL)
+	if (response->result() == Plugin::Common_ResultCode_CRITICAL)
 		response->set_result(new_c);
 	if (response->result() == Plugin::Common_ResultCode_UNKNOWN)
 		response->set_result(new_u);
