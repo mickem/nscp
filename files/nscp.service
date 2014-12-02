@@ -2,11 +2,11 @@
 Description=NSClient++ Monitoring Agent
 
 [Service]
-WorkingDirectory=/usr/local/share/nsclient
+WorkingDirectory=/usr/share/nsclient
 User=nsclient
-PIDFile=/usr/local/share/nsclient/nscp.pid
+PIDFile=/usr/share/nsclient/nscp.pid
 
-ExecStart=/usr/local/sbin/nscp service --run --pid /usr/local/share/nsclient/nscp.pid
+ExecStart=/usr/sbin/nscp service --run --pid /usr/share/nsclient/nscp.pid
 
 [Install]
 WantedBy=multi-user.target

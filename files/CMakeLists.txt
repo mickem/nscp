@@ -18,7 +18,7 @@ IF(NOT WIN32)
 		DESTINATION /etc/nsclient
 		RENAME nsclient.ini)
 	file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/log)
-	install(DIRECTORY "log" DESTINATION "/var/log/nsclient")
+	install(DIRECTORY "nsclient" DESTINATION "/var/log")
 ENDIF()
 IF(SYSTEMD)
 	INSTALL(FILES nscp.service
