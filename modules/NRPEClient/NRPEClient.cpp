@@ -20,6 +20,8 @@
 ***************************************************************************/
 #include "NRPEClient.h"
 
+#include <boost/filesystem.hpp>
+
 #include <time.h>
 #include <strEx.h>
 
@@ -162,8 +164,10 @@ void NRPEClient::nrpe_forward(const std::string &command, Plugin::QueryRequestMe
 bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	if (request.arguments_size() > 0 && request.arguments(0) == "install")
 		return install_server(request, response);
+	if (request.arguments_size() > 0 && request.arguments(0) == "make-cert")
+		return make_cert(request, response);
 	if (request.arguments_size() == 0 || request.arguments(0) == "help") {
-		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp nrpe [install] --help");
+		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp nrpe [install|make-cert] --help");
 		return true;
 	}
 	client::configuration config(nrpe_client::command_prefix, 
@@ -321,6 +325,82 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			return true;
 		}
 		nscapi::protobuf::functions::set_response_good(*response, result.str());
+		return true;
+	} catch (const std::exception &e) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+		return true;
+	} catch (...) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+		return true;
+	}
+}
+
+bool NRPEClient::make_cert(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string cert, key;
+	const std::string path = "/settings/NRPE/server";
+	bool force = false;
+
+	pf::settings_query q(get_id());
+	q.get(path, "certificate", "${certificate-path}/certificate.pem");
+	q.get(path, "certificate key", "");
+
+
+	get_core()->settings_query(q.request(), q.response());
+	if (!q.validate_response()) {
+		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+		return true;
+	}
+	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
+	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
+		if (val.path == path && val.key && *val.key == "certificate")
+			cert = val.get_string();
+		else if (val.path == path && val.key && *val.key == "certificate key")
+			key = val.get_string();
+	}
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("certificate", po::value<std::string>(&cert)->default_value(cert), 
+		"Length of payload (has to be same as on the server)")
+
+		("certificate-key", po::value<std::string>(&key)->default_value(key), 
+		"Client certificate to use")
+
+		("force", po::bool_switch(&force), 
+		"Overwrite existing certificates.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+
+		cert = get_core()->expand_path(cert);
+		key = get_core()->expand_path(key);
+
+		if (!force && (boost::filesystem::exists(cert) || boost::filesystem::exists(key))) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Certificate already exists, wont overwrite");
+			return true;
+		}
+
+		socket_helpers::write_certs(cert, false);
+
+		nscapi::protobuf::functions::set_response_good(*response, cert + " generated.");
 		return true;
 	} catch (const std::exception &e) {
 		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);

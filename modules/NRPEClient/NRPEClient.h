@@ -69,5 +69,6 @@ private:
 	void add_target(std::string key, std::string args);
 
 	bool install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	bool make_cert(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 };
 
