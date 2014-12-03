@@ -21,7 +21,7 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 	if (!certificate.empty() && !boost::filesystem::is_regular(certificate)) {
 		if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
-			write_certs(certificate);
+			write_certs(certificate, false);
 		} else 
 			list.push_back("Certificate not found: " + certificate);
 	}
@@ -42,14 +42,14 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate)) {
 		if (boost::algorithm::ends_with(ssl.certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + ssl.certificate + " (generating a default certificate)");
-			write_certs(ssl.certificate);
+			write_certs(ssl.certificate, false);
 		} else 
 			list.push_back("Certificate not found: " + ssl.certificate);
 	}
 	if (!ssl.ca_path.empty() && !boost::filesystem::is_regular(ssl.ca_path)) {
 		if (boost::algorithm::ends_with(ssl.ca_path, "/ca.pem")) {
 			list.push_back("CA not found: " + ssl.ca_path + " (generating a default CA)");
-			write_certs(ssl.ca_path);
+			write_certs(ssl.ca_path, true);
 		} else 
 			list.push_back("CA Certificate not found: " + ssl.ca_path);
 	}
@@ -276,7 +276,7 @@ int add_ext(X509 *cert, int nid, const char *value) {
 	X509_EXTENSION_free(ex);
 	return 1;
 }
-void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days) {
+void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int days, bool ca) {
 	X509 *x;
 	EVP_PKEY *pk;
 	RSA *rsa;
@@ -313,11 +313,13 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 
 	X509_set_issuer_name(x,name);
 
-	add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
-	add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
-	add_ext(x, NID_subject_key_identifier, "hash");
-	add_ext(x, NID_netscape_cert_type, "sslCA");
-	add_ext(x, NID_netscape_comment, "example comment extension");
+	if (ca) {
+		add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
+		add_ext(x, NID_key_usage, "critical,keyCertSign,cRLSign");
+		add_ext(x, NID_subject_key_identifier, "hash");
+		add_ext(x, NID_netscape_cert_type, "sslCA");
+		add_ext(x, NID_netscape_comment, "example comment extension");
+	}
 
 	if (!X509_sign(x,pk,EVP_sha1()))
 		throw socket_helpers::socket_exception("Failed to sign certificate");
@@ -327,7 +329,7 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 }
 
 
-void socket_helpers::write_certs(std::string cert) {
+void socket_helpers::write_certs(std::string cert, bool ca) {
 	BIO *bio_err;
 	X509 *x509=NULL;
 	EVP_PKEY *pkey=NULL;
@@ -336,7 +338,7 @@ void socket_helpers::write_certs(std::string cert) {
 
 	bio_err=BIO_new_fp(stderr, BIO_NOCLOSE);
 
-	make_certificate(&x509,&pkey,2048,0,365);
+	make_certificate(&x509,&pkey,2048,0,365, ca);
 
 	FILE *fout = fopen(cert.c_str(), "wb");
 	if (fout == NULL)
