@@ -260,15 +260,15 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 	}
 	eventlog::evt_handle hResults = eventlog::EvtQuery(NULL, utf8::cvt<std::wstring>(logfile).c_str(), pwsQuery, flags);
 	if (!hResults)
-		throw nscp_exception("Failed to open channel: " + error::lookup::last_error(status));
-	status = GetLastError();
-	if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
-		throw nscp_exception("Channel not found: " + error::lookup::last_error(status));
-	else if (status == ERROR_EVT_INVALID_QUERY)
-		throw nscp_exception("Invalid query: " + error::lookup::last_error(status));
-	else if (status != ERROR_SUCCESS)
-		throw nscp_exception("EvtQuery failed: " + error::lookup::last_error(status));
-
+	{
+		status = GetLastError();
+		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
+			throw nscp_exception("Channel not found: " + error::lookup::last_error(status));
+		else if (status == ERROR_EVT_INVALID_QUERY)
+			throw nscp_exception("Invalid query: " + error::lookup::last_error(status));
+		else if (status != ERROR_SUCCESS)
+			throw nscp_exception("EvtQuery failed: " + error::lookup::last_error(status));
+	}
 
 	eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
 	if (!hContext)
