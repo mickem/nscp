@@ -43,6 +43,8 @@ namespace settings {
 		instance_raw_ptr instance_;
 		boost::timed_mutex instance_mutex_;
 		boost::filesystem::path base_path_;
+
+		boost::shared_mutex registry_mutex_;
 		reg_paths_type registred_paths_;
 		bool ready_flag;
 		bool dirty_flag;
@@ -151,6 +153,10 @@ namespace settings {
 		///
 		/// @author mickem
 		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) {
+			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!writeLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path);
+			}
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id, title, description, advanced, is_sample);
@@ -172,6 +178,10 @@ namespace settings {
 		///
 		/// @author mickem
 		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
+			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!writeLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
+			}
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id);
@@ -199,6 +209,10 @@ namespace settings {
 		///
 		/// @author mickem
 		settings_core::key_description get_registred_key(std::string path, std::string key) {
+			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
+			}
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				path_description::keys_type::const_iterator cit2 = (*cit).second.keys.find(key);
@@ -210,6 +224,10 @@ namespace settings {
 			throw settings_exception("Key not found: " + path + ", " + key);
 		}
 		settings_core::path_description get_registred_path(const std::string &path) {
+			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path);
+			}
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				return (*cit).second;
@@ -226,6 +244,10 @@ namespace settings {
 		///
 		/// @author mickem
 		string_list get_reg_sections(std::string path, bool fetch_samples) {
+			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path);
+			}
 			string_list ret;
 			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
 				if ((!v.second.is_sample || fetch_samples) && (path.empty() || boost::starts_with(v.first, path)))
@@ -241,6 +263,10 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual string_list get_reg_keys(std::string path, bool fetch_samples) {
+			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: " + path);
+			}
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
