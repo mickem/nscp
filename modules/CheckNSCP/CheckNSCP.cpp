@@ -108,14 +108,14 @@ void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, 
 	int crash_count = get_crashes(crashFolder, last);
 	format::append_list(message, strEx::s::xtos(crash_count) + " crash(es)", std::string(", "));
 	if (crash_count > 0){
-		response->set_result(Plugin::Common_ResultCode_CRITCAL);
+		response->set_result(Plugin::Common_ResultCode_CRITICAL);
 		format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}
 
 	int err_count = get_errors(last);
 	format::append_list(message, strEx::s::xtos(err_count) + " error(s)", std::string(", "));
 	if (err_count > 0) {
-		response->set_result(Plugin::Common_ResultCode_CRITCAL);
+		response->set_result(Plugin::Common_ResultCode_CRITICAL);
 		format::append_list(message, std::string("last error: " + last), std::string(", "));
 	}
 	boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();;

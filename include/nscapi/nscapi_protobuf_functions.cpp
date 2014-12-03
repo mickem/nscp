@@ -723,7 +723,7 @@ namespace nscapi {
 			if (ret == NSCAPI::returnWARN)
 				return Plugin::Common_ResultCode_WARNING;
 			if (ret == NSCAPI::returnCRIT)
-				return Plugin::Common_ResultCode_CRITCAL;
+				return Plugin::Common_ResultCode_CRITICAL;
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
 
@@ -733,7 +733,7 @@ namespace nscapi {
 				return NSCAPI::returnOK;
 			if (ret == Plugin::Common_ResultCode_WARNING)
 				return NSCAPI::returnWARN;
-			if (ret == Plugin::Common_ResultCode_CRITCAL)
+			if (ret == Plugin::Common_ResultCode_CRITICAL)
 				return NSCAPI::returnCRIT;
 			return NSCAPI::returnUNKNOWN;
 		}
@@ -746,7 +746,7 @@ namespace nscapi {
 			if (lcstat == "w" || lcstat == "warn" || lcstat == "warning")
 				return Plugin::Common_ResultCode_WARNING;
 			if (lcstat == "c" || lcstat == "crit" || lcstat == "critical")
-				return Plugin::Common_ResultCode_CRITCAL;
+				return Plugin::Common_ResultCode_CRITICAL;
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
 

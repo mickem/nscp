@@ -139,7 +139,7 @@ namespace nscapi {
 				return Plugin::Common_ResultCode_UNKNOWN;
 			}
 			inline Plugin::Common::Status::StatusType gbp_to_nagios_gbp_status(Plugin::Common::ResultCode ret) {
-				if (ret == Plugin::Common_ResultCode_UNKNOWN||ret == Plugin::Common_ResultCode_WARNING||ret == Plugin::Common_ResultCode_CRITCAL)
+				if (ret == Plugin::Common_ResultCode_UNKNOWN||ret == Plugin::Common_ResultCode_WARNING||ret == Plugin::Common_ResultCode_CRITICAL)
 					return Plugin::Common_Status_StatusType_STATUS_ERROR;
 				return Plugin::Common_Status_StatusType_STATUS_OK;
 			}
