@@ -49,6 +49,7 @@ getent passwd nsclient >/dev/null || \
 
 %post
 /sbin/ldconfig
+su -s /bin/bash -c "nscp nrpe make-cert"
 
 %postun
 /sbin/ldconfig
