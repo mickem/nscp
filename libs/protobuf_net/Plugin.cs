@@ -654,7 +654,7 @@ namespace Plugin {
       public enum ResultCode {
         OK = 0,
         WARNING = 1,
-        CRITCAL = 2,
+        CRITICAL = 2,
         UNKNOWN = 3,
       }
       

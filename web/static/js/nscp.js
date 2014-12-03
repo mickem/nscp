@@ -4,7 +4,7 @@ function parseNagiosResult(id) {
 	if (id == 1)
 		return "WARNING"
 	if (id == 2)
-		return "CRITCAL"
+		return "CRITICAL"
 	if (id == 3)
 		return "UNKNOWN"
 	return "INVALID(" + id + ")"

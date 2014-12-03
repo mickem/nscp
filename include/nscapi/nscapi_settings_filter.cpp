@@ -13,7 +13,7 @@ namespace nscapi {
 				"WARNING FILTER", "If any rows match this filter severity will escalated to WARNING")
 
 				("critical", sh::string_key(&filter_crit),
-				"CRITCAL FILTER", "If any rows match this filter severity will escalated to CRITCAL")
+				"CRITICAL FILTER", "If any rows match this filter severity will escalated to CRITICAL")
 
 				("ok", sh::string_key(&filter_ok),
 				"OK FILTER", "If any rows match this filter severity will escalated down to OK")

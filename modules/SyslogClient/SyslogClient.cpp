@@ -289,7 +289,7 @@ int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data
 			severity = con.ok_severity;
 		if (payload.result() == ::Plugin::Common_ResultCode_WARNING)
 			severity = con.warn_severity;
-		if (payload.result() == ::Plugin::Common_ResultCode_CRITCAL)
+		if (payload.result() == ::Plugin::Common_ResultCode_CRITICAL)
 			severity = con.crit_severity;
 		if (payload.result() == ::Plugin::Common_ResultCode_UNKNOWN)
 			severity = con.unknown_severity;

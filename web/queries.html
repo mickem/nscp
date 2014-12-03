@@ -148,7 +148,7 @@
 											<!-- ko if: $root.result -->
 												<div data-bind="with: $root.result">
 													<hr/>
-													<h4>Result: <span class="label" data-bind="text: result, css: { 'label-success': result=='OK', 'label-danger': ( result=='UNKNOWN' || result=='CRITCAL'), 'label-warning': result=='WARNING' }"></span></h4>
+													<h4>Result: <span class="label" data-bind="text: result, css: { 'label-success': result=='OK', 'label-danger': ( result=='UNKNOWN' || result=='CRITICAL'), 'label-warning': result=='WARNING' }"></span></h4>
 													<pre data-bind="text: message"></pre>
 													<!-- ko if: perf.length > 0 -->
 														<h4>Performance data:</h4>
