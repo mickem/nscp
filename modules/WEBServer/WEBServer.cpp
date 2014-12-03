@@ -786,7 +786,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
-	q.get(path, "certificate key", "${certificate-path}/certificate_key.pem");
+	q.get(path, "certificate key", "");
 	q.get(path, "port", "8443s");
 
 
@@ -841,11 +841,15 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		result << "Enabling WEB from (currently not supported): " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
 		s.set("/modules", "WEBServer", "enabled");
-		if (port.find('s') != std::string::npos)
-			result << "HTTP(s) is enabled using " << cert << " and " << key << "." << std::endl;
+		if (port.find('s') != std::string::npos) {
+			result << "HTTP(s) is enabled using " << get_core()->expand_path(cert);
+			if (!key.empty())
+				result << " and " << get_core()->expand_path(key);
+			result << "." << std::endl;
+		}
 		s.set(path, "certificate", cert);
 		s.set(path, "certificate key", key);
-		result << "Point your browser to: " << port << std::endl;
+		result << "Point your browser to: " << boost::replace_all_copy(port, "s", "") << std::endl;
 		s.set(path, "port", port);
 		s.save();
 		get_core()->settings_query(s.request(), s.response());
