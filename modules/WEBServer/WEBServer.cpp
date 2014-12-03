@@ -439,9 +439,6 @@ public:
 
 
 	Response *process(Request &request) {
-        if (!handles(request.getMethod(), request.getUrl()))
-            return NULL;
-
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
 		bool is_css = boost::algorithm::ends_with(request.getUrl(), ".css");
 		bool is_html = boost::algorithm::ends_with(request.getUrl(), ".html");
@@ -451,10 +448,13 @@ public:
 		bool is_font = boost::algorithm::ends_with(request.getUrl(), ".ttf")
 			|| boost::algorithm::ends_with(request.getUrl(), ".svg")
 			|| boost::algorithm::ends_with(request.getUrl(), ".woff");
-		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png)
-			return NULL;
+		StreamResponse *sr = new StreamResponse();
+		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png)  {
+			sr->setCode(404);
+			*sr << "Not found: " << request.getUrl();
+			return sr;
+		}
 
-        StreamResponse *sr = new StreamResponse();
 		boost::filesystem::path file = base / request.getUrl();
         if(!boost::filesystem::is_regular_file(file)) {
             NSC_LOG_ERROR("Failed to find: " + file.string());
@@ -651,9 +651,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
                 NSC_DEBUG_MSG("Using certificate: " + cert.string());
 				server->setOption("ssl_certificate", cert.string());
 			}
-			server->registerController(new StaticController(path));
 			server->registerController(new BaseController(password, get_core(), get_id()));
 			server->registerController(new RESTController(password, get_core()));
+			server->registerController(new StaticController(path));
 		
 			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
 			server->start();
