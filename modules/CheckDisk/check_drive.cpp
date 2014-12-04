@@ -648,8 +648,10 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		if (ret.is_done) {
 			break;
 		}
-		if (total)
+		if (total) {
+			obj->get_size(filter.context);
 			total_obj->append(obj);
+		}
 	}
 	if (total) {
 		filter.match(total_obj);
