@@ -629,8 +629,10 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		filter.match(obj);
 		if (filter.has_errors())
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
-		if (total)
+		if (total) {
+			obj->get_size(filter.context);
 			total_obj->append(obj);
+		}
 	}
 	if (total) {
 		filter.match(total_obj);
