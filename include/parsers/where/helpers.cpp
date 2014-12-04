@@ -154,6 +154,26 @@ namespace parsers {
 			bool is_upper(operators op) {
 				return op == op_ge || op == op_gt;
 			}
+			
+
+			boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit) {
+				std::list<parsers::where::node_type> list = subject->get_list_value(context);
+				if (list.empty())
+					list.push_back(subject);
+				long long value;
+				std::string unit = default_unit;
+				std::list<parsers::where::node_type>::const_iterator cit;
+				if (list.size() > 0) {
+					cit = list.begin();
+					value = (*cit)->get_int_value(context);
+				}
+				if (list.size() > 1) {
+					++cit;
+					unit = (*cit)->get_string_value(context);
+				}
+				return boost::make_tuple(value, unit);
+			}
+			
 		}
 	}
 }

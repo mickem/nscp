@@ -21,6 +21,7 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/where/helpers.hpp>
 
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
@@ -174,26 +175,8 @@ struct filter_obj {
 	}
 };
 
-boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	std::list<parsers::where::node_type> list = subject->get_list_value(context);
-	if (list.empty())
-		list.push_back(subject);
-	long long value;
-	std::string unit = "%";
-	std::list<parsers::where::node_type>::const_iterator cit;
-	if (list.size() > 0) {
-		cit = list.begin();
-		value = (*cit)->get_int_value(context);
-	}
-	if (list.size() > 1) {
-		++cit;
-		unit = (*cit)->get_string_value(context);
-	}
-	return boost::make_tuple(value, unit);
-}
-
 parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	boost::tuple<long long, std::string> value = read_arguments(context, subject);
+	boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
 	long long number = value.get<0>();
 	std::string unit = value.get<1>();
 
@@ -206,7 +189,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
 }
 
 parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	boost::tuple<long long, std::string> value = read_arguments(context, subject);
+	boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
 	long long number = value.get<0>();
 	std::string unit = value.get<1>();
 

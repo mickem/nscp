@@ -5,6 +5,7 @@
 #include <boost/assign.hpp>
 
 #include <parsers/where.hpp>
+#include <parsers/where/helpers.hpp>
 
 #include <simple_timer.hpp>
 #include <strEx.h>
@@ -31,19 +32,16 @@ namespace check_cpu_filter {
 namespace check_mem_filter {
 
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		std::list<parsers::where::node_type> list = subject->get_list_value(context);
-		if (list.size() != 2) {
-			context->error("Invalid list value");
-			return parsers::where::factory::create_false();
-		}
-		std::list<parsers::where::node_type>::const_iterator cit = list.begin();
-		parsers::where::node_type amount = *cit;
-		++cit;
-		parsers::where::node_type unit = *cit;
+		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
+		long long number = value.get<0>();
+		std::string unit = value.get<1>();
 
-		long long percentage = amount->get_int_value(context);
-		long long value = (object->get_total()*percentage)/100;
-		return parsers::where::factory::create_int(value);
+		if (unit == "%") {
+			number = (object->get_total()*(number))/100;
+		} else {
+			number = format::decode_byte_units(number, unit);
+		}
+		return parsers::where::factory::create_int(number);
 	}
 
 	long long get_zero() {
@@ -85,19 +83,16 @@ namespace check_mem_filter {
 namespace check_page_filter {
 
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		std::list<parsers::where::node_type> list = subject->get_list_value(context);
-		if (list.size() != 2) {
-			context->error("Invalid list value");
-			return parsers::where::factory::create_false();
-		}
-		std::list<parsers::where::node_type>::const_iterator cit = list.begin();
-		parsers::where::node_type amount = *cit;
-		++cit;
-		parsers::where::node_type unit = *cit;
+		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
+		long long number = value.get<0>();
+		std::string unit = value.get<1>();
 
-		long long percentage = amount->get_int_value(context);
-		long long value = (object->get_total()*percentage)/100;
-		return parsers::where::factory::create_int(value);
+		if (unit == "%") {
+			number = (object->get_total()*(number))/100;
+		} else {
+			number = format::decode_byte_units(number, unit);
+		}
+		return parsers::where::factory::create_int(number);
 	}
 
 	long long get_zero() {

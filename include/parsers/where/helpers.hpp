@@ -4,6 +4,7 @@
 #include <list>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/dll_defines.hpp>
@@ -20,6 +21,8 @@ namespace parsers {
 			NSCAPI_EXPORT bool can_convert(value_type src, value_type dst);
 			NSCAPI_EXPORT bool is_upper(operators op);
 			NSCAPI_EXPORT bool is_lower(operators op);
+			
+			NSCAPI_EXPORT boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit);
 		}
 	}
 }
