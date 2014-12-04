@@ -626,12 +626,9 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			|| std::find(excludes.begin(), excludes.end(), drive.name)!=excludes.end())
 			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
-		modern_filter::match_result ret = filter.match(obj);
+		filter.match(obj);
 		if (filter.has_errors())
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
-		if (ret.is_done) {
-			break;
-		}
 		if (total)
 			total_obj->append(obj);
 	}
