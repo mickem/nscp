@@ -176,6 +176,7 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 
 	boost::replace_all(master_syntax, "%list%", "%(list)");
 	boost::replace_all(master_syntax, "%count%", "%(count)");
+	boost::replace_all(master_syntax, "%total%", "%(total)");
 	compat::inline_addarg(request, "top-syntax=", master_syntax);
 	compat::inline_addarg(request, "path=", path);
 	if (debug)
