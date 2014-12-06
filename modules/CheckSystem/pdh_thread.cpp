@@ -51,12 +51,29 @@ void pdh_thread::thread_proc() {
 	} else {
 		NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
 	}
+	{
+		PDH::PDHQuery tmpPdh;
+		BOOST_FOREACH(PDH::pdh_object obj, configs_) {
+			PDH::pdh_instance instance = PDH::factory::create(obj);
 
-	BOOST_FOREACH(PDH::pdh_object obj, configs_) {
-		PDH::pdh_instance instance = PDH::factory::create(obj);
-		counters_.push_back(instance);
-		lookups_[instance->get_name()] = instance;
+			if (instance->has_instances()) {
+				BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) { 
+					tmpPdh.addCounter(sc);
+				}
+			} else {
+				tmpPdh.addCounter(instance);
+			}
+			try {
+				tmpPdh.open();
+				counters_.push_back(instance);
+				lookups_[instance->get_name()] = instance;
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
+				continue;
+			}
+		}
 	}
+
 
 	PDH::PDHQuery pdh;
 	CheckMemory memchecker;
@@ -89,7 +106,7 @@ void pdh_thread::thread_proc() {
 		try {
 			pdh.open();
 		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_EXR("Opening performance counters: ", e);
+			NSC_LOG_ERROR_EXR("Failed to open counters (thread will now die): ", e);
 			return;
 		}
 	}
