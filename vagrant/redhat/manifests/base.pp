@@ -53,12 +53,13 @@ if ($::operatingsystemmajrelease < 7) {
 package { "python-devel": ensure => present }
 package { "openssl-devel": ensure => present }
 package { "boost-devel": ensure => present }
-#TODO package { "rst2pdf": ensure => present }
-#package { "python-sphinx": ensure => present }
+if ($::operatingsystemmajrelease >= 7) {
+	package { "python-sphinx": ensure => present }
+	package { "gtest": ensure => present }
+	package { "gtest-devel": ensure => present }
+}
 package { "lua-devel": ensure => present }
 package { "redhat-lsb": ensure => present }
-#TODO package { "libgtest-dev": ensure => present }
-
 yumgroup { "Development Tools": ensure => present  }
 file { "/home/vagrant/build.sh":
     ensure  => "present",
@@ -79,6 +80,8 @@ package { "protobuf-compiler": ensure => present
 package { "protobuf-python": ensure => present
 } ->
 package { "cryptopp": ensure => present
+} ->
+package { "cryptopp-devel": ensure => present
 } ->
 package { "python-jinja2": ensure => present
 }
