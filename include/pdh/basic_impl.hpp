@@ -175,7 +175,7 @@ namespace PDH {
 		}
 		virtual pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
 			if (pPdhAddEnglishCounter == NULL)
-				throw pdh_exception("Failed to initalize PdhAddEnglishCounter :(");
+				throw pdh_exception("PdhAddEnglishCounter is only avalible on Vista and later you need to use localized counters.");
 			return pdh_error(pPdhAddEnglishCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
 		}
 		virtual pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
