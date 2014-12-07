@@ -108,11 +108,14 @@ namespace process_helper {
 		BOL_GETTER(wow64);
 		BOL_GETTER(has_error);
 		BOL_GETTER(unreadable);
+		STR_GETTER(error);
 
 		process_info() {}
 		process_info(const std::string s) : exe(s), started(false) {}
 
 		std::string get_state_s() const {
+			if (has_error)
+				return "error";
 			if (unreadable)
 				return "unreadable";
 			if (hung)
@@ -189,6 +192,7 @@ namespace process_helper {
 
 		void set_error(std::string msg) {
 			has_error = true;
+			error = msg;
 		}
 
 		static const long long state_started = 1;

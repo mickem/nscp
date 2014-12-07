@@ -259,6 +259,7 @@ namespace check_proc_filter {
  		registry_.add_string()
 			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
 			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
+			("error", boost::bind(&filter_obj::get_error, _1), "Any error messages associated with fetching info")
 			("command_line", boost::bind(&filter_obj::get_command_line, _1), "Command line of process (not always available)")
 			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get process status (for legacy use via check_nt only)")
  			;

@@ -47,35 +47,22 @@ struct generic_closer  {
 };
 typedef hlp::handle<HANDLE, generic_closer> generic_handle;
 
-void enable_token_privilege(LPTSTR privilege) {
+void enable_token_privilege(LPTSTR privilege, bool enable) {
 	generic_handle token;
 	TOKEN_PRIVILEGES token_privileges;
-	DWORD dwSize;
-	ZeroMemory(&token_privileges, sizeof(token_privileges));
-	token_privileges.PrivilegeCount = 1;
-	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, token.ref()))
-		throw nscp_exception("Failed to open process token: " + error::lookup::last_error());
-	if (!LookupPrivilegeValue(NULL, privilege, &token_privileges.Privileges[0].Luid)) { 
+	LUID luid;
+	if (!LookupPrivilegeValue(NULL, privilege, &luid))
 		throw nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
-	}
-	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	if (!AdjustTokenPrivileges(token, FALSE, &token_privileges, 0, NULL, &dwSize)) { 
-		throw nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
-	}
-}
-
-void disable_token_privilege(LPTSTR privilege) {
-	generic_handle token;
-	TOKEN_PRIVILEGES token_privileges;                 
-	DWORD dwSize;                       
-	ZeroMemory (&token_privileges, sizeof (token_privileges));
+	ZeroMemory(&token_privileges, sizeof(TOKEN_PRIVILEGES));
 	token_privileges.PrivilegeCount = 1;
-	if ( !OpenProcessToken (GetCurrentProcess(), TOKEN_ALL_ACCESS, token.ref()))
+	token_privileges.Privileges[0].Luid = luid;
+	if (enable)
+		token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+	else
+		token_privileges.Privileges[0].Attributes = 0;
+	if ( !OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, token.ref()))
 		throw nscp_exception("Failed to open process token: " + error::lookup::last_error());
-	if (!LookupPrivilegeValue(NULL, privilege, &token_privileges.Privileges[0].Luid))
-		throw nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
-	token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_REMOVED;
-	if (!AdjustTokenPrivileges(token, FALSE, &token_privileges, 0, NULL, &dwSize))
+	if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES) NULL, (PDWORD) NULL))
 		throw nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
 }
 
@@ -307,7 +294,7 @@ namespace process_helper {
 
 	process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size) {
 		try {
-			enable_token_privilege(SE_DEBUG_NAME);
+			enable_token_privilege(SE_DEBUG_NAME, true);
 		} catch (nscp_exception &e) {
 			if (error_interface!=NULL)
 				error_interface->report_warning(e.reason());
@@ -378,6 +365,14 @@ namespace process_helper {
 		}
 
 		delete [] dwPIDs;
+
+		try {
+			enable_token_privilege(SE_DEBUG_NAME, false);
+		} catch (nscp_exception &e) {
+			if (error_interface!=NULL)
+				error_interface->report_warning(e.reason());
+		} 
+
 		return ret;
 	}
 
@@ -427,11 +422,10 @@ namespace process_helper {
 	process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface) {
 		process_list ret;
 		try {
-			enable_token_privilege(SE_DEBUG_NAME);
+			enable_token_privilege(SE_DEBUG_NAME, true);
 		} catch (nscp_exception &e) {
 			if (error_interface!=NULL)
 				error_interface->report_error(e.reason());
-			return ret;
 		} 
 
 		unsigned long long kernel_time = 0;
@@ -467,6 +461,12 @@ namespace process_helper {
 			v2->second.make_cpu_delta(kernel_time, user_time, total_time);
 			ret.push_back(v2->second);
 		}
-		return ret;
+
+		try {
+			enable_token_privilege(SE_DEBUG_NAME, false);
+		} catch (nscp_exception &e) {
+			if (error_interface!=NULL)
+				error_interface->report_error(e.reason());
+		} 
 	}
 }
