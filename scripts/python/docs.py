@@ -128,7 +128,7 @@ Arguments
 {%if help.ext -%}
 {{help.ext.head|block_pad(4, '| ')}}
 
-{{help.ext.data|rst_table|block_pad(4, '  ')}}
+{{help.ext.data|rst_table|block_pad(4, '| ')}}
 
 {{help.ext.tail|block_pad(4, '| ')}}
 
@@ -160,7 +160,9 @@ Samples
 .. confpath:: {{pkey}}
     :synopsis: {{path.info.title|firstline}}
 
+{% if path.info.title -%}
     **{{path.info.title}}**
+{%- endif %}
 
 {{path.info.description|block_pad(4, '| ')}}
 
@@ -181,9 +183,9 @@ Samples
 {% endfor %}
 {% for kkey,key in path.keys|dictsort %}
     .. confkey:: {{kkey}}
-        :synopsis: {{key.info.title}}
+        :synopsis: {{key.info.title|as_text}}
 
-        **{{key.info.title}}**
+        **{{key.info.title|as_text}}**
 
 {%if key.ext -%}
 {{key.ext.head|block_pad(8, '| ')}}
@@ -193,7 +195,7 @@ Samples
 {{key.ext.tail|block_pad(8, '| ')}}
 
 {% else -%}
-{{key.info.description|block_pad(8, '| ')}}
+{{key.info.description|as_text|block_pad(8, '| ')}}
 {%- endif %}
 
 {% if key.info.advanced %}        **Advanced** (means it is not commonly used)
@@ -349,6 +351,12 @@ def extract_value(value):
 		return value.string_data
 	return '??? %s ???'%value
 
+def as_text(value):
+	value = value.replace('\\', '\\\\')
+	value = value.replace('`', '\\`')
+	value = value.replace('|', '\\|')
+	return value
+
 def block_pad(string, pad, prefix = ''):
 	string = string.strip()
 	if not string:
@@ -386,7 +394,7 @@ def render_rst_table(table, *args):
 	for line in table:
 		c = ''.join(map(lambda a:a[1].ljust(a[0],' ') + ' ', zip(maxcol, line))) + '\n'
 		if not ret:
-			c = c + divider
+			c = c + ''.join(map(lambda a:''.ljust(a,'-') + ' ', maxcol)) + '\n'
 		ret = ret + c
 	return divider + ret + divider
 	
@@ -620,7 +628,8 @@ class DocumentationHelper(object):
 			env.filters['extract_value'] = extract_value
 			env.filters['block_pad'] = block_pad
 			env.filters['common_head'] = calculate_common_head
-			
+			env.filters['as_text'] = as_text
+
 			template = env.from_string(module_template)
 			render_template(hash, template, '%s/%s.rst'%(out_base_path, module))
 
