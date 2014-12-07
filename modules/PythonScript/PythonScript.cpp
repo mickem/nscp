@@ -383,7 +383,7 @@ bool PythonScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request 
 			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
 			return true;
 		}
-		nscapi::protobuf::functions::set_response_good(*response, "TODO: Collect info messages here!");
+		nscapi::protobuf::functions::set_response_good(*response, "");
 	} catch (const std::exception &e) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
