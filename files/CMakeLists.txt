@@ -20,10 +20,14 @@ IF(NOT WIN32)
 	file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/log)
 	install(DIRECTORY "nsclient" DESTINATION "/var/log")
 ENDIF()
-IF(SYSTEMD)
+if(SYSTEMD)
 	INSTALL(FILES nscp.service
 		DESTINATION /lib/systemd/system)
-ENDIF()
+elseif(INITD)
+	install(FILES init.debian.sh
+		DESTINATION /etc/init.d
+		RENAME nsclient)
+endif()
 
 ADD_CUSTOM_TARGET(copy_files ALL DEPENDS ${ALL_FILES})
 SET_TARGET_PROPERTIES(copy_files PROPERTIES FOLDER "files")

@@ -8,52 +8,49 @@
 
 NAME=nscp
 BIN=/usr/sbin/nscp
-LOCKFILE=/var/lock/subsys/nscp
 
 # Source function library.
 . /etc/init.d/functions
 
 start() {
-        echo -n "Starting $NAME: "
-        daemon $BIN service --run &
+	echo -n "Starting $NAME: "
+	daemon $BIN service --run &
 	RESULT=$?
 	echo
-        touch $LOCKFILE
-        return $RESULT
+	return $RESULT
 }
 
 stop() {
-        echo -n "Shutting down $NAME: "
+	echo -n "Shutting down $NAME: "
 	killproc $NAME
 	echo
-        rm -f $LOCKFILE
-        return 0
+	return 0
 }
 
 case "$1" in
-    start)
-        start
-        ;;
-    stop)
-        stop
-        ;;
-    status)
-	status $NAME
-        ;;
-    restart)
-        stop
-        start
-        ;;
-    reload)
-	restart
-        ;;
-    condrestart)
-        [ -f $LOCKFILE ] && restart || :
-        ;;
-    *)
-        echo "Usage: $NAME {start|stop|status|reload|restart"
-        exit 1
-        ;;
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	status)
+		status $NAME
+		;;
+	restart)
+		stop
+		start
+		;;
+	reload)
+		restart
+		;;
+	condrestart)
+		restart
+		;;
+	*)
+		echo "Usage: $NAME {start|stop|status|reload|restart"
+		exit 1
+		;;
 esac
 exit $?
 
