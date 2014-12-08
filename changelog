@@ -1,3 +1,53 @@
+2014-12-08 Michael Medin
+ * #38 Attempt to fix non upgradable installer
+ * Changed vagrant build script to copy packages out of VM
+ * Fixed debian init script
+ * Fixed version bump script
+ * Improved debian packages
+ * Added init.d init script (which seems to not work BTW)
+
+2014-12-07 Michael Medin
+ * Tinkered a bit with process elevation tokens
+ * added new field error to show any error messages associated with check_process
+ * removed some travis deps no longer required (I think)
+ * removed TODO return message from py scripts
+ * updated docs
+ * Fixed some restructured syntax bugs
+
+2014-12-06 Michael Medin
+ * updated docs
+ * Some linux package improvments
+ * Added support of validating counters (and loading other counters if validation fails of a single one)
+ * #43 improved error message when English counters fails.
+
+2014-12-05 Michael Medin
+ * #45 Fixed missing %total% conversion in check_file
+
+2014-12-04 Michael Medin
+ * #47 Fixed so totals are caluclated correctly when drives are not in the filter
+ * #47 Fixed so total is not affected by filtering
+ * Moved function to parse arguments into a shared function
+ * #59 Fixed so check_memory (both unix/win) supports both % and KMBG units.
+   i.e. check_memory "warn=used>30M" now works
+
+2014-12-03 Michael Medin
+ * #60 Fixed no response for unknown file extensions in web server
+ * Whoops, wrong syntax in spec file
+ * Cleaned up web install output a bit #58
+ * added self signed cert generation to spec file
+ * Added command line interface to generate the self signed certificates:   nscp nrpe make cert
+ * Fixed so self signed certificates are not CA certs....
+ * Merge pull request #29 from historicbruno/evtquery-error-fix
+ * Merge branch 'master' of https://github.com/mickem/nscp
+ * Fixed threading issue in registry (which was single threaded by proxy before)
+ * Merge pull request #57 from palli/fix-typo-critcal
+
+2014-12-02 Pall Sigurdsson
+ * Fix typo CRITCAL > CRITICAL
+
+2014-09-04 Ben Brian
+ * Fixes CheckEventLog error handling if EvtQuery fails
+
 2014-11-23 MickeM
  * Fixed issue with arguments on some (primarily external scripts) command definitions (thank you #osmc)
  * Fixed annyoing login bug in webserver
