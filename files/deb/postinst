@@ -1,0 +1,26 @@
+#!/bin/bash
+
+if ! grep -q nsclient /etc/passwd; then
+	adduser --system --no-create-home nsclient
+	addgroup --system nsclient
+	adduser nsclient nsclient
+fi
+
+
+# create logdir -- note: this should agree with logpath in nsclient.ini
+mkdir -p /var/log/nsclient
+chown -R nsclient:nsclient /var/log/nsclient
+
+# create rundir
+mkdir -p /var/run/nsclient
+chown -R nsclient:nsclient /var/run/nsclient
+
+mkdir -p /var/log/nsclient
+chown -R nsclient:nsclient /var/log/nsclient
+
+chown -R nsclient:nsclient /usr/share/nsclient
+
+su nsclient -s /bin/bash -c "nscp nrpe make-cert"
+
+# load library path
+sudo ldconfig
