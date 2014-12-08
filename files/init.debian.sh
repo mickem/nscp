@@ -8,12 +8,12 @@
 # Description:       Daemon for starting and stopping nscp (nsclient++)
 ### END INIT INFO
 
-SCRIPT=/usr/sbin/nscp service --run
+SCRIPT=/usr/sbin/nscp
 RUNAS=nsclient
 NAME=nsclient
 
 PIDFILE=/var/run/$NAME.pid
-LOGFILE=/var/log/$name/$NAME.log
+LOGFILE=/var/log/$NAME/$NAME.log
 
 start() {
   if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE); then
@@ -21,7 +21,7 @@ start() {
     return 1
   fi
   echo 'Starting service...' >&2
-  local CMD="$SCRIPT &> \"$LOGFILE\" & echo \$!"
+  local CMD="$SCRIPT service --run &> \"$LOGFILE\" & echo \$!"
   su -s /bin/bash -c "$CMD" $RUNAS > "$PIDFILE"
   echo 'Service started' >&2
 }
