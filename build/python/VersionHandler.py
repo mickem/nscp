@@ -28,7 +28,7 @@ class VersionHandler:
 
 	def write(self):
 		try:
-			d = os.path.dirname(f)
+			d = os.path.dirname(self.file)
 			if not os.path.exists(d):
 				os.makedirs(d)
 			f = open(self.file, 'w')
