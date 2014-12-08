@@ -3,5 +3,5 @@
 #
 
 if [ -x "/etc/init.d/nsclient" ] || [ -e "/etc/init/nsclient.conf" ]; then
-        invoke-rc.d nsclient stop || exit $?
+        invoke-rc.d nsclient stop || exit 0
 fi

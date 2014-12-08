@@ -11,10 +11,6 @@ fi
 mkdir -p /var/log/nsclient
 chown -R nsclient:nsclient /var/log/nsclient
 
-# create rundir
-mkdir -p /var/run/nsclient
-chown -R nsclient:nsclient /var/run/nsclient
-
 mkdir -p /var/log/nsclient
 chown -R nsclient:nsclient /var/log/nsclient
 
