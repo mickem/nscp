@@ -14,8 +14,8 @@
 						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
 
 		<Upgrade Id="$(var.UpgradeCode)">
-			<UpgradeVersion Property="OLDAPPFOUND" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
-			<UpgradeVersion Property="NEWAPPFOUND" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
+			<UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
+			<UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
 		</Upgrade>
 
 		<?if "$(var.arch)" = "x64"?>
@@ -257,7 +257,7 @@
 		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_lib.dll' />
 
 		<InstallExecuteSequence>
-			<RemoveExistingProducts After='InstallInitialize'/>
+			<RemoveExistingProducts After='InstallValidate'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
 			<Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT REMOVE</Custom>
 			<Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
