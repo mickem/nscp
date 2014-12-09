@@ -73,9 +73,7 @@ namespace compat {
 
 	void matchShowAll(const boost::program_options::variables_map &vm, Plugin::QueryRequestMessage::Request &request, std::string prefix) {
 		if (vm.count("ShowAll")) {
-			request.add_arguments("top-syntax=" + prefix + "${list}");
-		} else {
-			request.add_arguments("top-syntax=" + prefix + "${problem_list}");
+			request.add_arguments("show-all");
 		}
 
 	}
