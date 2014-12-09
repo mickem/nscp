@@ -810,7 +810,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::string warn, crit;
 
 	request.clear_arguments();
-	compat::matchFirstNumeric(vm, "used", "used", warn, crit);
+	compat::matchFirstNumeric(vm, "used", "free", warn, crit);
 	compat::matchFirstOldNumeric(vm, "used", warn, crit);
 	compat::inline_addarg(request, warn);
 	compat::inline_addarg(request, crit);
