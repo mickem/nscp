@@ -153,7 +153,8 @@ bool internal_plugin_instance::load_dll(internal_plugin_instance_ptr self, plugi
 		}
 		CoreImpl^ core = gcnew CoreImpl(manager);
 		core->set_instance(self);
-		plugin = factory->create(core, gcnew NSCP::Core::PluginInstance(plugin_id, to_mstring(alias)));
+		instance = gcnew NSCP::Core::PluginInstance(plugin_id, to_mstring(alias));
+		plugin = factory->create(core, instance);
 	} catch(System::Exception ^e) {
 		NSC_LOG_ERROR_STD("Failed to create instance of " + dll + "/" + type + ": " + to_nstring(e->ToString()));
 		return false;

@@ -160,8 +160,9 @@ bool DotnetPlugins::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 }
 bool DotnetPlugins::unloadModule() {
 	BOOST_FOREACH(internal_plugin_instance_ptr p, plugins) {
+		unsigned int id = p->get_instance()->PluginID;
 		p->unload_plugin();
-		plugin_instance.erase(p->get_instance()->PluginID);
+		plugin_instance.erase(id);
 	}
 	plugins.clear();
 	return true;
