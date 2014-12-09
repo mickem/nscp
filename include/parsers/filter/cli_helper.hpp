@@ -95,7 +95,7 @@ namespace modern_filter {
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
 				return false;
 			if (show_all)
-				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
+				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
 			if (vm.count("warn"))
 				data.warn_string = vm["warn"].as<std::string>();
 			if (vm.count("crit"))
@@ -107,7 +107,7 @@ namespace modern_filter {
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
 				return false;
 			if (show_all)
-				boost::replace_all(data.syntax_top, "${problem_list}", "${list}");
+				boost::replace_all(data.syntax_top, "${detail_list}", "${list}");
 			return true;
 		}
 
