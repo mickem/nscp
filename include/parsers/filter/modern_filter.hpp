@@ -367,8 +367,13 @@ namespace modern_filter {
 					else
 						summary.matched_ok(current);
 					matched_bound = true;
-				} else if (error_handler && error_handler->is_debug()) {
-					error_handler->log_debug("Crit/warn/ok did not match: " + current);
+				} else {
+					if (error_handler && error_handler->is_debug())
+						error_handler->log_debug("Crit/warn/ok did not match: " + current);
+					if (second_unique_match)
+						summary.matched_ok_unique();
+					else
+						summary.matched_ok(current);
 				}
 				if (matched_bound) {
 					has_matched = true;
