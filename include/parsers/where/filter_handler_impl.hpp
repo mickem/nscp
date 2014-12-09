@@ -388,6 +388,20 @@ namespace parsers {
 			std::string get_list_problem() {
 				return list_problem;
 			}
+			static void append_list(std::string &result, const std::string tag, const std::string &value) {
+				if (!value.empty()) {
+					if (!result.empty())
+						result += ", ";
+					result += tag + "(" + value + ")";
+				}
+			}
+			std::string get_list_detail() {
+				std::string ret;
+				append_list(ret, "critical", list_crit);
+				append_list(ret, "warning", list_warn);
+				append_list(ret, "ok: ", list_ok);
+				return ret;
+			}
 			long long get_count_match() {
 				return count_match;
 			}
@@ -419,6 +433,7 @@ namespace parsers {
 					"${warn_list}\t A list of all items which matched the warning criteria\n"
 					"${crit_list}\t A list of all items which matched the critical criteria\n"
 					"${problem_list}\t A list of all items which matched either the critical or the warning criteria\n"
+					"${detail_list}\t A special list with critical, then warning and fainally ok\n"
 					"${status}\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
 			}
  			std::string get_filter_syntax() const {
@@ -434,12 +449,13 @@ namespace parsers {
 					"warn_list\t A list of all items which matched the warning criteria\n"
 					"crit_list\t A list of all items which matched the critical criteria\n"
 					"problem_list\t A list of all items which matched either the critical or the warning criteria\n"
+					"detail_list\t A special list with critical, then warning and fainally ok\n"
 					"status\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
  			}
 
 			bool has_variable(const std::string &name) {
 				return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count"
-					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list" || name == "lines"
+					|| name == "list" || name == "ok_list" || name == "warn_list" || name == "crit_list" || name == "problem_list" || name == "detail_list" || name == "lines"
 					|| name == "status";
 			}
 
@@ -604,6 +620,8 @@ namespace parsers {
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_crit, _1)));
 			if (key == "problem_list")
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_problem, _1)));
+			if (key == "detail_list")
+				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_list_detail, _1)));
 			if (key == "status")
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, _1)));
 			return parsers::where::factory::create_false();
