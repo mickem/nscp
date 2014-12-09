@@ -260,7 +260,7 @@ struct filter_obj_handler : public native_context {
  			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
 				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user free")
 				.add_percentage(&filter_obj::get_drive_size, "", " user free %")
- 			("size", &filter_obj::get_drive_size, "Total size of drive")
+ 			("size", parsers::where::type_size, &filter_obj::get_drive_size, "Total size of drive")
  			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
 				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
 				.add_percentage(&filter_obj::get_drive_size, "", " used %")
