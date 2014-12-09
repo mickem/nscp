@@ -50,26 +50,25 @@ void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::Query
     response->set_message(msg);
 }
 
-void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode result)
+void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode new_result)
 {
-	if (response->result() == result)
+	::Plugin::Common_ResultCode current = response->result();
+	if (current == new_result)
 		return;
-	else if (response->result() == Plugin::Common_ResultCode_OK && result != Plugin::Common_ResultCode_OK)
-		response->set_result(result);
-	else if (response->result() == Plugin::Common_ResultCode_OK)
+	else if (current == Plugin::Common_ResultCode_OK && new_result != Plugin::Common_ResultCode_OK)
+		response->set_result(new_result);
+	else if (new_result == Plugin::Common_ResultCode_OK)
 		return;
-	else if (response->result() == Plugin::Common_ResultCode_WARNING && result != Plugin::Common_ResultCode_WARNING)
-		response->set_result(result);
-	else if (response->result() == Plugin::Common_ResultCode_WARNING)
+	else if (current == Plugin::Common_ResultCode_WARNING && new_result != Plugin::Common_ResultCode_WARNING)
+		response->set_result(new_result);
+	else if (new_result == Plugin::Common_ResultCode_WARNING)
 		return;
-	else if (response->result() == Plugin::Common_ResultCode_CRITICAL && result != Plugin::Common_ResultCode_CRITICAL)
-		response->set_result(result);
-	else if (response->result() == Plugin::Common_ResultCode_CRITICAL)
+	else if (current == Plugin::Common_ResultCode_CRITICAL && new_result != Plugin::Common_ResultCode_CRITICAL)
+		response->set_result(new_result);
+	else if (new_result == Plugin::Common_ResultCode_CRITICAL)
 		return;
-	else if (response->result() == Plugin::Common_ResultCode_UNKNOWN && result != Plugin::Common_ResultCode_UNKNOWN)
-		response->set_result(result);
-	else if (response->result() == Plugin::Common_ResultCode_UNKNOWN)
-		return;
+	else if (current == Plugin::Common_ResultCode_UNKNOWN && new_result != Plugin::Common_ResultCode_UNKNOWN)
+		response->set_result(new_result);
 }
 
 void CheckHelpers::check_critical(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
