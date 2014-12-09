@@ -91,6 +91,7 @@ namespace modern_filter {
 
 		typedef std::list<config_entry> entry_list;
 		entry_list entries;
+		std::list<std::string> extra_perf;
 		perf_config_parser() {}
 
 		bool parse(boost::shared_ptr<Tfactory> context, const std::string str, std::string &error) {
@@ -101,11 +102,17 @@ namespace modern_filter {
 				return false;
 			}
 			BOOST_FOREACH(const parsers::perfconfig::perf_rule &r, keys) {
-				std::map<std::string,std::string> options;
-				BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
-					options[o.key] = o.value;
+				if (r.name == "extra") {
+					BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+						extra_perf.push_back(o.key);
+					}
+				} else {
+					std::map<std::string,std::string> options;
+					BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
+						options[o.key] = o.value;
+					}
+					context->add_perf_config(r.name, options);
 				}
-				context->add_perf_config(r.name, options);
 			}
 			return true;
 		}
@@ -115,6 +122,9 @@ namespace modern_filter {
 					return e.values;
 			}
 			return boost::optional<values_type>();
+		}
+		std::list<std::string> get_extra_perf() const {
+			return extra_perf;
 		}
 	};
 
@@ -262,6 +272,9 @@ namespace modern_filter {
 			}
 			if (engine_ok && !engine_ok->validate(context)) {
 				return false;
+			}
+			BOOST_FOREACH(const std::string &p, perf_config.get_extra_perf()) {
+				add_manual_perf(p);
 			}
 			return true;
 		}
