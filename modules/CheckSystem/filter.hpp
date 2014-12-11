@@ -78,6 +78,12 @@ namespace check_mem_filter {
 		long long get_free() const {
 			return total-used;
 		}
+		long long get_used_pct() const {
+			return total==0?0:get_used()*100/total;
+		}
+		long long get_free_pct() const {
+			return total==0?0:get_free()*100/total;
+		}
 		std::string get_type() const {
 			return type;
 		}

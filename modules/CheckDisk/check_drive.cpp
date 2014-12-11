@@ -95,6 +95,11 @@ struct filter_obj {
 	long long get_total_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-total_free; }
 	long long get_user_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-user_free; }
 
+	long long get_user_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size==0?0:(user_free*100/drive_size); }
+	long long get_total_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size==0?0:(total_free*100/drive_size); }
+	long long get_user_used_pct(parsers::where::evaluation_context context) { return 100-get_user_free_pct(context); }
+	long long get_total_used_pct(parsers::where::evaluation_context context) { return 100-get_total_free_pct(context); }
+
 	std::string get_user_free_human(parsers::where::evaluation_context context) {
 		return format::format_byte_units(get_user_free(context));
 	}
@@ -110,6 +115,7 @@ struct filter_obj {
 	std::string get_user_used_human(parsers::where::evaluation_context context) {
 		return format::format_byte_units(get_user_used(context));
 	}
+
 	std::string get_type_as_string(parsers::where::evaluation_context context) {
 		return type_to_string(get_type(context));
 	}
@@ -271,6 +277,12 @@ struct filter_obj_handler : public native_context {
 				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user used")
 				.add_percentage(&filter_obj::get_drive_size, "", " user used %")
 			("type", type_custom_type, &filter_obj::get_type, "Type of drive")
+			("free_pct", &filter_obj::get_total_free_pct, "Shorthand for total_free_pct (% free space)")
+			("total_free_pct", &filter_obj::get_total_free_pct, "% free space")
+			("user_free_pct", type_custom_user_free, &filter_obj::get_user_free_pct, "% free space available to user")
+			("used_pct", &filter_obj::get_total_used_pct, "Shorthand for total_used_pct (% used space)")
+			("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
+			("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
 			;
 
 		registry_.add_human_string()

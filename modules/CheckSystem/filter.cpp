@@ -64,6 +64,8 @@ namespace check_mem_filter {
 			("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
 			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
 			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+			("free_pct", boost::bind(&filter_obj::get_free_pct, _1), "% free memory")
+			("used_pct", boost::bind(&filter_obj::get_used_pct, _1), "% used memory")
 			;
 		registry_.add_human_string()
 			("size", boost::bind(&filter_obj::get_total_human, _1), "")
