@@ -399,7 +399,7 @@ namespace parsers {
 				std::string ret;
 				append_list(ret, "critical", list_crit);
 				append_list(ret, "warning", list_warn);
-				append_list(ret, "ok: ", list_ok);
+				format::append_list(ret, list_ok);
 				return ret;
 			}
 			long long get_count_match() {
