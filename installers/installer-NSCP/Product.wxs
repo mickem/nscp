@@ -35,7 +35,7 @@
 							Type="ownProcess" Start="auto" ErrorControl="normal" Interactive="no"
 							Description="Monitoring agent for nagios (and others) used to respond to status queries"
 							Arguments="service --run --name [SERVICE_NAME]">
-							<!--<ServiceDependency Id="Tcpip" />-->
+							<ServiceDependency Id="Tcpip" />
 						</ServiceInstall>
             <ServiceControl Id="StartSWCNSCP" Name="[SERVICE_NAME]" Start="install" Stop="both" Wait="yes" Remove="uninstall"/>
 					</Component>
