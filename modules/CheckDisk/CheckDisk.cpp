@@ -89,7 +89,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	}
 	if (!perf_unit.empty())
 		request.add_arguments("perf-config=free(unit:" + perf_unit + ")used(unit:" + perf_unit + ")");
-	request.add_arguments("detail-syntax=${drive}: Total: ${size} - Used: ${used} - Free: ${free}");
+	request.add_arguments("detail-syntax=%(drive): Total: %(size) - Used: %(used) (%(used_pct)%)- Free: %(free) (%(free_pct)%)");
 	compat::matchShowAll(vm, request);
 	std::string keyword = exclude?"exclude=":"drive=";
 	BOOST_FOREACH(const std::string &t, times) {
