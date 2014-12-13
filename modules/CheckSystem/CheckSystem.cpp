@@ -815,7 +815,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	compat::inline_addarg(request, warn);
 	compat::inline_addarg(request, crit);
 	compat::matchShowAll(vm, request);
-	request.add_arguments("detail-syntax=%(type): Total: %(size) - Used: %(used) (%(used_pct)%)- Free: %(free) (%(free_pct)%)");
+	request.add_arguments("detail-syntax=%(type): Total: %(size) - Used: %(used) (%(used_pct)%) - Free: %(free) (%(free_pct)%)");
 	BOOST_FOREACH(const std::string &t, types) {
 		if (t == "page" || t == "paged")
 			request.add_arguments("type=committed");
