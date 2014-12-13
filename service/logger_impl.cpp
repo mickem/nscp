@@ -161,9 +161,10 @@ public:
 			}
 			if (!boost::filesystem::exists(file_.c_str())) {
 				boost::filesystem::path parent = file_helpers::meta::get_path(file_);
-				if (!boost::filesystem::exists(parent.c_str())) {
-					boost::system::error_code ec;
-					if (!boost::filesystem::create_directories(parent, ec)) {
+				if (!boost::filesystem::exists(parent.string())) {
+					try {
+						boost::filesystem::create_directories(parent);
+					} catch(...) {
 						log_fatal("Failed to create directory: " + parent.string());
 					}
 				}
