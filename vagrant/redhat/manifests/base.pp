@@ -88,9 +88,10 @@ package { "python-jinja2": ensure => present
 
 if ($::operatingsystemmajrelease < 7) {
 	package { "python-argparse": ensure => present
-	}
+	} ->
 	file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler": 
-		ensure    => "directory", 	
+		ensure    => "directory",
+		require   => Package["protobuf-compiler"]
 	} ->
 	file { "/usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py": 
 		ensure    => present, 
