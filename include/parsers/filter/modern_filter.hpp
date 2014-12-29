@@ -39,7 +39,12 @@ namespace modern_filter {
 		entry_list entries;
 		filter_text_renderer() {}
 
+		bool empty() const {
+			return entries.empty();
+		}
 		bool parse(boost::shared_ptr<Tfactory> context, const std::string str, std::string &error) {
+			if (str.empty())
+				return true;
 			parsers::simple_expression::result_type keys;
 			parsers::simple_expression expr;
 			if (!expr.parse(str, keys)) {
@@ -63,7 +68,7 @@ namespace modern_filter {
 			}
 			return true;
 		}
-		std::string render(boost::shared_ptr<Tfactory> context) {
+		std::string render(boost::shared_ptr<Tfactory> context) const {
 			std::string ret;
 			BOOST_FOREACH(const my_entry &e, entries) {
 				if (!e.origin.is_variable)
@@ -167,6 +172,7 @@ namespace modern_filter {
 		filter_text_renderer<Tfactory> renderer_detail;
 		filter_text_renderer<Tfactory> renderer_perf;
 		filter_text_renderer<Tfactory> renderer_unqiue;
+		filter_text_renderer<Tfactory> renderer_ok;
 		filter_engine engine_filter;
 		filter_engine engine_warn;
 		filter_engine engine_crit;
@@ -214,7 +220,7 @@ namespace modern_filter {
 			has_unique_index = true;
 			return true;
 		}
-		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, std::string &gerror) {
+		bool build_syntax(const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, const std::string &ok_syntax, std::string &gerror) {
 			std::string lerror;
 			if (!renderer_top.parse(context, top, lerror)) {
 				gerror = "Invalid top-syntax: " + lerror;
@@ -229,6 +235,10 @@ namespace modern_filter {
 				return false;
 			}
 			if (!perf_config.parse(context, perf_config_data, lerror)) {
+				gerror = "Invalid syntax: " + lerror;
+				return false;
+			}
+			if (!renderer_ok.parse(context, ok_syntax, lerror)) {
 				gerror = "Invalid syntax: " + lerror;
 				return false;
 			}
@@ -436,6 +446,8 @@ namespace modern_filter {
 			}
 		}
 		std::string get_message() {
+			if (summary.returnCode == NSCAPI::returnOK && !renderer_ok.empty())
+				return renderer_ok.render(context);
 			return renderer_top.render(context);
 		}
 	};

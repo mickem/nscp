@@ -16,7 +16,7 @@
 namespace modern_filter {
 	struct data_container {
 		std::string filter_string, warn_string, crit_string, ok_string;
-		std::string syntax_top, syntax_detail, syntax_perf, perf_config, empty_detail, empty_state, syntax_unique;
+		std::string syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_detail, empty_state, syntax_unique;
 		bool debug;
 		data_container() : debug(false) {}
 	};
@@ -139,7 +139,7 @@ namespace modern_filter {
 			if (data.crit_string == "none")
 				data.crit_string = "";
 
-			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, tmp_msg)) {
+			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, tmp_msg)) {
 				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
 				return false;
 			}
@@ -174,6 +174,7 @@ namespace modern_filter {
 
 			desc.add_options()
 				("top-syntax", boost::program_options::value<std::string>(&data.syntax_top)->default_value(default_top_syntax), tk.c_str())
+				("op-syntax", boost::program_options::value<std::string>(&data.syntax_ok), tk.c_str())
 				("detail-syntax", boost::program_options::value<std::string>(&data.syntax_detail)->default_value(default_detail_syntax), dk.c_str())
 				("perf-syntax", boost::program_options::value<std::string>(&data.syntax_perf)->default_value(default_perf_syntax), pk.c_str())
 				;

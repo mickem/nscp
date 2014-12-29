@@ -18,6 +18,7 @@ namespace nscapi {
 			bool debug;
 
 			std::string syntax_top;
+			std::string syntax_ok;
 			std::string syntax_detail;
 			std::string filter_string;
 			std::string filter_ok;

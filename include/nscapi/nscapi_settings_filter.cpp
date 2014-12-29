@@ -21,6 +21,9 @@ namespace nscapi {
 				("top syntax", sh::string_key(&syntax_top),
 				"SYNTAX", "Format string for dates", !is_default)
 
+				("ok syntax", sh::string_key(&syntax_ok),
+				"SYNTAX", "Format string for dates", !is_default)
+
 				("detail syntax", sh::string_key(&syntax_detail),
 				"SYNTAX", "Format string for dates", !is_default)
 				("perf config", sh::string_key(&perf_config),
