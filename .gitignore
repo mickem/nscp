@@ -1,10 +1,11 @@
 # Custom installers
-helpers/installers/op5
-helpers/installers/opsera
+installers/installer-op5
 
-# Generated config
-include/config.h
-version.hpp
+# Packages
+packages/*
+
+# Old stuff
+legacy/*
 
 # Python
 *.pyc
