@@ -573,6 +573,9 @@ IF(WIN32)
 ELSE()
 	#execute_process(COMMAND lsb_release -sc OUTPUT_VARIABLE RELEASE OUTPUT_STRIP_TRAILING_WHITESPACE)
 	IF(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
+		execute_process(COMMAND rpm -qa *-release OUTPUT_VARIABLE LINUXVERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
+		STRING(REGEX REPLACE ".*\\.(el[0-9]+)\\..*" "\\1" LINUXDIST ${LINUXVERSION})
+		MESSAGE(STATUS "--------------> ${LINUXVERSION} --> ${LINUXDIST}")
 		#
 		# Need to patch cmake /usr/share/cmake/Modules/CPackRPM.cmake with the following
 		#    COMMAND "${RPMBUILD_EXECUTABLE}" -bb
@@ -599,7 +602,7 @@ ELSE()
 		)
 		set(CPACK_RPM_PACKAGE_REQUIRES "boost-filesystem boost-program-options boost-thread protobuf")
 		#set(CPACK_RPM_PACKAGE_ARCHITECTURE "noarch")
-		set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
+		set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${LINUXDIST}.${CMAKE_SYSTEM_PROCESSOR}")
 		
 		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/build/sh/copy_package.sh.in" "${CMAKE_CURRENT_BINARY_DIR}/copy_package.sh" @ONLY IMMEDIATE)
 		
