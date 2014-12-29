@@ -26,6 +26,8 @@ bool do_parse(std::string str, parsers::perfconfig::result_type &v) {
 
 parsers::perfconfig::result_type v;
 
+#if BOOST_VERSION >= 104200
+
 TEST(PerfConfigTest, simple_string) {
 	EXPECT_TRUE(do_parse("foo(a:b)", v));
 	ASSERT_EQ(1, v.size());
@@ -109,3 +111,5 @@ TEST(PerfConfigTest, simple_multiple_advanced) {
 	ASSERT_EQ(4, v.size());
 	EXPECT_EQ("foo(a:b;)foo(1:b;)bar(e:r;)test(a:b;e:r;f:t;)", to_string(v));
 }
+
+#endif
