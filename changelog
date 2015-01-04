@@ -1,9 +1,13 @@
-2015-01-05 Michael Medin
+2015-01-04 Michael Medin
  * #68 fixed spelling mistakes in command line help
  * Removed json settings output as it is kind of pointless (will be readded in the form of json settings in 0.4.4)
  * Removed filter (command line option) as it no longer used
  * #67 Fixed command line missing from check_process
  * Fixed segv when file was missing from checkfilesize realtime check
+ * #66 Fixed spelling mistake in build script
+ * #65 fixed init.d script missing on centos/redhat 6el6(.5) rpm:s
+ * Improved error reporting when service fails
+ * Removed modern commands flag since there are only modern commands in 0.4.3
 
 2014-12-29 Michael Medin
  * added ok syntax to allow having a separate message for ok states
