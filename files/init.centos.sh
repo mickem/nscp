@@ -5,16 +5,21 @@
 #       Daemon for starting and stopping nscp (nsclient++)
 #       
 #
+SCRIPT=/usr/sbin/nscp
+RUNAS=nsclient
+NAME=nsclient
 
-NAME=nscp
-BIN=/usr/sbin/nscp
+PIDFILE=/usr/share/nsclient/nscp.pid
+LOGFILE=/var/log/$NAME/$NAME.log
 
 # Source function library.
 . /etc/init.d/functions
 
 start() {
 	echo -n "Starting $NAME: "
-	daemon $BIN service --run &
+	touch $PIDFILE
+	chown nsclient $PIDFILE
+	daemon --user $RUNAS --pidfile "$PIDFILE" "/usr/sbin/nscp service --run --pid $PIDFILE 2>&1 > $LOGFILE &"
 	RESULT=$?
 	echo
 	return $RESULT
@@ -22,7 +27,7 @@ start() {
 
 stop() {
 	echo -n "Shutting down $NAME: "
-	killproc $NAME
+	killproc -p $PIDFILE
 	echo
 	return 0
 }

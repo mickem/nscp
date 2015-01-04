@@ -58,7 +58,12 @@ su nsclient -s /bin/bash -c "nscp nrpe make-cert"
 
 %files
 %defattr(-,root,root,-)
+%if 0%{?el7}
 /lib/systemd/system/nscp.service
+%endif
+%if 0%{?el6}
+/etc/init.d/nsclient
+%endif
 /usr/bin/check_nrpe
 /usr/sbin/nscp
 /usr/sbin/reporter
