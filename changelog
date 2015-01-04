@@ -1,3 +1,42 @@
+2015-01-05 Michael Medin
+ * #68 fixed spelling mistakes in command line help
+ * Removed json settings output as it is kind of pointless (will be readded in the form of json settings in 0.4.4)
+ * Removed filter (command line option) as it no longer used
+ * #67 Fixed command line missing from check_process
+ * Fixed segv when file was missing from checkfilesize realtime check
+
+2014-12-29 Michael Medin
+ * added ok syntax to allow having a separate message for ok states
+ * Versions now include linux release on redhat
+ * Copy all packages
+ * disable teston older boost versions
+ * Fixed redhat vagrant build issue (puppet dependency)
+ * Added Centos 6.5 vagrant
+ 
+2014-12-13 Michael Medin
+ * #63 Fixed missing space in syntax
+ * Fixed compatibility with older version of boost
+
+2014-12-11 Michael Medin
+ * Adde dependency on tcpip to service
+ * #50 Added _pct free to check_memory and check_drivesize
+ * #50 removed "ok" prefix from detail_list
+ * Change Checkmem legacy syntax to include details
+ * #50 Added %:es to CheckDriveSize
+
+2014-12-09 Michael Medin
+ * #62 Fixed exception when unloading DotNEt plugin (and quite possibly a bunch of other issues as well)
+ * #50 Fixed CheckMem MinWarn/Crit not using free as before
+ * #34 Fixed issue with check_multi returning the wrong status code
+ * #46 Fixed issue with check_drivesize and size not accepting units.
+ * Change compatibility layer to use show-all instead of replicating the logic of show-all
+ * Fixed so "ok" hits are counted towards ok list (not just matched)
+   This breaks how "ok" was handled before but makes more sense I think
+ * Change RPM package name
+ * Added detail_list which shows a list with statuses to all filters
+ * Changed so show-all use the new detail_list instead of list.
+ * #50 Added option to seed extra perf data keys using perf-config:
+ 
 2014-12-08 Michael Medin
  * #38 Attempt to fix non upgradable installer
  * Changed vagrant build script to copy packages out of VM
