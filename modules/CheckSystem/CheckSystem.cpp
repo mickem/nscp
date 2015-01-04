@@ -165,17 +165,10 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
-	bool reg_alias;
-	settings.alias().add_parent("/settings/default").add_key_to_settings()
+	settings.register_all();
+	settings.notify();
 
-		("modern commands", sh::bool_key(&reg_alias, true),
-		"Register modern aliases for built-in commands", "Register modern alias for commands (ccheck_xxx as opposed of CheckXXX) these are the names which will be used in future version of NSClient++", true)
-		;
-
-		settings.register_all();
-		settings.notify();
-
-		filters::filter_config_handler::add_samples(get_settings_proxy(), collector->filters_path_);
+	filters::filter_config_handler::add_samples(get_settings_proxy(), collector->filters_path_);
 		
 	if (mode == NSCAPI::normalStart) {
 
