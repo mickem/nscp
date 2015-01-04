@@ -23,10 +23,14 @@ bool runtime_data::has_changed(transient_data_type) const {
 }
 
 void runtime_data::add_file(const boost::filesystem::path &path) {
-	file_container fc;
-	fc.file = path;
-	fc.size = boost::filesystem::file_size(fc.file);
-	files.push_back(fc);
+	try {
+		file_container fc;
+		fc.file = path;
+		fc.size = boost::filesystem::file_size(fc.file);
+		files.push_back(fc);
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR("Failed to add " + path.string() + ": " + utf8::utf8_from_native(e.what()));
+	}
 }
 
 bool runtime_data::process_item(filter_type &filter, transient_data_type) {
