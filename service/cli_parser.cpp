@@ -364,6 +364,8 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 				if (vm.count("pid"))
 					pid.create();
 				core_->start_and_wait(name);
+			} catch (const std::exception &e) {
+				log_error(__LINE__, "Failed to start: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
 				log_error(__LINE__, "Unknown exception in service");
 			}
