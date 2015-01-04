@@ -13,12 +13,11 @@ namespace nsclient_core {
 		bool remove_default_;
 		bool load_all_;
 		bool use_samples_;
-		std::string filter_;
 
 		settings::settings_core* get_core() const;
 
 	public:
-		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) ;
+		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples);
 
 		~settings_client();
 
@@ -30,8 +29,6 @@ namespace nsclient_core {
 		int migrate_to(std::string target);
 
 		void dump_path(std::string root);
-
-		bool match_filter(std::string name);
 
 		int generate(std::string target);
 

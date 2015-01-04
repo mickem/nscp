@@ -45,28 +45,27 @@ cli_parser::cli_parser(NSClient* core)
 		;
 
 	common.add_options()
-		("help", po::bool_switch(&help), "produce help message")
+		("help", po::bool_switch(&help), "Show the help message for a given command")
 		("no-stderr", po::bool_switch(&no_stderr), "Do not report errors on stderr")
 		("version", po::bool_switch(&version), "Show version information")
 		;
 
 	settings.add_options()
-		("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to target store")
-		("migrate-from", po::value<std::string>(), "Migrate (copy) settings from current store to target store")
-		("generate", po::value<std::string>()->implicit_value("settings"), "(re)Generate a commented settings store or similar KEY can be trac, settings or the target store.")
-		("add-missing", "Add all default (if missing) values.")
-		("filter", po::value<std::string>(), "Filter what to update (only works with generate trac currently).")
+		("migrate-to", po::value<std::string>(), "Migrate (copy) settings from current store to given target store")
+		("migrate-from", po::value<std::string>(), "Migrate (copy) settings from old given store to current store")
+		("generate", po::value<std::string>()->implicit_value("settings"), "Add comments to the current settings store (or a given one).")
+		("add-missing", "Add all default values for all missing keys.")
 		("validate", "Validate the current configuration (or a given configuration).")
 		("load-all", "Load all plugins (currently only used with generate).")
 		("path", po::value<std::string>()->default_value(""), "Path of key to work with.")
 		("key", po::value<std::string>()->default_value(""), "Key to work with.")
-		("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value.")
+		("set", po::value<std::string>()->implicit_value(""), "Set a key and path to a given value (use --key and --path).")
 		("switch", po::value<std::string>(), "Set default context to use (similar to migrate but does NOT copy values)")
-		("show", "Set a value given a key and path.")
-		("list", "Set all keys below the path (or root).")
+		("show", "Show a value given a key and path.")
+		("list", "List all keys given a path.")
 		("add-defaults", "Same as --add-missing")
 		("remove-defaults", "Remove all keys which have default values (and empty sections)")
-		("use-samples", "Some commands (generate) can alsu se sample values")
+		("use-samples", "Add sample commands provided by some sections such as targets and real time filters")
 		("activate-module", po::value<std::string>()->implicit_value(""), "Add a module (and its configuration options) to the configuration.")
 		;
 
@@ -85,18 +84,21 @@ cli_parser::cli_parser(NSClient* core)
 	client.add_options()
 		("load-all", "Load all plugins.")
 		("exec,e", po::value<std::string>()->implicit_value(""), "Run a command (execute)")
-		("boot,b", "Boot the client before executing command (similar as running the command from test)")
+		("boot,b", "Boot the client before executing command (similar as running the command from test mode)")
 		("query,q", po::value<std::string>(), "Run a query with a given name")
-		("submit,s", po::value<std::string>(), "Name of query to ask")
-		("module,M", po::value<std::string>(), "Name of module to load (if not specified all modules in ini file will be loaded)")
-		("argument,a", po::wvalue<std::vector<std::string> >(), "List of arguments (gets -- prefixed automatically)")
-		("raw-argument", po::wvalue<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
+		("submit,s", po::value<std::string>(), "Submit passive check result")
+		("module,M", po::value<std::string>(), "Load specific module (in other words do not auto detect module)")
+		("argument,a", po::value<std::vector<std::string> >(), "List of arguments (arguments gets -- prefixed automatically (--argument foo=bar is the same as setting \"--foo bar\")")
+		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
 		;
 
 	unittest.add_options()
 		("language,l", po::value<std::string>()->implicit_value(""), "Language tests are written in")
-		("argument,a", po::wvalue<std::vector<std::string> >(), "List of arguments (gets -- prefixed automatically)")
-		("raw-argument", po::wvalue<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
+		("argument,a", po::value<std::vector<std::string> >(), "List of arguments (gets -- prefixed automatically)")
+		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
+		;
+
+		test.add_options()
 		;
 
 }
@@ -279,11 +281,8 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 		bool rem_def = vm.count("remove-defaults")==1;
 		bool load_all = vm.count("load-all")==1;
 		bool use_samples = vm.count("use-samples")==1;
-		std::string filter;
-		if (vm.count("filter"))
-			filter = vm["filter"].as<std::string>();
 
-		nsclient_core::settings_client client(core_, def, rem_def, load_all, use_samples, filter);
+		nsclient_core::settings_client client(core_, def, rem_def, load_all, use_samples);
 		int ret = -1;
 		try {
 			if (vm.count("generate")) {

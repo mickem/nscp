@@ -13,8 +13,8 @@ settings::settings_core* nsclient_core::settings_client::get_core() const {
 	return settings_manager::get_core();
 }
 
-nsclient_core::settings_client::settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) 
-	: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples), filter_(filter) 
+nsclient_core::settings_client::settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples) 
+	: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples)
 {
 	startup();
 }
@@ -103,66 +103,12 @@ void nsclient_core::settings_client::dump_path(std::string root) {
 	}
 }
 
-bool nsclient_core::settings_client::match_filter(std::string name) {
-	return filter_.empty() || name.find(filter_) != std::string::npos; 
-}
-
-
 int nsclient_core::settings_client::generate(std::string target) {
 	try {
 		if (target == "settings" || target.empty()) {
 			get_core()->get()->save();
 		} else if (target.empty()) {
 			get_core()->get()->save();
-#ifdef HAVE_JSON_SPIRIT
-		} else if (target == "json" || target == "json-compact") {
-			json_spirit::Object json_root;
-			// TODO, allow samples to be generated
-			settings::settings_interface::string_list s = get_core()->get_reg_sections("", use_samples_);
-			BOOST_FOREACH(const std::string &path, s) {
-
-				settings::settings_core::path_description desc = get_core()->get_registred_path(path);
-				bool include = filter_.empty();
-				json_spirit::Object json_plugins;
-				BOOST_FOREACH(unsigned int i, desc.plugins) {
-					std::string name = core_->get_plugin_module_name(i);
-					if (match_filter(name))
-						include = true;
-					json_plugins.insert(json_spirit::Object::value_type(strEx::s::xtos(i), name));
-				}
-				if (!include)
-					continue;
-
-				json_spirit::Object json_path;
-				json_path.insert(json_spirit::Object::value_type("path", path));
-				json_path.insert(json_spirit::Object::value_type("title", desc.title));
-				json_path.insert(json_spirit::Object::value_type("description", desc.description));
-				json_path.insert(json_spirit::Object::value_type("plugins", json_plugins));
-				json_path.insert(json_spirit::Object::value_type("advanced", desc.advanced));
-				if (use_samples_)
-					json_path.insert(json_spirit::Object::value_type("sample", desc.is_sample));
-
-				json_spirit::Object json_keys;
-				BOOST_FOREACH(const std::string &key, get_core()->get_reg_keys(path, use_samples_)) {
-					settings::settings_core::key_description desc = get_core()->get_registred_key(path, key);
-					json_spirit::Object json_key;
-					json_key.insert(json_spirit::Object::value_type("key", key));
-					json_key.insert(json_spirit::Object::value_type("title", desc.title));
-					json_key.insert(json_spirit::Object::value_type("description", desc.description));
-					json_key.insert(json_spirit::Object::value_type("default value", desc.defValue));
-					json_key.insert(json_spirit::Object::value_type("advanced", desc.advanced));
-					if (use_samples_)
-						json_key.insert(json_spirit::Object::value_type("sample", desc.is_sample));
-					json_keys.insert(json_spirit::Object::value_type(key, json_key));
-				}
-				json_path.insert(json_spirit::Object::value_type("keys", json_keys));
-				json_root.insert(json_spirit::Object::value_type(path, json_path));
-			}
-			if (target == "json-compact")
-				write(json_root, std::cout);
-			else
-				write(json_root, std::cout, json_spirit::pretty_print);
-#endif
 		} else {
 			get_core()->get()->save_to(expand_context(target));
 		}
