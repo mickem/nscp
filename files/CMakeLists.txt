@@ -21,7 +21,7 @@ IF(NOT WIN32)
 	install(DIRECTORY "nsclient" DESTINATION "/var/log")
 ENDIF()
 if(SYSTEMD)
-	INSTALL(FILES nscp.service
+	INSTALL(FILES nsclient.service
 		DESTINATION /lib/systemd/system
 		PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ ) # 775
 elseif(INITD)
