@@ -1,10 +1,14 @@
 #!/bin/bash
-#
-#       /etc/rc.d/init.d/nscp
-#
-#       Daemon for starting and stopping nscp (nsclient++)
-#       
-#
+### BEGIN INIT INFO
+# Provides: nsclient
+# Required-Start: $local_fs $network $syslog
+# Required-Stop: $local_fs $network $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: start and stop postfix
+# Description: NSClient++ is a monitoring agent, which means it will help
+#              with monitoring.
+### END INIT INFO
 SCRIPT=/usr/sbin/nscp
 RUNAS=nsclient
 NAME=nsclient
