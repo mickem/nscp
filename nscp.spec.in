@@ -72,7 +72,7 @@ su nsclient -s /bin/bash -c "nscp nrpe make-cert||exit 0"
 /usr/lib/libwhere_filter*
 /usr/lib/nsclient
 %attr(-,nsclient,nsclient) /usr/share/nsclient
-%attr(-,nsclient,nsclient) /etc/nsclient
+%attr(-,nsclient,nsclient) %config(noreplace) /etc/nsclient
 %attr(-,nsclient,nsclient) /var/log/nsclient
 
 %changelog
