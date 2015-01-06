@@ -1054,6 +1054,7 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	BOOST_FOREACH(const std::string &t, counters) {
 		request.add_arguments("counter=" + t);
 	}
+	request.add_arguments("perf-config=*(suffix:none)");
 	compat::log_args(request);
 	check_pdh(request, response);
 
