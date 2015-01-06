@@ -33,6 +33,10 @@ namespace parsers {
 				unit = context->get_performance_config_key(prefix, key, suffix, "unit", unit);
 				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
 				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
+				if (prefix == "none")
+					prefix = "";
+				if (suffix == "none")
+					suffix = "";
 				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
