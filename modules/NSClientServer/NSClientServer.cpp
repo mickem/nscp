@@ -32,6 +32,7 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_common_options.hpp>
 
 #include <settings/config.hpp>
 
@@ -68,7 +69,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_fun_key<std::string>(boost::bind(&NSClientServer::set_password, this, _1), ""),
-		"PASSWORD", "Password used to authenticate against server")
+		DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
 

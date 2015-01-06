@@ -37,6 +37,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_common_options.hpp>
 
 #include <client/simple_client.hpp>
 
@@ -627,7 +628,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_key(&password),
-		"PASSWORD", "Password used to authenticate against server")
+		DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
 

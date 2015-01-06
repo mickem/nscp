@@ -27,6 +27,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_common_options.hpp>
 #include <nscapi/macros.hpp>
 
 namespace sh = nscapi::settings_helper;
@@ -72,7 +73,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_key(&password_, ""),
-		"PASSWORD", "Password to use")
+		DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		("inbox", sh::string_key(&channel_, "inbox"),
 		"INBOX", "The default channel to post incoming messages on")
