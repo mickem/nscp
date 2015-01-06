@@ -119,6 +119,18 @@ A quick reference for all available queries (check commands) in the {{module.key
 {%- endfor %}
 {{table|rst_csvtable('Option', 'Default Value', 'Description')}}
 
+{% if query.sample %}
+Samples
+*******
+{%if module.namespace %}
+.. include:: ../../samples/{{query.sample}}
+
+{% else %}
+.. include:: ../samples/{{query.sample}}
+
+{% endif %}
+{%- endif %}
+
 Arguments
 *********
 {% for help in query.params -%}
@@ -128,7 +140,7 @@ Arguments
 {%if help.ext -%}
 {{help.ext.head|block_pad(4, '| ')}}
 
-{{help.ext.data|rst_table|block_pad(4, '| ')}}
+{{help.ext.data|rst_table|block_pad(4, '')}}
 
 {{help.ext.tail|block_pad(4, '| ')}}
 
@@ -137,15 +149,6 @@ Arguments
 {%- endif %}
 {{'\n'}}
 {%- endfor %}
-{% if query.sample %}
-Samples
-*******
-{%if module.namespace %}
-.. include:: ../../samples/{{query.sample}}
-{% else %}
-.. include:: ../samples/{{query.sample}}
-{% endif %}
-{%- endif %}
 {%- endfor %}
 {%- endif %}
 
@@ -208,7 +211,7 @@ Samples
 
 {% endif %}{% if key.info.sample %}        **Sample key**: This key is provided as a sample to show how to configure objects
 
-{% endif %}        **Used by**: {% for m in path.info.plugin %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
+{% endif %}        **Used by**: {% for m in path.info.plugin|sort %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
 
         **Sample**::
 
@@ -243,10 +246,11 @@ class root_container(object):
 	commands = {}
 	aliases = {}
 	plugins = {}
-	windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins']
-	check_modules = ['CheckDisk',  'CheckEventLog',  'CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP',  'CheckSystem',  'CheckSystemUnix',  'CheckTaskSched',  'CheckWMI']
+	windows_modules = ['CheckSystem', 'CheckDisk', 'NSClientServer', 'DotnetPlugins', 'CheckEventLog',  'CheckTaskSched',  'CheckWMI']
+	unix_modules = ['CheckSystemUnix']
+	check_modules = ['CheckExternalScripts',  'CheckHelpers',  'CheckLogFile',  'CheckMKClient',  'CheckMKServer',  'CheckNSCP']
 	client_modules = ['GraphiteClient',  'NRDPClient',  'NRPEClient',  'NRPEServer',  'NSCAClient',  'NSCAServer',  'NSClientServer',  'SMTPClient',  'SyslogClient']
-	generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter',  'WEBServer']
+	generic_modules = ['CommandClient',  'DotnetPlugins',  'LUAScript',  'PythonScript',  'Scheduler',  'SimpleCache',  'SimpleFileWriter', 'WEBServer']
 
 	def __init__(self):
 		self.paths = {}
@@ -283,6 +287,8 @@ class root_container(object):
 		namespace = ''
 		if name in self.windows_modules:
 			namespace = 'windows'
+		elif name in self.unix_modules:
+			namespace = 'unix'
 		elif name in self.check_modules:
 			namespace = 'check'
 		elif name in self.client_modules:
@@ -291,7 +297,8 @@ class root_container(object):
 			namespace = 'generic'
 		else:
 			namespace = 'misc'
-			
+		
+		print "%s == %s"%(name, namespace)
 		if not name in self.plugins:
 			self.plugins[name] = plugin_container(info, namespace)
 			
@@ -546,6 +553,8 @@ class DocumentationHelper(object):
 
 	def get_info(self):
 		root = root_container()
+		for p in self.get_plugins():
+			root.append_plugin(p)
 		for p in self.get_paths():
 			root.append_path(p)
 			for k in self.get_keys(p.node.path):
@@ -554,8 +563,6 @@ class DocumentationHelper(object):
 			root.append_command(p)
 		for p in self.get_query_aliases():
 			root.append_alias(p)
-		for p in self.get_plugins():
-			root.append_plugin(p)
 		return root
 		
 
@@ -585,10 +592,9 @@ class DocumentationHelper(object):
 		i = 0
 		for (module,minfo) in root.plugins.iteritems():
 			out_base_path = '%s/reference/'%output_dir
-			in_base_path = '%s/reference/'%input_dir
+			sample_base_path = '%s/samples/'%output_dir
 			if minfo.namespace:
 				out_base_path = '%s/reference/%s/'%(output_dir, minfo.namespace)
-				in_base_path = '%s/reference/%s/'%(input_dir, minfo.namespace)
 			hash = root.get_hash()
 			minfo.key = module
 			minfo.queries = {}
@@ -597,7 +603,7 @@ class DocumentationHelper(object):
 					more_info = self.fetch_command(c,cinfo)
 					if more_info:
 						cinfo = more_info
-					sfile = '%s/%s_%s_samples.inc'%(in_base_path, module, c)
+					sfile = '%s%s_%s_samples.inc'%(sample_base_path, module, c)
 					if os.path.exists(sfile):
 						cinfo.sample = os.path.basename(sfile)
 						#all_samples.append((module, command, sfile))
