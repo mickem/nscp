@@ -62,7 +62,7 @@ namespace PDH {
 			return status_==PDH_MORE_DATA;
 		}
 		bool is_invalid_data() {
-			return status_==PDH_INVALID_DATA;
+			return status_==PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA;
 		}
 		bool is_not_found() {
 			return status_==PDH_CSTATUS_NO_OBJECT || status_==PDH_CSTATUS_NO_COUNTER;
