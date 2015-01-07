@@ -1034,7 +1034,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	if (filter_helper.empty()) {
 		if (data.filter_string.empty())
 			data.filter_string = "state != 'unreadable'";
-		filter_helper.set_default("state not in ('started')", "state = 'stopped'");
+		filter_helper.set_default("state not in ('started')", "state = 'stopped' or count = 0");
 	}
 
 	if (processes.empty()) {
