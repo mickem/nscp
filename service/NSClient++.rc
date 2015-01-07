@@ -1,6 +1,15 @@
 #include "resource.h"
 #include <version.hpp>
-IDI_STANDBY             ICON                    "res/standby.ico"
+
+/////////////////////////////////////////////////////////////////////// 
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_NSCP                ICON                    "res/nscp.ico"
+
 
 /////////////////////////////////////////////////////////////////////// 
 // 
