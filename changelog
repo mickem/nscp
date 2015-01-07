@@ -1,3 +1,16 @@
+2015-01-06 Michael Medin
+ * #73 set legacy performance data suffix to empty.
+ * Added option to set suffix/prefixes to empty using perf-config.
+   check_pdh ... perf-config=*(suffix:none)
+ * Fixed missing sample from documentation
+ * Use the same name/desc for password (common key)
+ 
+2015-01-05 Michael Medin
+ * #71 service name is now nsclient on both redhat/centos el6 and el7
+ * #70 config file no longer replaced when upgrading on linux
+ * Fixed issue when upgrading/reinstalling the service and certificate was already generated
+ * #69 service should now be compatible with chkconfig command
+
 2015-01-04 Michael Medin
  * #68 fixed spelling mistakes in command line help
  * Removed json settings output as it is kind of pointless (will be readded in the form of json settings in 0.4.4)
