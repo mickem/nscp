@@ -15,7 +15,7 @@ IF(WIN32)
 	SET(reporter_SRCS ${reporter_SRCS}
 		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
 		reporter.h
-		stdafx.h
+		reporter.rc
 	)
 	SET(EXTRA_LIBS Wininet.lib)
 ENDIF(WIN32)
