@@ -30,6 +30,48 @@ EXPORTS
 {% endif %}
 """
 
+RC_TEMPLATE = """
+#include <version.hpp>
+
+/////////////////////////////////////////////////////////////////////// 
+// 
+// Version
+// 
+
+1 VERSIONINFO
+ FILEVERSION PRODUCTVER
+ PRODUCTVERSION PRODUCTVER
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "MySolutions Nordic (Michael Medin)\\0"
+            VALUE "FileDescription", "{{module.description|rcstring}}\\0"
+            VALUE "FileVersion", STRPRODUCTVER "\\0"
+            VALUE "InternalName", "{{module.name}}\\0"
+            VALUE "LegalCopyright", "Copyright (C) 2014 - Michael Medin\\0"
+            VALUE "OriginalFilename", "{{module.name|upper}}.DLL\\0"
+            VALUE "ProductName", "NSClient++ Module: {{module.name}}\\0"
+            VALUE "ProductVersion", STRPRODUCTVER "\\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+"""
+
 CPP_TEMPLATE = """#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -749,6 +791,9 @@ def render_template(hash, template, filename):
 def escape_cstring(str):
 	return str.replace('"', '\\"')
 
+def escape_rcstring(str):
+	return str.replace('"', '')
+
 module.commands = commands
 module.cli = cli
 module.channels = channels
@@ -757,8 +802,11 @@ module.command_fallback = command_fallback
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring
+env.filters['rcstring'] = escape_rcstring
 
 data = {'module': module, 'options': options}
 render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.target)
 render_template(data, env.from_string(CPP_TEMPLATE), '%s/module.cpp'%options.target)
 render_template(data, env.from_string(DEF_TEMPLATE), '%s/module.def'%options.target)
+render_template(data, env.from_string(RC_TEMPLATE), '%s/module.rc'%options.target)
+
