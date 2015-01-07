@@ -968,7 +968,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options("state not in ('started')", "state = 'stopped'", "state != 'unreadable'", filter.get_filter_syntax(), "OK all processes are ok.");
+	filter_helper.add_options("state not in ('started')", "state = 'stopped' or count = 0", "state != 'unreadable'", filter.get_filter_syntax(), "OK all processes are ok.");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
