@@ -111,7 +111,7 @@ class VersionHandler:
 		f.write('#define %s\n'%name)
 		
 		f.write('#define PRODUCTVER     %d,%d,%d,%d\n'%(self.major, self.minor, self.revision, self.build))
-		f.write('#define STRPRODUCTVER  "%d,%d,%d,%d"\n'%(self.major, self.minor, self.revision, self.build))
+		f.write('#define STRPRODUCTVER  "%d.%d.%d.%d"\n'%(self.major, self.minor, self.revision, self.build))
 		f.write('#define STRPRODUCTDATE "%s"\n'%(self.date))
 		
 		f.write('#endif // %s\n'%name)
