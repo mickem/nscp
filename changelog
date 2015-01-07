@@ -1,3 +1,11 @@
+2015-01-07 Michael Medin
+ * #74 Fixed check_process empty list returns ok status
+ * #72 Fixed issue with rate counters not working.
+ * #75 Fixed so modules have a version block
+ * Fixed so version use . not ,
+ * #75 Fixed error reporter information and improved the icon
+ * #75 Changed icon name to something more sensible
+
 2015-01-06 Michael Medin
  * #73 set legacy performance data suffix to empty.
  * Added option to set suffix/prefixes to empty using perf-config.
