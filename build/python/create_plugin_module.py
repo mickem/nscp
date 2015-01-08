@@ -48,7 +48,8 @@ class Module:
 			'MODULE_NAME': self.name,
 			'MODULE_ALIAS': self.alias,
 			'SOURCE' : options.source,
-			'MODULE_DESCRIPTION': self.description.replace('\n', '\\n')
+			'MODULE_DESCRIPTION': self.description.replace('\n', '\\n'),
+			'MODULE_DESCRIPTION_RC': self.description.replace('\n', '').replace('\"', '')
 		}
 		command_hpp = ''
 		command_registrations_cpp = ''
@@ -430,6 +431,47 @@ ${CLI_DELEGATOR_HPP}
 	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
 
 };
+"""
+MODULE_RC = """
+#include <config.h>
+
+/////////////////////////////////////////////////////////////////////// 
+// 
+// Version
+// 
+
+1 VERSIONINFO
+ FILEVERSION PRODUCTVER
+ PRODUCTVERSION PRODUCTVER
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "MySolutions Nordic (Michael Medin)\\0"
+            VALUE "FileDescription", "${MODULE_DESCRIPTION_RC}\\0"
+            VALUE "FileVersion", STRPRODUCTVER "\\0"
+            VALUE "InternalName", "${CLASS}\\0"
+            VALUE "LegalCopyright", "Copyright (C) 2014 - Michael Medin\\0"
+            VALUE "OriginalFilename", "${CLASS}.DLL\\0"
+            VALUE "ProductName", "NSClient++ Module: ${CLASS}\\0"
+            VALUE "ProductVersion", STRPRODUCTVER "\\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
 """
 CHANNEL_DELEGATOR_CPP = """
 /**
@@ -862,3 +904,6 @@ print "Updated module.cpp"
 cpp=open('%s/module.def'%options.target, 'w+')
 cpp.write(string.Template(MODULE_DEF).substitute(tpl_data))
 print "Updated module.def"
+hpp=open('%s/module.rc'%options.target, 'w+')
+hpp.write(string.Template(MODULE_RC).substitute(tpl_data))
+print "Updated module.rc"

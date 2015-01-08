@@ -97,7 +97,7 @@ ENDMACRO(add_nscp_lua_test)
 MACRO(CREATE_MODULE _SRCS _SOURCE _TARGET)
 INCLUDE_DIRECTORIES(${_TARGET})
 ADD_CUSTOM_COMMAND(
-	OUTPUT ${_TARGET}/module.cpp  ${_TARGET}/module.hpp ${_TARGET}/module.def
+	OUTPUT ${_TARGET}/module.cpp  ${_TARGET}/module.hpp ${_TARGET}/module.def ${_TARGET}/module.rc
 	COMMAND ${PYTHON_EXECUTABLE}
 		ARGS
 		"${BUILD_PYTHON_FOLDER}/create_plugin_module.py" 
@@ -110,6 +110,7 @@ SET(${_SRCS} ${${_SRCS}} ${_TARGET}/module.cpp)
 IF(WIN32)
 	SET(${_SRCS} ${${_SRCS}} ${_TARGET}/module.hpp)
 	SET(${_SRCS} ${${_SRCS}} ${_TARGET}/module.def)
+	SET(${_SRCS} ${${_SRCS}} ${_TARGET}/module.rc)
 ENDIF(WIN32)
 ENDMACRO(CREATE_MODULE)
 
