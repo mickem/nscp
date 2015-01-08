@@ -199,10 +199,10 @@ namespace process_helper {
 		}
 
 		LPVOID PebBaseAddress = NULL;
-		windows::winapi::PROCESS_EXTENDED_BASIC_INFORMATION pebi;
-		if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessBasicInformation, &pebi, sizeof(windows::winapi::PROCESS_EXTENDED_BASIC_INFORMATION), NULL) >= 0) {
-			PebBaseAddress = pebi.BasicInfo.PebBaseAddress;
-			//entry.handleCount = handleCount;
+		windows::winapi::PROCESS_BASIC_INFORMATION pbi;
+		memset(&pbi, 0, sizeof(pbi));
+		if (windows::winapi::NtQueryInformationProcess(handle, windows::winapi::ProcessBasicInformation, &pbi, sizeof(windows::winapi::PROCESS_BASIC_INFORMATION), &ReturnLength) >= 0) {
+			PebBaseAddress = pbi.PebBaseAddress;
 		}
 
 		if (deep_scan) {
