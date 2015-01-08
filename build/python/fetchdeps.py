@@ -220,14 +220,12 @@ class build_instruction:
 		self.exec_build(folder, source, self.pre_x64, self.common_pre, self.specific_x64, self.common_post)
 
 sources = {}
-# sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 
 sources['boost'] = source('boost_1_52_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.52.0/boost_1_52_0.zip/download', '5cfe29351e0b734993a2e6717e22b709680dd132')
 
-#sources['boost'] = source('boost_1_49_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.49.0/boost_1_49_0.zip/download', 'e2e778a444e7ae7157b97f4f1fedf363cf87940c')
-#sources['boost'] = source('boost_1_47_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.47.0/boost_1_47_0.zip/download', '06ce149fe2c3052ffb8dc79bbd0e61a7da011162')
-sources['openssl'] = source('openssl-1.0.1g.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1g.tar.gz', 'b28b3bcb1dc3ee7b55024c9f795be60eb3183e3c')
+sources['openssl'] = source('openssl-1.0.1j.tar.gz', 'https://www.openssl.org/source/old/openssl-1.0.1j.tar.gz', 'cff86857507624f0ad42d922bb6f77c4f1c2b819')
+#sources['openssl'] = source('openssl-1.0.1k.tar.gz', 'http://www.openssl.org/source/openssl-1.0.1k.tar.gz', '19d818e202558c212a9583fcdaf876995a633ddf')
 sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 
 build = {}
