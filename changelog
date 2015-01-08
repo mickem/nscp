@@ -1,3 +1,27 @@
+2015-01-08 - Michael Medin
+ * fixed settings refactoring issues
+ * bumped openssl version to k (j does not build?)
+ * Fixed service dependency
+ * Fixes CheckEventLog error handling if EvtQuery fails
+ * #47 Fixed so totals are caluclated correctly when drives are not in the filter
+ * #45 Fixed missing %total% conversion in check_files
+ * #43 improved error message when English counters fails.
+ * Fixed no global version.hpp
+ * #67 Fixed command line missing from check_process
+ * #74 Fixed check_process empty list returns ok status
+ * #75 Changed icon name to something more sensible
+ * improved help and removed json generation (not really used)
+ * fixed build script
+ * #75 Fixed error reporter information and improved the icon
+ * Something with the docs?
+ * #75 Fixed so modules have a version block
+ * Fixed so version use . not ,
+ * Fixed buffer overflow in external scripts
+ * moved my local build folder (should probably make this an argument or some such :)
+   fixed some issues in the batch builder
+ * Fixed #730 check_tasksched / most_recent_run_time not working
+ * added google test
+
 2014-09-09 MickeM
  * implemented some build concepts from 0.4.3 (i.e. less dependencies)
  * Moved docs to external repo
