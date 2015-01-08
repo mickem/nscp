@@ -16,7 +16,7 @@ namespace nsclient {
 		bool use_samples_;
 
 	public:
-		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples, std::string filter) 
+		settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples) 
 			: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples) 
 		{
 			startup();
