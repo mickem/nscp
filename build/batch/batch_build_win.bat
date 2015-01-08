@@ -1,6 +1,6 @@
 @ECHO OFF
 SET ROOT=D:\source\build\042
-SET SOURCE=D:\source\nscp
+SET SOURCE=D:\source\042\nscp
 
 mkdir %ROOT%
 mkdir %ROOT%\x64
@@ -24,10 +24,6 @@ title Packaging x64
 cpack
 if %ERRORLEVEL% == 1 goto :error
 
-title Postbuild x64
-postbuild.py
-if %ERRORLEVEL% == 1 goto :error
-
 cd %ROOT%\w32\dist
 if %ERRORLEVEL% == 1 goto :error
 
@@ -43,9 +39,20 @@ title Packaging w32
 cpack
 if %ERRORLEVEL% == 1 goto :error
 
+cd %ROOT%\x64\dist
+if %ERRORLEVEL% == 1 goto :error
+
+title Postbuild x64
+postbuild.py
+if %ERRORLEVEL% == 1 goto :error
+
+cd %ROOT%\w32\dist
+if %ERRORLEVEL% == 1 goto :error
+
 title Postbuild w32
 postbuild.py
 if %ERRORLEVEL% == 1 goto :error
+
 
 title Done!
 
