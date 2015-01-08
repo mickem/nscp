@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(generate_docs)
 
 ADD_CUSTOM_TARGET(generate_doc_sources
-	COMMAND ${CMAKE_BINARY_DIR}/nscp py --no-stderr --settings dummy --load-all --log error --log oneline -- --script docs --format rst --output docs/source
+	COMMAND ${CMAKE_BINARY_DIR}/nscp py --no-stderr --settings dummy --load-all --log error --log oneline -- --script scripts/python/docs.py --format rst --output ext/docs
 	WORKING_DIRECTORY ${BUILD_ROOT_FOLDER}
 		DEPENDS nscp ${ALL_MODULE_NAMES} copy_files
 	COMMENT "Generate RST documentation source")

@@ -486,7 +486,7 @@ class DocumentationHelper(object):
 			string += traceback.format_exc()
 		return string
 			
-	def generate_rst(self, dir):
+	def generate_rst(self, input_dir, output_dir):
 		global all_samples
 		renderer = self.renderer
 		docs = {}
@@ -538,14 +538,14 @@ class DocumentationHelper(object):
 				string += renderer.para('A quick reference for all avalible queries (check commands) in the %s module.'%module)
 				for (c,cinfo) in root.commands.iteritems():
 					if module in cinfo.info.plugin:
-						string += self.generate_rst_command_details(c, cinfo, module, '%s/reference/%s'%(dir, module))
+						string += self.generate_rst_command_details(c, cinfo, module, '%s/reference/%s'%(input_dir, module))
 
 			if config_table:
 				string += renderer.title(1, 'Configuration')
 				string += renderer.para('A quick reference for all avalible configuration options in the %s module.'%module)
 				string += self.generate_rst_config_details(root.paths, module)
 			
-			renderer.serialize(string, '%s/reference/%s.rst'%(dir, module))
+			renderer.serialize(string, '%s/reference/%s.rst'%(output_dir, module))
 			commands.append('%s.rst'%module)
 
 		string = renderer.page_header('samples', 'TODO')
@@ -560,11 +560,11 @@ class DocumentationHelper(object):
 					string += renderer.title(2, c)
 					string += renderer.para('All samples for command: :query:`%s.%s`'%(m1, c))
 					string += ".. include:: %s\n\n"%f
-		renderer.serialize(string, '%s/reference/all_samples.rst'%dir)
+		renderer.serialize(string, '%s/reference/all_samples.rst'%output_dir)
 		
 		
 		all_config = self.generate_rst_config_table(root.paths)
-		#renderer.serialize(all_config, '%s/reference/config.rst'%dir)
+		#renderer.serialize(all_config, '%s/reference/config.rst'%output_dir)
 			
 		string = """Modules
 =======
@@ -578,7 +578,7 @@ Contents:
 		for c in sorted(commands):
 			string += '   %s\n'%c
 		string += '   all_samples.rst\n'
-		renderer.serialize(string, '%s/reference/index.rst'%dir)
+		renderer.serialize(string, '%s/reference/index.rst'%output_dir)
 		
 			
 
@@ -588,15 +588,13 @@ Contents:
 		parser = OptionParser(prog="")
 		parser.add_option("-f", "--format", help="Generate format")
 		parser.add_option("-o", "--output", help="write report to FILE(s)")
-		parser.add_option("--trac-path", help="The path to track (used for importing wikis)")
+		parser.add_option("-i", "--input", help="Reference folder")
 		(options, args) = parser.parse_args(args=args)
 
 		if not options.format:
 			options.format = "rst"
-		#if options.format in ["trac"]:
-		#	self.generate_trac(options.output, options.trac_path)
 		if options.format in ["rst"]:
-			self.generate_rst(options.output)
+			self.generate_rst(options.input, options.output)
 		else:
 			log("Help%s"%parser.print_help())
 			log("Invalid format: %s"%options.format)
