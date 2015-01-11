@@ -78,6 +78,10 @@ namespace socket_helpers {
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif
 			{
+				boost::system::error_code er;
+				context_.set_options(info_.get_ctx_opts(), er);
+				if (er)
+					logger_->log_error(__FILE__, __LINE__, "Failed to set option: " + er.message());
 			}
 			~server() {
 

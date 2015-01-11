@@ -196,6 +196,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	unsigned int length = 1024;
 	const std::string path = "/settings/NRPE/server";
 	std::string verify = "peer-cert";
+	std::string sslops = "";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
@@ -206,6 +207,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	q.get(path, "allow nasty characters", false);
 	q.get(path, "allowed ciphers", "");
 	q.get(path, "verify mode", verify);
+	q.get(path, "ssl options", verify);
 
 	
 	get_core()->settings_query(q.request(), q.response());
@@ -229,6 +231,8 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			arguments = "safe";
 		else if (val.path == path && val.key && *val.key == "verify")
 			verify = val.get_string();
+		else if (val.path == path && val.key && *val.key == "ssl options")
+			sslops = val.get_string();
 		
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
@@ -238,10 +242,14 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		}
 	}
 
+	std::stringstream result;
 	if (chipers == "ADH")
 		insecure = "true";
 	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
 		insecure = "false";
+	if (insecure == "false" && sslops != "no-sslv2,no-sslv3")
+		result << "WARNING: Inconsistent ssl options (will overwrite): " << sslops << "\n";
+
 
 	desc.add_options()
 		("help", "Show help.")
@@ -265,7 +273,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
 
 		("verify", po::value<std::string>(&verify)->default_value(verify)->implicit_value("yes"), 
-		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+		"")
 
 		;
 
@@ -281,7 +289,6 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
 			return true;
 		}
-		std::stringstream result;
 
 		nscapi::protobuf::functions::settings_query s(get_id());
 		result << "Enabling NRPE via SSL from: " << allowed_hosts << std::endl;
@@ -292,6 +299,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			result << "WARNING: NRPE is currently insecure." << std::endl;
 			s.set("/settings/NRPE/server", "insecure", "true");
 			s.set("/settings/NRPE/server", "allowed ciphers", "ADH");
+			s.set("/settings/NRPE/server", "ssl options", "");
 		} else {
 			if (key.empty())
 				result << "NRPE is currently reasonably secure using " << cert << "." << std::endl;
@@ -301,6 +309,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			s.set("/settings/NRPE/server", "allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			s.set("/settings/NRPE/server", "certificate", cert);
 			s.set("/settings/NRPE/server", "certificate key", key);
+			s.set("/settings/NRPE/server", "ssl options", "no-sslv2,no-sslv3");
 		}
 		if (arguments == "all" || arguments == "unsafe") {
 			result << "UNSAFE Arguments are allowed." << std::endl;

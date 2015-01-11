@@ -61,6 +61,15 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	return list;
 }
 
+long socket_helpers::connection_info::get_ctx_opts()
+{
+	long opts = 0;
+#ifdef USE_SSL
+	opts |= ssl.get_ctx_opts();
+#endif
+	return opts;
+}
+
 std::string socket_helpers::allowed_hosts_manager::to_string() {
 	std::string ret;
 	BOOST_FOREACH(const host_record_v4 &r, entries_v4) {
@@ -254,7 +263,25 @@ boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts
 		return boost::asio::ssl::context::asn1;
 	return boost::asio::ssl::context::pem;
 }
-
+#ifdef USE_SSL
+long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const
+{
+	long opts = 0;
+	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(ssl_options, std::string(","))) {
+		if (key == "default-workarounds")
+			opts |= boost::asio::ssl::context::default_workarounds;
+		if (key == "no-sslv2")
+			opts |= boost::asio::ssl::context::no_sslv2;
+		if (key == "no-sslv3")
+			opts |= boost::asio::ssl::context::no_sslv3;
+		if (key == "no-tlsv1")
+			opts |= boost::asio::ssl::context::no_tlsv1;
+		if (key == "single-dh-use")
+			opts |= boost::asio::ssl::context::single_dh_use;
+	}
+	return opts;
+}
+#endif
 
 void genkey_callback(int, int, void*) {
 	// Ignored as we dont want to show progress...

@@ -52,6 +52,15 @@ namespace socket_helpers {
 				"client-once\tOnly request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer\n"
 				"\n\n", true)
 
+				("ssl options", nscapi::settings_helper::string_key(&info_.ssl.ssl_options, ""),
+				"VERIFY MODE", "Comma separated list of verification flags to set on the SSL socket.\n\n"
+				"default-workarounds\tVarious workarounds for what I understand to be broken ssl implementations\n"
+				"no-sslv2\tDo not use the SSLv2 protocol.\n"
+				"no-sslv3\tDo not use the SSLv3 protocol.\n"
+				"no-tlsv1\tDo not use the TLSv1 protocol.\n"
+				"single-dh-use\tAlways create a new key when using temporary/ephemeral DH parameters. "
+				"This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using \"strong\" primes (e.g. when using DSA-parameters).\n"
+				"\n\n", true)
 				;
 		}
 

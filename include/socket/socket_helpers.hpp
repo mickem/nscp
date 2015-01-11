@@ -141,6 +141,7 @@ namespace socket_helpers {
 				, allowed_ciphers(other.allowed_ciphers)
 				, dh_key(other.dh_key)
 				, verify_mode(other.verify_mode)
+				, ssl_options(other.ssl_options)
 			{}
 			ssl_opts& operator=(const ssl_opts &other) {
 				enabled = other.enabled;
@@ -151,6 +152,7 @@ namespace socket_helpers {
 				allowed_ciphers = other.allowed_ciphers;
 				dh_key = other.dh_key;
 				verify_mode = other.verify_mode;
+				ssl_options = other.ssl_options;
 				return *this;
 			}
 
@@ -166,6 +168,7 @@ namespace socket_helpers {
 			std::string dh_key;
 
 			std::string verify_mode;
+			std::string ssl_options;
 
 			std::string to_string() const {
 				std::stringstream ss;
@@ -173,6 +176,7 @@ namespace socket_helpers {
 					ss << "ssl: " << verify_mode;
 					ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
+					ss << ", options: " << ssl_options;
 				} else 
 					ss << "ssl disabled";
 				return ss.str();
@@ -182,6 +186,7 @@ namespace socket_helpers {
 			boost::asio::ssl::context::verify_mode get_verify_mode();
 			boost::asio::ssl::context::file_format get_certificate_format();
 			boost::asio::ssl::context::file_format get_certificate_key_format();
+			long get_ctx_opts() const;
 #endif
 		};
 
@@ -233,6 +238,7 @@ namespace socket_helpers {
 		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
 		}
+		long get_ctx_opts();
 	};
 
 
