@@ -223,6 +223,41 @@ Arguments
 {% endfor %}
 """
 
+
+samples_template = u""".. default-domain:: nscp
+
+.. default-domain:: nscp
+
+===========
+All samples
+===========
+
+A collection of all sample commands
+
+{% for mk,module in plugins|dictsort  -%}
+{% set vars = {'found': False} -%}
+{% for qk,query in module.queries|dictsort -%}
+{% if query.sample -%}
+{% if vars.update({'found': True}) -%}{%- endif %}
+{%- endif %}
+{%- endfor %}
+{% if vars.found -%}
+{{mk|rst_heading('=')}}
+
+{% for qk,query in module.queries|dictsort -%}
+{% if query.sample -%}
+{{qk|rst_heading}}
+
+{{query.info.description|firstline}}
+
+.. include:: ../samples/{{query.sample}}
+
+{% endif %}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+"""
+
 def split_argllist(name, desc):
 	extdata = {}
 	spos = desc.find('\n\n')
@@ -298,7 +333,6 @@ class root_container(object):
 		else:
 			namespace = 'misc'
 		
-		print "%s == %s"%(name, namespace)
 		if not name in self.plugins:
 			self.plugins[name] = plugin_container(info, namespace)
 			
@@ -590,6 +624,18 @@ class DocumentationHelper(object):
 	def generate_rst(self, input_dir, output_dir):
 		root = self.get_info()
 		i = 0
+		
+		env = Environment(extensions=["jinja2.ext.do",])
+		env.filters['firstline'] = first_line
+		env.filters['rst_link'] = make_rst_link
+		env.filters['rst_table'] = render_rst_table
+		env.filters['rst_csvtable'] = render_rst_csv_table
+		env.filters['rst_heading'] = render_rst_heading
+		env.filters['extract_value'] = extract_value
+		env.filters['block_pad'] = block_pad
+		env.filters['common_head'] = calculate_common_head
+		env.filters['as_text'] = as_text
+		
 		for (module,minfo) in root.plugins.iteritems():
 			out_base_path = '%s/reference/'%output_dir
 			sample_base_path = '%s/samples/'%output_dir
@@ -625,31 +671,25 @@ class DocumentationHelper(object):
 			i=i+1
 			log_debug('Processing module: %d of %d [%s]'%(i, len(root.plugins), module))
 
-			env = Environment(extensions=["jinja2.ext.do",])
-			env.filters['firstline'] = first_line
-			env.filters['rst_link'] = make_rst_link
-			env.filters['rst_table'] = render_rst_table
-			env.filters['rst_csvtable'] = render_rst_csv_table
-			env.filters['rst_heading'] = render_rst_heading
-			env.filters['extract_value'] = extract_value
-			env.filters['block_pad'] = block_pad
-			env.filters['common_head'] = calculate_common_head
-			env.filters['as_text'] = as_text
-
 			template = env.from_string(module_template)
 			render_template(hash, template, '%s/%s.rst'%(out_base_path, module))
+
+		log_debug('%s/samples/index.rst'%output_dir)
+		hash = root.get_hash()
+		template = env.from_string(samples_template)
+		render_template(hash, template, '%s/samples/index.rst'%output_dir)
 
 	def main(self, args):
 		parser = OptionParser(prog="")
 		parser.add_option("-o", "--output", help="write report to FILE(s)")
 		parser.add_option("-i", "--input", help="Reference folder")
 		(options, args) = parser.parse_args(args=args)
-
 		self.generate_rst(options.input, options.output)
 
 def __main__(args):
 	global helper
 	helper.main(args);
+	return 0
 	
 def init(plugin_id, plugin_alias, script_alias):
 	global helper
