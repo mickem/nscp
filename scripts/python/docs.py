@@ -641,19 +641,11 @@ class DocumentationHelper(object):
 
 	def main(self, args):
 		parser = OptionParser(prog="")
-		parser.add_option("-f", "--format", help="Generate format")
 		parser.add_option("-o", "--output", help="write report to FILE(s)")
 		parser.add_option("-i", "--input", help="Reference folder")
 		(options, args) = parser.parse_args(args=args)
 
-		if not options.format:
-			options.format = "rst"
-		if options.format in ["rst"]:
-			self.generate_rst(options.input, options.output)
-		else:
-			log("Help%s"%parser.print_help())
-			log("Invalid format: %s"%options.format)
-			return
+		self.generate_rst(options.input, options.output)
 
 def __main__(args):
 	global helper
