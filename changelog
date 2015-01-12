@@ -1,3 +1,6 @@
+2015-01-11 Michael Medin
+ * Added new options to disable sslv2 and sslv3 (enabled by default in secure/safe mode)
+
 2015-01-07 Michael Medin
  * #74 Fixed check_process empty list returns ok status
  * #72 Fixed issue with rate counters not working.
