@@ -141,7 +141,7 @@ bool {{module.name}}Module::unloadModule() {
  *
  * @param char_command The command name (string)
  * @param request The request packet
- * @param response THe response packet
+ * @param response The response packet
  * @return status code
  */
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &request, std::string &response) {
