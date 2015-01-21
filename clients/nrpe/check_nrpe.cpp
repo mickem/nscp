@@ -21,6 +21,7 @@ int main(int argc, char* argv[]) {
 	std::string tmp = nscapi::protobuf::functions::build_performance_data(response);
 	if (!tmp.empty())
 		std::cout << '|' << tmp;
+	return response.result();
 }
 
 
