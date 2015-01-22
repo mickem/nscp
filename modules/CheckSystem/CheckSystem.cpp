@@ -500,8 +500,8 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "CPU Load ok");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${time}: ${load}%", "${core} ${time}");
+	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
 	filter_helper.get_desc().add_options()
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
 		;
@@ -582,8 +582,8 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	std::vector<std::string> times;
 
 	filter_type filter;
-	filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "Uptime ok");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime");
+	filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -615,8 +615,8 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	filter_type filter;
-	filter_helper.add_options("version > 50", "version > 50", "", filter.get_filter_syntax(), "Version ok");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version");
+	filter_helper.add_options("version > 50", "version > 50", "", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -709,8 +709,8 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	std::string computer;
 
 	filter_type filter;
-	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "OK all services are ok.");
-	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}");
+	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_format_syntax(), "${name}=${state} (${start_type})", "${name}", "%(status): No services found", "%(status): All %(count) service(s) are ok.");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -761,8 +761,8 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	filter_type filter;
-	filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "OK pagefile within bounds.");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}");
+	filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${name} ${used} (${size})", "${name}", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -838,8 +838,8 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	std::vector<std::string> types;
 
 	filter_type filter;
-	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "OK memory within bounds.");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${type} = ${used}", "${type}");
+	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${type} = ${used}", "${type}", "", "");
 	filter_helper.get_desc().add_options()
 		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
 		;
@@ -968,13 +968,13 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options("state not in ('started')", "state = 'stopped' or count = 0", "state != 'unreadable'", filter.get_filter_syntax(), "OK all processes are ok.");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}");
+	filter_helper.add_options("state not in ('started')", "state = 'stopped' or count = 0", "state != 'unreadable'", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${exe}=${state}", "${exe}", "%(status): No processes found", "%(status): all processes are ok.");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 		("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
 		("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
-		("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will mesure values and then sleep for 2 second and then measure again caluclating deltas.")
+		("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
 		("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
 		;
 

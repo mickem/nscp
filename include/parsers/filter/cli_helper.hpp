@@ -16,7 +16,7 @@
 namespace modern_filter {
 	struct data_container {
 		std::string filter_string, warn_string, crit_string, ok_string;
-		std::string syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_detail, empty_state, syntax_unique;
+		std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique;
 		bool debug;
 		data_container() : debug(false) {}
 	};
@@ -45,12 +45,11 @@ namespace modern_filter {
 		boost::program_options::options_description& get_desc() {
 			return desc;
 		}
-		void add_options(std::string warn, std::string crit, std::string filter, std::string filter_syntax, std::string empty_text = "No matches", std::string empty_state = "unknown") {
+		void add_options(std::string warn, std::string crit, std::string filter, std::string filter_syntax, std::string empty_state = "ignored") {
 			nscapi::program_options::add_help(desc);
 			boost::program_options::typed_value<std::string> *filter_op = boost::program_options::value<std::string>(&data.filter_string);
 			boost::program_options::typed_value<std::string> *warn_op = boost::program_options::value<std::string>(&data.warn_string);
 			boost::program_options::typed_value<std::string> *crit_op = boost::program_options::value<std::string>(&data.crit_string);
-			boost::program_options::typed_value<std::string> *empty_text_op = boost::program_options::value<std::string>(&data.empty_detail);
 			boost::program_options::typed_value<std::string> *empty_state_op = boost::program_options::value<std::string>(&data.empty_state);
 			if (!filter.empty())
 				filter_op->default_value(filter);
@@ -58,8 +57,6 @@ namespace modern_filter {
 				warn_op->default_value(warn);
 			if (!crit.empty())
 				crit_op->default_value(crit);
-			if (!empty_text.empty())
-				empty_text_op->default_value(empty_text);
 			if (!empty_state.empty())
 				empty_state_op->default_value(empty_state);
 			desc.add_options()
@@ -79,8 +76,6 @@ namespace modern_filter {
 				"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
 				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("empty-syntax", empty_text_op, 
-				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", empty_state_op, 
 				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
@@ -139,7 +134,7 @@ namespace modern_filter {
 			if (data.crit_string == "none")
 				data.crit_string = "";
 
-			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, tmp_msg)) {
+			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty, tmp_msg)) {
 				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);
 				return false;
 			}
@@ -162,7 +157,7 @@ namespace modern_filter {
 			filter.start_match();
 			return true;
 		}
-		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax) {
+		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
 			std::string tk = "Top level syntax.\n"
 				"Used to format the message to return can include strings as well as special keywords such as: \n\nKey\tValue\n" + syntax + "\n"; 
 			std::string dk = "Detail level syntax.\n"
@@ -171,10 +166,17 @@ namespace modern_filter {
 			std::string pk = "Performance alias syntax.\n"
 				"This is the syntax for the base names of the performance data.\n"
 				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
+			std::string ek = "Empty syntax.\n"
+				"DEPRECATED! This is the syntax for when nothing matches the filter.\n"
+				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
+			std::string ok = "ok syntax.\n"
+				"DEPRECATED! This is the syntax for when an ok result is returned.\n"
+				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
 
 			desc.add_options()
 				("top-syntax", boost::program_options::value<std::string>(&data.syntax_top)->default_value(default_top_syntax), tk.c_str())
-				("op-syntax", boost::program_options::value<std::string>(&data.syntax_ok), tk.c_str())
+				("ok-syntax", boost::program_options::value<std::string>(&data.syntax_ok)->default_value(default_ok_syntax), ok.c_str())
+				("empty-syntax", boost::program_options::value<std::string>(&data.syntax_empty)->default_value(default_empty_syntax), ek.c_str())
 				("detail-syntax", boost::program_options::value<std::string>(&data.syntax_detail)->default_value(default_detail_syntax), dk.c_str())
 				("perf-syntax", boost::program_options::value<std::string>(&data.syntax_perf)->default_value(default_perf_syntax), pk.c_str())
 				;
@@ -193,15 +195,10 @@ namespace modern_filter {
 			filter.match_post();
 			//filter.end_match();
 			filter.fetch_perf(writer);
-// 			if (!filter.summary.has_matched()) {
-// 				response->set_message(data.empty_detail);
-// 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
-// 				return;
-// 			}
-			std::string msg = filter.get_message();
-			if (msg.empty()) msg = data.empty_detail;
+			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
+ 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
 			response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
-			response->set_message(msg);
+			response->set_message(filter.get_message());
 		}
 
 	};

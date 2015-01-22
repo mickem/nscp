@@ -640,8 +640,8 @@ namespace nscapi {
 			std::string ok_string;
 			std::string syntax_top;
 			std::string syntax_ok;
+			std::string syntax_empty;
 			std::string syntax_detail;
-			std::string empty_detail;
 			std::string empty_state;
 		};
 
@@ -659,7 +659,7 @@ namespace nscapi {
 				("top-syntax", po::value<std::string>(&filter.syntax_top)->default_value(default_top_syntax), (std::string("Top level syntax.\n") + top_keylist).c_str())
 				("ok-syntax", po::value<std::string>(&filter.syntax_ok), (std::string("Top level syntax for ok messages.\n") + top_keylist).c_str())
 				("detail-syntax", po::value<std::string>(&filter.syntax_detail)->default_value(default_syntax), (std::string("Detail level syntax.\nHow each item in the lists of the top level syntax is rendered.\nAvailable keys are: \n") + keylist).c_str())
-				("empty-syntax", po::value<std::string>(&filter.empty_detail)->default_value("CPULoad OK"), 
+				("empty-syntax", po::value<std::string>(&filter.syntax_empty)->default_value("%(status): Nothing found..."), 
 				"Message to display when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("empty-state", po::value<std::string>(&filter.empty_state)->default_value("ok"), 
 				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
