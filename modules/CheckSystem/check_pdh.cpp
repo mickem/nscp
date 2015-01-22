@@ -81,6 +81,8 @@ namespace check_pdh {
 			"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
 			("type", sh::string_key(&object.type),
 			"COUNTER TYPE", "The type of counter to use long, large and double")
+			("flags", sh::string_key(&object.flags),
+			"FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
 			;
 
 		object.tpl.read_object(root_path);
