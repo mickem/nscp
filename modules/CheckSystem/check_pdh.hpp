@@ -22,6 +22,7 @@ namespace check_pdh {
 		std::string instances;
 		std::string buffer_size;
 		std::string type;
+		std::string flags;
 
 		// Runtime items
 

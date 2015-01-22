@@ -210,13 +210,13 @@ namespace PDH {
 				boost::shared_lock<boost::shared_mutex> lock(mutex_);
 				if (!lock.owns_lock())
 					throw PDH::pdh_exception(get_name(), "Could not get mutex");
-				return values.front();
+				return values.back();
 			}
 			virtual long long get_int_value() {
 				boost::shared_lock<boost::shared_mutex> lock(mutex_);
 				if (!lock.owns_lock())
 					throw PDH::pdh_exception(get_name(), "Could not get mutex");
-				return values.front();
+				return values.back();
 			}
 
 			virtual void update(T value) {
