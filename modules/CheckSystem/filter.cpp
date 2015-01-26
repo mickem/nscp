@@ -135,7 +135,9 @@ namespace check_page_filter {
 
 namespace check_svc_filter {
 
-	bool check_state_is_perfect(DWORD state, DWORD start_type) {
+	bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
+		if (trigger)
+			return true;
 		if (start_type == SERVICE_BOOT_START)
 			return state == SERVICE_RUNNING;
 		if (start_type == SERVICE_SYSTEM_START)
@@ -149,7 +151,9 @@ namespace check_svc_filter {
 		return false;
 	}
 
-	bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed) {
+	bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger) {
+		if (trigger)
+			return true;
 		if (
 			(state == SERVICE_START_PENDING) &&
 			(start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
@@ -159,15 +163,16 @@ namespace check_svc_filter {
 			if (start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
 				return true;
 		}
-		return check_state_is_perfect(state, start_type);
+		return check_state_is_perfect(state, start_type, trigger);
 	}
 
 	node_type state_is_ok(const value_type, evaluation_context context, const node_type subject) {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
-		bool delayed = n_context->get_object()->delayed;
-		if (check_state_is_ok(state, start_type, delayed))
+		bool delayed = n_context->get_object()->get_delayed()==1;
+		bool trigger = n_context->get_object()->get_is_trigger()==1;
+		if (check_state_is_ok(state, start_type, delayed, trigger))
 			return factory::create_true();
 		else
 			return factory::create_false();
@@ -177,7 +182,8 @@ namespace check_svc_filter {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
-		if (check_state_is_perfect(state, start_type))
+		bool trigger = n_context->get_object()->get_is_trigger()==1;
+		if (check_state_is_perfect(state, start_type, trigger))
 			return factory::create_true();
 		else
 			return factory::create_false();
