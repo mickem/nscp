@@ -261,7 +261,7 @@ void {{module.name}}Module::handleMessageRAW(std::string data) {
 				impl_->handleLogMessage(message.entry(i));
 			}
 		}
-	} catch (std::exception &e) {
+	} catch (const std::exception &) {
 		// Ignored since loggers cant log
 	} catch (...) {
 		// Ignored since loggers cant log
