@@ -468,6 +468,7 @@ namespace process_helper {
 		} catch (nscp_exception &e) {
 			if (error_interface!=NULL)
 				error_interface->report_error(e.reason());
-		} 
+		}
+		return ret;
 	}
 }
