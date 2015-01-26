@@ -205,6 +205,8 @@ namespace check_svc_filter {
 			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), boost::bind(&filter_obj::get_state_s, _1), "The current state ()").add_perf("","")
 			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1),boost::bind(&filter_obj::get_start_type_s, _1),  "The configured start type ()")
 			("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, _1),  "If the service is delayed")
+			("is_trigger", parsers::where::type_bool, boost::bind(&filter_obj::get_is_trigger, _1),  "If the service is has associated triggers")
+			("triggers", parsers::where::type_int, boost::bind(&filter_obj::get_triggers, _1),  "The number of associated triggers for this service")
 			;
 
 		registry_.add_int_fun()

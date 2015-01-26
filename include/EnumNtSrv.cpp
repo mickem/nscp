@@ -77,6 +77,19 @@ namespace services_helper {
 		return buf;
 	}
 
+	void fetch_triggers(service_handle &hService, service_info &info) {
+		DWORD bytesNeeded = 0;
+		DWORD deErr = 0;
+		if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
+			return;
+		hlp::buffer<BYTE> buffer(bytesNeeded+10);
+
+		if (!QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded))
+			throw nscp_exception("Failed to open service: " + info.name);
+
+		info.triggers = buffer.get_t<SERVICE_TRIGGER_INFO*>()->cTriggers;
+	}
+
 	std::list<service_info> enum_services(const std::string computer, DWORD dwServiceType, DWORD dwServiceState) {
 		std::list<service_info> ret;
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
@@ -114,14 +127,11 @@ namespace services_helper {
 
 
 			SERVICE_DELAYED_AUTO_START_INFO delayed;
-// 			typedef struct _SERVICE_DELAYED_AUTO_START_INFO {
-// 				BOOL fDelayedAutostart;
-// 			} SERVICE_DELAYED_AUTO_START_INFO, *LPSERVICE_DELAYED_AUTO_START_INFO;
-			
 			DWORD size=sizeof(SERVICE_DELAYED_AUTO_START_INFO);
 			if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
 				info.delayed = delayed.fDelayedAutostart;
 			}
+			fetch_triggers(hService, info);
 			ret.push_back(info);
 		}
 		return ret;
@@ -157,6 +167,14 @@ namespace services_helper {
 		info.start_type = data2->dwStartType;
 		info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
 		info.error_control = data2->dwErrorControl;
+
+		SERVICE_DELAYED_AUTO_START_INFO delayed;
+		DWORD size=sizeof(SERVICE_DELAYED_AUTO_START_INFO);
+		if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
+			info.delayed = delayed.fDelayedAutostart;
+		}
+
+		fetch_triggers(hService, info);
 		return info;
 	}
 

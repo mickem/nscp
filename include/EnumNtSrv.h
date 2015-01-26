@@ -7,10 +7,10 @@ namespace services_helper {
 	struct service_info {
 		std::string name;
 		std::string displayname;
-		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0), delayed(false) {}
+		service_info(std::string name, std::string displayname) : name(name), displayname(displayname), pid(0), state(0), start_type(0), error_control(0), type(0), delayed(false), triggers(0) {}
 		service_info(const service_info &other) 
 			: name(other.name), displayname(other.displayname)
-			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type), delayed(other.delayed)
+			, pid(other.pid), state(other.state), start_type(other.start_type), error_control(other.error_control), type(other.type), delayed(other.delayed), triggers(other.triggers)
 			, binary_path(other.binary_path)
 		{}
 		
@@ -21,6 +21,7 @@ namespace services_helper {
 		DWORD error_control;
 		DWORD type;
 		bool delayed;
+		int triggers;
 
 		std::string binary_path;
 
@@ -34,6 +35,8 @@ namespace services_helper {
 		std::string get_desc() const { return displayname; }
 		long long get_pid() const { return pid; }
 		long long get_delayed() const { return delayed?1:0; }
+		long long get_is_trigger() const { return triggers>0?1:0; }
+		long long get_triggers() const { return triggers; }
 
 		static long long parse_start_type(const std::string &s);
 		static long long parse_state(const std::string &s);
