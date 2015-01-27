@@ -32,6 +32,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <parsers/filter/cli_helper.hpp>
 
 
 namespace sh = nscapi::settings_helper;
@@ -323,5 +324,146 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 	BOOST_FOREACH(const ::Plugin::Common::PerformanceData &v, perf) {
 		response->add_perf()->CopyFrom(v);
 	}
+}
+
+#include <parsers/where.hpp>
+#include <parsers/where/helpers.hpp>
+
+#include <parsers/where.hpp>
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+
+
+namespace perf_filter {
+
+	struct filter_obj {
+		const ::Plugin::Common_PerformanceData& data;
+
+		filter_obj(const ::Plugin::Common_PerformanceData& data) : data(data) {}
+
+		std::string get_key() const {
+			return data.alias();
+		}
+		std::string get_unit() const {
+			if (data.has_bool_value())
+				return data.bool_value().unit();
+			if (data.has_float_value())
+				return data.float_value().unit();
+			if (data.has_int_value())
+				return data.int_value().unit();
+			return "";
+		}
+		std::string get_value() const {
+			if (data.has_bool_value())
+				return strEx::s::xtos(data.bool_value().value());
+			if (data.has_float_value())
+				return strEx::s::xtos(data.float_value().value());
+			if (data.has_int_value())
+				return strEx::s::xtos(data.int_value().value());
+			if (data.has_string_value())
+				return data.string_value().value();
+			return "";
+		}
+		std::string get_warn() const {
+			if (data.has_bool_value())
+				return strEx::s::xtos(data.bool_value().warning());
+			if (data.has_float_value())
+				return strEx::s::xtos(data.float_value().warning());
+			if (data.has_int_value())
+				return strEx::s::xtos(data.int_value().warning());
+			return "";
+		}
+		std::string get_crit() const {
+			if (data.has_bool_value())
+				return strEx::s::xtos(data.bool_value().critical());
+			if (data.has_float_value())
+				return strEx::s::xtos(data.float_value().critical());
+			if (data.has_int_value())
+				return strEx::s::xtos(data.int_value().critical());
+			return "";
+		}
+		std::string get_max() const {
+			if (data.has_float_value())
+				return strEx::s::xtos(data.float_value().maximum());
+			if (data.has_int_value())
+				return strEx::s::xtos(data.int_value().maximum());
+			return "";
+		}
+		std::string get_min() const {
+			if (data.has_float_value())
+				return strEx::s::xtos(data.float_value().minimum());
+			if (data.has_int_value())
+				return strEx::s::xtos(data.int_value().minimum());
+			return "";
+		}
+	};
+	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
+
+	struct filter_obj_handler : public native_context {
+		filter_obj_handler();
+	};
+
+
+	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
+
+	filter_obj_handler::filter_obj_handler() {
+		registry_.add_string()
+			("key", boost::bind(&filter_obj::get_key, _1), "Major version number")
+			("value", boost::bind(&filter_obj::get_value, _1), "Major version number")
+			("unit", boost::bind(&filter_obj::get_unit, _1), "Major version number")
+			("warn", boost::bind(&filter_obj::get_warn, _1), "Major version number")
+			("crit", boost::bind(&filter_obj::get_crit, _1), "Major version number")
+			("max", boost::bind(&filter_obj::get_min, _1), "Major version number")
+			("min", boost::bind(&filter_obj::get_max, _1), "Major version number")
+			("message", boost::bind(&filter_obj::get_key, _1), "Major version number")
+			;
+	}
+}
+
+
+
+void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	modern_filter::data_container data;
+	modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
+
+	std::string command, sort;
+	std::size_t limit;
+	std::vector<std::string> arguments;
+	bool remove_perf = false;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	perf_filter::filter filter;
+	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_syntax("%(status): %(message) %(list)", filter.get_format_syntax(), "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
+	filter_helper.get_desc().add_options()
+		("command",	po::value<std::string>(&command), "Wrapped command to execute")
+		("arguments",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		("remove-perf",	po::bool_switch(&remove_perf), "List of arguments (for wrapped command)")
+		;
+
+	po::positional_options_description p;
+	p.add("arguments", -1);
+
+	if (!filter_helper.parse_options(p))
+		return;
+
+	if (!filter_helper.build_filter(filter))
+		return;
+
+	if (command.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	simple_query(command, arguments, response);
+
+	std::vector<Plugin::Common::PerformanceData> perf;
+	for (int i=0;i<response->perf_size(); i++) {
+		boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(response->perf(i)));
+		filter.match(record);
+	}
+	if (remove_perf)
+		response->clear_perf();
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
+
 }
 

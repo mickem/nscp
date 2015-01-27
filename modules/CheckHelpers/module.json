@@ -46,6 +46,9 @@
 			"alias"		: "negate",
 			"description" : "Run a check and alter the return status codes according to arguments."
 		},
+		"render_perf" : { 
+			"description" : "Run a check and render the performance data as output message."
+		},
 		"check_timeout" : { 
 			"alias"		: "timeout",
 			"description" : "Run a check and timeout after a given amount of time if the check has not returned."

@@ -85,6 +85,19 @@ namespace modern_filter {
 
 		}
 
+		bool parse_options(boost::program_options::positional_options_description p) {
+			boost::program_options::variables_map vm;
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) 
+				return false;
+
+			if (show_all)
+				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
+			if (vm.count("warn"))
+				data.warn_string = vm["warn"].as<std::string>();
+			if (vm.count("crit"))
+				data.crit_string = vm["crit"].as<std::string>();
+			return true;
+		}
 		bool parse_options() {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
