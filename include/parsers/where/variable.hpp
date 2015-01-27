@@ -30,14 +30,13 @@ namespace parsers {
 			simple_int_performance_generator(const std::string unit) : unit(unit), configured(false), ignored(false) {}
 			virtual bool is_configured() { return configured; }
 			virtual void configure(const std::string key, object_factory context) {
-				unit = context->get_performance_config_key(prefix, key, suffix, "unit", unit);
-				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
-				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
-				if (prefix == "none")
-					prefix = "";
-				if (suffix == "none")
-					suffix = "";
-				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+				std::string p = boost::trim_copy(prefix);
+				std::string k = boost::trim_copy(key);
+				std::string s = boost::trim_copy(suffix);
+				unit = context->get_performance_config_key(p, k, s, "unit", unit);
+				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
+				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
 			}
@@ -67,9 +66,12 @@ namespace parsers {
 			percentage_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
 			virtual bool is_configured() { return configured; }
 			virtual void configure(const std::string key, object_factory context) {
-				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
-				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
-				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+				std::string p = boost::trim_copy(prefix);
+				std::string k = boost::trim_copy(key);
+				std::string s = boost::trim_copy(suffix);
+				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
+				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
 			}
@@ -108,10 +110,13 @@ namespace parsers {
 			scaled_byte_int_performance_generator(std::string prefix, std::string suffix) : prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
 			virtual bool is_configured() { return configured; }
 			virtual void configure(const std::string key, object_factory context) {
-				unit = context->get_performance_config_key(prefix, key, suffix, "unit", unit);
-				prefix = context->get_performance_config_key(prefix, key, suffix, "prefix", prefix);
-				suffix = context->get_performance_config_key(prefix, key, suffix, "suffix", suffix);
-				if (context->get_performance_config_key(prefix, key, suffix, "ignored", "false") == "true")
+				std::string p = boost::trim_copy(prefix);
+				std::string k = boost::trim_copy(key);
+				std::string s = boost::trim_copy(suffix);
+				unit = context->get_performance_config_key(p, k, s, "unit", unit);
+				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
+				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
 			}
