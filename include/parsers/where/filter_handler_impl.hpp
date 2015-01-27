@@ -564,11 +564,11 @@ namespace parsers {
 				std::string value = v;
 				bool has_p = !prefix.empty();
 				bool has_s = !suffix.empty();
-				if (has_p&&has_s&&get_performance_config_value(prefix+object+suffix, key, value))
+				if (has_p&&has_s&&get_performance_config_value(prefix+"."+object+"."+suffix, key, value))
 					return value;
-				if (has_p&&get_performance_config_value(prefix+object, key, value))
+				if (has_p&&get_performance_config_value(prefix+"."+object, key, value))
 					return value;
-				if (has_s&&get_performance_config_value(object+suffix, key, value))
+				if (has_s&&get_performance_config_value(object+"."+suffix, key, value))
 					return value;
 				if (has_p&&get_performance_config_value(prefix, key, value))
 					return value;
@@ -581,7 +581,7 @@ namespace parsers {
 				return value;
 			}
 			virtual bool get_performance_config_value(const std::string object, const std::string key, std::string &value) const {
-				perf_options_type::const_iterator cit = perf_options.find(boost::trim_copy(object));
+				perf_options_type::const_iterator cit = perf_options.find(object);
 				if (cit == perf_options.end())
 					return false;
 				perf_object_options_type::const_iterator cit2 = cit->second.find(key);
