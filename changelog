@@ -1,3 +1,11 @@
+2015-02-27 Michael Medin
+ * #91 Added documentation about perf-config (Updated docs)
+ * Fixed selector filtering so all names are trimmed for spaces.
+ * Changed so perf config selectors use dot notation instead of no notation.
+ * Added support for parsing expressions with '' in performance config as well as . and some such in the keywords
+ * Added new utility function render_perf to render performance data in the message.
+ * Added new option to all commands show-default to show the default command line used when a command is invoked.
+
 2015-02-26 Michael Medin
  * Perfdata units (and others) are no longer case sensitive
  * #92 Fixed so triggered services are ignored.
