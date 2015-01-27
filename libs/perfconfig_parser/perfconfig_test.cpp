@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 #include <boost/foreach.hpp>
+#include <boost/version.hpp>
 
 std::string to_string(const parsers::perfconfig::result_type &v) {
 	std::stringstream ss;
@@ -97,6 +98,16 @@ TEST(PerfConfigTest, simple_space_6) {
 	EXPECT_TRUE(do_parse("   foo(  a  :  b  ;  12   : h  h    h )   foo(  a  :  b    k k  )   foo(  a  :  b  )  ", v));
 	ASSERT_EQ(3, v.size());
 	EXPECT_EQ("foo(a:b;12:h  h    h;)foo(a:b    k k;)foo(a:b;)", to_string(v));
+}
+TEST(PerfConfigTest, simple_qoutes) {
+	EXPECT_TRUE(do_parse("foo(a:'b')foo(a:'b    k k')foo(  a  :  'b'; c:'d'  )  ", v));
+	ASSERT_EQ(3, v.size());
+	EXPECT_EQ("foo(a:b;)foo(a:b    k k;)foo(a:b;c:d;)", to_string(v));
+}
+TEST(PerfConfigTest, simple_empty_qoutes) {
+	EXPECT_TRUE(do_parse("foo(a:'')foo(a:'b    k k')foo(  a  :  'b'; c:''  )  ", v));
+	ASSERT_EQ(3, v.size());
+	EXPECT_EQ("foo(a:;)foo(a:b    k k;)foo(a:b;c:;)", to_string(v));
 }
 #endif
 TEST(PerfConfigTest, simple_star_1) {
