@@ -88,19 +88,23 @@ namespace strEx {
 				ss.precision(20);
 			ss << std::noshowpoint << std::fixed << i;
 			std::string s = ss.str();
+			// 12340000.0000
 			std::string::size_type pos = s.find('.');
-			if (pos != std::string::npos && (s.length()-pos) > 6) {
+			if (pos == std::string::npos)
+				return s;
+			if ((s.length()-pos) > 6) {
 				s = s.substr(0, pos+6);
 			}
+			// 12340000.000
 
 			pos = s.find_last_not_of('0');
-			if (pos == std::wstring::npos)
+			if (pos == std::string::npos)
 				return s;
-			if (s[pos] != '.')
-				pos++;
-			return s.substr(0, pos);
+			if (s[pos] == '.')
+				return s.substr(0, pos);
+			// 12340000
+			return s;
 		}
-
 		template<class T>
 		inline void parse_command(const std::string &cmd_line, T &args) {
 			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
