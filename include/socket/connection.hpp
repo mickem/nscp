@@ -236,7 +236,12 @@ namespace socket_helpers {
 				if (!e)
 					parent_type::start();
 				else {
-					parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()));
+					if (ERR_GET_REASON(e.value()) == SSL_R_NO_SHARED_CIPHER) {
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we cant agree on SSL: " + utf8::utf8_from_native(e.message()));
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "PLease review the legacy as well as ssl options in settings.");
+					} else {
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()) + ": " + strEx::s::xtos(ERR_GET_REASON(e.value())));
+					}
 					parent_type::on_done(false);
 				}
 			}
