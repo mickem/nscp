@@ -83,9 +83,6 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("allow nasty characters", sh::bool_key(&allowNasty_, false),
 		"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-		("extended response", sh::bool_key(&multiple_packets_, true),
-		"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client).")
-
 		("performance data", sh::bool_fun_key<bool>(boost::bind(&NRPEServer::set_perf_data, this, _1), true),
 		"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
 
@@ -95,8 +92,20 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 #ifdef USE_SSL
 	if (insecure) {
 		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true, "", "", "ADH");
+
+		settings.alias().add_key_to_settings()
+			("extended response", sh::bool_key(&multiple_packets_, false),
+			"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).")
+			;
+
 	} else {
 		socket_helpers::settings_helper::add_ssl_server_opts(settings, info_, true);
+
+		settings.alias().add_key_to_settings()
+			("extended response", sh::bool_key(&multiple_packets_, true),
+			"EXTENDED RESPONSE", "Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).")
+			;
+
 	}
 #endif
 
