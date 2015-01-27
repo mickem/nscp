@@ -1,3 +1,32 @@
+2015-02-26 Michael Medin
+ * Perfdata units (and others) are no longer case sensitive
+ * #92 Fixed so triggered services are ignored.
+ * refactored fetch delayed into a function
+ * Added trigger start support (for real this time, honest... i promise!!!)
+ * Fixed missing return statement
+ * Fixed compiler warning about unused variable
+
+2015-02-23 Michael Medin
+ * Fixed unix checks to work with new arguments
+
+2015-02-22 Michael Medin
+ * Implemented empty syntax as a proper syntax string (i.e replacement variables)
+ * Added support for empty-state (should work now)
+ * Implemented ok-syntax in most checks to make the ok message a bit nicer...
+ * #78 removed the delayed() from ok message
+
+2015-02-20 - MilanDadok
+ * 0.4.3.88 flags property of PDH counter can be specified as check_pdh argumnet, but not in INI
+ * 0.4.3.88 PDH counter with rrd buffer will return oldest value from buffer as current/actual value
+ * 0.4.3.88 Cannot add second PDH counter to INI
+
+2015-02-20 - brunoqc
+ * Fix typo in create_plugin_module.py
+ * Return result from check_nrpe
+
+2015-02-20 Michael Medin
+ * removed --format from docs.py since there is only one format
+
 2015-01-11 Michael Medin
  * Added new options to disable sslv2 and sslv3 (enabled by default in secure/safe mode)
 
