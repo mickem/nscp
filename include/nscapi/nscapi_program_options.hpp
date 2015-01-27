@@ -112,6 +112,7 @@ namespace nscapi {
 			desc.add_options()
 				("help",		"Show help screen (this screen)")
 				("help-pb",		"Show help screen as a protocol buffer payload")
+				("show-default","Show default values for a given command")
 				("help-short",	"Show help screen (short format).")
 				;
 		}
@@ -426,6 +427,7 @@ namespace nscapi {
 			return main_stream.str();
 		}
 
+
 		inline std::string help_pb(const boost::program_options::options_description &desc) {
 			::Plugin::Registry::ParameterDetails details;
 			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
@@ -437,15 +439,27 @@ namespace nscapi {
 					detail->set_default_value(strip_default_value(op->format_parameter()));
 				} else
 					detail->set_content_type(Plugin::Common::BOOL);
-                std::string desc =op->description();
-                std::string::size_type pos = desc.find("\n");
-                if (pos == std::string::npos)
-                    detail->set_short_description(desc);
-                else
-                    detail->set_short_description(desc.substr(0, pos));
+				std::string desc =op->description();
+				std::string::size_type pos = desc.find("\n");
+				if (pos == std::string::npos)
+					detail->set_short_description(desc);
+				else
+					detail->set_short_description(desc.substr(0, pos));
 				detail->set_long_description(desc);
 			}
 			return details.SerializeAsString();
+		}
+
+		inline std::string help_show_default(const boost::program_options::options_description &desc) {
+			std::stringstream ret;
+			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+				std::string param = strip_default_value(op->format_parameter());
+				if (param.empty())
+					continue;
+				ret << "\"" << op->long_name() << "=";
+				ret << param << "\" ";
+			}
+			return ret.str();
 		}
 
 		typedef std::vector<std::string> unrecognized_map;
@@ -500,6 +514,10 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
+				if (vm.count("show-default")) {
+					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+					return false;
+				}
 				if (vm.count("help-pb")) {
 					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
@@ -536,6 +554,10 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
+				if (vm.count("show-default")) {
+					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+					return false;
+				}
 				if (vm.count("help-pb")) {
 					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
@@ -572,6 +594,10 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
+				if (vm.count("show-default")) {
+					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+					return false;
+				}
 				if (vm.count("help-pb")) {
 					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
@@ -609,6 +635,10 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
+				if (vm.count("show-default")) {
+					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+					return false;
+				}
 				if (vm.count("help-pb")) {
 					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
 					return false;
