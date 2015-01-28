@@ -231,6 +231,10 @@ public:
 			settings.register_all();
 			settings.notify();
 
+#ifdef WIN32
+			if (ret.file == "/nsclient.log")
+				ret.file = "${exe-path}/nsclient.log";
+#endif
 			ret.file = mainClient->expand_path(ret.file);
 
 		} catch (nscapi::nscapi_exception &e) {
