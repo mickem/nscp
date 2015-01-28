@@ -96,10 +96,10 @@ TEST(format, strex_s__xtos_no_sci_float_0) {
 	EXPECT_EQ(strEx::s::xtos_non_sci(9223372036854775807.0), "9223372036854775800");
 }
 TEST(format, strex_s__xtos_no_sci_float_1) {
-	EXPECT_EQ(strEx::s::xtos_non_sci(0.339), "0.33900");
+	EXPECT_EQ(strEx::s::xtos_non_sci(0.339), "0.339");
 	EXPECT_EQ(strEx::s::xtos_non_sci(1000.344585858585858585858585585), "1000.34458");
 	EXPECT_EQ(strEx::s::xtos_non_sci(10230000.3333333333333333333333), "10230000.33333");
-	EXPECT_EQ(strEx::s::xtos_non_sci(1024000000000.13123123123123), "1024000000000.13120");
+	EXPECT_EQ(strEx::s::xtos_non_sci(1024000000000.13123123123123), "1024000000000.1312");
 	EXPECT_EQ(strEx::s::xtos_non_sci(1024000000000000000.13123123123123), "1024000000000000000");
 	EXPECT_EQ(strEx::s::xtos_non_sci(9223.13123432423423), "9223.13123");
 	EXPECT_EQ(strEx::s::xtos_non_sci(92233720.234324234234234), "92233720.23432");
