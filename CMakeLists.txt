@@ -347,7 +347,7 @@ IF(WIN32)
 	SET(CONFIG_CERT_FOLDER				"\${shared-path}/security" CACHE STRING "securoty (certificates) folder")
 	SET(CONFIG_DEFAULT_CACHE_PATH		"\${shared-path}/cache" CACHE STRING "Path for caching stuff")
 	SET(CONFIG_LOG_FOLDER				"\${shared-path}/log" CACHE STRING "Path for log files")
-	SET(CONFIG_DEFAULT_LOG_LOCATION		"${exe-path}/nsclient.log" CACHE STRING "PAth for log file")
+	SET(CONFIG_DEFAULT_LOG_LOCATION		"\${exe-path}/nsclient.log" CACHE STRING "PAth for log file")
 ELSE()
 	SET(INSTALL_FILES_BASE				"share/nsclient/")
 
