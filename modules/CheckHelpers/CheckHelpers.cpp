@@ -428,8 +428,7 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 	modern_filter::data_container data;
 	modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
 
-	std::string command, sort;
-	std::size_t limit;
+	std::string command;
 	std::vector<std::string> arguments;
 	bool remove_perf = false;
 	po::options_description desc = nscapi::program_options::create_desc(request);
@@ -455,13 +454,85 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
 
-	std::vector<Plugin::Common::PerformanceData> perf;
 	for (int i=0;i<response->perf_size(); i++) {
 		boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(response->perf(i)));
 		filter.match(record);
 	}
 	if (remove_perf)
 		response->clear_perf();
+	modern_filter::perf_writer writer(response);
+	filter_helper.post_process(filter, &writer);
+
+}
+
+
+void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
+	modern_filter::data_container data;
+	modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
+
+	std::string command, mode, field, replace;
+	std::vector<std::string> arguments;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	perf_filter::filter filter;
+	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_syntax("%(status): %(message) %(list)", filter.get_format_syntax(), "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
+	filter_helper.get_desc().add_options()
+		("command",	po::value<std::string>(&command), "Wrapped command to execute")
+		("arguments",	po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		("mode",	po::value<std::string>(&mode), "Transformation mode (currently only supports extract)")
+		("field",	po::value<std::string>(&field), "Field to work with (value, warn, crit, max, min)")
+		("replace",	po::value<std::string>(&replace), "Replace expression for the alias")
+		;
+
+	po::positional_options_description p;
+	p.add("arguments", -1);
+
+	if (!filter_helper.parse_options(p))
+		return;
+
+	if (!filter_helper.build_filter(filter))
+		return;
+
+	if (command.empty())
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+	simple_query(command, arguments, response);
+	
+	std::vector<std::string> repl;
+	boost::split(repl,replace,boost::is_any_of("="));
+	if (repl.size() != 2)
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid syntax replace string", *response);
+
+	if (mode == "extract") {
+		std::vector<Plugin::Common::PerformanceData> perf;
+		for (int i=0;i<response->perf_size(); i++) {
+			const Plugin::Common::PerformanceData &cp = response->perf(i);
+			Plugin::Common::PerformanceData np;
+			np.CopyFrom(cp);
+			np.set_alias(boost::replace_all_copy(cp.alias(), repl[0], repl[1]));
+			if (field == "max") {
+				if (cp.has_int_value()) {
+					np.mutable_int_value()->set_value(cp.int_value().maximum());
+					perf.push_back(np);
+				} else if (cp.has_float_value()) {
+					np.mutable_float_value()->set_value(cp.float_value().maximum());
+					perf.push_back(np);
+				}
+			} else if (field == "min") {
+				if (cp.has_int_value()) {
+					np.mutable_int_value()->set_value(cp.int_value().minimum());
+					perf.push_back(np);
+				} else if (cp.has_float_value()) {
+					np.mutable_float_value()->set_value(cp.float_value().minimum());
+					perf.push_back(np);
+				}
+			}
+		}
+		BOOST_FOREACH(const Plugin::Common::PerformanceData &p, perf) {
+			response->add_perf()->CopyFrom(p);
+		}
+	} else {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid mode specified", *response);
+	}
 	modern_filter::perf_writer writer(response);
 	filter_helper.post_process(filter, &writer);
 

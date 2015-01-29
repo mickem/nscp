@@ -49,6 +49,9 @@
 		"render_perf" : { 
 			"description" : "Run a check and render the performance data as output message."
 		},
+		"xform_perf" : { 
+			"description" : "Run a check and transform the performance data in various (currently one) way."
+		},
 		"check_timeout" : { 
 			"alias"		: "timeout",
 			"description" : "Run a check and timeout after a given amount of time if the check has not returned."
