@@ -371,6 +371,10 @@ namespace windows {
 #define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
 	std::vector<system_info::pagefile_info> system_info::get_pagefile_info() {
 		std::vector<system_info::pagefile_info> ret;
+
+		SYSTEM_INFO si;
+		GetSystemInfo(&si);
+
 		hlp::buffer<BYTE,LPVOID> buffer(4096);
 		DWORD retLen = 0;
 		NTSTATUS status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
@@ -384,12 +388,9 @@ namespace windows {
 		while (true) {
 			windows::winapi::SYSTEM_PAGEFILE_INFORMATION *info = buffer.get_t<windows::winapi::SYSTEM_PAGEFILE_INFORMATION*>(offset);
 			system_info::pagefile_info data(utf8::cvt<std::string>(std::wstring(info->PageFileName.Buffer)));
-			data.peak_usage = info->PeakUsage;
-			data.usage = info->TotalInUse;
-			data.size = info->TotalSize;
-			data.peak_usage*=8*1024;
-			data.usage*=8*1024;
-			data.size*=8*1024;
+			data.peak_usage = static_cast<long long>(info->PeakUsage)*static_cast<long long>(si.dwPageSize);
+			data.usage = static_cast<long long>(info->TotalInUse)*static_cast<long long>(si.dwPageSize);
+			data.size = static_cast<long long>(info->TotalSize)*static_cast<long long>(si.dwPageSize);
 			ret.push_back(data);
 			if (info->NextEntryOffset == 0)
 				break;
