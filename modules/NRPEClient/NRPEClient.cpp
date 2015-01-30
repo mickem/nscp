@@ -207,7 +207,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	q.get(path, "allow nasty characters", false);
 	q.get(path, "allowed ciphers", "");
 	q.get(path, "verify mode", verify);
-	q.get(path, "ssl options", verify);
+	q.get(path, "ssl options", "");
 
 	
 	get_core()->settings_query(q.request(), q.response());
@@ -248,7 +248,9 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	if (chipers == "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH") 
 		insecure = "false";
 	if (insecure == "false" && sslops != "no-sslv2,no-sslv3")
-		result << "WARNING: Inconsistent ssl options (will overwrite): " << sslops << "\n";
+		result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with no-sslv2,no-sslv3\n";
+	if (insecure == "true" && sslops != "")
+		result << "WARNING: Inconsistent ssl options will overwrite: " << sslops << " with \"\"\n";
 
 
 	desc.add_options()
