@@ -1,3 +1,22 @@
+2015-02-30 Michael Medin
+ * Fixed some inconsistencies with the installer NRPE configurator
+ * Fixed some issues with nrpe installer and ssl options
+
+2015-02-29 Michael Medin
+ * #91 Added new command xform_perf which can transform performance data (currently only supports extracting maximum/minimum from int/float values)
+ * #96 Fixed pagefile size block conversion using the actual architecture value
+
+2015-02-28 Michael Medin
+ * #49 Fixed issue with rounding performance data (take 2)
+ * #94 Fixed so log file is reverted to real default is the wrong one is used.
+
+2015-02-27 Michael Medin
+ * #94 Fixed default log file location
+ * #49 Fixed issue with rounding performance data
+ * Added test cases for rounding performance data
+ * #83 Fixed issue with invalid packet type (the default for extended response is now disabled in "insecure mode")
+ * Improved error message for ssl errors (which are now likely due to the insecure option)
+
 2015-02-27 Michael Medin
  * #91 Added documentation about perf-config (Updated docs)
  * Fixed selector filtering so all names are trimmed for spaces.
