@@ -355,10 +355,14 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		}
 		if (h.getPropery(_T("CONF_NRPE")) == _T("1")) {
 			std::wstring mode = h.getPropery(_T("NRPEMODE"));
-			if (mode == _T("LEGACY"))
+			if (mode == _T("LEGACY")) {
 				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("true"));
-			else
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T(""));
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T(""));
+			} else {
 				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("false"));
+				write_key(data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T("no-sslv2,no-sslv3"));
+			}
 			if (mode == _T("SAFE"))
 				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("peer-cert"));
 			else
