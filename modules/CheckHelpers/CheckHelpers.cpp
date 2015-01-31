@@ -110,14 +110,11 @@ bool CheckHelpers::simple_query(const std::string &command, const std::vector<st
 void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response)  {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	std::vector<std::string> args;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, args)) 
 		return;
-	if (request.arguments_size() == 0)
-		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	std::string command = request.arguments(0);
-	std::vector<std::string> arguments;
-	for (int i=1;i<request.arguments_size();i++)
-		arguments.push_back(request.arguments(i));
+	std::string command = args.front();
+	std::vector<std::string> arguments(args.begin()+1, args.end());
 	Plugin::QueryResponseMessage::Response local_response;
 	if (!simple_query(command, arguments, &local_response))
 		return;
