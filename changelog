@@ -1,4 +1,12 @@
+2015-01-31 Michael Medin
+ * Fixed check_process issues
+ * Fixed all check_always_xxx commands so they work again...
+ * Added support for arrays and rendering invalid columns
+ * #81 Fixed so check_wmi will work without warn/crit and changed so default formatting displayes all rows
+ * #98 Fixed so ok syntax is not used if you have customized the regular output to contain all data
+
 2015-02-30 Michael Medin
+ * tried to fix floating point plattforma independent issues a but ugly...
  * Fixed some inconsistencies with the installer NRPE configurator
  * Fixed some issues with nrpe installer and ssl options
 
