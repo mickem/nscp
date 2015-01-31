@@ -124,6 +124,21 @@ namespace wmi_impl {
 			throw wmi_exception("Failed to get value for " + col + ": ", hr);
 		if (vValue.vt == VT_NULL)
 			return "<NULL>";
+
+		if (vValue.vt == (VT_ARRAY|VT_BSTR)) {
+			long begin, end;
+			CComSafeArray<BSTR> arr(vValue.parray);
+			begin = arr.GetLowerBound();
+			end = arr.GetUpperBound();
+			std::stringstream ss;
+			ss << "[";
+			for (long index = begin; index <= end; index++ ) {
+				CComBSTR bColumn = arr.GetAt(index);
+				ss << utf8::cvt<std::string>(bColumn.m_str) << ", ";
+			}
+			ss << "]";
+			return ss.str();
+		}
 		hr = vValue.ChangeType(VT_BSTR);
 		if (FAILED(hr))
 			throw wmi_exception("Failed to convert " + col + " to string: ", hr);
@@ -139,7 +154,11 @@ namespace wmi_impl {
 				first = false;
 			else
 				ss << ", ";
-			ss << get_string(c);
+			try {
+				ss << get_string(c);
+			} catch (...) {
+				ss << "???";
+			}
 		}
 		return ss.str();
 	}
