@@ -120,6 +120,9 @@ namespace wmi_filter {
 		std::string get_string(const std::string col) const {
 			return row.get_string(col);
 		}
+		std::string get_row() const {
+			return row.to_string();
+		}
 		long long get_int(const std::string col) const {
 			return row.get_int(col);
 		}
@@ -146,7 +149,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${list}", filter.get_format_syntax(), "CHANGE ME", "", "", "");
+	filter_helper.add_syntax("${list}", filter.get_format_syntax(), "%(line)", "", "", "");
 	filter_helper.get_desc().add_options()
 		("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
 		("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")
@@ -160,8 +163,6 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 
 	if (query.empty())
 		return nscapi::protobuf::functions::set_response_bad(*response, "No query specified");
-	if (filter_helper.empty())
-		return nscapi::protobuf::functions::set_response_bad(*response, "No checks specified add warn/crit boundries");
 
 	if (!given_target.empty()) {
 		t = targets.find(given_target);
@@ -174,6 +175,8 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	try {
 		ns = build_namespace(ns, target_info.hostname);
 		wmi_impl::query wmiQuery(query, ns, target_info.username, target_info.password);
+		filter.context->registry_.add_string()
+			("line", boost::bind(&wmi_filter::filter_obj::get_row, _1), "Get a list of all columns");
 		BOOST_FOREACH(const std::string &col, wmiQuery.get_columns()) {
 			filter.context->registry_.add_int()
 				(col, boost::bind(&wmi_filter::filter_obj::get_int, _1, col), boost::bind(&wmi_filter::filter_obj::get_string, _1, col), "Column: " + col).add_perf("", col, "");

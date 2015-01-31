@@ -87,14 +87,18 @@ namespace wmi_impl {
 
 	struct row {
 		CComPtr<IWbemClassObject> row_obj;
+		const std::list<std::string> &columns;
+		row(const std::list<std::string> &columns): columns(columns) {}
 
 		std::string get_string(const std::string col);
+		std::string to_string();
 		long long get_int(const std::string col);
 	};
 
 	struct row_enumerator {
 		row row_instance;
 		CComPtr<IEnumWbemClassObject> enumerator_obj;
+		row_enumerator(const std::list<std::string> &columns) : row_instance(columns) {}
 		bool has_next();
 		row& get_next();
 
@@ -116,6 +120,7 @@ namespace wmi_impl {
 	struct query {
 		std::string wql_query;
 		wmi_service instance;
+		std::list<std::string> columns;
 		query(std::string wql_query, std::string ns, std::string username, std::string password) : wql_query(wql_query), instance(ns, username, password) {}
 
 		std::list<std::string> get_columns();
@@ -126,12 +131,14 @@ namespace wmi_impl {
 	struct instances {
 		std::string super_class;
 		wmi_service instance;
+		std::list<std::string> columns;
 		instances(std::string super_class, std::string ns, std::string username, std::string password) : super_class(super_class), instance(ns, username, password) {}
 		row_enumerator get();
 	};
 	struct classes {
 		std::string super_class;
 		wmi_service instance;
+		std::list<std::string> columns;
 		classes(std::string super_class, std::string ns, std::string username, std::string password) : super_class(super_class), instance(ns, username, password) {}
 		row_enumerator get();
 	};

@@ -131,6 +131,19 @@ namespace wmi_impl {
 		return utf8::cvt<std::string>(wstr);
 	}
 
+	std::string row::to_string() {
+		std::stringstream ss;
+		bool first = true;
+		BOOST_FOREACH(const std::string c, columns) {
+			if (first)
+				first = false;
+			else
+				ss << ", ";
+			ss << get_string(c);
+		}
+		return ss.str();
+	}
+
 	long long row::get_int(const std::string col) {
 		CComBSTR bCol(utf8::cvt<std::wstring>(col).c_str());
 		CComVariant vValue;
@@ -187,7 +200,7 @@ namespace wmi_impl {
 		return ret;
 	}
 	row_enumerator query::execute() {
-		row_enumerator ret;
+		row_enumerator ret(columns);
 		BSTR strQL = _T("WQL");
 		CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
@@ -198,7 +211,7 @@ namespace wmi_impl {
 	}
 
 	row_enumerator classes::get() {
-		row_enumerator ret;
+		row_enumerator ret(columns);
 		CComBSTR strSuperClass = utf8::cvt<std::wstring>(super_class).c_str();
 		CComPtr<IEnumWbemClassObject> enumerator;
 		HRESULT hr = instance.get()->CreateClassEnum(strSuperClass,WBEM_FLAG_DEEP|WBEM_FLAG_USE_AMENDED_QUALIFIERS|WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
@@ -208,7 +221,7 @@ namespace wmi_impl {
 	}
 
 	row_enumerator instances::get() {
-		row_enumerator ret;
+		row_enumerator ret(columns);
 		CComBSTR strSuperClass = utf8::cvt<std::wstring>(super_class).c_str();
 		CComPtr<IEnumWbemClassObject> enumerator;
 		HRESULT hr = instance.get()->CreateInstanceEnum(strSuperClass,WBEM_FLAG_SHALLOW|WBEM_FLAG_USE_AMENDED_QUALIFIERS|WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
@@ -218,7 +231,8 @@ namespace wmi_impl {
 	}
 	
 	std::list<std::string> query::get_columns() {
-		std::list<std::string> ret;
+		if (!columns.empty())
+			return columns;
 		BSTR strQL = _T("WQL");
 		CComBSTR strQuery(utf8::cvt<std::wstring>(wql_query).c_str());
 
@@ -226,7 +240,8 @@ namespace wmi_impl {
 		HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_PROTOTYPE, NULL, &enumerator.enumerator_obj);
 		if (FAILED(hr))
 			throw wmi_exception("Failed to execute query: " + ComError::getComError(ComError::getWMIError(hr)));
-		return enumerator.get();
+		columns = enumerator.get();
+		return columns;
 	}
 
 	std::string ComError::getComError(std::wstring inDesc /*= _T("")*/)
