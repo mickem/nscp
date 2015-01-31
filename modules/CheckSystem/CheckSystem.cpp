@@ -933,18 +933,27 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 
 	} else {
 		request.add_arguments("detail-syntax=${exe} : ${state}");
-		if (crit.empty())
-			crit = "crit=";
-		BOOST_FOREACH(const std::string &s, extra) {
-			std::string::size_type pos = s.find('=');
-			if (pos != std::string::npos) {
-				request.add_arguments("process=" + s.substr(0, pos));
-				strEx::append_list(crit, "(exe like '" + s.substr(0, pos) + "' and state != '" + s.substr(pos+1) +"')", " or ");
-			} else {
-				request.add_arguments("process=" + s);
-				strEx::append_list(crit, "(exe like '" + s + "' and state != 'started')", " or ");
+		std::string tmp;
+		BOOST_FOREACH(const std::string &rpn, extra) {
+			std::string pn = boost::trim_copy(rpn);
+			if (!pn.empty()) {
+				std::string::size_type pos = pn.find('=');
+				if (pos != std::string::npos) {
+					request.add_arguments("process=" + pn.substr(0, pos));
+					strEx::append_list(tmp, "(exe like '" + pn.substr(0, pos) + "' and state != '" + pn.substr(pos+1) +"')", " or ");
+				} else {
+					request.add_arguments("process=" + pn);
+					strEx::append_list(tmp, "(exe like '" + pn + "' and state != 'started')", " or ");
+				}
 			}
 		}
+		if (!tmp.empty()) {
+			if (crit.empty())
+				crit = "crit=" + tmp;
+			else
+				crit += tmp;
+		}
+
 	}
 	compat::inline_addarg(request, warn);
 	compat::inline_addarg(request, crit);
