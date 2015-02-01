@@ -15,7 +15,7 @@
 #include <file_helpers.hpp>
 #include <strEx.h>
 
-#ifdef HAVE_BREAKPAD
+#ifdef USE_BREAKPAD
 #include <client/windows/sender/crash_report_sender.cc>
 #endif
 
@@ -140,21 +140,20 @@ int send_dump(std::string file, std::string application, std::string version, st
 
 
 bool SendMinidump(std::string file, std::string product, std::string version, std::string date, std::string url, std::string &err) {
-#ifdef HAVE_BREAKPAD
+#ifdef USE_BREAKPAD
 	google_breakpad::CrashReportSender sender(L"");
-	//std::string url = L"http://crash.nsclient.org/submit";
-	std::map<std::string,std::string> params;
-	std::string ret;
-	params["ProductName"] = product;
-	params["Version"] = version;
-	params["Date"] = date;
+	std::map<std::wstring,std::wstring> params;
+	std::wstring ret;
+	params[L"ProductName"] = utf8::cvt<std::wstring>(product);
+	params[L"Version"] = utf8::cvt<std::wstring>(version);
+	params[L"Date"] = utf8::cvt<std::wstring>(date);
 
 
-	google_breakpad::ReportResult result = sender.SendCrashReport(url, params, file, &ret);
-	err = ret;
+	google_breakpad::ReportResult result = sender.SendCrashReport(utf8::cvt<std::wstring>(url), params, utf8::cvt<std::wstring>(file), &ret);
+	err = utf8::cvt<std::string>(ret);
 	return result == google_breakpad::RESULT_SUCCEEDED;
 #else
-	std::cerr << L"Not compiled with protocol buffer support...\n";
+	std::cerr << "Not compiled with protocol buffer support...\n";
 	return false;
 #endif
 }
