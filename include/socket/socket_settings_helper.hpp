@@ -39,7 +39,7 @@ namespace socket_helpers {
 				"CA", "", true)
 
 				("allowed ciphers", nscapi::settings_helper::string_key(&info_.ssl.allowed_ciphers, default_cipher),
-				"ALLOWED CIPHERS", "", true)
+				"ALLOWED CIPHERS", "The chipers which are allowed to be used.\nThe default here will differ is used in \"insecure\" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html", true)
 
 				("verify mode", nscapi::settings_helper::string_key(&info_.ssl.verify_mode, "none"),
 				"VERIFY MODE", "Comma separated list of verification flags to set on the SSL socket.\n\n"
