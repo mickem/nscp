@@ -94,7 +94,7 @@ if BREAKPAD_FOUND == "TRUE":
 			try:
 				# MODULE windows x86 1FD4DBADB2B446CA81E0F689BE0FFCA61c nscp.pdb
 				(module, tos, tarch, guid, name) = head.split(' ')
-				name = '%s/%s/%s'%(name, guid, os.path.basename(out))
+				name = 'NSCP.breakpad.syms/%s/%s/%s'%(name, guid, os.path.basename(out))
 			except:
 				print 'Error failed to parse: %s'%out
 			
