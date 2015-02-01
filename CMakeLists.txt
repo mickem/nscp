@@ -331,7 +331,7 @@ SET(CONFIG_DEFAULT_SERVICE_DESC "Monitoring Agent (Provides performance data for
 SET(CONFIG_DEFAULT_SERVICE_DEPS "" CACHE STRING "Any service dependencies to use for the default service")
 
 SET(CONFIG_CRASH_SUBMIT_URL "http://crash.nsclient.org/submit" CACHE STRING "Where to submit crash dump files")
-SET(CONFIG_CRASH_ARCHIVE_FOLDER "\${shared-path}crash-dumps" CACHE STRING "Where to archive chras dump files on the local filesystem")
+SET(CONFIG_CRASH_ARCHIVE_FOLDER "\${shared-path}/crash-dumps" CACHE STRING "Where to archive chras dump files on the local filesystem")
 
 SET(CONFIG_DEFAULT_CONF_REG_LOCATION	"registry://HKEY_LOCAL_MACHINE/software/NSClient++" CACHE STRING "Default location for registry based settings")
 SET(CONFIG_DEFAULT_CONF_OLD_LOCATION	"old://\${exe-path}/nsc.ini" CACHE STRING "Default location for old config file")
