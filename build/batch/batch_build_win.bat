@@ -12,9 +12,15 @@ cd %ROOT%\x64\dist
 if %ERRORLEVEL% == 1 goto :error
 
 title Generating x64 
+IF "%1"=="same" GOTO no_bump
+echo "Bumping version"
 cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
-; cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
+goto done_cmake
+:no_bump
+cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
+if %ERRORLEVEL% == 1 goto :error
+:done_cmake
 
 title Building x64 
 msbuild /p:Configuration=RelWithDebInfo /p:Platform=x64 NSCP.sln
