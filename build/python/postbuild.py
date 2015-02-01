@@ -44,7 +44,14 @@ def find_target(key=None):
 
 def scp_file(file):
 	tfile = os.path.basename(file)
-	(name, version, arch) = tfile.split('-')
+	list = tfile.split('-')
+	if len(list) < 3:
+		print 'Ignoring invalid file: %s'%name
+		return
+	
+	name = list[0]
+	version = list[1]
+	arch = list[2]
 	target = None
 	print 'Found installer %s'%name
 	target = find_target(name)
@@ -66,10 +73,12 @@ def find_by_pattern(path, pattern):
 	for root, dirnames, filenames in os.walk(path):
 		if '_CPack_Packages' not in root:
 			for filename in fnmatch.filter(filenames, pattern):
+				if filename == "vc110.pdb":
+					continue
 				matches.append(os.path.join(root, filename))
 	return matches
 	
-target_name = 'NSCP-%s-%s_symbols.zip'%(vstring, VERSION_ARCH)
+target_name = 'NSCP-%s-%s-symbols.zip'%(vstring, VERSION_ARCH)
 
 if BREAKPAD_FOUND == "TRUE":
 	print "Gathering symbols into %s"%target_name
@@ -118,3 +127,70 @@ try:
 			scp_file(f)
 except NameError, e:
 	print 'TARGET_SITE not defined so we wont upload anything: %s'%e
+
+	
+def create_token():
+	from github3 import authorize
+	from getpass import getuser, getpass
+
+	user = getuser()
+	print "Enter github username [%s]:"%user,
+	tmp = raw_input()
+	if tmp:
+		user = tmp
+	password = ''
+
+	while not password:
+		password = getpass('Password for {0}: '.format(user))
+
+	scopes = ['user', 'repo']
+	auth = authorize(user, password, scopes, 'NSClient++ builder', 'http://nsclient.org')
+	print auth.as_json()
+
+	with open(CREDENTIALS_FILE, 'w') as fd:
+		fd.write('%s\n'%auth.token)
+		fd.write('%s'%auth.id)
+
+def get_github_token():
+	print "Connecting to github..."
+	from github3 import login
+	
+	if not os.path.exists(CREDENTIALS_FILE):
+		create_token()
+	token = id = ''
+	with open(CREDENTIALS_FILE, 'r') as fd:
+		token = fd.readline().strip()  # Can't hurt to be paranoid
+		id = fd.readline().strip()
+
+	print "Logging in..."
+	gh = login(token=token)
+	return gh
+
+def create_release():
+	gh = get_github_token()
+	repository = gh.repository('mickem', 'nscp')
+	name = vstring
+	release = None
+	for r in repository.releases():
+		if r.name == name:
+			release = r
+			print "Found old release v%s..."%vstring
+			break
+	
+	if not release:
+		print "Creating release v%s..."%vstring
+		release = repository.create_release('%s'%vstring, 'master', name, 'PLEASE UPDATE!', True)
+	files = [ 'nscp-%s-%s.zip'%(vstring, VERSION_ARCH) ]
+	if BREAKPAD_FOUND == "TRUE":
+		files.append(target_name)
+
+	for a in release.assets():
+		if a.name in files:
+			print "Deleting old file %s..."%name
+			a.delete()
+	for f in files:
+		print "Uploading %s..."%f
+		with open(f, "rb") as fd:
+			release.upload_asset('application/zip', f, fd.read())
+		
+create_release()
