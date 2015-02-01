@@ -144,9 +144,10 @@ bool SendMinidump(std::string file, std::string product, std::string version, st
 	google_breakpad::CrashReportSender sender(L"");
 	std::map<std::wstring,std::wstring> params;
 	std::wstring ret;
-	params[L"ProductName"] = utf8::cvt<std::wstring>(product);
-	params[L"Version"] = utf8::cvt<std::wstring>(version);
+	params[L"prod"] = utf8::cvt<std::wstring>(product);
+	params[L"ver"] = utf8::cvt<std::wstring>(version);
 	params[L"Date"] = utf8::cvt<std::wstring>(date);
+	params[L"user-agent"] = L"NSClient++ crash reporter";
 
 
 	google_breakpad::ReportResult result = sender.SendCrashReport(utf8::cvt<std::wstring>(url), params, utf8::cvt<std::wstring>(file), &ret);
