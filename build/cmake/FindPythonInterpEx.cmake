@@ -32,18 +32,28 @@ foreach(_CURRENT_VERSION ${_Python_VERSIONS})
   if(WIN32)
     list(APPEND _Python_NAMES python)
   endif()
-  find_program(PYTHON_EXECUTABLE
-    NAMES ${_Python_NAMES}
-    PATHS 
-	  ${PYTHON_ROOT}
-      #[HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]
-    )
+   if(NOT PYTHON_EXECUTABLE)
+    find_program(PYTHON_EXECUTABLE
+      NO_DEFAULT_PATH 
+      NAMES ${_Python_NAMES}
+      PATHS 
+        ${PYTHON_ROOT}
+        #[HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]
+      )
+  endif()
+  if(NOT PYTHON_EXECUTABLE)
+    find_program(PYTHON_EXECUTABLE
+      NAMES ${_Python_NAMES}
+      PATHS 
+        ${PYTHON_ROOT}
+        #[HKEY_LOCAL_MACHINE\\SOFTWARE\\Python\\PythonCore\\${_CURRENT_VERSION}\\InstallPath]
+      )
+  endif()
 endforeach()
 # Now without any version if we still haven't found it
 if(NOT PYTHON_EXECUTABLE)
   find_program(PYTHON_EXECUTABLE NAMES python)
 endif()
-
 
 # handle the QUIETLY and REQUIRED arguments and set PYTHONINTERP_FOUND to TRUE if
 # all listed variables are TRUE
