@@ -2,56 +2,94 @@
 SET ROOT=D:\source\build
 SET SOURCE=D:\source\nscp
 
+GOTO :start
+
+:mk_dirs
+SETLOCAL
+SET ENV=%1
+ECHO Creating folders for %ENV%
+title Creating folders for %ENV%
 mkdir %ROOT%
-mkdir %ROOT%\x64
-mkdir %ROOT%\w32
-mkdir %ROOT%\x64\dist
-mkdir %ROOT%\w32\dist
+mkdir %ROOT%\%ENV%
+mkdir %ROOT%\%ENV%\dist
+ENDLOCAL
+GOTO :EOF
 
-cd %ROOT%\x64\dist
+:bump_version
+SETLOCAL
+SET ENV=%1
+SET GENERATOR=%2
+ECHO Bumping version %ENV% (%GENERATOR%)
+title Bumping version %ENV% (%GENERATOR%)
+cd %ROOT%\%ENV%\dist
 if %ERRORLEVEL% == 1 goto :error
+cmake -D INCREASE_BUILD=1 -G %GENERATOR% -T v110_xp %SOURCE%
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
 
-title Generating x64 
+:build
+SETLOCAL
+SET ENV=%1
+SET GENERATOR=%2
+ECHO Building %ENV% (%GENERATOR%)
+title Building %ENV% (%GENERATOR%)
+cd %ROOT%\%ENV%\dist
+if %ERRORLEVEL% == 1 goto :error
+msbuild /p:Configuration=RelWithDebInfo /p:Platform=%GENERATOR% NSCP.sln
+if %ERRORLEVEL% == 1 goto :error
+ECHO Packaging %ENV%
+title Packaging %ENV%
+cpack
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
+
+:post_build
+SETLOCAL
+SET ENV=%1
+ECHO Post build %ENV%
+title Post build %ENV%
+cd %ROOT%\%ENV%\dist
+if %ERRORLEVEL% == 1 goto :error
+call postbuild.bat
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
+
+:configure
+SETLOCAL
+SET ENV=%1
+SET GENERATOR=%2
+title Configuring %ENV% using %GENERATOR% (%ROOT%)
+ECHO Configuring %ENV% using %GENERATOR% (%ROOT%)
+cd %ROOT%\%ENV%\dist
+if %ERRORLEVEL% == 1 goto :error
+cmake -D INCREASE_BUILD=0 -G %GENERATOR% -T v110_xp %SOURCE%
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
+
+:start
+
+:mk_dirs x64
+:mk_dirs w32
+
 IF "%1"=="same" GOTO no_bump
-echo "Bumping version"
-cmake -D INCREASE_BUILD=1 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
-if %ERRORLEVEL% == 1 goto :error
-goto done_cmake
+call :bump_version x64 "Visual Studio 11 Win64"
 :no_bump
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11 Win64" -T v110_xp %SOURCE%
-if %ERRORLEVEL% == 1 goto :error
-:done_cmake
 
-title Building x64 
-msbuild /p:Configuration=RelWithDebInfo /p:Platform=x64 NSCP.sln
-if %ERRORLEVEL% == 1 goto :error
+call :configure x64 "Visual Studio 11 Win64"
+call :configure w32 "Visual Studio 11"
 
-title Packaging x64 
-cpack
-if %ERRORLEVEL% == 1 goto :error
+call :build x64 x64
+call :build w32 Win32
 
-title Postbuild x64
-postbuild.py
-if %ERRORLEVEL% == 1 goto :error
-
-cd %ROOT%\w32\dist
-if %ERRORLEVEL% == 1 goto :error
-
-title Generating w32
-cmake -D INCREASE_BUILD=0 -G "Visual Studio 11" -T v110_xp %SOURCE%
-if %ERRORLEVEL% == 1 goto :error
-
-title Building w32
-msbuild /p:Configuration=RelWithDebInfo /p:Platform=Win32 NSCP.sln
-if %ERRORLEVEL% == 1 goto :error
-
-title Packaging w32
-cpack
-if %ERRORLEVEL% == 1 goto :error
-
-title Postbuild w32
-postbuild.py
-if %ERRORLEVEL% == 1 goto :error
+call :post_build x64
+call :post_build w32 Win32
 
 title Done!
 
