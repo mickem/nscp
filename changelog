@@ -1,3 +1,18 @@
+2015-02-04 Michael Medin
+ * Tweaked build a bit to resuse some code
+ * added postbuild.bat to work around using the wrong python.exe
+ * Fixed so specified python is found before path python (i.e 32-bit python on 64 bit machines)
+ * #100 Fixed check_pdh not picking up warn short hand options.
+ * Added option to rebuild without bumping version
+ * Changed symbol paths
+ * bumped versions and updated docs
+ * Fixed crash upload properties to work with new collector
+ * Fixed crash upload configuration
+ * Added support for creating github releases
+ * Added documentation for chiper strings
+ * Fixed some issues with crash reporter
+ * Fixed crashdump folder
+
 2015-01-31 Michael Medin
  * Fixed check_process issues
  * Fixed all check_always_xxx commands so they work again...
