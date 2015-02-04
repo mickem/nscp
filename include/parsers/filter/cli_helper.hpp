@@ -129,7 +129,18 @@ namespace modern_filter {
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
 				return false;
 			if (show_all)
-				boost::replace_all(data.syntax_top, "${detail_list}", "${list}");
+				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
+			if (boost::contains(data.syntax_top, "detail_list") 
+				|| boost::contains(data.syntax_top, "(list)") 
+				|| boost::contains(data.syntax_top, "{list}")
+				|| boost::contains(data.syntax_top, "match_list")
+				|| boost::contains(data.syntax_top, "lines")
+				)
+				data.syntax_ok = "";
+			if (vm.count("warn"))
+				data.warn_string = vm["warn"].as<std::string>();
+			if (vm.count("crit"))
+				data.crit_string = vm["crit"].as<std::string>();
 			return true;
 		}
 
