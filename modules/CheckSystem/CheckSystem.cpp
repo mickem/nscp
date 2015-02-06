@@ -616,7 +616,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 
 	filter_type filter;
-	filter_helper.add_options("version > 50", "version > 50", "", filter.get_filter_syntax(), "ignored");
+	filter_helper.add_options("version <= 50", "version <= 50", "", filter.get_filter_syntax(), "ignored");
 	filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${version} (${major}.${minor}.${build})", "version", "", "");
 
 	if (!filter_helper.parse_options())
