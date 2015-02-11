@@ -190,10 +190,20 @@ namespace check_svc_filter {
 	}
 
 	parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
+		try {
+			return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
+		} catch (const std::string &e) {
+			context->error(e);
+			return 0;
+		}
 	}
 	parsers::where::node_type parse_start_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
+		try {
+			return parsers::where::factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
+		} catch (const std::string &e) {
+			context->error(e);
+			return 0;
+		}
 	}
 
 

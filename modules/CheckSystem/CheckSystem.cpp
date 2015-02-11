@@ -669,21 +669,27 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 		request.add_arguments("top-syntax=${status}: ${crit_list} delayed (${warn_list})");
 	}
 
-	BOOST_FOREACH(const std::string &s, extra) {
-		std::string::size_type pos = s.find('=');
+	std::string tmp;
+	BOOST_FOREACH(const std::string &rsn, extra) {
+		std::string sn = boost::trim_copy(rsn);
+		if (sn.empty())
+			continue;
+		std::string ss = "running";
+		const std::string::size_type pos = sn.find('=');
 		if (pos != std::string::npos) {
-			std::string svc_name = s.substr(0, pos);
-			if (!svc_name.empty()) {
-				request.add_arguments("service=" + svc_name);
-				strEx::append_list(crit, "name = '" + svc_name + "' and state != '" + s.substr(pos+1) +"'", " AND ");
-			}
-		} else {
-			if (!s.empty()) {
-				request.add_arguments("service=" + s);
-				strEx::append_list(crit, "name = '" + s + "' and state != 'running'", " AND ");
-			}
+			ss = sn.substr(pos+1);
+			sn = sn.substr(0, pos);
 		}
+		request.add_arguments("service=" + sn);
+		strEx::append_list(tmp, "( name like '" + sn + "' and state != '" + ss +"' )", " or ");
 	}
+	if (!tmp.empty()) {
+		if (crit.empty())
+			crit = tmp;
+		else
+			crit += tmp;
+	}
+
 	BOOST_FOREACH(const std::string &s, excludes) {
 		if (!s.empty())
 			strEx::append_list(filter, "name != '" + s + "'", " AND ");
