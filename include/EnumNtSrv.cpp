@@ -188,7 +188,7 @@ namespace services_helper {
 			return SERVICE_DISABLED;
 		if (s == "system")
 			return SERVICE_SYSTEM_START;
-		return 0;
+		throw std::string("Invalid start type: " + s);
 	}
 	long long service_info::parse_state(const std::string &s) {
 		if (s == "continuing")
@@ -207,7 +207,7 @@ namespace services_helper {
 			return SERVICE_STOP_PENDING;
 		if (s == "stopped")
 			return SERVICE_STOPPED;
-		return 0;
+		throw std::string("Invalid state: " + s);
 	}
 
 	std::string service_info::get_state_s() const {
