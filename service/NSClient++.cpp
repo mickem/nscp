@@ -739,9 +739,12 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 						LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->get_description());
 						broken.insert(plugin->get_id());
 					}
-				} catch (NSPluginException e) {
+				} catch (const NSPluginException &e) {
 					broken.insert(plugin->get_id());
 					LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
+				} catch (const std::exception &e) {
+					broken.insert(plugin->get_id());
+					LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_alias() + ": " + e.what());
 				} catch (...) {
 					broken.insert(plugin->get_id());
 					LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_description());
