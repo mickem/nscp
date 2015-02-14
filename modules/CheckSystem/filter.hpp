@@ -126,10 +126,10 @@ namespace check_page_filter {
 			return info.size-info.usage;
 		}
 		long long get_used_pct() const {
-			return total==0?0:get_used()*100/total;
+			return info.size==0?0:get_used()*100/info.size;
 		}
 		long long get_free_pct() const {
-			return total==0?0:get_free()*100/total;
+			return info.size==0?0:get_free()*100/info.size;
 		}
 		std::string get_name() const {
 			return info.name;
