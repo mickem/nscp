@@ -1,3 +1,16 @@
+2015-02-14 Michael Medin
+ * #110 Added support for using units in check_cpu
+ * added error handling for invalid states on checkservice
+ * Fixed compiler warning
+ * #103 Improved error messages and logging related to settings
+
+2015-02-11 Michael Medin
+ * #105 Fixed issue with parsing legacy style checkservice comamnds
+ * improved error handling is service check parsing failes
+
+2015-02-06 Michael Medin
+ * #102 fixed check_os_version default filter
+
 2015-02-04 Michael Medin
  * Tweaked build a bit to resuse some code
  * added postbuild.bat to work around using the wrong python.exe
