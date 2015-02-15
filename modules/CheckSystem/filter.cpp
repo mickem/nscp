@@ -14,17 +14,36 @@
 using namespace parsers::where;
 
 namespace check_cpu_filter {
+
+	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
+		long long number = value.get<0>();
+		std::string unit = value.get<1>();
+
+		if (unit != "%")
+			context->error("Invalid unit: " + unit);
+		return parsers::where::factory::create_int(number);
+	}
+
 	filter_obj_handler::filter_obj_handler() {
+
+		static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+
 		registry_.add_string()
 			("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")
 			("core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")
 			("core_id", boost::bind(&filter_obj::get_core_id, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core_##)")
 			;
 		registry_.add_int()
-			("load", boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
+			("load", type_custom_pct, boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
 			("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")
 			("kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core")
 			;
+
+		registry_.add_converter()
+			(type_custom_pct, &calculate_load)
+			;
+
 	}
 }
 
@@ -60,7 +79,7 @@ namespace check_mem_filter {
 			("free", type_custom_free, boost::bind(&filter_obj::get_free, _1), "Free memory in bytes (g,m,k,b) or percentages %")
 			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
 			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
-			
+
 			("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
 			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
 			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
@@ -117,6 +136,8 @@ namespace check_page_filter {
 			("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
 			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
 			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
+			("free_pct", boost::bind(&filter_obj::get_free_pct, _1), "% free memory")
+			("used_pct", boost::bind(&filter_obj::get_used_pct, _1), "% used memory")
 			;
 		registry_.add_human_string()
 			("size", boost::bind(&filter_obj::get_total_human, _1), "")
@@ -194,7 +215,7 @@ namespace check_svc_filter {
 			return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 		} catch (const std::string &e) {
 			context->error(e);
-			return 0;
+			return factory::create_false();
 		}
 	}
 	parsers::where::node_type parse_start_type(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
@@ -202,7 +223,7 @@ namespace check_svc_filter {
 			return parsers::where::factory::create_int(filter_obj::parse_start_type(subject->get_string_value(context)));
 		} catch (const std::string &e) {
 			context->error(e);
-			return 0;
+			return factory::create_false();
 		}
 	}
 
@@ -218,8 +239,8 @@ namespace check_svc_filter {
 			;
 		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
-			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), boost::bind(&filter_obj::get_state_s, _1), "The current state ()").add_perf("","")
-			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1),boost::bind(&filter_obj::get_start_type_s, _1),  "The configured start type ()")
+			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state ()").add_perf("","")
+			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1),  "The configured start type ()")
 			("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, _1),  "If the service is delayed")
 			("is_trigger", parsers::where::type_bool, boost::bind(&filter_obj::get_is_trigger, _1),  "If the service is has associated triggers")
 			("triggers", parsers::where::type_int, boost::bind(&filter_obj::get_triggers, _1),  "The number of associated triggers for this service")
@@ -228,6 +249,11 @@ namespace check_svc_filter {
 		registry_.add_int_fun()
 			("state_is_perfect",  parsers::where::type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
 			("state_is_ok",  parsers::where::type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
+			;
+
+		registry_.add_human_string()
+			("state", boost::bind(&filter_obj::get_state_s, _1), "The current state ()")
+			("start_type", boost::bind(&filter_obj::get_start_type_s, _1),  "The configured start type ()")
 			;
 
 		registry_.add_converter()

@@ -51,7 +51,7 @@ namespace check_cpu_filter {
 		}
 	};
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	
+
 	struct filter_obj_handler : public native_context {
 		filter_obj_handler();
 	};
@@ -124,6 +124,12 @@ namespace check_page_filter {
 		}
 		long long get_free() const {
 			return info.size-info.usage;
+		}
+		long long get_used_pct() const {
+			return info.size==0?0:get_used()*100/info.size;
+		}
+		long long get_free_pct() const {
+			return info.size==0?0:get_free()*100/info.size;
 		}
 		std::string get_name() const {
 			return info.name;

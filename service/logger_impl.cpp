@@ -200,7 +200,7 @@ public:
 		std::string format;
 		std::size_t max_size;
 	};
-	config_data do_config() {
+	config_data do_config(const bool log_fault) {
 		config_data ret;
 		try {
 
@@ -237,22 +237,22 @@ public:
 #endif
 			ret.file = mainClient->expand_path(ret.file);
 
-		} catch (nscapi::nscapi_exception &e) {
-			log_fatal(std::string("Failed to register command: ") + e.what());
-		} catch (std::exception &e) {
-			log_fatal(std::string("Exception caught: ") + e.what());
+		} catch (const std::exception &e) {
+			if (log_fault)
+				log_fatal(std::string("Failed to configure logger: ") + e.what());
 		} catch (...) {
-			log_fatal("Failed to register command.");
+			if (log_fault)
+				log_fatal("Failed to configure logging.");
 		}
 		return ret;
 	}
 	void synch_configure() {
-		do_config();
+		do_config(true);
 	}
 
 	void asynch_configure() {
 		try {
-			config_data config = do_config();
+			config_data config = do_config(false);
 
 			format_ = config.format;
 			max_size_ = config.max_size;
@@ -266,12 +266,10 @@ public:
 				file_ = "";
 			}
 
-		} catch (nscapi::nscapi_exception &e) {
-			log_fatal(std::string("Failed to register command: ") + e.what());
-		} catch (std::exception &e) {
-			log_fatal(std::string("Exception caught: ") + e.what());
+		} catch (const std::exception &e) {
+			// ignored, since this might be after shutdown...
 		} catch (...) {
-			log_fatal("Failed to register command.");
+			// ignored, since this might be after shutdown...
 		}
 	}
 };

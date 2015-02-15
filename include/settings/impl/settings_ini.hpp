@@ -303,7 +303,7 @@ namespace settings {
 							if (boost::filesystem::exists(tmp)) {
 								filename_ = tmp;
 							} else {
-								nsclient::logging::logger::get_logger()->info("settings", __FILE__, __LINE__, "Configuration file not found: " + filename_);
+								nsclient::logging::logger::get_logger()->debug("settings", __FILE__, __LINE__, "Configuration file not found: " + filename_);
 							}
 						}
 					}

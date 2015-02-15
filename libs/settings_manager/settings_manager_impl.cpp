@@ -176,7 +176,7 @@ namespace settings_manager {
 			set_instance(tgt);
 			return;
 		}
-		get_logger()->error("settings", __FILE__, __LINE__, "Settings contexts exhausted, will create a new default context: " DEFAULT_CONF_INI_LOCATION);
+		get_logger()->info("settings", __FILE__, __LINE__, "Creating new settings file: " DEFAULT_CONF_INI_LOCATION);
 		set_instance(DEFAULT_CONF_INI_LOCATION);
 	}
 
@@ -243,17 +243,17 @@ namespace settings_manager {
 	}
 
 	void change_context(std::string context) {
-		settings_impl->change_context(context);
+		internal_get()->change_context(context);
 	}
 
 	bool has_boot_conf() {
-		return settings_impl->has_boot_conf();
+		return internal_get()->has_boot_conf();
 	}
 	bool context_exists(std::string key) {
-		return settings_impl->context_exists(key);
+		return internal_get()->context_exists(key);
 	}
 	bool create_context(std::string key) {
-		return settings_impl->create_context(key);
+		return internal_get()->create_context(key);
 	}
 	void ensure_exists() {
 	}

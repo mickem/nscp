@@ -293,7 +293,7 @@ public:
 
 		if (lua_isnumber(L, -1)) {
 
-			int             _index = lua_tonumber(L, -1);
+			int             _index = static_cast<int>(lua_tonumber(L, -1));
 
 			lua_pushnumber(L, 0);
 			lua_rawget(L, 1);
