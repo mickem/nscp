@@ -14,17 +14,36 @@
 using namespace parsers::where;
 
 namespace check_cpu_filter {
+
+	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
+		long long number = value.get<0>();
+		std::string unit = value.get<1>();
+
+		if (unit != "%")
+			context->error("Invalid unit: " + unit);
+		return parsers::where::factory::create_int(number);
+	}
+
 	filter_obj_handler::filter_obj_handler() {
+
+		static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
+
 		registry_.add_string()
 			("time", boost::bind(&filter_obj::get_time, _1), "The time frame to check")
 			("core", boost::bind(&filter_obj::get_core_s, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core ##)")
 			("core_id", boost::bind(&filter_obj::get_core_id, _1), boost::bind(&filter_obj::get_core_i, _1), "The core to check (total or core_##)")
 			;
 		registry_.add_int()
-			("load", boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
+			("load", type_custom_pct, boost::bind(&filter_obj::get_total, _1), "The current load for a given core").add_perf("%")
 			("idle", boost::bind(&filter_obj::get_idle, _1), "The current idle load for a given core")
 			("kernel", boost::bind(&filter_obj::get_kernel, _1), "The current kernel load for a given core")
 			;
+
+		registry_.add_converter()
+			(type_custom_pct, &calculate_load)
+			;
+
 	}
 }
 
