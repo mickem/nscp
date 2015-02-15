@@ -105,7 +105,7 @@ namespace parsers {
 // 		}
 
 		bool performance_collector::has_candidate_value() const {
-			return candidate_value_;
+			return static_cast<bool>(candidate_value_);
 		}
 
 		bool performance_collector::has_candidate_variable() const {

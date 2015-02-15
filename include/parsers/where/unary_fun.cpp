@@ -82,7 +82,7 @@ namespace parsers {
 		}
 
 		bool unary_fun::is_bound() const {
-			return function;
+			return static_cast<bool>(function);
 		}		
 	}
 }

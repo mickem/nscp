@@ -1951,7 +1951,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 										plugin_cache_item itm;
 										try {
 											plugin_type plugin = find_plugin(module);
-											bool has_plugin = plugin;
+											bool has_plugin = static_cast<bool>(plugin);
 											if (!has_plugin) {
 												boost::filesystem::path p = (pluginPath / file).normalize();
 												LOG_DEBUG_CORE("Loading " + p.string());

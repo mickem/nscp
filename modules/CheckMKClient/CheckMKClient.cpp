@@ -228,7 +228,7 @@ bool CheckMKClient::target_handler::apply(nscapi::protobuf::types::destination_c
 	nscapi::targets::optional_target_object opt = targets_.find_object(key);
 	if (opt)
 		dst.apply(opt->to_destination_container());
-	return opt;
+	return static_cast<bool>(opt);
 }
 //////////////////////////////////////////////////////////////////////////
 // Parser setup/Helpers

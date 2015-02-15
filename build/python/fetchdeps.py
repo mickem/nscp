@@ -193,7 +193,7 @@ class build_instruction:
 					cmd = cmd.replace('$$CMAKE_GENERATOR$$', cmake_generator[msver])
 					print('INFO Running: "%s" as "%s"'%(raw_cmd, cmd))
 					
-					if msver == '2012':
+					if msver == '2012' or msver == '2013':
 						cmd = cmd.replace('.vcproj', '.vcxproj')
 					ret = os.system(cmd)
 					if ret != 0:
@@ -289,9 +289,11 @@ build['protobuf-s'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python
 boost_version = {}
 boost_version['2005'] = "msvc-8.0"
 boost_version['2012'] = "msvc-11.0"
+boost_version['2013'] = "msvc-12.0"
 cmake_generator = {}
 cmake_generator['2005'] = "Visual Studio 8 2005"
 cmake_generator['2012'] = "Visual Studio 11"
+cmake_generator['2013'] = "Visual Studio 12"
 
 post_build['protobuf'] = """Be sure to install protocol buffers python library in your python installation (notice if you have multiple you need to do this for all of them):
 cd ${protobuf_abs}\python
@@ -328,7 +330,7 @@ def decompress_sources(root):
 				if calculated_hash == source.hash:
 					print 'OK   Validated sha for %s'%t
 				else:
-					print 'ERR  Invalid hash for: %s (%s) %s != %s'%(t, source.file, calculated_hash, source.hash)
+					print 'ERR  Invalid hash for: %s (%s) %s != %s'%(t, os.path.abspath(source.file), calculated_hash, source.hash)
 					sys.exit(1)
 			else:
 				print 'WARN no sha defined for: %s (%s)'%(t, source.file)

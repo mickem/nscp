@@ -260,7 +260,7 @@ bool NRDPClient::target_handler::apply(nscapi::protobuf::types::destination_cont
 	nscapi::targets::optional_target_object opt = targets_.find_object(key);
 	if (opt)
 		dst.apply(opt->to_destination_container());
-	return opt;
+	return static_cast<bool>(opt);
 }
 
 //////////////////////////////////////////////////////////////////////////

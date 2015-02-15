@@ -28,10 +28,10 @@ namespace parsers {
 				return *summary;
 			}
 			bool has_object() {
-				return object;
+				return static_cast<bool>(object);
 			}
 			bool has_summary() {
-				return object;
+				return static_cast<bool>(object);
 			}
 			void remove_object() {
 				object.reset();
