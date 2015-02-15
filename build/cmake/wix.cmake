@@ -26,6 +26,7 @@ if (WIN32)
         "$ENV{WIX_ROOT_DIR}"
         "$ENV{ProgramFiles}/WiX Toolset v3.7"
         "$ENV{ProgramFiles}/WiX Toolset v3.8"
+        "$ENV{ProgramFiles}/WiX Toolset v3.9"
         "$ENV{ProgramFiles}/Windows Installer XML v3.8"
         "$ENV{ProgramFiles}/Windows Installer XML v3.7"
         "$ENV{ProgramFiles}/Windows Installer XML v3.5"
@@ -250,7 +251,6 @@ if (WIN32)
 			PATHS 
 			${WIX_MERGE_MODULE_PATH}
 			"$ENV{ProgramFiles}/Common Files/Merge Modules"
-			"$ENV{ProgramFiles(x86)}/Common Files/Merge Modules"
 			${WIX_POSSIBLE_ROOT_DIRS}
 			)
 		SET(${_VAR} ${${_VAR}} PARENT_SCOPE)
