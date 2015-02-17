@@ -55,7 +55,7 @@ package { "openssl-devel": ensure => present }
 package { "boost-devel": ensure => present }
 if ($::operatingsystemmajrelease >= 7) {
 	package { "python-sphinx": ensure => present }
-	package { "gtest": ensure => present }
+#	package { "gtest": ensure => present }
 	package { "gtest-devel": ensure => present }
 }
 package { "lua-devel": ensure => present }
