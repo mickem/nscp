@@ -19,3 +19,6 @@
 [submodule "ext/json-protobuf"]
 	path = ext/json-protobuf
 	url = https://github.com/mickem/json-protobuf.git
+[submodule "ext/rst-protobuf"]
+	path = ext/rst-protobuf
+	url = https://github.com/mickem/rst-protobuf.git
