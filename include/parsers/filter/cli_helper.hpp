@@ -235,7 +235,8 @@ namespace modern_filter {
 			filter.fetch_perf(writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
  				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
-			response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
+			else
+				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
 			response->set_message(filter.get_message());
 		}
 

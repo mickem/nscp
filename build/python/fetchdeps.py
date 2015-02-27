@@ -7,7 +7,7 @@ import tarfile
 from optparse import OptionParser
 from string import Template
 
-msver = '2005'
+msver = '2012'
 CONFIG_TEMPLATE = """
 SET(USE_STATIC_RUNTIME FALSE)
 SET(LIBRARY_ROOT_FOLDER	"${root}")
@@ -227,7 +227,9 @@ sources['boost'] = source('boost_1_56_0.zip', 'http://sourceforge.net/projects/b
 
 sources['openssl'] = source('openssl-1.0.1j.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1j.tar.gz', 'cff86857507624f0ad42d922bb6f77c4f1c2b819')
 
-sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
+#sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
+sources['protobuf'] = source('protobuf-2.6.1.tar.gz', 'https://github.com/google/protobuf/releases/download/v2.6.1/protobuf-2.6.1.tar.gz', '375765455ad49e45e4e10364f91aaf2831d3e905')
+
 
 build = {}
 post_build = {}

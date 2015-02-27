@@ -2,14 +2,25 @@ package Plugin;
 
 // option optimize_for = LITE_RUNTIME;
 
+//
+// Common utility types (re-used in various messages below)
+//
 message Common {
 
+	//
+	// A "nagios" status result.
+	//
 	enum ResultCode {
 		OK		= 0;
 		WARNING	= 1;
 		CRITICAL	= 2;
 		UNKNOWN	= 3;
 	};
+
+	//
+	// Type of data fields.
+	// @deprecated in favour of checking which field is available.
+	//
 	enum DataType {
 		INT = 1;
 		STRING = 2;
@@ -17,62 +28,151 @@ message Common {
 		BOOL = 4;
 		LIST = 5;
 	};
-	
+
+	//
+	// Data type used to wrap "any" primitive type.
+	// Used whenever the type can change.
+	//
 	message AnyDataType {
+
+		// String payload
 		optional string string_data = 2;
+
+		// Numeric integer payload
 		optional int64 int_data = 3;
+
+		// Numeric floating point payload
 		optional double float_data = 4;
+
+		// Boolean (true/false) payload
 		optional bool bool_data = 5;
+
+		// A string (multiple lines are separated by list entries
+		// @todo: remove repeated modifier from this field.
 		repeated string list_data = 6;
 	}
 
+	//
+	// Key value pair
+	//
 	message KeyValue {
+
+		// The key identifying the value
 		required string key = 1;
+
+		// The value
 		required string value = 2;
+
+		// Optional extra fields to store various custom data
 		repeated string data = 3;
 	}
 	
 
+	//
+	// Main protocol version used
+	// @deprecated Makes very little sense and should be removed
+	//
 	enum Version {
+
+		// Version 1 message
 		VERSION_1 = 1;
 	};
 
+	//
+	// Field identifying a host entry
+	//
 	message Host {
-		
+
+		// A unique identifier representing the host in *this* message
 		optional string id = 1;
+
+		// The host name
 		optional string host = 2;
+
+		// The address (usually the ip)
 		optional string address = 3;
+
+		// The protocol used to talk whit this host.
 		optional string protocol = 4;
+
+		// A comment describing the host
 		optional string comment = 5;
-		
+
+		// A key value store with attributes describing this host.
+		// The content and use of this attributes are application defined.
 		repeated Common.KeyValue metadata = 6;
+
+		// A numer of tags defined for this host (can be used for routing purposes).
 		repeated string tags = 7;
 	};
-	
+
+	//
+	// Header used in all messages.
+	// Contains basic information about the message.
+	//
 	message Header {
 
+		// Version of message.
+		// @ deprecated Not really useful
 		required Common.Version version = 1;
+
+		// Maximmu supported version.
+		// Was planned to be used to negotiate version but was never used.
+		// @deprecated not used.
 		optional Common.Version max_supported_version = 2;
 
+		// Source (sending) system.
+		// This is the system which sends the message (me).
 		optional string source_id = 3;
+
+		// Sender is the original source of the message.
+		// THis is same as source unless message has been relayed.
 		optional string sender_id = 4;
+
+		// Recipient is the final destination.
+		// This is the same as destination_id unless message is to be relayed.
 		optional string recipient_id = 5;
+
+		// Destination (target) system.
+		// The system which will receive the message.
 		optional string destination_id = 6;
 
+		// Message identification.
+		// Has no meaning apart from identification.
+		// Set by source system and retained in any processing system.
 		optional int64 message_id = 16;
 
+		// Meta data related to the message.
 		repeated Common.KeyValue metadata = 8;
+
+		// A list of tags associated with the message.
 		repeated string tags = 9;
 
+		// A list of hosts.
+		// All recipient/destination ids point to objects in this data set.
 		repeated Host hosts = 10;
 	};
 
+	//
+	// Attachment is used to attach information to another request.
+	// This is usually used to send along additional information not directly relatedt to the request.
+	// Or send unstructured data which is not supported by the original request.
+	//
 	message Attachment {
-		
+
+		// Identifier of attachment (for reference purpouses)
 		optional int64 id = 1;
+
+		// The mime type for this attachment.
 		required string type = 2;
+
+		// Meta data related to the attachment.
 		repeated Common.KeyValue metadata = 3;
+
+		// A list of tags associated with the attachment.
 		repeated string tags = 4;
+
+		// The actual attachment (encoded)
 		required string data = 5;
 	};
 	
@@ -127,13 +227,11 @@ message Common {
 	}
 };
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// Query request/response
-// Used for querying the client this is the "normal" check_nrpe thingy
+// Query request
+// Used for querying the client this is the "normal" check_nrpe message request.
+// Associated response is :py:class:`Plugin.QueryResponseMessage`
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
-
 message QueryRequestMessage {
 	message Request {
 		optional int32 id = 1;
@@ -141,13 +239,23 @@ message QueryRequestMessage {
 		required string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 4;
+
+		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 	};
 
 	required Common.Header header = 1;
 	repeated Request payload = 2;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;
 }
+
+//
+// Query response
+// Used for querying the client this is the "normal" check_nrpe message request.
+// Associated request is :py:class:`Plugin.QueryRequestMessage`
+//
 message QueryResponseMessage {
 
 	message Response {
@@ -162,32 +270,38 @@ message QueryResponseMessage {
 		required string message = 5;
 		optional bytes data = 8;
 		repeated Common.PerformanceData perf = 6;
+
+		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 		
 	}
 
 	required Common.Header header = 1;
 	repeated Response payload = 2;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;
 }
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// Execute command request and response
-// Used for executing commands on clients 
+// Execute command request and response.
+// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return nagios check data
+// Associated response is :py:class:`Plugin.ExecuteResponseMessage`
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
-
 message ExecuteRequestMessage {
 	message Request {
 		optional int32 id = 1;
 		required string command = 2;
 		repeated string arguments = 3;
+
+		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 	};
 
 	required Common.Header header = 1;
 	repeated Request payload = 2;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;
 }
 message ExecuteResponseMessage {
@@ -199,47 +313,61 @@ message ExecuteResponseMessage {
 		required Common.ResultCode result = 9;
 		required string message = 10;
 		optional bytes data = 7;
-		
+
+		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 		
 	}
 	required Common.Header header = 1;
 	repeated Response payload = 2;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;
 }
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// Submit result
-// Used for submitting a passive result
+// Submit result request message.
+// Used for submitting a passive check results.
+// The actual payload (Request) is a normal :py:class:`Plugin.QueryResponseMessage.Response`.
+// Associated response is :py:class:`Plugin.SubmitResponseMessage`
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
-
 message SubmitRequestMessage {
 	required Common.Header header = 1;
 	required string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 4;
 }
 
+//
+// Submit result response message.
+// Response from submitting a passive check results.
+// Associated request is :py:class:`Plugin.SubmitRequestMessage`
+//
 message SubmitResponseMessage {
 	message Response {
 		optional int32 id = 1;
 		required string command = 2;
 		required Common.Status status = 3;
+
+		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 	};
 	required Common.Header header = 1;
 	repeated Response payload = 2;
+
+	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;
 }
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// plugins and registration
+// Registration is an internal message.
+// It is not used to submit checks or query status instead it is used so register modules, plug-ins, command.
+// As well as query for them.
+// The registry is a central component inside NSClient++ and this is the way to interact with the registry.
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
 message Registry {
 	enum ItemType { 
 		QUERY = 1;
@@ -387,12 +515,11 @@ message ScheduleNotificationMessage {
 };
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// Settings commands
-// Used for accessing the settings store
+// Settings is an internal message.
+// It is not used to submit checks or query status instead it is used to interact with the settings store.
+// The settings is a central component inside NSClient++ and this is the way to interact with it.
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
 message Settings {
 	message Node {
 		required string path = 1;
@@ -503,14 +630,9 @@ message SettingsResponseMessage {
 };
 
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
 //
-// Log Entry
-// Used for sending errors and log entries to a logging module 
-// (this is internal errors, not syslog or eventlog)
+// LogEntry is used to log status information.
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
-
 message LogEntry {
 	message Entry {
 		enum Level {
