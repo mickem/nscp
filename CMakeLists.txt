@@ -562,6 +562,7 @@ ENDFOREACH()
 #add_nscp_py_test(nrpe test_nrpe)
 add_nscp_lua_test(lua_nrpe test_nrpe)
 add_nscp_py_test(python test_python)
+add_nscp_py_test(log_file test_log_file)
 add_nscp_py_test(external_script test_external_script)
 IF(WIN32)
 # Disabled as is is not a unit test per see, since it requires extenal non mocked stimula
