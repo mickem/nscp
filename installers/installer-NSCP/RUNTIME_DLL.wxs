@@ -3,14 +3,14 @@
 	<Fragment>
 		<DirectoryRef Id="INSTALLLOCATION">
 			<Component Id="LibCommon" Guid="AA72FE42-6AF4-41B6-B77E-E554860E4508">
-        <File Id="BOOST_DT" Name="boost_date_time-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_date_time-vc110-mt-1_56.dll" Vital="yes" />
-        <File Id="BOOST_C" Name="boost_chrono-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_chrono-vc110-mt-1_56.dll" Vital="yes" />
-        <File Id="BOOST_FS" Name="boost_filesystem-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_filesystem-vc110-mt-1_56.dll" Vital="yes" />
-				<File Id="BOOST_PO" Name="boost_program_options-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_program_options-vc110-mt-1_56.dll" Vital="yes" />
-				<File Id="BOOST_PY" Name="boost_python-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_python-vc110-mt-1_56.dll" Vital="yes" />
-				<File Id="BOOST_RE" Name="boost_regex-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_regex-vc110-mt-1_56.dll" Vital="yes" />
-				<File Id="BOOST_SYS" Name="boost_system-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_system-vc110-mt-1_56.dll" Vital="yes" />
-				<File Id="BOOST_T" Name="boost_thread-vc110-mt-1_56.dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_thread-vc110-mt-1_56.dll" Vital="yes" />
+        <File Id="BOOST_DT" Name="boost_date_time-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_date_time-$(var.BoostTag).dll" Vital="yes" />
+        <File Id="BOOST_C" Name="boost_chrono-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_chrono-$(var.BoostTag).dll" Vital="yes" />
+        <File Id="BOOST_FS" Name="boost_filesystem-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_filesystem-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_PO" Name="boost_program_options-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_program_options-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_PY" Name="boost_python-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_python-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_RE" Name="boost_regex-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_regex-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_SYS" Name="boost_system-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_system-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_T" Name="boost_thread-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/../lib-dist/boost_thread-$(var.BoostTag).dll" Vital="yes" />
 				<File Id="SSL1" Name="libeay32.dll" DiskId="1" Source="$(var.Source)/../lib-dist/libeay32.dll" Vital="yes" />
 				<File Id="SSL2" Name="ssleay32.dll" DiskId="1" Source="$(var.Source)/../lib-dist/ssleay32.dll" Vital="yes" />
 			</Component>

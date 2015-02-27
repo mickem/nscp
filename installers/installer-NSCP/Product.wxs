@@ -127,11 +127,15 @@
 							<File Id="ModCheckExternalScripts.dll" Name="CheckExternalScripts.dll" DiskId="1" Source="$(var.Source)/modules/CheckExternalScripts.dll" Vital="no" />
 							<File Id="ModCheckHelpers.dll" Name="CheckHelpers.dll" DiskId="1" Source="$(var.Source)/modules/CheckHelpers.dll" Vital="no" />
 							<File Id="ModCheckSystem.dll" Name="CheckSystem.dll" DiskId="1" Source="$(var.Source)/modules/CheckSystem.dll" Vital="no" />
-							<File Id="ModCheckWMI.dll" Name="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
-							<File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
+              <?if "$(var.HasATL)" = "yes"?>
+              <File Id="ModCheckWMI.dll" Name="CheckWMI.dll" DiskId="1" Source="$(var.Source)/modules/CheckWMI.dll" Vital="no" />
+              <?endif?>
+              <File Id="ModCheckNSCP.dll" Name="CheckNSCP.dll" DiskId="1" Source="$(var.Source)/modules/CheckNSCP.dll" Vital="no" />
 							<File Id="ModCheckDisk.dll" Name="CheckDisk.dll" DiskId="1" Source="$(var.Source)/modules/CheckDisk.dll" Vital="no" />
-							<File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
-							<File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
+              <?if "$(var.HasATL)" = "yes"?>
+              <File Id="ModCheckTaskSched.dll" Name="CheckTaskSched.dll" DiskId="1" Source="$(var.Source)/modules/CheckTaskSched.dll" Vital="no" />
+              <?endif?>
+              <File Id="ModSimpleCache.dll" Name="SimpleCache.dll" DiskId="1" Source="$(var.Source)/modules/SimpleCache.dll" Vital="no" />
 							<File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
 							<File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
 						</Component>
@@ -254,7 +258,7 @@
 		<CustomAction Id="SetUserGroupUsersProp" Property="TRANSLATE_SID_PROPERTY" Value="USERGROUP_USERS" Return="check" />
 		<CustomAction Id="TranslateUserGroupUsers" BinaryKey="InstallerHelper" DllEntry="TranslateSid"/>
 
-		<Binary Id='InstallerHelper' SourceFile='$(var.Helpers)/installer_lib.dll' />
+		<Binary Id='InstallerHelper' SourceFile='$(var.Source)/installer_lib.dll' />
 
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallValidate'/>

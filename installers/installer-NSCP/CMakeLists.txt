@@ -38,11 +38,22 @@ IF(CMAKE_CL_64)
 ENDIF(CMAKE_CL_64)
 
 WIX_FIND_MERGE_MODULE(CRT_MERGE_MODULE "Microsoft_VC110_CRT")
-
-
+set(HAS_ATL "yes")
+if(VSTUDIO_EXPRESS)
+set(HAS_ATL "no")
+endif()
+set(HAS_ATL "110")
+if(MSVC13)
+set(HAS_ATL "120")
+endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
-	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html" "-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" -dSource=${NSCP_PROJECT_BINARY_DIR} -dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
+	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
+	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" 
+	-dSource=${NSCP_PROJECT_BINARY_DIR} 
+	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
+	-dBoostTag=vc120-mt-1_56
+	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
 	)
