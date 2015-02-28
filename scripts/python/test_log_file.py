@@ -1,11 +1,8 @@
 from NSCP import Settings, Registry, Core, log, status, log_error, sleep
 from test_helper import BasicTest, TestResult, Callable, setup_singleton, install_testcases, init_testcases, shutdown_testcases
 from types import *
-import random
-import subprocess
 import uuid
 import os
-import sys, stat, datetime, time
 
 
 def create_test_data(file):
