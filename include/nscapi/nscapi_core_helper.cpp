@@ -145,7 +145,7 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
@@ -170,7 +170,7 @@ void nscapi::core_helper::register_alias(std::string command, std::string descri
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
@@ -192,7 +192,7 @@ void nscapi::core_helper::register_channel(const std::string channel)
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
 	}
 }

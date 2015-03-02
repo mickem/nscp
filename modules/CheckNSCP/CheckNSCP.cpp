@@ -124,5 +124,5 @@ void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, 
 	std::stringstream uptime;
 	uptime << "uptime " << td;
 	format::append_list(message, uptime.str(), std::string(", "));
-	response->set_message(message);
+	response->add_lines()->set_message(message);
 }

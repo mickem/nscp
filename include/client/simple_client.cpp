@@ -53,7 +53,7 @@ static std::string render_list(const Plugin::RegistryResponseMessage &response_m
 				list += "\n";
 			list += renderer(pl.inventory(j)); // .name() + "\t-" + pl.inventory(j).info().description();
 		}
-		if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+		if (pl.result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 			return "Error: " + response_message.payload(i).result().message();
 		}
 	}
@@ -95,7 +95,7 @@ namespace client {
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i=0;i<response_message.payload_size();i++) {
-				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}
@@ -116,7 +116,7 @@ namespace client {
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i=0;i<response_message.payload_size();i++) {
-				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to unload module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}

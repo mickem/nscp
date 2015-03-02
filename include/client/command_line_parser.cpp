@@ -310,12 +310,7 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 	if (real_command == "query") {
 		Plugin::QueryResponseMessage::Response local_response;
 		do_query(config, request_message.header(), local_response);
-		std::string s = nscapi::protobuf::functions::build_performance_data(local_response);
-		if (!s.empty())
-			s = local_response.message() + "|" + s;
-		else
-			s = local_response.message();
-		response.set_message(s);
+		response.set_message(nscapi::protobuf::functions::query_data_to_nagios_string(local_response));
 		response.set_result(local_response.result());
 		return true;
 	} else if (real_command == "exec") {
@@ -324,13 +319,13 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 	} else if (real_command == "submit") {
 		Plugin::SubmitResponseMessage::Response local_response;
 		do_submit(config, request_message.header(), local_response);
-		if (local_response.status().status() == Plugin::Common_Status_StatusType_STATUS_OK || local_response.status().status() == Plugin::Common_Status_StatusType_STATUS_DELAYED) {
-			if (local_response.status().message().empty())
+		if (local_response.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_OK || local_response.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_DELAYED) {
+			if (local_response.result().message().empty())
 				nscapi::protobuf::functions::set_response_good(response, "Submission successful");
 			else
-				nscapi::protobuf::functions::set_response_good(response, local_response.status().message());
+				nscapi::protobuf::functions::set_response_good(response, local_response.result().message());
 		} else {
-			nscapi::protobuf::functions::set_response_bad(response, "Submission failed: " + local_response.status().message());
+			nscapi::protobuf::functions::set_response_bad(response, "Submission failed: " + local_response.result().message());
 		}
 		return true;
 	}

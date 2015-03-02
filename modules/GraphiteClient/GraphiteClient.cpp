@@ -264,30 +264,32 @@ int GraphiteClient::clp_handler_impl::submit(client::configuration::data_type da
 		Plugin::QueryResponseMessage::Response r =request_message.payload(i);
 		std::string tmp_path = path;
 		strEx::replace(tmp_path, "${check_alias}", r.alias());
-
-		for (int j=0;j<r.perf_size();j++) {
-			g_data d;
-			::Plugin::Common::PerformanceData perf = r.perf(j);
-			double value = 0.0;
-			d.path = tmp_path;
-			strEx::replace(d.path, "${perf_alias}", perf.alias());
-			if (perf.has_float_value()) {
-				if (perf.float_value().has_value())
-					value = perf.float_value().value();
-				else
-					NSC_LOG_ERROR("Unsopported performance data (no value)");
-			} else if (perf.has_int_value()) {
-				if (perf.int_value().has_value())
-					value = static_cast<double>(perf.int_value().value());
-				else
-					NSC_LOG_ERROR("Unsopported performance data (no value)");
-			} else {
-				NSC_LOG_ERROR("Unsopported performance data type: " + perf.alias());
-				continue;
+		for (int j=0;j < request_message.payload_size(); ++j) {
+			Plugin::QueryResponseMessage::Response::Line l = r.lines(j);
+			for (int k=0;k<l.perf_size();k++) {
+				g_data d;
+				::Plugin::Common::PerformanceData perf = l.perf(k);
+				double value = 0.0;
+				d.path = tmp_path;
+				strEx::replace(d.path, "${perf_alias}", perf.alias());
+				if (perf.has_float_value()) {
+					if (perf.float_value().has_value())
+						value = perf.float_value().value();
+					else
+						NSC_LOG_ERROR("Unsopported performance data (no value)");
+				} else if (perf.has_int_value()) {
+					if (perf.int_value().has_value())
+						value = static_cast<double>(perf.int_value().value());
+					else
+						NSC_LOG_ERROR("Unsopported performance data (no value)");
+				} else {
+					NSC_LOG_ERROR("Unsopported performance data type: " + perf.alias());
+					continue;
+				}
+				strEx::replace(d.path, " ", "_");
+				d.value = strEx::s::xtos(value);
+				list.push_back(d);
 			}
-			strEx::replace(d.path, " ", "_");
-			d.value = strEx::s::xtos(value);
-			list.push_back(d);
 		}
 	}
 

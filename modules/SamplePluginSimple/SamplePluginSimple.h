@@ -39,6 +39,5 @@ public:
 	bool unloadModule();
 
 	void sample_raw_command(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	NSCAPI::nagiosReturn sample_nagios_command(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf);
 
 };

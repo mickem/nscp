@@ -14,10 +14,6 @@
 	"commands" : {
 		"sample_raw_command" : { 
 			"description"	: "This is a sample hello world command."
-		},
-		"sample_nagios_command" : { 
-			"description"	: "This is simpler to implement and looks like nagios commads (but slightly less powerfull).",
-			"mapping"		: "nagios"
 		}
 	}
 }

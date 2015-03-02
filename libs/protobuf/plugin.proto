@@ -62,21 +62,8 @@ message Common {
 
 		// The value
 		required string value = 2;
-
-		// Optional extra fields to store various custom data
-		repeated string data = 3;
 	}
 	
-
-	//
-	// Main protocol version used
-	// @deprecated Makes very little sense and should be removed
-	//
-	enum Version {
-
-		// Version 1 message
-		VERSION_1 = 1;
-	};
 
 	//
 	// Field identifying a host entry
@@ -112,15 +99,6 @@ message Common {
 	//
 	message Header {
 
-		// Version of message.
-		// @ deprecated Not really useful
-		required Common.Version version = 1;
-
-		// Maximmu supported version.
-		// Was planned to be used to negotiate version but was never used.
-		// @deprecated not used.
-		optional Common.Version max_supported_version = 2;
-
 		// Source (sending) system.
 		// This is the system which sends the message (me).
 		optional string source_id = 3;
@@ -140,7 +118,7 @@ message Common {
 		// Message identification.
 		// Has no meaning apart from identification.
 		// Set by source system and retained in any processing system.
-		optional int64 message_id = 16;
+		optional string message_id = 16;
 
 		// Meta data related to the message.
 		repeated Common.KeyValue metadata = 8;
@@ -203,25 +181,22 @@ message Common {
 			optional bool critical = 4;
 		}
 		required string alias = 1;
-		required Common.DataType type = 2;
 		optional IntValue int_value = 3;
 		optional StringValue string_value = 4;
 		optional FloatValue float_value = 5;
 		optional BoolValue bool_value = 6;
-		
-		// TODO add thresholds here!
 	}
 	
-	message Status {
+	message Result {
 	
-		enum StatusType {
+		enum StatusCodeType {
 			STATUS_OK = 0;
 			STATUS_WARNING = 1;
 			STATUS_ERROR = 2;
 			STATUS_DELAYED = 3;
 		};
 	
-		required StatusType status = 1;
+		required StatusCodeType code = 1;
 		optional string message = 2;
 		optional string data = 3;
 	}
@@ -244,7 +219,7 @@ message QueryRequestMessage {
 		repeated Common.Attachment attachments = 17;
 	};
 
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Request payload = 2;
 
 	// The attachment is used to attach additional free form information.
@@ -259,6 +234,10 @@ message QueryRequestMessage {
 message QueryResponseMessage {
 
 	message Response {
+		message Line {
+			required string message = 1;
+			repeated Common.PerformanceData perf = 2;
+		}
 
 		optional int32 id = 1;
 		optional string source = 7;
@@ -267,16 +246,15 @@ message QueryResponseMessage {
 		repeated string arguments = 16;
 		
 		required Common.ResultCode result = 4;
-		required string message = 5;
-		optional bytes data = 8;
-		repeated Common.PerformanceData perf = 6;
+		repeated Line lines = 9;
 
 		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
+		optional bytes data = 5;
 		
 	}
 
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Response payload = 2;
 
 	// The attachment is used to attach additional free form information.
@@ -298,7 +276,7 @@ message ExecuteRequestMessage {
 		repeated Common.Attachment attachments = 17;
 	};
 
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Request payload = 2;
 
 	// The attachment is used to attach additional free form information.
@@ -318,7 +296,7 @@ message ExecuteResponseMessage {
 		repeated Common.Attachment attachments = 17;
 		
 	}
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Response payload = 2;
 
 	// The attachment is used to attach additional free form information.
@@ -332,7 +310,7 @@ message ExecuteResponseMessage {
 // Associated response is :py:class:`Plugin.SubmitResponseMessage`
 //
 message SubmitRequestMessage {
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	required string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
 
@@ -349,12 +327,12 @@ message SubmitResponseMessage {
 	message Response {
 		optional int32 id = 1;
 		required string command = 2;
-		required Common.Status status = 3;
+		required Common.Result result = 3;
 
 		// The attachment is used to attach additional free form information.
 		repeated Common.Attachment attachments = 17;
 	};
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Response payload = 2;
 
 	// The attachment is used to attach additional free form information.
@@ -462,7 +440,7 @@ message RegistryRequestMessage {
 		optional Inventory inventory = 4;
 		optional Control control = 5;
 	};
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Request payload = 2;
 };
 message RegistryResponseMessage {
@@ -483,14 +461,14 @@ message RegistryResponseMessage {
 		message Control {
 		};
 		optional int64 id = 1;
-		required Common.Status result = 2;
+		required Common.Result result = 2;
 
 		optional Registration registration = 3;
 		repeated Inventory inventory = 4;
 		optional Control control = 5;
 	};
 
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Response payload = 2;
 };
 
@@ -510,7 +488,7 @@ message ScheduleNotificationMessage {
 
 		optional Registry.Schedule schedule = 20;
 	};
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Request payload = 2;
 };
 
@@ -589,7 +567,7 @@ message SettingsRequestMessage {
 		optional Control control = 14;
 		optional Status status = 15;
 	};
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Request payload = 2;
 };
 message SettingsResponseMessage {
@@ -615,7 +593,7 @@ message SettingsResponseMessage {
 			optional bool has_changed = 3;
 		};
 		optional int64 id = 1;
-		required Common.Status result = 2;
+		required Common.Result result = 2;
 		
 		optional Registration registration = 10;
 		optional Query query = 11;
@@ -625,7 +603,7 @@ message SettingsResponseMessage {
 		optional Status status = 15;
 	};
 
-	required Common.Header header = 1;
+	optional Common.Header header = 1;
 	repeated Response payload = 2;
 };
 
@@ -654,4 +632,26 @@ message LogEntry {
 }
 
 
+//
+// Query request
+// Used for querying the client this is the "normal" check_nrpe message request.
+// Associated response is :py:class:`Plugin.QueryResponseMessage`
+//
+message MetricsMessage {
+	message Metric {
+		required string key = 1;
+		optional Common.AnyDataType value = 2;
+	};
+	message Metrics {
+		optional int32 id = 1;
+		optional string target = 7;
+		repeated Metrics metrics = 2;
+	};
+
+	optional Common.Header header = 1;
+	repeated Metrics payload = 2;
+
+	// The attachment is used to attach additional free form information.
+	repeated Common.Attachment attachments = 3;
+}
 

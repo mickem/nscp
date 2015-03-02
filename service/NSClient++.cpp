@@ -1190,7 +1190,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
 			for (int i=0;i<msg.payload_size();i++) {
-				LOG_INFO_CORE("Logging notification: " + msg.payload(i).message());
+				LOG_INFO_CORE("Logging notification: " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i)));
 			}
 			found = true;
 			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", NSCAPI::isSuccess, "seems ok", response);
@@ -1679,7 +1679,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 					}
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				}
 			} else if (r.has_query()) {
 				const Plugin::SettingsRequestMessage::Request::Query &q = r.query(); 
@@ -1707,7 +1707,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 						}
 					}
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_registration()) {
 				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration(); 
 				rp->mutable_registration();
@@ -1716,7 +1716,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				} else {
 					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_update()) {
 				const Plugin::SettingsRequestMessage::Request::Update &p = r.update(); 
 				rp->mutable_update();
@@ -1729,7 +1729,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				} else {
 					LOG_ERROR_CORE("Invalid data type");
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_control()) {
 				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
 				rp->mutable_control();
@@ -1739,37 +1739,37 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 					else
 						settings_manager::get_settings()->load();
 					settings_manager::get_settings()->reload();
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				} else if (p.command() == Plugin::Settings_Command_SAVE) {
 					if (p.has_context() && p.context().size() > 0)
 						settings_manager::get_core()->migrate_to(p.context());
 					else
 						settings_manager::get_settings()->save();
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				} else {
-					rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 					rp->mutable_result()->set_message("Unknown command");
 				}
 			} else if (r.has_status()) {
 				rp->mutable_status()->set_has_changed(settings_manager::get_core()->is_dirty());
 				rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
 				rp->mutable_status()->set_type(settings_manager::get_settings()->get_type());
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else {
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				rp->mutable_result()->set_message("Settings error: Invalid action");
 				LOG_ERROR_CORE_STD("Settings error: Invalid action");
 			}
 		} catch (settings::settings_exception &e) {
-			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			rp->mutable_result()->set_message("Settings error: " + e.reason());
 			LOG_ERROR_CORE_STD("Settings error: " + e.reason());
 		} catch (const std::exception &e) {
-			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			rp->mutable_result()->set_message("Settings error: " + utf8::utf8_from_native(e.what()));
 			LOG_ERROR_CORE_STD("Settings error: " + utf8::utf8_from_native(e.what()));
 		} catch (...) {
-			rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			rp->mutable_result()->set_message("Settings error");
 			LOG_ERROR_CORE_STD("Settings error");
 		}
@@ -2004,7 +2004,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				BOOST_FOREACH(const std::string &s, tme.get()) {
 					LOG_DEBUG_CORE(s);
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_registration()) {
 				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
 				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
@@ -2046,7 +2046,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				} else {
 					LOG_ERROR_CORE("Registration query: Unsupported type");
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_control()) {
 				const Plugin::RegistryRequestMessage::Request::Control control = r.control();
 				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
@@ -2104,7 +2104,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				} else {
 					LOG_ERROR_CORE("Registration query: Unsupported type");
 				}
-				rp->mutable_result()->set_status(Plugin::Common_Status_StatusType_STATUS_OK);
+				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else {
 				LOG_ERROR_CORE("Registration query: Unsupported action");
 			}

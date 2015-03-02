@@ -229,8 +229,11 @@ namespace modern_filter {
 				;
 		}
 
-		void post_process(T &filter, parsers::where::perf_writer_interface* writer) {
+		void post_process(T &filter) {
 			filter.match_post();
+			Plugin::QueryResponseMessage::Response::Line line = response->add_lines();
+			modern_filter::perf_writer writer(line);
+			line->set_message(filter.get_message());
 			//filter.end_match();
 			filter.fetch_perf(writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
@@ -244,15 +247,13 @@ namespace modern_filter {
 
 
 	struct perf_writer : public parsers::where::perf_writer_interface {
-		Plugin::QueryResponseMessage::Response *response;
-		std::string unit;
-		perf_writer(Plugin::QueryResponseMessage::Response *response) : response(response) {}
-		virtual void write(const parsers::where::performance_data &data) {
-			::Plugin::Common::PerformanceData* perf = response->add_perf();
+		Plugin::QueryResponseMessage::Response::Line &line;
+		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
+		virtual void write(Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) {
+			::Plugin::Common::PerformanceData* perf = line->add_perf();
 			perf->set_alias(data.alias);
 			if (data.value_int) {
 				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
-				perf->set_type(::Plugin::Common_DataType_INT);
 				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);
@@ -267,7 +268,6 @@ namespace modern_filter {
 					perfData->set_maximum(*value.maximum);
 			} else if (data.value_double) {
 				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
-				perf->set_type(::Plugin::Common_DataType_FLOAT);
 				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);
