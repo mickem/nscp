@@ -4,6 +4,14 @@ SET SOURCE=D:\source\nscp
 
 GOTO :start
 
+:set_error
+SET ERROR_NO=%1
+SET ERROR_MSG=%1
+echo ***********************************
+echo * %ERROR_NO% - %ERROR_MSG%
+echo ***********************************
+GOTO :EOF
+
 :mk_dirs
 SETLOCAL
 SET ENV=%1
@@ -79,17 +87,17 @@ GOTO :EOF
 :mk_dirs w32
 
 IF "%1"=="same" GOTO no_bump
-call :bump_version x64 "Visual Studio 11 Win64"
+call :bump_version x64 "Visual Studio 11 Win64" || GOTO :error
 :no_bump
 
-call :configure x64 "Visual Studio 11 Win64"
-call :configure w32 "Visual Studio 11"
+call :configure x64 "Visual Studio 11 Win64" || GOTO :error
+call :configure w32 "Visual Studio 11" || GOTO :error
 
-call :build x64 x64
-call :build w32 Win32
+call :build x64 x64 || GOTO :error
+call :build w32 Win32 || GOTO :error
 
-call :post_build x64
-call :post_build w32 Win32
+call :post_build x64 || GOTO :error
+call :post_build w32 Win32 || GOTO :error
 
 title Done!
 
