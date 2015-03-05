@@ -121,9 +121,13 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		"DEBUG", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
 		;
+	std::string filter_path = settings.alias().get_settings_path("real-time/filters");
 
 	settings.register_all();
 	settings.notify();
+
+	thread_->filters_.add_samples(get_settings_proxy(), filter_path);
+	thread_->filters_.add_missing(get_settings_proxy(), filter_path, "default", "", true);
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
