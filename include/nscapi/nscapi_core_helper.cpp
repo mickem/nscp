@@ -41,12 +41,32 @@ nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
 
-bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
+bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
+
+
 	std::string request, buffer;
-	nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
+
+	Plugin::SubmitRequestMessage request_message;
+	nscapi::protobuf::functions::create_simple_header(request_message.mutable_header());
+	request_message.mutable_header()->set_sender_id(source_id);
+	request_message.mutable_header()->set_source_id(source_id);
+	request_message.mutable_header()->set_recipient_id(target_id);
+	request_message.mutable_header()->set_destination_id(target_id);
+	request_message.set_channel(channel);
+
+	Plugin::QueryResponseMessage::Response *payload = request_message.add_payload();
+	payload->set_command(command);
+	payload->set_message(message);
+	payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(code));
+	if (!perf.empty())
+		nscapi::protobuf::functions::parse_performance_data(payload, perf);
+
+	request_message.SerializeToString(&request);
+
+	//nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = get_core()->submit_message(channel, request, buffer);
 	if (ret == NSCAPI::returnIgnored) {
-		response = "No handler for this message";
+		response = "No handler for: " + channel;
 		return false;
 	}
 	if (buffer.size() == 0) {

@@ -192,10 +192,10 @@ void GraphiteClient::handleNotification(const std::string &, const Plugin::Submi
 
 void GraphiteClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("path", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "path", _1)), 
+		("path", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "path", _1)), 
 		"")
 
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "timeout", _1)), 
 		"")
 
 		;

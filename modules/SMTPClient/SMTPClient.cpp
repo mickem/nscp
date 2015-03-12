@@ -164,14 +164,14 @@ void SMTPClient::handleNotification(const std::string &, const Plugin::SubmitReq
 void SMTPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 
  	desc.add_options()
-		("sender", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "sender", _1)), 
+		("sender", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "sender", _1)), 
 			"Length of payload (has to be same as on the server)")
 
-		("recipient", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "recipient", _1)), 
+		("recipient", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "recipient", _1)), 
 			"Length of payload (has to be same as on the server)")
 
-		("template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "template", _1)), 
-		"Do not initial an ssl handshake with the server, talk in plaintext.")
+		("template", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "template", _1)), 
+		"Do not initial an ssl handshake with the server, talk in plain text.")
  		;
 }
 

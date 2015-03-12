@@ -31,6 +31,8 @@ namespace nscapi {
 			std::string command;
 			boost::optional<boost::posix_time::time_duration> max_age;
 			std::string target;
+			std::string target_id;
+			std::string source_id;
 			std::string timeout_msg;
 
 

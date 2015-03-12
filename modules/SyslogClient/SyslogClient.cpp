@@ -193,28 +193,28 @@ void SyslogClient::handleNotification(const std::string &, const Plugin::SubmitR
 
 void SyslogClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("severity,s", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "severity", _1)), 
+		("severity,s", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "severity", _1)), 
 		"Severity of error message")
 
-		("unknown-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "unknown_severity", _1)), 
+		("unknown-severity", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "unknown_severity", _1)), 
 		"Severity of error message")
 
-		("ok-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ok_severity", _1)), 
+		("ok-severity", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "ok_severity", _1)), 
 		"Severity of error message")
 
-		("warning-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "warning_severity", _1)), 
+		("warning-severity", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "warning_severity", _1)), 
 		"Severity of error message")
 
-		("critical-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "critical_severity", _1)), 
+		("critical-severity", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "critical_severity", _1)), 
 		"Severity of error message")
 
-		("facility,f", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "facility", _1)), 
+		("facility,f", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "facility", _1)), 
 		"Facility of error message")
 
-		("tag template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "tag template", _1)), 
+		("tag template", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "tag template", _1)), 
 		"Tag template (TODO)")
 
-		("message template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "message template", _1)), 
+		("message template", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "message template", _1)), 
 		"Message template (TODO)")
 		;
 }

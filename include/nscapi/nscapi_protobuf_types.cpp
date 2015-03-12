@@ -23,7 +23,7 @@
 namespace nscapi {
 	namespace protobuf {
 		namespace types {
-			std::string destination_container::to_string() {
+			std::string destination_container::to_string() const {
 				std::stringstream ss;
 				ss << "id: " << id;
 				ss << ", address: " << address.to_string();

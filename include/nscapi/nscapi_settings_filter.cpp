@@ -50,6 +50,13 @@ namespace nscapi {
 				("command", nscapi::settings_helper::string_key(&command), 
 				"COMMAND NAME", "The name of the command (think nagios service name) to report up stream (defaults to alias if not set)", !is_default)
 
+
+				("target id", nscapi::settings_helper::string_key(&target_id),
+				"TARGET ID", "The target to send the message to (will be resolved by the consumer)", true)
+
+				("source id", nscapi::settings_helper::string_key(&source_id),
+				"SOURCE ID", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
+
 				;
 		}
 
@@ -64,6 +71,9 @@ namespace nscapi {
 			import_string(filter_ok, parent.filter_ok);
 			if (parent.debug)
 				debug = parent.debug;
+			import_string(target, parent.target);
+			import_string(target_id, parent.target_id);
+			import_string(source_id, parent.source_id);
 			import_string(target, parent.target);
 			import_string(timeout_msg, parent.timeout_msg);
 			if (parent.severity != -1 && severity == -1)

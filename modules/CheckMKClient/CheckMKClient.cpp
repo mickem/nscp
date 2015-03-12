@@ -236,37 +236,37 @@ bool CheckMKClient::target_handler::apply(nscapi::protobuf::types::destination_c
 
 void CheckMKClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
 	desc.add_options()
-		("certificate,c", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate", _1)), 
+		("certificate,c", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("dh", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "dh", _1)), 
+		("dh", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate key", _1)), 
+		("certificate-key,k", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate key", _1)), 
 		"Client certificate to use")
 
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "certificate format", _1)), 
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate format", _1)), 
 		"Client certificate format")
 
-		("ca", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ca", _1)), 
+		("ca", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "ca", _1)), 
 		"Certificate authority")
 
-		("verify", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "verify mode", _1)), 
+		("verify", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "verify mode", _1)), 
 		"Client certificate format")
 
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "allowed ciphers", _1)), 
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "allowed ciphers", _1)), 
 		"Client certificate format")
 
-		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "payload length", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "payload length", _1)), 
+		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "payload length", _1)), 
 			"Length of payload (has to be same as on the server)")
 
- 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_bool_data, &data->recipient, "ssl", _1)), 
+ 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::nscp_cli_data::set_bool_data, data, "ssl", _1)), 
 			"Initial an ssl handshake with the server.")
 
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_int_data, &data->recipient, "timeout", _1)), 
+		("timeout", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "timeout", _1)), 
 		"")
 
 

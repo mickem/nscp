@@ -525,7 +525,7 @@ tuple script_wrapper::command_wrapper::simple_submit(std::string channel, std::s
 	bool ret = false;
 	{
 		thread_unlocker unlocker;
-		ret = ch.submit_simple_message(channel, command, c, message, perf, resp);
+		ret = ch.submit_simple_message(channel, "", "", command, c, message, perf, resp);
 	}
 	return boost::python::make_tuple(ret, resp);
 }
