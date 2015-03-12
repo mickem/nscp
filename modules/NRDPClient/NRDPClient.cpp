@@ -206,10 +206,10 @@ void NRDPClient::handleNotification(const std::string &, const Plugin::SubmitReq
 
 void NRDPClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
  	desc.add_options()
-		("key", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "token", _1)), 
+		("key", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "token", _1)), 
 		"The security token")
 
-		("password", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "token", _1)), 
+		("password", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "token", _1)), 
 		"The security token")
 
 		("source-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
@@ -218,7 +218,7 @@ void NRDPClient::add_local_options(po::options_description &desc, client::config
 		("sender-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
 		"Source/sender host name (default is auto which means use the name of the actual host)")
 
-		("token", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "token", _1)), 
+		("token", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "token", _1)), 
 		"The security token")
  		;
 }

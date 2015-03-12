@@ -114,7 +114,7 @@ namespace nscapi {
 					data[key] = value?"true":"false";
 				}
 
-				std::string to_string();
+				std::string to_string() const;
 				void import(const destination_container &other);
 				void apply(const destination_container &other);
 			};

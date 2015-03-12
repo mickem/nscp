@@ -765,34 +765,6 @@ namespace nscapi {
 			return NSCAPI::log_level::error;
 		}
 
-		//////////////////////////////////////////////////////////////////////////
-		//
-		// deprecated: wstring functions
-		//
-		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf) {
-			alias = utf8::cvt<std::wstring>(payload.alias());
-			if (alias.empty())
-				alias = utf8::cvt<std::wstring>(payload.command());
-			message = utf8::cvt<std::wstring>(payload.message());
-			perf = utf8::cvt<std::wstring>(build_performance_data(payload));
-			return gbp_to_nagios_status(payload.result());
-		}
-		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf) {
-			alias = payload.alias();
-			if (alias.empty())
-				alias = payload.command();
-			message = payload.message();
-			perf = build_performance_data(payload);
-			return gbp_to_nagios_status(payload.result());
-		}
-		int functions::parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message) {
-			alias = utf8::cvt<std::wstring>(payload.alias());
-			if (alias.empty())
-				alias = utf8::cvt<std::wstring>(payload.command());
-			message = utf8::cvt<std::wstring>(payload.message());
-			return gbp_to_nagios_status(payload.result());
-		}
-
 		namespace functions {
 
 			std::string settings_query::key_values::get_string() const {

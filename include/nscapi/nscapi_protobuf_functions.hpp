@@ -177,8 +177,6 @@ namespace nscapi {
 			NSCAPI_EXPORT void create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer);
 
 			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::string &alias, std::string &message, std::string &perf);
- 			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message, std::wstring &perf);
- 			NSCAPI_EXPORT int parse_simple_submit_request_payload(const Plugin::QueryResponseMessage::Response &payload, std::wstring &alias, std::wstring &message);
 			NSCAPI_EXPORT NSCAPI::errorReturn parse_simple_submit_response(const std::string &request, std::string &response);
 			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer);
 			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer);

@@ -73,6 +73,7 @@ void real_time_thread::thread_proc() {
 		else if (dur)
 			dwWaitTime = dur->total_milliseconds();
 
+		NSC_DEBUG_MSG("Sleeping for: " + strEx::s::xtos(dwWaitTime) + "ms");
 		DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size()+1), handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			helper.process_no_items();

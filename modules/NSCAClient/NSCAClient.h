@@ -132,8 +132,7 @@ public:
 		int time_delta;
 		std::string encoding;
 
-		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target, nscapi::protobuf::types::destination_container sender) {
-			arguments.import(target);
+		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container sender) {
 			address = arguments.address.host;
 			port_ = arguments.address.get_port_string("5667");
 			ssl.enabled = arguments.get_bool_data("ssl");
@@ -161,10 +160,6 @@ public:
 		}
 		unsigned int get_encryption() {
 			return nscp::encryption::helpers::encryption_to_int(encryption);
-		}
-
-		std::wstring to_wstring() const {
-			return utf8::cvt<std::wstring>(to_string());
 		}
 
 		std::string to_string() const {
