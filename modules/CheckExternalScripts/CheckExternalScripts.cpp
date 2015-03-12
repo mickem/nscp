@@ -162,6 +162,17 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.register_all();
 		settings.notify();
 
+		std::string scripts_path = settings.alias().get_settings_path("scripts");
+		std::string alias_path = settings.alias().get_settings_path("scripts");
+
+
+		commands_.add_samples(get_settings_proxy(), scripts_path);
+		commands_.add_missing(get_settings_proxy(), scripts_path, "default", "", true);
+
+		aliases_.add_samples(get_settings_proxy(), alias_path);
+		aliases_.add_missing(get_settings_proxy(), alias_path, "default", "", true);
+
+
 
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);
