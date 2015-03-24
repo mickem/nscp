@@ -148,8 +148,20 @@ namespace services_helper {
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
 		service_handle hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
-		if (!hService)
-			throw nscp_exception("Failed to open service: " + service);
+		if (!hService) {
+			DWORD error = GetLastError();
+			if (error == ERROR_SERVICE_DOES_NOT_EXIST) {
+				hlp::buffer<wchar_t> buf(2048);
+				DWORD size = buf.size();
+				if (!GetServiceKeyName(sc, utf8::cvt<std::wstring>(service).c_str(), buf.get(), &size)) {
+					throw nscp_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
+				}
+				hService = OpenService(sc, buf.get(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
+				if (!hService)
+					throw nscp_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
+			} else
+				throw nscp_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
+		}
 
 		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> ssp = queryServiceStatusEx(hService, service);
 
