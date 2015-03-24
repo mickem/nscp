@@ -31,7 +31,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	} else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
 		context.report_warning("Invalid file specified: " + dir.string());
 	}
-	if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + strEx::s::xtos(fileAttr));
+	//if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + strEx::s::xtos(fileAttr));
 
 	if (!is_directory(fileAttr)) {
 		if (context.debug) context.report_debug("Found a file won't do recursive scan: " + dir.string());
@@ -55,7 +55,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 		return;
 	}
 	std::string file_pattern = dir.string() + "\\" + context.pattern;
-	if (context.debug) context.report_debug("File pattern: " + file_pattern);
+	//if (context.debug) context.report_debug("File pattern: " + file_pattern);
 	HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
@@ -73,7 +73,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 		FindClose(hFind);
 	}
 	std::string dir_pattern = dir.string() + "\\*.*";
-	if (context.debug) context.report_debug("File pattern: " + dir_pattern);
+	//if (context.debug) context.report_debug("File pattern: " + dir_pattern);
 	hFind = FindFirstFile(utf8::cvt<std::wstring>(dir_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
