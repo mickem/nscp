@@ -83,7 +83,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 	if (vm.count("CheckAll"))
 		request.add_arguments("drive=*");
 	bool exclude = false;
-	if (vm.count("CheckAllOt hers")) {
+	if (vm.count("CheckAllOthers")) {
 		request.add_arguments("drive=*");
 		exclude = true;
 	}
