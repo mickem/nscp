@@ -326,10 +326,16 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 			return check_nt::packet(extract_perf_value(payload.perf(0)));
 
 		case REQ_MEMUSE:
+			if (payload.perf_size() < 1)
+				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
 			return check_nt::packet(extract_perf_total(payload.perf(0)) + "&" + extract_perf_value(payload.perf(0)));
 		case REQ_USEDDISKSPACE:
+			if (payload.perf_size() < 1)
+				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
 			return check_nt::packet(extract_perf_value(payload.perf(0)) + "&" + extract_perf_total(payload.perf(0)));
 		case REQ_FILEAGE:
+			if (payload.perf_size() < 1)
+				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
 			return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(payload.perf(0))/60) + "&" + payload.message());
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
