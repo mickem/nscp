@@ -42,9 +42,9 @@ set(HAS_ATL "yes")
 if(VSTUDIO_EXPRESS)
 set(HAS_ATL "no")
 endif()
-set(HAS_ATL "110")
+set(MSVER "vc110")
 if(MSVC13)
-set(HAS_ATL "120")
+set(MSVER "vc120")
 endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
@@ -52,7 +52,7 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" 
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=vc120-mt-1_56
+	-dBoostTag=${MSVER}-mt-1_56
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
