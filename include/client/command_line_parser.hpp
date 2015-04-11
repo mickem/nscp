@@ -8,6 +8,7 @@
 
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_targets.hpp>
 
 namespace client {
 
@@ -21,55 +22,138 @@ namespace client {
 		}
 	};
 
-	struct nscp_cli_data {
+
+
+	struct NSCAPI_EXPORT destination_container {
+		std::string id;
+		net::url address;
+		std::string comment;
+		std::set<std::string> tags;
+
+		int timeout;
+		int retry;
+
+
+		typedef std::map<std::string, std::string> data_map;
+		data_map data;
+
+
+		destination_container() : timeout(10), retry(2) {}
+
+		destination_container(nscapi::settings_objects::object_instance obj) {
+			BOOST_FOREACH(const nscapi::settings_objects::options_map::value_type &k, obj->get_options()) {
+				set_string_data(k.first, k.second);
+			}
+		}
+
+		void apply(std::string key, const::Plugin::Common::Header &header) {
+			for (int i = 0; i < header.hosts_size(); i++) {
+				if (header.hosts(i).id() == key) {
+					apply_host(header.hosts(i));
+				}
+			}
+		}
+		void apply_host(const::Plugin::Common::Host &host) {
+			if (host.has_address())
+				set_string_data("address", host.address());
+			for (int i = 0; i < host.metadata_size(); i++) {
+				set_string_data(host.metadata(i).key(), host.metadata(i).value());
+			}
+		}
+
+		void set_host(std::string value) {
+			address.host = value;
+		}
+		void set_address(std::string value) {
+			address = net::parse(value);
+		}
+		void set_port(std::string value) {
+			address.port = strEx::s::stox<unsigned int>(value);
+		}
+		std::string get_protocol() const {
+			return address.protocol;
+		}
+		bool has_protocol() const {
+			return !address.protocol.empty();
+		}
+
+		static bool to_bool(std::string value, bool def = false) {
+			if (value.empty())
+				return def;
+			if (value == "true" || value == "1" || value == "True")
+				return true;
+			return false;
+		}
+		static int to_int(std::string value, int def = 0) {
+			if (value.empty())
+				return def;
+			try {
+				return boost::lexical_cast<int>(value);
+			}
+			catch (...) {
+				return def;
+			}
+		}
+
+		inline int get_int_data(std::string key, int def = 0) {
+			return to_int(data[key], def);
+		}
+		inline bool get_bool_data(std::string key, bool def = false) {
+			return to_bool(data[key], def);
+		}
+		inline std::string get_string_data(std::string key, std::string def = "") {
+			data_map::iterator it = data.find(key);
+			if (it == data.end())
+				return def;
+			return it->second;
+		}
+		inline bool has_data(std::string key) {
+			return data.find(key) != data.end();
+		}
+
+		void set_string_data(std::string key, std::string value) {
+			if (key == "host")
+				set_host(value);
+			else if (key == "address")
+				set_address(value);
+			else if (key == "port")
+				address.port = to_int(value, address.port);
+			else if (key == "timeout")
+				timeout = to_int(value, address.port);
+			else if (key == "retry")
+				retry = to_int(value, address.port);
+			else
+				data[key] = value;
+		}
+		void set_int_data(std::string key, int value) {
+			set_string_data(key, strEx::s::xtos(value));
+		}
+		void set_bool_data(std::string key, bool value) {
+			set_string_data(key, value ? "true" : "false");
+		}
+
+		std::string to_string() const;
+	};
+
+	struct nscp_clp_data {
 		std::string target_id;
 		std::string command;
 		std::string command_line;
 		std::string message;
 		std::string result;
 		std::vector<std::string> arguments;
-		int timeout;
-		int retry;
 
-		nscapi::protobuf::types::destination_container host_self;
-		std::list<nscapi::protobuf::types::destination_container> recipients;
+		destination_container host_self;
+		std::list<destination_container> targets;
 
-
-		void set_host(std::string s) {}
-		void set_port(std::string s) {}
-		void set_address(std::string s) {}
-
-
-		void set_string_data(std::string key, std::string value) {
-			// 			if (key == "host")
-			// 				set_host(value);
-			// 			else 
-			// 				data[key] = value;
-		}
-		void set_int_data(std::string key, int value) {
-			// 			if (key == "host")
-			// 				set_host(value);
-			// 			else 
-			// 				data[key] = value;
-		}
-		void set_bool_data(std::string key, bool value) {
-			// 			if (key == "host")
-			// 				set_host(value);
-			// 			else 
-			// 				data[key] = value;
-		}
-
-
-		nscp_cli_data() : timeout(10), retry(2) {}
+		nscp_clp_data(nscapi::targets::target_object parent) {}
 		std::string to_string() {
 			std::stringstream ss;
-			ss << "Timeout: " << timeout;
-			ss << ", retry: " << retry;
-			ss << ", command: " << command;
+			ss << "Command: " << command;
 			ss << ", target: " << target_id;
 			ss << ", self: {" << host_self.to_string() << "}";
-			BOOST_FOREACH(const nscapi::protobuf::types::destination_container &r, recipients) {
-				ss << ", recipient: {" << r.to_string() << "}";
+			BOOST_FOREACH(const client::destination_container &r, targets) {
+				ss << ", target: {" << r.to_string() << "}";
 			}
 			ss << ", message: " << message;
 			ss << ", result: " << result;
@@ -80,123 +164,55 @@ namespace client {
 			return ss.str();
 		}
 	};
+	/*
+	struct clp_item  {
+		nscp_clp_data data;
+		//const configuration &config;
+		//clp_item(const configuration &config) : config(config) {}
+	};
+	*/
 
-	struct clp_handler;
-
-
-
-
-	struct hashmap_reader {
-		typedef nscapi::targets::target_object object_type;
-		typedef nscapi::targets::target_object target_object;
-
-		static void init_default(target_object &target) {
-			target.set_property_int("timeout", 30);
-			target.set_property_string("encryption", "ase");
-			target.set_property_int("payload length", 512);
-		}
-
-		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-			if (is_sample)
-				root_path.set_sample();
-			root_path.add_key()
-
-				("timeout", sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
-				"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
-
-				("dh", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
-				"DH KEY", "", true)
-
-				("certificate", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
-				"SSL CERTIFICATE", "", false)
-
-				("certificate key", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
-				"SSL CERTIFICATE", "", true)
-
-				("certificate format", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
-				"CERTIFICATE FORMAT", "", true)
-
-				("ca", sh::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
-				"CA", "", true)
-
-				("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
-				"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
-
-				("verify mode", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
-				"VERIFY MODE", "", false)
-
-				("use ssl", sh::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), false),
-				"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
-
-				("payload length",  sh::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "payload length", _1), 512),
-				"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.", true)
-
-				("encryption", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "encryption", _1), "aes"),
-				"ENCRYPTION", std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
-				"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n"))
-
-				("password", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "password", _1), ""),
-				"PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.")
-
-				("encoding", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "encoding", _1), ""),
-				"ENCODING", "", true)
-
-				("time offset", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "delay", _1), "0"),
-				"TIME OFFSET", "Time offset.", true)
-				;
-		}
-
-		static void post_process_target(target_object &target) {
-			std::list<std::string> err;
-			nscapi::targets::helpers::verify_file(target, "certificate", err);
-			nscapi::targets::helpers::verify_file(target, "dh", err);
-			nscapi::targets::helpers::verify_file(target, "certificate key", err);
-			nscapi::targets::helpers::verify_file(target, "ca", err);
-			BOOST_FOREACH(const std::string &e, err) {
-				NSC_LOG_ERROR(e);
-			}
-		}
+	struct clp_handler {
+		virtual bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) = 0;
+		virtual bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) = 0;
+		virtual bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) = 0;
 	};
 
-	struct target_lookup_interface {
-		virtual nscapi::protobuf::types::destination_container lookup_target(std::string &id) const = 0;
-		virtual bool apply(nscapi::protobuf::types::destination_container &dst, const std::string key) = 0;
-		virtual bool has_object(std::string alias) const = 0;
-	};
+
 	struct configuration : public boost::noncopyable {
-		typedef boost::shared_ptr<nscp_cli_data> data_type;
+		typedef boost::shared_ptr<nscp_clp_data> data_type;
 		typedef boost::shared_ptr<clp_handler> handler_type;
-		typedef boost::shared_ptr<target_lookup_interface> target_lookup_type;
+
+		nscapi::settings_objects::object_handler targets;
+		clp_handler *handler;
 
 		std::string title;
 		std::string default_command;
-		data_type data;
 		boost::program_options::options_description local;
-		handler_type handler;
-		target_lookup_type target_lookup;
 
-		configuration(std::string caption) : data(data_type(new nscp_cli_data())), local("Common options for " + caption) {}
-		configuration(std::string caption, handler_type handler, target_lookup_type target_lookup) 
-			: data(data_type(new nscp_cli_data())), local("Common options for " + caption) 
-			, handler(handler)
-			, target_lookup(target_lookup)
-		{}
+		configuration(std::string caption) : local("Common options for " + caption) {}
 
-		bool validate() {
-			if (!data) return false;
-			if (!handler) return false;
-			//if (!target_lookup) return false;
-			return true;
-		}
 		std::string to_string() {
 			std::stringstream ss;
 			ss << "Title: " << title;
-			ss << ", data: " << data;
-			ss << ", handler: " << handler;
-			ss << ", target_lookup: " << target_lookup;
+			ss << ", targets: " + targets.to_string();
 			return ss.str();
 		}
+
+		void set_path(std::string path) {
+			targets.set_path(path);
+		}
+
+		void add_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string value) {
+			targets.add(proxy, key, value);
+		}
+		void clear() {
+			targets.clear();
+		}
+
+
+		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
+		void forward_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 
 	};
 	struct command_container {
@@ -214,22 +230,15 @@ namespace client {
 		}
 	};
 
-	struct clp_handler {
-		virtual int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) = 0;
-		virtual int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) = 0;
-		virtual int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) = 0;
-	};
 	struct command_manager {
 		typedef boost::unordered_map<std::string, command_container> command_type;
 		command_type commands;
 
-		void add_target(const std::string key, const std::string args);
-
 		void clear() {
 			commands.clear();
 		}
+	private:
 
-		std::string add_command(std::string name, std::string args);
 		int exec_simple(configuration &config, const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &response);
 
 		// Wrappers based on source
@@ -241,6 +250,11 @@ namespace client {
 		void parse_query(client::configuration &config, const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response);
 //		bool parse_exec(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response &response, const Plugin::ExecuteRequestMessage &request_message);
 //		void parse_submit(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response &response, const Plugin::SubmitRequestMessage &request_message);
+
+	public:
+
+		std::string add_command(std::string name, std::string args);
+		void add_target(const std::string key, const std::string args);
 
 		// Actual execution
 		void do_query(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::QueryResponseMessage::Response &response);

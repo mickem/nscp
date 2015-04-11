@@ -56,10 +56,11 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 
 	Plugin::QueryResponseMessage::Response *payload = request_message.add_payload();
 	payload->set_command(command);
-	payload->set_message(message);
 	payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(code));
+	Plugin::QueryResponseMessage::Response::Line *line = payload->add_lines();
+	line->set_message(message);
 	if (!perf.empty())
-		nscapi::protobuf::functions::parse_performance_data(payload, perf);
+		nscapi::protobuf::functions::parse_performance_data(line, perf);
 
 	request_message.SerializeToString(&request);
 

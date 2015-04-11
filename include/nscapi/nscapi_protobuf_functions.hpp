@@ -37,7 +37,7 @@ namespace nscapi {
 	namespace protobuf {
 		namespace functions {
 
-			typedef nscapi::protobuf::types::destination_container destination_container;
+//			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 			
 			class NSCAPI_EXPORT settings_query {
@@ -165,8 +165,8 @@ namespace nscapi {
 
 
 			NSCAPI_EXPORT void create_simple_header(Plugin::Common::Header* hdr);
-			NSCAPI_EXPORT void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
-			NSCAPI_EXPORT bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
+//			NSCAPI_EXPORT void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
+//			NSCAPI_EXPORT bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
 
 			NSCAPI_EXPORT void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "", const std::string source = "");
 			NSCAPI_EXPORT void make_query_from_exec(std::string &data);

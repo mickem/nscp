@@ -9,18 +9,18 @@
 
 namespace po = boost::program_options;
 
-po::options_description add_common_options(client::configuration::data_type command_data) {
+po::options_description add_common_options(client::destination_container &obj) {
 	po::options_description desc("Common options");
 	desc.add_options()
-		("host,H", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_host, command_data, _1)), 
+		("host,H", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_host, &obj, _1)), 
 		"The host of the host running the server")
-		("port,P", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_port, command_data, _1)), 
+		("port,P", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_port, &obj, _1)),
 		"The port of the host running the server")
-		("address", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_address, command_data, _1)), 
+		("address", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_address, &obj, _1)),
 		"The address (host:port) of the host running the server")
-		("timeout,T", po::value<int>(&command_data->timeout), "Number of seconds before connection times out (default=10)")
-		("target,t", po::value<std::string>(&command_data->target_id), "Target to use (lookup connection info from config)")
-		("retry", po::value<int>(&command_data->retry), "Number of times ti retry a failed connection attempt (default=2)")
+		("timeout,T", po::value<int>(&obj.timeout), "Number of seconds before connection times out (default=10)")
+		//("target,t", po::value<std::string>(&obj.target_id), "Target to use (lookup connection info from config)")
+		("retry", po::value<int>(&obj.retry), "Number of times ti retry a failed connection attempt (default=2)")
 		;
 	return desc;
 }
@@ -52,6 +52,7 @@ po::options_description add_exec_options(client::configuration::data_type comman
 		;
 	return desc;
 }
+/*
 po::options_description create_descriptor(const std::string &command, const std::string &default_command, const client::configuration &config) {
 	po::options_description desc = nscapi::program_options::create_desc(command);
 	desc.add(add_common_options(config.data));
@@ -65,7 +66,7 @@ po::options_description create_descriptor(const std::string &command, const std:
 	desc.add(config.local);
 	return desc;
 }
-
+*/
 int parse_result(std::string key) {
 	if (key == "UNKNOWN" || key == "unknown")
 		return NSCAPI::returnUNKNOWN;
@@ -81,7 +82,7 @@ int parse_result(std::string key) {
 		return NSCAPI::returnUNKNOWN;
 	}
 }
-
+/*
 void modify_header(client::configuration &config, ::Plugin::Common_Header* header, std::list<nscapi::protobuf::functions::destination_container> &recipient) {
 	nscapi::protobuf::functions::destination_container myself = config.data->host_self;
 	std::string ids = "";
@@ -96,7 +97,7 @@ void modify_header(client::configuration &config, ::Plugin::Common_Header* heade
 		header->set_source_id(myself.id);
 	header->set_sender_id(myself.id);
 }
-
+*/
 std::string parse_command(const std::string &command, const std::string &prefix) {
 	if (command.length() > prefix.length()) {
 		if (command.substr(0,prefix.length()+1) == prefix + "_")
@@ -128,7 +129,7 @@ std::string client::command_manager::add_command(std::string name, std::string a
 
 
 
-
+/*
 void client::command_manager::parse_query(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response &response, const Plugin::QueryRequestMessage &request_message) {
 	boost::program_options::variables_map vm;
 	std::string real_command;
@@ -168,9 +169,9 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 	}
 
 	if (!config.data->target_id.empty()) {
-		if (!config.target_lookup)
+		if (!config.targets.has_object(config.data->target_id))
 			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
-		//config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+		//TODO: config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
 	}
 	if (real_command == "query" || (real_command.empty() && default_command == "query")) {
 		do_query(config, request_message.header(), response);
@@ -182,44 +183,96 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 		return nscapi::protobuf::functions::set_response_bad(response, "Invalid command: "  +real_command);
 	}
 }
+*/
+void client::configuration::parse_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 
-void client::command_manager::parse_query(client::configuration &config, const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response) {
-	boost::program_options::variables_map vm;
-	std::string real_command = "query";
-	try {
-			po::options_description desc = create_descriptor(real_command, real_command, config);
-			if (!nscapi::program_options::process_arguments_from_vector(vm, desc, real_command, args, response)) 
-				return;
-	} catch (const std::exception &e) {
-		return nscapi::protobuf::functions::set_response_bad(response, "Exception processing command line: " + utf8::utf8_from_native(e.what()));
+	std::string command = "";
+
+	for (int i = 0; i<request.header().metadata_size(); i++) {
+		if (request.header().metadata(i).key() == "command")
+			command = request.header().metadata(i).value();
 	}
+	for (int i = 0; i < request.payload_size(); i++) {
+		::Plugin::QueryRequestMessage::Request *reqp = request.mutable_payload(0);
+		if (!command.empty()) {
+			command = reqp->command();
+		}
+		// Check pre populated commands
+		if (reqp->arguments_size() > 0) {
 
-	if (real_command == "query") {
-		const ::Plugin::Common::Header header;
-		do_query(config, header, response);
-	} else {
-		return nscapi::protobuf::functions::set_response_bad(response, "Invalid command: "  +real_command);
+			boost::program_options::variables_map vm;
+			std::string real_command = "query";
+			try {
+				po::options_description desc = create_descriptor(real_command, real_command, config);
+				if (!nscapi::program_options::process_arguments_from_vector(vm, desc, real_command, args, response))
+					return;
+			}
+			catch (const std::exception &e) {
+				return nscapi::protobuf::functions::set_response_bad(response, "Exception processing command line: " + utf8::utf8_from_native(e.what()));
+			}
+
+			if (real_command == "query") {
+				const ::Plugin::Common::Header header;
+				do_query(config, header, response);
+			}
+			else {
+				return nscapi::protobuf::functions::set_response_bad(response, "Invalid command: " + real_command);
+			}
+		}
 	}
 }
 
-void client::command_manager::do_query(client::configuration &config, const ::Plugin::Common::Header &header, Plugin::QueryResponseMessage::Response &response) {
-	Plugin::QueryRequestMessage local_request;
+void client::configuration::do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	Plugin::QueryResponseMessage local_response;
-	local_request.mutable_header()->CopyFrom(header);
-	modify_header(config, local_request.mutable_header(), config.data->recipients);
-	// TODO: Copy data from real request here?
-	nscapi::protobuf::functions::append_simple_query_request_payload(local_request.add_payload(), config.data->command, config.data->arguments);
-	int ret = config.handler->query(config.data, local_request, local_response);
-	if (ret == NSCAPI::hasFailed) {
-		nscapi::protobuf::functions::set_response_bad(response, "Failed to process request");
-		return;
+
+	std::string target = "default";
+	if (request.header().has_destination_id())
+		target = request.header().destination_id();
+	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
+		if (op) {
+			destination_container d(*op);
+			d.apply(t, request.header());
+			destination_container s;
+			s.apply(request.header().sender_id(), request.header());
+			::Plugin::QueryResponseMessage local_response_message;
+			if (!handler->query(s, d, request, local_response_message)) {
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Failed to submit");
+				return;
+			} 
+			for (int i = 0; i < local_response_message.payload_size(); i++) {
+				response.add_payload()->CopyFrom(local_response.payload(i));
+			}
+		}
 	}
-	if (local_response.payload_size() != 1) {
-		nscapi::protobuf::functions::set_response_bad(response, "Response returned invalid number of results");
-	}
-	response.CopyFrom(local_response.payload(0));
 }
 
+void client::configuration::forward_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
+	Plugin::QueryResponseMessage local_response;
+
+	std::string target = "default";
+	if (request.header().has_destination_id())
+		target = request.header().destination_id();
+	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
+		if (op) {
+			destination_container d(*op);
+			d.apply(t, request.header());
+			destination_container s;
+			s.apply(request.header().sender_id(), request.header());
+			::Plugin::QueryResponseMessage local_response_message;
+			if (!handler->query(s, d, request, local_response_message)) {
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Failed to submit");
+				return;
+			}
+			for (int i = 0; i < local_response_message.payload_size(); i++) {
+				response.add_payload()->CopyFrom(local_response.payload(i));
+			}
+		}
+	}
+}
+
+/*
 void client::command_manager::forward_query(client::configuration &config, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	std::string command;
 	for (int i=0;i<request.header().metadata_size();i++) {
@@ -271,11 +324,11 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
 				return true;
 			if (!config.data->target_id.empty()) {
-				if (!config.target_lookup) {
+				if (!config.targets.has_object(config.data->target_id)) {
 					nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
 					return true;
 				}
-				//config.data->recipient.apply(config.target_lookup->lookup_target(config.data->target_id));
+				//TODO: config.data->recipient.apply(config.target_lookup->lookup_target(config.data->target_id));
 				//if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, response)) 
 				//	return true;
 			}
@@ -292,7 +345,7 @@ bool client::command_manager::parse_exec(const std::string &prefix, const std::s
 			if (!nscapi::program_options::process_arguments_from_vector(vm, desc, request.command(), args, response)) 
 				return true;
 			if (!config.data->target_id.empty()) {
-				if (!config.target_lookup) {
+				if (!config.targets.has_object(config.data->target_id)) {
 					nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
 					return true;
 				}
@@ -363,8 +416,8 @@ void client::command_manager::forward_exec(client::configuration &config, const 
 	}
 	response.CopyFrom(local_response.payload(0));
 }
-
-
+*/
+/*
 void client::command_manager::parse_submit(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response &response, const Plugin::SubmitRequestMessage &request_message) {
 	boost::program_options::variables_map vm;
 	std::string real_command;
@@ -376,12 +429,12 @@ void client::command_manager::parse_submit(const std::string &prefix, const std:
 		boost::program_options::variables_map vm;
 		if (cit == commands.end()) {
 			return nscapi::protobuf::functions::set_response_bad(response, "TODO ADD THIS?");
-			/*
+			/ *
 			real_command = parse_command(cmd, prefix);
 			po::options_description desc = create_descriptor(real_command, default_command, config);
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.command(), request, response)) 
 				return;
-				*/
+				* /
 		} else {
 			std::vector<std::string> args;
 			po::options_description desc = create_descriptor(request.command(), default_command, config);
@@ -400,9 +453,10 @@ void client::command_manager::parse_submit(const std::string &prefix, const std:
 	}
 
 	if (!config.data->target_id.empty()) {
-		if (!config.target_lookup) 
+		if (!config.targets.has_object(config.data->target_id)) {
 			return nscapi::protobuf::functions::set_response_bad(response, "Target not found: " + config.data->target_id);
-		//config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+			//config.data->recipient.import(config.target_lookup->lookup_target(config.data->target_id));
+		}
 	}
 	if (real_command == "query" || (real_command.empty() && default_command == "query")) {
 		return nscapi::protobuf::functions::set_response_bad(response, "Paradigm shift currently not supported");
@@ -439,3 +493,5 @@ void client::command_manager::forward_submit(client::configuration &config, cons
 		return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Failed to process request");
 	}
 }
+
+*/

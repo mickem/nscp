@@ -1,6 +1,6 @@
 #include <nscapi/nscapi_targets.hpp>
 #include <boost/filesystem.hpp>
-
+/*
 void nscapi::targets::helpers::verify_file(nscapi::targets::target_object &target, std::string key, std::list<std::string> &errors) {
 	if (!target.has_option(key))
 		return;
@@ -11,3 +11,4 @@ void nscapi::targets::helpers::verify_file(nscapi::targets::target_object &targe
 	if (!boost::filesystem::is_regular(p))
 		errors.push_back("File not found '" + key + "': " + p.string());
 }
+*/

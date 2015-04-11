@@ -70,7 +70,7 @@ namespace nscapi {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
-
+		/*
 		void functions::add_host(Plugin::Common::Header* hdr, const destination_container &dst)  {
 			::Plugin::Common::Host *host = hdr->add_hosts();
 			if (!dst.id.empty())
@@ -113,7 +113,7 @@ namespace nscapi {
 			}
 			return false;
 		}
-
+*/
 		//////////////////////////////////////////////////////////////////////////
 
 		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target, const std::string source) {
