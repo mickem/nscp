@@ -27,6 +27,12 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
+		("access_l", boost::bind(&filter_obj::get_access_sl, _1), "Last access time (local time)")
+		("creation_l", boost::bind(&filter_obj::get_creation_sl, _1), "When file was created (local time)")
+		("written_l", boost::bind(&filter_obj::get_written_sl, _1), "When file was last written  to (local time)")
+		("access_u", boost::bind(&filter_obj::get_access_su, _1), "Last access time (UTC)")
+		("creation_u", boost::bind(&filter_obj::get_creation_su, _1), "When file was created (UTC)")
+		("written_u", boost::bind(&filter_obj::get_written_su, _1), "When file was last written  to (UTC)")
 		;
 
 	registry_.add_int()
@@ -42,9 +48,9 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		;
 
 	registry_.add_human_string()
-		("access", boost::bind(&filter_obj::get_access_s, _1), "")
-		("creation", boost::bind(&filter_obj::get_creation_s, _1), "")
-		("written", boost::bind(&filter_obj::get_written_s, _1), "")
+		("access", boost::bind(&filter_obj::get_access_su, _1), "")
+		("creation", boost::bind(&filter_obj::get_creation_su, _1), "")
+		("written", boost::bind(&filter_obj::get_written_su, _1), "")
 		;
 
 }
