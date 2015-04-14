@@ -36,11 +36,73 @@ namespace sh = nscapi::settings_helper;
 
 const std::string command_prefix = "nsca";
 const std::string default_command("submit");
+
+
+struct nsca_options_reader : public client::options_reader {
+	void operator() (po::options_description &desc, client::destination_container &data) {
+		desc.add_options()
+			("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "encryption", _1)), 
+			(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
+			"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n")).c_str())
+
+			("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+			("dh", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "dh", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+			("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate key", _1)), 
+			"Client certificate to use")
+
+			("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate format", _1)), 
+			"Client certificate format")
+
+			("ca", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "ca", _1)), 
+			"Certificate authority")
+
+			("verify", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "verify mode", _1)), 
+			"Client certificate format")
+
+			("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "allowed ciphers", _1)), 
+			"Client certificate format")
+
+			("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+			"Length of payload (has to be same as on the server)")
+
+			("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+			"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
+
+			("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, data, "ssl", _1)), 
+			"Initial an ssl handshake with the server.")
+
+			("timeout", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "timeout", _1)), 
+			"")
+
+			("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "password", _1)), 
+			"Password")
+
+			("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "host", _1)), 
+			"Source/sender host name (default is auto which means use the name of the actual host)")
+
+			("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "host", _1)), 
+			"Source/sender host name (default is auto which means use the name of the actual host)")
+
+			("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "time offset", _1)), 
+			"")
+
+			("retries", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "retries", _1)), 
+			"Number of times to retry a failed connection attempt")
+			;
+	}
+
+
+};
+
 /**
  * Default c-tor
  * @return 
  */
-NSCAClient::NSCAClient() /*: config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl()))*/ {}
+NSCAClient::NSCAClient() : config(command_prefix, boost::shared_ptr<client::options_reader>(new nsca_options_reader())) {}
 
 /**
  * Default d-tor
@@ -166,7 +228,7 @@ std::string get_command(std::string alias, std::string command = "") {
 
 void NSCAClient::add_target(std::string key, std::string arg) {
 	try {
-		config.add_target(get_settings_proxy(), target_path , key, arg);
+		config.add_target(get_settings_proxy(), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -217,62 +279,7 @@ void NSCAClient::handleNotification(const std::string &, const Plugin::SubmitReq
 // Parser setup/Helpers
 //
 
-void NSCAClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
-	desc.add_options()
-		("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "encryption", _1)), 
-		(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
-		"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n")).c_str())
-
-		("certificate", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate", _1)), 
-		"Length of payload (has to be same as on the server)")
-
-		("dh", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "dh", _1)), 
-		"Length of payload (has to be same as on the server)")
-
-		("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate key", _1)), 
-		"Client certificate to use")
-
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "certificate format", _1)), 
-		"Client certificate format")
-
-		("ca", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "ca", _1)), 
-		"Certificate authority")
-
-		("verify", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "verify mode", _1)), 
-		"Client certificate format")
-
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "allowed ciphers", _1)), 
-		"Client certificate format")
-
-		("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "payload length", _1)), 
-		"Length of payload (has to be same as on the server)")
-
-		("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "payload length", _1)), 
-			"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-
- 		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::nscp_cli_data::set_bool_data, data, "ssl", _1)), 
-			"Initial an ssl handshake with the server.")
-
-		("timeout", po::value<unsigned int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "timeout", _1)), 
-		"")
-
-		("password", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "password", _1)), 
-		"Password")
-
-		("source-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
-		"Source/sender host name (default is auto which means use the name of the actual host)")
-
-		("sender-host", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->host_self, "host", _1)), 
-		"Source/sender host name (default is auto which means use the name of the actual host)")
-
-		("time-offset", po::value<std::string>()->notifier(boost::bind(&client::nscp_cli_data::set_string_data, data, "time offset", _1)), 
-		"")
-
-		("retries", po::value<int>()->notifier(boost::bind(&client::nscp_cli_data::set_int_data, data, "retries", _1)), 
-		"Number of times to retry a failed connection attempt")
-		;
-}
-
+/*
 void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
 	add_local_options(config.local, config.data);
 
@@ -295,24 +302,13 @@ void NSCAClient::setup(client::configuration &config, const ::Plugin::Common_Hea
 	config.data->host_self.id = "self";
 	config.data->host_self.address.host = hostname_;
 }
+*/
 
-std::list<NSCAClient::connection_data> parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::protobuf::functions::destination_container recipient, sender;
-	std::list<NSCAClient::connection_data> ret;
-	nscapi::protobuf::functions::parse_destination(header, header.sender_id(), sender, true);
-	if (sender.address.host.empty() && !data->host_self.address.host.empty())
-		sender.address.host = data->host_self.address.host;
-	BOOST_FOREACH(const std::string rtag, strEx::s::splitEx(header.recipient_id(), std::string(","))) {
-		nscapi::protobuf::functions::destination_container recipient;
-		if (!nscapi::protobuf::functions::parse_destination(header, rtag, recipient, true))
-			recipient.id = rtag;
-		BOOST_FOREACH(const nscapi::protobuf::functions::destination_container &d, data->recipients) {
-			if (d.id == recipient.id)
-				recipient.import(d);
-		}
-		ret.push_back(NSCAClient::connection_data(recipient, sender));
-	}
-	return ret;
+NSCAClient::connection_data NSCAClient::parse_header(const ::Plugin::Common_Header &header, client::destination_container &source, client::destination_container &destination) {
+	client::destination_container recipient, sender;
+	if (sender.address.host.empty())
+		sender.address.host = sender_hostname;
+	return NSCAClient::connection_data(recipient, sender);
 }
 
 nscapi::protobuf::types::destination_container NSCAClient::target_handler::lookup_target(std::string &id) const {

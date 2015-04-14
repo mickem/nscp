@@ -3,6 +3,7 @@
 #include <NSCAPI.h>
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/tuple/tuple.hpp>
 
@@ -40,7 +41,7 @@ namespace client {
 
 		destination_container() : timeout(10), retry(2) {}
 
-		destination_container(nscapi::settings_objects::object_instance obj) {
+		void apply(nscapi::settings_objects::object_instance obj) {
 			BOOST_FOREACH(const nscapi::settings_objects::options_map::value_type &k, obj->get_options()) {
 				set_string_data(k.first, k.second);
 			}
@@ -135,6 +136,22 @@ namespace client {
 		std::string to_string() const;
 	};
 
+	struct command_container {
+		std::string command;
+		std::string key;
+		std::list<std::string> arguments;
+
+		command_container() {}
+		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
+		const command_container& operator=(const command_container &other) {
+			command = other.command;
+			arguments = other.arguments;
+			key = other.key;
+			return *this;
+		}
+	};
+
+
 	struct nscp_clp_data {
 		std::string target_id;
 		std::string command;
@@ -164,6 +181,11 @@ namespace client {
 			return ss.str();
 		}
 	};
+
+	struct options_reader {
+		virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination);
+	};
+
 	/*
 	struct clp_item  {
 		nscp_clp_data data;
@@ -182,6 +204,7 @@ namespace client {
 	struct configuration : public boost::noncopyable {
 		typedef boost::shared_ptr<nscp_clp_data> data_type;
 		typedef boost::shared_ptr<clp_handler> handler_type;
+		typedef boost::unordered_map<std::string, command_container> command_type;
 
 		nscapi::settings_objects::object_handler targets;
 		clp_handler *handler;
@@ -189,8 +212,10 @@ namespace client {
 		std::string title;
 		std::string default_command;
 		boost::program_options::options_description local;
+		boost::shared_ptr<client::options_reader> reader;
+		command_type commands;
 
-		configuration(std::string caption) : local("Common options for " + caption) {}
+		configuration(std::string caption, boost::shared_ptr<client::options_reader> reader) : local("Common options for " + caption), reader(reader) {}
 
 		std::string to_string() {
 			std::stringstream ss;
@@ -208,26 +233,17 @@ namespace client {
 		}
 		void clear() {
 			targets.clear();
+			commands.clear();
 		}
+
 
 
 		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 		void forward_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 
-	};
-	struct command_container {
-		std::string command;
-		std::string key;
-		std::list<std::string> arguments;
+	private:
+		void i_do_query(destination_container &s, destination_container &d, const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response, bool use_header);
 
-		command_container() {}
-		command_container(const command_container &other) : command(other.command), key(other.key), arguments(other.arguments) {}
-		const command_container& operator=(const command_container &other) {
-			command = other.command;
-			arguments = other.arguments;
-			key = other.key;
-			return *this;
-		}
 	};
 
 	struct command_manager {
@@ -241,6 +257,7 @@ namespace client {
 
 		int exec_simple(configuration &config, const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &response);
 
+	public:
 		// Wrappers based on source
 		void parse_query(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response &response, const Plugin::QueryRequestMessage &request_message);
 		bool parse_exec(const std::string &prefix, const std::string &default_command, const std::string &cmd, client::configuration &config, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response &response, const Plugin::ExecuteRequestMessage &request_message);

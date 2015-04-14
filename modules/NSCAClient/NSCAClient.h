@@ -127,7 +127,7 @@ private:
 	};
 
 	client::command_manager commands;
-//	client::configuration config;
+	client::configuration config;
 
 public:
 	struct connection_data : public socket_helpers::connection_info {
@@ -205,6 +205,7 @@ public:
 
 private:
 	void add_options(po::options_description &desc, connection_data &command_data);
+	connection_data parse_header(const ::Plugin::Common_Header &header, client::destination_container &source, client::destination_container &destination);
 
 private:
 	void add_local_options(po::options_description &desc, client::configuration::data_type data);

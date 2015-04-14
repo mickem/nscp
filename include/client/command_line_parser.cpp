@@ -9,47 +9,59 @@
 
 namespace po = boost::program_options;
 
-po::options_description add_common_options(client::destination_container &obj) {
+po::options_description add_common_options(client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc("Common options");
 	desc.add_options()
-		("host,H", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_host, &obj, _1)), 
+		("host,H", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_host, &destination, _1)), 
 		"The host of the host running the server")
-		("port,P", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_port, &obj, _1)),
+		("port,P", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_port, &destination, _1)),
 		"The port of the host running the server")
-		("address", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_address, &obj, _1)),
+		("address", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_address, &destination, _1)),
 		"The address (host:port) of the host running the server")
-		("timeout,T", po::value<int>(&obj.timeout), "Number of seconds before connection times out (default=10)")
+		("timeout,T", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "timeout", _1)), 
+		"Number of seconds before connection times out (default=10)")
 		//("target,t", po::value<std::string>(&obj.target_id), "Target to use (lookup connection info from config)")
-		("retry", po::value<int>(&obj.retry), "Number of times ti retry a failed connection attempt (default=2)")
+		("retry", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", _1)), 
+		"Number of times ti retry a failed connection attempt (default=2)")
 		;
 	return desc;
 }
-po::options_description add_query_options(client::configuration::data_type command_data) {
+po::options_description add_query_options(client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc("Query options");
-	desc.add_options()
-		("command,c", po::value<std::string>(&command_data->command), "The name of the query that the remote daemon should run")
+/*	desc.add_options()
+		("command,c", po::value<std::string>(&command_data->command), 
+		"The name of the query that the remote daemon should run")
 		("arguments,a", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
 		("query-command", po::value<std::string>(&command_data->command), "The name of the query that the remote daemon should run")
 		("query-arguments", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
 		;
+		*/
 	return desc;
 }
-po::options_description add_submit_options(client::configuration::data_type command_data) {
+po::options_description add_submit_options(client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc("Submit options");
+	/*
 	desc.add_options()
-		("command,c", po::value<std::string>(&command_data->command), "The name of the command that the remote daemon should run")
-		("alias,a", po::value<std::string>(&command_data->command), "Same as command")
-		("message,m", po::value<std::string>(&command_data->message), "Message")
-		("result,r", po::value<std::string>(&command_data->result), "Result code either a number or OK, WARN, CRIT, UNKNOWN")
+		("command,c", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "command", _1)), 
+		"The name of the command that the remote daemon should run")
+		("alias,a", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "alias", _1)), 
+		"Same as command")
+		("message,m", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "message", _1)), 
+		"Message")
+		("result,r", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "result", _1)), 
+		"Result code either a number or OK, WARN, CRIT, UNKNOWN")
 		;
+		*/
 	return desc;
 }
-po::options_description add_exec_options(client::configuration::data_type command_data) {
+po::options_description add_exec_options(client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc("Execute options");
+	/*
 	desc.add_options()
 		("command,c", po::value<std::string>(&command_data->command), "The name of the command that the remote daemon should run")
 		("arguments,a", po::value<std::vector<std::string> >(&command_data->arguments), "list of arguments")
 		;
+		*/
 	return desc;
 }
 /*
@@ -184,6 +196,7 @@ void client::command_manager::parse_query(const std::string &prefix, const std::
 	}
 }
 */
+/*
 void client::configuration::parse_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 
 	std::string command = "";
@@ -221,33 +234,128 @@ void client::configuration::parse_query(const Plugin::QueryRequestMessage &reque
 		}
 	}
 }
-
+*/
 void client::configuration::do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	Plugin::QueryResponseMessage local_response;
 
 	std::string target = "default";
 	if (request.header().has_destination_id())
 		target = request.header().destination_id();
+
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+		destination_container d;
+		destination_container s;
+
+		// If we have a target, apply it
 		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
-		if (op) {
-			destination_container d(*op);
-			d.apply(t, request.header());
-			destination_container s;
-			s.apply(request.header().sender_id(), request.header());
-			::Plugin::QueryResponseMessage local_response_message;
-			if (!handler->query(s, d, request, local_response_message)) {
-				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Failed to submit");
-				return;
-			} 
-			for (int i = 0; i < local_response_message.payload_size(); i++) {
-				response.add_payload()->CopyFrom(local_response.payload(i));
+		if (op)
+			d.apply(*op);
+
+		// Next apply the header object
+		d.apply(t, request.header());
+		s.apply(request.header().sender_id(), request.header());
+
+		if (d.has_data("command")) {
+			std::string command = d.get_string_data("command");
+			// If we have a header command treat the data as a batch
+			i_do_query(s, d, command, request, response, true);
+
+		} else {
+			// Parse each objects command and execute them
+			for (int i=0;i<request.payload_size();i++) {
+				::Plugin::QueryRequestMessage local_request_message;
+				const ::Plugin::QueryRequestMessage::Request &local_request = request.payload(i);
+				local_request_message.mutable_header()->CopyFrom(request.header());
+				local_request_message.add_payload()->CopyFrom(local_request);
+				std::string command = local_request.command();
+				::Plugin::QueryResponseMessage local_response_message;
+				i_do_query(s, d, command, local_request_message, local_response_message, false);
+				for (int j=0;j<local_response_message.payload_size();j++) {
+					response.add_payload()->CopyFrom(local_response_message.payload(j));
+				}
 			}
 		}
 	}
 }
 
+po::options_description create_descriptor(std::string tag, std::string command, client::destination_container &source, client::destination_container &destination) {
+	po::options_description desc = nscapi::program_options::create_desc(command);
+	desc.add(add_common_options(source, destination));
+	if (tag == "exec") {
+		desc.add(add_exec_options(source, destination));
+	} else if (command == "check") {
+		desc.add(add_query_options(source, destination));
+	} else if (command == "submit") {
+		desc.add(add_submit_options(source, destination));
+	}
+	return desc;
+
+}
+
+void client::configuration::i_do_query(destination_container &s, destination_container &d, const std::string &command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response, bool use_header) {
+	try {
+		boost::program_options::variables_map vm;
+		if (command.substr(0,8) == "forward_") {
+			if (!handler->query(s, d, request, response))
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
+		} else if (command.substr(0,6) == "check_") {
+			po::options_description desc = create_descriptor("check", command, s, d);
+			reader->process(desc, s, d);
+			if (use_header) {
+
+
+			} else {
+				for (int i=0;i<request.payload_size();i++) {
+					::Plugin::QueryRequestMessage::Request payload;
+					::Plugin::QueryResponseMessage::Response resp;
+					// Apply any arguments from command line
+					if (!nscapi::program_options::process_arguments_from_request(vm, desc, payload, resp)) {
+						response.add_payload()->CopyFrom(resp);
+						return;
+					}
+				}
+			}
+			if (!handler->query(s, d, request, response))
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
+		} else {
+			command_type::const_iterator cit = commands.find(command);
+			if (cit == commands.end()) {
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
+				return;
+			}
+			std::vector<std::string> args;
+			po::options_description desc = create_descriptor("check", command, s, d);
+			if (use_header) {
+			} else {
+				/*
+				BOOST_FOREACH(std::string argument, cit->second.arguments) {
+					for (int i=0;i<request.arguments_size();i++) {
+						strEx::replace(argument, "$ARG" + strEx::s::xtos(i+1) + "$", request.arguments(i));
+					}
+					args.push_back(argument);
+				}
+				*/
+			}
+			for (int i=0;i<request.payload_size();i++) {
+				::Plugin::QueryRequestMessage::Request payload;
+				::Plugin::QueryResponseMessage::Response resp;
+				// Apply any arguments from command line
+				if (!nscapi::program_options::process_arguments_from_request(vm, desc, payload, resp)) {
+					response.add_payload()->CopyFrom(resp);
+					return;
+				}
+			}
+			if (!handler->query(s, d, request, response))
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
+
+		}
+	} catch (const std::exception &e) {
+		return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Exception processing command line: " + utf8::utf8_from_native(e.what()));
+	}
+}
+
 void client::configuration::forward_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
+	/*
 	Plugin::QueryResponseMessage local_response;
 
 	std::string target = "default";
@@ -270,6 +378,7 @@ void client::configuration::forward_query(const Plugin::QueryRequestMessage &req
 			}
 		}
 	}
+	*/
 }
 
 /*
