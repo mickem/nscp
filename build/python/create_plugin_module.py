@@ -154,6 +154,9 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		if (!impl_) {
 			return NSCAPI::returnIgnored;
 		}
+{% if module.command_fallback_raw %}
+				impl_->query_fallback(request_message, response_message);
+{% else %}
 		for (int i=0;i<request_message.payload_size();i++) {
 			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
 			if (!impl_) {
@@ -214,6 +217,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% endif %}
 			}
 		}
+{% endif %}
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
@@ -367,6 +371,24 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 {% elif module.cli == "pass-through" %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
 	return impl_->commandLineExec(request, response);
+}
+{% elif module.cli == "raw" %}
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+	try {
+		Plugin::ExecuteRequestMessage request_message;
+		Plugin::ExecuteResponseMessage response_message;
+		request_message.ParseFromString(request);
+		if (!impl_->commandLineExec(request_message, response_message))
+			return NSCAPI::returnIgnored;
+		response_message.SerializeToString(&response);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Failed to process command: ") + utf8::utf8_from_native(e.what()), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", "Failed to process command", response);
+		return NSCAPI::isSuccess;
+	}
 }
 {% elif module.cli %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
@@ -615,6 +637,7 @@ public:
 
 commands = []
 command_fallback = False
+command_fallback_raw = False
 module = None
 cli = False
 log_handler = False
@@ -682,7 +705,7 @@ class Command:
 		return '%s'%self.name
 
 def parse_commands(data):
-	global commands, command_fallback
+	global commands, command_fallback, command_fallback_raw
 	if data:
 		for key, value in data.iteritems():
 			desc = ''
@@ -692,8 +715,13 @@ def parse_commands(data):
 			no_mapping = False
 			raw_mapping = False
 			nagios = False
+			print value
 			if key == "fallback" and value:
 				command_fallback = True
+			if key == "fallback" and value == 'raw':
+				print "*****"
+				command_fallback = True
+				command_fallback_raw = True
 			if type(value) is dict:
 				if 'desc' in value:
 					desc = value['desc']
@@ -752,6 +780,8 @@ for key, value in data.iteritems():
 	elif key == "command line exec":
 		if value == "legacy":
 			cli = "legacy"
+		elif value == 'raw' or value == 'pass-through':
+			cli = value
 		elif value:
 			cli = True
 	elif key == "channels" and ( value == 'raw' or value == 'pass-through' ):
@@ -799,6 +829,7 @@ module.cli = cli
 module.channels = channels
 module.log_handler = log_handler
 module.command_fallback = command_fallback
+module.command_fallback_raw = command_fallback_raw
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring

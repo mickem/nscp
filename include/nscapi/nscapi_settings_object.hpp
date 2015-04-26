@@ -52,12 +52,16 @@ namespace nscapi {
 				return alias == "default";
 			}
 
-			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+			// VIrtual interface
+
+			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) = 0;
 			virtual void post_process_object() {}
 
 			virtual void translate(const std::string &key, const std::string &value) {
 				options[key] = value;
 			}
+
+			// Accessors
 
 			bool has_option(std::string key) const {
 				return options.find(key) != options.end();
@@ -91,6 +95,8 @@ namespace nscapi {
 			object_map templates;
 			object_factory factory;
 			std::string path;
+
+			object_handler(object_factory factory) : factory(factory) {}
 
 			void set_path(std::string path_) {
 				path = path_;

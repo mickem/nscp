@@ -24,14 +24,10 @@
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <client/command_line_parser.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_targets.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
 #include <socket/client.hpp>
-
-#include <nrpe/packet.hpp>
-#include <nrpe/client/nrpe_client_protocol.hpp>
-#include "nrpe_client.hpp"
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
@@ -42,8 +38,7 @@ private:
 	std::string channel_;
 	std::string target_path;
 
-	client::command_manager commands;
-
+	client::configuration client_;
 
 public:
 	NRPEClient();
@@ -52,19 +47,11 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void nrpe_forward(const std::string &command, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response);
-	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
-	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
-	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage *response);
+	void query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
+	bool commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
+	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
 private:
-	nscapi::targets::handler<nrpe_client::custom_reader> targets;
-
-	void add_options(po::options_description &desc, nrpe_client::connection_data &command_data);
-	static nrpe_client::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data);
-
-private:
-	void add_local_options(po::options_description &desc, client::configuration::data_type data);
 	void add_command(std::string key, std::string args);
 	void add_target(std::string key, std::string args);
 

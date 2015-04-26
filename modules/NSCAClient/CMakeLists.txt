@@ -26,6 +26,9 @@ ENDIF(OPENSSL_FOUND)
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
+		nsca_client.hpp
+		nsca_handler.hpp
+
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp

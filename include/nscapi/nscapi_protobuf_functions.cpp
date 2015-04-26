@@ -928,6 +928,53 @@ namespace nscapi {
 				}
 				return ret;
 			}
+
+			/*
+			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
+			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
+*/
+
+			void copy_response(const std::string command, ::Plugin::QueryResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {
+				::Plugin::QueryResponseMessage::Response::Line* line = target->add_lines();
+				line->set_message(source.message());
+				target->set_command(command);
+			}
+			void copy_response(const std::string command, ::Plugin::QueryResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source) {
+				::Plugin::QueryResponseMessage::Response::Line* line = target->add_lines();
+				line->set_message(source.result().message());
+				target->set_command(command);
+				target->set_result(gbp_status_to_gbp_nagios(source.result().code()));
+			}
+			void copy_response(const std::string command, ::Plugin::QueryResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
+				target->CopyFrom(source);
+			}
+			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {
+				target->CopyFrom(source);
+			}
+			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source) {
+				target->set_message(source.result().message());
+			}
+			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
+				target->set_message(query_data_to_nagios_string(source));
+			}
+			void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {
+				target->mutable_result()->set_message(source.message());
+			}
+			void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source) {
+				target->CopyFrom(source);
+			}
+			void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
+				target->mutable_result()->set_message(query_data_to_nagios_string(source));
+				target->mutable_result()->set_code(gbp_to_nagios_gbp_status(source.result()));
+			}
+
 		}
  	}
 }

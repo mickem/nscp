@@ -6,7 +6,7 @@ PROJECT(clients)
 
 SET(SRCS ${SRCS}
 	check_nrpe.cpp
-	../../modules/NRPEClient/nrpe_client.cpp
+#	../../modules/NRPEClient/nrpe_client.cpp
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp

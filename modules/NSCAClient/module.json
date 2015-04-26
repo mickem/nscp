@@ -12,8 +12,8 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"nsca_submit" : { 
+		"fallback" : "raw",
+		"submit_nsca" : { 
 			"description" : "Submit information to remote host via NSCA.",
 			"mapping"	: false
 		}
@@ -21,7 +21,7 @@
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }
