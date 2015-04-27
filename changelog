@@ -1,23 +1,28 @@
+2015-04-27 Michael Medin
+ * Improved the logging around connection failures
+ * Improved the reporter syntax:
+   reporter.exe send b1438ab2-20a3-4b2d-bc30-7c3033c084e1.dmp
+
 2015-04-08 Michael Medin
-* #139 Added support for showing file dates in local time (not just UTC)
-* Added check_ping command and CheckNet module
-* Fixed a few potential crashes with check_nt
+ * #139 Added support for showing file dates in local time (not just UTC)
+ * Added check_ping command and CheckNet module
+ * Fixed a few potential crashes with check_nt
 
 2015-03-24 Michael Medin
-* #123 fixed CheckAllOthers
-* #124 Fixed problem count variable
-* #131 Added support for service=<service description> to check_service
-* A lot of infrastrucutre changes and build fixes
+ * #123 fixed CheckAllOthers
+ * #124 Fixed problem count variable
+ * #131 Added support for service=<service description> to check_service
+ * A lot of infrastructure changes and build fixes
 
 2015-02-23 Michael Medin
-* Fixed check_files empty  message to say files not drives.
-* #114 Fixed issue with empty-state which was ignored
-* A lot of infrastrucutre changes and build fixes
+ * Fixed check_files empty  message to say files not drives.
+ * #114 Fixed issue with empty-state which was ignored
+ * A lot of infrastructure changes and build fixes
 
 2015-02-14 Michael Medin
-* Fix incorrect variable in check_page_filter()
-* Add pct to check_pagefile
-  This is basically a clone of f90ab0bf which added pct to check_memory.
+ * Fix incorrect variable in check_page_filter()
+ * Add pct to check_pagefile
+   This is basically a clone of f90ab0bf which added pct to check_memory.
 
 2015-02-14 Michael Medin
  * #110 Added support for using units in check_cpu

@@ -25,6 +25,7 @@ bool SendMinidump(std::string file, std::string product, std::string version, st
 int archive_dump(std::string file, std::string application, std::string version, std::string date, std::string target);
 int send_dump_ui(std::string file, std::string application, std::string version, std::string date, std::string url);
 int send_dump(std::string file, std::string application, std::string version, std::string date, std::string url);
+int send_dump(std::string file, std::string url);
 int restart(std::string service);
 
 
@@ -39,14 +40,21 @@ int main(int argc, char* argv[]) {
 			return archive_dump(argv[2], argv[3], argv[4], argv[5], argv[6]);
 		} else if (command == "send" && argc > 6) {
 			return send_dump(argv[2], argv[3], argv[4], argv[5], argv[6]);
+		} else if (command == "send" && argc > 3) {
+			return send_dump(argv[2], argv[3]);
+		} else if (command == "send" && argc > 2) {
+			return send_dump(argv[2], "");
 		} else if (command == "send-gui" && argc > 6) {
 			return send_dump_ui(argv[2], argv[3], argv[4], argv[5], argv[6]);
 		}
 	}
 	std::cout << "Usage: " << argv[0] << L"archive|send|send-gui [options]" << std::endl;
 	std::cout << "    archive <file> <archive path>" << std::endl;
-	std::cout << "    send <file> <product> <version> <date>" << std::endl;
-	std::cout << "    send-gui <file> <product> <version> <date>" << std::endl;
+	std::cout << "    send <file> <product> <version> <date> <url>" << std::endl;
+	std::cout << "    send <file> [url] (This requires the .txt to accompany the file)" << std::endl;
+	std::cout << "         <file> is the crashdump file usually called GUID.dmp but we also need the GUID.dmp.txt" << std::endl;
+	std::cout << "         [url]  is the crash server: https://crash.nsclient.org/post" << std::endl;
+	std::cout << "    send-gui <file> <product> <version> <date> <url>" << std::endl;
 	std::cout << "    restart <service>" << std::endl;
 	return -1;
 }
@@ -125,6 +133,47 @@ int send_dump_ui(std::string file, std::string application, std::string version,
 		std::cerr << msg << std::endl;
 #endif
 	}
+	return 0;
+}
+
+int send_dump(std::string file, std::string url) {
+
+	try {
+		std::string desc_file = file + ".txt";
+		std::ifstream infile(desc_file.c_str());
+
+		std::string line, app, ver, date;
+		while (std::getline(infile, line)) {
+			std::string::size_type pos = line.find('=');
+			if (pos == -1) {
+				std::cout << "Failed to read: " << line << std::endl;
+				return -1;
+			}
+			if (line.substr(0,pos) == "application") {
+				app = line.substr(pos+1);
+			} else if (line.substr(0,pos) == "build-version") {
+				ver = line.substr(pos+1);
+			} else if (line.substr(0,pos) == "build-date") {
+				date = line.substr(pos+1);
+			}
+		}
+
+		std::string err;
+		if (url.empty())
+			url = "https://crash.nsclient.org/post";
+
+		if (!SendMinidump(file, app, ver, date, url, err)) {
+			std::cout << "Failed sending report to server: " << err << std::endl;
+			return -1;
+		}
+	} catch (const std::exception &e) {
+		std::cout << "Failed to process: " << e.what() << std::endl;
+		return -1;
+	} catch (...) {
+		std::cout << "Failed to process: " << std::endl;
+		return -1;
+	}
+
 	return 0;
 }
 
