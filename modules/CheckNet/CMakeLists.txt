@@ -38,6 +38,5 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	${NSCP_FILTER_LIB}
 	expression_parser
-	version.lib
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
