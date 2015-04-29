@@ -1,5 +1,7 @@
 2015-04-29 Michael Medin
  * Improved handling around connection failures
+ * #142 Improved security when external scripts fails
+   command lines which may contain password are no longer returned
 
 2015-04-27 Michael Medin
  * Improved the logging around connection failures
