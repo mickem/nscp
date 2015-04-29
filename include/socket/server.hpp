@@ -217,11 +217,6 @@ namespace socket_helpers {
 			}
 
 
-// 			std::string get_password() const
-// 			{
-// 				logger_->log_error(__FILE__, __LINE__, "Getting password...");
-// 				return "test";
-// 			}
 			void stop() {
 				is_shutting_down_ = true;
 				acceptor_v4.close();
@@ -248,9 +243,13 @@ namespace socket_helpers {
 					else {
 						logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
 					}
-
+				} catch (const std::exception &e) {
+					logger_->log_error(__FILE__, __LINE__, std::string("Failed to handle incoming connection: ") + e.what());
+				} catch (...) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to handle incoming connection: UNKNOWN");
+				}
+				try {
 					new_connection_.reset(create_connection());
-
 					if (ipv6)
 						acceptor_v6.async_accept(new_connection_->get_socket(),
 						accept_strand_.wrap(
@@ -264,9 +263,9 @@ namespace socket_helpers {
 						)
 						);
 				} catch (const std::exception &e) {
-					logger_->log_error(__FILE__, __LINE__, std::string("Failed to handle incoming connection: ") + e.what());
+					logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + e.what());
 				} catch (...) {
-					logger_->log_error(__FILE__, __LINE__, "Failed to handle incoming connection: UNKNOWN");
+					logger_->log_error(__FILE__, __LINE__, "Failed to create new connection: UNKNOWN");
 				}
 			}
 

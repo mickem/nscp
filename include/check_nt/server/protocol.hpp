@@ -55,8 +55,9 @@ namespace check_nt {
 
 		bool on_accept(boost::asio::ip::tcp::socket& socket, int) {
 			std::list<std::string> errors;
-			std::string s = socket.remote_endpoint().address().to_string();
-			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
+			boost::asio::ip::address a = socket.remote_endpoint().address();
+			std::string s = a.to_string();
+			if (info_.allowed_hosts.is_allowed(a, errors)) {
 				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s);
 				return true;
 			} else {
