@@ -49,6 +49,9 @@ if ($::operatingsystemmajrelease < 7) {
 } else {
 	package { "cmake": ensure => present }
 }
+if ($::operatingsystemmajrelease < 7) {
+	package { "python-setuptools": ensure => present }
+}
 
 package { "python-devel": ensure => present }
 package { "openssl-devel": ensure => present }
