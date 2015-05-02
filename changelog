@@ -1,3 +1,6 @@
+2015-05-02 Michael Medin
+ * Updated some libs to work on centos 6.x
+
 2015-04-29 Michael Medin
  * Improved handling around connection failures
  * #142 Improved security when external scripts fails
