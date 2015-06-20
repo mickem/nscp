@@ -115,16 +115,16 @@ void pdh_thread::thread_proc() {
 	bool has_realtime = !filters_.empty();
 	cpu_filter_helper cpu_helper(core, plugin_id);
 	mem_filter_helper mem_helper(core, plugin_id);
-	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
-		if (object.check == "memory") {
+	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
+		if (object->check == "memory") {
 			check_mem_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object.data) {
+			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
 			mem_helper.add_item(object, data);
 		} else {
 			check_cpu_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object.data) {
+			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
 			cpu_helper.add_item(object, data);
@@ -308,7 +308,7 @@ void pdh_thread::add_counter(const PDH::pdh_object &counter) {
 
 void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, filters_path_, key, query, key == "default");
+		filters_.add(proxy, key, query, key == "default");
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {

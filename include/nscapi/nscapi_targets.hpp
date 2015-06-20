@@ -29,8 +29,7 @@ namespace nscapi {
 			typedef std::map<std::string,std::string> options_type;
 			options_type options;
 
-			virtual void init_default() {
-			}
+			target_object(std::string alias, std::string path) : parent(alias, path) {}
 
 			std::string to_string() const {
 				std::stringstream ss;
@@ -49,21 +48,9 @@ namespace nscapi {
 				net::url n = net::parse(value);
 				address.apply(n);
 			}
-			void set_host(std::string value) {
-				address.host = value;
-			}
-			void set_port(std::string value) {
-				address.port = strEx::s::stox<unsigned int>(value);
-			}
-			virtual void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, bool is_sample) {
-			}
-			virtual void post_process_target() {
-			}
-
-
 
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
-				parent::read(proxy, oneliner, is_sample);
+				//parent::read(proxy, oneliner, is_sample);
 				set_address(this->value);
 				nscapi::settings_helper::settings_registry settings(proxy);
 
@@ -83,11 +70,17 @@ namespace nscapi {
 					("address", sh::string_fun_key<std::string>(boost::bind(&target_object::set_address, this, _1)),
 					"TARGET ADDRESS", "Target host address")
 
-					("host", sh::string_fun_key<std::string>(boost::bind(&target_object::set_host, this, _1)),
+					("host", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "host", _1)),
 					"TARGET HOST", "The target server to report results to.", true)
 
-					("port", sh::string_fun_key<std::string>(boost::bind(&target_object::set_port, this, _1)),
+					("port", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "port", _1)),
 					"TARGET PORT", "The target server port", true)
+
+					("timeout", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "timeout", _1), 30),
+					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
+
+					("retries", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "retries", _1), 3),
+					"RETRIES", "Number of times to retry sending.")
 
 					;
 
@@ -100,11 +93,46 @@ namespace nscapi {
 
 			}
 
+
+			void add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
+
+				root_path.add_key()
+
+
+					("dh", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+					"DH KEY", "", true)
+
+					("certificate", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate", _1)),
+					"SSL CERTIFICATE", "", false)
+
+					("certificate key", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate key", _1)),
+					"SSL CERTIFICATE", "", true)
+
+					("certificate format", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate format", _1), "PEM"),
+					"CERTIFICATE FORMAT", "", true)
+
+					("ca", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "ca", _1)),
+					"CA", "", true)
+
+					("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "allowed ciphers", _1), "ADH"),
+					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
+
+					("verify mode", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "verify mode", _1), "none"),
+					"VERIFY MODE", "", false)
+
+					("use ssl", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "ssl", _1), false),
+					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
+
+					;	
+			}
+
+
+
 			virtual void translate(const std::string &key, const std::string &value) {
 				if (key == "host")
-					set_host(value);
+					address.host = value;
 				else if (key == "port")
-					set_port(value);
+					address.port = strEx::s::stox<unsigned int>(value);
 				else
 					parent::translate(key, value);
 			}
@@ -125,8 +153,7 @@ namespace nscapi {
 		typedef boost::optional<target_object> optional_target_object;
 		typedef std::map<std::string,std::string> targets_type;
 
-		struct handler : public nscapi::settings_objects::object_handler {
-		};
+		typedef nscapi::settings_objects::object_handler<target_object> handler;
 
 	}
 }

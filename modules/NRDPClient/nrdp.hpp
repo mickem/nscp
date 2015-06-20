@@ -20,11 +20,10 @@ namespace nrdp {
 			std::string service;
 			NSCAPI::nagiosReturn result;
 			std::string message;
-			std::string perf;
 		};
 		std::list<item_type> items;
-		void add_host(std::string host, NSCAPI::nagiosReturn result, std::string message, std::string perf);
-		void add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message, std::string perf);
+		void add_host(std::string host, NSCAPI::nagiosReturn result, std::string message);
+		void add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message);
 		void add_command(std::string command, std::list<std::string> args);
 		std::string render_request() const;
 	};

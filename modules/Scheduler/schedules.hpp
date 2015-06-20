@@ -16,11 +16,11 @@
 namespace sh = nscapi::settings_helper;
 
 namespace schedules {
-	struct schedule_object {
+	struct schedule_object : public nscapi::settings_objects::object_instance_interface {
 
-		schedule_object() : report(0), id(0) {}
+		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		nscapi::settings_objects::template_object tpl;
+		schedule_object(std::string alias, std::string path) : parent(alias, path), report(0), id(0) {}
 
 		// Schedule keys
 		std::string source_id;
@@ -48,8 +48,8 @@ namespace schedules {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << tpl.alias << "[" << id << "] = "
-				<< "{tpl: " << tpl.to_string()
+			ss <<alias << "[" << id << "] = "
+				<< "{tpl: " << parent::to_string()
 				<< ", command: " << command 
 				<< ", channel: " << channel 
 				<< ", source_id: " << source_id
@@ -58,96 +58,81 @@ namespace schedules {
 				<< "}";
 			return ss.str();
 		}
-	};
-	typedef boost::optional<schedule_object> optional_schedule_object;
 
-	struct schedule_reader {
-		typedef schedule_object object_type;
-
-		static void post_process_object(object_type &) {}
-
+/*
 		static void init_default(object_type& object) {
 			object.set_duration("5m");
 			object.set_report("all");
 			object.channel = "NSCA";
 		}
+		*/
+		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool, bool is_sample) {
-			object.set_command(object.tpl.value);
-			bool is_def = object.tpl.is_default();
+			parent::read(proxy, oneliner, is_sample);
+
+			set_command(value);
+			bool is_def = is_default();
 			std::string alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+			nscapi::settings_helper::path_extension root_path = settings.path(path);
 			if (is_sample)
 				root_path.set_sample();
 
 			root_path.add_path()
-				("SCHEDULE DEFENITION", "Schedule definition for: " + object.tpl.alias)
+				("SCHEDULE DEFENITION", "Schedule definition for: " + alias)
 				;
 
 			root_path.add_key()
 
-				("command", sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
+				("command", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_command, this, _1)),
 				"SCHEDULE COMMAND", "Command to execute", is_def)
 
-				("target", sh::string_key(&object.target_id),
+				("target", sh::string_key(&target_id),
 				"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
-				("source", sh::string_key(&object.source_id),
+				("source", sh::string_key(&source_id),
 				"SOURCE", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
 
 				;
 			if (is_def) {
 				root_path.add_key()
 
-					("channel", sh::string_key(&object.channel, "NSCA"),
+					("channel", sh::string_key(&channel, "NSCA"),
 					"SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key<std::string>(boost::bind(&object_type::set_duration, &object, _1), "5m"),
+					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1), "5m"),
 					"SCHEDULE INTERAVAL", "Time in seconds between each check")
 
-					("report", sh::string_fun_key<std::string>(boost::bind(&object_type::set_report, &object, _1), "all"),
+					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1), "all"),
 					"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
 					;
 			} else {
 				root_path.add_key()
-					("channel", sh::string_key(&object.channel),
+					("channel", sh::string_key(&channel),
 					"SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key<std::string>(boost::bind(&object_type::set_duration, &object, _1)),
+					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1)),
 					"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
 
-					("report", sh::string_fun_key<std::string>(boost::bind(&object_type::set_report, &object, _1)),
+					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1)),
 					"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
 
 					;
 
 			}
 
-			object.tpl.read_object(root_path);
 
 			settings.register_all();
 			settings.notify();
 
-			if (!alias.empty())
-				object.tpl.alias = alias;
 		}
 
-		static void apply_parent(object_type &object, object_type &parent) {
-			using namespace nscapi::settings_objects;
-			import_string(object.target_id, parent.target_id);
-			import_string(object.source_id, parent.source_id);
-			import_string(object.command, parent.command);
-			//import_string(object.arguments, parent.arguments);
-			if (object.duration.total_seconds() == 0 && parent.duration.total_seconds() != 0)
-				object.duration = parent.duration;
-			import_string(object.channel, parent.channel);
-			if (object.report == 0 && parent.report != 0)
-				object.report = parent.report;
-		}
 
 	};
-	typedef nscapi::settings_objects::object_handler<schedule_object, schedule_reader > schedule_handler;
+
+	typedef boost::optional<schedule_object> optional_target_object;
+
+	typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
 }
 

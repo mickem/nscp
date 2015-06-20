@@ -8,13 +8,13 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
-	nrpe_client.cpp
+
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_INCLUDEDIR}/utils.cpp
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_CLIENT_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -28,15 +28,17 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
 		nrpe_client.hpp
+		nrpe_handler.hpp
+
 		${NSCP_INCLUDEDIR}/nrpe/packet.hpp
 		${NSCP_INCLUDEDIR}/nrpe/client/nrpe_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
-		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_CLIENT_HPP}
 	)
 ENDIF(WIN32)
 

@@ -65,33 +65,33 @@ namespace parsers {
 
 			std::list<container_type> items;
 
-			bool add_item(const config_object &object, const runtime_data &source_data) {
+			bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data) {
 				container_type item(new container);
-				item->alias = object.tpl.alias;
+				item->alias = object->alias;
 				item->data = source_data;
-				item->target = object.filter.target;
-				item->target_id = object.filter.target_id;
-				item->source_id = object.filter.source_id;
+				item->target = object->filter.target;
+				item->target_id = object->filter.target_id;
+				item->source_id = object->filter.source_id;
 				item->command = item->alias;
-				item->timeout_msg = object.filter.timeout_msg;
-				item->severity = object.filter.severity;
-				item->max_age = object.filter.max_age;
-				item->debug = object.filter.debug;
-				if (!object.filter.command.empty())
-					item->command = object.filter.command;
+				item->timeout_msg = object->filter.timeout_msg;
+				item->severity = object->filter.severity;
+				item->max_age = object->filter.max_age;
+				item->debug = object->filter.debug;
+				if (!object->filter.command.empty())
+					item->command = object->filter.command;
 				std::string message;
 
-				if (!item->filter.build_syntax(object.filter.syntax_top, object.filter.syntax_detail, object.filter.perf_data, object.filter.perf_config, object.filter.syntax_ok, object.filter.syntax_empty, message)) {
-					NSC_LOG_ERROR("Failed to build strings " + object.tpl.alias + ": " + message);
+				if (!item->filter.build_syntax(object->filter.syntax_top, object->filter.syntax_detail, object->filter.perf_data, object->filter.perf_config, object->filter.syntax_ok, object->filter.syntax_empty, message)) {
+					NSC_LOG_ERROR("Failed to build strings " + object->alias + ": " + message);
 					return false;
 				}
-				if (!item->filter.build_engines(object.filter.debug, object.filter.filter_string, object.filter.filter_ok, object.filter.filter_warn, object.filter.filter_crit)) {
-					NSC_LOG_ERROR("Failed to build filters: " + object.tpl.alias);
+				if (!item->filter.build_engines(object->filter.debug, object->filter.filter_string, object->filter.filter_ok, object->filter.filter_warn, object->filter.filter_crit)) {
+					NSC_LOG_ERROR("Failed to build filters: " + object->alias);
 					return false;
 				}
 
 				if (!item->filter.validate()) {
-					NSC_LOG_ERROR("Failed validate: " + object.tpl.alias);
+					NSC_LOG_ERROR("Failed validate: " + object->alias);
 					return false;
 				}
 				item->data.boot();

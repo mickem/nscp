@@ -73,7 +73,7 @@ namespace scheduler {
 
 	class simple_scheduler : public boost::noncopyable {
 	private:
-		typedef std::map<int,schedules::schedule_object> target_list_type;
+		typedef std::map<int,schedules::schedule_handler::object_instance> target_list_type;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
 		// thread variables
@@ -103,9 +103,9 @@ namespace scheduler {
 			handler_ = NULL;
 		}
 
-		int add_task(schedules::schedule_object item);
+		int add_task(schedules::schedule_handler::object_instance item);
 		void remove_task(int id);
-		boost::optional<schedules::schedule_object> get_task(int id);
+		schedules::schedule_handler::object_instance get_task(int id);
 		
 		void start();
 		void stop();
@@ -121,8 +121,8 @@ namespace scheduler {
 		void thread_proc(int id);
 		void watch_dog(int id);
 
-		void reschedule(const schedules::schedule_object &item);
-		void reschedule(const schedules::schedule_object &item, boost::posix_time::ptime now);
+		void reschedule(const schedules::schedule_handler::object_instance item);
+		void reschedule(const schedules::schedule_handler::object_instance item, boost::posix_time::ptime now);
 		void reschedule_wnext(int id, boost::posix_time::ptime next);
 		void start_thread();
 

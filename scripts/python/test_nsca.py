@@ -183,8 +183,7 @@ class NSCAServerTest(BasicTest):
 
 	def submit_payload(self, encryption, target, length, source, status, msg, perf, tag):
 		message = plugin_pb2.SubmitRequestMessage()
-		
-		message.header.version = plugin_pb2.Common.VERSION_1
+
 		message.header.recipient_id = target
 		message.channel = 'nsca_test_outbox'
 		host = message.header.hosts.add()
@@ -207,15 +206,17 @@ class NSCAServerTest(BasicTest):
 		payload = message.payload.add()
 		payload.result = status
 		payload.command = uid
-		payload.message = '%s - %s'%(uid, msg)
+		line = payload.lines.add()
+		line.message = '%s - %s'%(uid, msg)
 		payload.source = source
 		(result_code, err) = self.core.submit('nsca_test_outbox', message.SerializeToString())
 
 		result = TestResult('Testing payload submission (via API): %s'%tag)
-		result.add_message(result_code, 'Submission succedded %s/exec:1'%tag)
-		result.add_message(len(err) == 0, 'Testing to send message using %s/sbp'%tag, err)
+		result.assert_equals(result_code, True, 'Submission (%s) return ok status'%tag)
+		result.assert_equals(err, 'Submission successful', 'Submission (%s) returned correct status'%tag)
 		self.wait_and_validate(uid, result, msg, perf, '%s/spb'%tag)
 		return result
+
 		
 	def submit_via_exec(self, encryption, target, length, source, status, msg, perf, tag):
 		uid = str(uuid.uuid4())
@@ -244,7 +245,7 @@ class NSCAServerTest(BasicTest):
 		result.add_message(len(result_message) == 1, 'Testing to send message using %s/exec:2'%tag)
 		if len(result_message) == 1:
 			result.assert_equals(result_message[0], "Submission successful", 'Testing to send message using %s/exec:3'%tag)
-		self.wait_and_validate(uid, result, msg, perf, '%s/seb'%tag)
+		self.wait_and_validate(uid, result, msg, perf, '%s/exec'%tag)
 		return result
 
 	def test_one_crypto_full(self, encryption, state, key, target, length):
@@ -291,6 +292,7 @@ class NSCAServerTest(BasicTest):
 	def run_test(self, cases=None):
 		result = TestResult()
 		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
+		#cryptos = ["xor"]
 		for c in cryptos:
 			run_l = None
 			run_this = False
@@ -307,12 +309,12 @@ class NSCAServerTest(BasicTest):
 				if not run_this:
 					result.add_message(True, 'Ignoring: %s-*'%c)
 					continue
-			for l in [128, 512, 1024, 4096]:
+			#for l in [128, 512, 1024, 4096]:
+			for l in [ 512]:
 				if not run_l or run_l == l:
 					result.add(self.test_one_crypto(c, l))
 				else:
 					result.add_message(True, 'Ignoring: %s-%s'%(c, l))
-			#result.add(self.test_one_crypto(c))
 		
 		return result
 		

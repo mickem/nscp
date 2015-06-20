@@ -93,11 +93,6 @@ namespace parsers {
 		};
 		typedef std::list<performance_data> perf_list_type;
 
-		struct perf_writer_interface {
-			virtual void write(const performance_data &value) = 0;
-		};
-
-
 		struct performance_node {
 			enum performance_node_type {
 				perf_type_upper,

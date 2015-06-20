@@ -239,6 +239,17 @@ namespace socket_helpers {
 			return address + ":" + get_port();
 		}
 		long get_ctx_opts();
+
+		std::string to_string() const {
+			std::stringstream ss;
+			if (ssl.enabled) {
+				ss << "address: " << get_endpoint_string();
+				ss << "ssl: " << ssl.to_string();
+			} else 
+				ss << "ssl disabled";
+			return ss.str();
+		}
+
 	};
 
 

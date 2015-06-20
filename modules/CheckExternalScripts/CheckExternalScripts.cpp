@@ -166,11 +166,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		std::string alias_path = settings.alias().get_settings_path("alias");
 
 
-		commands_.add_samples(get_settings_proxy(), scripts_path);
-		commands_.add_missing(get_settings_proxy(), scripts_path, "default", "", true);
+		commands_.add_samples(get_settings_proxy());
+		commands_.add_missing(get_settings_proxy(), "default", "", true);
 
-		aliases_.add_samples(get_settings_proxy(), alias_path);
-		aliases_.add_missing(get_settings_proxy(), alias_path, "default", "", true);
+		aliases_.add_samples(get_settings_proxy());
+		aliases_.add_missing(get_settings_proxy(), "default", "", true);
 
 
 
@@ -180,11 +180,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		root_ = get_base_path();
 
 		nscapi::core_helper core(get_core(), get_id());
-		BOOST_FOREACH(const commands::command_handler::object_list_type::value_type &o, commands_.object_list) {
-			core.register_alias(o.second.tpl.alias, "External script: " + o.second.command);
+		BOOST_FOREACH(const boost::shared_ptr<commands::command_object> &o, commands_.get_object_list()) {
+			core.register_alias(o->alias, "External script: " + o->command);
 		}
-		BOOST_FOREACH(const alias::command_handler::object_list_type::value_type &o, aliases_.object_list) {
-			core.register_alias(o.second.tpl.alias, "Alias for: " + o.second.command);
+		BOOST_FOREACH(const boost::shared_ptr<alias::command_object> &o, aliases_.get_object_list()) {
+			core.register_alias(o->alias, "Alias for: " + o->command);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");
@@ -363,7 +363,7 @@ void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Reques
 
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
-		commands_.add(get_settings_proxy(), commands_path, key, arg, key == "default");
+		commands_.add(get_settings_proxy(), key, arg, key == "default");
 		if (arg.find("$ARG") != std::string::npos) {
 			if (!allowArgs_) {
 				NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
@@ -377,7 +377,7 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
 }
 void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 	try {
-		aliases_.add(get_settings_proxy(), aliases_path, key, arg, key == "default");
+		aliases_.add(get_settings_proxy(), key, arg, key == "default");
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
@@ -410,7 +410,7 @@ void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
 void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
 		//nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 
-		commands::optional_command_object command_def = commands_.find_object(request.command());
+		commands::command_object_instance command_def = commands_.find_object(request.command());
 
 		std::list<std::string> args;
 		for (int i=0;i<request.arguments_size();++i) {
@@ -420,7 +420,7 @@ void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Req
 			handle_command(*command_def, args, response);
 			return;
 		}
-		alias::optional_command_object alias_def = aliases_.find_object(request.command());
+		alias::command_object_instance alias_def = aliases_.find_object(request.command());
 		if (alias_def) {
 			handle_alias(*alias_def, args, response);
 			return;
@@ -464,12 +464,12 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		arg.domain = cd.domain;
 		arg.password = cd.password;
 	}
-	arg.alias = cd.tpl.alias;
+	arg.alias = cd.alias;
 	arg.ignore_perf = cd.ignore_perf;
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.tpl.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
+		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
 		return;
 	}
 	std::string message, perf;
@@ -486,13 +486,14 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	if (!arg.ignore_perf) {
 		pos = output.find('|');
 		if (pos != std::string::npos) {
-			response->set_message(output.substr(0, pos));
-			nscapi::protobuf::functions::parse_performance_data(response, output.substr(pos+1));
+			::Plugin::QueryResponseMessage_Response_Line* line = response->add_lines();
+			line->set_message(output.substr(0, pos));
+			nscapi::protobuf::functions::parse_performance_data(line, output.substr(pos+1));
 		} else {
-			response->set_message(output);
+			response->add_lines()->set_message(output);
 		}
 	} else {
-		response->set_message(output);
+		response->add_lines()->set_message(output);
 	}
 
 	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(result));
@@ -516,8 +517,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 					}
 				}
 			}
-			response->set_result(::Plugin::Common_ResultCode_OK);
-			response->set_message(ss.str());
+			nscapi::protobuf::functions::set_response_good(*response, ss.str());
 			return;
 		}
 	}
@@ -531,7 +531,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 			missing_args = true;
 	}
 	if (missing_args) {
-		NSC_DEBUG_MSG("Potential missing argument for: " + cd.tpl.alias);
+		NSC_DEBUG_MSG("Potential missing argument for: " + cd.alias);
 	}
 	std::string buffer;
 	nscapi::core_helper ch(get_core(), get_id());

@@ -40,7 +40,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "logfile");
 
-	thread_->filters_path_ = settings.alias().get_settings_path("real-time/checks");
+	//thread_->filters_path_ = settings.alias().get_settings_path("real-time/checks");
 
 	settings.alias().add_path_to_settings()
 		("LOG FILE SECTION", "Section for log file checker")
@@ -63,7 +63,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	settings.register_all();
 	settings.notify();
 
-	filters::filter_config_handler::add_samples(get_settings_proxy(), thread_->filters_path_);
+	//filters::filter_config_handler::add_samples(get_settings_proxy(), thread_->filters_path_);
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
@@ -143,6 +143,5 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to open file: " + filename);
 		}
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }

@@ -8,9 +8,9 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -19,9 +19,14 @@
 namespace sh = nscapi::settings_helper;
 
 namespace alias {
-	struct command_object {
+	struct command_object : public nscapi::settings_objects::object_instance_interface{
 
-		nscapi::settings_objects::template_object tpl;
+		typedef nscapi::settings_objects::object_instance_interface parent;
+
+		command_object(std::string alias, std::string path) 
+			: parent(alias, path)
+		{}
+
 		std::string command;
 		std::list<std::string> arguments;
 
@@ -37,7 +42,9 @@ namespace alias {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << tpl.to_string() << "{command: " << command << ", arguments: ";
+			ss << alias << "[" << alias << "] = "
+				<< "{tpl: " << parent::to_string();
+			ss << ", command: " << command << ", arguments: ";
 			bool first = true;
 			BOOST_FOREACH(const std::string &s, arguments) {
 				if (first)
@@ -49,6 +56,42 @@ namespace alias {
 			ss << "}";
 			return ss.str();
 		}
+
+		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+			set_command(value);
+
+			nscapi::settings_helper::settings_registry settings(proxy);
+			nscapi::settings_helper::path_extension root_path = settings.path(path);
+			if (is_sample)
+				root_path.set_sample();
+
+			if (oneliner) {
+				std::string::size_type pos = path.find_last_of("/");
+				if (pos != std::string::npos) {
+					std::string kpath = path.substr(0, pos);
+					std::string key = path.substr(pos+1);
+					proxy->register_key(kpath, key, NSCAPI::key_string, alias, "Alias for " + alias + ". To configure this item add a section called: " + path, "", false, false);
+					proxy->set_string(kpath, key, value);
+					return;
+				}
+			}
+
+
+			root_path.add_path()
+				("ALIAS DEFENITION", "Alias definition for: " + alias)
+				;
+
+			root_path.add_key()
+				("command", sh::string_fun_key<std::string>(boost::bind(&command_object::set_command, this, _1)),
+				"COMMAND", "Command to execute")
+				;
+
+			parent::read(proxy, oneliner, is_sample);
+
+			settings.register_all();
+			settings.notify();
+		}
+
 
 		void set_command(std::string str) {
 			if (str.empty())
@@ -101,62 +144,8 @@ namespace alias {
 		}
 
 	};
-	typedef boost::optional<command_object> optional_command_object;
+	typedef boost::shared_ptr<command_object> command_object_instance;
 
-	struct command_reader {
-		typedef command_object object_type;
-
-		static void post_process_object(object_type &object) {
-			std::transform(object.tpl.alias.begin(), object.tpl.alias.end(), object.tpl.alias.begin(), ::tolower);
-		}
-		static void init_default(object_type& object) {}
-
-
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
-			object.set_command(object.tpl.value);
-			std::string alias;
-
-			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-			if (is_sample)
-				root_path.set_sample();
-
-			if (oneliner) {
-				std::string::size_type pos = object.tpl.path.find_last_of("/");
-				if (pos != std::string::npos) {
-					std::string path = object.tpl.path.substr(0, pos);
-					std::string key = object.tpl.path.substr(pos+1);
-					proxy->register_key(path, key, NSCAPI::key_string, object.tpl.alias, "Alias for " + object.tpl.alias + ". To configure this item add a section called: " + object.tpl.path, "", false, false);
-					proxy->set_string(path, key, object.tpl.value);
-					return;
-				}
-			}
-
-
-			root_path.add_path()
-				("ALIAS DEFENITION", "Alias definition for: " + object.tpl.alias)
-				;
-
-			root_path.add_key()
-				("command", sh::string_fun_key<std::string>(boost::bind(&object_type::set_command, &object, _1)),
-				"COMMAND", "Command to execute")
-				;
-			object.tpl.read_object(root_path);
-
-			settings.register_all();
-			settings.notify();
-			if (!alias.empty())
-				object.tpl.alias = alias;
-		}
-
-		static void apply_parent(object_type &object, object_type &parent) {
-			using namespace nscapi::settings_objects;
-			import_string(object.command, parent.command);
-			if (object.arguments.empty() && !parent.arguments.empty())
-				object.arguments = parent.arguments;
-		}
-
-	};
-	typedef nscapi::settings_objects::object_handler<command_object, command_reader> command_handler;
+	typedef nscapi::settings_objects::object_handler<command_object> command_handler;
 }
 

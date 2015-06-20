@@ -13,9 +13,10 @@
 
 namespace check_pdh {
 
-	struct counter_config_object {
+	struct counter_config_object : public nscapi::settings_objects::object_instance_interface {
 
-		nscapi::settings_objects::template_object tpl;
+		typedef nscapi::settings_objects::object_instance_interface parent;
+
 		bool debug;
 		std::string collection_strategy;
 		std::string counter;
@@ -24,24 +25,25 @@ namespace check_pdh {
 		std::string type;
 		std::string flags;
 
+		counter_config_object(std::string alias, std::string path) 
+			: parent(alias, path)
+			, collection_strategy("static")
+			, instances("none")
+			, type("large")
+		{}
+
 		// Runtime items
+
+		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << tpl.to_string() << "{counter: " << counter << ", "  << collection_strategy << ", "  << type << "}";
+			ss << parent::to_string() << "{counter: " << counter << ", "  << collection_strategy << ", "  << type << "}";
 			return ss.str();
 		}
 	};
 
-	struct command_reader {
-		typedef counter_config_object object_type;
-		static void post_process_object(object_type&) {}
-		static void init_default(object_type& object);
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample);
-		static void apply_parent(object_type &object, object_type &parent);
-	};
-
-	typedef nscapi::settings_objects::object_handler<counter_config_object, command_reader> counter_config_handler;
+	typedef nscapi::settings_objects::object_handler<counter_config_object> counter_config_handler;
 
 
 	struct filter_obj {
@@ -72,6 +74,6 @@ namespace check_pdh {
 	struct check {
 		counter_config_handler counters_;
 		void check_pdh(boost::shared_ptr<pdh_thread> &collector, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-		void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query);
+		void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 	};
 }

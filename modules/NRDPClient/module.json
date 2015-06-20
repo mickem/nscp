@@ -12,16 +12,16 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"nrdp_submit" : { 
-			"description" : "Submit information to remote host via NRDP.",
+		"fallback" : "raw",
+		"submit_nrdp" : { 
+			"description" : "Submit information to the remote NRDP Server.",
 			"mapping"	: false
 		}
 	},
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

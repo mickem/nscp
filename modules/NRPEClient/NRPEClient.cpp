@@ -21,9 +21,7 @@
 #include "NRPEClient.h"
 
 #include <boost/filesystem.hpp>
-
-#include <time.h>
-#include <strEx.h>
+#include <boost/make_shared.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -33,13 +31,16 @@
 #include <nscapi/macros.hpp>
 #include <settings/config.hpp>
 
+#include "nrpe_client.hpp"
+#include "nrpe_handler.hpp"
+
 namespace sh = nscapi::settings_helper;
 
 /**
  * Default c-tor
  * @return 
  */
-NRPEClient::NRPEClient() {}
+NRPEClient::NRPEClient() : client_("nrpe", boost::make_shared<nrpe_client::nrpe_client_handler<> >(), boost::make_shared<nrpe_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -51,8 +52,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	try {
 
-		targets.clear();
-		commands.clear();
+		client_.clear();
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NRPE", alias, "client");
 		target_path = settings.alias().get_settings_path("targets");
@@ -78,9 +78,9 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.register_all();
 		settings.notify();
 
+		client_.finalize(get_settings_proxy());
+
 		nscapi::core_helper core(get_core(), get_id());
-		targets.add_samples(get_settings_proxy(), target_path);
-		targets.ensure_default(get_settings_proxy(), target_path);
 		core.register_channel(channel_);
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR_EXR("loading", e);
@@ -98,7 +98,7 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 void NRPEClient::add_target(std::string key, std::string arg) {
 	try {
-		targets.add(get_settings_proxy(), target_path , key, arg);
+		client_.add_target(get_settings_proxy(), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -109,7 +109,7 @@ void NRPEClient::add_target(std::string key, std::string arg) {
 void NRPEClient::add_command(std::string name, std::string args) {
 	try {
 		nscapi::core_helper core(get_core(), get_id());
-		std::string key = commands.add_command(name, args);
+		std::string key = client_.add_command(name, args);
 		if (!key.empty())
 			core.register_command(key.c_str(), "NRPE relay for: " + name);
 	} catch (boost::program_options::validation_error &e) {
@@ -128,62 +128,34 @@ bool NRPEClient::unloadModule() {
 	return true;
 }
 
-struct client_handler : public socket_helpers::client::client_handler {
-	void log_debug(std::string file, int line, std::string msg) const {
-		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
-			GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
-		}
-	}
-	void log_error(std::string file, int line, std::string msg) const {
-		if (GET_CORE()->should_log(NSCAPI::log_level::error)) {
-			GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
-		}
-	}
-	std::string expand_path(std::string path) {
-		return GET_CORE()->expand_path(path);
-	}
 
-};
-
-void NRPEClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(nrpe_client::command_prefix, 
-		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
-		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
-	nrpe_client::setup(config, request_message.header());
-	commands.parse_query(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
+void NRPEClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+	client_.do_query(request_message, response_message);
 }
 
-void NRPEClient::nrpe_forward(const std::string &command, Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage *response) {
-	client::configuration config(nrpe_client::command_prefix, 
-		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
-		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
-	nrpe_client::setup(config, request.header());
-	commands.forward_query(config, request, *response);
-}
-
-bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	if (request.arguments_size() > 0 && request.arguments(0) == "install")
-		return install_server(request, response);
-	if (request.arguments_size() > 0 && request.arguments(0) == "make-cert")
-		return make_cert(request, response);
-	if (request.arguments_size() == 0 || request.arguments(0) == "help") {
-		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp nrpe [install|make-cert] --help");
-		return true;
+bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+	BOOST_FOREACH(const Plugin::ExecuteRequestMessage::Request &payload, request.payload()) {
+		if (payload.arguments_size() > 0 && payload.arguments(0) == "install") {
+			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			return install_server(payload, rp);
+		}
+		if (payload.arguments_size() > 0 && payload.arguments(0) == "make-cert") {
+			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			return make_cert(payload, rp);
+		}
+		if (payload.arguments_size() == 0 || payload.arguments(0) == "help") {
+			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
+			nscapi::protobuf::functions::set_response_bad(*rp, "Usage: nscp nrpe [install|make-cert] --help");
+			return true;
+		}
 	}
-	client::configuration config(nrpe_client::command_prefix, 
-		boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler()))), 
-		boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)));
-	nrpe_client::setup(config, request_message.header());
-	return commands.parse_exec(nrpe_client::command_prefix, nrpe_client::default_command, request.command(), config, request, *response, request_message);
+	return client_.do_exec(request, response);
 }
 
 void NRPEClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(nrpe_client::command_prefix);
-	config.target_lookup = boost::shared_ptr<nrpe_client::target_handler>(new nrpe_client::target_handler(targets)); 
-	config.handler = boost::shared_ptr<nrpe_client::clp_handler_impl>(new nrpe_client::clp_handler_impl(boost::shared_ptr<socket_helpers::client::client_handler>(new client_handler())));
-	nrpe_client::setup(config, request_message.header());
-	commands.forward_submit(config, request_message, *response_message);
+	client_.do_submit(request_message, *response_message);
 }
+
 
 
 bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {

@@ -82,7 +82,10 @@ struct payload_alias_functor {
 };
 struct payload_message_functor {
 	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
-		return payload.message();
+		std::string ret;
+		BOOST_FOREACH(Plugin::QueryResponseMessage::Response::Line l, payload.lines()) 
+			ret += l.message();
+		return ret;
 	}
 };
 struct payload_result_functor {

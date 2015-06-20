@@ -18,15 +18,15 @@ namespace sh = nscapi::settings_helper;
 
 
 #include "../modules/NRPEClient/nrpe_client.hpp"
+#include "../modules/NRPEClient/nrpe_handler.hpp"
 
 class check_nrpe  {
 private:
-	client::command_manager commands;
-	nscapi::targets::handler<nrpe_client::custom_reader> targets;
+	client::configuration client_;
 
 public:
 	check_nrpe();
-	void query(const std::vector<std::string> &args, Plugin::QueryResponseMessage::Response &response);
+	void query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 
 
 };

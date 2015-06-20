@@ -94,68 +94,50 @@ namespace eventlog_filter {
 
 	std::string filter_config_object::to_string() const {
 		std::stringstream ss;
-		ss << tpl.alias << "[" << tpl.alias << "] = " 
-			<< "{tpl: " << tpl.to_string() << ", filter: " << filter.to_string() << "}";
+		ss << alias << "[" << alias << "] = " 
+			<< "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
 		return ss.str();
 	}
 
-	void command_reader::init_default(object_type& object) {
-		// Populate default template!
-		object.filter.debug = false;
-		object.filter.syntax_top = "${file}: ${count} (${list})";
-		object.filter.syntax_detail = "${level}: ${message}";
-		object.filter.target = "NSCA";
-	}
-
-	void command_reader::read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
-		if (!object.tpl.value.empty())
-			object.filter.filter_string = object.tpl.value;
+	void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		if (!value.empty())
+			filter.filter_string = value;
 		std::string alias;
-		bool is_default = object.tpl.is_default();
+		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+		nscapi::settings_helper::path_extension root_path = settings.path(path);
 		if (is_sample)
 			root_path.set_sample();
 
 		if (oneliner) {
-			std::string::size_type pos = object.tpl.path.find_last_of("/");
+			std::string::size_type pos = path.find_last_of("/");
 			if (pos != std::string::npos) {
-				std::string path = object.tpl.path.substr(0, pos);
-				std::string key = object.tpl.path.substr(pos+1);
-				proxy->register_key(path, key, NSCAPI::key_string, object.tpl.alias, "Filter for " + object.tpl.alias + ". To configure this item add a section called: " + object.tpl.path, "", false, is_sample);
-				proxy->set_string(path, key, object.tpl.value);
+				std::string kpath = path.substr(0, pos);
+				std::string key = path.substr(pos+1);
+				proxy->register_key(path, key, NSCAPI::key_string, alias, "Filter for " + alias + ". To configure this item add a section called: " + path, "", false, is_sample);
+				proxy->set_string(path, key, value);
 				return;
 			}
 		}
 
 		root_path.add_path()
-			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + object.tpl.alias)
+			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + alias)
 			;
 
 		root_path.add_key()
-			("log", sh::string_fun_key<std::string>(boost::bind(&object_type::set_file, &object, _1)),
+			("log", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_file, this, _1)),
 			"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-			("logs", sh::string_fun_key<std::string>(boost::bind(&object_type::set_files, &object, _1)),
+			("logs", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_files, this, _1)),
 			"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
 			;
 
-		object.tpl.read_object(root_path);
-		object.filter.read_object(root_path, is_default);
+		filter.read_object(root_path, is_default);
 
 		settings.register_all();
 		settings.notify();
-		if (!alias.empty())
-			object.tpl.alias = alias;
 	}
-	void command_reader::apply_parent(object_type &object, object_type &parent) {
-		object.filter.apply_parent(parent.filter);
-		using namespace nscapi::settings_objects;
-		if (parent.dwLang != 0 && object.dwLang != 0)
-			object.dwLang = parent.dwLang;
-	}
-
 }
 
