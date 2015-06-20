@@ -23,7 +23,7 @@ namespace parsers {
 		} 
 
 		void constants::reset() {
-			now = to_time_t(pt::second_clock::universal_time());
+			now = parsers::where::to_time_t(pt::second_clock::universal_time());
 		}
 	}
 }

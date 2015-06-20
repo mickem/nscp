@@ -223,7 +223,8 @@ sources = {}
 sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.tar.gz')
 # sources['lua'] = source('lua-5.2.1.tar.gz', 'http://www.lua.org/ftp/lua-5.2.1.tar.gz')
 
-sources['boost'] = source('boost_1_56_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.56.0/boost_1_56_0.zip/download', '15b9719a92cd2a80170d54cfb9c3990a56193c56')
+#sources['boost'] = source('boost_1_56_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.56.0/boost_1_56_0.zip/download', '15b9719a92cd2a80170d54cfb9c3990a56193c56')
+sources['boost'] = source('boost_1_58_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.zip/download', '39c4c3bedd96ba191f9ed1ce8a90657d73c79544')
 
 sources['openssl'] = source('openssl-1.0.1j.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1j.tar.gz', 'cff86857507624f0ad42d922bb6f77c4f1c2b819')
 
@@ -237,8 +238,10 @@ post_build = {}
 
 build['boost'] = build_instruction(
 	['bootstrap.bat'], 
-	['bjam --toolset=$boost-version$ runtime-link=shared link=shared', 'bjam --toolset=$boost-version$ runtime-link=static'],
-	['bjam --toolset=$boost-version$ runtime-link=shared link=shared address-model=64', 'bjam --toolset=$boost-version$ runtime-link=static address-model=64'],
+	['bjam --toolset=$boost-version$ --without-context --without-coroutine runtime-link=shared link=shared', 
+	'bjam --toolset=$boost-version$ --without-context --without-coroutine runtime-link=static'],
+	['bjam --toolset=$boost-version$ --without-context --without-coroutine runtime-link=shared link=shared address-model=64', 
+	'bjam --toolset=$boost-version$ --without-context --without-coroutine runtime-link=static address-model=64'],
 	[]
 	)
 
@@ -260,14 +263,14 @@ build['protobuf-d'] = build_instruction(
 	[],
 	[],
 	[
-		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release',
-		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug',
-		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release',
-		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug',
-		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release',
-		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug',
-		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release',
-		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug'
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
+		'msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS'
 	]
 	)
 build['protobuf-d'].pre_x64.append('python.exe $$NSCP_SOURCE_ROOT$$/build/python/msdev-to-x64.py')
@@ -292,10 +295,12 @@ boost_version = {}
 boost_version['2005'] = "msvc-8.0"
 boost_version['2012'] = "msvc-11.0"
 boost_version['2013'] = "msvc-12.0"
+boost_version['2015'] = "msvc-14.0"
 cmake_generator = {}
 cmake_generator['2005'] = "Visual Studio 8 2005"
 cmake_generator['2012'] = "Visual Studio 11"
 cmake_generator['2013'] = "Visual Studio 12"
+cmake_generator['2015'] = "Visual Studio 14"
 
 post_build['protobuf'] = """Be sure to install protocol buffers python library in your python installation (notice if you have multiple you need to do this for all of them):
 cd ${protobuf_abs}\python
