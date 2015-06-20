@@ -11,10 +11,10 @@ SET(SRCS ${SRCS}
 
 	${NSCP_INCLUDEDIR}/nrpe/packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_INCLUDEDIR}/utils.cpp
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_CLIENT_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -35,10 +35,10 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
-		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_CLIENT_HPP}
 	)
 ENDIF(WIN32)
 

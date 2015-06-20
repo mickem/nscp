@@ -119,7 +119,6 @@ using namespace Plugin;
 
 int DotnetPlugins::registry_reg_module(const std::string module) {
 	RegistryRequestMessage::Builder^ message_builder = RegistryRequestMessage::CreateBuilder();
-	message_builder->SetHeader(Common::Types::Header::CreateBuilder()->SetVersion(Common::Types::Version::VERSION_1)->Build());
 	RegistryRequestMessage::Types::Request::Types::Registration::Builder^ query_builder = RegistryRequestMessage::Types::Request::Types::Registration::CreateBuilder();
 	query_builder->SetName(to_mstring(module));
 	query_builder->SetPluginId(get_id());
@@ -133,7 +132,7 @@ int DotnetPlugins::registry_reg_module(const std::string module) {
 		return 0;
 	}
 	RegistryResponseMessage^ response_message = RegistryResponseMessage::ParseFrom(to_pbd(response_buffer));
-	if (response_message->GetPayload(0)->Result->Status_ != Common::Types::Status::Types::StatusType::STATUS_OK) {
+	if (response_message->GetPayload(0)->Result->Code != Common::Types::Result::Types::StatusCodeType::STATUS_OK) {
 		NSC_LOG_ERROR("Failed to register: " + module);
 		return 0;
 	}

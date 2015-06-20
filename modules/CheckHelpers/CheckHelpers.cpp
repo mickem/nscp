@@ -48,7 +48,7 @@ void check_simple_status(::Plugin::Common_ResultCode status, const Plugin::Query
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
 		return;
 	response->set_result(status);
-    response->set_message(msg);
+    response->add_lines()->set_message(msg);
 }
 
 void escalate_result(Plugin::QueryResponseMessage::Response * response, ::Plugin::Common_ResultCode new_result)
@@ -193,8 +193,6 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 		return;
 	if (arguments.size() == 0)
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	std::string message;
-
 	BOOST_FOREACH(std::string arg, arguments) {
 		std::list<std::string> tmp = strEx::s::splitEx(arg, std::string(" "));
 		if (tmp.empty()) {
@@ -205,15 +203,25 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 		Plugin::QueryResponseMessage::Response local_response;
 		if (!simple_query(command, args, &local_response)) 
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
-		for (int j=0;j<local_response.perf_size();j++) {
-			response->add_perf()->CopyFrom(local_response.perf(j));
+		bool first = true;
+		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, local_response.lines()) {
+			if (first && response->lines_size() > 0) {
+				::Plugin::QueryResponseMessage_Response_Line *nLine = response->add_lines();
+				nLine->CopyFrom(line);
+				nLine->set_message(separator + nLine->message());
+				first = false;
+			} else {
+				response->add_lines()->CopyFrom(line);
+			}
 		}
 		escalate_result(response, local_response.result());
-		if (!message.empty())
-			message += separator;
-		message += local_response.message();
 	}
-	response->set_message(prefix + message + suffix);
+	if (response->lines_size() > 0) {
+		if (!prefix.empty())
+			response->mutable_lines(0)->set_message(prefix + response->lines(0).message());
+		if (!suffix.empty())
+			response->mutable_lines(response->lines_size()-1)->set_message(response->lines(response->lines_size()-1).message() + suffix);
+	}
 }
 
 struct worker_object {
@@ -265,9 +273,9 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 
 struct normal_sort {
 	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
-		if (v1.type() != ::Plugin::Common_DataType_INT)
+		if (!v1.has_int_value())
 			return false;
-		if (v2.type() != ::Plugin::Common_DataType_INT)
+		if (!v2.has_int_value())
 			return false;
 		if (v1.int_value().value() > v2.int_value().value())
 			return true;
@@ -276,9 +284,9 @@ struct normal_sort {
 };
 struct reverse_sort {
 	bool operator() (const ::Plugin::Common::PerformanceData &v1, const ::Plugin::Common::PerformanceData &v2) const {
-		if (v1.type() != ::Plugin::Common_DataType_INT)
+		if (!v1.has_int_value())
 			return false;
-		if (v2.type() != ::Plugin::Common_DataType_INT)
+		if (!v2.has_int_value())
 			return false;
 		if (v1.int_value().value() < v2.int_value().value())
 			return true;
@@ -306,20 +314,27 @@ void CheckHelpers::filter_perf(const Plugin::QueryRequestMessage::Request &reque
 	if (command.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
+	std::vector<Plugin::Common::PerformanceData> perfs;
 
-	std::vector<Plugin::Common::PerformanceData> perf;
-	for (int i=0;i<response->perf_size(); i++) {
-		perf.push_back(response->perf(i));
+	std::stringstream ss;
+	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response->lines()) {
+		ss << line.message() << "\n";
+		BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, line.perf()) {
+			perfs.push_back(perf);
+		}
 	}
+
 	if (sort == "normal")
-		std::sort(perf.begin(), perf.end(), normal_sort());
+		std::sort(perfs.begin(), perfs.end(), normal_sort());
 	else if (sort == "reverse")
-		std::sort(perf.begin(), perf.end(), reverse_sort());
-	response->clear_perf();
-	if (limit > 0 && perf.size() > limit)
-		 perf.erase(perf.begin()+limit, perf.end());
-	BOOST_FOREACH(const ::Plugin::Common::PerformanceData &v, perf) {
-		response->add_perf()->CopyFrom(v);
+		std::sort(perfs.begin(), perfs.end(), reverse_sort());
+	response->clear_lines();
+	::Plugin::QueryResponseMessage_Response_Line* line = response->add_lines();
+	line->set_message(ss.str());
+	if (limit > 0 && perfs.size() > limit)
+		 perfs.erase(perfs.begin()+limit, perfs.end());
+	BOOST_FOREACH(const ::Plugin::Common::PerformanceData &v, perfs) {
+		line->add_perf()->CopyFrom(v);
 	}
 }
 
@@ -450,15 +465,16 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 	if (command.empty())
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
-
-	for (int i=0;i<response->perf_size(); i++) {
-		boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(response->perf(i)));
-		filter.match(record);
+	for (int i=0;i<response->lines_size();i++) {
+		::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+		BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, line->perf()) {
+			boost::shared_ptr<perf_filter::filter_obj> record(new perf_filter::filter_obj(perf));
+			filter.match(record);
+		}
+		if (remove_perf)
+			line->clear_perf();
 	}
-	if (remove_perf)
-		response->clear_perf();
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 
 }
 
@@ -500,38 +516,40 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid syntax replace string", *response);
 
 	if (mode == "extract") {
-		std::vector<Plugin::Common::PerformanceData> perf;
-		for (int i=0;i<response->perf_size(); i++) {
-			const Plugin::Common::PerformanceData &cp = response->perf(i);
-			Plugin::Common::PerformanceData np;
-			np.CopyFrom(cp);
-			np.set_alias(boost::replace_all_copy(cp.alias(), repl[0], repl[1]));
-			if (field == "max") {
-				if (cp.has_int_value()) {
-					np.mutable_int_value()->set_value(cp.int_value().maximum());
-					perf.push_back(np);
-				} else if (cp.has_float_value()) {
-					np.mutable_float_value()->set_value(cp.float_value().maximum());
-					perf.push_back(np);
-				}
-			} else if (field == "min") {
-				if (cp.has_int_value()) {
-					np.mutable_int_value()->set_value(cp.int_value().minimum());
-					perf.push_back(np);
-				} else if (cp.has_float_value()) {
-					np.mutable_float_value()->set_value(cp.float_value().minimum());
-					perf.push_back(np);
+		for (int i=0;i<response->lines_size();i++) {
+			::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+			std::vector<Plugin::Common::PerformanceData> perf;
+			for (int i=0;i<line->perf_size(); i++) {
+				const Plugin::Common::PerformanceData &cp = line->perf(i);
+				Plugin::Common::PerformanceData np;
+				np.CopyFrom(cp);
+				np.set_alias(boost::replace_all_copy(cp.alias(), repl[0], repl[1]));
+				if (field == "max") {
+					if (cp.has_int_value()) {
+						np.mutable_int_value()->set_value(cp.int_value().maximum());
+						perf.push_back(np);
+					} else if (cp.has_float_value()) {
+						np.mutable_float_value()->set_value(cp.float_value().maximum());
+						perf.push_back(np);
+					}
+				} else if (field == "min") {
+					if (cp.has_int_value()) {
+						np.mutable_int_value()->set_value(cp.int_value().minimum());
+						perf.push_back(np);
+					} else if (cp.has_float_value()) {
+						np.mutable_float_value()->set_value(cp.float_value().minimum());
+						perf.push_back(np);
+					}
 				}
 			}
-		}
-		BOOST_FOREACH(const Plugin::Common::PerformanceData &p, perf) {
-			response->add_perf()->CopyFrom(p);
+			BOOST_FOREACH(const Plugin::Common::PerformanceData &p, perf) {
+				line->add_perf()->CopyFrom(p);
+			}
 		}
 	} else {
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid mode specified", *response);
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 
 }
 

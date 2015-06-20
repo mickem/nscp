@@ -36,7 +36,6 @@ class NSCAClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::string channel_;
-	std::string target_path;
 	std::string hostname_;
 	std::string encoding_;
 

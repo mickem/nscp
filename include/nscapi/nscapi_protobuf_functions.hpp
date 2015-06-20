@@ -90,10 +90,14 @@ namespace nscapi {
 			inline void set_response_good(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
 				response.set_result(::Plugin::Common_ResultCode_OK);
 				response.set_message(message);
+				if (!response.has_command())
+					response.set_command("unknown");
 			}
 			inline void set_response_good(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
 				response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				response.mutable_result()->set_message(message);
+				if (!response.has_command())
+					response.set_command("unknown");
 			}
 			inline void set_response_good_wdata(::Plugin::QueryResponseMessage::Response &response, std::string message) {
 				response.set_result(::Plugin::Common_ResultCode_OK);
@@ -104,6 +108,8 @@ namespace nscapi {
 				response.set_result(::Plugin::Common_ResultCode_OK);
 				response.set_data(message);
 				response.set_message("see data segment");
+				if (!response.has_command())
+					response.set_command("unknown");
 			}
 			
 			inline void set_response_good_wdata(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
@@ -120,10 +126,14 @@ namespace nscapi {
 			inline void set_response_bad(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
 				response.set_result(Plugin::Common_ResultCode_UNKNOWN);
 				response.set_message(message);
+				if (!response.has_command())
+					response.set_command("unknown");
 			}
 			inline void set_response_bad(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
 				response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
 				response.mutable_result()->set_message(message);
+				if (!response.has_command())
+					response.set_command("unknown");
 			}
 
 			NSCAPI_EXPORT Plugin::Common::ResultCode parse_nagios(const std::string &status);

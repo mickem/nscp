@@ -652,8 +652,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
 	}
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 

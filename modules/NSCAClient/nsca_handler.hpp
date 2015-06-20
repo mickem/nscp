@@ -78,20 +78,20 @@ namespace nsca_handler {
 			add_ssl_options(desc, data);
 
 			desc.add_options()
-				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "encryption", _1)), 
+				("encryption,e", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "encryption", _1)), 
 				(std::string("Name of encryption algorithm to use.\nHas to be the same as your server i using or it wont work at all."
 				"This is also independent of SSL and generally used instead of SSL.\nAvailable encryption algorithms are:\n") + nscp::encryption::helpers::get_crypto_string("\n")).c_str())
 
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)), 
 				"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &data, "payload length", _1)), 
 				"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "password", _1)), 
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "password", _1)), 
 				"Password")
 
-				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "time offset", _1)), 
+				("time-offset", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "time offset", _1)), 
 				"")
 				;
 		}

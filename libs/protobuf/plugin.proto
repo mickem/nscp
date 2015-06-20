@@ -241,7 +241,7 @@ message QueryResponseMessage {
 
 		optional int32 id = 1;
 		optional string source = 7;
-		required string command = 2;
+		optional string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 16;
 		

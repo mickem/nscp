@@ -107,8 +107,10 @@ namespace nsca_client {
 				const Plugin::QueryResponseMessage::Response &payload = request_message.payload(i);
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
 				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
+				packet.service = payload.command();
 				list.push_back(packet);
 			}
+
 			send(response_message.add_payload(), connection_data(target, sender), list);
 			return true;
 		}
@@ -127,7 +129,7 @@ namespace nsca_client {
 					client.process_request(packet);
 				}
 				client.shutdown();
-				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");
+				nscapi::protobuf::functions::set_response_good(*payload, "Submission successful");
 			} catch (const nscp::encryption::encryption_exception &e) {
 				nscapi::protobuf::functions::set_response_bad(*payload, "NSCA error: " + utf8::utf8_from_native(e.what()));
 			} catch (const std::runtime_error &e) {

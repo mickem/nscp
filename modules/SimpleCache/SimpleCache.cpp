@@ -231,7 +231,7 @@ void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &reques
 	if (data) {
 		response->ParseFromString(*data);
 	} else {
-		response->set_message(not_found_msg);
+		response->add_lines()->set_message(not_found_msg);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(not_found_msg_code)));
 	}
 }

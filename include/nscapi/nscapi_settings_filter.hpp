@@ -18,9 +18,10 @@ namespace nscapi {
 			bool debug;
 
 			std::string syntax_top;
+			std::string syntax_detail;
+			std::string target;
 			std::string syntax_ok;
 			std::string syntax_empty;
-			std::string syntax_detail;
 			std::string filter_string;
 			std::string filter_ok;
 			std::string filter_warn;
@@ -30,13 +31,18 @@ namespace nscapi {
 			NSCAPI::nagiosReturn severity;
 			std::string command;
 			boost::optional<boost::posix_time::time_duration> max_age;
-			std::string target;
 			std::string target_id;
 			std::string source_id;
 			std::string timeout_msg;
 
 
-			filter_object() : debug(false), severity(-1) {}
+			filter_object(std::string syntax_top, std::string syntax_detail, std::string target) 
+				: debug(false)
+				, syntax_top(syntax_top)
+				, syntax_detail(syntax_detail)
+				, target(target)
+				, severity(-1) 
+			{}
 
 			std::string to_string() const {
 				std::stringstream ss;

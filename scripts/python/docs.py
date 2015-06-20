@@ -505,7 +505,6 @@ class DocumentationHelper(object):
 		
 	def build_inventory_request(self,  path = '/', recursive = True, keys = False):
 		message = plugin_pb2.SettingsRequestMessage()
-		message.header.version = plugin_pb2.Common.VERSION_1
 		payload = message.payload.add()
 		payload.plugin_id = self.plugin_id
 		payload.inventory.node.path = path
@@ -518,7 +517,6 @@ class DocumentationHelper(object):
 	
 	def build_command_request(self, type = 1):
 		message = plugin_pb2.RegistryRequestMessage()
-		message.header.version = plugin_pb2.Common.VERSION_1
 		payload = message.payload.add()
 		payload.inventory.fetch_all = True
 		payload.inventory.type.append(type)

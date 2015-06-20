@@ -67,23 +67,20 @@ namespace nrpe_handler {
 		}
 
 
-		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
+		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &target) {
 
-			add_ssl_options(desc, data);
+			add_ssl_options(desc, target);
 
 			desc.add_options()
 			
-				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, data, "insecure", _1)), 
+				("insecure", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, &target, "insecure", _1)), 
 				"Use insecure legacy mode")
 			
-				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+				("payload-length,l", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)), 
 				"Length of payload (has to be same as on the server)")
 
-				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, data, "payload length", _1)), 
+				("buffer-length", po::value<unsigned int>()->notifier(boost::bind(&client::destination_container::set_int_data, &target, "payload length", _1)), 
 				"Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
-
-				("ssl", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, data, "ssl", _1)), 
-				"Initial an ssl handshake with the server.")
 				;
 		}
 	};

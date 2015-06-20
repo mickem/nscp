@@ -6,6 +6,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <nscapi/nscapi_program_options.hpp>
 
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
@@ -173,7 +174,7 @@ namespace client {
 			}
 		}
 
-		void apply(std::string key, const::Plugin::Common::Header &header) {
+		void apply(const std::string &key, const ::Plugin::Common::Header &header) {
 			for (int i = 0; i < header.hosts_size(); i++) {
 				if (header.hosts(i).id() == key) {
 					apply_host(header.hosts(i));
@@ -249,9 +250,9 @@ namespace client {
 			else if (key == "port")
 				address.port = to_int(value, address.port);
 			else if (key == "timeout")
-				timeout = to_int(value, address.port);
+				timeout = to_int(value, timeout);
 			else if (key == "retry")
-				retry = to_int(value, address.port);
+				retry = to_int(value, retry);
 			else
 				data[key] = value;
 		}
@@ -311,7 +312,7 @@ namespace client {
 		}
 	};
 
-	struct options_reader_interface : public nscapi::settings_objects::object_factory_interface {
+	struct options_reader_interface : public  nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
 		virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
 		void add_ssl_options(boost::program_options::options_description & desc, client::destination_container & data);
 
@@ -328,7 +329,8 @@ namespace client {
 	struct configuration : public boost::noncopyable {
 		typedef boost::unordered_map<std::string, command_container> command_type;
 
-		nscapi::settings_objects::object_handler targets;
+		typedef nscapi::settings_objects::object_handler<nscapi::settings_objects::object_instance_interface, options_reader_interface> object_handler_type;
+		object_handler_type targets;
 		handler_type handler;
 
 		std::string title;
@@ -369,7 +371,14 @@ namespace client {
 		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
 		void do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
 
+		typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)> client_desc_fun;
+		typedef boost::function<bool(client::destination_container &source, client::destination_container &destination)> client_pre_fun;
+		client_desc_fun client_desc;
+		client_pre_fun client_pre;
+
+
 	private:
+		boost::program_options::options_description create_descriptor(const std::string command, client::destination_container &source, client::destination_container &destination);
 		void i_do_query(destination_container &s, destination_container &d, std::string command, const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response, bool use_header);
 		bool i_do_exec(destination_container &s, destination_container &d, std::string command, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, bool use_header);
 		void i_do_submit(destination_container &s, destination_container &d, std::string command, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response, bool use_header);

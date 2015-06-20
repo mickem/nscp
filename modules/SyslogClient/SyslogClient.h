@@ -20,13 +20,12 @@
 ***************************************************************************/
 #pragma once
 
-#include <boost/tuple/tuple.hpp>
-
-#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
-#include <client/command_line_parser.hpp>
-#include <nscapi/nscapi_targets.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
+#include <nscapi/nscapi_targets.hpp>
+
+#include <client/command_line_parser.hpp>
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
@@ -36,121 +35,9 @@ private:
 
 	std::string channel_;
 	std::string target_path;
-
-	struct custom_reader {
-		typedef nscapi::targets::target_object object_type;
-		typedef nscapi::targets::target_object target_object;
-
-		static void init_default(target_object &target) {
-			target.set_property_string("severity", "error");
-			target.set_property_string("facility", "kernel");
-			target.set_property_string("tag syntax", "NSCA");
-			target.set_property_string("message syntax", "%message%");
-			target.set_property_string("ok severity", "informational");
-			target.set_property_string("warning severity", "warning");
-			target.set_property_string("critical severity", "critical");
-			target.set_property_string("unknown severity", "emergency");
-		}
-
-		static void add_custom_keys(sh::settings_registry &settings, boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool is_sample) {
-			nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
-			if (is_sample)
-				root_path.set_sample();
-			root_path.add_key()
-
-				("severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "severity", _1), "error"),
-				"TODO", "")
-
-				("facility", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "facility", _1), "kernel"),
-				"TODO", "")
-
-				("tag_syntax", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "tag syntax", _1), "NSCA"),
-				"TODO", "")
-
-				("message_syntax", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "message syntax", _1), "%message%"),
-				"TODO", "")
-
-				("ok severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ok severity", _1), "informational"),
-				"TODO", "")
-
-				("warning severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "warning severity", _1), "warning"),
-				"TODO", "")
-
-				("critical severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "critical severity", _1), "critical"),
-				"TODO", "")
-
-				("unknown severity", sh::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "unknown severity", _1), "emergency"),
-				"TODO", "")
-				;
-		}
-		static void post_process_target(target_object &) {
-		}
-	};
-
-	nscapi::targets::handler<custom_reader> targets;
-	client::command_manager commands;
-
-	typedef std::map<std::string,int> syslog_map;
-	syslog_map facilities;
-	syslog_map severities;
 	std::string hostname_;
 
-public:
-	struct connection_data {
-		std::string severity;
-		std::string facility;
-		std::string tag_syntax;
-		std::string message_syntax;
-		std::string host;
-		int port;
-		std::string ok_severity, warn_severity, crit_severity, unknown_severity;
-
-		connection_data(nscapi::protobuf::types::destination_container arguments, nscapi::protobuf::types::destination_container target) {
-			arguments.import(target);
-			severity = arguments.data["severity"];
-			facility = arguments.data["facility"];
-			tag_syntax = arguments.data["tag template"];
-			message_syntax = arguments.data["message template"];
-
-			ok_severity = arguments.data["ok severity"];
-			warn_severity = arguments.data["warning severity"];
-			crit_severity = arguments.data["critical severity"];
-			unknown_severity = arguments.data["unknown severity"];
-
-			host = arguments.address.host;
-			port = arguments.address.get_port(514);
-		}
-
-		std::string to_string() const {
-			std::stringstream ss;
-			ss << "host: " << host;
-			ss << ", port: " << port;
-			ss << ", severity: " << severity;
-			ss << ", facility: " << facility;
-			ss << ", tag_syntax: " << tag_syntax;
-			ss << ", message_syntax: " << message_syntax;
-			return ss.str();
-		}
-	};
-
-	struct target_handler : public client::target_lookup_interface {
-		target_handler(const nscapi::targets::handler<custom_reader> &targets) : targets_(targets) {}
-		nscapi::protobuf::types::destination_container lookup_target(std::string &id) const;
-		bool apply(nscapi::protobuf::types::destination_container &dst, const std::string key);
-		bool has_object(std::string alias) const;
-		const nscapi::targets::handler<custom_reader> &targets_;
-	};
-
-	struct clp_handler_impl : public client::clp_handler {
-		SyslogClient *instance;
-		clp_handler_impl(SyslogClient *instance) : instance(instance) {}
-
-		int query(client::configuration::data_type data, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
-		int submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message);
-		int exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message);
-
-		boost::tuple<int,std::string> send(connection_data con, std::list<std::string> messages);
-	};
+	client::configuration client_;
 
 
 public:
@@ -160,13 +47,11 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
-	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message);
+	bool commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
 private:
-	void add_local_options(po::options_description &desc, client::configuration::data_type data);
-	void setup(client::configuration &config, const ::Plugin::Common_Header& header);
 	void add_command(std::string key, std::string args);
 	void add_target(std::string key, std::string args);
 	std::string	parse_priority(std::string severity, std::string facility);

@@ -153,8 +153,7 @@ namespace nscapi {
 		typedef boost::optional<target_object> optional_target_object;
 		typedef std::map<std::string,std::string> targets_type;
 
-		struct handler : public nscapi::settings_objects::object_handler {
-		};
+		typedef nscapi::settings_objects::object_handler<target_object> handler;
 
 	}
 }

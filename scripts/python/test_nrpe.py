@@ -142,7 +142,6 @@ class NRPEServerTest(BasicTest):
 	def submit_payload(self, alias, ssl, length, source, status, msg, perf, target):
 		message = plugin_pb2.QueryRequestMessage()
 		
-		message.header.version = plugin_pb2.Common.VERSION_1
 		message.header.recipient_id = target
 		host = message.header.hosts.add()
 		host.address = "127.0.0.1:15666"
@@ -181,9 +180,9 @@ class NRPEServerTest(BasicTest):
 				#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%alias)
 				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%alias)
 				result.add_message(len(response_message.payload) == 1, 'Verify that we only get one payload response for %s'%alias, '%s != 1'%len(response_message.payload))
-				if len(response_message.payload) == 1:
+				if len(response_message.payload) == 1 and len(response_message.payload[0].lines) == 1:
 					result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
-					result.assert_equals(response_message.payload[0].message, msg, 'Verify that message is sent through %s'%alias)
+					result.assert_equals(response_message.payload[0].lines[0].message, msg, 'Verify that message is sent through %s'%alias)
 					#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
 				self.del_response(uid)
 				found = True

@@ -412,8 +412,9 @@ void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &re
 			args.push_back(request.arguments(i));
 		std::string msg, perf;
 		NSCAPI::nagiosReturn ret = inst->handle_simple_query(request.command(), args, msg, perf);
-		nscapi::protobuf::functions::parse_performance_data(response, perf);
-		response->set_message(msg);
+		::Plugin::QueryResponseMessage_Response_Line *line = response->add_lines();
+		nscapi::protobuf::functions::parse_performance_data(line, perf);
+		line->set_message(msg);
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 	}
 }
@@ -433,9 +434,11 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 		}
 	}
 	if (inst->has_simple_message_handler(channel)) {
-		std::string perf = nscapi::protobuf::functions::build_performance_data(request);
-		if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), request.message(), perf) != NSCAPI::isSuccess)
-			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
+		BOOST_FOREACH(::Plugin::QueryResponseMessage_Response_Line line, request.lines()) {
+			std::string perf = nscapi::protobuf::functions::build_performance_data(line);
+			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::isSuccess)
+				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
+		}
 		return nscapi::protobuf::functions::set_response_good(*response, "");
 	}
 	return nscapi::protobuf::functions::set_response_bad(*response, "Unable to process message: " + channel);

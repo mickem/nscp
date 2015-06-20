@@ -231,26 +231,24 @@ namespace modern_filter {
 
 		void post_process(T &filter) {
 			filter.match_post();
-			Plugin::QueryResponseMessage::Response::Line line = response->add_lines();
-			modern_filter::perf_writer writer(line);
+			Plugin::QueryResponseMessage::Response::Line *line = response->add_lines();
+			modern_filter::perf_writer writer(*line);
 			line->set_message(filter.get_message());
 			//filter.end_match();
-			filter.fetch_perf(writer);
+			filter.fetch_perf(&writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
  				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
 			else
 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
-			response->set_message(filter.get_message());
 		}
 
 	};
 
-
-	struct perf_writer : public parsers::where::perf_writer_interface {
+	struct perf_writer : public perf_writer_interface {
 		Plugin::QueryResponseMessage::Response::Line &line;
 		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
-		virtual void write(Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) {
-			::Plugin::Common::PerformanceData* perf = line->add_perf();
+		virtual void write(const parsers::where::performance_data &data) {
+			::Plugin::Common::PerformanceData* perf = line.add_perf();
 			perf->set_alias(data.alias);
 			if (data.value_int) {
 				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;

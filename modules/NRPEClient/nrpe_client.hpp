@@ -12,26 +12,55 @@ namespace nrpe_client {
 
 	struct connection_data : public socket_helpers::connection_info {
 		int buffer_length;
+		boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
-		connection_data(client::destination_container arguments, client::destination_container sender) {
-			address = arguments.address.host;
-			port_ = arguments.address.get_port_string("5666");
-			ssl.enabled = arguments.get_bool_data("ssl");
-			ssl.certificate = arguments.get_string_data("certificate");
-			ssl.certificate_key = arguments.get_string_data("certificate key");
-			ssl.certificate_key_format = arguments.get_string_data("certificate format");
-			ssl.ca_path = arguments.get_string_data("ca");
-			ssl.allowed_ciphers = arguments.get_string_data("allowed ciphers");
-			ssl.dh_key = arguments.get_string_data("dh");
-			ssl.verify_mode = arguments.get_string_data("verify mode");
-			timeout = arguments.get_int_data("timeout", 30);
-			retry = arguments.get_int_data("retry", 3);
-			buffer_length = arguments.get_int_data("payload length", 1024);
+		connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler) : buffer_length(0), handler(handler) {
+			address = target.address.host;
+			port_ = target.address.get_port_string("5666");
 
-			if (arguments.has_data("no ssl"))
-				ssl.enabled = !arguments.get_bool_data("no ssl");
-			if (arguments.has_data("use ssl"))
-				ssl.enabled = arguments.get_bool_data("use ssl");
+			/*
+
+			set_property_int("timeout", 30);
+			set_property_string("certificate", "${certificate-path}/certificate.pem");
+			set_property_string("certificate key", "");
+			set_property_string("certificate format", "PEM");
+			set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+			set_property_string("verify mode", "none");
+			if (!has_option("insecure"))
+			set_property_bool("insecure", false);
+			set_property_bool("ssl", true);
+			set_property_int("payload length", 1024);
+			*/
+			ssl.enabled = target.get_bool_data("ssl", true);
+			if (target.get_bool_data("insecure", false)) {
+				ssl.certificate = target.get_string_data("certificate");
+				ssl.certificate_key = target.get_string_data("certificate key");
+				ssl.certificate_key_format = target.get_string_data("certificate format");
+				ssl.ca_path = target.get_string_data("ca");
+				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH");
+				ssl.dh_key = target.get_string_data("dh", "${certificate-path}/nrpe_dh_512.pem");
+				ssl.verify_mode = target.get_string_data("verify mode");
+				
+			} else {
+				ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
+				ssl.certificate_key = target.get_string_data("certificate key");
+				ssl.certificate_key_format = target.get_string_data("certificate format", "PEM");
+				ssl.ca_path = target.get_string_data("ca");
+				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
+				ssl.dh_key = target.get_string_data("dh");
+				ssl.verify_mode = target.get_string_data("verify mode", "none");
+			}
+			if (!ssl.dh_key.empty())
+				ssl.dh_key = handler->expand_path(ssl.dh_key);
+
+			timeout = target.get_int_data("timeout", 30);
+			retry = target.get_int_data("retry", 3);
+			buffer_length = target.get_int_data("payload length", 1024);
+
+			if (target.has_data("no ssl"))
+				ssl.enabled = !target.get_bool_data("no ssl");
+			if (target.has_data("use ssl"))
+				ssl.enabled = target.get_bool_data("use ssl");
 
 
 		}
@@ -62,8 +91,11 @@ namespace nrpe_client {
 
 	};
 
-
+	template<class TCoreHandler=client_handler>
 	struct nrpe_client_handler : public client::handler_interface {
+
+		boost::shared_ptr<TCoreHandler> handler_;
+		nrpe_client_handler() : handler_(boost::make_shared<TCoreHandler>()) {}
 
 		std::string get_command(std::string alias, std::string command = "") {
 			if (!alias.empty())
@@ -76,26 +108,35 @@ namespace nrpe_client {
 
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
-			nrpe_client::connection_data con(sender, target);
+			nrpe_client::connection_data con(sender, target, handler_);
+			
+			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
-			for (int i=0;i<request_message.payload_size();i++) {
-				std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
-				std::string data = command;
-				for (int a=0;a<request_message.payload(i).arguments_size();a++) {
-					data += "!" + request_message.payload(i).arguments(a);
-				}
-				boost::tuple<int,std::string> ret = send(con, data);
+			if (request_message.payload_size() == 0) {
+				std::string command = get_command("");
+				boost::tuple<int,std::string> ret = send(con, command);
 				strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
 				nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
+			} else {
+				for (int i=0;i<request_message.payload_size();i++) {
+					std::string command = get_command(request_message.payload(i).alias(), request_message.payload(i).command());
+					std::string data = command;
+					for (int a=0;a<request_message.payload(i).arguments_size();a++) {
+						data += "!" + request_message.payload(i).arguments(a);
+					}
+					boost::tuple<int,std::string> ret = send(con, data);
+					strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
+					nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
+				}
 			}
 			return NSCAPI::isSuccess;
 		}
 
 		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
-			nrpe_client::connection_data con(sender, target);
+			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
@@ -113,7 +154,7 @@ namespace nrpe_client {
 
 		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
-			nrpe_client::connection_data con(sender, target);
+			nrpe_client::connection_data con(sender, target, handler_);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
@@ -139,7 +180,7 @@ namespace nrpe_client {
 					return boost::make_tuple(NSCAPI::returnUNKNOWN, "SSL support not available (compiled without USE_SSL)");
 #endif
 				nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
-				socket_helpers::client::client<nrpe::client::protocol> client(con, boost::make_shared<client_handler>());
+				socket_helpers::client::client<nrpe::client::protocol> client(con, handler_);
 				client.connect();
 				std::list<nrpe::packet> responses = client.process_request(packet);
 				client.shutdown();

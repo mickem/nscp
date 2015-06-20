@@ -12,7 +12,7 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
+		"fallback" : "raw",
 		"check_mk_query" : { 
 			"description" : "Request remote information via check_mk.",
 			"mapping"	: false
@@ -21,7 +21,7 @@
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

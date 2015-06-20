@@ -12,16 +12,16 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"smtp_submit" : { 
-			"description" : "Submit information to remote host via SMTP.",
+		"fallback" : "raw",
+		"submit_smtp" : { 
+			"description" : "Submit information to the remote SMTP server.",
 			"mapping"	: false
 		}
 	},
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

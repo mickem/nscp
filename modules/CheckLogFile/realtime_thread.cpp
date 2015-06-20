@@ -32,10 +32,10 @@ void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
-	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
+	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
 		runtime_data data;
-		data.set_split(object.line_split, object.column_split);
-		BOOST_FOREACH(const std::string &file, object.files) {
+		data.set_split(object->line_split, object->column_split);
+		BOOST_FOREACH(const std::string &file, object->files) {
 			boost::filesystem::path path = file;
 			data.add_file(path);
 #ifdef WIN32
@@ -46,7 +46,7 @@ void real_time_thread::thread_proc() {
 				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.string());
 				} else {
-					NSC_LOG_ERROR("Failed to find folder for " + utf8::cvt<std::string>(object.tpl.alias) + ": " + path.string());
+					NSC_LOG_ERROR("Failed to find folder for " + object->alias + ": " + path.string());
 					continue;
 				}
 			}
@@ -54,7 +54,7 @@ void real_time_thread::thread_proc() {
 			if (boost::filesystem::is_regular(path)) {
 				logs.push_back(path.string());
 			} else {
-				NSC_LOG_ERROR("Failed to find folder for " + object.tpl.alias + ": " + path.string());
+				NSC_LOG_ERROR("Failed to find folder for " + object->alias + ": " + path.string());
 				continue;
 			}
 #endif
@@ -171,7 +171,7 @@ bool real_time_thread::stop() {
 
 void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, filters_path_, key, query, key == "default");
+		filters_.add(proxy, key, query, key == "default");
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {

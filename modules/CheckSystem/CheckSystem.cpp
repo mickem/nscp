@@ -168,25 +168,25 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
-	filters::filter_config_handler::add_samples(get_settings_proxy(), collector->filters_path_);
+	pdh_checker.counters_.add_samples(get_settings_proxy());
 		
 	if (mode == NSCAPI::normalStart) {
 
-		BOOST_FOREACH(const check_pdh::counter_config_object &object, pdh_checker.counters_.get_object_list()) {
+		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
-				counter.alias = object.tpl.alias;
-				counter.path = object.counter;
+				counter.alias = object->alias;
+				counter.path = object->counter;
 
-				counter.set_strategy(object.collection_strategy);
-				counter.set_instances(object.instances);
-				counter.set_buffer_size(object.buffer_size);
-				counter.set_type(object.type);
-				counter.set_flags(object.flags);
+				counter.set_strategy(object->collection_strategy);
+				counter.set_instances(object->instances);
+				counter.set_buffer_size(object->buffer_size);
+				counter.set_type(object->type);
+				counter.set_flags(object->flags);
 
 				collector->add_counter(counter);
 			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR("Failed to load: " + object.tpl.alias + ": " + e.reason());
+				NSC_LOG_ERROR("Failed to load: " + object->alias + ": " + e.reason());
 			}
 		}
 		collector->start();
@@ -527,8 +527,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 			filter.match(record);
 		}
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -605,9 +604,10 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
 	filter.match(record);
-
+	/*
 	modern_filter::perf_writer scaler(response);
 	filter_helper.post_process(filter, &scaler);
+	*/
 }
 
 void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -637,8 +637,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter.match(record);
 
-	modern_filter::perf_writer scaler(response);
-	filter_helper.post_process(filter, &scaler);
+	filter_helper.post_process(filter);
 }
 
 
@@ -757,8 +756,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 			}
 		}
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -787,8 +785,7 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
 	filter.match(record);
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -887,8 +884,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 		filter.match(record);
 	}
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 class NSC_error : public process_helper::error_reporter {
@@ -1031,8 +1027,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
 		filter.match(record);
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -1081,5 +1076,5 @@ void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request,
 }
 
 void CheckSystem::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query) {
-	pdh_checker.add_counter(proxy, path, key, query);
+	pdh_checker.add_counter(proxy, key, query);
 }

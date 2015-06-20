@@ -14,7 +14,7 @@
 	"commands" : {
 		"fallback" : "raw",
 		"submit_nsca" : { 
-			"description" : "Submit information to remote host via NSCA.",
+			"description" : "Submit information to the remote NSCA server.",
 			"mapping"	: false
 		}
 	},

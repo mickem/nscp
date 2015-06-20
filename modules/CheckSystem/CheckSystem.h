@@ -34,11 +34,6 @@
 
 #include "filter_config_object.hpp"
 
-template<class T>
-inline void import_string(T &object, T &parent) {
-	if (object.empty() && !parent.empty())
-		object = parent;
-}
 class CheckSystem : public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;

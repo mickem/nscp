@@ -40,7 +40,6 @@ struct real_time_thread {
 	bool enabled_;
 	bool debug_;
 	bool cache_;
-	std::string filters_path_;
 
 	real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), debug_(false), cache_(false) {}
 

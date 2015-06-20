@@ -19,6 +19,15 @@ namespace parsers {
 	}
 }
 
+
+	struct perf_writer_interface {
+		//virtual void write(::Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) = 0;
+		virtual void write(const parsers::where::performance_data &value) = 0;
+	};
+
+
+
+
 namespace modern_filter {
 
 	template<class Tfactory>
@@ -445,7 +454,7 @@ namespace modern_filter {
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 			}
 		}
-		void fetch_perf(parsers::where::perf_writer_interface* writer) {
+		void fetch_perf(perf_writer_interface* writer) {
 			BOOST_FOREACH(const parsers::where::perf_list_type::value_type &entry, performance_instance_data) {
 				writer->write(entry);
 			}

@@ -26,6 +26,8 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include <boost/make_shared.hpp>
 
@@ -50,7 +52,9 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NSCA", alias, "client");
-		target_path = settings.alias().get_settings_path("targets");
+		std::string target_path = settings.alias().get_settings_path("targets");
+
+		client_.set_path(target_path);
 
 		settings.alias().add_path_to_settings()
 			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
@@ -131,24 +135,16 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to load NSCAClient", e);
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to send", e);
+		NSC_LOG_ERROR_EXR("loading", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to send");
+		NSC_LOG_ERROR_EX("loading");
 		return false;
 	}
 	return true;
-}
-
-std::string get_command(std::string alias, std::string command = "") {
-	if (!alias.empty())
-		return alias; 
-	if (!command.empty())
-		return command; 
-	return "host_check";
 }
 
 //////////////////////////////////////////////////////////////////////////

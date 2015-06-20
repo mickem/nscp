@@ -7,8 +7,8 @@
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
-#include <boost/optional.hpp>
 #include <boost/unordered_map.hpp>
+#include <boost/make_shared.hpp>
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
@@ -46,15 +46,33 @@ namespace nscapi {
 			}
 			//void read_object(nscapi::settings_helper::path_extension &root_path);
 			//void add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample);
-			std::string to_string() const;
+			virtual void object_instance_interface::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+				nscapi::settings_helper::settings_registry settings(proxy);
+				nscapi::settings_helper::path_extension root_path = settings.path(path);
+				root_path.add_key()
+					("parent", nscapi::settings_helper::string_key(&parent, "default"),
+					"PARENT", "The parent the target inherits from", true)
 
+					("is template", nscapi::settings_helper::bool_key(&is_template, false),
+					"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
+
+					("alias", nscapi::settings_helper::string_key(&alias),
+					"ALIAS", "The alias (service name) to report to server", true)
+					;
+			}
+
+			virtual std::string object_instance_interface::to_string() const {
+				std::stringstream ss;
+				ss <<  "{alias: " << alias << ", path: " << path << ", value: "  << value << ", parent: "  << parent << ", is_tpl: "  << is_template << "}";
+				return ss.str();
+			}
 			bool is_default() const {
 				return alias == "default";
 			}
 
 			// VIrtual interface
 
-			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) = 0;
+			//virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) = 0;
 			virtual void post_process_object() {}
 
 			virtual void translate(const std::string &key, const std::string &value) {
@@ -76,27 +94,42 @@ namespace nscapi {
 				translate(key, value);
 			}
 
+			std::string get_value() const { return value; }
+
 
 		};
+
 		typedef boost::shared_ptr<object_instance_interface> object_instance;
 
-
+		template<class T>
 		struct object_factory_interface {
+			typedef boost::shared_ptr<T> object_instance;
 			virtual object_instance create(std::string alias, std::string path) = 0;
 		};
 
-		typedef boost::shared_ptr<object_factory_interface> object_factory;
+		//typedef boost::shared_ptr<object_factory_interface> object_factory;
 
+		template<class T>
+		struct simple_object_factory : public object_factory_interface<T> {
+			typedef boost::shared_ptr<T> object_instance;
+			object_instance create(std::string alias, std::string path) {
+				return boost::make_shared<T>(alias, path);
+			}
+		};
+
+		template<class T, class TFactory=simple_object_factory<T> >
 		struct object_handler : boost::noncopyable {
-			typedef boost::optional<object_instance> optional_object;
+			typedef boost::shared_ptr<T> object_instance;
 			typedef boost::unordered_map<std::string, object_instance> object_map;
+			typedef std::list<object_instance> object_list_type;
 
 			object_map objects;
 			object_map templates;
-			object_factory factory;
+			boost::shared_ptr<TFactory> factory;
 			std::string path;
 
-			object_handler(object_factory factory) : factory(factory) {}
+			object_handler() : factory(boost::make_shared<TFactory>()) {}
+			object_handler(boost::shared_ptr<TFactory> factory) : factory(factory) {}
 
 			void set_path(std::string path_) {
 				path = path_;
@@ -131,10 +164,9 @@ namespace nscapi {
 			}
 
 			object_instance add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool is_template = false) {
-				optional_object previous = find_object(alias);
+				object_instance previous = find_object(alias);
 				if (previous) {
-					object_instance p = *previous;
-					return p;
+					return previous;
 				}
 				object_instance object = factory->create(alias, path + "/" + alias);
 
@@ -184,14 +216,14 @@ namespace nscapi {
 			}
 			*/
 
-			optional_object find_object(const std::string alias) const {
+			object_instance find_object(const std::string alias) const {
 				object_map::const_iterator cit = objects.find(alias);
 				if (cit != objects.end())
-					return optional_object(cit->second);
+					return cit->second;
 				cit = templates.find(alias);
 				if (cit != templates.end())
-					return optional_object(cit->second);
-				return optional_object();
+					return cit->second;
+				return object_instance();
 			}
 
 			bool has_object(std::string alias) const {
@@ -245,6 +277,7 @@ namespace nscapi {
 				templates[object->alias] = object;
 			}
 		};
+
 		/*
 		struct NSCAPI_EXPORT template_object {
 

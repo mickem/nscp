@@ -12,16 +12,16 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"syslog_submit" : { 
-			"description" : "Submit information to remote syslog server.",
+		"fallback" : "raw",
+		"submit_syslog" : { 
+			"description" : "Submit information to the remote syslog server.",
 			"mapping"	: false
 		}
 	},
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

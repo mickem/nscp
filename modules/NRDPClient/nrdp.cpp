@@ -4,18 +4,17 @@
 #include <tinyxml2.h>
 namespace nrdp { 
 
-	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message, std::string perf)
+	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message)
 	{
 		item_type item;
 		item.type = type_host;
 		item.host = host;
 		item.result = result;
 		item.message = message;
-		item.perf = perf;
 		items.push_back(item);
 	}
 
-	void data::add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message, std::string perf)
+	void data::add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message)
 	{
 		item_type item;
 		item.type = type_service;
@@ -23,7 +22,6 @@ namespace nrdp {
 		item.service = service;
 		item.result = result;
 		item.message = message;
-		item.perf = perf;
 		items.push_back(item);
 	}
 
@@ -51,11 +49,7 @@ namespace nrdp {
 		child = node->InsertEndChild( doc.NewElement("state"));
 		child->InsertEndChild(doc.NewText(strEx::s::xtos(item.result).c_str()));
 		child = node->InsertEndChild( doc.NewElement("output"));
-		if (!item.perf.empty()) {
-			std::string output = item.message + "|" + item.perf;
-			child->InsertEndChild(doc.NewText(output.c_str()));
-		} else
-			child->InsertEndChild(doc.NewText(item.message.c_str()));
+		child->InsertEndChild(doc.NewText(item.message.c_str()));
 	}
 	
 	std::string data::render_request() const

@@ -1,0 +1,1 @@
+D:\source\libs\protobuf-csharp-port-2.4.1.521\tools\ProtoGen.exe --protoc_dir=D:\source\libs\protobuf-csharp-port-2.4.1.521\tools --proto_path=..\protobuf\ plugin.proto

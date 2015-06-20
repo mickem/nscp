@@ -499,6 +499,7 @@ SET(NSCP_DEF_PLUGIN_HPP
 
 SET(NSCP_FILTER_CPP
 	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
 )
 SET(NSCP_FILTER_HPP
 	${NSCP_INCLUDEDIR}/parsers/filter/modern_filter.hpp
@@ -509,6 +510,16 @@ SET(NSCP_FILTER_HPP
 SET(NSCP_FILTER_LIB
 	where_filter
 	perfconfig_parser
+)
+
+
+SET(NSCP_CLIENT_CPP
+	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
+)
+SET(NSCP_CLIENT_HPP
+	${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 )
 
 SET(NSCP_DEF_PLUGIN_LIB

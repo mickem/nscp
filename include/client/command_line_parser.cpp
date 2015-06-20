@@ -5,37 +5,36 @@
 #include <client/command_line_parser.hpp>
 
 #include <nscapi/functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
+
 
 namespace po = boost::program_options;
-
 
 
 void client::options_reader_interface::add_ssl_options(boost::program_options::options_description & desc, client::destination_container & data) {
 	desc.add_options()
 
-		("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate", _1)), 
+		("certificate", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("dh", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "dh", _1)), 
+		("dh", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "dh", _1)), 
 		"Length of payload (has to be same as on the server)")
 
-		("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate key", _1)), 
+		("certificate-key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate key", _1)), 
 		"Client certificate to use")
 
-		("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "certificate format", _1)), 
+		("certificate-format", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "certificate format", _1)), 
 		"Client certificate format")
 
-		("ca", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "ca", _1)), 
+		("ca", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "ca", _1)), 
 		"Certificate authority")
 
-		("verify", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "verify mode", _1)), 
+		("verify", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "verify mode", _1)), 
 		"Client certificate format")
 
-		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "allowed ciphers", _1)), 
+		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "allowed ciphers", _1)), 
 		"Client certificate format")
 
-		("ssl,n", po::value<bool>()->zero_tokens()->default_value(false)->notifier(boost::bind(&client::destination_container::set_bool_data, data, "ssl", _1)), 
+		("ssl,n", po::value<bool>()->zero_tokens()->notifier(boost::bind(&client::destination_container::set_bool_data, &data, "ssl", _1)), 
 		"Initial an ssl handshake with the server.")
 		;	
 }
@@ -52,9 +51,12 @@ po::options_description add_common_options(client::destination_container &source
 		"The address (host:port) of the host running the server")
 		("timeout,T", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "timeout", _1)), 
 		"Number of seconds before connection times out (default=10)")
-		//("target,t", po::value<std::string>(&obj.target_id), "Target to use (lookup connection info from config)")
+		("target,t", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &destination, "$target.id$", _1)),
+		"Target to use (lookup connection info from config)")
 		("retry", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", _1)), 
 		"Number of times ti retry a failed connection attempt (default=2)")
+		("retries", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", _1)), 
+		"legacy version of retry")
 
 		("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "host", _1)), 
 		"Source/sender host name (default is auto which means use the name of the actual host)")
@@ -143,9 +145,9 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 		destination_container s;
 
 		// If we have a target, apply it
-		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
+		object_handler_type::object_instance op = targets.find_object(t);
 		if (op)
-			d.apply(*op);
+			d.apply(op);
 
 		// Next apply the header object
 		d.apply(t, request.header());
@@ -174,9 +176,11 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 	}
 }
 
-po::options_description create_descriptor(const std::string command, client::destination_container &source, client::destination_container &destination) {
+po::options_description client::configuration::create_descriptor(const std::string command, client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc = nscapi::program_options::create_desc(command);
 	desc.add(add_common_options(source, destination));
+	if (client_desc)
+		desc.add(client_desc(source, destination));
 	return desc;
 
 }
@@ -208,8 +212,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				builder.set_type(payload_builder::type_submit);
 				desc.add(add_submit_options(s, d, builder));
 			} else {
-				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
-				return;
+				return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
 			}
 			reader->process(desc, s, d);
 			if (custom_command) {
@@ -218,7 +221,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				// TODO: Parse header here
 			} else {
 				for (int i=0;i<request.payload_size();i++) {
-					::Plugin::ExecuteResponseMessage::Response resp;
+					::Plugin::QueryResponseMessage::Response resp;
 					// Apply any arguments from command line
 					if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
 						response.add_payload()->CopyFrom(resp);
@@ -226,12 +229,15 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 					}
 				}
 			}
+			if (client_pre) {
+				if (!client_pre(s, d))
+					return;
+			}
 
 			if (command.substr(0,6) == "check_") {
 				Plugin::QueryResponseMessage local_response;
 				if (!handler->query(s, d, builder.query_message, local_response)) {
-					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
-					return;
+					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
 				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response d, local_response.payload()) {
 					response.add_payload()->CopyFrom(d);
@@ -239,8 +245,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			} else if (command.substr(0,5) == "exec_") {
 				Plugin::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
-					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
-					return;
+					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
 				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response d, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
@@ -249,14 +254,13 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			} else if (command.substr(0,7) == "submit_") {
 				Plugin::SubmitResponseMessage local_response;
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
-					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
-					return;
+					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
 				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response d, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
 				}
 			} else {
-				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
+				return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
 			}
 		}
 	} catch (const std::exception &e) {
@@ -276,9 +280,9 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 		destination_container s;
 
 		// If we have a target, apply it
-		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
+		object_handler_type::object_instance op = targets.find_object(t);
 		if (op)
-			d.apply(*op);
+			d.apply(op);
 
 		// Next apply the header object
 		d.apply(t, request.header());
@@ -334,10 +338,10 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 			if (command.substr(0,6) == "check_") {
 				builder.set_type(payload_builder::type_query);
 				desc.add(add_query_options(s, d, builder));
-			} else if (command.substr(0,6) == "exec_") {
+			} else if (command.substr(0,5) == "exec_") {
 				builder.set_type(payload_builder::type_exec);
 				desc.add(add_exec_options(s, d, builder));
-			} else if (command.substr(0,6) == "submit_") {
+			} else if (command.substr(0,7) == "submit_" || command.substr(command.size()-7,7) == "_submit") {
 				builder.set_type(payload_builder::type_submit);
 				desc.add(add_submit_options(s, d, builder));
 			} else {
@@ -353,14 +357,46 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 				for (int i=0;i<request.payload_size();i++) {
 					::Plugin::ExecuteResponseMessage::Response resp;
 					// Apply any arguments from command line
+					// TODO: This is broken as it overwrite the source/targets
 					if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
 						response.add_payload()->CopyFrom(resp);
 						return true;
 					}
 				}
 			}
+			if (d.has_data("$target.id$")) {
 
-			if (command.substr(0,6) == "check_") {
+				std::string t = d.get_string_data("$target.id$");
+
+				// If we have a target, apply it
+				object_handler_type::object_instance op = targets.find_object(t);
+				if (op) {
+					d.apply(op);
+
+					// Next apply the header object
+					d.apply(t, request.header());
+				}
+
+				// If we have --target speciied apply the target and reapply the command line
+				if (custom_command) {
+					// TODO: Parse argument vector here
+				} else if (use_header) {
+					// TODO: Parse header here
+				} else {
+					for (int i=0;i<request.payload_size();i++) {
+						::Plugin::ExecuteResponseMessage::Response resp;
+						// Apply any arguments from command line
+						// TODO: This is broken as it overwrite the source/targets
+						if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
+							response.add_payload()->CopyFrom(resp);
+							return true;
+						}
+					}
+				}
+
+			}
+
+			if (builder.type == payload_builder::type_query) {
 				Plugin::QueryResponseMessage local_response;
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
@@ -369,7 +405,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response d, local_response.payload()) {
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
 				}
-			} else if (command.substr(0,6) == "exec_") {
+			} else if (builder.type == payload_builder::type_exec) {
 				Plugin::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
@@ -378,7 +414,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response d, local_response.payload()) {
 					response.add_payload()->CopyFrom(d);
 				}
-			} else if (command.substr(0,6) == "submit_") {
+			} else if (builder.type == payload_builder::type_submit) {
 				Plugin::SubmitResponseMessage local_response;
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
@@ -402,7 +438,9 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 	Plugin::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_destination_id())
+	if (request.header().has_recipient_id())
+		target = request.header().recipient_id();
+	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
@@ -410,9 +448,9 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 		destination_container s;
 
 		// If we have a target, apply it
-		nscapi::settings_objects::object_handler::optional_object op = targets.find_object(t);
+		object_handler_type::object_instance op = targets.find_object(t);
 		if (op)
-			d.apply(*op);
+			d.apply(op);
 
 		// Next apply the header object
 		d.apply(t, request.header());
@@ -425,16 +463,14 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 
 		} else {
 			// Parse each objects command and execute them
-			for (int i=0;i<request.payload_size();i++) {
+			BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response &local_request, request.payload()) {
 				::Plugin::SubmitRequestMessage local_request_message;
-				const ::Plugin::QueryResponseMessage::Response &local_request = request.payload(i);
 				local_request_message.mutable_header()->CopyFrom(request.header());
 				local_request_message.add_payload()->CopyFrom(local_request);
-				std::string command = local_request.command();
 				::Plugin::SubmitResponseMessage local_response_message;
-				i_do_submit(s, d, command, local_request_message, local_response_message, false);
-				for (int j=0;j<local_response_message.payload_size();j++) {
-					response.add_payload()->CopyFrom(local_response_message.payload(j));
+				i_do_submit(s, d, "forward_raw", local_request_message, local_response_message, false);
+				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage_Response &p, local_response_message.payload()) {
+					response.add_payload()->CopyFrom(p);
 				}
 			}
 		}
@@ -456,10 +492,9 @@ void client::configuration::i_do_submit(destination_container &s, destination_co
 		}
 		if (command.substr(0,8) == "forward_") {
 			if (!handler->submit(s, d, request, response))
-				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
+				return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 		} else {
-			nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
-			return;
+			return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
 		}
 	} catch (const std::exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Exception processing command line: " + utf8::utf8_from_native(e.what()));
