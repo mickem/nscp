@@ -13,10 +13,12 @@ FIND_PATH(BREAKPAD_INCLUDE_DIR
 	google_breakpad/common/breakpad_types.h
 	PATHS
 		${BREAKPAD_ROOT}/src
+		${CMAKE_SOURCE_DIR}/ext/google-breakpad/src
+
 )
 
 IF(NOT GoogleBreakpad_FIND_COMPONENTS)
-	SET(GoogleBreakpad_FIND_COMPONENTS common exception_handler)
+	SET(GoogleBreakpad_FIND_COMPONENTS breakpad_common breakpad)
 ENDIF(NOT GoogleBreakpad_FIND_COMPONENTS)
 
 IF(CMAKE_TRACE)
@@ -33,12 +35,17 @@ IF(BREAKPAD_INCLUDE_DIR)
 			NAMES ${COMPONENT}
 			PATHS
 				${BREAKPAD_ROOT}/src/client/windows/Release/lib
+				${BREAKPAD_ROOT}/Release
 				${BREAKPAD_INCLUDE_DIR}/src/client/windows/Release/lib
 			)
+		MESSAGE(STATUS "------>${COMPONENT}")
+		MESSAGE(STATUS "------>${BREAKPAD_ROOT}/Debug")
+		
 		FIND_LIBRARY(BREAKPAD_${UPPERCOMPONENT}_LIBRARY_DEBUG 
 			NAMES ${COMPONENT}
 			PATHS
 				${BREAKPAD_ROOT}/src/client/windows/Debug/lib
+				${BREAKPAD_ROOT}/Debug
 				${BREAKPAD_INCLUDE_DIR}/src/client/windows/Debug/lib
 			)
 		IF(BREAKPAD_${UPPERCOMPONENT}_LIBRARY_RELEASE AND BREAKPAD_${UPPERCOMPONENT}_LIBRARY_DEBUG)

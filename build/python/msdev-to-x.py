@@ -50,10 +50,6 @@ else:
 scan_folder(os.getcwd())
 for f in vcprojs:
 	replace_in_file(f, 'PreprocessorDefinitions="WIN32', 'PreprocessorDefinitions="$(DefineConstants);WIN32')
-if convert_tool:
-	for f in slns:
-		print 'Running: devenv /Upgrade %s'%f
-		os.system('devenv /Upgrade %s'%f)
 for f in vcprojs:
 	#if convert_tool:
 	#	print 'Running: devenv /Upgrade %s'%f
@@ -67,3 +63,7 @@ for f in slns:
 	replace_in_file(f, 'Format Version 09.00', 'Format Version %s'%target_sln)
 	replace_in_file(f, 'Format Version 08.00', 'Format Version %s'%target_sln)
 	replace_in_file(f, 'Format Version 8.00', 'Format Version %s'%target_sln)
+if convert_tool:
+	for f in slns:
+		print 'Running: devenv /Upgrade %s'%f
+		os.system('devenv /Upgrade %s'%f)

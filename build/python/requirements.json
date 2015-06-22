@@ -1,0 +1,109 @@
+{
+	"python-modules": {
+		"tasks" : {
+			"build": [
+				"pip install sphinx",
+				"pip install protobuf",
+				"pip install jinja2"
+			]
+		},
+		"build": ["mkdir", "build"]
+	},
+	"lua": {
+		"source" : {
+			"url": "http://www.lua.org/ftp/lua-5.1.5.tar.gz"
+		},
+		"build": ["fetch", "pre", "build"]
+	},
+	"boost": {
+		"source" : {
+			"url": "http://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.zip/download",
+			"file": "boost_1_58_0.zip",
+			"hash": "39c4c3bedd96ba191f9ed1ce8a90657d73c79544"
+		},
+		"tasks": {
+			"pre": [ "bootstrap.bat" ],
+			"build-w32": [
+				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=shared link=shared", 
+				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=static"
+			],
+			"build-x64": [
+				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=shared link=shared address-model=64", 
+				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=static address-model=64"
+			]
+		},
+		"build": ["fetch", "pre", "build"]
+	},
+	"openssl": {
+		"source" : {
+			"url": "https://www.openssl.org/source/openssl-1.0.1j.tar.gz",
+			"hash": "cff86857507624f0ad42d922bb6f77c4f1c2b819"
+		},
+		"tasks": {
+			"pre-w32": [
+				"perl Configure VC-WIN32", 
+				"ms\\do_ms"
+			],
+			"pre-x64": [
+				"perl Configure VC-WIN64A", 
+				"ms\\do_win64a"
+			],
+			"build-dynamic": [
+				"nmake -f ms\\ntdll.mak"
+			],
+			"build-static": [
+				"nmake -f ms\\nt.mak"
+			]
+		},
+		"build": ["fetch", "pre", "build"]
+	},
+	"protobuf": {
+		"source": {
+			"url": "https://github.com/google/protobuf/releases/download/v2.6.1/protobuf-2.6.1.tar.gz",
+			"hash": "375765455ad49e45e4e10364f91aaf2831d3e905"
+		},
+		"tasks": {
+			"pre-static" : [
+				"python.exe {{source.folder}}/build/python/msdev-to-static.py"
+			],
+			"pre-x64": [
+				"python.exe {{source.folder}}/build/python/msdev-to-x64.py"
+			],
+			"pre": [
+				"python.exe {{source.folder}}/build/python/msdev-to-x.py {{version.msvc}}"
+			],
+			"build": [
+				"msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\libprotobuf.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\libprotoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\protoc.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\protoc.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Release /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS",
+				"msbuild vsprojects\\libprotobuf-lite.vcxproj /p:Configuration=Debug /p:DefineConstants=_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS"
+			]
+		},
+		"build": ["fetch", "pre", "build"]
+	},
+	"breakpad": {
+		"tasks": {
+			"pre-x64-static": [
+				"cmake -G \"{{version.cmake}} Win64\" {{source.folder}}/ext/google-breakpad"
+			],
+			"pre-x64-dynamic": [
+				"cmake -G \"{{version.cmake}} Win64\" -DBREAKPAD_LIBRARY_TYPE=STATIC -DBREAKPAD_RUNTIME_TYPE=SHARED {{source.folder}}/ext/google-breakpad"
+			],
+			"pre-w32-static": [
+				"cmake -G \"{{version.cmake}}\" {{source.folder}}/ext/google-breakpad"
+			],
+			"pre-w32-dynamic": [
+				"cmake -G \"{{version.cmake}}\" -DBREAKPAD_LIBRARY_TYPE=STATIC -DBREAKPAD_RUNTIME_TYPE=SHARED {{source.folder}}/ext/google-breakpad"
+			],
+			"build": [
+				"msbuild breakpad.sln /p:Configuration=Debug",
+				"msbuild breakpad.sln /p:Configuration=Release"
+			]
+		},
+		"build": ["mkdir", "pre", "build"]
+	}
+}
