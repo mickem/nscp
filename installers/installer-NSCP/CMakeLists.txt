@@ -46,13 +46,20 @@ set(CXXVER "110")
 if(MSVC13)
 set(CXXVER "120")
 endif()
+if(MSVC14)
+# Temporary workaround for vc15 support missing from cmake
+set(CXXVER "140")
+endif()
+if(MSVC15)
+set(CXXVER "140")
+endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
 	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" 
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=vc${CXXVER}-mt-1_56
+	-dBoostTag=vc${CXXVER}-mt-1_58
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}

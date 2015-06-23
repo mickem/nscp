@@ -58,9 +58,9 @@ namespace client {
 			if (type == type_submit) {
 				get_submit_payload()->set_result(nscapi::protobuf::functions::parse_nagios(value));
 			} else if (type == type_exec) {
-				throw std::exception("result not supported for exec");
+				throw cli_exception("result not supported for exec");
 			} else {
-				throw std::exception("result not supported for query");
+				throw cli_exception("result not supported for query");
 			}
 		}
 		void set_message(const std::string &value) {
@@ -68,9 +68,9 @@ namespace client {
 				Plugin::QueryResponseMessage::Response::Line *l = get_submit_payload()->add_lines();
 				l->set_message(value);
 			} else if (type == type_exec) {
-				throw std::exception("message not supported for exec");
+				throw cli_exception("message not supported for exec");
 			} else {
-				throw std::exception("message not supported for query");
+				throw cli_exception("message not supported for query");
 			}
 		}
 		void set_command(const std::string value) {
@@ -84,7 +84,7 @@ namespace client {
 		}
 		void set_arguments(const std::vector<std::string> &value) {
 			if (type == type_submit) {
-				throw std::exception("arguments not supported for submit");
+				throw cli_exception("arguments not supported for submit");
 			} else if (type == type_exec) {
 				BOOST_FOREACH(const std::string &a, value)
 					get_exec_payload()->add_arguments(a);
@@ -330,12 +330,12 @@ namespace client {
 		typedef boost::unordered_map<std::string, command_container> command_type;
 
 		typedef nscapi::settings_objects::object_handler<nscapi::settings_objects::object_instance_interface, options_reader_interface> object_handler_type;
-		object_handler_type targets;
 		handler_type handler;
+		options_reader_type reader;
+		object_handler_type targets;
 
 		std::string title;
 		std::string default_command;
-		options_reader_type reader;
 		command_type commands;
 
 		configuration(std::string caption, handler_type handler, options_reader_type reader) 

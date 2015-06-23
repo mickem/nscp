@@ -40,7 +40,7 @@ namespace nsca_client {
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
 		}
-		unsigned int get_encryption() {
+		unsigned int get_encryption() const {
 			return nscp::encryption::helpers::encryption_to_int(encryption);
 		}
 
@@ -64,7 +64,7 @@ namespace nsca_client {
 	struct client_handler : public socket_helpers::client::client_handler {
 		unsigned int encryption_;
 		std::string password_;
-		client_handler(connection_data &con) 
+		client_handler(const connection_data &con) 
 			: encryption_(con.get_encryption())
 			, password_(con.password)
 		{}
@@ -100,6 +100,7 @@ namespace nsca_client {
 		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
+			connection_data con(target, sender);
 
 			std::list<nsca::packet> list;
 			for (int i=0;i < request_message.payload_size(); ++i) {
@@ -111,7 +112,7 @@ namespace nsca_client {
 				list.push_back(packet);
 			}
 
-			send(response_message.add_payload(), connection_data(target, sender), list);
+			send(response_message.add_payload(), con, list);
 			return true;
 		}
 
@@ -119,7 +120,7 @@ namespace nsca_client {
 			return false;
 		}
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data &con, const std::list<nsca::packet> packets) {
+		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
 			try {
 				socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));
 				NSC_DEBUG_MSG("Connecting to: " + con.to_string());

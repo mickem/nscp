@@ -182,10 +182,10 @@ namespace socket_helpers {
 				return ss.str();
 			}
 #ifdef USE_SSL
-			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors);
-			boost::asio::ssl::context::verify_mode get_verify_mode();
-			boost::asio::ssl::context::file_format get_certificate_format();
-			boost::asio::ssl::context::file_format get_certificate_key_format();
+			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const;
+			boost::asio::ssl::context::verify_mode get_verify_mode() const;
+			boost::asio::ssl::context::file_format get_certificate_format() const;
+			boost::asio::ssl::context::file_format get_certificate_key_format() const;
 			long get_ctx_opts() const;
 #endif
 		};

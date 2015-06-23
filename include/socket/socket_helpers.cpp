@@ -192,7 +192,7 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 	}
 }
 #ifdef USE_SSL
-void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) {
+void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const {
 	boost::system::error_code er;
 	if (!certificate.empty() && certificate != "none") {
 		context.use_certificate_file(certificate, get_certificate_format(), er);
@@ -226,7 +226,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 	}
 }
 
-boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode()
+boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const
 {
 	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
 	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(verify_mode, std::string(","))) {
@@ -250,14 +250,14 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 	return mode;
 }
 
-boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format()
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const
 {
 	if (certificate_format == "asn1")
 		return boost::asio::ssl::context::asn1;
 	return boost::asio::ssl::context::pem;
 }
 
-boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format()
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format() const
 {
 	if (certificate_key_format == "asn1")
 		return boost::asio::ssl::context::asn1;

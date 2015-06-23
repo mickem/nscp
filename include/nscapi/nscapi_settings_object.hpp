@@ -33,12 +33,14 @@ namespace nscapi {
 		struct object_instance_interface {
 			typedef boost::unordered_map<std::string, std::string> options_map;
 
-			std::string path;
 			std::string alias;
-			std::string value;
-			std::string parent;
-			options_map options;
+			std::string path;
 			bool is_template;
+			std::string parent;
+
+			std::string value;
+			options_map options;
+
 			object_instance_interface(std::string alias, std::string path) : alias(alias), path(path), is_template(false), parent("default") {}
 
 			const options_map& get_options() const {
@@ -46,7 +48,7 @@ namespace nscapi {
 			}
 			//void read_object(nscapi::settings_helper::path_extension &root_path);
 			//void add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample);
-			virtual void object_instance_interface::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 				nscapi::settings_helper::settings_registry settings(proxy);
 				nscapi::settings_helper::path_extension root_path = settings.path(path);
 				root_path.add_key()
@@ -61,7 +63,7 @@ namespace nscapi {
 					;
 			}
 
-			virtual std::string object_instance_interface::to_string() const {
+			virtual std::string to_string() const {
 				std::stringstream ss;
 				ss <<  "{alias: " << alias << ", path: " << path << ", value: "  << value << ", parent: "  << parent << ", is_tpl: "  << is_template << "}";
 				return ss.str();
@@ -148,7 +150,7 @@ namespace nscapi {
 
 			std::list<object_instance> get_object_list() const {
 				std::list<object_instance> ret;
-				BOOST_FOREACH(const object_map::value_type &t, objects) {
+				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
 					ret.push_back(t.second);
 				}
 				return ret;
@@ -217,7 +219,7 @@ namespace nscapi {
 			*/
 
 			object_instance find_object(const std::string alias) const {
-				object_map::const_iterator cit = objects.find(alias);
+				typename object_map::const_iterator cit = objects.find(alias);
 				if (cit != objects.end())
 					return cit->second;
 				cit = templates.find(alias);
@@ -227,7 +229,7 @@ namespace nscapi {
 			}
 
 			bool has_object(std::string alias) const {
-				object_map::const_iterator cit = objects.find(alias);
+				typename object_map::const_iterator cit = objects.find(alias);
 				if (cit != objects.end())
 					return true;
 				cit = templates.find(alias);
@@ -249,11 +251,11 @@ namespace nscapi {
 			std::string to_string() {
 				std::stringstream ss;
 				ss << "Objects: ";
-				BOOST_FOREACH(const object_map::value_type &t, objects) {
+				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
 					ss << ", " << t.first << " = {" << t.second->to_string() + "} ";
 				}
 				ss << "Templates: ";
-				BOOST_FOREACH(const object_map::value_type &t, templates) {
+				BOOST_FOREACH(const typename object_map::value_type &t, templates) {
 					ss << ", " << t.first << " = {" << t.second->to_string() + "} ";
 				}
 				return ss.str();
@@ -269,7 +271,7 @@ namespace nscapi {
 				objects[object->alias] = object;
 			}
 			void add_template(object_instance object) {
-				object_map::const_iterator cit = objects.find(object->alias);
+				typename object_map::const_iterator cit = objects.find(object->alias);
 				if (cit != objects.end())
 					return;
 				object->post_process_object();

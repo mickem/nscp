@@ -20,6 +20,46 @@ namespace modern_filter {
 		bool debug;
 		data_container() : debug(false) {}
 	};
+
+	struct perf_writer : public perf_writer_interface {
+		Plugin::QueryResponseMessage::Response::Line &line;
+		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
+		virtual void write(const parsers::where::performance_data &data) {
+			::Plugin::Common::PerformanceData* perf = line.add_perf();
+			perf->set_alias(data.alias);
+			if (data.value_int) {
+				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
+				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
+				if (!data.unit.empty())
+					perfData->set_unit(data.unit);
+				perfData->set_value(value.value);
+				if (value.warn)
+					perfData->set_warning(*value.warn);
+				if (value.crit)
+					perfData->set_critical(*value.crit);
+				if (value.minimum)
+					perfData->set_minimum(*value.minimum);
+				if (value.maximum)
+					perfData->set_maximum(*value.maximum);
+			}
+			else if (data.value_double) {
+				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
+				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
+				if (!data.unit.empty())
+					perfData->set_unit(data.unit);
+				perfData->set_value(value.value);
+				if (value.warn)
+					perfData->set_warning(*value.warn);
+				if (value.crit)
+					perfData->set_critical(*value.crit);
+				if (value.minimum)
+					perfData->set_minimum(*value.minimum);
+				if (value.maximum)
+					perfData->set_maximum(*value.maximum);
+			}
+		}
+	};
+
 	template<class T>
 	struct cli_helper : public  boost::noncopyable {
 
@@ -244,41 +284,4 @@ namespace modern_filter {
 
 	};
 
-	struct perf_writer : public perf_writer_interface {
-		Plugin::QueryResponseMessage::Response::Line &line;
-		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
-		virtual void write(const parsers::where::performance_data &data) {
-			::Plugin::Common::PerformanceData* perf = line.add_perf();
-			perf->set_alias(data.alias);
-			if (data.value_int) {
-				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
-				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
-				if (!data.unit.empty())
-					perfData->set_unit(data.unit);
-				perfData->set_value(value.value);
-				if (value.warn)
-					perfData->set_warning(*value.warn);
-				if (value.crit)
-					perfData->set_critical(*value.crit);
-				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
-				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
-			} else if (data.value_double) {
-				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
-				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
-				if (!data.unit.empty())
-					perfData->set_unit(data.unit);
-				perfData->set_value(value.value);
-				if (value.warn)
-					perfData->set_warning(*value.warn);
-				if (value.crit)
-					perfData->set_critical(*value.crit);
-				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
-				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
-			}
-		}
-	};
 }

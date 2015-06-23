@@ -1,5 +1,3 @@
-#pragma once
-
 #include "filter_config_object.hpp"
 
 #include <map>

@@ -59,7 +59,7 @@ namespace check_mk_client {
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
-			send(response_message.add_payload(), connection_data(target, sender));
+			send(response_message.add_payload(),con);
 			return true;			
 		}
 

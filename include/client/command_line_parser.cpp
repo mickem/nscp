@@ -72,7 +72,7 @@ po::options_description add_query_options(client::destination_container &source,
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&client::payload_builder::set_command, &builder, _1)), 
 		"The name of the command that the remote daemon should run")
-		("argument", po::value<std::vector<std::string>>()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)), 
+		("argument", po::value<std::vector<std::string> >()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)), 
 		"Set command line arguments")
 		("separator", po::value<std::string>()->notifier(boost::bind(&client::payload_builder::set_separator, &builder, _1)), 
 		"Separator to use for the batch command (default is |)")
@@ -104,7 +104,7 @@ po::options_description add_exec_options(client::destination_container &source, 
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&client::payload_builder::set_command, &builder, _1)), 
 		"The name of the command that the remote daemon should run")
-		("argument", po::value<std::vector<std::string>>()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)), 
+		("argument", po::value<std::vector<std::string> >()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)), 
 		"Set command line arguments")
 		("separator", po::value<std::string>()->notifier(boost::bind(&client::payload_builder::set_separator, &builder, _1)), 
 		"Separator to use for the batch command (default is |)")
@@ -309,6 +309,9 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 				for (int j=0;j<local_response_message.payload_size();j++) {
 					response.add_payload()->CopyFrom(local_response_message.payload(j));
 				}
+			}
+			if (!found) {
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "failed");
 			}
 		}
 	}
