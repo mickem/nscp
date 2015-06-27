@@ -290,7 +290,6 @@
 
 		<!-- ### Icons -->
 		<Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
-		<Icon Id="doc.ico" SourceFile="../../resources/help.ico"/>
 		<Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
 	</Product>
 </Wix>
