@@ -22,7 +22,10 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 		if (boost::algorithm::ends_with(certificate, "/certificate.pem")) {
 			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
 			write_certs(certificate, false);
-		} else 
+		} else if (boost::algorithm::ends_with(certificate, "/ca.pem")) {
+				list.push_back("CA not found: " + certificate + " (generating a default CA)");
+				write_certs(certificate, true);
+		} else
 			list.push_back("Certificate not found: " + certificate);
 	}
 #else
@@ -39,20 +42,8 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 #endif
 
 #ifdef USE_SSL
-	if (!ssl.certificate.empty() && !boost::filesystem::is_regular(ssl.certificate)) {
-		if (boost::algorithm::ends_with(ssl.certificate, "/certificate.pem")) {
-			list.push_back("Certificate not found: " + ssl.certificate + " (generating a default certificate)");
-			write_certs(ssl.certificate, false);
-		} else 
-			list.push_back("Certificate not found: " + ssl.certificate);
-	}
-	if (!ssl.ca_path.empty() && !boost::filesystem::is_regular(ssl.ca_path)) {
-		if (boost::algorithm::ends_with(ssl.ca_path, "/ca.pem")) {
-			list.push_back("CA not found: " + ssl.ca_path + " (generating a default CA)");
-			write_certs(ssl.ca_path, true);
-		} else 
-			list.push_back("CA Certificate not found: " + ssl.ca_path);
-	}
+	validate_certificate(ssl.certificate, list);
+	validate_certificate(ssl.ca_path, list);
 	if (!ssl.certificate_key.empty() && !boost::filesystem::is_regular(ssl.certificate_key))
 		list.push_back("Certificate key not found: " + ssl.certificate_key);
 	if (!ssl.dh_key.empty() && !boost::filesystem::is_regular(ssl.dh_key))
@@ -357,22 +348,30 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 
 
 void socket_helpers::write_certs(std::string cert, bool ca) {
-	BIO *bio_err;
 	X509 *x509=NULL;
 	EVP_PKEY *pkey=NULL;
 
 	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
 
-	bio_err=BIO_new_fp(stderr, BIO_NOCLOSE);
-
 	make_certificate(&x509,&pkey,2048,0,365, ca);
+
+
+	BIO *bio = BIO_new(BIO_s_mem());
+	PEM_write_bio_PKCS8PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);
+	PEM_write_bio_X509(bio, x509);
+
+	std::size_t size = BIO_ctrl_pending(bio);
+	char * buf = new char[size];
+	if (BIO_read(bio, buf, size) < 0) {
+		throw socket_helpers::socket_exception("Failed to write key");
+	}
+
+	BIO_free(bio);
 
 	FILE *fout = fopen(cert.c_str(), "wb");
 	if (fout == NULL)
 		throw socket_helpers::socket_exception("Failed to open file: " + cert);
-
-	PEM_write_PrivateKey(fout,pkey,NULL,NULL,0,NULL, NULL);
-	PEM_write_X509(fout,x509);
+	fwrite(buf, sizeof(char), size, fout);
 	fclose(fout);
 
 	X509_free(x509);
@@ -382,9 +381,6 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
 	ENGINE_cleanup();
 #endif
 	CRYPTO_cleanup_all_ex_data();
-
-	CRYPTO_mem_leaks(bio_err);
-	BIO_free(bio_err);
 }
 
 #endif
