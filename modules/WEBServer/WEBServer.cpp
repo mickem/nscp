@@ -632,44 +632,35 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		;
 
-		settings.register_all();
-		settings.notify();
+	settings.register_all();
+	settings.notify();
+	certificate = get_core()->expand_path(certificate);
 
 	if (mode == NSCAPI::normalStart) {
-		try {
-// 			std::list<std::string> errors;
-// 			socket_helpers::validate_certificate(certificate, errors);
-// 			NSC_LOG_ERROR_LISTS(errors);
-			std::string path = get_core()->expand_path("${web-path}");
-			boost::filesystem::path cert = get_core()->expand_path(certificate);
-			if(!boost::filesystem::is_regular_file(cert) && port == "8443s")
-				port = "8080";
+		std::list<std::string> errors;
+ 		socket_helpers::validate_certificate(certificate, errors);
+ 		NSC_LOG_ERROR_LISTS(errors);
+		std::string path = get_core()->expand_path("${web-path}");
+		if(!boost::filesystem::is_regular_file(certificate) && port == "8443s")
+			port = "8080";
 			
-			server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
-			if(!boost::filesystem::is_regular_file(cert)) {
-				NSC_LOG_ERROR("Certificate not found (disabling SSL): " + cert.string());
-			} else {
-                NSC_DEBUG_MSG("Using certificate: " + cert.string());
-				server->setOption("ssl_certificate", cert.string());
-			}
-			server->registerController(new BaseController(password, get_core(), get_id()));
-			server->registerController(new RESTController(password, get_core()));
-			server->registerController(new StaticController(path));
-		
-			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
-			server->start();
-			NSC_DEBUG_MSG("Loading webserver on port: " + port);
-			if (password.empty()) {
-				NSC_LOG_ERROR("No password set please run nscp web --help");
-			}
-		} catch (const std::string &e) {
-			NSC_LOG_ERROR("Error: " + e);
-			return false;
-		} catch (...) {
-			NSC_LOG_ERROR("Error: ");
-			return false;
+		server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
+		if(!boost::filesystem::is_regular_file(certificate)) {
+			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
+		} else {
+            NSC_DEBUG_MSG("Using certificate: " + certificate);
+			server->setOption("ssl_certificate", certificate);
 		}
-
+		server->registerController(new BaseController(password, get_core(), get_id()));
+		server->registerController(new RESTController(password, get_core()));
+		server->registerController(new StaticController(path));
+		
+		server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
+		server->start();
+		NSC_DEBUG_MSG("Loading webserver on port: " + port);
+		if (password.empty()) {
+			NSC_LOG_ERROR("No password set please run nscp web --help");
+		}
 	}
 	return true;
 }
