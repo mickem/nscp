@@ -33,7 +33,7 @@ namespace sh = nscapi::settings_helper;
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "scheduler");
-	schedule_path = settings.alias().get_settings_path("schedules");
+	schedules_.set_path(settings.alias().get_settings_path("schedules"));
 
 	settings.alias().add_path_to_settings()
 		("SCHEDULER SECTION", "Section for the Scheduler module.")

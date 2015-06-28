@@ -27,7 +27,6 @@
 
 class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
 private:
-	std::string schedule_path;
 	scheduler::simple_scheduler scheduler_;
 	schedules::schedule_handler schedules_;
 

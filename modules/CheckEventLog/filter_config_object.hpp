@@ -31,7 +31,6 @@ namespace eventlog_filter {
 
 		std::string to_string() const;
 		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
-		void post_process_object() {}
 
 		static unsigned short get_language(std::string lang);
 
