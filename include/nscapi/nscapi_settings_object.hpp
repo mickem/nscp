@@ -42,6 +42,13 @@ namespace nscapi {
 			options_map options;
 
 			object_instance_interface(std::string alias, std::string path) : alias(alias), path(path), is_template(false), parent("default") {}
+			object_instance_interface(const object_instance_interface &other) 
+				: alias(other.alias)
+				, path(other.path)
+				, is_template(other.is_template)
+				, value(other.value)
+				, options(other.options)
+			{}
 
 			const options_map& get_options() const {
 				return options;

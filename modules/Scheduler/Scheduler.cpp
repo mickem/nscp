@@ -123,7 +123,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 				return;
 			}
 		} else {
-			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported");
+			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported " + nscapi::report::to_string(item.report) + " != " + nscapi::plugin_helper::translateReturn(code));
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);

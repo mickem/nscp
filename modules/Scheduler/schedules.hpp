@@ -21,6 +21,17 @@ namespace schedules {
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
 		schedule_object(std::string alias, std::string path) : parent(alias, path), report(0), id(0) {}
+		schedule_object(const schedule_object& other) 
+			: parent(other)
+			, source_id(other.source_id)
+			, target_id(other.target_id)
+			, duration(other.duration)
+			, channel(other.channel)
+			, report(other.report)
+			, command(other.command)
+			, arguments(other.arguments)
+		{
+		}
 
 		// Schedule keys
 		std::string source_id;
@@ -59,20 +70,12 @@ namespace schedules {
 			return ss.str();
 		}
 
-/*
-		static void init_default(object_type& object) {
-			object.set_duration("5m");
-			object.set_report("all");
-			object.channel = "NSCA";
-		}
-		*/
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 
 			parent::read(proxy, oneliner, is_sample);
 
 			set_command(value);
 			bool is_def = is_default();
-			std::string alias;
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 			nscapi::settings_helper::path_extension root_path = settings.path(path);

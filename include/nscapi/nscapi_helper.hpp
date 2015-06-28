@@ -45,7 +45,7 @@ namespace nscapi {
 	namespace report {
 		NSCAPI_EXPORT unsigned int parse(std::string str);
 		NSCAPI_EXPORT bool matches(unsigned int report, NSCAPI::nagiosReturn code);
-//		std::wstring to_string(unsigned int report);
+		NSCAPI_EXPORT std::string to_string(unsigned int report);
 	}
 	namespace logging {
 		NSCAPI_EXPORT NSCAPI::log_level::level parse(std::string str);

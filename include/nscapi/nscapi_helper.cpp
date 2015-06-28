@@ -55,6 +55,27 @@ bool nscapi::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 		);
 }
 
+std::string nscapi::report::to_string(unsigned int report) {
+	std::string ret;
+	if ((report&REPORT_OK) == REPORT_OK) {
+		ret += "ok";
+	}
+	if ((report&REPORT_ERROR) == REPORT_ERROR) {
+		if (!ret.empty()) ret += ",";
+		ret += "crit";
+	}
+	if ((report&REPORT_WARNING) == REPORT_WARNING) {
+		if (!ret.empty()) ret += ",";
+		ret += "warn,";
+	}
+	if ((report&REPORT_UNKNOWN) == REPORT_UNKNOWN) {
+		if (!ret.empty()) ret += ",";
+		ret += "unknown,";
+	}
+	if (ret.empty()) ret = "<none>";
+	return ret;
+}
+
 NSCAPI::log_level::level nscapi::logging::parse(std::string str) {
 	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
 	if ("all" == str) {
