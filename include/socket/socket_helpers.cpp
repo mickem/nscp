@@ -195,7 +195,7 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) {
 	boost::system::error_code er;
 	if (!certificate.empty() && certificate != "none") {
-		context.use_certificate_file(certificate, get_certificate_format(), er);
+		context.use_certificate_chain_file(certificate, er);
 		if (er)
 			errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
 		if (!certificate_key.empty() && certificate_key != "none") {
@@ -211,6 +211,34 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 	context.set_verify_mode(get_verify_mode(), er);
 	if (er)
 		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
+	if (!trusted_certificate.empty()) {
+		pinned_certificates.clear();
+		BOOST_FOREACH(std::string s, strEx::s::splitEx(trusted_certificate, std::string(","))) {
+			boost::trim(s);
+			if (!s.empty()) {
+				FILE *file = fopen(s.c_str(), "r");
+				if (file) {
+					BIO *in = BIO_new_fp(file, BIO_NOCLOSE);
+					if (in) {
+						X509 *trusted_client_cert = PEM_read_bio_X509(in, NULL, 0, NULL);
+						if (trusted_client_cert)
+							pinned_certificates.push_back(*trusted_client_cert);
+						else
+							errors.push_back("Failed to load trusted client certificate " + s);
+						BIO_free(in);
+					}
+					else
+						errors.push_back("Could not open BIO for trusted client certificate " + s);
+					fclose(file);
+				}
+				else
+					errors.push_back("Could not open file for trusted client certificate " + s);
+			}
+		}
+		context.set_verify_callback(boost::bind(&socket_helpers::connection_info::ssl_opts::check_trusted_certs, this, _1, _2), er);
+		if (er)
+			errors.push_back("Failed to set verify callback: " + utf8::utf8_from_native(er.message()));
+	}
 	if (!allowed_ciphers.empty())
 		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
 	if (!dh_key.empty() && dh_key != "none") {
@@ -385,6 +413,21 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
 
 	CRYPTO_mem_leaks(bio_err);
 	BIO_free(bio_err);
+}
+
+bool socket_helpers::connection_info::ssl_opts::check_trusted_certs(bool preverified, boost::asio::ssl::verify_context& vctx){
+	if (preverified) {
+		X509_STORE_CTX *ctx = vctx.native_handle();
+		if (ctx->current_cert && ctx->error_depth == 0) {
+			BOOST_FOREACH(X509 trusted_client_cert, pinned_certificates) {
+				if (X509_cmp(ctx->current_cert, &trusted_client_cert) == 0){
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+	return preverified;
 }
 
 #endif

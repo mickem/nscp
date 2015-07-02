@@ -9,6 +9,9 @@
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/basic_context.hpp>
+#ifndef WIN32
+#include <openssl/x509v3.h>
+#endif
 #endif
 #include <unicode_char.hpp>
 #include <strEx.h>
@@ -138,10 +141,14 @@ namespace socket_helpers {
 				, certificate_format(other.certificate_format)
 				, certificate_key(other.certificate_key)
 				, ca_path(other.ca_path)
+				, trusted_certificate(other.trusted_certificate)
 				, allowed_ciphers(other.allowed_ciphers)
 				, dh_key(other.dh_key)
 				, verify_mode(other.verify_mode)
 				, ssl_options(other.ssl_options)
+#ifdef USE_SSL
+				, pinned_certificates(other.pinned_certificates)
+#endif
 			{}
 			ssl_opts& operator=(const ssl_opts &other) {
 				enabled = other.enabled;
@@ -149,10 +156,14 @@ namespace socket_helpers {
 				certificate_format = other.certificate_format;
 				certificate_key = other.certificate_key;
 				ca_path = other.ca_path;
+				trusted_certificate = other.trusted_certificate;
 				allowed_ciphers = other.allowed_ciphers;
 				dh_key = other.dh_key;
 				verify_mode = other.verify_mode;
 				ssl_options = other.ssl_options;
+#ifdef USE_SSL
+				pinned_certificates = other.pinned_certificates;
+#endif
 				return *this;
 			}
 
@@ -164,11 +175,15 @@ namespace socket_helpers {
 			std::string certificate_key_format;
 
 			std::string ca_path;
+			std::string trusted_certificate;
 			std::string allowed_ciphers;
 			std::string dh_key;
 
 			std::string verify_mode;
 			std::string ssl_options;
+#ifdef USE_SSL
+			std::list<X509> pinned_certificates;
+#endif
 
 			std::string to_string() const {
 				std::stringstream ss;
@@ -176,6 +191,7 @@ namespace socket_helpers {
 					ss << "ssl: " << verify_mode;
 					ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
+					ss << ", trusted: " << trusted_certificate;
 					ss << ", options: " << ssl_options;
 				} else 
 					ss << "ssl disabled";
@@ -187,6 +203,10 @@ namespace socket_helpers {
 			boost::asio::ssl::context::file_format get_certificate_format();
 			boost::asio::ssl::context::file_format get_certificate_key_format();
 			long get_ctx_opts() const;
+			bool check_trusted_certs (
+				bool preverified, // True if the certificate passed pre-verification.
+				boost::asio::ssl::verify_context& ctx // The peer certificate and other context.
+			);
 #endif
 		};
 

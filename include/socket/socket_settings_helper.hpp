@@ -38,6 +38,9 @@ namespace socket_helpers {
 				("ca", nscapi::settings_helper::path_key(&info_.ssl.ca_path, "${certificate-path}/ca.pem"),
 				"CA", "", true)
 
+				("trusted client cert", nscapi::settings_helper::path_key(&info_.ssl.trusted_certificate, "${certificate-path}/trusted.pem"),
+				"TRUSTED CERTIFICATE", "", true)
+
 				("allowed ciphers", nscapi::settings_helper::string_key(&info_.ssl.allowed_ciphers, default_cipher),
 				"ALLOWED CIPHERS", "The chipers which are allowed to be used.\nThe default here will differ is used in \"insecure\" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html", true)
 
