@@ -13,7 +13,6 @@
 	</head>
 	<body>
 		<div class="container">
-
 			<nav class="navbar navbar-default" role="navigation">
 				<div class="container-fluid">
 					<!-- Brand and toggle get grouped for better mobile display -->
@@ -76,40 +75,9 @@
 
 			<!-- index page -->
 
-			
-			<div class="panel panel-primary" data-bind="visible: nscp_status().is_loggedin()">
-				<div class="panel-heading clearfix">
-					<h3 class="panel-title pull-left">Welcome to NSClient++</h3>
-				</div>
-				<div class="panel-body">
-					<p>
-						This is the front end for NSCLient++.
-						Here you can configure NSClient++, runt queries, see the log, etc etc.<br/>
-						Use the tabs above to explore NSClient++.
-					</p>
-					<div class="list-group">
-						<div class="list-group-item">
-							<h4 class="list-group-item-heading">Modules</h4>
-							<p>Use this tab to show load and unload modules as well as change configuration from a module perspective.</p>
-						</div>
-						<div class="list-group-item">
-							<h4 class="list-group-item-heading">Settings</h4>
-							<p>Here you can browse the settings tree and change settings in a easy way.</p>
-						</div>
-						<div class="list-group-item">
-							<h4 class="list-group-item-heading">Queries</h4>
-							<p>See all queries, get help and even try them out in the nifty online query runner.</p>
-						</div>
-						<div class="list-group-item">
-							<h4 class="list-group-item-heading">Log</h4>
-							<p>Where you can see the NSCLient++ log.</p>
-						</div>
-						<div class="list-group-item">
-							<h4 class="list-group-item-heading">Console</h4>
-							<p>The WEB version of the infamous "nsclient++ /test" mode.</p>
-						</div>
-					</div>
-				</div>
+
+			<div class="row">
+				<%=INCLUDE:metrics_dashboard%>
 			</div>
 		</div>
 	</body>

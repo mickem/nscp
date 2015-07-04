@@ -8,7 +8,8 @@ namespace task_scheduler {
 	struct schedule_metadata {
 		enum task_source {
 			MODULE,
-			SETTINGS
+			SETTINGS,
+			METRICS
 		};
 		int plugin_id;
 		task_source source;
@@ -24,6 +25,7 @@ namespace task_scheduler {
 		schedule_metadata get(int id);
 		void handle_plugin(const schedule_metadata &metadata);
 		void handle_settings();
+		void handle_metrics();
 
 		void start();
 		void stop();

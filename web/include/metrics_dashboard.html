@@ -1,0 +1,187 @@
+<ul class="nav nav-pills nav-stacked col-md-2" role="tablist" aria-label="...">
+	<li role="presentation" class="active">
+		<a type="button" class="btn btn-default" href="#cpu" role="tab" data-toggle="tab" id="toCpu">
+			<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-fire"></span> CPU</h4>
+			<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;" data-bind="text: nscp_status().metrics.cpu.load()"></p>
+		</a>
+	</li>
+	<li role="presentation">
+		<a type="button" class="btn btn-default" href="#mem" role="tab" data-toggle="tab" id="toMem">
+			<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-server"></span> Memory</h4>
+			<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;">
+				<span data-bind="text: nscp_status().metrics.mem.used()"></span>/<span data-bind="text: nscp_status().metrics.mem.total()"></span> <span data-bind="text: nscp_status().metrics.mem.unit()"></span> (<span data-bind="text: nscp_status().metrics.mem.pct()"></span>%)</p>
+		</a>
+	</li>
+	<li role="presentation">
+		<a type="button" class="btn btn-default" href="#disk0" role="tab" data-toggle="tab" id="toDisk0">
+			<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-hdd-o"></span> Disk 0 (C:)</h4>
+			<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;">0%</p>
+		</a>
+	</li>
+</ul>
+<div class="tab-content col-md-10">
+	<div role="tabpanel" class="tab-pane active" id="cpu">
+		<div>
+			<canvas id="cpuChart" class="chart" width="200" height="200"></canvas>
+		</div>
+			
+			
+		<div class="col-lg-3 col-md-6">
+			<div class="panel panel-primary">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-3">
+							<i class="fa fa-area-chart fa-5x"></i>
+						</div>
+						<div class="col-xs-9 text-right">
+							<div class="huge" data-bind="text: nscp_status().metrics.cpu.load()"></div>
+							<div>Load</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-3 col-md-6">
+			<div class="panel panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-3">
+							<i class="fa fa-cubes fa-5x"></i>
+						</div>
+						<div class="col-xs-9 text-right">
+							<div class="huge" data-bind="text: nscp_status().metrics.cpu.procs()"></div>
+							<div>Processes</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-3 col-md-6">
+			<div class="panel panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-3">
+							<i class="fa fa-code-fork fa-5x"></i>
+						</div>
+						<div class="col-xs-9 text-right">
+							<div class="huge" data-bind="text: nscp_status().metrics.cpu.threads()"></div>
+							<div>Threads</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-4 col-md-6">
+			<div class="panel panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-3">
+							<i class="fa fa-cogs fa-5x"></i>
+						</div>
+						<div class="col-xs-9 text-right">
+							<div class="huge" data-bind="text: nscp_status().metrics.cpu.handles()"></div>
+							<div>Handles</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5 col-md-6">
+			<div class="panel panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-3">
+							<i class="fa fa-clock-o fa-5x"></i>
+						</div>
+						<div class="col-xs-9 text-right">
+							<div class="huge" data-bind="text: nscp_status().metrics.cpu.uptime"></div>
+							<div>Uptime</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+		
+	<div role="tabpanel" class="tab-pane" id="mem">
+		<div>
+			<canvas id="memChart"  class="chart" width="200" height="200"></canvas>
+		</div>
+
+		<div class="col-lg-5 col-md-6">
+			<div class="panel panel-primary">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-2">
+							<i class="fa fa-server fa-5x"></i>
+						</div>
+						<div class="col-xs-10 text-right">
+							<div class="huge">
+								<span data-bind="text: nscp_status().metrics.mem.used()"></span>/<span data-bind="text: nscp_status().metrics.mem.total()"></span> <span data-bind="text: nscp_status().metrics.mem.unit()"></span>
+							</div>
+							<div>Memory</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5 col-md-6">
+			<div class="panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-2">
+							<i class="fa fa-cog fa-5x"></i>
+						</div>
+						<div class="col-xs-10 text-right">
+							<div class="huge">
+								<span data-bind="text: nscp_status().metrics.mem.commited()"></span>/<span data-bind="text: nscp_status().metrics.mem.virtual()"></span> <span data-bind="text: nscp_status().metrics.mem.unit()"></span>
+							</div>
+							<div>Committed virtual memory</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<div role="tabpanel" class="tab-pane" id="disk-0">
+		<div>
+			<canvas id="memChart"  class="chart" width="200" height="200"></canvas>
+		</div>
+
+		<div class="col-lg-5 col-md-6">
+			<div class="panel panel-primary">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-2">
+							<i class="fa fa-server fa-5x"></i>
+						</div>
+						<div class="col-xs-10 text-right">
+							<div class="huge">
+								<span data-bind="text: nscp_status().metrics.mem.used()"></span>/<span data-bind="text: nscp_status().metrics.mem.total()"></span> <span data-bind="text: nscp_status().metrics.mem.unit()"></span>
+							</div>
+							<div>Memory</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-lg-5 col-md-6">
+			<div class="panel">
+				<div class="panel-heading">
+					<div class="row">
+						<div class="col-xs-2">
+							<i class="fa fa-cog fa-5x"></i>
+						</div>
+						<div class="col-xs-10 text-right">
+							<div class="huge">
+								<span data-bind="text: nscp_status().metrics.mem.commited()"></span>/<span data-bind="text: nscp_status().metrics.mem.virtual()"></span> <span data-bind="text: nscp_status().metrics.mem.unit()"></span>
+							</div>
+							<div>Committed virtual memory</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

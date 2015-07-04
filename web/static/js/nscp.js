@@ -1,3 +1,36 @@
+function next_unit(unit) {
+	if (unit == '')
+		return 'b'
+	if (unit == 'b')
+		return 'kb'
+	if (unit == 'kb')
+		return 'mb'
+	if (unit == 'mb')
+		return 'gb'
+	if (unit == 'gb')
+		return 'pb'
+}
+function find_unit(value) {
+	unit = 'b'
+	while (value > 1023 && unit != 'pb') {
+		value /= 1024;
+		unit = next_unit(unit);
+	}
+	return unit;
+}
+function scale_bytes(value, unit) {
+	if (unit == 'b')
+		return Math.round(value*10)/10;
+	if (unit == 'kb')
+		return Math.round(value/1024*10)/10;
+	if (unit == 'mb')
+		return Math.round(value/1024/1024*10)/10;
+	if (unit == 'gb')
+		return Math.round(value/1024/1024/1024*10)/10;
+	if (unit == 'pb')
+		return Math.round(value/1024/1024/1022/1024*10)/10;
+	return value
+}
 function parseNagiosResult(id) {
 	if (id == 0)
 		return "OK"
@@ -18,7 +51,6 @@ function parseNagiosResultCSS(id) {
 		return "btn-danger"
 	return "btn-info"
 }
-
 function getUrlVars() {
     var vars = [], hash;
     var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
@@ -30,13 +62,10 @@ function getUrlVars() {
     }
     return vars;
 }
-
-
 settings_get_value = function (val) {
 	if (val.string_data)
 		return val.string_data
 }
-
 function SettingsStatus(elem) {
 	var self = this;
 	self.has_changed = ko.observable('')
@@ -52,11 +81,28 @@ function SettingsStatus(elem) {
 	}
 	self.refresh = function() {
 		json_get("/settings/status", function(data) {
-			console.log(data)
 			self.update(data['payload'][0]['status'])
 		})
 	}	
 }
+
+var graph_data = {
+    labels: ["", "", "", "", "", "", "", "", "", "", "", ""],
+    datasets: [
+        {
+            label: "",
+            fillColor: "rgba(220,220,220,0.2)",
+            strokeColor: "rgba(220,220,220,1)",
+            pointColor: "rgba(220,220,220,1)",
+            pointStrokeColor: "#fff",
+            pointHighlightFill: "#fff",
+            pointHighlightStroke: "rgba(220,220,220,1)",
+            data: [0, 0, 0, 0, 0, 0, 0,0,0,0,0,0]
+        }
+    ]
+};
+var cpuChart;
+var memChart;
 
 function auth_token_class() {
 	var self = this
@@ -91,6 +137,27 @@ function NSCPStatus(state) {
 	self.set_on_logout = function(f) { self.on_logout = f} 
 	self.login_error_message = ko.observable('')
 	
+	self.metrics = {
+		'cpu' : {
+			'load' : ko.observable('0%'),
+			'handles' : ko.observable('0'),
+			'threads' : ko.observable('0'),
+			'procs' : ko.observable('0'),
+			'uptime' : ko.observable('0')
+		},
+		'mem' : {
+			'pct' : ko.observable('0%'),
+			'used' : ko.observable('0%'),
+			'avail' : ko.observable('0'),
+			'total' : ko.observable('0'),
+			'unit' : ko.observable('0'),
+			'commited' : ko.observable('0'),
+			'virtual' : ko.observable('0'),
+			'cache' : ko.observable('0')
+		}
+	}
+
+	
 	self.login = function() {
 		$.getJSON("/auth/token?password="+self.password(), function(data, textStatus, xhr) {
 			auth_token.set(xhr.getResponseHeader("__TOKEN"));
@@ -104,7 +171,6 @@ function NSCPStatus(state) {
 			self.is_loggedin(true)
 			self.on_login()
 		}).error(function(xhr, error, status) {
-		console.log(error)
 			self.login_error_message(xhr.responseText)
 		})
 
@@ -128,18 +194,15 @@ function NSCPStatus(state) {
 		self.has_issues(self.error_count() > 0)
 	}
 	self.set_error = function(text) {
-		console.log("Error: " + text)
 		self.error_count(self.error_count()+1)
 		self.last_error(text)
 		self.has_issues(self.error_count() > 0)
 	}
 	self.busy = function(header, text, count) {
-		console.log("++busy: " + count)
 		if (self.count < 0)
 			self.count = 0
 		count = typeof count !== 'undefined' ? count : 1;
 		self.count = count
-		console.log("::busy: " + self.count)
 		if (self.poller_state)
 			self.cancelPoller();
 		self.busy_header(header)
@@ -147,16 +210,13 @@ function NSCPStatus(state) {
 		$('#busy').modal();
 	}
 	self.not_busy = function(count, start_poller) {
-		console.log("--busy: " + count)
 		start_poller = typeof start_poller !== 'undefined' ? start_poller : true;
 		count = typeof count !== 'undefined' ? count : 1;
 		self.count -= count
-		console.log("::busy: " + self.count + ", " + start_poller)
 		if (self.count <= 0) {
 			$('#busy').modal('hide');
 			self.busy_header('')
 			self.busy_text('')
-			console.log("::HIT ME: " + self.poller_state + ", " + start_poller)
 			if (self.poller_state && start_poller)
 				self.start();
 		}
@@ -182,12 +242,50 @@ function NSCPStatus(state) {
 		
 	self.do_update = function(elem) {
 		json_get("/log/status", function(data) {
-		console.log(data)
 			self.update(data['status']);
 		}).error(function(xhr, error, status) {
 			if (xhr.status == 200)
 				return;
-			console.log("Status got error: " + xhr.status);
+			if (xhr.status == 403) {
+				global_status.is_loggedin(false);
+			}
+			global_status.set_error(xhr.responseText)
+			global_status.not_busy(100, false)
+		})
+		json_get("/metrics", function(data) {
+
+			var load = data['system']['cpu']['total.total']
+			var steps = 10
+			global_status.metrics.cpu.load(load + "%")
+			global_status.metrics.cpu.handles(data['system']['handles']['handles'])
+			global_status.metrics.cpu.threads(data['system']['handles']['threads'])
+			global_status.metrics.cpu.procs(data['system']['handles']['processes'])
+			global_status.metrics.cpu.uptime(data['system']['uptime']['uptime'])
+
+			var unit = find_unit(data['system']['mem']['physical.total'])
+			var pct = Math.round(data['system']['mem']['physical.used']*100/data['system']['mem']['physical.total'])
+			global_status.metrics.mem.pct(pct)
+			global_status.metrics.mem.avail(scale_bytes(data['system']['mem']['physical.avail'], unit))
+			global_status.metrics.mem.used(scale_bytes(data['system']['mem']['physical.used'], unit))
+			global_status.metrics.mem.total(scale_bytes(data['system']['mem']['physical.total'], unit))
+			global_status.metrics.mem.unit(unit)
+			global_status.metrics.mem.commited(scale_bytes(data['system']['mem']['commited.used'], unit))
+			global_status.metrics.mem.virtual(scale_bytes(data['system']['mem']['commited.total'], unit))
+			
+			if (cpuChart) {
+				cpuChart.removeData( );
+				cpuChart.addData([load], "")
+				cpuChart.update()
+			}
+			if (memChart) {
+				memChart.removeData( );
+				memChart.addData([pct], "")
+				memChart.update()
+			}
+			
+		}).error(function(xhr, error, status) {
+			if (xhr.status == 200)
+				return;
 			if (xhr.status == 403) {
 				global_status.is_loggedin(false);
 			}
@@ -209,11 +307,9 @@ function NSCPStatus(state) {
 		})
 	}
 	self.cancelPoller = function() {
-		console.log("Stopping poller")
 		clearTimeout(self.poller);
 	}
 	self.schedule_restart_poll = function() {
-		console.log("Starting  poller")
 		self.restart_waiter = setTimeout(self.restart_poll, 1000);
 	}
 	self.restart_poll = function() {
@@ -253,6 +349,42 @@ function NSCPStatus(state) {
 		self.start()
 	}
 }
+function showCPU() {
+	var ctx = document.getElementById("cpuChart").getContext("2d");
+	cpuChart = new Chart(ctx).Line(graph_data, {
+		scaleOverride : true,
+		scaleSteps : 10,
+		scaleStepWidth : 10,
+		scaleStartValue : 0,
+		skipLabels: true,
+		scaleShowLabels: false,
+		responsive: false,
+		animation: false
+	});
+}
+
+$(document).ready(function(){
+	showCPU();
+	$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+		if (e.target.id == "toMem" && !memChart) {
+			var ctx = document.getElementById("memChart").getContext("2d");
+			memChart = new Chart(ctx).Line(graph_data, {
+				scaleOverride : true,
+				scaleSteps : 10,
+				scaleStepWidth : 10,
+				scaleStartValue : 0,
+				skipLabels: true,
+				scaleShowLabels: false,
+				responsive: true,
+				animation: false
+			});
+		}
+		if (e.target.id == "toCpu" && !cpuChart) {
+			showCPU()
+		}
+		window.dispatchEvent(new Event('resize'));   		
+	})
+});
 
 
 var global_status = new NSCPStatus();
@@ -503,7 +635,6 @@ ko.bindingHandlers.typeahead = {
 
 var substringMatcher = function(strs) {
   return function findMatches(q, cb) {
-	console.log("-----------")
     var matches, substrRegex;
  
     // an array that will be populated with substring matches

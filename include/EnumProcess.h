@@ -309,8 +309,7 @@ namespace process_helper {
 
 	};
 
-	class error_reporter {
-	public:
+	struct error_reporter {
 		virtual void report_error(std::string error) = 0;
 		virtual void report_warning(std::string error) = 0;
 		virtual void report_debug(std::string error) = 0;
@@ -319,4 +318,6 @@ namespace process_helper {
 	typedef std::list<process_info> process_list;
 	process_list enumerate_processes(bool ignore_unreadable = false, bool find_16bit = false, bool deep_scan = true, error_reporter *error_interface = NULL, unsigned int buffer_size = DEFAULT_BUFFER_SIZE);
 	process_list enumerate_processes_delta(bool ignore_unreadable, error_reporter *error_interface);
+
+	void enable_token_privilege(LPTSTR privilege, bool enable);
 }

@@ -29,6 +29,18 @@ typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, f
 typedef parsers::where::realtime_filter_helper<check_mem_filter::runtime_data, filters::filter_config_object> mem_filter_helper;
 
 
+
+struct NSC_error_pdh : public process_helper::error_reporter {
+	std::list<std::string> l;
+	void report_error(std::string error) {
+		//l.push_back(error);
+	}
+	void report_warning(std::string error) {
+	}
+	void report_debug(std::string error) {
+	}
+};
+
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
 *
@@ -147,7 +159,49 @@ void pdh_thread::thread_proc() {
 	do {
 		std::list<std::string>	errors;
 		{
-			windows::system_info::cpu_load load = windows::system_info::get_cpu_load();
+
+			unsigned long long handlesTmp = 0;
+			unsigned long long procTmp = 0;
+			unsigned long long threadTmp = 0;
+
+			try {
+
+				NSC_error_pdh err;
+
+				try {
+					process_helper::enable_token_privilege(SE_DEBUG_NAME, true);
+				} catch (nscp_exception &e) {
+					errors.push_back(e.reason());
+				}
+
+				hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> buffer = windows::system_info::get_system_process_information();
+
+				try {
+					process_helper::enable_token_privilege(SE_DEBUG_NAME, false);
+				} catch (nscp_exception &e) {
+					errors.push_back(e.reason());
+				}
+				windows::winapi::SYSTEM_PROCESS_INFORMATION* b = buffer.get();
+				while (b != NULL) {
+
+					handlesTmp += b->HandleCount;
+					threadTmp += b->NumberOfThreads;
+					procTmp++;
+
+					if (b->NextEntryOffset == NULL)
+						b = NULL;
+					else
+						b = (windows::winapi::SYSTEM_PROCESS_INFORMATION*)((PCHAR)b + b->NextEntryOffset);
+				}
+			} catch (...) {
+				errors.push_back("Failed to get metrics");
+			}
+			windows::system_info::cpu_load load;
+			try {
+				load = windows::system_info::get_cpu_load();
+			} catch (...) { 
+				errors.push_back("Failed to get cpu load"); 
+			}
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!writeLock.owns_lock()) {
 				errors.push_back("Failed to get mutex for writing");
@@ -156,6 +210,9 @@ void pdh_thread::thread_proc() {
 					cpu.push(load);
 					if (check_pdh)
 						pdh.gatherData();
+					handles = handlesTmp;
+					threads = threadTmp;
+					procs = procTmp;
 
 				} catch (const PDH::pdh_exception &e) {
 					if (first) {
@@ -288,6 +345,35 @@ std::map<std::string,windows::system_info::load_entry> pdh_thread::get_cpu_load(
 		ret["core " + strEx::s::xtos(i++)] = l;
 	return ret;
 }
+
+unsigned long long pdh_thread::get_handles() {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
+		NSC_LOG_ERROR("Failed to get Mutex for: cput");
+		return 0;
+	}
+	return handles;
+}
+
+
+unsigned long long pdh_thread::get_procs() {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
+		NSC_LOG_ERROR("Failed to get Mutex for: cput");
+		return 0;
+	}
+	return procs;
+}
+unsigned long long pdh_thread::get_threads() {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
+		NSC_LOG_ERROR("Failed to get Mutex for: threads");
+		return 0;
+	}
+	return threads;
+}
+
+
 
 
 bool pdh_thread::start() {

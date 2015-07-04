@@ -23,6 +23,9 @@ namespace task_scheduler {
 			mainClient->reload("delayed,service");
 		}
 	}
+	void scheduler::handle_metrics() {
+		mainClient->process_metrics();
+	}
 
 	void scheduler::start() {
 		tasks.set_handler(this);
@@ -51,6 +54,8 @@ namespace task_scheduler {
 			handle_plugin(metadata);
 		} else if (metadata.source == schedule_metadata::SETTINGS) {
 			handle_settings();
+		} else if (metadata.source == schedule_metadata::METRICS) {
+			handle_metrics();
 		} else {
 			on_error("Unknown source");
 		}

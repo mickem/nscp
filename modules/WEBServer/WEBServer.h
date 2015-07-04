@@ -61,6 +61,15 @@ private:
 	unsigned int error_count_;
 
 };
+
+struct metrics_handler {
+	void set(const std::string &metrics);
+	std::string get();
+private:
+	std::string metrics_;
+	boost::timed_mutex mutex_;
+};
+
 class WEBServer : public nscapi::impl::simple_plugin {
 public:
 	WEBServer();
@@ -70,6 +79,7 @@ public:
 	bool unloadModule();
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 	bool commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void submitMetrics(const Plugin::MetricsMessage::Response &response);
 	bool install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 	bool password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 private:

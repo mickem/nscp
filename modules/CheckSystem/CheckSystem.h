@@ -64,6 +64,9 @@ public:
 	void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query);
 	void check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
+	// Metrics
+	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+
 
 	// Legacy checks
 	void checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);

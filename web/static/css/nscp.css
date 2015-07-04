@@ -16,6 +16,11 @@ line-height: 33px;
 */
 }
 
+    canvas{
+        width: 100% !important;
+        max-width: 800px;
+        height: 200px !important;
+    }
 
 .form-signin
 {
@@ -327,4 +332,8 @@ fieldset[disabled] .twitter-typeahead .tt-input {
 }
 .tt-dropdown-menu .tt-suggestion p {
   margin: 0;
+}
+
+.huge {
+  font-size: 40px;
 }

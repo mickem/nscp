@@ -4,6 +4,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
+#include <boost/function.hpp>
 
 #include "NSCPlugin.h"
 #include <nsclient/logger.hpp>
@@ -16,7 +17,6 @@ namespace nsclient {
 	class plugins_list_exception : public std::exception {
 		std::string what_;
 	public:
-//		plugins_list_exception(std::wstring error) throw() : what_(to_string(error).c_str()) {}
 		plugins_list_exception(std::string error) throw() : what_(error.c_str()) {}
 		virtual ~plugins_list_exception() throw() {};
 
@@ -24,6 +24,103 @@ namespace nsclient {
 			return what_.c_str();
 		}
 	};
+
+
+	struct simple_plugins_list : public boost::noncopyable {
+
+		typedef std::list<plugin_type> simple_plugin_list_type;
+		simple_plugin_list_type plugins_;
+		boost::shared_mutex mutex_;
+
+		simple_plugins_list() {}
+
+		bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
+			if (!lock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex", key);
+				return false;
+			}
+			return true;
+		}
+		bool has_valid_lock_log(boost::shared_lock<boost::shared_mutex> &lock, std::string key) {
+			if (!lock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex", key);
+				return false;
+			}
+			return true;
+		}
+		void has_valid_lock_throw(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
+			if (!lock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex", key);
+				throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
+			}
+		}
+		void has_valid_lock_throw(boost::shared_lock<boost::shared_mutex> &lock, std::string key) {
+			if (!lock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex", key);
+				throw plugins_list_exception("Failed to get mutex: " + utf8::cvt<std::string>(key));
+			}
+		}
+
+		void add_plugin(plugin_type plugin) {
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+			if (!has_valid_lock_log(writeLock, "plugins_list::add_plugin"))
+				return;
+			BOOST_FOREACH(const plugin_type &p, plugins_) {
+				if (p->get_id() == plugin->get_id()) {
+					log_error(__FILE__, __LINE__, "Duplicate plugin id");
+					return;
+				}
+			}
+			plugins_.push_back(plugin);
+		}
+
+		void remove_all() {
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
+			if (!has_valid_lock_log(writeLock, "plugins_list::remove_all"))
+				return;
+			plugins_.clear();
+		}
+
+		void remove_plugin(unsigned long id) {
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + strEx::s::xtos(id)))
+				return;
+			for (simple_plugin_list_type::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
+				if ((*it)->get_id() == id)
+					it = plugins_.erase(it);
+			}
+		}
+
+		void do_all(boost::function<void(plugin_type)> fun) {
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!has_valid_lock_log(readLock, "plugins_list::list"))
+				return;
+			BOOST_FOREACH(const plugin_type p, plugins_) {
+				fun(p);
+			}
+		}
+
+		std::string to_string() {
+			std::string ret;
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!has_valid_lock_log(readLock, "plugins_list::list"))
+				return "";
+			BOOST_FOREACH(const plugin_type p, plugins_) {
+				if (!ret.empty()) ret += ", ";
+				ret += p->getName();
+			}
+			return ret;
+		}
+
+		void log_error(const char *file, int line, std::string error) {
+			nsclient::logging::logger::get_logger()->error("plugin", file, line, error);
+		}
+		void log_error(const char *file, int line, std::string error, std::string key) {
+			nsclient::logging::logger::get_logger()->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
+		}
+	};
+
+
 
 	template<class parent>
 	struct plugins_list : boost::noncopyable, public parent {

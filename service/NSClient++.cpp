@@ -499,6 +499,9 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", settings::settings_core::key_string, "Maintenance interval", "How often settings shall reload config if it has changed", "5m", true, false);
 		std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
 		scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", settings::settings_core::key_string, "Maintenance interval", "How often to fetch metrics from modules", "5s", true, false);
+		smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "5s");
+		scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
 		scheduler_.start();
 	}
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
@@ -809,6 +812,10 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			commands_.add_plugin(plugin);
 		if (plugin->hasNotificationHandler())
 			channels_.add_plugin(plugin);
+		if (plugin->hasMetricsFetcher())
+			metricsFetchers.add_plugin(plugin);
+		if (plugin->hasMetricsSubmitter())
+			metricsSubmitetrs.add_plugin(plugin);
 		if (plugin->hasMessageHandler())
 			nsclient::logging::logger::subscribe_raw(plugin);
 		if (plugin->has_routing_handler())
@@ -2123,6 +2130,34 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		return NSCAPI::hasFailed;
 	}
 	return NSCAPI::isSuccess;
+}
+
+struct metrics_fetcher {
+	Plugin::MetricsMessage result;
+	std::string buffer;
+	void fetch(nsclient::plugin_type p) {
+		std::string buffer;
+		p->fetchMetrics(buffer);
+		Plugin::MetricsMessage payload;
+		payload.ParseFromString(buffer);
+		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
+			result.add_payload()->CopyFrom(r);
+		}
+	}
+	void render() {
+		buffer = result.SerializeAsString();
+	}
+	void digest(nsclient::plugin_type p) {
+		p->submitMetrics(buffer);
+	}
+};
+
+void NSClientT::process_metrics() {
+	metrics_fetcher f;
+	metricsFetchers.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
+	f.render();
+	metricsSubmitetrs.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
+
 }
 
 

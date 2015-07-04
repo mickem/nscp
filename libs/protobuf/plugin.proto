@@ -186,6 +186,23 @@ message Common {
 		optional FloatValue float_value = 5;
 		optional BoolValue bool_value = 6;
 	}
+
+	message Metric {
+		required string key = 1;
+		required AnyDataType value = 2;
+
+		optional string alias = 3;
+		optional string desc = 4;
+	}
+
+	message MetricsBundle {
+		required string key = 1;
+		repeated Metric value = 2;
+		repeated MetricsBundle children = 6;
+
+		optional string alias = 3;
+		optional string desc = 4;
+	}
 	
 	message Result {
 	
@@ -633,23 +650,36 @@ message LogEntry {
 
 
 //
-// Query request
-// Used for querying the client this is the "normal" check_nrpe message request.
-// Associated response is :py:class:`Plugin.QueryResponseMessage`
+// Metrics message
+// Used for fetching and sending metrics.
 //
-message MetricsMessage {
-	message Metric {
-		required string key = 1;
-		optional Common.AnyDataType value = 2;
-	};
-	message Metrics {
-		optional int32 id = 1;
-		optional string target = 7;
-		repeated Metrics metrics = 2;
+message MetricsQueryMessage {
+	message Request {
+		optional int64 id = 1;
+		optional string type = 2;
 	};
 
 	optional Common.Header header = 1;
-	repeated Metrics payload = 2;
+	repeated Request payload = 2;
+
+	// The attachment is used to attach additional free form information.
+	repeated Common.Attachment attachments = 3;
+}
+
+//
+// Metrics message
+// Used for fetching and sending metrics.
+//
+message MetricsMessage {
+	message Response {
+		optional int64 id = 1;
+		required Common.Result result = 2;
+		
+		repeated Common.MetricsBundle bundles = 3;
+	};
+
+	optional Common.Header header = 1;
+	repeated Response payload = 2;
 
 	// The attachment is used to attach additional free form information.
 	repeated Common.Attachment attachments = 3;

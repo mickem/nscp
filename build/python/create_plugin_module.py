@@ -28,6 +28,12 @@ EXPORTS
 {% if module.cli %}
 	NSCommandLineExec
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+	NSFetchMetrics
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+	NSSubmitMetrics
+{% endif %}
 """
 
 RC_TEMPLATE = """
@@ -428,6 +434,44 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 }
 {% endif %}
 
+
+{% if module.metrics == "produce" or module.metrics == "both" %}
+int {{module.name}}Module::fetchMetrics(std::string &reply) {
+	Plugin::MetricsMessage response_message;
+	Plugin::MetricsMessage::Response *response = response_message.add_payload();
+	try {
+		impl_->fetchMetrics(response);
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+	} catch (const std::exception &e) {
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_message(utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_message("Unknown exception");
+	}
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
+}
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+int {{module.name}}Module::submitMetrics(const std::string &request) {
+	Plugin::MetricsMessage metrics_message;
+	metrics_message.ParseFromString(request);
+	try {
+		BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, metrics_message.payload()) {
+			impl_->submitMetrics(p);
+		}
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to submit metrics: ", e);
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to submit metrics");
+		return NSCAPI::hasFailed;
+	}
+}
+{% endif %}
+
 #ifdef _WIN32
 	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; }
 #endif
@@ -510,6 +554,18 @@ extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
 	return wrapper.NSHasNotificationHandler(); 
 }
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+extern int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::metrics_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSFetchMetrics(response_buffer, response_buffer_len); 
+}
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+extern int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len) {
+	nscapi::metrics_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSSubmitMetrics(buffer, buffer_len); 
+}
+{% endif %}
 """
 
 HPP_TEMPLATE = """#pragma once
@@ -535,6 +591,12 @@ extern "C" int NSCommandLineExec(unsigned int plugin_id, char *request_buffer, u
 {% if module.channels %}
 extern "C" int NSHasNotificationHandler(unsigned int plugin_id);
 extern "C" int NSHandleNotification(unsigned int plugin_id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+extern "C" int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
 {% endif %}
 
 
@@ -630,6 +692,18 @@ public:
 {% endif %}
 	*/
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+	int fetchMetrics(std::string &reply);
+	/*
+	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+	*/
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+	int submitMetrics(const std::string &reply);
+	/*
+	void submitMetrics(const Plugin::MetricsMessage::Response &response);
+	*/
+{% endif %}
 	// exposed functions
 	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
 };
@@ -642,6 +716,7 @@ module = None
 cli = False
 log_handler = False
 channels = False
+metrics = False
 
 class Module:
 	name = ''
@@ -791,6 +866,8 @@ for key, value in data.iteritems():
 	elif key == "log messages":
 		if value:
 			log_handler = True
+	elif key == "metrics":
+		metrics = value
 	else:
 		print '* TODO: %s'%key
 
@@ -827,6 +904,7 @@ def escape_rcstring(str):
 module.commands = commands
 module.cli = cli
 module.channels = channels
+module.metrics = metrics
 module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw

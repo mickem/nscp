@@ -1078,3 +1078,92 @@ void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request,
 void CheckSystem::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query) {
 	pdh_checker.add_counter(proxy, key, query);
 }
+
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, unsigned long long value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_int_data(value);
+}
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, std::string value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_string_data(value);
+}
+
+void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	bundle->set_key("system");
+	try {
+		Plugin::Common::MetricsBundle *mem = bundle->add_children();
+		mem->set_key("mem");
+		CheckMemory::memData mem_data = memoryChecker.getMemoryStatus();
+		add_metric(mem, "commited.avail", mem_data.commited.avail);
+		add_metric(mem, "commited.total", mem_data.commited.total);
+		add_metric(mem, "commited.used", mem_data.commited.total - mem_data.commited.avail);
+		add_metric(mem, "commited.%", mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+		add_metric(mem, "virtual.avail", mem_data.virt.avail);
+		add_metric(mem, "virtual.total", mem_data.virt.total);
+		add_metric(mem, "virtual.used", mem_data.virt.total - mem_data.virt.avail);
+		add_metric(mem, "virtual.%", mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
+		add_metric(mem, "page.avail", mem_data.page.avail);
+		add_metric(mem, "page.total", mem_data.page.total);
+		add_metric(mem, "page.used", mem_data.page.total - mem_data.page.avail);
+		add_metric(mem, "page.%", mem_data.page.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+		add_metric(mem, "physical.avail", mem_data.phys.avail);
+		add_metric(mem, "physical.total", mem_data.phys.total);
+		add_metric(mem, "physical.used", mem_data.phys.total - mem_data.phys.avail);
+		add_metric(mem, "physical.%", mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+	} catch (CheckMemoryException e) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
+	}
+
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("cpu");
+
+		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
+		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
+		BOOST_FOREACH(vt v, vals) {
+			add_metric(section, v.first + ".idle", v.second.idle);
+			add_metric(section, v.first + ".total", v.second.total);
+			add_metric(section, v.first + ".kernel", v.second.kernel);
+		}
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("uptime");
+		unsigned long long value = nscpGetTickCount64();
+		if (value == 0)
+			value = GetTickCount();
+		value /= 1000;
+
+		boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+		boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+		boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
+
+		add_metric(section, "ticks.raw", value);
+		add_metric(section, "boot.raw", value);
+		add_metric(section, "uptime", format::itos_as_time(value * 1000));
+		add_metric(section, "boot", format::format_date(boot));
+
+	}
+	catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("handles");
+
+		add_metric(section, "handles", collector->get_handles());
+		add_metric(section, "threads", collector->get_threads());
+		add_metric(section, "processes", collector->get_procs());
+
+	}
+	catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+
+}
