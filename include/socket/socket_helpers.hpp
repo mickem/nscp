@@ -173,8 +173,11 @@ namespace socket_helpers {
 			std::string to_string() const {
 				std::stringstream ss;
 				if (enabled) {
-					ss << "ssl: " << verify_mode;
-					ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
+					ss << "ssl enabled: " << verify_mode;
+					if (!certificate.empty())
+						ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
+					else
+						ss << ", no certificate";
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
 					ss << ", options: " << ssl_options;
 				} else 
@@ -242,11 +245,8 @@ namespace socket_helpers {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			if (ssl.enabled) {
-				ss << "address: " << get_endpoint_string();
-				ss << "ssl: " << ssl.to_string();
-			} else 
-				ss << "ssl disabled";
+			ss << "address: " << get_endpoint_string();
+			ss << ", " << ssl.to_string();
 			return ss.str();
 		}
 

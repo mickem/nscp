@@ -17,11 +17,11 @@
 namespace nrpe_handler {
 	namespace sh = nscapi::settings_helper;
 
-	struct nsca_target_object : public nscapi::targets::target_object {
+	struct nrpe_target_object : public nscapi::targets::target_object {
 
 		typedef nscapi::targets::target_object parent;
 
-		nsca_target_object(std::string alias, std::string path) : parent(alias, path) {
+		nrpe_target_object(std::string alias, std::string path) : parent(alias, path) {
 
 			set_property_int("timeout", 30);
 			set_property_string("certificate", "${certificate-path}/certificate.pem");
@@ -29,10 +29,12 @@ namespace nrpe_handler {
 			set_property_string("certificate format", "PEM");
 			set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
 			set_property_string("verify mode", "none");
-			if (!has_option("insecure"))
-				set_property_bool("insecure", false);
+			set_property_bool("insecure", false);
 			set_property_bool("ssl", true);
 			set_property_int("payload length", 1024);
+		}
+
+		nrpe_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {
 		}
 
 
@@ -45,7 +47,6 @@ namespace nrpe_handler {
 			if (is_sample)
 				root_path.set_sample();
 
-			add_ssl_keys(root_path);
 
 			root_path.add_key()
 
@@ -56,15 +57,40 @@ namespace nrpe_handler {
 				("payload length",  sh::int_fun_key<int>(boost::bind(&parent::set_property_int, this, "payload length", _1)),
 				"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 			;
+			settings.register_all();
+			settings.notify();
+			settings.clear();
+
+			add_ssl_keys(root_path);
+
+			settings.register_all();
+			settings.notify();
+
 		}
 
+		virtual void translate(const std::string &key, const std::string &value) {
+			if (key == "insecure") {
+				if (value == "true" && get_property_string("insecure", "false") != value) {
+					set_property_string("certificate", "");
+					set_property_string("certificate key", "");
+					set_property_string("allowed ciphers", "ADH");
+					set_property_string("verify mode", "none");
+					set_property_bool("ssl", true);
+				}
+			}
+			parent::translate(key, value);
+		}
 	};
 
 	struct options_reader_impl : public client::options_reader_interface {
 
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
-			return boost::make_shared<nsca_target_object>(alias, path);
+			return boost::make_shared<nrpe_target_object>(alias, path);
 		}
+		virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+				return boost::make_shared<nrpe_target_object>(parent, alias, path);
+		}
+
 
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &target) {

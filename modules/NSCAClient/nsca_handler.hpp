@@ -31,6 +31,7 @@ namespace nsca_handler {
 			set_property_string("port", "5667");
 			set_property_int("time offset", 0);
 		}
+		nsca_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
@@ -62,6 +63,10 @@ namespace nsca_handler {
 				("time offset", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "delay", _1), "0"),
 				"TIME OFFSET", "Time offset.", true)
 				;
+
+			settings.register_all();
+			settings.notify();
+
 		}
 
 	};
@@ -70,6 +75,9 @@ namespace nsca_handler {
 
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
 			return boost::make_shared<nsca_target_object>(alias, path);
+		}
+		virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+			return boost::make_shared<nsca_target_object>(parent, alias, path);
 		}
 
 

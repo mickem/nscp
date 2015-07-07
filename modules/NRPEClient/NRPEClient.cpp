@@ -55,7 +55,8 @@ bool NRPEClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		client_.clear();
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NRPE", alias, "client");
-		target_path = settings.alias().get_settings_path("targets");
+
+		client_.set_path(settings.alias().get_settings_path("targets"));
 
 		settings.alias().add_path_to_settings()
 			("NRPE CLIENT SECTION", "Section for NRPE active/passive check module.")

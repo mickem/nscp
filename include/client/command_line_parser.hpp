@@ -175,17 +175,17 @@ namespace client {
 		}
 
 		void apply(const std::string &key, const ::Plugin::Common::Header &header) {
-			for (int i = 0; i < header.hosts_size(); i++) {
-				if (header.hosts(i).id() == key) {
-					apply_host(header.hosts(i));
+			BOOST_FOREACH(::Plugin::Common_Host host, header.hosts()) {
+				if (host.id() == key) {
+					apply_host(host);
 				}
 			}
 		}
 		void apply_host(const::Plugin::Common::Host &host) {
 			if (host.has_address())
 				set_string_data("address", host.address());
-			for (int i = 0; i < host.metadata_size(); i++) {
-				set_string_data(host.metadata(i).key(), host.metadata(i).value());
+			BOOST_FOREACH(const ::Plugin::Common_KeyValue &kvp, host.metadata()) {
+				set_string_data(kvp.key(), kvp.value());
 			}
 		}
 

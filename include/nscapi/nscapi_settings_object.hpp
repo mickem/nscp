@@ -31,9 +31,11 @@ namespace nscapi {
 		typedef boost::unordered_map<std::string, std::string> options_map;
 
 		struct object_instance_interface {
-			typedef boost::unordered_map<std::string, std::string> options_map;
+			//typedef boost::unordered_map<std::string, std::string> options_map;
+			typedef std::map<std::string, std::string> options_map;
 
 			std::string alias;
+			std::string base_path;
 			std::string path;
 			bool is_template;
 			std::string parent;
@@ -41,11 +43,31 @@ namespace nscapi {
 			std::string value;
 			options_map options;
 
-			object_instance_interface(std::string alias, std::string path) : alias(alias), path(path), is_template(false), parent("default") {}
-			object_instance_interface(const object_instance_interface &other) 
+			object_instance_interface(std::string alias, std::string path) 
+				: alias(alias)
+				, base_path(path)
+				, path(path + "/" + alias)
+				, is_template(false)
+				, parent("default") 
+			{}
+			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string path) 
+				: alias(alias)
+				, base_path(path)
+				, path(path + "/" + alias)
+				, is_template(false)
+				, parent(other->alias) 
+			{
+				value = other->value;
+				BOOST_FOREACH(const options_map::value_type &e, other->options) {
+					options.insert(e);
+				}
+			}
+			object_instance_interface(const object_instance_interface &other)
 				: alias(other.alias)
+				, base_path(other.base_path)
 				, path(other.path)
 				, is_template(other.is_template)
+				, parent(other.parent)
 				, value(other.value)
 				, options(other.options)
 			{}
@@ -55,24 +77,43 @@ namespace nscapi {
 			}
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 				nscapi::settings_helper::settings_registry settings(proxy);
-				nscapi::settings_helper::path_extension root_path = settings.path(path);
-				root_path.add_key()
-					("parent", nscapi::settings_helper::string_key(&parent, "default"),
-					"PARENT", "The parent the target inherits from", true)
+				if (oneliner) {
+					parent = "default";
+					is_template = false;
+					nscapi::settings_helper::path_extension root_path = settings.path(base_path);
+					root_path.add_key()
+						(alias, nscapi::settings_helper::string_key(&value),
+							alias, std::string("To configure this create a section under: ") + path, false)
+						;
+				} else {
+					nscapi::settings_helper::path_extension root_path = settings.path(path);
+					root_path.add_key()
+						("parent", nscapi::settings_helper::string_key(&parent, "default"),
+							"PARENT", "The parent the target inherits from", true)
 
-					("is template", nscapi::settings_helper::bool_key(&is_template, false),
-					"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
+						("is template", nscapi::settings_helper::bool_key(&is_template, false),
+							"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
-					("alias", nscapi::settings_helper::string_key(&alias),
-					"ALIAS", "The alias (service name) to report to server", true)
-					;
+						("alias", nscapi::settings_helper::string_key(&alias),
+							"ALIAS", "The alias (service name) to report to server", true)
+						;
+				}
 				settings.register_all();
 				settings.notify();
 			}
 
 			virtual std::string to_string() const {
 				std::stringstream ss;
-				ss <<  "{alias: " << alias << ", path: " << path << ", value: "  << value << ", parent: "  << parent << ", is_tpl: "  << (is_template?"true":"false") << "}";
+				ss << "{alias: " << alias
+					<< ", path: " << path
+					<< ", is_tpl: " << (is_template ? "true" : "false")
+					<< ", parent: " << parent
+					<< ", value: " << value
+					<< ", options : { ";
+				BOOST_FOREACH(options_map::value_type e, options) {
+					ss << e.first << "=" << e.second << ", ";
+				}
+				ss << "} }";
 				return ss.str();
 			}
 			bool is_default() const {
@@ -102,6 +143,24 @@ namespace nscapi {
 			void set_property_string(std::string key, std::string value) {
 				translate(key, value);
 			}
+			int get_property_int(std::string key, int value) {
+				options_map::const_iterator cit = options.find(key);
+				if (cit == options.end())
+					return value;
+				return strEx::s::stox<int>(cit->second);
+			}
+			bool get_property_bool(std::string key, bool value) {
+				options_map::const_iterator cit = options.find(key);
+				if (cit == options.end())
+					return value;
+				return cit->second == "true";
+			}
+			std::string get_property_string(std::string key, std::string value) {
+				options_map::const_iterator cit = options.find(key);
+				if (cit == options.end())
+					return value;
+				return cit->second;
+			}
 
 			std::string get_value() const { return value; }
 
@@ -114,6 +173,8 @@ namespace nscapi {
 		struct object_factory_interface {
 			typedef boost::shared_ptr<T> object_instance;
 			virtual object_instance create(std::string alias, std::string path) = 0;
+			virtual object_instance clone(object_instance parent, std::string alias, std::string path) = 0;
+			/*
 			object_instance clone(object_instance parent, const std::string alias, const std::string path) {
 				object_instance inst = boost::make_shared<T>(*parent);
 				if (inst) {
@@ -122,6 +183,7 @@ namespace nscapi {
 				}
 				return inst;
 			}
+			*/
 		};
 
 		template<class T>
@@ -191,7 +253,7 @@ namespace nscapi {
 				if (previous) {
 					return previous;
 				}
-				object_instance object = factory->create(alias, path + "/" + alias);
+				object_instance object = factory->create(alias, path);
 
 				if (proxy) {
 					std::list<std::string> keys = proxy->get_keys(object->path);
@@ -199,7 +261,7 @@ namespace nscapi {
 					if (!parent_name.empty() && parent_name != alias) {
 						object_instance parent = add(proxy, parent_name, "", true);
 						if (parent) {
-							object = factory->clone(parent, alias, path + "/" + alias);
+							object = factory->clone(parent, alias, path);
 							object->is_template = false;
 						}
 					}

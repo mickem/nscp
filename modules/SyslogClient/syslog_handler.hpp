@@ -31,6 +31,8 @@ namespace syslog_handler {
 			set_property_string("unknown severity", "emergency");
 
 		}
+		syslog_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {
+		}
 
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
@@ -76,6 +78,9 @@ namespace syslog_handler {
 
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
 			return boost::make_shared<syslog_target_object>(alias, path);
+		}
+		virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+			return boost::make_shared<syslog_target_object>(parent, alias, path);
 		}
 
 

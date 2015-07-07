@@ -69,8 +69,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, "external scripts");
 
-		commands_path = settings.alias().get_settings_path("scripts");
-		aliases_path = settings.alias().get_settings_path("alias");
+		commands_.set_path(settings.alias().get_settings_path("scripts"));
+		aliases_.set_path(settings.alias().get_settings_path("alias"));
 		std::string wrappings_path = settings.alias().get_settings_path("wrappings");
 
 		settings.alias().add_path_to_settings()

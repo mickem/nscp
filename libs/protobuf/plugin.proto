@@ -99,6 +99,10 @@ message Common {
 	//
 	message Header {
 
+		// Command.
+		// A bundle command when the entire chunk is sent "as-is".
+		optional string command = 1;
+
 		// Source (sending) system.
 		// This is the system which sends the message (me).
 		optional string source_id = 3;

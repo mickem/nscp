@@ -31,8 +31,8 @@ private:
 	commands::command_handler commands_;
 	alias::command_handler aliases_;
 	unsigned int timeout;
-	std::string commands_path;
-	std::string aliases_path;
+	//std::string commands_path;
+	//std::string aliases_path;
 	std::string scriptDirectory_;
 	std::string root_;
 	bool allowArgs_;

@@ -52,6 +52,10 @@ namespace nrpe_client {
 			}
 			if (!ssl.dh_key.empty())
 				ssl.dh_key = handler->expand_path(ssl.dh_key);
+			if (!ssl.certificate.empty())
+				ssl.certificate = handler->expand_path(ssl.certificate);
+			if (!ssl.certificate_key.empty())
+				ssl.certificate_key = handler->expand_path(ssl.certificate_key);
 
 			timeout = target.get_int_data("timeout", 30);
 			retry = target.get_int_data("retry", 3);
@@ -111,6 +115,11 @@ namespace nrpe_client {
 			nrpe_client::connection_data con(sender, target, handler_);
 			
 			handler_->log_debug(__FILE__, __LINE__, "Connecting to: " + con.to_string());
+
+			BOOST_FOREACH(const std::string &e, con.validate()) {
+				handler_->log_error(__FILE__, __LINE__, e);
+			}
+			
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 

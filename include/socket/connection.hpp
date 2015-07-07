@@ -238,7 +238,10 @@ namespace socket_helpers {
 				else {
 					if (ERR_GET_REASON(e.value()) == SSL_R_NO_SHARED_CIPHER) {
 						parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we cant agree on SSL: " + utf8::utf8_from_native(e.message()));
-						parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the legacy as well as ssl options in settings.");
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the insecure options as well as ssl options in settings.");
+					} else if (ERR_GET_REASON(e.value()) == SSL_R_UNKNOWN_PROTOCOL) {
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Seems we other end is not using ssl: " + utf8::utf8_from_native(e.message()));
+						parent_type::protocol_->log_error(__FILE__, __LINE__, "Please review the ssl option as well as ssl options in settings.");
 					} else {
 						parent_type::protocol_->log_error(__FILE__, __LINE__, "Failed to establish secure connection: " + utf8::utf8_from_native(e.message()) + ": " + strEx::s::xtos(ERR_GET_REASON(e.value())));
 					}

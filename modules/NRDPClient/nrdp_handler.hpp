@@ -20,7 +20,9 @@ namespace nrdp_handler {
 
 		nrdp_target_object(std::string alias, std::string path) : parent(alias, path) {
 			set_property_int("timeout", 30);
-			
+		}
+
+		nrdp_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {
 		}
 
 
@@ -54,6 +56,9 @@ namespace nrdp_handler {
 
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
 			return boost::make_shared<nrdp_target_object>(alias, path);
+		}
+		virtual nscapi::settings_objects::object_instance clone(nscapi::settings_objects::object_instance parent, const std::string alias, const std::string path) {
+			return boost::make_shared<nrdp_target_object>(parent, alias, path);
 		}
 
 

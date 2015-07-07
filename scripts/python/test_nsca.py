@@ -330,7 +330,6 @@ class NSCAServerTest(BasicTest):
 		conf.set_string('/settings/NSCA/test_nsca_server', 'inbox', 'nsca_test_inbox')
 		conf.set_string('/settings/NSCA/test_nsca_server', 'encryption', '1')
 
-		conf.set_string('/settings/NSCA/test_nsca_client/targets', 'nsca_test_local', 'nsca://127.0.0.1:15667')
 		conf.set_string('/settings/NSCA/test_nsca_client', 'channel', 'nsca_test_outbox')
 		
 		conf.save()

@@ -36,7 +36,6 @@ class NRPEClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::string channel_;
-	std::string target_path;
 
 	client::configuration client_;
 

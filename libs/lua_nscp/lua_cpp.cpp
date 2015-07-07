@@ -57,8 +57,12 @@ bool lua::lua_wrapper::get_string(std::string &str, int pos) {
 		str = lua_tostring(L, pos);
 	else if (is_number(pos))
 		str = strEx::s::xtos(lua_tonumber(L, pos));
-	else
+	else if (is_nil(pos))
+		str = "NIL";
+	else {
+		NSC_DEBUG_MSG("Cannot convert " + strEx::s::xtos(type(pos)) + " to string");
 		return false;
+	}
 	return true;
 }
 bool lua::lua_wrapper::get_raw_string(std::string &str, int pos) {
@@ -417,18 +421,6 @@ int lua::lua_wrapper::gc(int what, int data)
 {
 	return lua_gc(L, what, data);
 }
-
-
-
-
-
-std::string lua::w2s(std::wstring s) {
-	return utf8::cvt<std::string>(s);
-}
-std::wstring lua::s2w(std::string s) {
-	return utf8::cvt<std::wstring>(s);
-}
-
 
 void lua::lua_wrapper::remove_userdata(std::string id) {
 	lua_pushstring(L, id.c_str());

@@ -875,33 +875,45 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		Plugin::QueryResponseMessage response_message;
 		request_message.ParseFromString(request);
 
-
 		typedef boost::unordered_map<int, command_chunk> command_chunk_type;
 		command_chunk_type command_chunks;
 
-		std::string commands;
-		for (int i=0;i<request_message.payload_size(); i++) {
-			::Plugin::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
-			payload->set_command(commands_.make_key(payload->command()));
-			nsclient::commands::plugin_type plugin = commands_.get(payload->command());
+		std::string missing_commands;
+
+		if (request_message.header().has_command()) {
+			std::string command = request_message.header().command();
+			nsclient::commands::plugin_type plugin = commands_.get(command);
 			if (plugin) {
 				unsigned int id = plugin->get_id();
-				if (command_chunks.find(id) == command_chunks.end()) {
-					command_chunks[id].plugin = plugin;
-					command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
-				}
-				command_chunks[id].request.add_payload()->CopyFrom(*payload);
+				command_chunks[id].plugin = plugin;
+				command_chunks[id].request.CopyFrom(request_message);
 			} else {
-				strEx::append_list(commands, payload->command());
+				strEx::append_list(missing_commands, command);
+			}
+		} else {
+			for (int i = 0; i < request_message.payload_size(); i++) {
+				::Plugin::QueryRequestMessage::Request *payload = request_message.mutable_payload(i);
+				payload->set_command(commands_.make_key(payload->command()));
+				nsclient::commands::plugin_type plugin = commands_.get(payload->command());
+				if (plugin) {
+					unsigned int id = plugin->get_id();
+					if (command_chunks.find(id) == command_chunks.end()) {
+						command_chunks[id].plugin = plugin;
+						command_chunks[id].request.mutable_header()->CopyFrom(request_message.header());
+					}
+					command_chunks[id].request.add_payload()->CopyFrom(*payload);
+				} else {
+					strEx::append_list(missing_commands, payload->command());
+				}
 			}
 		}
 
 		if (command_chunks.size() == 0) {
-			LOG_ERROR_CORE("Unknown command(s): " + commands + " available commands: " + commands_.to_string());
+			LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
 			nscapi::protobuf::functions::create_simple_header(response_message.mutable_header());
 			Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
-			payload->set_command(commands);
-			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + commands);
+			payload->set_command(missing_commands);
+			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
 			response = response_message.SerializeAsString();
 			return NSCAPI::hasFailed;
 		}

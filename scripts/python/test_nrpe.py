@@ -81,6 +81,8 @@ class NRPEServerTest(BasicTest):
 			return msg
 
 	def set_request(self, msg):
+		msg.got_simple_response = False
+		msg.got_response = False
 		with sync:
 			self._requests[msg.uuid] = msg
 
@@ -142,7 +144,8 @@ class NRPEServerTest(BasicTest):
 	def submit_payload(self, alias, ssl, length, source, status, msg, perf, target):
 		message = plugin_pb2.QueryRequestMessage()
 		
-		message.header.recipient_id = target
+		message.header.destination_id = target
+		message.header.command = 'nrpe_forward'
 		host = message.header.hosts.add()
 		host.address = "127.0.0.1:15666"
 		host.id = target
@@ -168,7 +171,7 @@ class NRPEServerTest(BasicTest):
 		rmsg.message = msg
 		rmsg.perfdata = perf
 		self.set_request(rmsg)
-		(result_code, response) = self.core.query('nrpe_forward', message.SerializeToString())
+		(result_code, response) = self.core.query('ignored', message.SerializeToString())
 		response_message = plugin_pb2.QueryResponseMessage()
 		response_message.ParseFromString(response)
 		result = TestResult('Testing NRPE: %s for %s'%(alias, target))

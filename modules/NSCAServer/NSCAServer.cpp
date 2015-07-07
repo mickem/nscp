@@ -98,6 +98,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	info_.allowed_hosts.refresh(errors);
 	NSC_LOG_ERROR_LISTS(errors);
 	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
+	NSC_DEBUG_MSG_STD("Starting server on: " + info_.to_string());
 
 	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 

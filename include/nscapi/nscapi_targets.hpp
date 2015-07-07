@@ -25,28 +25,25 @@ namespace nscapi {
 		struct target_object : public nscapi::settings_objects::object_instance_interface {
 			typedef nscapi::settings_objects::object_instance_interface parent;
 
-			net::url address;
-			typedef std::map<std::string,std::string> options_type;
-			options_type options;
+			//net::url address;
 
 			target_object(std::string alias, std::string path) : parent(alias, path) {}
+			target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 			std::string to_string() const {
 				std::stringstream ss;
-				ss << "{tpl: " << parent::to_string();
-				ss << ", address: " << get_address();
-				BOOST_FOREACH(options_type::value_type o, options) {
-					ss << ", option[" << o.first << "]: " << o.second;
-				}
-				ss << "}";
+				ss << "{tpl: " << parent::to_string()
+					//<< ", address: " << get_address()
+					<< "}";
 				return ss.str();
 			}
+			/*
 			std::string get_address() const {
 				return address.to_string();
 			}
+			*/
 			void set_address(std::string value) {
-				net::url n = net::parse(value);
-				address.apply(n);
+				options["address"] = value;
 			}
 
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
@@ -58,11 +55,9 @@ namespace nscapi {
 				if (is_sample)
 					root_path.set_sample();
 
-				target_object::options_type options;
+				//target_object::options_type options;
 				root_path.add_path()
-					(nscapi::settings_helper::string_map_path(&options),
-					"TARGET DEFENITION", "Target definition for: " + this->alias,
-					"TARGET", "Target definition for: " + this->alias)
+					("TARGET", "Target definition for: " + this->alias)
 					;
 
 				root_path.add_key()
@@ -86,11 +81,6 @@ namespace nscapi {
 
 				settings.register_all();
 				settings.notify();
-
-				BOOST_FOREACH(const target_object::options_type::value_type &kvp, options) {
-					set_property_string(kvp.first, kvp.second);
-				}
-
 			}
 
 
@@ -99,7 +89,7 @@ namespace nscapi {
 				root_path.add_key()
 
 
-					("dh", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+					("dh", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "dh", _1)),
 					"DH KEY", "", true)
 
 					("certificate", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate", _1)),
@@ -108,19 +98,19 @@ namespace nscapi {
 					("certificate key", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate key", _1)),
 					"SSL CERTIFICATE", "", true)
 
-					("certificate format", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate format", _1), "PEM"),
+					("certificate format", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate format", _1)),
 					"CERTIFICATE FORMAT", "", true)
 
 					("ca", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "ca", _1)),
 					"CA", "", true)
 
-					("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "allowed ciphers", _1), "ADH"),
+					("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "allowed ciphers", _1)),
 					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-					("verify mode", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "verify mode", _1), "none"),
+					("verify mode", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "verify mode", _1)),
 					"VERIFY MODE", "", false)
 
-					("use ssl", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "ssl", _1), false),
+					("use ssl", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "ssl", _1)),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 
 					;	
@@ -129,26 +119,17 @@ namespace nscapi {
 
 
 			virtual void translate(const std::string &key, const std::string &value) {
-				if (key == "host")
-					address.host = value;
-				else if (key == "port")
-					address.port = strEx::s::stox<unsigned int>(value);
-				else
+				if (key == "host") {
+					net::url n = net::parse(options["address"]);
+					n.host = value;
+					options["address"] = n.to_string();
+				} else if (key == "port") {
+					net::url n = net::parse(options["address"]);
+					n.port = strEx::s::stox<unsigned int>(value);
+					options["address"] = n.to_string();
+				} else
 					parent::translate(key, value);
 			}
-			/*
-			nscapi::protobuf::types::destination_container to_destination_container() const {
-				nscapi::protobuf::types::destination_container ret;
-				if (!tpl.alias.empty())
-					ret.id = tpl.alias;
-				ret.address.apply(address);
-				BOOST_FOREACH(const options_type::value_type &kvp, options) {
-					ret.data[kvp.first] = kvp.second;
-				}
-				return ret;
-			}
-			*/
-
 		};
 		typedef boost::optional<target_object> optional_target_object;
 		typedef std::map<std::string,std::string> targets_type;

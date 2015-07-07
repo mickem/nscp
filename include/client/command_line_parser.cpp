@@ -137,7 +137,9 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 	Plugin::QueryResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_destination_id())
+	if (request.header().has_recipient_id())
+		target = request.header().recipient_id();
+	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
@@ -148,16 +150,19 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 		object_handler_type::object_instance op = targets.find_object(t);
 		if (op)
 			d.apply(op);
-
+		else {
+			object_handler_type::object_instance op = targets.find_object("default");
+			if (op)
+				d.apply(op);
+		}
 		// Next apply the header object
 		d.apply(t, request.header());
 		s.apply(request.header().sender_id(), request.header());
+		std::string command = request.header().command();
 
-		if (d.has_data("command")) {
-			std::string command = d.get_string_data("command");
+		if (!command.empty()) {
 			// If we have a header command treat the data as a batch
 			i_do_query(s, d, command, request, response, true);
-
 		} else {
 			// Parse each objects command and execute them
 			for (int i=0;i<request.payload_size();i++) {
@@ -196,7 +201,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			custom_command = true;
 			// TODO: Build argument vector here!
 		}
-		if (command.substr(0,8) == "forward_") {
+		if (command.substr(0,8) == "forward_" || command.substr(command.size()-8, 8) == "_forward") {
 			if (!handler->query(s, d, request, response))
 				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 		} else {
@@ -272,7 +277,9 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 	Plugin::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_destination_id())
+	if (request.header().has_recipient_id())
+		target = request.header().recipient_id();
+	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
@@ -283,6 +290,11 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 		object_handler_type::object_instance op = targets.find_object(t);
 		if (op)
 			d.apply(op);
+		else {
+			object_handler_type::object_instance op = targets.find_object("default");
+			if (op)
+				d.apply(op);
+		}
 
 		// Next apply the header object
 		d.apply(t, request.header());
