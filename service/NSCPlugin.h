@@ -151,8 +151,8 @@ public:
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
 	NSCAPI::nagiosReturn fetchMetrics(std::string &request);
 	NSCAPI::nagiosReturn fetchMetrics(char** response_buffer, unsigned int *response_buffer_len);
-	NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const std::string &request);
-	NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const char* buffer, const unsigned int buffer_len);
+	NSCAPI::nagiosReturn submitMetrics(const std::string &request);
+	NSCAPI::nagiosReturn submitMetrics(const char* buffer, const unsigned int buffer_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(const char* data, unsigned int len);
 	void unload_dll(void);

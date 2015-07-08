@@ -497,12 +497,10 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 void client::configuration::i_do_submit(destination_container &s, destination_container &d, std::string command, const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response, bool use_header) {
 	try {
 		boost::program_options::variables_map vm;
-		bool custom_command = false;
 
 		command_type::const_iterator cit = commands.find(command);
 		if (cit != commands.end()) {
 			command = cit->second.command;
-			custom_command = true;
 			// TODO: Build argument vector here!
 		}
 		if (command.substr(0,8) == "forward_") {

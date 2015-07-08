@@ -158,10 +158,7 @@ namespace client {
 	struct destination_container {
 		typedef std::map<std::string, std::string> data_map;
 
-		std::string id;
 		net::url address;
-		std::string comment;
-		//std::set<std::string> tags;
 		int timeout;
 		int retry;
 		data_map data;

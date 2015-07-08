@@ -18,19 +18,6 @@ namespace nrpe_client {
 			address = target.address.host;
 			port_ = target.address.get_port_string("5666");
 
-			/*
-
-			set_property_int("timeout", 30);
-			set_property_string("certificate", "${certificate-path}/certificate.pem");
-			set_property_string("certificate key", "");
-			set_property_string("certificate format", "PEM");
-			set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");
-			set_property_string("verify mode", "none");
-			if (!has_option("insecure"))
-			set_property_bool("insecure", false);
-			set_property_bool("ssl", true);
-			set_property_int("payload length", 1024);
-			*/
 			ssl.enabled = target.get_bool_data("ssl", true);
 			if (target.get_bool_data("insecure", false)) {
 				ssl.certificate = target.get_string_data("certificate");
@@ -57,8 +44,8 @@ namespace nrpe_client {
 			if (!ssl.certificate_key.empty())
 				ssl.certificate_key = handler->expand_path(ssl.certificate_key);
 
-			timeout = target.get_int_data("timeout", 30);
-			retry = target.get_int_data("retry", 3);
+			timeout = target.timeout;
+			retry = target.retry;
 			buffer_length = target.get_int_data("payload length", 1024);
 
 			if (target.has_data("no ssl"))

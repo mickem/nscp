@@ -316,6 +316,7 @@ function TestNRPE:run()
 	result:add(self:test_timeout(false, 1, 30, 104857600))
 	result:add(self:test_timeout(true, 30, 1, 104857600))
 	result:add(self:test_timeout(true, 1, 30, 104857600))
+	nscp.sleep(500)
 	return result
 end
 
