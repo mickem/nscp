@@ -38,6 +38,7 @@ namespace PDH {
 		typedef PDH_STATUS (WINAPI *fpPdhAddCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
 		typedef PDH_STATUS (WINAPI *fpPdhAddEnglishCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
 		typedef PDH_STATUS (WINAPI *fpPdhRemoveCounter)(PDH::PDH_HCOUNTER);
+		typedef PDH_STATUS (WINAPI *fpPdhGetRawCounterValue)(PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER);
 		typedef PDH_STATUS (WINAPI *fpPdhGetFormattedCounterValue)(PDH_HCOUNTER,DWORD,LPDWORD,PPDH_FMT_COUNTERVALUE);
 		typedef PDH_STATUS (WINAPI *fpPdhOpenQuery)(LPCTSTR,DWORD_PTR,PDH_HQUERY*);
 		typedef PDH_STATUS (WINAPI *fpPdhCloseQuery)(PDH_HQUERY);
@@ -56,6 +57,7 @@ namespace PDH {
 		static fpPdhAddCounter pPdhAddCounter;
 		static fpPdhAddEnglishCounter pPdhAddEnglishCounter;
 		static fpPdhRemoveCounter pPdhRemoveCounter;
+		static fpPdhGetRawCounterValue pPdhGetRawCounterValue;
 		static fpPdhGetFormattedCounterValue pPdhGetFormattedCounterValue;
 		static fpPdhOpenQuery pPdhOpenQuery;
 		static fpPdhCloseQuery pPdhCloseQuery;
@@ -91,6 +93,7 @@ namespace PDH {
 			pPdhAddCounter = NULL;
 			pPdhAddEnglishCounter = NULL;
 			pPdhRemoveCounter = NULL;
+			pPdhGetRawCounterValue = NULL;
 			pPdhGetFormattedCounterValue = NULL;
 			pPdhOpenQuery = NULL;
 			pPdhCloseQuery = NULL;
@@ -137,6 +140,7 @@ namespace PDH {
 			pPdhExpandWildCardPath = (fpPdhExpandWildCardPath)::GetProcAddress(PDH_, "PdhExpandWildCardPathA");
 #endif
 			pPdhRemoveCounter = (fpPdhRemoveCounter)::GetProcAddress(PDH_, "PdhRemoveCounter");
+			pPdhGetRawCounterValue = (fpPdhGetRawCounterValue)::GetProcAddress(PDH_, "PdhGetRawCounterValue");
 			pPdhGetFormattedCounterValue = (fpPdhGetFormattedCounterValue)::GetProcAddress(PDH_, "PdhGetFormattedCounterValue");
 			pPdhCloseQuery = (fpPdhCloseQuery)::GetProcAddress(PDH_, "PdhCloseQuery");
 			pPdhCollectQueryData = (fpPdhCollectQueryData)::GetProcAddress(PDH_, "PdhCollectQueryData");
@@ -182,6 +186,11 @@ namespace PDH {
 			if (pPdhRemoveCounter == NULL)
 				throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
 			return PDH::pdh_error(pPdhRemoveCounter(hCounter));
+		}
+		virtual pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER hCounter, LPDWORD dwFormat, PPDH_RAW_COUNTER  pValue) {
+			if (pPdhGetRawCounterValue == NULL)
+				throw pdh_exception("Failed to initialize PdhGetRawCounterValue :(");
+			return PDH::pdh_error(pPdhGetRawCounterValue(hCounter, dwFormat, pValue));
 		}
 		virtual pdh_error PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) {
 			if (pPdhGetFormattedCounterValue == NULL)

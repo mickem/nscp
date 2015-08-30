@@ -26,6 +26,8 @@
 #include <sstream>
 #include <error.hpp>
 
+#include <buffer.hpp>
+
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_enumerations.hpp>
 
@@ -34,28 +36,54 @@ namespace PDH {
 	std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
 		std::list<std::string> ret;
 		std::wstring wquery = utf8::cvt<std::wstring>(query);
-		TCHAR* szBuffer = NULL;
-		DWORD dwBufLen = 0;
+		hlp::buffer<TCHAR> buffer(1024);
+		DWORD dwBufLen = buffer.size();
 		try {
-			pdh_error status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), szBuffer, &dwBufLen, 0);
+			pdh_error status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
 			if (status.is_more_data()) {
-				szBuffer = new TCHAR[dwBufLen+1];
-				pdh_error status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), szBuffer, &dwBufLen, 0);
+				buffer.resize(dwBufLen+10);
+				dwBufLen = buffer.size();
+				status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
+			}
+			if (status.is_not_found()) {
+				error = status.get_message();
+				status = factory::get_impl()->PdhExpandWildCardPath(NULL, wquery.c_str(), buffer, &dwBufLen, 0);
+
+				HQUERY hQuery;
+				status = factory::get_impl()->PdhOpenQuery(NULL, NULL, &hQuery);
 				if (status.is_error()) {
-					delete [] szBuffer;
 					return ret;
 				}
 
-				if (dwBufLen > 0) {
-					TCHAR *cp=szBuffer;
-					while(*cp != L'\0') {
-						ret.push_back(utf8::cvt<std::string>(cp));
-						cp += wcslen(cp)+1;
-					}
+				// TODO Create query: QUERY
+				PDH_HCOUNTER hCounter;
+				status = factory::get_impl()->PdhAddEnglishCounter(hQuery, wquery.c_str(), NULL, &hCounter);
+				if (status.is_error()) {
+					return ret;
 				}
-				delete [] szBuffer;
-			} else if (status.is_error()) {
+				
+				hlp::buffer<TCHAR, PDH_COUNTER_INFO*> tBuf2(2048);
+				DWORD bufSize = tBuf2.size();
+
+				status = factory::get_impl()->PdhGetCounterInfo(hCounter, FALSE, &bufSize, tBuf2.get());
+				if (status.is_error()) {
+					return ret;
+				}
+				std::wstring counterName = tBuf2.get()->szFullPath;
+				error = "";
+				return expand_wild_card_path(utf8::cvt<std::string>(counterName), error);
+			}
+			if (status.is_error()) {
 				error = status.get_message();
+				return ret;
+			}
+			if (dwBufLen > 0) {
+				TCHAR *cp=buffer.get();
+				while(*cp != L'\0') {
+					std::wstring tmp = cp;
+					ret.push_back(utf8::cvt<std::string>(tmp));
+					cp += wcslen(cp)+1;
+				}
 			}
 		} catch (std::exception &e) {
 			error = utf8::utf8_from_native(e.what());
