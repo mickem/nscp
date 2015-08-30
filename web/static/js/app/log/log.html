@@ -1,0 +1,40 @@
+<div class="panel panel-primary">
+	<div class="panel-heading">
+		<h3 class="panel-title pull-left">Log</h3>
+		<div class="btn-group pull-right">
+			<span data-bind="foreach: filters">
+				<a class="label" href="#" data-bind="click: $parent.setActiveFilter, text: title, attr: {text: title}, css: { 'label-info': css()=='info', 'label-danger': css()=='error' || css() == 'critical', 'label-default': css()=='debug', 'label-warning': css()=='warning', 'label-primary': css()=='inactive'}"></a>
+			</span>
+		</div>
+		<div class="clearfix"></div>
+	</div>
+	<div class="panel-body">
+		<table class="table table-condensed log-table-striped ">
+			<thead>
+				<tr>
+					<th>Type</th>
+					<th>Date</th>
+					<th>Message</th>
+				</tr>
+			</thead>   
+			<tbody data-bind="foreach: filteredLog">
+				<tr data-bind="click: $data.showMore">
+					<td><span class="label" data-bind="text: type, css: { 'label-info': type=='info', 'label-danger': type=='error' || type == 'critical', 'label-default': type=='debug', 'label-warning': type=='warning'}"></span></td>
+					<td style="white-space: nowrap;" data-bind="text: date"></td>
+					<td data-bind="text: message"></td>
+				</tr>
+				<tr data-bind="visible: showDetails">
+					<td>&nbsp;</td>
+					<td colspan="2">
+						<a href="#" data-bind="attr: { href: link }, if: link != ''">
+						<span data-bind="text: file"></span>:<span data-bind="text: line"></span>
+						</a data-bind="if: link != ''">
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+	<div class="modal-footer">
+		<button type="button" class="btn btn-danger" data-bind="click: reset">Discard</button>
+	</div>
+</div>

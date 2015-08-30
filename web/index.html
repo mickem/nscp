@@ -4,12 +4,23 @@
 			global_token='<%=TOKEN%>';
 		</script>
 
-		<%=INCLUDE:HEAD_META%>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		
+		<link rel="shortcut icon" href="/static/images/favicon.png" />
+	
+		<link rel="stylesheet" href="/static/css/nscp.css" />
+		<link rel="stylesheet" href="/static/css/bootstrap.min.css" />
+		<link rel="stylesheet" href="/static/css/bootstrap-dialog.min.css" />
+		<link rel="stylesheet" href="/static/css/bootstrap-select.min.css" />
+		<link rel="stylesheet" href="/static/css/select2.css" />
+		<link rel="stylesheet" href="/static/css/select2-bootstrap.css" />
+		<link rel="stylesheet" href="/static/css/font-awesome.min.css" />
+		<script type="text/javascript" src="/static/js/lib/require-2.1.18.js" data-main="static/js/main"></script>
 
 		<title>NSClient++</title>
-
-		<script type="text/javascript" src="/static/js/index.js" defer="defer"></script>
-		</script>
 	</head>
 	<body>
 		<div class="container">
@@ -23,26 +34,29 @@
 							<span class="icon-bar"/>
 							<span class="icon-bar"/>
 						</button>
-						<a class="navbar-brand active" href="/index.html<%=TOKEN_TAG%>">NSClient++</a>
+						<a class="navbar-brand" href="#/">NSClient++</a>
 					</div>
-
+					
 					<!-- Collect the nav links, forms, and other content for toggling -->
 					<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
 						<ul class="nav navbar-nav">
-							<li>
-								<a href="/modules.html<%=TOKEN_TAG%>">Modules</a>
+							<li data-bind="css: { active: tab() == 'index' }">
+								<a href="#/">Home</a>
 							</li>
-							<li>
-								<a href="/settings.html<%=TOKEN_TAG%>"><span class="label label-danger" data-bind="visible: nscp_status().settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
+							<li data-bind="css: { active: tab() == 'modules' }">
+								<a href="#/modules">Modules</a>
 							</li>
-							<li>
-								<a href="/queries.html<%=TOKEN_TAG%>">Queries</a>
+							<li data-bind="css: { active: tab() == 'settings' }">
+								<a href="#/settings"><span class="label label-danger" data-bind="visible: nscp_status.settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
 							</li>
-							<li>
-								<a href="/log.html<%=TOKEN_TAG%>"><span class="label label-danger" data-bind="visible: nscp_status().has_issues"><span class="glyphicon glyphicon-warning-sign"></span></span> Log</a>
+							<li data-bind="css: { active: tab() == 'queries' }">
+								<a href="#/queries">Queries</a>
 							</li>
-							<li>
-								<a href="/console.html<%=TOKEN_TAG%>">Console</a>
+							<li data-bind="css: { active: tab() == 'log' }">
+								<a href="#/log"><span class="label label-danger" data-bind="visible: nscp_status.has_issues"><span class="glyphicon glyphicon-warning-sign"></span></span> Log</a>
+							</li>
+							<li data-bind="css: { active: tab() == 'console' }">
+								<a href="#/console">Console</a>
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
@@ -59,25 +73,29 @@
 								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-repeat"></span> Restart <b class="caret"></b></a>
 								<ul class="dropdown-menu">
 									<li>
-										<a data-bind="click: nscp_status().restart"><span class="glyphicon glyphicon-repeat"></span> Restart NSClient++</a>
+										<a data-bind="click: nscp_status.restart"><span class="glyphicon glyphicon-repeat"></span> Restart NSClient++</a>
 									</li>
 								</ul>
 							</li>
 							<li>
-								<a class="glyphicon glyphicon-log-out" data-bind="click: $root.nscp_status().logout"></a>
+								<a class="glyphicon glyphicon-log-out" data-bind="click: $root.nscp_status.logout"></a>
 							</li>
 						</ul>
 					</div>
 				</div>
 			</nav>
 
-			<%=INCLUDE:DIALOGS%>
-
-			<!-- index page -->
-
-
-			<div class="row">
-				<%=INCLUDE:metrics_dashboard%>
+			<!-- ko if: nscp_status.is_busy() -->
+				<div id="busy" class="alert alert-dismissible" data-bind="css: { 'alert-warning': nscp_status.busy_warning(), 'alert-info': !nscp_status.busy_warning() }">
+					<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<i data-bind="visible: nscp_status.busy_warning()" class="fa fa-warning"></i>
+					<i data-bind="visible: !nscp_status.busy_warning()" class="fa fa-spinner fa-spin"></i>
+					<strong data-bind="text: nscp_status.busy_header"></strong>
+					<span data-bind="text: nscp_status.busy_text"></span>
+				</div>
+			<!-- /ko -->
+			<div id="appHost" class="container" data-bind="if: name">
+				<!-- ko component: { name: name, params: data } --><!-- /ko -->
 			</div>
 		</div>
 	</body>
