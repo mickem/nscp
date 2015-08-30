@@ -130,7 +130,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	collector.reset(new pdh_thread(get_core(), get_id()));
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("system", alias, "windows");
-	std::string counter_path = settings.alias().get_settings_path("counters");
+	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
 
 
@@ -145,7 +145,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("service mapping", "SERVICE MAPPING SECTION", "Configure which services has to be in which state")
 
-		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, get_settings_proxy(), counter_path, _1, _2)), 
+		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)), 
 		"COUNTERS", "Add counters to check",
 		"COUNTER", "For more configuration options add a dedicated section")
 
@@ -1075,10 +1075,15 @@ void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request,
 	pdh_checker.check_pdh(collector, request, response);
 }
 
-void CheckSystem::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query) {
-	pdh_checker.add_counter(proxy, key, query);
+void CheckSystem::add_counter(std::string key, std::string query) {
+	pdh_checker.add_counter(get_settings_proxy(), key, query);
 }
 
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, long long value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_int_data(value);
+}
 void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, unsigned long long value) {
 	Plugin::Common::Metric *m = b->add_value();
 	m->set_key(key);
@@ -1089,7 +1094,31 @@ void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, std::s
 	m->set_key(key);
 	m->mutable_value()->set_string_data(value);
 }
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, double value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_float_data(value);
+}
 
+
+class add_visitor {
+
+	Plugin::Common::MetricsBundle *b;
+	const std::string &key;
+
+public:
+	add_visitor(Plugin::Common::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
+	void operator()(const long long &i) const {
+		add_metric(b, key, i);
+	}
+
+	void operator()(const std::string & s) const {
+		add_metric(b, key, s);
+	}
+	void operator()(const double & d) const {
+		add_metric(b, key, d);
+	}
+};
 void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("system");
@@ -1149,17 +1178,19 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		add_metric(section, "uptime", format::itos_as_time(value * 1000));
 		add_metric(section, "boot", format::format_date(boot));
 
-	}
-	catch (...) {
+	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
+
+
 	try {
 		Plugin::Common::MetricsBundle *section = bundle->add_children();
-		section->set_key("handles");
+		section->set_key("metrics");
 
-		add_metric(section, "handles", collector->get_handles());
-		add_metric(section, "threads", collector->get_threads());
-		add_metric(section, "processes", collector->get_procs());
+		BOOST_FOREACH(const pdh_thread::metrics_hash::value_type &e, collector->get_metrics()) {
+			add_visitor adder(section, e.first);
+			boost::apply_visitor(adder, e.second);
+		}
 
 	}
 	catch (...) {

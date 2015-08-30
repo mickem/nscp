@@ -66,16 +66,17 @@ void pdh_thread::thread_proc() {
 	{
 		PDH::PDHQuery tmpPdh;
 		BOOST_FOREACH(PDH::pdh_object obj, configs_) {
-			PDH::pdh_instance instance = PDH::factory::create(obj);
-
-			if (instance->has_instances()) {
-				BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) { 
-					tmpPdh.addCounter(sc);
-				}
-			} else {
-				tmpPdh.addCounter(instance);
-			}
 			try {
+				PDH::pdh_instance instance = PDH::factory::create(obj);
+
+				if (instance->has_instances()) {
+					BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) {
+						tmpPdh.addCounter(sc);
+					}
+				} else {
+					tmpPdh.addCounter(instance);
+				}
+
 				tmpPdh.open();
 				counters_.push_back(instance);
 				lookups_[instance->get_name()] = instance;
@@ -119,8 +120,14 @@ void pdh_thread::thread_proc() {
 		try {
 			pdh.open();
 		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_EXR("Failed to open counters (thread will now die): ", e);
-			return;
+			NSC_LOG_ERROR_EXR("Failed to open counters (performance counters disabled)", e);
+			check_pdh = false;
+		}
+		try {
+			pdh.collect();
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_EXR("Failed to collect counters (performance counters disabled): ", e);
+			check_pdh = false;
 		}
 	}
 
@@ -160,27 +167,12 @@ void pdh_thread::thread_proc() {
 		std::list<std::string>	errors;
 		{
 
-			unsigned long long handlesTmp = 0;
-			unsigned long long procTmp = 0;
-			unsigned long long threadTmp = 0;
+			long long handlesTmp = 0;
+			long long procTmp = 0;
+			long long threadTmp = 0;
 
 			try {
-
-				NSC_error_pdh err;
-
-				try {
-					process_helper::enable_token_privilege(SE_DEBUG_NAME, true);
-				} catch (nscp_exception &e) {
-					errors.push_back(e.reason());
-				}
-
 				hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> buffer = windows::system_info::get_system_process_information();
-
-				try {
-					process_helper::enable_token_privilege(SE_DEBUG_NAME, false);
-				} catch (nscp_exception &e) {
-					errors.push_back(e.reason());
-				}
 				windows::winapi::SYSTEM_PROCESS_INFORMATION* b = buffer.get();
 				while (b != NULL) {
 
@@ -210,9 +202,21 @@ void pdh_thread::thread_proc() {
 					cpu.push(load);
 					if (check_pdh)
 						pdh.gatherData();
-					handles = handlesTmp;
-					threads = threadTmp;
-					procs = procTmp;
+
+					BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
+						if (e.second->has_instances()) {
+							BOOST_FOREACH(const PDH::pdh_instance i, e.second->get_instances()) {
+								metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
+							}
+						} else {
+							metrics["pdh." + e.first] = e.second->get_int_value();
+						}
+					}
+
+					metrics["procs.handles"] = handlesTmp;
+					metrics["procs.threads"] = threadTmp;
+					metrics["procs.procs"] = procTmp;
+
 
 				} catch (const PDH::pdh_exception &e) {
 					if (first) {
@@ -346,33 +350,14 @@ std::map<std::string,windows::system_info::load_entry> pdh_thread::get_cpu_load(
 	return ret;
 }
 
-unsigned long long pdh_thread::get_handles() {
+pdh_thread::metrics_hash pdh_thread::get_metrics() {
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
 		NSC_LOG_ERROR("Failed to get Mutex for: cput");
-		return 0;
+		return metrics_hash();
 	}
-	return handles;
+	return metrics_hash(metrics);
 }
-
-
-unsigned long long pdh_thread::get_procs() {
-	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR("Failed to get Mutex for: cput");
-		return 0;
-	}
-	return procs;
-}
-unsigned long long pdh_thread::get_threads() {
-	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR("Failed to get Mutex for: threads");
-		return 0;
-	}
-	return threads;
-}
-
 
 
 

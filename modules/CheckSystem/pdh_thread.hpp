@@ -25,6 +25,7 @@
 #include <boost/shared_ptr.hpp>
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
+#include <boost/variant.hpp>
 
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_query.hpp>
@@ -124,6 +125,10 @@ public:
 };
 
 class pdh_thread {
+public:
+	typedef boost::variant<std::string, long long, double> value_type;
+	typedef boost::unordered_map<std::string, value_type> metrics_hash;
+
 private:
 	typedef boost::unordered_map<std::string,PDH::pdh_instance> lookup_type;
 
@@ -133,12 +138,11 @@ private:
 	int plugin_id;
 	nscapi::core_wrapper *core;
 
+	metrics_hash metrics;
+
 	std::list<PDH::pdh_object> configs_;
 	std::list<PDH::pdh_instance> counters_;
 	rrd_buffer<windows::system_info::cpu_load> cpu;
-	unsigned long long handles;
-	unsigned long long procs;
-	unsigned long long threads;
 	lookup_type lookups_;
 public:
 
@@ -157,9 +161,7 @@ public:
 	std::map<std::string,double> get_average(std::string counter, long seconds);
 	std::map<std::string,long long> get_int_value(std::string counter);
 	std::map<std::string,windows::system_info::load_entry> get_cpu_load(long seconds);
-	unsigned long long get_handles();
-	unsigned long long get_procs();
-	unsigned long long get_threads();
+	metrics_hash get_metrics();
 
 	bool start();
 	bool stop();
