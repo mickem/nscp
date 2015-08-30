@@ -265,7 +265,10 @@ namespace nscapi {
 							object->is_template = false;
 						}
 					}
+					object->value = value;
 					object->read(proxy, keys.empty(), false);
+				} else {
+					object->value = value;
 				}
 				if (is_template || object->is_template) {
 					add_template(object);
