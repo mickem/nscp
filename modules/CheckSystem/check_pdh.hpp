@@ -28,8 +28,8 @@ namespace check_pdh {
 		counter_config_object(std::string alias, std::string path) 
 			: parent(alias, path)
 			, collection_strategy("static")
-			, instances("none")
-			, type("large")
+			, instances("auto")
+			, type("double")
 		{}
 
 		// Runtime items
