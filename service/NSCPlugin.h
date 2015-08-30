@@ -186,10 +186,10 @@ public:
 	inline std::string getFilename() const {
 		return module_.get_filename();
 	}
-	inline std::string get_alias_or_name() const {
+	inline std::string get_alias_or_name() {
 		if (!alias_.empty())
 			return alias_;
-		return getFilename();
+		return getModule();
 	}
 	std::string getModule() {
 #ifndef WIN32

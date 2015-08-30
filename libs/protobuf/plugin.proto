@@ -473,6 +473,7 @@ message RegistryResponseMessage {
 			repeated string plugin = 1;
 			required Registry.ItemType type = 2;
 			required string name = 3;
+			optional string id = 6;
 			optional Registry.Information info = 4;
 			optional Registry.ParameterDetails parameters = 5;
 

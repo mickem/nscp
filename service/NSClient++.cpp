@@ -1270,7 +1270,7 @@ std::string NSClientT::get_plugin_module_name(unsigned int plugin_id) {
 	plugin_type plugin = find_plugin(plugin_id);
 	if (!plugin)
 		return "";
-	return plugin->getModule();
+	return plugin->get_alias_or_name();
 }
 void NSClientT::listPlugins() {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
@@ -1930,6 +1930,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 									cache.emplace(plugin->getModule());
 									rpp->set_name(plugin->getModule());
 									rpp->set_type(Plugin::Registry_ItemType_MODULE);
+									rpp->set_id(plugin->get_alias_or_name());
 									rpp->mutable_info()->add_plugin(plugin->getModule());
 									rpp->mutable_info()->set_title(plugin->getName());
 									rpp->mutable_info()->set_description(plugin->getDescription());
