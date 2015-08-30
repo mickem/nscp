@@ -975,6 +975,8 @@ void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBu
 			node.insert(json_spirit::Object::value_type(v.key(), v.value().int_data()));
 		else if (value.has_string_data())
 			node.insert(json_spirit::Object::value_type(v.key(), v.value().string_data()));
+		else if (value.has_float_data())
+			node.insert(json_spirit::Object::value_type(v.key(), v.value().float_data()));
 		else
 			node.insert(json_spirit::Object::value_type(v.key(), "TODO"));
 	}
