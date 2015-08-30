@@ -68,8 +68,13 @@ namespace parsers {
 			virtual bool has_error() const = 0;
 			virtual std::string get_error() const = 0;
 			virtual void error(const std::string) = 0;
-//			virtual void* get_context() = 0;
 			virtual void clear_errors() = 0;
+
+			virtual void enable_debug(bool enable_debug) = 0;
+			virtual bool has_debug() const = 0;
+			virtual std::string get_debug() const = 0;
+			virtual void debug(const std::string) = 0;
+			virtual void clear_debug() = 0;
 		};
 		typedef boost::shared_ptr<evaluation_context_interface> evaluation_context;
 

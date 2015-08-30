@@ -263,6 +263,8 @@ namespace modern_filter {
 				error_handler.reset(new error_handler_impl(debug));
 			else
 				error_handler->set_debug(debug);
+			if (debug)
+				set_debug(true);
 
 			if (!filter.empty()) engine_filter.reset(new parsers::where::engine(filter, error_handler));
 			if (!ok.empty()) engine_ok.reset(new parsers::where::engine(ok, error_handler));
@@ -301,6 +303,9 @@ namespace modern_filter {
 				add_manual_perf(p);
 			}
 			return true;
+		}
+		void set_debug(bool debug) {
+			context->enable_debug(debug);
 		}
 		bool has_errors() const {
 			if (error_handler)
@@ -383,6 +388,8 @@ namespace modern_filter {
 				else
 					summary.matched(current);
 				if (engine_crit && engine_crit->match(context)) {
+					if (error_handler && error_handler->is_debug())
+						error_handler->log_debug("Crit match: " + current);
 					if (second_unique_match)
 						summary.matched_crit_unique();
 					else
@@ -390,6 +397,8 @@ namespace modern_filter {
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 					matched_bound = true;
 				} else if (engine_warn && engine_warn->match(context)) {
+					if (error_handler && error_handler->is_debug())
+						error_handler->log_debug("Warn match: " + current);
 					if (second_unique_match)
 						summary.matched_warn_unique();
 					else
@@ -397,6 +406,8 @@ namespace modern_filter {
 					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 					matched_bound = true;
 				} else if (engine_ok && engine_ok->match(context)) {
+					if (error_handler && error_handler->is_debug())
+						error_handler->log_debug("Ok match: " + current);
 					// TODO: Unsure of this, should this not re-set matched?
 					// What is matched for?
 					if (second_unique_match)
@@ -416,7 +427,13 @@ namespace modern_filter {
 					has_matched = true;
 				}
 			} else if (error_handler && error_handler->is_debug()) {
-				error_handler->log_debug("Did not match: " + renderer_detail.render(context));
+				error_handler->log_debug("Filter did not match: " + renderer_detail.render(context));
+			}
+			if (error_handler && error_handler->is_debug()) {
+				if (context->has_debug()) {
+					error_handler->log_debug(context->get_debug());
+					context->clear_debug();
+				}
 			}
 			return match_result(matched_filter, matched_bound);
 		}
@@ -442,6 +459,10 @@ namespace modern_filter {
 				matched = true;
 			} else if (error_handler && error_handler->is_debug()) {
 				error_handler->log_debug("Crit/warn/ok did not match: <END>");
+				if (context->has_debug()) {
+					error_handler->log_debug(context->get_debug());
+					context->clear_debug();
+				}
 			}
 			return matched;
 		}
