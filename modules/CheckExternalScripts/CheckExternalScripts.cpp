@@ -45,20 +45,37 @@ CheckExternalScripts::CheckExternalScripts() {}
 CheckExternalScripts::~CheckExternalScripts() {}
 
 void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
+	std::string pattern = "*.*";
 	boost::filesystem::path path(str_path);
-	if (path.has_relative_path())
-		path = get_base_path() / path;
-	file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
-	if (!boost::filesystem::is_directory(split_path.first))
-		NSC_LOG_ERROR_STD("Path was not found: " + split_path.first.string());
-
-	boost::regex pattern(split_path.second.string());
-	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
-	for ( boost::filesystem::directory_iterator itr( split_path.first ); itr != end_itr; ++itr ) {
+	if (!boost::filesystem::is_directory(path)) {
+		if (path.has_relative_path())
+			path = get_base_path() / path;
+		if (!boost::filesystem::is_directory(path)) {
+			file_helpers::patterns::pattern_type split_path = file_helpers::patterns::split_pattern(path);
+			if (!boost::filesystem::is_directory(split_path.first)) {
+				NSC_LOG_ERROR_STD("Path was not found: " + split_path.first.string());
+				return;
+			}
+			path = split_path.first;
+			pattern = split_path.second.string();
+		}
+	}
+	NSC_DEBUG_MSG("Using script path: " + path.string());
+	boost::regex re;
+	try {
+		std::string pre = file_helpers::patterns::glob_to_regexp(pattern);
+		NSC_DEBUG_MSG("Using regexp: " + pre);
+		re = pre;
+	} catch (std::exception &e) {
+		NSC_LOG_ERROR_EXR("Invalid pattern: " + pattern, e);
+		return;
+	}
+	boost::filesystem::directory_iterator end_itr;
+	for (boost::filesystem::directory_iterator itr(path); itr != end_itr; ++itr) {
 		if ( !is_directory(itr->status()) ) {
 			std::string name = file_helpers::meta::get_filename(itr->path());
-			if (regex_match(name, pattern))
-				add_command(name, (split_path.first / name).string());
+			if (regex_match(name, re))
+				add_command(name, itr->path().string());
 		}
 	}
 }
