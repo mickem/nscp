@@ -15,21 +15,26 @@ namespace parsers {
 			return ret;
 		}
 
-		long long list_node::get_int_value(evaluation_context errors) const {
-			long long ret = 0;
-			BOOST_FOREACH(const node_type n, value_) {
-				ret += n->get_int_value(errors);
+		value_container list_node::get_value(evaluation_context errors, int type) const {
+			if (type == type_int) {
+				errors->error("Cant get number from a list");
+				return value_container::create_nil();
 			}
-			return ret;
-		}
-		std::string list_node::get_string_value(evaluation_context errors) const {
-			std::string ret;
-			BOOST_FOREACH(const node_type n, value_) {
-				if (!ret.empty())
-					ret += ", ";
-				ret += n->get_string_value(errors);
+			if (type == type_float) {
+				errors->error("Cant get number from a list");
+				return value_container::create_nil();
 			}
-			return ret;
+			if (type == type_string) {
+				std::string s;
+				BOOST_FOREACH(const node_type n, value_) {
+					if (!s.empty())
+						s += ", ";
+					s += n->get_string_value(errors);
+				}
+				return value_container::create_string(s);
+			}
+			errors->error("Invalid type");
+			return value_container::create_nil();
 		}
 
 		node_type list_node::evaluate(evaluation_context errors) const {

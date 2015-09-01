@@ -29,8 +29,10 @@ namespace parsers {
 
 		enum NSCAPI_EXPORT value_type {
 			type_invalid = 99, type_tbd = 66, type_multi = 88,
-			type_int = 1, type_bool = 2, 
-			type_string = 10, 
+			type_int = 1, 
+			type_bool = 2,
+			type_float = 3,
+			type_string = 10,
 			type_date = 20, 
 			type_size = 30, 
 			type_custom_int = 1024,
@@ -56,11 +58,137 @@ namespace parsers {
 			type_custom_string_8 = 2048+8,
 			type_custom_string_9 = 2048+9,
 			type_custom_string_end = 2048+100,
+			type_custom_float = 3096,
+			type_custom_float_1 = 3096 + 1,
+			type_custom_float_2 = 3096 + 2,
+			type_custom_float_3 = 3096 + 3,
+			type_custom_float_4 = 3096 + 4,
+			type_custom_float_5 = 3096 + 5,
+			type_custom_float_6 = 3096 + 6,
+			type_custom_float_7 = 3096 + 7,
+			type_custom_float_8 = 3096 + 8,
+			type_custom_float_9 = 3096 + 9,
+			type_custom_float_10 = 3096 + 10,
+			type_custom_float_end = 3096 + 100,
 			type_custom = 4096,
 			type_custom_1 = 4096+1,
 			type_custom_2 = 4096+2,
 			type_custom_3 = 4096+3,
 			type_custom_4 = 4096+4
+		};
+
+
+
+		struct NSCAPI_EXPORT value_container {
+			boost::optional<int> i_value;
+			boost::optional<double> f_value;
+			boost::optional<std::string> s_value;
+			bool is_unsure;
+
+			value_container() : is_unsure(false) {}
+			value_container(bool is_unsure) : is_unsure(is_unsure) {}
+			value_container(const value_container &other) : is_unsure(other.is_unsure) {
+				set_value(other);
+			}
+			value_container& operator=(const value_container &other) {
+				is_unsure = other.is_unsure;
+				set_value(other);
+				return *this;
+			}
+			static value_container create_int(long long value, bool is_unsure = false) {
+				value_container ret(is_unsure);
+				ret.set_int(value);
+				return ret;
+			}
+			static value_container create_float(double value, bool is_unsure = false) {
+				value_container ret(is_unsure);
+				ret.set_float(value);
+				return ret;
+			}
+			static value_container create_bool(bool value, bool is_unsure = false) {
+				value_container ret(is_unsure);
+				ret.set_int(value?1:0);
+				return ret;
+			}
+			static value_container create_string(std::string value, bool is_unsure = false) {
+				value_container ret(is_unsure);
+				ret.set_string(value);
+				return ret;
+			}
+			static value_container create_nil(bool is_unsure = false) {
+				value_container ret(is_unsure);
+				return ret;
+			}
+			void set_string(std::string value) {
+				s_value.emplace(value);
+			}
+			void set_string(const value_container &value) {
+				s_value.emplace(*value.s_value);
+			}
+			void set_int(long long value) {
+				i_value.emplace(value);
+			}
+			void set_int(const value_container &value) {
+				i_value.emplace(*value.i_value);
+			}
+			void set_float(double value) {
+				f_value.emplace(value);
+			}
+			void set_float(const value_container &value) {
+				f_value.emplace(*value.f_value);
+			}
+			void set_value(const value_container &value) {
+				if (value.i_value)
+					set_int(value);
+				if (value.f_value)
+					set_float(value);
+				if (value.s_value)
+					set_string(value);
+			}
+			long long get_int() const {
+				if (i_value)
+					return *i_value;
+				if (f_value)
+					return *f_value;
+				throw filter_exception("Type is not int");
+			}
+			double get_float() const {
+				if (i_value)
+					return *i_value;
+				if (f_value)
+					return *f_value;
+				throw filter_exception("Type is not float");
+			}
+			long long get_int(long long def) const {
+				if (i_value)
+					return *i_value;
+				if (f_value)
+					return *f_value;
+				return def;
+			}
+			double get_float(double def) const {
+				if (i_value)
+					return *i_value;
+				if (f_value)
+					return *f_value;
+				return def;
+			}
+			bool is_true() const {
+				if (i_value)
+					return *i_value == 1;
+				return false;
+			}
+			std::string get_string() const;
+			std::string get_string(std::string def) const;
+			bool is(int type) const {
+				if (type == type_int)
+					return i_value.is_initialized();
+				if (type == type_float)
+					return f_value.is_initialized();
+				if (type == type_string)
+					return s_value.is_initialized();
+				return false;
+			}
 		};
 
 
@@ -175,17 +303,26 @@ namespace parsers {
 				return *this;
 			}
 
+			std::string get_string_value(evaluation_context errors) const {
+				return get_value(errors, type_string).get_string("");
+			}
+			long long get_int_value(evaluation_context errors) const {
+				return get_value(errors, type_int).get_int(0);
+			}
+			double get_float_value(evaluation_context errors) const {
+				return get_value(errors, type_float).get_float(0.0);
+			}
 			virtual value_type get_type() const { return type; }
 			virtual void set_type(value_type newtype) { type = newtype; };
 			bool is_int() const;
 			bool is_string() const;
+			bool is_float() const;
 			virtual value_type infer_type(object_converter converter) = 0;
 			virtual value_type infer_type(object_converter converter, value_type suggestion) = 0;
 
 			virtual std::string to_string() const = 0;
 
-			virtual long long get_int_value(evaluation_context errors) const = 0;
-			virtual std::string get_string_value(evaluation_context errors) const = 0;
+			virtual value_container get_value(evaluation_context errors, int type) const = 0;
 			virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;
 
 			virtual bool can_evaluate() const = 0;
@@ -219,12 +356,15 @@ namespace parsers {
 			static NSCAPI_EXPORT node_type create_fun(object_factory factory, const std::string op, node_type node);
 			static NSCAPI_EXPORT node_type create_string(const std::string &value);
 			static NSCAPI_EXPORT node_type create_int(const long long &value);
+			static NSCAPI_EXPORT node_type create_float(const double &value);
 			static NSCAPI_EXPORT node_type create_ios(const long long &value);
 			static NSCAPI_EXPORT node_type create_ios(const std::string &value);
+			static NSCAPI_EXPORT node_type create_ios(const double &value);
 			static NSCAPI_EXPORT node_type create_neg_int(const long long &value);
 			static NSCAPI_EXPORT node_type create_variable(object_factory factory, const std::string &name);
 			static NSCAPI_EXPORT node_type create_false();
 			static NSCAPI_EXPORT node_type create_true();
+			static NSCAPI_EXPORT node_type create_num(value_container value);
 		};
 	}
 }

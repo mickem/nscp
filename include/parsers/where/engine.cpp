@@ -54,13 +54,15 @@ namespace parsers {
 			return true;
 		}
 
-		bool engine::match(execution_context_type context) {
-			bool ret = ast_parser.evaluate(context);
+		bool engine::match(execution_context_type context, bool accept_unsure) {
+			value_container v = ast_parser.evaluate(context);
 			if (context->has_error()) {
 				error->log_error("Error: " + context->get_error());
 			}
 			context->clear_errors();
-			return ret;
+			if (!accept_unsure && v.is_unsure)
+				return false;
+			return v.is_true();
 		}
 	}
 }

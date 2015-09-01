@@ -39,7 +39,7 @@ namespace parsers {
 				return ast_parser.require_object(context);
 			}
 
-			bool match(execution_context_type context);
+			bool match(execution_context_type context, bool accept_unsure);
 
 			std::string get_subject() { return filter_string; }
 		};

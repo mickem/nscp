@@ -12,7 +12,7 @@ namespace parsers {
 			bool derive_types(object_converter converter);
 			bool static_eval(evaluation_context context);
 			bool bind(object_converter context);
-			bool evaluate(evaluation_context context);
+			value_container evaluate(evaluation_context context);
 			bool collect_perfkeys(evaluation_context context, performance_collector &boundries);
 			std::string result_as_tree() const;
 			bool require_object(evaluation_context context) const;

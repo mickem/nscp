@@ -13,6 +13,8 @@ namespace parsers {
 					return "string";
 				if (type == type_int)
 					return "int";
+				if (type == type_float)
+					return "float";
 				if (type == type_date)
 					return "date";
 				if (type == type_size)
@@ -23,15 +25,20 @@ namespace parsers {
 					return "tbd";
 				if (type >= type_custom)
 					return "u:" + strEx::s::xtos(type-type_custom);
+				if (type >= type_custom_float)
+					return "uf:" + strEx::s::xtos(type - type_custom_float);
 				if (type >= type_custom_string)
 					return "us:" + strEx::s::xtos(type-type_custom_string);
 				if (type >= type_custom_int)
-					return "ui:" + strEx::s::xtos(type-type_custom_int);
+					return "ui:" + strEx::s::xtos(type - type_custom_int);
 				return "unknown:" + strEx::s::xtos(type);
 			}
 
 			bool type_is_int(value_type type) {
 				return type == type_int || type == type_bool || type == type_date || type == type_size || (type >= type_custom_int && type < type_custom_int_end);
+			}
+			bool type_is_float(value_type type) {
+				return type == type_float || type == type_int || type == type_bool || type == type_date || type == type_size || (type >= type_custom_int && type < type_custom_int_end) || (type >= type_custom_float && type < type_custom_float_end);
 			}
 			bool type_is_string(value_type type) {
 				return type == type_string || (type >= type_custom_string && type < type_custom_string_end);
@@ -82,15 +89,31 @@ namespace parsers {
 					return false;
 				if (src == type_tbd)
 					return true;
+				if (src == type_int && dst == type_float)
+					return true;
 				if (src == type_int && dst == type_string)
 					return true;
 				if (src == type_int && dst == type_bool)
+					return true;
+				if (src == type_float && dst == type_int)
+					return true;
+				if (src == type_float && dst == type_string)
+					return true;
+				if (src == type_float && dst == type_bool)
 					return true;
 				if (src == type_string && dst == type_int)
 					return true;
 				if (src == type_bool && dst == type_int)
 					return true;
+				if (src == type_string && dst == type_float)
+					return true;
+				if (src == type_bool && dst == type_float)
+					return true;
+				if (src >= type_custom_float && src < type_custom_float_end && dst == type_float)
+					return true;
 				if (src >= type_custom_int && src < type_custom_int_end && dst == type_int)
+					return true;
+				if (src >= type_custom_string && src < type_custom_string_end && dst == type_float)
 					return true;
 				if (src >= type_custom_string && src < type_custom_string_end && dst == type_int)
 					return true;
@@ -160,7 +183,7 @@ namespace parsers {
 				std::list<parsers::where::node_type> list = subject->get_list_value(context);
 				if (list.empty())
 					list.push_back(subject);
-				long long value;
+				long long value = 0;
 				std::string unit = default_unit;
 				std::list<parsers::where::node_type>::const_iterator cit;
 				if (list.size() > 0) {
@@ -169,7 +192,7 @@ namespace parsers {
 				}
 				if (list.size() > 1) {
 					++cit;
-					unit = (*cit)->get_string_value(context);
+					unit = (*cit)->get_value(context, type_string).get_string(unit);
 				}
 				return boost::make_tuple(value, unit);
 			}

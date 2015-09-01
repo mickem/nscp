@@ -16,12 +16,35 @@
 namespace parsers {
 	namespace where {
 
+		std::string value_container::get_string() const {
+			if (i_value)
+				return strEx::s::xtos(*i_value);
+			if (f_value)
+				return strEx::s::xtos(*f_value);
+			if (s_value)
+				return *s_value;
+			throw filter_exception("Type is not string");
+		}
+		std::string value_container::get_string(std::string def) const {
+			if (i_value)
+				return strEx::s::xtos(*i_value);
+			if (f_value)
+				return strEx::s::xtos(*f_value);
+			if (s_value)
+				return *s_value;
+			return def;
+		}
+
+
 		std::string filter_exception::reason() const throw() {
 			return utf8::utf8_from_native(what());
 		}
 
 		bool any_node::is_int() const {
 			return helpers::type_is_int(type);
+		}
+		bool any_node::is_float() const {
+			return helpers::type_is_float(type);
 		}
 		bool any_node::is_string() const {
 			return helpers::type_is_string(type);
@@ -177,6 +200,9 @@ namespace parsers {
 		node_type factory::create_ios(const long long &value) {
 			return create_int(value);
 		}
+		node_type factory::create_ios(const double &value) {
+			return create_float(value);
+		}
 		node_type factory::create_ios(const std::string &value) {
 			return create_string(value);
 		}
@@ -185,6 +211,9 @@ namespace parsers {
 		}
 		node_type factory::create_int(const long long &value) {
 			return node_type(new int_value(value));
+		}
+		node_type factory::create_float(const double &value) {
+			return node_type(new float_value(value));
 		}
 		node_type factory::create_neg_int(const long long &value) {
 			return node_type(new int_value(-value));
@@ -203,6 +232,17 @@ namespace parsers {
 		node_type factory::create_true() {
 			return node_type(new int_value(1));
 		}
+
+		parsers::where::node_type factory::create_num(value_container value) {
+			if (value.is(type_int))
+				return node_type(new int_value(value.get_int(0), value.is_unsure));
+			if (value.is(type_float))
+				return node_type(new float_value(value.get_float(0.0), value.is_unsure));
+			if (value.is(type_string))
+				return node_type(new string_value(value.get_string(0), value.is_unsure));
+			return node_type(new int_value(0));
+		}
+
 	}
 }
 

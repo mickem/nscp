@@ -14,6 +14,7 @@ namespace parsers {
 		namespace helpers {
 			NSCAPI_EXPORT std::string type_to_string(value_type type);
 			NSCAPI_EXPORT bool type_is_int(value_type type);
+			NSCAPI_EXPORT bool type_is_float(value_type type);
 			NSCAPI_EXPORT bool type_is_string(value_type type);
 			NSCAPI_EXPORT value_type get_return_type(operators op, value_type type);
 			NSCAPI_EXPORT std::string operator_to_string(operators const& identifier);
