@@ -202,6 +202,20 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 			// TODO: Build argument vector here!
 		}
 		if (command.substr(0,8) == "forward_" || command.substr(command.size()-8, 8) == "_forward") {
+			BOOST_FOREACH(const Plugin::QueryRequestMessage::Request &p, request.payload()) {
+				if (p.arguments_size() > 0) {
+					BOOST_FOREACH(const std::string &a, p.arguments()) {
+						if (a == "help-pb") {
+							::Plugin::Registry::ParameterDetails details;
+							::Plugin::Registry::ParameterDetail *d = details.add_parameter();
+							d->set_name("*");
+							d->set_short_description("This command will forward all arguments to remote system");
+							nscapi::protobuf::functions::set_response_good_wdata(*response.add_payload(), details.SerializeAsString());
+							return;
+						}
+					}
+				}
+			}
 			if (!handler->query(s, d, request, response))
 				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 		} else {
