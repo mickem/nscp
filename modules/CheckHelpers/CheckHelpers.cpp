@@ -113,6 +113,8 @@ void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const
 	std::vector<std::string> args;
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, args)) 
 		return;
+	if (args.size() == 0)
+		return nscapi::protobuf::functions::set_response_bad(*response, "Needs atleas one command");
 	std::string command = args.front();
 	std::vector<std::string> arguments(args.begin()+1, args.end());
 	Plugin::QueryResponseMessage::Response local_response;
