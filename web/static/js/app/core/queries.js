@@ -15,7 +15,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		if (entry['parameters']['parameter']) {
 			entry['parameters']['parameter'].forEach(function(entry) {
 				entry.first_line = entry.short_description
-				entry.desc = entry.long_description.replace(/\n/g, '<br/>')
+				if (entry.long_description)
+					entry.desc = entry.long_description.replace(/\n/g, '<br/>')
 				self.params.push(entry)
 			})
 		}

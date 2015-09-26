@@ -1,6 +1,23 @@
 
+.state-icon {
+	left: -5px;
+	margin-right: 5px;
+	cursor: pointer;
+}
+
+.breadcrumb {
+     background-color: white;
+     border-radius: 0;
+     -moz-border-radius: 0;
+     -webkit-border-radius: 0;
+     -o-border-radius: 0;
+}
+
+.modules .desc {
+	width: 90%;
+}
 body {
-	padding-top: 20px;
+	padding-top: 70px;
 	padding-bottom: 20px;
 }
 

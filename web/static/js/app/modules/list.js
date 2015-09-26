@@ -1,5 +1,4 @@
 define(['jquery', 'knockout', 'text!app/modules/list.html', 'app/core/modules'], function($, ko, templateString, mods) {
-
 	function ModuleListViewModel() {
 		var self = this;
 

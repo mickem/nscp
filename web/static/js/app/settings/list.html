@@ -1,114 +1,108 @@
-<div class="panel panel-primary">
-	<div class="panel-heading clearfix">
-		<h4 class="panel-title pull-left">Settings</h4>
-		<div class="pull-right action-buttons">
-			<div class="btn-group pull-right">
-				<a data-bind="click: refresh" class="btn btn-sm btn-default"><span class="glyphicon glyphicon-refresh"></span> </a>
-			</div>
-		</div>
+<div class="row">
+	<ol class="breadcrumb pull-left" >
+		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
+		<li><a href="" data-bind="click: refresh">Settings</a></li>
+	</ol>
+</div>
+<div class="row">
+	<div class="col-md-4">
+		<div id="tree"></div>
 	</div>
-	<div class="panel-body">
-		<div class="row">
-			<div class="col-md-4">
-				<div id="tree"></div>
-			</div>
 
-			<!-- ko if: current() -->
-				<div class="col-md-8">
+	<!-- ko if: current() -->
+		<div class="col-md-8">
 
-					<ul class="nav nav-tabs">
-						<li class="active">
-							<a href="#module-desc" data-toggle="tab">
-								<span class="glyphicon glyphicon-home"></span> Info</a>
-						</li>
-						<!-- ko if: keys().length > 0 -->
-							<li>
-								<a href="#module-basic" data-toggle="tab">
-									<span class="glyphicon glyphicon-pencil"></span> Basic</a>
+			<ul class="nav nav-tabs">
+				<li class="active">
+					<a href="#module-desc" data-toggle="tab">
+						<span class="glyphicon glyphicon-home"></span> Info</a>
+				</li>
+				<!-- ko if: keys().length > 0 -->
+					<li>
+						<a href="#module-basic" data-toggle="tab">
+							<span class="glyphicon glyphicon-pencil"></span> Basic</a>
+					</li>
+				<!-- /ko -->
+				<!-- ko if: akeys().length > 0 -->
+					<li>
+						<a href="#module-adv" data-toggle="tab">
+							<span class="glyphicon glyphicon-fire"></span> Advanced</a>
+					</li>
+				<!-- /ko -->
+				<li>
+					<a href="#module-add" data-toggle="tab">
+						<span class="glyphicon glyphicon-plus"></span> Add new</a>
+				</li>
+			</ul>
+		
+			<div class="tab-content">
+				<div class="tab-pane active" id="module-desc">
+					<div class="panel-body">
+						<ul class="list-group">
+							<li class="list-group-item">
+								<h4 class="list-group-item-heading" data-bind="text: current().title"></h4>
+							<p class="list-group-item-text">
+								<strong>Path:</strong><span data-bind="text: current().path"></span>
+							</p>
+							<p class="list-group-item-text">
+								<span data-bind="text: current().desc"></span>
+							</p>
 							</li>
-						<!-- /ko -->
-						<!-- ko if: akeys().length > 0 -->
-							<li>
-								<a href="#module-adv" data-toggle="tab">
-									<span class="glyphicon glyphicon-fire"></span> Advanced</a>
-							</li>
-						<!-- /ko -->
-						<li>
-							<a href="#module-add" data-toggle="tab">
-								<span class="glyphicon glyphicon-plus"></span> Add new</a>
-						</li>
-					</ul>
-				
-					<div class="tab-content">
-						<div class="tab-pane active" id="module-desc">
-							<div class="panel-body">
-								<ul class="list-group">
-									<li class="list-group-item">
-										<h4 class="list-group-item-heading" data-bind="text: current().title"></h4>
-									<p class="list-group-item-text">
-										<strong>Path:</strong><span data-bind="text: current().path"></span>
-									</p>
-									<p class="list-group-item-text">
-										<span data-bind="text: current().desc"></span>
-									</p>
-									</li>
-								</ul>
-							</div>
-						</div>
+						</ul>
+					</div>
+				</div>
 
-						<!-- ko if: keys().length > 0 -->
-							<div class="tab-pane" id="module-basic">
-								<div class="panel-body">
-									<div class="form-horizontal">
-										<settings-list-wdgt params="keys: keys"></settings-list-wdgt>
-										<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save">Save</button>
-										<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo">Undo</button>
-									</div>
-								</div>
-							</div>
-						<!-- /ko -->
-						<!-- ko if: akeys().length > 0 -->
-							<div class="tab-pane" id="module-adv">
-								<div class="panel-body">
-									<div class="form-horizontal">
-										<settings-list-wdgt params="keys: akeys"></settings-list-wdgt>
-										<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save">Save Changes</button>
-										<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo">Cancel</button>
-									</div>
-								</div>
-							</div>
-						<!-- /ko -->
-						<div class="tab-pane" id="module-add">
-							<div class="panel-body">
-								<div class="form-horizontal">
-									<div class="form-group" id="adkeys">
-										<label for="path" class="col-sm-2 control-label">Section</label>
-										<div class="col-sm-10">
-											<input class="form-control" id="path" data-bind="value: newPath"></input>
-											<span class="help-block">Specify the path of the section here</span>
-										</div>
-									</div>
-									<div class="form-group" id="adkeys">
-										<label for="key" class="col-sm-2 control-label">Key</label>
-										<div class="col-sm-10">
-											<input class="form-control" id="key" data-bind="value: newKey"></input>
-											<span class="help-block">Specify the new key to add here</span>
-										</div>
-									</div>
-									<div class="form-group" id="adkeys">
-										<label for="value" class="col-sm-2 control-label">Value</label>
-										<div class="col-sm-10">
-											<input class="form-control" id="value" data-bind="value: newValue"></input>
-											<span class="help-block">Specify the new value to add here</span>
-										</div>
-									</div>
-									<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: add">Add</button>
-								</div>
+				<!-- ko if: keys().length > 0 -->
+					<div class="tab-pane" id="module-basic">
+						<div class="panel-body">
+							<div class="form-horizontal">
+								<settings-list-wdgt params="keys: keys"></settings-list-wdgt>
+								<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save">Save</button>
+								<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo">Undo</button>
 							</div>
 						</div>
 					</div>
+				<!-- /ko -->
+				<!-- ko if: akeys().length > 0 -->
+					<div class="tab-pane" id="module-adv">
+						<div class="panel-body">
+							<div class="form-horizontal">
+								<settings-list-wdgt params="keys: akeys"></settings-list-wdgt>
+								<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save">Save Changes</button>
+								<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo">Cancel</button>
+							</div>
+						</div>
+					</div>
+				<!-- /ko -->
+				<div class="tab-pane" id="module-add">
+					<div class="panel-body">
+						<div class="form-horizontal">
+							<div class="form-group" id="adkeys">
+								<label for="path" class="col-sm-2 control-label">Section</label>
+								<div class="col-sm-10">
+									<input class="form-control" id="path" data-bind="value: newPath"></input>
+									<span class="help-block">Specify the path of the section here</span>
+								</div>
+							</div>
+							<div class="form-group" id="adkeys">
+								<label for="key" class="col-sm-2 control-label">Key</label>
+								<div class="col-sm-10">
+									<input class="form-control" id="key" data-bind="value: newKey"></input>
+									<span class="help-block">Specify the new key to add here</span>
+								</div>
+							</div>
+							<div class="form-group" id="adkeys">
+								<label for="value" class="col-sm-2 control-label">Value</label>
+								<div class="col-sm-10">
+									<input class="form-control" id="value" data-bind="value: newValue"></input>
+									<span class="help-block">Specify the new value to add here</span>
+								</div>
+							</div>
+							<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: add">Add</button>
+						</div>
+					</div>
 				</div>
-			<!-- /ko -->
+			</div>
 		</div>
-	</div>
+	<!-- /ko -->
 </div>

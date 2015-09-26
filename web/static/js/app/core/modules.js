@@ -104,6 +104,12 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				if (entry.plugs.indexOf(self.name()) != -1) {
 					keys.push(entry);
 				}
+				if (entry.path = '/modules' && entry.key == self.name()) {
+					if (entry.value() == "1" || entry.value() == "enabled")
+						self.is_enabled(true)
+					else
+						self.is_enabled(false)
+				}
 				return entry;
 			}, function() {
 				result = u.groupBy(keys, function(item) { return [item.path]; })
@@ -151,7 +157,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 							return item.name() == name;
 						});
 						if (match) {
-							if (entry['value'] == "1" || entry['value'] == "enabled")
+							if (entry['value']['string_data'] == "1" || entry['value']['string_data'] == "enabled")
 								match.is_enabled(true)
 							else
 								match.is_enabled(false)
