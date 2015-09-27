@@ -1101,7 +1101,7 @@ void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, double
 }
 
 
-class add_visitor {
+class add_visitor : public boost::static_visitor<> {
 
 	Plugin::Common::MetricsBundle *b;
 	const std::string &key;
