@@ -120,22 +120,22 @@ namespace parsers {
 				return ret;
 			}
 			void set_string(std::string value) {
-				s_value.emplace(value);
+				s_value = value;
 			}
 			void set_string(const value_container &value) {
-				s_value.emplace(*value.s_value);
+				s_value = *value.s_value;
 			}
 			void set_int(long long value) {
-				i_value.emplace(value);
+				i_value = value;
 			}
 			void set_int(const value_container &value) {
-				i_value.emplace(*value.i_value);
+				i_value = *value.i_value;
 			}
 			void set_float(double value) {
-				f_value.emplace(value);
+				f_value = value;
 			}
 			void set_float(const value_container &value) {
-				f_value.emplace(*value.f_value);
+				f_value = *value.f_value;
 			}
 			void set_value(const value_container &value) {
 				if (value.i_value)
