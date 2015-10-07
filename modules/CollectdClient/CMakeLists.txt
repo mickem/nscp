@@ -26,8 +26,6 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/collectd/collectd_packet.hpp
 		${NSCP_INCLUDEDIR}/collectd/client/collectd_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/socket/client.hpp
-		${NSCP_INCLUDEDIR}/socket/udp_client.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_CLIENT_HPP}
