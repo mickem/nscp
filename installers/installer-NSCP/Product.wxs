@@ -50,11 +50,11 @@
 						<fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
 						<RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
 					</Component>
-					<Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
-						<File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
+          <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
+            <File Id="SampleConfigFull" Name="nsclient-sample.ini" DiskId="1" KeyPath="yes"
 								Source="$(var.Source)/nsclient-full.ini" Vital="no" />
-					</Component>
-					<Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
+          </Component>
+          <Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
 						<File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
 					</Component>
 					<Component Id="GeneratedConfigUser" Guid="BF040814-8FAB-47b9-B700-1E1F0BF420FC" Win64="$(var.Win64)">
@@ -186,8 +186,6 @@
         <ComponentRef Id="LibCommon"/>
 				<ComponentRef Id="LibNSCP"/>
 				<?endif?>
-				<ComponentRef Id="GeneratedConfigUser" />
-				<ComponentRef Id="GeneratedConfig" />
 				<ComponentRef Id="RequiredPlugins"/>
 				<Feature Id="SampleConfig" Title="Sample config" Description="Sample config file (with all options)" Level="1" Absent="allow">
 					<ComponentRef Id="SampleConfig" />
@@ -200,13 +198,26 @@
 					<ComponentRef Id="DotNetPlugins" />
 				</Feature>
 			</Feature>
-			<Feature Id="Documentation" Title="Documentation (html)" Description="Documentation for NSClient++" Level="1" Absent="allow">
+      <Feature Id="Documentation" Title="Documentation (html)" Description="Documentation for NSClient++" Level="1" Absent="allow">
         <ComponentGroupRef Id="HTMLHelp" />
-				<Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
-					<ComponentRef Id="Shortcuts" />
-				</Feature>
-			</Feature>
-			<Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
+        <Feature Id="Shortcuts" Title="Shortcuts" Description="Startmenu shortcuts" Level="1" Absent="allow">
+          <ComponentRef Id="Shortcuts" />
+        </Feature>
+      </Feature>
+        <Feature Id="OP5Config" Title="OP5 Configuration" Description="Configuration to configure NSCLien++ with OP5 monitoring solution" Level="1" Absent="allow">
+          <ComponentGroupRef Id="Op5ConfigResources" />
+        </Feature>
+        <Feature Id="Op5Scripts" Title="OP5 Scripts" Description="Scripts used by OP5 monitoring solution" Level="1" Absent="allow">
+          <ComponentGroupRef Id="Op5ScriptResources" />
+        </Feature>
+          <Feature Id="NSClientConfig" Title="NSClient Configuration" Description="Configuration to configure NSCLien++ with OP5 monitoring solution" Level="1" Absent="allow">
+            <ComponentRef Id="GeneratedConfig" />
+          </Feature>
+          <Feature Id="NSClientConfigUser" Title="NSClient User writable Configuration" Description="Configuration to configure NSCLien++ with OP5 monitoring solution" Level="1" Absent="allow">
+            <ComponentRef Id="GeneratedConfigUser" />
+          </Feature>
+
+      <Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
 				<Feature Id="CheckPlugins" Title="Check Plugins" Description="Various plugins to check your system. (Includes all check plugins)" Level="1">
 					<ComponentRef Id="Plugins" />
 				</Feature>
@@ -237,7 +248,7 @@
 				<Feature Id="LuaScript" Title="Lua Scripting" Description="Allows running INTERNAL scripts written in Lua" Level="1" Absent="allow">
           <ComponentRef Id="LuaScript" />
         </Feature>
-			</Feature>
+      </Feature>
 			<Feature Id="SampleScripts" Title="Scripts" Description="Scripts for checking and testing various aspects of your computer and NSClient++" Level="1" Absent="allow">
 				<ComponentGroupRef Id="ScriptResources" />
 			</Feature>
@@ -263,9 +274,9 @@
 		<InstallExecuteSequence>
 			<RemoveExistingProducts After='InstallValidate'/>
 			<Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-			<Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT REMOVE</Custom>
-			<Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
-			<Custom Action="GenConfig" After="GenConfig.Command">NOT REMOVE AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
+			<Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT (REMOVE ="ALL") </Custom>
+			<Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT (REMOVE ="ALL") AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
+			<Custom Action="GenConfig" After="GenConfig.Command">NOT (REMOVE ="ALL") AND INSTALL_SAMPLE_CONFIG = 1 AND GENERATE_SAMPLE_CONFIG = 1</Custom>
 
 			<Custom Action="SetUserGroupUsers" After="LaunchConditions">NOT Installed</Custom>
 			<Custom Action="SetUserGroupUsersProp" After="SetUserGroupUsers">NOT Installed</Custom>
@@ -290,7 +301,9 @@
 
 		<!-- ### Icons -->
 		<Icon Id="nscp.exe" SourceFile="$(var.Source)/nscp.exe" />
-		<Icon Id="doc.ico" SourceFile="../../resources/help.ico"/>
-		<Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
-	</Product>
+    <Binary Id="OldSettingsMap" SourceFile="$(var.Source)/old-settings.map" />
+    <Binary Id="ModeOP5" SourceFile="$(var.InSource)/Bitmaps/op5-small.bmp" />
+    <Binary Id="ModeGeneric" SourceFile="$(var.InSource)/Bitmaps/generic-small.bmp" />
+
+  </Product>
 </Wix>

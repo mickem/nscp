@@ -1,44 +1,70 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-    <Fragment>
-        <UI>
-            <Dialog Id="ConfigureDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
-                <Control Id="allowed_hostsLabel" Type="Text" X="45" Y="50" Width="60" Height="15" TabSkip="no" Text="Allowed &amp;hosts:" />
-                <Control Id="allowed_hosts" Type="Edit" X="110" Y="50" Width="210" Height="15" Property="ALLOWED_HOSTS" Text="{255}" />
-                <Control Id="nsclient_pwdLabel" Type="Text" X="45" Y="70" Width="60" Height="20" TabSkip="no" Text="Password:" />
-                <Control Id="nsclient_pwdEdit" Type="Edit" X="110" Y="70" Width="210" Height="15" Property="NSCLIENT_PWD" Text="{255}" />
-                <Control Id="checkLabel" Type="GroupBox" X="45" Y="90" Width="280" Height="135" Text="Modules to load:" />
-                <Control Id="checkPluginsLabel" Type="CheckBox" X="50" Y="100" Width="260" Height="15" Property="CONF_CHECKS" Text="Enable &amp;common check plugins" CheckBoxValue="1" />
-                <Control Id="checkNSClientLabel" Type="CheckBox" X="50" Y="115" Width="260" Height="15" Property="CONF_NSCLIENT" Text="Enable nsc&amp;lient server (check_nt)" CheckBoxValue="1" />
-                <Control Id="checkNRPELabel" Type="CheckBox" X="50" Y="130" Width="260" Height="15" Property="CONF_NRPE" Text="Enable &amp;NRPE server (check_nrpe)" CheckBoxValue="1" />
-                <Control Type="RadioButtonGroup" Property="NRPEMODE" Id="setNRPEMode" Width="248" Height="45" X="68" Y="145">
-                  <RadioButtonGroup Property="NRPEMODE">
-                    <RadioButton Text="Insecure legacy mode (required by old check_nrpe)" Height="15" Value="LEGACY" Width="250" X="0" Y="0" />
-                    <RadioButton Text="Safe mode (Use certificates for encryption but not authentication)" Height="15" Value="SAFE" Width="250" X="0" Y="15" />
-                    <RadioButton Text="Secure (Use certificates for authentication)" Height="15" Value="SECURE" Width="200" X="0" Y="30" />
-                  </RadioButtonGroup>
-                  <Condition Action="enable">CONF_NRPE</Condition>
-                  <Condition Action="disable">NOT CONF_NRPE</Condition>
-                </Control>
-                <Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="190" Width="260" Height="15" Property="CONF_NSCA" Text="Enable N&amp;SCA client" CheckBoxValue="1" />
-                <Control Id="checkWEBLabel" Type="CheckBox" X="50" Y="205" Width="260" Height="15" Property="CONF_WEB" Text="Enable &amp;Web server" CheckBoxValue="1" />
-                <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
-                </Control>
-                <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
-                </Control>
-                <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
-                    <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
-                </Control>
-                <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
-                <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
-                    <Text>Basic Configuration, for more option please use WEBUi or command line</Text>
-                </Control>
-                <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
-                <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
-                    <Text>{\WixUI_Font_Title}NSClient++ Configuration</Text>
-                </Control>
-                <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
-            </Dialog>
-        </UI>
-    </Fragment>
+  <Fragment>
+    <UI>
+      <Dialog Id="ConfigureDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+        <Control Id="allowed_hostsLabel" Type="Text" X="45" Y="50" Width="60" Height="15" TabSkip="no" Text="Allowed &amp;hosts:" />
+        <Control Id="allowed_hosts" Type="Edit" X="110" Y="50" Width="210" Height="15" Property="ALLOWED_HOSTS" Text="{255}" />
+        <Control Id="nsclient_pwdLabel" Type="Text" X="45" Y="70" Width="60" Height="20" TabSkip="no" Text="Password:">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="nsclient_pwdEdit" Type="Edit" X="110" Y="70" Width="210" Height="15" Property="NSCLIENT_PWD" Text="{255}">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkLabel" Type="GroupBox" X="45" Y="90" Width="280" Height="135" Text="Modules to load:">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkPluginsLabel" Type="CheckBox" X="50" Y="100" Width="260" Height="15" Property="CONF_CHECKS" Text="Enable &amp;common check plugins" CheckBoxValue="1">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkNSClientLabel" Type="CheckBox" X="50" Y="115" Width="260" Height="15" Property="CONF_NSCLIENT" Text="Enable nsc&amp;lient server (check_nt)" CheckBoxValue="1">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkNRPELabel" Type="CheckBox" X="50" Y="130" Width="260" Height="15" Property="CONF_NRPE" Text="Enable &amp;NRPE server (check_nrpe)" CheckBoxValue="1">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Type="RadioButtonGroup" Property="NRPEMODE" Id="setNRPEMode" Width="252" Height="45" X="68" Y="145">
+          <RadioButtonGroup Property="NRPEMODE">
+            <RadioButton Text="Insecure legacy mode (required by old check_nrpe)" Height="15" Value="LEGACY" Width="250" X="0" Y="0" />
+            <RadioButton Text="Safe mode (Use certificates for encryption but not authentication)" Height="15" Value="SAFE" Width="250" X="0" Y="15" />
+            <RadioButton Text="Secure (Use certificates for authentication)" Height="15" Value="SECURE" Width="250" X="0" Y="30" />
+          </RadioButtonGroup>
+          <Condition Action="enable">CONF_NRPE AND NOT MONITORING_TOOL = "OP5"</Condition>
+          <Condition Action="disable">NOT CONF_NRPE OR MONITORING_TOOL = "OP5"</Condition>
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkNSCALabel" Type="CheckBox" X="50" Y="190" Width="260" Height="15" Property="CONF_NSCA" Text="Enable N&amp;SCA client" CheckBoxValue="1">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="checkWEBLabel" Type="CheckBox" X="50" Y="205" Width="260" Height="15" Property="CONF_WEB" Text="Enable &amp;Web server" CheckBoxValue="1">
+          <Condition Action="show">NOT MONITORING_TOOL = "OP5" OR WixUI_InstallMode = "InstallCustom"</Condition>
+          <Condition Action="hide">MONITORING_TOOL = "OP5" AND NOT WixUI_InstallMode = "InstallCustom"</Condition>
+        </Control>
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Basic Configuration, for more option please use WEBUi or command line</Text>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+          <Text>{\WixUI_Font_Title}NSClient++ Configuration</Text>
+        </Control>
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+      </Dialog>
+    </UI>
+  </Fragment>
 </Wix>

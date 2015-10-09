@@ -77,6 +77,11 @@ public:
 		std::wstring cur = getPropery(path);
 		return old != cur;
 	}
+	bool propertyNotOld(std::wstring path) {
+		std::wstring old = getPropery(path + _T("_OLD"));
+		std::wstring cur = getPropery(path);
+		return old != cur;
+	}
 	std::wstring getPropery(std::wstring path) {
 		wchar_t tmpBuf[MAX_PATH];
 		DWORD len = 0;

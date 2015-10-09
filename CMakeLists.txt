@@ -533,6 +533,8 @@ SET(MAIN_NSCP_TARGET "nscp" "nscp_full_config")
 
 ADD_SUBDIRECTORY("service")
 ADD_SUBDIRECTORY("scripts")
+ADD_SUBDIRECTORY("op5/config")
+ADD_SUBDIRECTORY("op5/scripts")
 ADD_SUBDIRECTORY("web")
 ADD_SUBDIRECTORY("files")
 

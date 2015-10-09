@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <UI>
+      <Dialog Id="MonitoringToolDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
+        </Control>
+        <Control Type="RadioButtonGroup" Property="MONITORING_TOOL" Id="setNRPEMode" Width="252" Height="100" X="45" Y="60">
+          <RadioButtonGroup Property="MONITORING_TOOL">
+            <RadioButton Text="{\WixUI_Font_Bold}Generic" Height="15" Value="GENERIC" Width="100" X="0" Y="0" />
+            <RadioButton Text="{\WixUI_Font_Bold}op5" Height="15" Value="OP5" Width="100" X="0" Y="70" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="GenericLogo" Type="Bitmap" X="60" Y="75" Width="40" Height="40" Text="ModeGeneric"/>
+        <Control Id="DescriptionGeneric" Type="Text" X="100" Y="75" Width="200" Height="50" Transparent="yes" NoPrefix="yes">
+          <Text>In generic mode NSClient++ can be configured to work with any monitoring system.</Text>
+        </Control>
+        <Control Id="Op5Logo" Type="Bitmap" X="60" Y="150" Width="30" Height="30" Text="ModeOP5" />
+        <Control Id="DescriptionOp5" Type="Text" X="100" Y="150" Width="200" Height="50" Transparent="yes" NoPrefix="yes">
+          <Text>op5 Monitor configuration for NSClient++. For more information see https://kb.op5.com/x/VwHx</Text>
+        </Control>
+
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
+          <Publish Event="AddLocal" Value="NSClientConfig" Order="2">MONITORING_TOOL="GENERIC"</Publish>
+          <Publish Event="Remove" Value="OP5Config">MONITORING_TOOL="GENERIC"</Publish>
+          <Publish Event="Remove" Value="Op5Scripts">MONITORING_TOOL="GENERIC"</Publish>
+
+
+          <Publish Property="NSCLIENT_PWD" Value="{}">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="NSCLIENT_PWD_OLD" Value="$EMPTY$">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="NSCLIENT_PWD_DEFAULT" Value="$EMPTY$">MONITORING_TOOL="OP5"</Publish>
+
+          <Publish Property="CONF_CHECKS_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_CHECKS" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_NRPE_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_NRPE" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_NSCA_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_NSCA" Value="1">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_WEB_OLD" Value="0">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONF_WEB" Value="0">MONITORING_TOOL="OP5"</Publish>
+
+          <Publish Property="NRPEMODE_OLD" Value="LEGACY">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="NRPEMODE" Value="LEGACY">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="INSTALL_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="GENERATE_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
+          <Publish Event="AddLocal" Value="OP5Config">MONITORING_TOOL="OP5"</Publish>
+          <Publish Event="AddLocal" Value="Op5Scripts">MONITORING_TOOL="OP5"</Publish>
+          <Publish Event="Remove" Value="NSClientConfig">MONITORING_TOOL="OP5"</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="BannerBitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="44" TabSkip="no" Text="WixUI_Bmp_Banner" />
+        <Control Id="DescriptionWrite" Type="Text" X="25" Y="23" Width="280" Height="15" Hidden="yes" Transparent="yes" NoPrefix="yes">
+          <Text>Basic Configuration, for more option please use WEBUi or command line</Text>
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes">
+          <Text>{\WixUI_Font_Title}Select Monitoring Tool</Text>
+        </Control>
+        <Control Id="BannerLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+      </Dialog>
+    </UI>
+  </Fragment>
+</Wix>

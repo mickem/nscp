@@ -57,34 +57,12 @@ Patch dialog sequence:
       <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
 
       <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
-      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
+      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
 
+      <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+      <Publish Dialog="MonitoringToolDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
 
-      <!--
-        Custom Workflow
-				CONF_HAS_ERRORS=1:  Dont allow anything (inform of issue)
-              SetupTypeDlg -> InvalidConfigureationDlg -> VerifyReadyDlg
-
-				CONF_OLD_FOUND=0:   Allow setting boot.ini
-              SetupTypeDlg -> SelectConfigurationDlg -> ConfigureDlg -> VerifyReadyDlg
-
-				CONF_CAN_CHANGE=1: Allow change
-              SetupTypeDlg -> ConfigureDlg -> VerifyReadyDlg
-
-        UNKNOWN: Dont allow anything (dont tell anyone)
-              SetupTypeDlg -> VerifyReadyDlg
-              
-        Backflows:
-          InvalidConfigureationDlg -> SetupTypeDlg<...>
-          SelectConfigurationDlg -> SetupTypeDlg<...>
-          ConfigureDlg [CONF_OLD_FOUND=0] -> SelectConfigurationDlg
-          ConfigureDlg [*] -> SetupTypeDlg<...>
-          VerifyReadyDlg [CONF_HAS_ERRORS=1] -> InvalidConfigureationDlg
-          VerifyReadyDlg [CONF_OLD_FOUND=0 OR CONF_CAN_CHANGE=1] -> ConfigureDlg
-          VerifyReadyDlg [*] -> SetupTypeDlg<...>
-			   -->
-
-      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+      <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="InvalidConfigureationDlg" Order="4">CONF_HAS_ERRORS = "1"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="SelectConfigurationDlg" Order="3">CONF_OLD_FOUND="0"</Publish>
       <Publish Dialog="SetupTypeDlg" Control="TypicalButton" Event="NewDialog" Value="ConfigureDlg" Order="2">CONF_CAN_CHANGE = "1"</Publish>

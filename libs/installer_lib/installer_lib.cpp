@@ -156,6 +156,7 @@ std::wstring read_map_data(msi_helper &h) {
 
 static const wchar_t alphanum[] = _T("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
 std::wstring genpwd(const int len) {
+	srand((unsigned)time(NULL ));
 	std::wstring ret;
 	for(int i=0; i < len; i++)
 		ret += alphanum[rand() %  ((sizeof(alphanum)/sizeof(wchar_t))-1)];
@@ -307,20 +308,27 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
 
 void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key, std::wstring val = _T("")) {
-	data.write_int(h.propertyTouched(prop)?1:2);
+	if (!h.propertyNotOld(prop)) {
+		h.logMessage(_T("IGNORING property not changed: ") + prop + _T("; ") + path + _T(".") + key + _T("=") + val);
+		return;
+	}
+	data.write_int(1);
 	data.write_string(path);
 	data.write_string(key);
-	if (val.empty())
+	h.logMessage(_T("write_changed_key: ") + prop + _T("; ") + path + _T(".") + key + _T("=") + val);
+	if (val.empty()) {
+		h.logMessage(_T("write_changed_key(e): ") + prop + _T("; ") + path + _T(".") + key + _T("=") + h.getPropery(prop));
 		data.write_string(h.getPropery(prop));
-	else
+	} else
 		data.write_string(val);
 }
 
-void write_key(msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
+void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
 	data.write_int(mode);
 	data.write_string(path);
 	data.write_string(key);
 	data.write_string(val);
+	h.logMessage(_T("write_key: ") + path + _T(".") + key + _T("=") + val);
 }
 
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
@@ -344,29 +352,31 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		write_changed_key(h, data, _T("CONF_NSCLIENT"), modpath, _T("NSClientServer"), modval);
 		write_changed_key(h, data, _T("CONF_WMI"), modpath, _T("CheckWMI"), modval);
 
-		if (h.propertyTouched(_T("CONF_CHECKS"))) {
+		if (h.propertyNotOld(_T("CONF_CHECKS"))) {
 			modval = h.getPropery(_T("CONF_CHECKS"));
-			write_key(data, 1, modpath, _T("CheckSystem"), modval);
-			write_key(data, 1, modpath, _T("CheckDisk"), modval);
-			write_key(data, 1, modpath, _T("CheckEventLog"), modval);
-			write_key(data, 1, modpath, _T("CheckHelpers"), modval);
-			write_key(data, 1, modpath, _T("CheckExternalScripts"), modval);
-			write_key(data, 1, modpath, _T("CheckNSCP"), modval);
+			write_key(h, data, 1, modpath, _T("CheckSystem"), modval);
+			write_key(h, data, 1, modpath, _T("CheckDisk"), modval);
+			write_key(h, data, 1, modpath, _T("CheckEventLog"), modval);
+			write_key(h, data, 1, modpath, _T("CheckHelpers"), modval);
+			write_key(h, data, 1, modpath, _T("CheckExternalScripts"), modval);
+			write_key(h, data, 1, modpath, _T("CheckNSCP"), modval);
 		}
 		if (h.getPropery(_T("CONF_NRPE")) == _T("1")) {
-			std::wstring mode = h.getPropery(_T("NRPEMODE"));
-			if (mode == _T("LEGACY")) {
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("true"));
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T(""));
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T(""));
-			} else {
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("false"));
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T("no-sslv2,no-sslv3"));
+			if (h.propertyNotOld(_T("NRPEMODE"))) {
+				std::wstring mode = h.getPropery(_T("NRPEMODE"));
+				if (mode == _T("LEGACY")) {
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("true"));
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T(""));
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T(""));
+				} else {
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("false"));
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T("no-sslv2,no-sslv3"));
+				}
+				if (mode == _T("SAFE"))
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("peer-cert"));
+				else
+					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("none"));
 			}
-			if (mode == _T("SAFE"))
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("peer-cert"));
-			else
-				write_key(data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("none"));
 		}
 
 		std::wstring defpath = _T("/settings/default");
@@ -442,7 +452,7 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			h.logMessage(_T("Size (002): ") + strEx::xtos(boost::filesystem::file_size(path)));
 
 		h.logMessage("Switching to: " + context);
-		settings_manager::change_context(context);
+		//settings_manager::change_context(context);
 		if (boost::filesystem::exists(path))
 			h.logMessage(_T("Size (003): ") + strEx::xtos(boost::filesystem::file_size(path)));
 

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<!--
+    <Fragment>
+        <DirectoryRef Id="TARGETDIR">
+            <Directory Id="dir388ED20BC3649C8154009E48B7E142E3" Name="config" />
+        </DirectoryRef>
+    </Fragment>
+	-->
+    <Fragment>
+        <ComponentGroup Id="Op5ConfigResources">
+            <Component Id="cmpE4BE56C791618837873416EEC6737535" Directory="INSTALLLOCATION" Guid="{4CEE937F-8299-44C9-9E2A-C6715657D017}">
+                <File Id="fil12615959EF53E3CA708E3B0E2A378671" KeyPath="yes" Source="$(var.ConfigSource)\op5-nsclient.ini" Name="nsclient.ini"/>
+            </Component>
+            <Component Id="cmp4C19ABDC8A46F6A900DDCFAFFE4B40CE" Directory="INSTALLLOCATION" Guid="{2E480BE5-5D51-4140-8725-B1BA7F009EEE}">
+                <File Id="filEBCF895A6776369E394955195B7B4004" KeyPath="yes" Source="$(var.ConfigSource)\op5.ini"/>
+            </Component>
+        </ComponentGroup>
+    </Fragment>
+</Wix>

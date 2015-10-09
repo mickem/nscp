@@ -34,6 +34,8 @@
 	<Property Id="ALLOWED_HOSTS">127.0.0.1,::1</Property>
 	<Property Id="NSCLIENT_PWD">$GEN$</Property>
 
+  <Property Id="MONITORING_TOOL">GENERIC</Property>
+	
 	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
   <Property Id="GENERATE_SAMPLE_CONFIG">1</Property>
   <Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
