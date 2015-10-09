@@ -171,7 +171,7 @@ def create_release():
 	repository = gh.repository('mickem', 'nscp')
 	name = vstring
 	release = None
-	for r in repository.releases():
+	for r in repository.iter_releases():
 		if r.name == name:
 			release = r
 			print "Found old release v%s..."%vstring
@@ -184,7 +184,7 @@ def create_release():
 	if BREAKPAD_FOUND == "TRUE":
 		files.append(target_name)
 
-	for a in release.assets():
+	for a in release.iter_assets():
 		if a.name in files:
 			print "Deleting old file %s..."%name
 			a.delete()
