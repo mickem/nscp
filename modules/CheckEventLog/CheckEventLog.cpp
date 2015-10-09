@@ -143,7 +143,7 @@ bool CheckEventLog::unloadModule() {
 
 typedef hlp::buffer<BYTE, EVENTLOGRECORD*> eventlog_buffer;
 
-inline std::time_t to_time_t(boost::posix_time::ptime t) { 
+inline std::time_t to_time_t_epoch(boost::posix_time::ptime t) { 
 	if( t == boost::date_time::neg_infin ) 
 		return 0; 
 	else if( t == boost::date_time::pos_infin ) 
@@ -153,7 +153,7 @@ inline std::time_t to_time_t(boost::posix_time::ptime t) {
 } 
 
 inline long long parse_time(std::string time) {
-	long long now = to_time_t(boost::posix_time::second_clock::universal_time());
+	long long now = to_time_t_epoch(boost::posix_time::second_clock::universal_time());
 	std::string::size_type p = time.find_first_not_of("-0123456789");
 	if (p == std::string::npos)
 		return now + boost::lexical_cast<long long>(time);

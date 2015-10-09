@@ -52,7 +52,7 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" 
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=${MSVER}-mt-1_56
+	-dBoostTag=${MSVER}-mt-1_58
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
