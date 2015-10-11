@@ -601,6 +601,10 @@ namespace settings {
 		virtual void save_to(instance_ptr other) {
 			if (!other)
 				throw settings_exception("Cant migrate to NULL instance!");
+			if (this->get_context() == other->get_context()) {
+				get_logger()->error("settings", __FILE__, __LINE__, "Cant migrate to the same setting store: " + other->get_context());
+				return;
+			}
 			other->clear_cache();
 			st_copy_section("", other);
 			other->save();
