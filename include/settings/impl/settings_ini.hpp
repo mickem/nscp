@@ -128,6 +128,7 @@ namespace settings {
 				const settings_core::path_description desc = get_core()->get_registred_path(path);
 				if (!desc.description.empty()) {
 					std::string comment = "; " + desc.description;
+					boost::replace_all(comment, "\n", "\n;");
 					ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
 				}
 			} catch (settings_exception e) {
