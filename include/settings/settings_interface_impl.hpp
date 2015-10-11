@@ -52,11 +52,13 @@ namespace settings {
 			settings_core::key_type type;
 			int int_val;
 			std::string string_val;
-			conainer(int value) : type(settings_core::key_integer), int_val(value) {}
-			conainer(bool value) : type(settings_core::key_bool), int_val(value?1:0) {}
-			conainer(std::string value) : type(settings_core::key_string), string_val(value) {}
+			bool is_dirty_;
+			conainer(int value, bool dirty) : type(settings_core::key_integer), int_val(value), is_dirty_(dirty) {}
+			conainer(bool value, bool dirty) : type(settings_core::key_bool), int_val(value ? 1 : 0), is_dirty_(dirty) {}
+			conainer(std::string value, bool dirty) : type(settings_core::key_string), string_val(value), is_dirty_(dirty) {}
 			conainer() : type(settings_core::key_string) {}
 
+			bool is_dirty() const { return is_dirty_; }
 			std::string get_string() const {
 				if (type==settings_core::key_string)
 					return string_val;
@@ -186,7 +188,7 @@ namespace settings {
 				if (!val)
 					val = get_string_from_child_unsafe(lookup);
 				if (val) 
-					settings_cache_[lookup] = *val;
+					settings_cache_[lookup] = conainer(*val, false);
 				return val;
 			}
 			return (*cit).second.get_string();
@@ -235,13 +237,15 @@ namespace settings {
 				op_string current = get_real_string(lookup);
 				if (!current)
 					current = get_string_from_child_unsafe(lookup);
+				if (current) {
+					std::string valx = *current;
+				}
 
-				settings_cache_[cache_key_type(path,key)] = value;
+				bool unchanged = (current && *current == value) || (!current && value.empty());
+				settings_cache_[cache_key_type(path,key)] = conainer(value, !unchanged);
 				path_cache_.insert(path);
 
-				if (current && *current == value)
-					return;
-				if (!current && value.empty())
+				if (unchanged)
 					return;
 			}
 			get_core()->set_dirty(true);
@@ -307,7 +311,7 @@ namespace settings {
 					val = get_int_from_child_unsafe(path, key);
 				if (!val)
 					return val;
-				settings_cache_[lookup] = *val;
+				settings_cache_[lookup] = conainer(*val, false);
 				return val;
 			}
 			return op_int((*cit).second.get_int());
@@ -346,7 +350,7 @@ namespace settings {
 		virtual void set_int(std::string path, std::string key, int value) {
 			{
 				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path,key)] = value;
+				settings_cache_[cache_key_type(path,key)] = conainer(value, true);
 				path_cache_.insert(path);
 			}
 			add_key(path, key);
@@ -386,7 +390,7 @@ namespace settings {
 					val = get_bool_from_child_unsafe(path, key);
 				if (!val)
 					return val;
-				settings_cache_[lookup] = *val;
+				settings_cache_[lookup] = conainer(*val, false);
 				return val;
 			}
 			return (*cit).second.get_bool();
@@ -425,7 +429,7 @@ namespace settings {
 		virtual void set_bool(std::string path, std::string key, bool value) {
 			{
 				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path,key)] = value;
+				settings_cache_[cache_key_type(path,key)] = conainer(value, true);
 				path_cache_.insert(path);
 			}
 			add_key(path, key);
