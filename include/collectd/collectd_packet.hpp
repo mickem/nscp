@@ -4,7 +4,6 @@
 
 #include <types.hpp>
 #include <swap_bytes.hpp>
-
 #include <unicode_char.hpp>
 
 namespace collectd {
@@ -22,7 +21,7 @@ namespace collectd {
 		typedef struct int64_part : public boost::noncopyable {
 			int16_t   type;
 			int16_t   length;
-			uint64_t data;
+			int64_t data;
 		};
 		typedef struct value_part : public boost::noncopyable {
 			int16_t   type;
@@ -35,13 +34,10 @@ namespace collectd {
 		};
 	};
 
-	inline void set_int64(std::string &buffer, const std::string::size_type pos, const uint64_t value) {
-		int64_t *b_value = reinterpret_cast<int64_t*>(&buffer[pos]);
-		*b_value = swap_bytes::hton<int64_t>(value);
-	}
-	inline void set_int16(std::string &buffer, const std::string::size_type pos, const int16_t value) {
-		int16_t *b_value = reinterpret_cast<int16_t*>(&buffer[pos]);
-		*b_value = swap_bytes::hton<int16_t>(value);
+	template<class T>
+	inline void set_byte(std::string &buffer, const std::string::size_type pos, const T value) {
+		T *b_value = reinterpret_cast<T*>(&buffer[pos]);
+		*b_value = swap_bytes::hton<T>(value);
 	}
 
 	class collectd_exception : public std::exception {
@@ -151,9 +147,9 @@ namespace collectd {
 				std::string::size_type pos = buffer.length();
 				buffer.append(sizeof(int16_t) + sizeof(int16_t) + sizeof(int64_t), '\0');
 				std::string::size_type len = buffer.length() - pos;
-				set_int16(buffer, pos, type);
-				set_int16(buffer, pos + sizeof(int16_t), len);
-				set_int64(buffer, pos + sizeof(int16_t) + sizeof(int16_t), *int_data);
+				set_byte<uint16_t>(buffer, pos, type);
+				set_byte<uint16_t>(buffer, pos + sizeof(int16_t), len);
+				set_byte<uint64_t>(buffer, pos + sizeof(int16_t) + sizeof(int16_t), *int_data);
 			}
 			if (value_data) {
 				std::string::size_type pos = buffer.length();
