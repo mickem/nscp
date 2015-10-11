@@ -68,10 +68,8 @@ namespace alias {
 			if (oneliner) {
 				std::string::size_type pos = path.find_last_of("/");
 				if (pos != std::string::npos) {
-					std::string kpath = path.substr(0, pos);
-					std::string key = path.substr(pos+1);
-					proxy->register_key(kpath, key, NSCAPI::key_string, alias, "Alias for " + alias + ". To configure this item add a section called: " + path, "", false, false);
-					proxy->set_string(kpath, key, value);
+					proxy->register_key(path, alias, NSCAPI::key_string, alias, "Alias for " + alias + ". To configure this item add a section called: " + path + "/" + alias, "", false, false);
+					proxy->set_string(path, alias, value);
 					return;
 				}
 			}
