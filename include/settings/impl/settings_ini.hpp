@@ -105,6 +105,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
+			if (!value.is_dirty())
+				return;
 			try {
 				const settings_core::key_description desc = get_core()->get_registred_key(key.first, key.second);
 				std::string comment = "; ";
