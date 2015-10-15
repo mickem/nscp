@@ -37,8 +37,8 @@
   <Property Id="MONITORING_TOOL">GENERIC</Property>
 	
 	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
-  <Property Id="GENERATE_SAMPLE_CONFIG">1</Property>
-  <Property Id="INSTALL_SAMPLE_CONFIG">1</Property>
+  <Property Id="GENERATE_SAMPLE_CONFIG">0</Property>
+  <Property Id="INSTALL_SAMPLE_CONFIG">0</Property>
 
   <Property Id="NRPEMODE">SAFE</Property>
 

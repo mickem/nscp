@@ -52,14 +52,14 @@ endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
-	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" "-dConfigSource=." "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
+	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" "-dConfigSource=${NSCP_PROJECT_BINARY_DIR}" "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
 	-dBoostTag=${MSVER}-mt-1_58
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
-	-dUpgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDAA
+	-dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 	)
 SOURCE_GROUP(Generated FILES ${SRCS})
 #set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)

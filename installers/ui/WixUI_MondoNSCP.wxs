@@ -53,13 +53,10 @@ Patch dialog sequence:
 
       <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
 
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed AND NOT PATCH</Publish>
-      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">NOT Installed AND NOT PATCH</Publish>
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">Installed AND PATCH</Publish>
 
-      <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
-      <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
-
-      <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+      <Publish Dialog="MonitoringToolDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg">1</Publish>
       <Publish Dialog="MonitoringToolDlg" Control="Next" Event="NewDialog" Value="SetupTypeDlg">1</Publish>
 
       <Publish Dialog="SetupTypeDlg" Control="Back" Event="NewDialog" Value="MonitoringToolDlg">1</Publish>
