@@ -22,3 +22,6 @@
 [submodule "ext/rst-protobuf"]
 	path = ext/rst-protobuf
 	url = https://github.com/mickem/rst-protobuf.git
+[submodule "ext/google-breakpad"]
+	path = ext/google-breakpad
+	url = https://github.com/mickem/google-breakpad.git
