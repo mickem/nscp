@@ -33,8 +33,8 @@ elif sys.argv[1] == "2008":
 	target_sln = '10.00'
 elif sys.argv[1] == "2012":
 	convert_tool = True
-	target_vc = '12.00'
-	target_sln = '13.00'
+	target_vc = '9.00'
+	target_sln = '10.00'
 elif sys.argv[1] == "2013":
 	convert_tool = True
 	target_vc = '9.00'
