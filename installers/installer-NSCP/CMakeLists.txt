@@ -47,12 +47,19 @@ set(HAS_ATL "no")
 endif()
 set(MSVER "vc110")
 if(MSVC13)
-set(MSVER "vc120")
+set(MSVER "vc130")
+endif()
+if(MSVC14)
+set(MSVER "vc140")
 endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
-	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" "-dConfigSource=${NSCP_PROJECT_BINARY_DIR}" "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
+	"-dWebSource=..\\..\\web" 
+	"-dScriptSource=..\\..\\scripts" 
+	"-dOP5ScriptSource=..\\..\\scripts\\op5" 
+	"-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}" 
+	"-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
 	-dBoostTag=${MSVER}-mt-1_58
