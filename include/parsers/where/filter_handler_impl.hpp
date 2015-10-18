@@ -317,7 +317,6 @@ namespace parsers {
 			long long count_ok;
 			long long count_warn;
 			long long count_crit;
-			long long count_problem;
 			long long count_total;
 			std::string list_match;
 			std::string list_ok;
@@ -326,10 +325,10 @@ namespace parsers {
 			std::string list_problem;
 			NSCAPI::nagiosReturn returnCode;
 
-			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_problem(0), count_total(0), returnCode(NSCAPI::returnOK) {}
+			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::returnOK) {}
 
 			void reset() {
-				count_match = count_ok = count_warn = count_crit = count_problem = count_total = 0;
+				count_match = count_ok = count_warn = count_crit = count_total = 0;
 				list_match = list_ok = list_warn = list_crit = "";
 				returnCode = NSCAPI::returnOK;
 			}
@@ -415,7 +414,7 @@ namespace parsers {
 				return count_crit;
 			}
 			long long get_count_problem() {
-				return count_problem;
+				return count_warn+count_crit;
 			}
 			long long get_count_total() {
 				return count_total;

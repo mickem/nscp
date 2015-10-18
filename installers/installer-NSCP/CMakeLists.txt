@@ -11,10 +11,13 @@ SET(SRCS
 	../ui/ConfigureDlg.wxs
 	../ui/InvalidConfigureationDlg.wxs
 	../ui/SelectConfigurationDlg.wxs
+	../ui/MonitoringToolDlg.wxs
 	../ui/WixUI_MondoNSCP.wxs
 	../common/web.wxs
 	../common/scripts.wxs
 	../common/html_help.wxs
+	../common/op5_scripts.wxs
+	../common/op5_config.wxs
 )
 IF(USE_STATIC_RUNTIME)
 	SET(RUNTIME "static")
@@ -42,27 +45,21 @@ set(HAS_ATL "yes")
 if(VSTUDIO_EXPRESS)
 set(HAS_ATL "no")
 endif()
-set(CXXVER "110")
+set(MSVER "vc110")
 if(MSVC13)
-set(CXXVER "120")
-endif()
-if(MSVC14)
-# Temporary workaround for vc15 support missing from cmake
-set(CXXVER "140")
-endif()
-if(MSVC15)
-set(CXXVER "140")
+set(MSVER "vc120")
 endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} 
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
-	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" 
+	"-dWebSource=..\\..\\web" "-dScriptSource=..\\..\\scripts" "-dConfigSource=${NSCP_PROJECT_BINARY_DIR}" "-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=vc${CXXVER}-mt-1_58
+	-dBoostTag=${MSVER}-mt-1_58
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
+	-dWixUILicenseRtf=${CMAKE_CURRENT_SOURCE_DIR}/License.rtf
 	)
 SOURCE_GROUP(Generated FILES ${SRCS})
 #set_source_files_properties(${WIXOBJ_LIST} ${WIX_DEST} PROPERTIES GENERATED 1)

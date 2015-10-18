@@ -498,7 +498,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 			output = output.substr(0,pos+1);
 	}
 	if (output.empty())
-		output = "No output available from command (" + cd.command + ").";
+		output = "No output available from command (" + arg.alias + ").";
 
 	if (!arg.ignore_perf) {
 		pos = output.find('|');
@@ -554,13 +554,13 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	nscapi::core_helper ch(get_core(), get_id());
 	int result = ch.simple_query(cd.command, args, buffer);
 	if (result == NSCAPI::returnIgnored) {
-		nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.command);
+		nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.tpl.alias);
 		return;
 	}
 	Plugin::QueryResponseMessage tmp;
 	tmp.ParseFromString(buffer);
 	if (tmp.payload_size() != 1) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.command);
+		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.tpl.alias);
 		return;
 	}
 	response->CopyFrom(tmp.payload(0));

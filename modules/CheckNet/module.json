@@ -1,0 +1,13 @@
+{
+	"module"		: {
+		"title"			: "Network related checks",
+		"description"		: "Network related check such as check_ping.",
+		"name"			: "CheckNet",
+		"alias"			: "net",
+		"version"		: "auto",
+		"load"			: "none"
+	},
+	"commands" : {
+		"check_ping"		: "Ping another host and check the result."
+	}
+}

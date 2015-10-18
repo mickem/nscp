@@ -15,53 +15,6 @@ version.read()
 datestr = version.datestr()
 vstring = version.version()
 
-targets = None
-
-def build_targets(str):
-	targets = {}
-	for itm in str.split(';'):
-		tmp = itm.split('=')
-		if len(tmp) == 0:
-			continue
-		elif len(tmp) == 1:
-			targets['nscp'] = tmp[0]
-		else:
-			targets[tmp[0]] = tmp[1]
-	return targets
-			
-	
-		
-def find_target(key=None):
-	global targets
-	if not targets:
-		targets = build_targets(TARGET_SITE)
-	if not key:
-		key = 'nscp'
-	if not key in targets:
-		return None
-	return targets[key]
-
-
-def scp_file(file):
-	tfile = os.path.basename(file)
-	list = tfile.split('-')
-	if len(list) < 3:
-		print 'Ignoring invalid file: %s'%name
-		return
-	
-	name = list[0]
-	version = list[1]
-	arch = list[2]
-	target = None
-	print 'Found installer %s'%name
-	target = find_target(name)
-	if target:
-		print 'Found tagged installer %s for %s'%(tfile, target)
-		print 'Uploading name: %s to %s'%(tfile, target)
-		os.system("%s %s %s"%(SCP_BINARY, file, target))
-	else:
-		print 'Ignoring unconfigured tagged installer: %s (TARGET_SITE=%s=URL;...)'%(name, name)
-
 def rename_and_move(file, target):
 	tfile = '%s/%s'%(target, os.path.basename(file))
 	tfile = tfile.replace('win64', 'x64')
@@ -117,18 +70,6 @@ if ARCHIVE_FOLDER != "":
 	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
 		rename_and_move(f, target_archives)
 
-try:
-	if TARGET_SITE != '' and SCP_BINARY != '':
-		print "Distributing files to site..."
-
-		for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.msi'%vstring):
-			scp_file(f)
-		for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.zip'%vstring):
-			scp_file(f)
-except NameError, e:
-	print 'TARGET_SITE not defined so we wont upload anything: %s'%e
-
-	
 def create_token():
 	from github3 import authorize
 	from getpass import getuser, getpass
@@ -171,7 +112,7 @@ def create_release():
 	repository = gh.repository('mickem', 'nscp')
 	name = vstring
 	release = None
-	for r in repository.releases():
+	for r in repository.iter_releases():
 		if r.name == name:
 			release = r
 			print "Found old release v%s..."%vstring
@@ -184,13 +125,22 @@ def create_release():
 	if BREAKPAD_FOUND == "TRUE":
 		files.append(target_name)
 
-	for a in release.assets():
+	for a in release.iter_assets():
 		if a.name in files:
 			print "Deleting old file %s..."%name
 			a.delete()
 	for f in files:
-		print "Uploading %s..."%f
+		print " + Uploading %s..."%f
 		with open(f, "rb") as fd:
 			release.upload_asset('application/zip', f, fd.read())
-		
+	for f in find_by_pattern(BUILD_TARGET_EXE_PATH, '*%s*.msi'%vstring):
+		(path, fname) = os.path.split(f)
+		for a in release.iter_assets():
+			if a.name == fname:
+				print "Deleting old file %s..."%fname
+				a.delete()
+		print " + Uploading %s..."%fname
+		with open(f, "rb") as fd:
+			release.upload_asset('application/zip', fname, fd.read())
+
 create_release()

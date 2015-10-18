@@ -13,7 +13,7 @@ namespace parsers {
 		namespace gt = boost::gregorian;
 		namespace dt = boost::date_time;
 
-		inline std::time_t to_time_t(pt::ptime t) { 
+		inline std::time_t to_time_t_epoch(pt::ptime t) { 
 			if( t == dt::neg_infin ) 
 				return 0; 
 			else if( t == dt::pos_infin ) 
@@ -23,7 +23,7 @@ namespace parsers {
 		} 
 
 		void constants::reset() {
-			now = parsers::where::to_time_t(pt::second_clock::universal_time());
+			now = to_time_t_epoch(pt::second_clock::universal_time());
 		}
 	}
 }

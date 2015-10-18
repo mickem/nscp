@@ -63,17 +63,8 @@ public:
 		std::wstring str = source;
 		return trim_left( trim_right( str , t) , t );
 	}
-	bool isChangedProperyAndOld(std::wstring str) {
-		std::wstring cval = trim(getPropery(str));
-		std::wstring oval = trim(getPropery(str + _T("_OLD")));
-		logMessage(_T("Comparing property: ") + str + _T("; ") + cval + _T("=?=") + oval);
-		if (oval == MY_EMPTY)
-			oval = _T("");
-		return cval != oval;
-	}
-
-	bool propertyTouched(std::wstring path) {
-		std::wstring old = getPropery(path + _T("_DEFAULT"));
+	bool propertyNotOld(std::wstring path) {
+		std::wstring old = getPropery(path + _T("_OLD"));
 		std::wstring cur = getPropery(path);
 		return old != cur;
 	}
@@ -164,46 +155,11 @@ public:
 		PMSIHANDLE hRecord = createSimpleString(msg);
 		::MsiProcessMessage(hInstall_, INSTALLMESSAGE(INSTALLMESSAGE_INFO), hRecord);
 	}
-	void startProgress(int step, int max, std::wstring description, std::wstring tpl) {
-		hActionRec = ::MsiCreateRecord(3);
-		MsiRecordSetString(hActionRec, 1, action_.c_str());
-		MsiRecordSetString(hActionRec, 2, description.c_str());
-		MsiRecordSetString(hActionRec, 3, tpl.c_str());
-		UINT iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONSTART, hActionRec);
-		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
-
-
-		PMSIHANDLE hStart = create4Int(0, max, 0, 1);
-		iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hStart);
-		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
-
-		hProgressPos = create3Int(1,1,0);
-		iResult = MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hProgressPos);
-		if ((iResult == IDCANCEL))
-			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
-
-		set3Int(hProgressPos, 2, step, 0);
-	}
 
 	std::wstring getTempPath() {
 		return getPropery(_T("TempFolder"));
 	}
 
-	void updateProgress(std::wstring str1, std::wstring str2) {
-		MsiRecordSetString(hActionRec, 1, action_.c_str());
-		MsiRecordSetString(hActionRec, 2, str1.c_str());
-		MsiRecordSetString(hActionRec, 3, str2.c_str());
-		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONSTART, hActionRec) == IDCANCEL)
-			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
-		/*
-		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_ACTIONDATA, hActionRec) == IDCANCEL)
-		throw installer_exception(_T("Failed to update progressbar: ") + error::lookup::last_error());
-		*/
-		if (MsiProcessMessage(hInstall_, INSTALLMESSAGE_PROGRESS, hProgressPos) == IDCANCEL)
-			throw installer_exception(_T("Failed to update progressbar: ") + last_werror());
-	}
 	MSIHANDLE getActiveDatabase() {
 		if (isNull(hDatabase))
 			hDatabase = ::MsiGetActiveDatabase(hInstall_); // may return null if deferred CustomAction

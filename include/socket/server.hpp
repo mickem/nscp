@@ -217,11 +217,6 @@ namespace socket_helpers {
 			}
 
 
-// 			std::string get_password() const
-// 			{
-// 				logger_->log_error(__FILE__, __LINE__, "Getting password...");
-// 				return "test";
-// 			}
 			void stop() {
 				is_shutting_down_ = true;
 				acceptor_v4.close();
@@ -233,35 +228,45 @@ namespace socket_helpers {
 
 		private:
 			void handle_accept(bool ipv6, const boost::system::error_code& e) {
-				if (protocol_type::debug_trace) 
-					logger_->log_debug(__FILE__, __LINE__, std::string("handle_accept: ") + (ipv6?"v6":"v4") + ", " + utf8::utf8_from_native(e.message()));
-				if (!e) {
-					std::list<std::string> errors;
-					if (logger_->on_accept(new_connection_->get_socket(), threads_--)) {
-						new_connection_->start();
-					} else {
-						new_connection_->on_done(false);
+				try {
+					if (protocol_type::debug_trace) 
+						logger_->log_debug(__FILE__, __LINE__, std::string("handle_accept: ") + (ipv6?"v6":"v4") + ", " + utf8::utf8_from_native(e.message()));
+					if (!e) {
+						std::list<std::string> errors;
+						if (logger_->on_accept(new_connection_->get_socket(), threads_--)) {
+							new_connection_->start();
+						} else {
+							new_connection_->on_done(false);
+						}
+					} else if (is_shutting_down_)
+						return;
+					else {
+						logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
 					}
-				} else if (is_shutting_down_)
-					return;
-				else {
-					logger_->log_error(__FILE__, __LINE__, "Socket ERROR: " + e.message());
+				} catch (const std::exception &e) {
+					logger_->log_error(__FILE__, __LINE__, std::string("Failed to handle incoming connection: ") + e.what());
+				} catch (...) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to handle incoming connection: UNKNOWN");
 				}
-
-				new_connection_.reset(create_connection());
-
-				if (ipv6)
-					acceptor_v6.async_accept(new_connection_->get_socket(),
-					accept_strand_.wrap(
-					boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
-					)
-					);
-				else
-					acceptor_v4.async_accept(new_connection_->get_socket(),
-					accept_strand_.wrap(
-					boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
-					)
-					);
+				try {
+					new_connection_.reset(create_connection());
+					if (ipv6)
+						acceptor_v6.async_accept(new_connection_->get_socket(),
+						accept_strand_.wrap(
+						boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
+						)
+						);
+					else
+						acceptor_v4.async_accept(new_connection_->get_socket(),
+						accept_strand_.wrap(
+						boost::bind(&server::handle_accept, this, ipv6, boost::asio::placeholders::error)
+						)
+						);
+				} catch (const std::exception &e) {
+					logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + e.what());
+				} catch (...) {
+					logger_->log_error(__FILE__, __LINE__, "Failed to create new connection: UNKNOWN");
+				}
 			}
 
 			void restart() {

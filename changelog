@@ -1,3 +1,37 @@
+2015-05-02 Michael Medin
+ * Updated some libs to work on centos 6.x
+
+2015-04-29 Michael Medin
+ * Improved handling around connection failures
+ * #142 Improved security when external scripts fails
+   command lines which may contain password are no longer returned
+
+2015-04-27 Michael Medin
+ * Improved the logging around connection failures
+ * Improved the reporter syntax:
+   reporter.exe send b1438ab2-20a3-4b2d-bc30-7c3033c084e1.dmp
+
+2015-04-08 Michael Medin
+ * #139 Added support for showing file dates in local time (not just UTC)
+ * Added check_ping command and CheckNet module
+ * Fixed a few potential crashes with check_nt
+
+2015-03-24 Michael Medin
+ * #123 fixed CheckAllOthers
+ * #124 Fixed problem count variable
+ * #131 Added support for service=<service description> to check_service
+ * A lot of infrastructure changes and build fixes
+
+2015-02-23 Michael Medin
+ * Fixed check_files empty  message to say files not drives.
+ * #114 Fixed issue with empty-state which was ignored
+ * A lot of infrastructure changes and build fixes
+
+2015-02-14 Michael Medin
+ * Fix incorrect variable in check_page_filter()
+ * Add pct to check_pagefile
+   This is basically a clone of f90ab0bf which added pct to check_memory.
+
 2015-02-14 Michael Medin
  * #110 Added support for using units in check_cpu
  * added error handling for invalid states on checkservice
@@ -33,27 +67,27 @@
  * #81 Fixed so check_wmi will work without warn/crit and changed so default formatting displayes all rows
  * #98 Fixed so ok syntax is not used if you have customized the regular output to contain all data
 
-2015-02-30 Michael Medin
+2015-01-30 Michael Medin
  * tried to fix floating point plattforma independent issues a but ugly...
  * Fixed some inconsistencies with the installer NRPE configurator
  * Fixed some issues with nrpe installer and ssl options
 
-2015-02-29 Michael Medin
+2015-01-29 Michael Medin
  * #91 Added new command xform_perf which can transform performance data (currently only supports extracting maximum/minimum from int/float values)
  * #96 Fixed pagefile size block conversion using the actual architecture value
 
-2015-02-28 Michael Medin
+2015-01-28 Michael Medin
  * #49 Fixed issue with rounding performance data (take 2)
  * #94 Fixed so log file is reverted to real default is the wrong one is used.
 
-2015-02-27 Michael Medin
+2015-01-27 Michael Medin
  * #94 Fixed default log file location
  * #49 Fixed issue with rounding performance data
  * Added test cases for rounding performance data
  * #83 Fixed issue with invalid packet type (the default for extended response is now disabled in "insecure mode")
  * Improved error message for ssl errors (which are now likely due to the insecure option)
 
-2015-02-27 Michael Medin
+2015-01-27 Michael Medin
  * #91 Added documentation about perf-config (Updated docs)
  * Fixed selector filtering so all names are trimmed for spaces.
  * Changed so perf config selectors use dot notation instead of no notation.
@@ -61,7 +95,7 @@
  * Added new utility function render_perf to render performance data in the message.
  * Added new option to all commands show-default to show the default command line used when a command is invoked.
 
-2015-02-26 Michael Medin
+2015-01-26 Michael Medin
  * Perfdata units (and others) are no longer case sensitive
  * #92 Fixed so triggered services are ignored.
  * refactored fetch delayed into a function
@@ -69,25 +103,25 @@
  * Fixed missing return statement
  * Fixed compiler warning about unused variable
 
-2015-02-23 Michael Medin
+2015-01-23 Michael Medin
  * Fixed unix checks to work with new arguments
 
-2015-02-22 Michael Medin
+2015-01-22 Michael Medin
  * Implemented empty syntax as a proper syntax string (i.e replacement variables)
  * Added support for empty-state (should work now)
  * Implemented ok-syntax in most checks to make the ok message a bit nicer...
  * #78 removed the delayed() from ok message
 
-2015-02-20 - MilanDadok
+2015-01-20 - MilanDadok
  * 0.4.3.88 flags property of PDH counter can be specified as check_pdh argumnet, but not in INI
  * 0.4.3.88 PDH counter with rrd buffer will return oldest value from buffer as current/actual value
  * 0.4.3.88 Cannot add second PDH counter to INI
 
-2015-02-20 - brunoqc
+2015-01-20 - brunoqc
  * Fix typo in create_plugin_module.py
  * Return result from check_nrpe
 
-2015-02-20 Michael Medin
+2015-01-20 Michael Medin
  * removed --format from docs.py since there is only one format
 
 2015-01-11 Michael Medin

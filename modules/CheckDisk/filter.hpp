@@ -106,14 +106,40 @@ namespace file_filter {
 			long long now = parsers::where::constants::get_now();
 			return now-get_write();
 		}
-		std::string get_creation_s() {
+		__int64 to_local_time(const __int64  &t) {
+			FILETIME ft;
+			ft.dwHighDateTime = t>>32;
+			ft.dwLowDateTime = t;
+			FILETIME lft = ft_utc_to_local_time(ft);
+			return (lft.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)lft.dwLowDateTime;
+		}
+
+		FILETIME ft_utc_to_local_time(const FILETIME &ft) {
+			FILETIME lft;
+			SYSTEMTIME st1,st2;
+			FileTimeToSystemTime(&ft,&st1);
+			SystemTimeToTzSpecificLocalTime(NULL,&st1,&st2);
+			SystemTimeToFileTime(&st2,&lft);
+			return lft;
+		}
+
+		std::string get_creation_su() {
 			return format::format_filetime(ullCreationTime);
 		}
-		std::string get_access_s() {
+		std::string get_access_su() {
 			return format::format_filetime(ullLastAccessTime);
 		}
-		std::string get_written_s() {
+		std::string get_written_su() {
 			return format::format_filetime(ullLastWriteTime);
+		}
+		std::string get_creation_sl() {
+			return format::format_filetime(to_local_time(ullCreationTime));
+		}
+		std::string get_access_sl() {
+			return format::format_filetime(to_local_time(ullLastAccessTime));
+		}
+		std::string get_written_sl() {
+			return format::format_filetime(to_local_time(ullLastWriteTime));
 		}
 
 		unsigned long long get_size() { return ullSize; }
