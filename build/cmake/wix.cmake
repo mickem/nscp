@@ -237,6 +237,7 @@ if (WIN32)
 			DEPENDS ${TNAME}
 			SOURCES ${_sources}
 			)
+		sign_file(installer_${_target} "${CMAKE_CURRENT_BINARY_DIR}/${TNAME}")
     ENDMACRO(ADD_WIX_INSTALLER)
 
 	MACRO(WIX_FIND_MERGE_MODULE _VAR _FILE)

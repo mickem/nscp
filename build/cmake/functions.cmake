@@ -228,6 +228,7 @@ MACRO(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
 		IF(WIN32)
 			INSTALL(TARGETS ${_TARGET} 
 					RUNTIME DESTINATION .)
+			sign_file(${_TARGET} "${BUILD_TARGET_ROOT_PATH}/${_TARGET}.exe")
 		ELSE()
 			INSTALL(TARGETS ${_TARGET} 
 					RUNTIME DESTINATION ${_FOLDER})
@@ -271,3 +272,45 @@ MACRO(SETUP_BREAKPAD _SRC)
 		SET(EXTRA_LIBS ${EXTRA_LIBS} ${BREAKPAD_COMMON_LIBRARY} ${BREAKPAD_LIBRARY})
 	ENDIF(BREAKPAD_FOUND)
 ENDMACRO()
+
+
+
+
+
+macro(sign_file PROJNAME _FILENAME)
+    if (WIN32)
+        if (EXISTS ${SIGN_CERTIFICATE})
+            message("-- ${_FILENAME} will be signed with ${SIGN_CERTIFICATE}")
+            GET_FILENAME_COMPONENT(WINSDK_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH CACHE)
+            GET_FILENAME_COMPONENT(WINKIT_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot]" REALPATH CACHE)
+            find_program(SIGNTOOL signtool
+                PATHS
+                ${WINKIT_DIR}/bin/x64
+                ${WINSDK_DIR}/bin
+                )
+            if (SIGNTOOL)
+                set(_STCMD signtool sign /f "${SIGN_CERTIFICATE}")
+                if (NOT "${SIGN_PASSFILE}" STREQUAL "")
+                    file(STRINGS "${SIGN_PASSFILE}" PASSPHRASE LIMIT_COUNT 1)
+                    set(_STCMD ${_STCMD} /p ${PASSPHRASE})
+                endif()
+                if (NOT "${SIGN_TIMESTAMP_URL}" STREQUAL "")
+                    set(_STCMD ${_STCMD} /t "${SIGN_TIMESTAMP_URL}")
+                endif()
+                set(_STCMD ${_STCMD} "${_FILENAME}")
+                ADD_CUSTOM_COMMAND(
+                    TARGET ${PROJNAME}
+                    POST_BUILD
+                    COMMAND ${_STCMD}
+                    )
+                message(STATUS "Successfully added signtool step to sign ${_FILENAME}")
+            else()
+                message("!! Could not find signtool! Code signing disabled ${SIGNTOOL}")
+            endif()
+            set(PASSPHRASE "")
+        else()
+            message(STATUS "No signtool certificate found; assuming development machine (${SIGN_CERTIFICATE})")
+        endif()
+
+    endif()
+endmacro(sign_file)
