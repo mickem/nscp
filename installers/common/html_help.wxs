@@ -605,9 +605,6 @@
             <Component Id="cmpBF87032691AA4C8671A7265FEB1B976D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{5A3EDA64-DEA2-49C2-BAF1-436ACC9E6445}">
                 <File Id="fil6E4901097AB437801E4A67AF60EB2D87" KeyPath="yes" Source="$(var.WebHelpSource)\_static\ajax-loader.gif" />
             </Component>
-            <Component Id="cmpE400B48DEC9531288BFAC26E21751A3C" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{1A80C2C2-769B-40AD-A337-5B4F128A97D4}">
-                <File Id="filBCC149B8ECB62CE829D884F1AA9BA699" KeyPath="yes" Source="$(var.WebHelpSource)\_static\alabaster.css" />
-            </Component>
             <Component Id="cmp0CBD09D26BC4BB3C9C28984765AE3A00" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{2EBFFDC1-A875-4462-9C65-1F5994E24BD8}">
                 <File Id="filF98ABAF53502F0AFD489585E61FCCE24" KeyPath="yes" Source="$(var.WebHelpSource)\_static\basic.css" />
             </Component>

@@ -1,6 +1,6 @@
 @ECHO OFF
-SET ROOT=c:\source\build
-SET SOURCE=c:\source\nscp
+SET ROOT=c:\source\mbuild
+SET SOURCE=c:\source\master
 
 GOTO :start
 
