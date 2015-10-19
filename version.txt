@@ -1,3 +1,3 @@
-version=0.4.3
-build=136
-date=2015-03-04
+version=0.4.4
+build=2
+date=2015-10-19
