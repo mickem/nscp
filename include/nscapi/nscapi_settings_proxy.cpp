@@ -5,7 +5,7 @@
 template<class T>
 void report_errors(const T &response, nscapi::core_wrapper* core, const std::string &action) {
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			core->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to " + action + ": " + response.payload(i).result().message());
 	}
 }

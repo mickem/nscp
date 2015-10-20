@@ -30,9 +30,7 @@ function TestNRPE:install(arguments)
 	conf:set_string('/settings/NRPE/test_nrpe_server', 'insecure', 'true')
 
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets', 'nrpe_test_local', 'nrpe://127.0.0.1:15666')
-	conf:set_string('/settings/NRPE/test_nrpe_client', 'channel', 'nrpe_test_outbox')
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'insecure', 'true')
-	--conf:save()
 end
 
 function TestNRPE:setup()
@@ -99,6 +97,7 @@ end
 
 function TestNRPE:simple_handler(command, args)
 	local core = nscp.Core()
+	core:log('info', string.format('Got %s', args[0]))
 	msg = self:get_response(args[0])
 	msg.got_simple_response = true
 	self:set_response(msg)
@@ -122,8 +121,8 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 	
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
 	hdr = msg:get_header()
-	hdr:set_version(1)
-	hdr:set_recipient_id(target)
+	hdr:set_destination_id(target)
+	hdr:set_command("nrpe_forward")
 	host = hdr:add_hosts()
 	host:set_address("127.0.0.1:15666")
 	host:set_id(target)
@@ -139,13 +138,10 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 		enc:set_key("timeout")
 		enc:set_value('10')
 	end
-	meta = hdr:add_metadata()
-	meta:set_key("command")
-	meta:set_value('check_py_nrpe_test_s')
 
 	uid = string.random(12)
 	payload = msg:add_payload()
-	payload:set_command('nrpe_forward')
+	payload:set_command('check_py_nrpe_test_s')
 	payload:set_arguments(1, uid)
 	if payload_length ~= 0 then
 		payload:set_arguments(2, payload_length)
@@ -170,13 +166,15 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 			pl = response_message:get_payload(1)
 			result:assert_equals(pl:get_result(), test.status_to_int(status), 'Verify that status is sent through '..tag)
 			if payload_length == 0 then
-				result:assert_equals(pl:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
+				l = pl:get_lines(1)
+				result:assert_equals(l:get_message(), rmsg.message, 'Verify that message is sent through '..tag)
 			else
 				max_len = payload_length
 				if max_len >= length then
 					max_len = length - 1
 				end
-				result:assert_equals(string.len(pl:get_message()), max_len, 'Verify that message length is correct ' .. max_len .. ': ' ..tag)
+				l = pl:get_lines(1)
+				result:assert_equals(string.len(l:get_message()), max_len, 'Verify that message length is correct ' .. max_len .. ': ' ..tag)
 			end
 			--#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
 			self:del_response(uid)
@@ -184,7 +182,7 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 			break
 		else
 			core:log('info', string.format('Waiting for %s (%s/%s)', uid,tag,target))
-			--nscp.sleep(500)
+			nscp.sleep(500)
 		end
 	end
 	if (not found) then
@@ -200,6 +198,7 @@ function TestNRPE:test_one(ssl, length, payload_length, status)
 	for k,t in pairs({'valid', 'test_rp', 'invalid'}) do
 		result:add(self:submit_payload(tag, ssl, length, payload_length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', t))
 	end
+	result:add(self:submit_payload(tag, ssl, length, payload_length, tag .. 'src' .. tag, status, tag .. 'msg' .. tag, '', 'valid'))
 	return result
 end
 
@@ -216,7 +215,7 @@ function TestNRPE:do_one_test(ssl, length)
 	core:reload('test_nrpe_server')
 
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets/default', 'address', 'nrpe://127.0.0.1:35666')
-	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'use ssl', not ssl)
+	conf:set_bool('/settings/NRPE/test_nrpe_client/targets/default', 'ssl', not ssl)
 	conf:set_int('/settings/NRPE/test_nrpe_client/targets/default', 'payload length', length*3)
 
 	conf:set_string('/settings/NRPE/test_nrpe_client/targets/invalid', 'address', 'nrpe://127.0.0.1:25666')
@@ -260,8 +259,7 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
 	hdr = msg:get_header()
-	hdr:set_version(1)
-	hdr:set_recipient_id('test')
+	hdr:set_destination_id('test')
 	host = hdr:add_hosts()
 	host:set_address("127.0.0.1:15666")
 	host:set_id('test')
@@ -296,7 +294,7 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 			break
 		else
 			core:log('error', string.format('Timeout waiting for %s', uid))
-			--sleep(500)
+			nscp.sleep(500)
 		end
 	end
 	if (found) then
@@ -318,6 +316,7 @@ function TestNRPE:run()
 	result:add(self:test_timeout(false, 1, 30, 104857600))
 	result:add(self:test_timeout(true, 30, 1, 104857600))
 	result:add(self:test_timeout(true, 1, 30, 104857600))
+	nscp.sleep(500)
 	return result
 end
 

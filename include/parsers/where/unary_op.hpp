@@ -11,8 +11,7 @@ namespace parsers {
 
 			virtual std::string to_string() const;
 
-			virtual long long get_int_value(evaluation_context context) const;
-			virtual std::string get_string_value(evaluation_context context) const;
+			virtual value_container get_value(evaluation_context context, int type) const;
 			virtual std::list<node_type> get_list_value(evaluation_context errors) const;
 
 			virtual bool can_evaluate() const;

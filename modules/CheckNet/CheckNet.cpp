@@ -96,6 +96,5 @@ void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, P
 	}
 	if (total_obj)
 		filter.match(total_obj);
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }

@@ -38,67 +38,49 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
+void foo() {
+	check_pdh::counter_config_object *a = new check_pdh::counter_config_object("", "");
+
+}
 namespace check_pdh {
 
-	void command_reader::init_default(object_type& object) {
-		object.collection_strategy = "static";
-		object.instances = "none";
-		object.type = "large";
-	}
-	void command_reader::read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample) {
-		if (!object.tpl.value.empty())
-			object.counter = object.tpl.value;
-		std::string alias;
+	void counter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		parent::read(proxy, oneliner, is_sample);
+		if (!value.empty())
+			counter = value;
+
+		if (oneliner) {
+			return;
+		}
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+		nscapi::settings_helper::path_extension root_path = settings.path(path);
 		if (is_sample)
 			root_path.set_sample();
 
-		if (oneliner) {
-			std::string::size_type pos = object.tpl.path.find_last_of("/");
-			if (pos != std::string::npos) {
-				std::string path = object.tpl.path.substr(0, pos);
-				std::string key = object.tpl.path.substr(pos+1);
-				proxy->register_key(path, key, NSCAPI::key_string, object.tpl.alias, "Counter " + object.tpl.alias + ". To configure this item add a section called: " + object.tpl.path, "", false, is_sample);
-				proxy->set_string(path, key, object.tpl.value);
-				return;
-			}
-		}
 
 		root_path.add_path()
-			("COUNTER", "Definition for counter: " + object.tpl.alias)
+			("COUNTER", "Definition for counter: " + alias)
 			;
 
 		root_path.add_key()
-			("collection strategy", sh::string_key(&object.collection_strategy),
+			("collection strategy", sh::string_key(&collection_strategy),
 			"COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
-			("counter", sh::string_key(&object.counter),
+			("counter", sh::string_key(&counter),
 			"COUNTER", "The counter to check")
-			("instances", sh::string_key(&object.instances),
+			("instances", sh::string_key(&instances),
 			"TODO", "TODO")
-			("buffer size", sh::string_key(&object.buffer_size),
+			("buffer size", sh::string_key(&buffer_size),
 			"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
-			("type", sh::string_key(&object.type),
+			("type", sh::string_key(&type),
 			"COUNTER TYPE", "The type of counter to use long, large and double")
-			("flags", sh::string_key(&object.flags),
+			("flags", sh::string_key(&flags),
 			"FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
 			;
 
-		object.tpl.read_object(root_path);
-
 		settings.register_all();
 		settings.notify();
-		if (!alias.empty())
-			object.tpl.alias = alias;
 	}
-
-	void command_reader::apply_parent(object_type &object, object_type &parent) {
-		import_string(object.collection_strategy, parent.collection_strategy);
-		import_string(object.buffer_size, parent.buffer_size);
-		import_string(object.type, parent.type);
-	}
-
 
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_string()
@@ -110,9 +92,9 @@ namespace check_pdh {
 			;
 	}
 
-	void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query) {
+	void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 		try {
-			counters_.add(proxy, path, key, query, key == "default");
+			counters_.add(proxy, key, query, key == "default");
 		} catch (const std::exception &e) {
 			NSC_LOG_ERROR_EXR("Failed to add counter: " + key, e);
 		} catch (...) {
@@ -289,8 +271,7 @@ namespace check_pdh {
 				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value: " + utf8::utf8_from_native(e.what()));
 			}
 		}
-		modern_filter::perf_writer scaler(response);
-		filter_helper.post_process(filter, &scaler);
+		filter_helper.post_process(filter);
 	}
 
 }

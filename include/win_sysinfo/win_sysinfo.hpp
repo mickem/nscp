@@ -3,6 +3,8 @@
 #include <vector>
 
 #include <boost/foreach.hpp>
+#include <buffer.hpp>
+#include <win_sysinfo/win_defines.hpp>
 
 #define WINDOWS_ANCIENT 0
 #define WINDOWS_XP 51
@@ -100,6 +102,7 @@ namespace windows {
 
 		static cpu_load get_cpu_load();
 		static memory_usage get_memory();
+		static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> get_system_process_information(int size = 0x4000);
 
 	};
 

@@ -69,7 +69,6 @@ namespace NSCP.Helpers
         {
             List<string> ret = new List<string>();
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).Build());
             newQuery.SetRecursive(false);
@@ -77,7 +76,6 @@ namespace NSCP.Helpers
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -85,7 +83,7 @@ namespace NSCP.Helpers
                 return ret;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to get value: " + path);
                 return ret;
@@ -101,7 +99,6 @@ namespace NSCP.Helpers
         public string getString(string path, string key, string defaultValue)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetStringData(defaultValue).Build());
@@ -109,7 +106,6 @@ namespace NSCP.Helpers
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -117,7 +113,7 @@ namespace NSCP.Helpers
                 return defaultValue;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to get value: " + path);
                 return defaultValue;
@@ -129,14 +125,12 @@ namespace NSCP.Helpers
         public void setString(string path, string key, string value)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetStringData(value).Build());
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -144,7 +138,7 @@ namespace NSCP.Helpers
                 return;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to set value: " + path);
                 return;
@@ -154,7 +148,6 @@ namespace NSCP.Helpers
         public bool getBool(string path, string key, bool defaultValue)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetBoolData(defaultValue).Build());
@@ -162,7 +155,6 @@ namespace NSCP.Helpers
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -170,7 +162,7 @@ namespace NSCP.Helpers
                 return defaultValue;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to get value: " + path);
                 return defaultValue;
@@ -182,14 +174,12 @@ namespace NSCP.Helpers
         public void setBool(string path, string key, bool value)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetBoolData(value).Build());
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -197,7 +187,7 @@ namespace NSCP.Helpers
                 return;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to set value: " + path);
                 return;
@@ -207,7 +197,6 @@ namespace NSCP.Helpers
         public long getInt(string path, string key, int defaultValue)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Query.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Query.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetDefaultValue(Common.Types.AnyDataType.CreateBuilder().SetIntData(defaultValue).Build());
@@ -215,7 +204,6 @@ namespace NSCP.Helpers
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetQuery(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -223,7 +211,7 @@ namespace NSCP.Helpers
                 return defaultValue;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to get value: " + path);
                 return defaultValue;
@@ -234,14 +222,12 @@ namespace NSCP.Helpers
         public void setInt(string path, string key, int value)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Update.Builder newQuery = SettingsRequestMessage.Types.Request.Types.Update.CreateBuilder();
             newQuery.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             newQuery.SetValue(Common.Types.AnyDataType.CreateBuilder().SetIntData(value).Build());
             newMessage.AddPayload(SettingsRequestMessage.Types.Request.CreateBuilder().SetPluginId(plugin_id).SetUpdate(newQuery.Build()).Build());
             System.IO.MemoryStream stream = new System.IO.MemoryStream();
             newMessage.Build().WriteTo(stream);
-            string response_buffer;
             NSCP.Core.Result res = core.settings(stream.ToArray());
             if (!res.result)
             {
@@ -249,7 +235,7 @@ namespace NSCP.Helpers
                 return;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to set value: " + path);
                 return;
@@ -259,7 +245,6 @@ namespace NSCP.Helpers
         public bool load(string context)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
             registration_builder.SetContext(context);
             registration_builder.SetCommand(Settings.Types.Command.LOAD);
@@ -274,7 +259,7 @@ namespace NSCP.Helpers
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to save: " + context);
                 return false;
@@ -284,7 +269,6 @@ namespace NSCP.Helpers
         public bool save(string context)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
             registration_builder.SetContext(context);
             registration_builder.SetCommand(Settings.Types.Command.SAVE);
@@ -299,7 +283,7 @@ namespace NSCP.Helpers
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to save: " + context);
                 return false;
@@ -309,7 +293,6 @@ namespace NSCP.Helpers
         public bool reload(string context)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Control.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Control.CreateBuilder();
             registration_builder.SetContext(context);
             registration_builder.SetCommand(Settings.Types.Command.RELOAD);
@@ -324,7 +307,7 @@ namespace NSCP.Helpers
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to save: " + context);
                 return false;
@@ -334,7 +317,6 @@ namespace NSCP.Helpers
         public bool registerPath(string path, string title, string description, bool advanced)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Registration.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Registration.CreateBuilder();
             registration_builder.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).Build());
             registration_builder.SetInfo(Settings.Types.Information.CreateBuilder().SetTitle(title).SetDescription(description).Build());
@@ -349,7 +331,7 @@ namespace NSCP.Helpers
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to describe path: " + path);
                 return false;
@@ -361,7 +343,6 @@ namespace NSCP.Helpers
         public bool registerKey(string path, string key, int type, string title, string description, string defaultValue, bool advanced)
         {
             SettingsRequestMessage.Builder newMessage = SettingsRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             SettingsRequestMessage.Types.Request.Types.Registration.Builder registration_builder = SettingsRequestMessage.Types.Request.Types.Registration.CreateBuilder();
             registration_builder.SetNode(Settings.Types.Node.CreateBuilder().SetPath(path).SetKey(key).Build());
             registration_builder.SetInfo(Settings.Types.Information.CreateBuilder().SetTitle(title).SetDescription(description).Build());
@@ -376,7 +357,7 @@ namespace NSCP.Helpers
                 return false;
             }
             SettingsResponseMessage response_message = SettingsResponseMessage.ParseFrom(res.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to describe key: " + path);
                 return false;
@@ -402,7 +383,6 @@ namespace NSCP.Helpers
         public bool registerCommand(string command, string description)
         {
             RegistryRequestMessage.Builder newMessage = RegistryRequestMessage.CreateBuilder();
-            newMessage.SetHeader(Common.Types.Header.CreateBuilder().SetVersion(Common.Types.Version.VERSION_1).Build());
             RegistryRequestMessage.Types.Request.Types.Registration.Builder newRegistration = RegistryRequestMessage.Types.Request.Types.Registration.CreateBuilder();
             newRegistration.SetName(command);
             newRegistration.SetPluginId(plugin_id);
@@ -422,7 +402,7 @@ namespace NSCP.Helpers
                 return false;
             }
             RegistryResponseMessage response_message = RegistryResponseMessage.ParseFrom(response.data);
-            if (response_message.GetPayload(0).Result.Status_ != Common.Types.Status.Types.StatusType.STATUS_OK)
+            if (response_message.GetPayload(0).Result.Code != Common.Types.Result.Types.StatusCodeType.STATUS_OK)
             {
                 log.error("Failed to register: " + command);
                 return false;

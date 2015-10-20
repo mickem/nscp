@@ -207,19 +207,21 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return true;
 			}
-			long long get_int_value(evaluation_context context) const {
-				try {
-					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && fun && native_context->has_object())
-						return fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_ + " no object instance");
-				} catch (const std::exception &e) {
-					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+			value_container get_value(evaluation_context context, int type) const {
+				if (type == type_int) {
+					try {
+						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+						if (native_context != NULL && fun && native_context->has_object())
+							return value_container::create_int(fun(native_context->get_object(), context));
+						context->error("Failed to evaluate " + name_ + " no object instance");
+						return value_container::create_nil();
+					} catch (const std::exception &e) {
+						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+						return value_container::create_nil();
+					}
 				}
-				return 0;
-			}
-			std::string get_string_value(evaluation_context context) const {
-				return strEx::s::xtos(get_int_value(context));
+				context->error("Invalid type " + name_);
+				return value_container::create_nil();
 			}
 			std::string to_string() const {
 				return "(int)var:" + name_;
@@ -300,18 +302,29 @@ namespace parsers {
 				context->error("Invalid type: " + name_);
 				return 0;
 			}
-			std::string get_string_value(evaluation_context context) const {
-				try {
-					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (!native_context->has_object())
-						return "";
-					if (native_context != NULL && fun)
-						return fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_ + " no object instance");
-				} catch (const std::exception &e) {
-					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+			double get_float_value(evaluation_context context) const {
+				context->error("Invalid type: " + name_);
+				return 0;
+			}
+			value_container get_value(evaluation_context context, int type) const {
+				if (type == type_string) {
+					try {
+						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+						if (!native_context->has_object()) {
+							context->error("Unbound function " + name_);
+							return value_container::create_nil();
+						}
+						if (native_context != NULL && fun)
+							return value_container::create_string(fun(native_context->get_object(), context));
+						context->error("Failed to evaluate " + name_ + " no object instance");
+						return value_container::create_nil();
+					} catch (const std::exception &e) {
+						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+						return value_container::create_nil();
+					}
 				}
-				return "";
+				context->error("Invalid type " + name_);
+				return value_container::create_nil();
 			}
 			std::string to_string() const {
 				return "(string)var:" + name_;
@@ -385,27 +398,29 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return true;
 			}
-			long long get_int_value(evaluation_context context) const {
-				try {
-					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && i_fun && native_context->has_object())
-						return i_fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_ + " no object instance");
-				} catch (const std::exception &e) {
-					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+			value_container get_value(evaluation_context context, int type) const {
+				if (type == type_int) {
+					try {
+						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+						if (native_context != NULL && i_fun && native_context->has_object())
+							return value_container::create_int(i_fun(native_context->get_object(), context));
+						context->error("Failed to evaluate " + name_ + " no object instance");
+					} catch (const std::exception &e) {
+						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+					}
 				}
-				return 0;
-			}
-			std::string get_string_value(evaluation_context context) const {
-				try {
-					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && s_fun && native_context->has_object())
-						return s_fun(native_context->get_object(), context);
-					context->error("Failed to evaluate " + name_ + " no object instance");
-				} catch (const std::exception &e) {
-					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+				if (type == type_string) {
+					try {
+						native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+						if (native_context != NULL && s_fun && native_context->has_object())
+							return value_container::create_string(s_fun(native_context->get_object(), context));
+						context->error("Failed to evaluate " + name_ + " no object instance");
+					} catch (const std::exception &e) {
+						context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+					}
 				}
-				return "";
+				context->error("Invalid type " + name_);
+				return value_container::create_nil();
 			}
 			std::string to_string() const {
 				if (is_int())
@@ -495,11 +510,8 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return true;
 			}
-			long long get_int_value(evaluation_context context) const {
-				return evaluate(context)->get_int_value(context);
-			}
-			std::string get_string_value(evaluation_context context) const {
-				return evaluate(context)->get_string_value(context);
+			value_container get_value(evaluation_context context, int type) const {
+				return evaluate(context)->get_value(context, type);
 			}
 			std::string to_string() const {
 				return "(string)fun:" + name_;
@@ -536,16 +548,27 @@ namespace parsers {
 			virtual bool can_evaluate() const {
 				return true;
 			}
-			virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+			bool int_get_value(evaluation_context context, bool &summary, long long &value) const {
 				try {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && fun)
-						return factory::create_int(fun(native_context->get_summary()));
+					if (native_context != NULL && fun) {
+						summary = !native_context->has_object();
+						value = fun(native_context->get_summary());
+						return true;
+					}
 					context->error("Failed to evaluate " + name_ + " no function");
 				} catch (const std::exception &e) {
 					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
 				}
-				return factory::create_false();
+				return false;
+			}
+			virtual boost::shared_ptr<any_node> evaluate(evaluation_context context) const {
+				long long value = 0;
+				bool summary = false;
+				if (!int_get_value(context, summary, value)) {
+					return factory::create_false();
+				}
+				return factory::create_int(value);
 			}
 			virtual bool bind(object_converter context) {
 				return true;
@@ -556,19 +579,17 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
-			long long get_int_value(evaluation_context context) const {
-				try {
-					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-					if (native_context != NULL && fun)
-						return fun(native_context->get_summary());
-					context->error("Failed to evaluate " + name_ + " no function");
-				} catch (const std::exception &e) {
-					context->error("Failed to evaluate " + name_ + ": " + utf8::utf8_from_native(e.what()));
+			value_container get_value(evaluation_context context, int type) const {
+				if (type == type_int) {
+					long long value = 0;
+					bool summary = false;
+					if (!int_get_value(context, summary, value)) {
+						return value_container::create_nil();
+					}
+					return value_container::create_int(value, !summary);
 				}
-				return 0;
-			}
-			std::string get_string_value(evaluation_context context) const {
-				return strEx::s::xtos(get_int_value(context));
+				context->error("Unknown type: " + name_);
+				return value_container::create_nil();
 			}
 			std::string to_string() const {
 				return "(int)var:" + name_;
@@ -646,16 +667,20 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
-			long long get_int_value(evaluation_context context) const {
-				context->error("Function not numeric: " + name_);
-				return 0;
-			}
-			std::string get_string_value(evaluation_context context) const {
-				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-				if (native_context != NULL && fun)
-					return fun(native_context->get_summary());
-				context->error("Invalid function: " + name_);
-				return "";
+			value_container get_value(evaluation_context context, int type) const {
+				if (type == type_int || type == type_float) {
+					context->error("Function not numeric: " + name_);
+					return value_container::create_nil();
+				}
+				if (type == type_string) {
+					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+					if (native_context != NULL && fun)
+						return value_container::create_string(fun(native_context->get_summary()));
+					context->error("Invalid function: " + name_);
+					return value_container::create_nil();
+				}
+				context->error("Unknown type: " + name_);
+				return value_container::create_nil();
 			}
 			std::string to_string() const {
 				return "(str)var:" + name_;

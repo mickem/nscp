@@ -126,8 +126,8 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	settings.register_all();
 	settings.notify();
 
-	thread_->filters_.add_samples(get_settings_proxy(), filter_path);
-	thread_->filters_.add_missing(get_settings_proxy(), filter_path, "default", "", true);
+	thread_->filters_.add_samples(get_settings_proxy());
+	thread_->filters_.add_missing(get_settings_proxy(), "default", "", true);
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
@@ -461,8 +461,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		else
 			check_legacy(name, scan_range, truncate_message, filter);
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 

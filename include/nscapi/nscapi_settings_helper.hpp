@@ -211,8 +211,15 @@ namespace nscapi {
 			}
 			// TODO: FIXME: Add support for has_default
 			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
-				T value = static_cast<T>(core_->get_bool(path, key, typed_int_value<T>::default_value_as_int_==1));
-				this->update_target(&value);
+				if (typed_key<T>::has_default_) {
+					T value = static_cast<T>(core_->get_bool(path, key, typed_int_value<T>::default_value_as_int_ == 1));
+					this->update_target(&value);
+				} else {
+					T v1 = static_cast<T>(core_->get_bool(path, key, true));
+					T v2 = static_cast<T>(core_->get_bool(path, key, false));
+					if (v1 == v2)
+						this->update_target(&v1);
+				}
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				T default_value = static_cast<T>(core_->get_bool(parent, key, typed_int_value<T>::default_value_as_int_==1));
@@ -298,8 +305,13 @@ namespace nscapi {
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > bool_fun_key(boost::function<void (T)> fun, T def) {
+		boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > bool_fun_key(boost::function<void(T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > r(new typed_key_fun<T, typed_bool_value<T> >(fun, def, true));
+			return r;
+		}
+		template<class T>
+		boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > bool_fun_key(boost::function<void(T)> fun) {
+			boost::shared_ptr<typed_key_fun<T, typed_bool_value<T> > > r(new typed_key_fun<T, typed_bool_value<T> >(fun, 0, false));
 			return r;
 		}
 		template<class T>

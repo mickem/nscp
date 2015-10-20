@@ -20,7 +20,6 @@
 ***************************************************************************/
 #pragma once
 
-//#include <pdh.hpp>
 #include "pdh_thread.hpp"
 #include <CheckMemory.h>
 
@@ -34,11 +33,6 @@
 
 #include "filter_config_object.hpp"
 
-template<class T>
-inline void import_string(T &object, T &parent) {
-	if (object.empty() && !parent.empty())
-		object = parent;
-}
 class CheckSystem : public nscapi::impl::simple_plugin {
 private:
 	CheckMemory memoryChecker;
@@ -67,8 +61,11 @@ public:
 	void check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-	void add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query);
+	void add_counter(std::string key, std::string query);
 	void check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+
+	// Metrics
+	void fetchMetrics(Plugin::MetricsMessage::Response *response);
 
 
 	// Legacy checks

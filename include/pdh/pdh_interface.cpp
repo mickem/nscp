@@ -137,7 +137,11 @@ namespace PDH {
 	}
 
 	bool pdh_object::has_instances() {
-		return !instances_.empty() && "none" != instances_;
+		if (instances_.empty() && path.find("$INSTANCE$") != std::string::npos)
+			return true;
+		if (instances_ == "auto" && path.find("$INSTANCE$") != std::string::npos)
+			return true;
+		return instances_ == "true";
 	}
 
 
@@ -158,8 +162,8 @@ namespace PDH {
 	}
 
 
-	pdh_instance factory::create(pdh_object object) {
 
+	pdh_instance factory::create(pdh_object object) {
 
 		if (object.has_instances()) {
 			std::string path = object.path;

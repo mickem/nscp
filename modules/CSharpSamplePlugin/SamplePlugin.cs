@@ -38,11 +38,11 @@ namespace test
             log.debug("Got command: " + command);
 
             Plugin.QueryResponseMessage.Builder response_message = Plugin.QueryResponseMessage.CreateBuilder();
-            response_message.SetHeader(Plugin.Common.Types.Header.CreateBuilder().SetVersion(Plugin.Common.Types.Version.VERSION_1).Build());
+            response_message.SetHeader(Plugin.Common.Types.Header.CreateBuilder().Build());
             Plugin.QueryResponseMessage.Types.Response.Builder response = Plugin.QueryResponseMessage.Types.Response.CreateBuilder();
             response.SetCommand(command);
             response.SetResult(Plugin.Common.Types.ResultCode.OK);
-            response.SetMessage("Hello from C#");
+            response.AddLines(Plugin.QueryResponseMessage.Types.Response.Types.Line.CreateBuilder().SetMessage("Hello from C#").Build());
             response_message.AddPayload(response.Build());
 
             return new Result(response_message.Build().ToByteArray());

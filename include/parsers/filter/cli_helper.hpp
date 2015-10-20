@@ -20,6 +20,46 @@ namespace modern_filter {
 		bool debug;
 		data_container() : debug(false) {}
 	};
+
+	struct perf_writer : public perf_writer_interface {
+		Plugin::QueryResponseMessage::Response::Line &line;
+		perf_writer(Plugin::QueryResponseMessage::Response::Line &line) : line(line) {}
+		virtual void write(const parsers::where::performance_data &data) {
+			::Plugin::Common::PerformanceData* perf = line.add_perf();
+			perf->set_alias(data.alias);
+			if (data.value_int) {
+				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
+				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
+				if (!data.unit.empty())
+					perfData->set_unit(data.unit);
+				perfData->set_value(value.value);
+				if (value.warn)
+					perfData->set_warning(*value.warn);
+				if (value.crit)
+					perfData->set_critical(*value.crit);
+				if (value.minimum)
+					perfData->set_minimum(*value.minimum);
+				if (value.maximum)
+					perfData->set_maximum(*value.maximum);
+			}
+			else if (data.value_double) {
+				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
+				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
+				if (!data.unit.empty())
+					perfData->set_unit(data.unit);
+				perfData->set_value(value.value);
+				if (value.warn)
+					perfData->set_warning(*value.warn);
+				if (value.crit)
+					perfData->set_critical(*value.crit);
+				if (value.minimum)
+					perfData->set_minimum(*value.minimum);
+				if (value.maximum)
+					perfData->set_maximum(*value.maximum);
+			}
+		}
+	};
+
 	template<class T>
 	struct cli_helper : public  boost::noncopyable {
 
@@ -229,58 +269,19 @@ namespace modern_filter {
 				;
 		}
 
-		void post_process(T &filter, parsers::where::perf_writer_interface* writer) {
+		void post_process(T &filter) {
 			filter.match_post();
+			Plugin::QueryResponseMessage::Response::Line *line = response->add_lines();
+			modern_filter::perf_writer writer(*line);
+			line->set_message(filter.get_message());
 			//filter.end_match();
-			filter.fetch_perf(writer);
+			filter.fetch_perf(&writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
  				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
 			else
 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
-			response->set_message(filter.get_message());
 		}
 
 	};
 
-
-	struct perf_writer : public parsers::where::perf_writer_interface {
-		Plugin::QueryResponseMessage::Response *response;
-		std::string unit;
-		perf_writer(Plugin::QueryResponseMessage::Response *response) : response(response) {}
-		virtual void write(const parsers::where::performance_data &data) {
-			::Plugin::Common::PerformanceData* perf = response->add_perf();
-			perf->set_alias(data.alias);
-			if (data.value_int) {
-				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
-				perf->set_type(::Plugin::Common_DataType_INT);
-				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
-				if (!data.unit.empty())
-					perfData->set_unit(data.unit);
-				perfData->set_value(value.value);
-				if (value.warn)
-					perfData->set_warning(*value.warn);
-				if (value.crit)
-					perfData->set_critical(*value.crit);
-				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
-				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
-			} else if (data.value_double) {
-				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
-				perf->set_type(::Plugin::Common_DataType_FLOAT);
-				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
-				if (!data.unit.empty())
-					perfData->set_unit(data.unit);
-				perfData->set_value(value.value);
-				if (value.warn)
-					perfData->set_warning(*value.warn);
-				if (value.crit)
-					perfData->set_critical(*value.crit);
-				if (value.minimum)
-					perfData->set_minimum(*value.minimum);
-				if (value.maximum)
-					perfData->set_maximum(*value.maximum);
-			}
-		}
-	};
 }

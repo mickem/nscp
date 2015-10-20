@@ -44,6 +44,14 @@ namespace swap_bytes {
 	inline T hton(T value) {
 		return EndianSwapBytes<HOST_ENDIAN_ORDER, BIG_ENDIAN_ORDER, T >(value);
 	}
+	template<class T>
+	inline T ltoh(T value) {
+		return EndianSwapBytes<LITTLE_ENDIAN_ORDER, HOST_ENDIAN_ORDER, T >(value);
+	}
+	template<typename T>
+	inline T htol(T value) {
+		return EndianSwapBytes<HOST_ENDIAN_ORDER, LITTLE_ENDIAN_ORDER, T >(value);
+	}
 #ifdef WIN32
 #pragma warning( pop )
 #endif

@@ -59,7 +59,6 @@ public:
 	///
 	/// @author mickem
 	NSPluginException(const std::string &module, const std::string &error) : file_(module), error(error) {}
-//	NSPluginException(const std::string &module, const std::wstring &error) : file_(module), error(utf8::cvt<std::string>(error)) {}
 	~NSPluginException() throw() {}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -127,6 +126,8 @@ private:
 	nscapi::plugin_api::lpHandleNotification fHandleNotification;
 	nscapi::plugin_api::lpHasRoutingHandler fHasRoutingHandler;
 	nscapi::plugin_api::lpRouteMessage fRouteMessage;
+	nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
+	nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
 
 public:
 	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
@@ -148,11 +149,14 @@ public:
 	NSCAPI::nagiosReturn handle_schedule(const std::string &request);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+	NSCAPI::nagiosReturn fetchMetrics(std::string &request);
+	NSCAPI::nagiosReturn fetchMetrics(char** response_buffer, unsigned int *response_buffer_len);
+	NSCAPI::nagiosReturn submitMetrics(const std::string &request);
+	NSCAPI::nagiosReturn submitMetrics(const char* buffer, const unsigned int buffer_len);
 	void deleteBuffer(char**buffer);
 	void handleMessage(const char* data, unsigned int len);
 	void unload_dll(void);
 	void unload_plugin(void);
-	std::wstring getCongifurationMeta();
 	int commandLineExec(std::string &request, std::string &reply);
 	int commandLineExec(const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
@@ -163,6 +167,13 @@ public:
 
 	
 	bool route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
+
+	bool hasMetricsFetcher() {
+		return fFetchMetrics != NULL;
+	}
+	bool hasMetricsSubmitter() {
+		return fSubmitMetrics != NULL;
+	}
 
 	std::string get_description() {
 		if (alias_.empty())
@@ -175,10 +186,10 @@ public:
 	inline std::string getFilename() const {
 		return module_.get_filename();
 	}
-	inline std::string get_alias_or_name() const {
+	inline std::string get_alias_or_name() {
 		if (!alias_.empty())
 			return alias_;
-		return getFilename();
+		return getModule();
 	}
 	std::string getModule() {
 #ifndef WIN32

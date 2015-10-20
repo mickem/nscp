@@ -53,7 +53,7 @@ static std::string render_list(const Plugin::RegistryResponseMessage &response_m
 				list += "\n";
 			list += renderer(pl.inventory(j)); // .name() + "\t-" + pl.inventory(j).info().description();
 		}
-		if (pl.result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+		if (pl.result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 			return "Error: " + response_message.payload(i).result().message();
 		}
 	}
@@ -81,7 +81,85 @@ namespace client {
 				"\tdesc <query>\t\t-Describe a query\n"
 				"\tplugins\t\t\t-list all plugins\n"
 				"\t<any other command>\t-Will be executed as a query");
-		} else if (command.size() > 4 && command.substr(0,4) == "load") {
+		} else if (command.size() > 6 && command.substr(0, 6) == "enable") {
+			std::string name = command.substr(7);
+			bool has_errors = false;
+			{
+				Plugin::SettingsRequestMessage srm;
+				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_update()->mutable_node()->set_path("/modules");
+				r->mutable_update()->mutable_node()->set_key(name);
+				r->mutable_update()->mutable_value()->set_string_data("enabled");
+				r->set_plugin_id(handler->get_plugin_id());
+				std::string response;
+				handler->get_core()->settings_query(srm.SerializeAsString(), response);
+				Plugin::SettingsResponseMessage response_message;
+				response_message.ParseFromString(response);
+				for (int i = 0; i < response_message.payload_size(); i++) {
+					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
+						has_errors = true;
+					}
+				}
+			}
+			{
+				Plugin::SettingsRequestMessage srm;
+				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_control()->set_command(::Plugin::Settings_Command_SAVE);
+				r->set_plugin_id(handler->get_plugin_id());
+				std::string response;
+				handler->get_core()->settings_query(srm.SerializeAsString(), response);
+				Plugin::SettingsResponseMessage response_message;
+				response_message.ParseFromString(response);
+				for (int i = 0; i < response_message.payload_size(); i++) {
+					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
+						has_errors = true;
+					}
+				}
+			}
+			if (!has_errors)
+				handler->output_message(name + " enabled successfully...");
+		} else if (command.size() > 7 && command.substr(0, 7) == "disable") {
+			std::string name = command.substr(8);
+			bool has_errors = false;
+			{
+				Plugin::SettingsRequestMessage srm;
+				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_update()->mutable_node()->set_path("/modules");
+				r->mutable_update()->mutable_node()->set_key(name);
+				r->mutable_update()->mutable_value()->set_string_data("disabled");
+				r->set_plugin_id(handler->get_plugin_id());
+				std::string response;
+				handler->get_core()->settings_query(srm.SerializeAsString(), response);
+				Plugin::SettingsResponseMessage response_message;
+				response_message.ParseFromString(response);
+				for (int i = 0; i < response_message.payload_size(); i++) {
+					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
+						has_errors = true;
+					}
+				}
+			}
+			{
+				Plugin::SettingsRequestMessage srm;
+				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
+				r->mutable_control()->set_command(::Plugin::Settings_Command_SAVE);
+				r->set_plugin_id(handler->get_plugin_id());
+				std::string response;
+				handler->get_core()->settings_query(srm.SerializeAsString(), response);
+				Plugin::SettingsResponseMessage response_message;
+				response_message.ParseFromString(response);
+				for (int i = 0; i < response_message.payload_size(); i++) {
+					if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+						handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
+						has_errors = true;
+					}
+				}
+			}
+			if (!has_errors)
+				handler->output_message(name + " disabled successfully...");
+		} else if (command.size() > 4 && command.substr(0, 4) == "load") {
 			Plugin::RegistryRequestMessage rrm;
 			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -95,7 +173,7 @@ namespace client {
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i=0;i<response_message.payload_size();i++) {
-				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}
@@ -116,7 +194,7 @@ namespace client {
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
 			for (int i=0;i<response_message.payload_size();i++) {
-				if (response_message.payload(i).result().status() != ::Plugin::Common_Status_StatusType_STATUS_OK) {
+				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to unload module: " + response_message.payload(i).result().message());
 					has_errors = true;
 				}

@@ -41,12 +41,33 @@ nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
 
-bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
+bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
+
+
 	std::string request, buffer;
-	nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
+
+	Plugin::SubmitRequestMessage request_message;
+	nscapi::protobuf::functions::create_simple_header(request_message.mutable_header());
+	request_message.mutable_header()->set_sender_id(source_id);
+	request_message.mutable_header()->set_source_id(source_id);
+	request_message.mutable_header()->set_recipient_id(target_id);
+	request_message.mutable_header()->set_destination_id(target_id);
+	request_message.set_channel(channel);
+
+	Plugin::QueryResponseMessage::Response *payload = request_message.add_payload();
+	payload->set_command(command);
+	payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(code));
+	Plugin::QueryResponseMessage::Response::Line *line = payload->add_lines();
+	line->set_message(message);
+	if (!perf.empty())
+		nscapi::protobuf::functions::parse_performance_data(line, perf);
+
+	request_message.SerializeToString(&request);
+
+	//nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
 	NSCAPI::nagiosReturn ret = get_core()->submit_message(channel, request, buffer);
 	if (ret == NSCAPI::returnIgnored) {
-		response = "No handler for this message";
+		response = "No handler for: " + channel;
 		return false;
 	}
 	if (buffer.size() == 0) {
@@ -145,7 +166,7 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
@@ -170,7 +191,7 @@ void nscapi::core_helper::register_alias(std::string command, std::string descri
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
@@ -192,7 +213,7 @@ void nscapi::core_helper::register_channel(const std::string channel)
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
 	for (int i=0;i<response.payload_size();i++) {
-		if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK)
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
 	}
 }

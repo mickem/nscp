@@ -316,31 +316,29 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
 	}
 	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
+	if (!payload.lines_size() != 1) {
+		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
+	}
+	const ::Plugin::QueryResponseMessage::Response::Line &line = payload.lines(0);
 
 	switch (c) {
 		case REQ_CPULOAD:		// Return the first performance data value
 		case REQ_UPTIME:
 		case REQ_COUNTER:
-			if (payload.perf_size() < 1)
+			if (line.perf_size() < 1)
 				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
-			return check_nt::packet(extract_perf_value(payload.perf(0)));
+			return check_nt::packet(extract_perf_value(line.perf(0)));
 
 		case REQ_MEMUSE:
-			if (payload.perf_size() < 1)
-				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
-			return check_nt::packet(extract_perf_total(payload.perf(0)) + "&" + extract_perf_value(payload.perf(0)));
+			return check_nt::packet(extract_perf_total(line.perf(0)) + "&" + extract_perf_value(line.perf(0)));
 		case REQ_USEDDISKSPACE:
-			if (payload.perf_size() < 1)
-				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
-			return check_nt::packet(extract_perf_value(payload.perf(0)) + "&" + extract_perf_total(payload.perf(0)));
+			return check_nt::packet(extract_perf_value(line.perf(0)) + "&" + extract_perf_total(line.perf(0)));
 		case REQ_FILEAGE:
-			if (payload.perf_size() < 1)
-				return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
-			return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(payload.perf(0))/60) + "&" + payload.message());
+			return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(line.perf(0))/60) + "&" + line.message());
 
 		case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 		case REQ_PROCSTATE:
-			return check_nt::packet(strEx::s::xtos(payload.result()) + "& " + payload.message());
+			return check_nt::packet(strEx::s::xtos(payload.result()) + "& " + line.message());
 	}
 
 	return check_nt::packet("ERROR: Unknown command " + cmd.first);

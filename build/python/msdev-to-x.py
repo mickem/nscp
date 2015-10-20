@@ -33,9 +33,13 @@ elif sys.argv[1] == "2008":
 	target_sln = '10.00'
 elif sys.argv[1] == "2012":
 	convert_tool = True
-	target_vc = '12.00'
-	target_sln = '13.00'
+	target_vc = '9.00'
+	target_sln = '10.00'
 elif sys.argv[1] == "2013":
+	convert_tool = True
+	target_vc = '9.00'
+	target_sln = '10.00'
+elif sys.argv[1] == "2015":
 	convert_tool = True
 	target_vc = '9.00'
 	target_sln = '10.00'
@@ -44,10 +48,8 @@ else:
 	os.exit(1)
 	
 scan_folder(os.getcwd())
-if convert_tool:
-	for f in slns:
-		print 'Running: devenv /Upgrade %s'%f
-		os.system('devenv /Upgrade %s'%f)
+for f in vcprojs:
+	replace_in_file(f, 'PreprocessorDefinitions="WIN32', 'PreprocessorDefinitions="$(DefineConstants);WIN32')
 for f in vcprojs:
 	#if convert_tool:
 	#	print 'Running: devenv /Upgrade %s'%f
@@ -61,3 +63,7 @@ for f in slns:
 	replace_in_file(f, 'Format Version 09.00', 'Format Version %s'%target_sln)
 	replace_in_file(f, 'Format Version 08.00', 'Format Version %s'%target_sln)
 	replace_in_file(f, 'Format Version 8.00', 'Format Version %s'%target_sln)
+if convert_tool:
+	for f in slns:
+		print 'Running: devenv /Upgrade %s'%f
+		os.system('devenv /Upgrade %s'%f)

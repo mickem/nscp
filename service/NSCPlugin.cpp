@@ -51,6 +51,8 @@ NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::path file, 
 	,fHandleNotification(NULL)
 	,fHasRoutingHandler(NULL)
 	,fRouteMessage(NULL)
+	,fFetchMetrics(NULL)
+	,fSubmitMetrics(NULL)
 {
 }
 /**
@@ -283,6 +285,45 @@ NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, const ch
 	}
 }
 
+NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(std::string &request) {
+	char *buffer = NULL;
+	unsigned int len = 0;
+	NSCAPI::nagiosReturn ret = fetchMetrics(&buffer, &len);
+	if (buffer != NULL) {
+		request = std::string(buffer, len);
+		deleteBuffer(&buffer);
+	}
+	return ret;
+}
+
+NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(char** returnBuffer, unsigned int *returnBuffer_len) {
+	if (!isLoaded() || fFetchMetrics == NULL)
+		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
+	try {
+		return fFetchMetrics(plugin_id_, returnBuffer, returnBuffer_len);
+	}
+	catch (...) {
+		throw NSPluginException(get_alias_or_name(), "Unhanded exception in fFetchMetrics.");
+	}
+}
+
+
+NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const std::string &request) {
+	return submitMetrics(request.c_str(), request.size());
+}
+
+NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const char* buffer, const unsigned int buffer_len) {
+	if (!isLoaded() || fSubmitMetrics == NULL)
+		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
+	try {
+		return fSubmitMetrics(plugin_id_, buffer, buffer_len);
+	}
+	catch (...) {
+		throw NSPluginException(get_alias_or_name(), "Unhanded exception in SubmitMetrics.");
+	}
+}
+
+
 bool NSCPlugin::route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
 	if (!isLoaded() || fRouteMessage == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
@@ -358,6 +399,8 @@ void NSCPlugin::unload_dll() {
 	fHasRoutingHandler = NULL;
 	fRouteMessage = NULL;
 	fHandleSchedule = NULL;
+	fFetchMetrics = NULL;
+	fSubmitMetrics = NULL;
 	module_.unload_library();
 }
 bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
@@ -444,7 +487,9 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		fRouteMessage = (nscapi::plugin_api::lpRouteMessage)module_.load_proc("NSRouteMessage");
 
 		fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
-		
+		fFetchMetrics = (nscapi::plugin_api::lpFetchMetrics)module_.load_proc("NSFetchMetrics");
+		fSubmitMetrics = (nscapi::plugin_api::lpSubmitMetrics)module_.load_proc("NSSubmitMetrics");
+
 	} catch (NSPluginException &e) {
 		throw e;
  	} catch (dll::dll_exception &e) {

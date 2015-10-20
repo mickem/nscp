@@ -26,6 +26,8 @@ namespace parsers {
 			struct container {
 				std::string alias;
 				std::string target;
+				std::string target_id;
+				std::string source_id;
 				std::string command;
 				std::string timeout_msg;
 				NSCAPI::nagiosReturn severity;
@@ -63,31 +65,33 @@ namespace parsers {
 
 			std::list<container_type> items;
 
-			bool add_item(const config_object &object, const runtime_data &source_data) {
+			bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data) {
 				container_type item(new container);
-				item->alias = object.tpl.alias;
+				item->alias = object->alias;
 				item->data = source_data;
-				item->target = object.filter.target;
+				item->target = object->filter.target;
+				item->target_id = object->filter.target_id;
+				item->source_id = object->filter.source_id;
 				item->command = item->alias;
-				item->timeout_msg = object.filter.timeout_msg;
-				item->severity = object.filter.severity;
-				item->max_age = object.filter.max_age;
-				item->debug = object.filter.debug;
-				if (!object.filter.command.empty())
-					item->command = object.filter.command;
+				item->timeout_msg = object->filter.timeout_msg;
+				item->severity = object->filter.severity;
+				item->max_age = object->filter.max_age;
+				item->debug = object->filter.debug;
+				if (!object->filter.command.empty())
+					item->command = object->filter.command;
 				std::string message;
 
-				if (!item->filter.build_syntax(object.filter.syntax_top, object.filter.syntax_detail, object.filter.perf_data, object.filter.perf_config, object.filter.syntax_ok, object.filter.syntax_empty, message)) {
-					NSC_LOG_ERROR("Failed to build strings " + object.tpl.alias + ": " + message);
+				if (!item->filter.build_syntax(object->filter.syntax_top, object->filter.syntax_detail, object->filter.perf_data, object->filter.perf_config, object->filter.syntax_ok, object->filter.syntax_empty, message)) {
+					NSC_LOG_ERROR("Failed to build strings " + object->alias + ": " + message);
 					return false;
 				}
-				if (!item->filter.build_engines(object.filter.debug, object.filter.filter_string, object.filter.filter_ok, object.filter.filter_warn, object.filter.filter_crit)) {
-					NSC_LOG_ERROR("Failed to build filters: " + object.tpl.alias);
+				if (!item->filter.build_engines(object->filter.debug, object->filter.filter_string, object->filter.filter_ok, object->filter.filter_warn, object->filter.filter_crit)) {
+					NSC_LOG_ERROR("Failed to build filters: " + object->alias);
 					return false;
 				}
 
 				if (!item->filter.validate()) {
-					NSC_LOG_ERROR("Failed validate: " + object.tpl.alias);
+					NSC_LOG_ERROR("Failed validate: " + object->alias);
 					return false;
 				}
 				item->data.boot();
@@ -98,7 +102,7 @@ namespace parsers {
 			void process_timeout(const container_type item) {
 				std::string response;
 				nscapi::core_helper ch(core, plugin_id);
-				if (!ch.submit_simple_message(item->target, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
+				if (!ch.submit_simple_message(item->target, item->source_id, item->target_id, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
 					NSC_LOG_ERROR("Failed to submit result: " + response);
 				}
 			}
@@ -117,7 +121,7 @@ namespace parsers {
 				std::string message = item->filter.get_message();
 				if (message.empty())
 					message = "Nothing matched";
-				if (!ch.submit_simple_message(item->target, item->command, item->filter.summary.returnCode, message, "", response)) {
+				if (!ch.submit_simple_message(item->target, item->source_id, item->target_id, item->command, item->filter.summary.returnCode, message, "", response)) {
 					NSC_LOG_ERROR("Failed to submit '" + message);
 				}
 				return true;
@@ -188,7 +192,15 @@ namespace parsers {
 					if (dur.total_seconds() <= 0) {
 						NSC_LOG_ERROR("Invalid duration for eventlog check, assuming all values stale");
 						touch_all();
-						return ret;
+						minNext = boost::none;
+						BOOST_FOREACH(const container_type item, items) {
+							item->find_minimum_timeout(minNext);
+						}
+						dur = *minNext - current_time;
+						if (dur.total_seconds() <= 0) {
+							NSC_LOG_ERROR("Something is fishy with your periods, returning 30 seconds...");
+							dur = boost::posix_time::time_duration(0, 0, 30, 0);
+						}
 					}
 					NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
 					ret = dur;

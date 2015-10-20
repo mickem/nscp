@@ -130,7 +130,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	collector.reset(new pdh_thread(get_core(), get_id()));
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("system", alias, "windows");
-	std::string counter_path = settings.alias().get_settings_path("counters");
+	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
 
 
@@ -145,7 +145,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("service mapping", "SERVICE MAPPING SECTION", "Configure which services has to be in which state")
 
-		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, get_settings_proxy(), counter_path, _1, _2)), 
+		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)), 
 		"COUNTERS", "Add counters to check",
 		"COUNTER", "For more configuration options add a dedicated section")
 
@@ -168,25 +168,25 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
-	filters::filter_config_handler::add_samples(get_settings_proxy(), collector->filters_path_);
+	pdh_checker.counters_.add_samples(get_settings_proxy());
 		
 	if (mode == NSCAPI::normalStart) {
 
-		BOOST_FOREACH(const check_pdh::counter_config_object &object, pdh_checker.counters_.get_object_list()) {
+		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
-				counter.alias = object.tpl.alias;
-				counter.path = object.counter;
+				counter.alias = object->alias;
+				counter.path = object->counter;
 
-				counter.set_strategy(object.collection_strategy);
-				counter.set_instances(object.instances);
-				counter.set_buffer_size(object.buffer_size);
-				counter.set_type(object.type);
-				counter.set_flags(object.flags);
+				counter.set_strategy(object->collection_strategy);
+				counter.set_instances(object->instances);
+				counter.set_buffer_size(object->buffer_size);
+				counter.set_type(object->type);
+				counter.set_flags(object->flags);
 
 				collector->add_counter(counter);
 			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR("Failed to load: " + object.tpl.alias + ": " + e.reason());
+				NSC_LOG_ERROR("Failed to load: " + object->alias + ": " + e.reason());
 			}
 		}
 		collector->start();
@@ -527,8 +527,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 			filter.match(record);
 		}
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -605,9 +604,10 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
 	filter.match(record);
-
+	/*
 	modern_filter::perf_writer scaler(response);
 	filter_helper.post_process(filter, &scaler);
+	*/
 }
 
 void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -637,8 +637,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter.match(record);
 
-	modern_filter::perf_writer scaler(response);
-	filter_helper.post_process(filter, &scaler);
+	filter_helper.post_process(filter);
 }
 
 
@@ -757,8 +756,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 			}
 		}
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -787,8 +785,7 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	boost::shared_ptr<check_page_filter::filter_obj> record(new check_page_filter::filter_obj(total));
 	filter.match(record);
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 
@@ -887,8 +884,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 		filter.match(record);
 	}
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 class NSC_error : public process_helper::error_reporter {
@@ -1031,8 +1027,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
 		filter.match(record);
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -1080,6 +1075,126 @@ void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request,
 	pdh_checker.check_pdh(collector, request, response);
 }
 
-void CheckSystem::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string path, std::string key, std::string query) {
-	pdh_checker.add_counter(proxy, path, key, query);
+void CheckSystem::add_counter(std::string key, std::string query) {
+	pdh_checker.add_counter(get_settings_proxy(), key, query);
+}
+
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, long long value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_int_data(value);
+}
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, unsigned long long value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_int_data(value);
+}
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, std::string value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_string_data(value);
+}
+void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, double value) {
+	Plugin::Common::Metric *m = b->add_value();
+	m->set_key(key);
+	m->mutable_value()->set_float_data(value);
+}
+
+
+class add_visitor : public boost::static_visitor<> {
+
+	Plugin::Common::MetricsBundle *b;
+	const std::string &key;
+
+public:
+	add_visitor(Plugin::Common::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
+	void operator()(const long long &i) const {
+		add_metric(b, key, i);
+	}
+
+	void operator()(const std::string & s) const {
+		add_metric(b, key, s);
+	}
+	void operator()(const double & d) const {
+		add_metric(b, key, d);
+	}
+};
+void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	bundle->set_key("system");
+	try {
+		Plugin::Common::MetricsBundle *mem = bundle->add_children();
+		mem->set_key("mem");
+		CheckMemory::memData mem_data = memoryChecker.getMemoryStatus();
+		add_metric(mem, "commited.avail", mem_data.commited.avail);
+		add_metric(mem, "commited.total", mem_data.commited.total);
+		add_metric(mem, "commited.used", mem_data.commited.total - mem_data.commited.avail);
+		add_metric(mem, "commited.%", mem_data.commited.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+		add_metric(mem, "virtual.avail", mem_data.virt.avail);
+		add_metric(mem, "virtual.total", mem_data.virt.total);
+		add_metric(mem, "virtual.used", mem_data.virt.total - mem_data.virt.avail);
+		add_metric(mem, "virtual.%", mem_data.virt.total == 0 ? 0 : (100 * mem_data.virt.avail) / mem_data.virt.total);
+		add_metric(mem, "page.avail", mem_data.page.avail);
+		add_metric(mem, "page.total", mem_data.page.total);
+		add_metric(mem, "page.used", mem_data.page.total - mem_data.page.avail);
+		add_metric(mem, "page.%", mem_data.page.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+		add_metric(mem, "physical.avail", mem_data.phys.avail);
+		add_metric(mem, "physical.total", mem_data.phys.total);
+		add_metric(mem, "physical.used", mem_data.phys.total - mem_data.phys.avail);
+		add_metric(mem, "physical.%", mem_data.phys.total == 0 ? 0 : (100 * mem_data.commited.avail) / mem_data.commited.total);
+	} catch (CheckMemoryException e) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: " + e.reason());
+	}
+
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("cpu");
+
+		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
+		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
+		BOOST_FOREACH(vt v, vals) {
+			add_metric(section, v.first + ".idle", v.second.idle);
+			add_metric(section, v.first + ".total", v.second.total);
+			add_metric(section, v.first + ".kernel", v.second.kernel);
+		}
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("uptime");
+		unsigned long long value = nscpGetTickCount64();
+		if (value == 0)
+			value = GetTickCount();
+		value /= 1000;
+
+		boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
+		boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+		boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
+
+		add_metric(section, "ticks.raw", value);
+		add_metric(section, "boot.raw", value);
+		add_metric(section, "uptime", format::itos_as_time(value * 1000));
+		add_metric(section, "boot", format::format_date(boot));
+
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+
+
+	try {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("metrics");
+
+		BOOST_FOREACH(const pdh_thread::metrics_hash::value_type &e, collector->get_metrics()) {
+			add_visitor adder(section, e.first);
+			boost::apply_visitor(adder, e.second);
+		}
+
+	}
+	catch (...) {
+		NSC_LOG_ERROR("Failed to getch memory metrics: ");
+	}
+
 }

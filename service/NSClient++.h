@@ -101,6 +101,8 @@ private:
 	nsclient::commands commands_;
 	nsclient::channels channels_;
 	nsclient::routers routers_;
+	nsclient::simple_plugins_list metricsFetchers;
+	nsclient::simple_plugins_list metricsSubmitetrs;
 	unsigned int next_plugin_id_;
 	std::string service_name_;
 
@@ -192,6 +194,8 @@ public:
 
 	std::string getFolder(std::string key);
 	std::string expand_path(std::string file);
+
+	void process_metrics();
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);

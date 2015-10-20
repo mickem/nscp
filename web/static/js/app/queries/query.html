@@ -1,0 +1,129 @@
+<div class="row" data-bind="with: query">
+	<ol class="breadcrumb pull-left" >
+		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
+		<li><a href="#/queries">Queries</a></li>
+		<li><span data-bind="text: name"></span></li>
+	</ol>
+</div>
+
+<div class="row" data-bind="with: query">
+
+	<ul class="nav nav-tabs">
+		<li class="active">
+			<a href="#desc" data-toggle="tab">
+				<span class="glyphicon glyphicon-home"></span> Overview</a>
+		</li>
+		<li>
+			<a href="#help" data-toggle="tab">
+				<span class="glyphicon glyphicon-question-sign"></span> Help</a>
+		</li>
+		<li>
+			<a href="#run" data-toggle="tab">
+				<span class="glyphicon glyphicon-fire"></span> Run</a>
+		</li>
+	</ul>
+
+	<div class="tab-content">
+		<div class="tab-pane active" id="desc">
+			<div class="panel-body">
+				<h2 data-bind="text: name"></h2>
+				<p data-bind="text: desc"></p>
+				<h3>Provided by</h3>
+				<ul class="list-group">
+					<!-- ko foreach: plugs -->
+						<a class="list-group-item" href="" data-bind="attr: { href: '#/modules/' + $data }">
+							<span data-bind="text: $data"></span>
+						</a>
+					<!-- /ko -->
+				</ul>
+				
+				
+			</div>
+		</div>
+
+		<div class="tab-pane" id="help">
+			<div class="panel-body">
+				<div id="accordion" class="panel-group">
+					<!-- ko foreach: params -->
+					<div class="panel panel-default">
+						<div class="panel-heading">
+							<h4 class="panel-title">
+								<b><a class="accordion-toggle" href="#" class=""
+									data-toggle="collapse" data-parent="#accordion" 
+									data-bind="text: name, attr: {href: '#collapse' + $index()}"></a></b> : 
+									<span data-bind="text: first_line"></span>
+							</h4>
+						</div>
+						<div class="panel-collapse collapse" data-bind="attr: {id: 'collapse' + $index()}">
+							<div class="panel-body">
+								<span data-bind="html: desc"></span>
+							</div>
+						</div>
+					</div>
+					<!-- /ko -->
+				</div>
+			</div>
+		</div>
+		
+		<div class="tab-pane" id="run">
+			<div class="panel-body">
+				<form class="form" role="form" data-bind="submit: execute">
+					<div class="input-group">
+						<input id="command" class="typeahead form-control" type="text" placeholder="Command" 
+							data-bind="value: command, typeahead: {name: 'aaa', source: commandTips(), templates: { suggestion: suggestion } } "></input>
+						<span class="input-group-btn">
+							<button class="btn btn-default btn-success" type="submit">Run</button>
+						</span>
+					</div>
+					<p class="help-block">Enter command and click run.</p>
+				</form>
+				<!-- ko if: resultStatus() -->
+					<div>
+						<hr/>
+						<h3>
+							<span class="label" data-bind="text: resultStatus, css: { 'label-success': resultStatus()=='OK', 'label-danger': ( resultStatus()=='UNKNOWN' || resultStatus()=='CRITICAL'), 'label-warning': resultStatus()=='WARNING' }"></span>
+						</h3>
+						<!-- ko foreach: resultLines -->
+							<pre data-bind="text: message"></pre>
+							<table class="table table-striped table-condensed">
+								<tr>
+									<th>Key</th>
+									<th>Value</th>
+									<th>Warning</th>
+									<th>Critical</th>
+									<th>Minimum</th>
+									<th>Maximum</th>
+								</tr>
+								<!-- ko foreach: perf -->
+									<tr>
+										<td data-bind="text: alias"></td>
+										<td>
+											<span data-bind="text: value.r_value"></span>
+											<span data-bind="text: value.unit"></span>
+										</td>
+										<td>
+											<span data-bind="text: value.r_warning"></span>
+											<span data-bind="text: value.unit"></span>
+										</td>
+										<td>
+											<span data-bind="text: value.r_critical"></span>
+											<span data-bind="text: value.unit"></span>
+										</td>
+										<td>
+											<span data-bind="text: value.r_minimum"></span>
+											<span data-bind="visible: value.r_minimum, text: value.unit"></span>
+										</td>
+										<td>
+											<span data-bind="text: value.r_maximum"></span>
+											<span data-bind="visible: value.r_maximum, text: value.unit"></span>
+										</td>
+									</tr>
+								<!-- /ko -->
+							</table>
+						<!-- /ko -->
+					</div>
+				<!-- /ko -->
+			</div>
+		</div>
+	</div>
+</div>

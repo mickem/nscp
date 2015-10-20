@@ -1,0 +1,20 @@
+<div class="row">
+	<ol class="breadcrumb pull-left" >
+		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
+		<li><a href="" data-bind="click: refresh">Queries</a></li>
+	</ol>
+</div>
+
+<div class="row">
+	<div class="list-group" data-bind="foreach: commands">
+		<a class="list-group-item" href="" data-bind="attr: { href: '#/queries/' + id, title: desc }">
+			<div class="pull-left">
+				<h4 class="list-group-item-heading">
+					<span data-bind="text: name"></span>
+				</h4>
+				<p class="list-group-item-text" data-bind="text: desc"></p>
+			</div>
+			<div class="clearfix"></div>
+		</a>
+	</div>
+</div>

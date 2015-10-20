@@ -13,6 +13,7 @@
 #include <boost/program_options.hpp>
 #endif
 #include <boost/function/function1.hpp>
+#include <boost/bind.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 namespace nscapi {

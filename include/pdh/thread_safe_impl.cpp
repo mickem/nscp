@@ -109,6 +109,14 @@ namespace PDH {
 			throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
 		return pdh_error(pPdhRemoveCounter(hCounter));
 	}
+	pdh_error ThreadedSafePDH::PdhGetRawCounterValue(PDH::PDH_HCOUNTER hCounter, LPDWORD dwFormat, PPDH_RAW_COUNTER  pValue) {
+		boost::unique_lock<boost::shared_mutex> lock(mutex_);
+		if (!lock.owns_lock())
+			throw pdh_exception("Failed to get mutex for PdhGetRawCounterValue");
+		if (pPdhGetRawCounterValue == NULL)
+			throw pdh_exception("Failed to initialize PdhGetRawCounterValue :(");
+		return pdh_error(pPdhGetRawCounterValue(hCounter, dwFormat, pValue));
+	}
 	pdh_error ThreadedSafePDH::PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) {
 		boost::unique_lock<boost::shared_mutex> lock(mutex_);
 		if (!lock.owns_lock())

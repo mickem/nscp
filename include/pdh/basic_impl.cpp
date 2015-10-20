@@ -8,6 +8,7 @@ namespace PDH {
 	NativeExternalPDH::fpPdhAddCounter NativeExternalPDH::pPdhAddCounter = NULL;
 	NativeExternalPDH::fpPdhAddEnglishCounter NativeExternalPDH::pPdhAddEnglishCounter = NULL;
 	NativeExternalPDH::fpPdhRemoveCounter NativeExternalPDH::pPdhRemoveCounter = NULL;
+	NativeExternalPDH::fpPdhGetRawCounterValue NativeExternalPDH::pPdhGetRawCounterValue = NULL;
 	NativeExternalPDH::fpPdhGetFormattedCounterValue NativeExternalPDH::pPdhGetFormattedCounterValue = NULL;
 	NativeExternalPDH::fpPdhOpenQuery NativeExternalPDH::pPdhOpenQuery = NULL;
 	NativeExternalPDH::fpPdhCloseQuery NativeExternalPDH::pPdhCloseQuery = NULL;

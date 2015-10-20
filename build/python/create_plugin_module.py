@@ -28,6 +28,12 @@ EXPORTS
 {% if module.cli %}
 	NSCommandLineExec
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+	NSFetchMetrics
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+	NSSubmitMetrics
+{% endif %}
 """
 
 RC_TEMPLATE = """
@@ -154,6 +160,9 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		if (!impl_) {
 			return NSCAPI::returnIgnored;
 		}
+{% if module.command_fallback_raw %}
+				impl_->query_fallback(request_message, response_message);
+{% else %}
 		for (int i=0;i<request_message.payload_size();i++) {
 			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
 			if (!impl_) {
@@ -214,6 +223,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% endif %}
 			}
 		}
+{% endif %}
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
 	} catch (const std::exception &e) {
@@ -368,6 +378,24 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
 	return impl_->commandLineExec(request, response);
 }
+{% elif module.cli == "raw" %}
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+	try {
+		Plugin::ExecuteRequestMessage request_message;
+		Plugin::ExecuteResponseMessage response_message;
+		request_message.ParseFromString(request);
+		if (!impl_->commandLineExec(request_message, response_message))
+			return NSCAPI::returnIgnored;
+		response_message.SerializeToString(&response);
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", std::string("Failed to process command: ") + utf8::utf8_from_native(e.what()), response);
+		return NSCAPI::isSuccess;
+	} catch (...) {
+		nscapi::protobuf::functions::create_simple_exec_response_unknown("", "Failed to process command", response);
+		return NSCAPI::isSuccess;
+	}
+}
 {% elif module.cli %}
 NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
 	try {
@@ -402,6 +430,44 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 	} catch (...) {
 		nscapi::protobuf::functions::create_simple_exec_response_unknown("", "Failed to process command", response);
 		return NSCAPI::isSuccess;
+	}
+}
+{% endif %}
+
+
+{% if module.metrics == "produce" or module.metrics == "both" %}
+int {{module.name}}Module::fetchMetrics(std::string &reply) {
+	Plugin::MetricsMessage response_message;
+	Plugin::MetricsMessage::Response *response = response_message.add_payload();
+	try {
+		impl_->fetchMetrics(response);
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+	} catch (const std::exception &e) {
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_message(utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		response->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+		response->mutable_result()->set_message("Unknown exception");
+	}
+	response_message.SerializeToString(&reply);
+	return NSCAPI::isSuccess;
+}
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+int {{module.name}}Module::submitMetrics(const std::string &request) {
+	Plugin::MetricsMessage metrics_message;
+	metrics_message.ParseFromString(request);
+	try {
+		BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, metrics_message.payload()) {
+			impl_->submitMetrics(p);
+		}
+		return NSCAPI::isSuccess;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to submit metrics: ", e);
+		return NSCAPI::hasFailed;
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to submit metrics");
+		return NSCAPI::hasFailed;
 	}
 }
 {% endif %}
@@ -488,6 +554,18 @@ extern NSCAPI::boolReturn NSHasNotificationHandler(unsigned int id) {
 	return wrapper.NSHasNotificationHandler(); 
 }
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+extern int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len) {
+	nscapi::metrics_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSFetchMetrics(response_buffer, response_buffer_len); 
+}
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+extern int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len) {
+	nscapi::metrics_wrapper<plugin_impl_class> wrapper(plugin_instance.get(plugin_id));
+	return wrapper.NSSubmitMetrics(buffer, buffer_len); 
+}
+{% endif %}
 """
 
 HPP_TEMPLATE = """#pragma once
@@ -513,6 +591,12 @@ extern "C" int NSCommandLineExec(unsigned int plugin_id, char *request_buffer, u
 {% if module.channels %}
 extern "C" int NSHasNotificationHandler(unsigned int plugin_id);
 extern "C" int NSHandleNotification(unsigned int plugin_id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+extern "C" int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, unsigned int *response_buffer_len);
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
 {% endif %}
 
 
@@ -608,6 +692,18 @@ public:
 {% endif %}
 	*/
 {% endif %}
+{% if module.metrics == "produce" or module.metrics == "both" %}
+	int fetchMetrics(std::string &reply);
+	/*
+	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+	*/
+{% endif %}
+{% if module.metrics == "consume" or module.metrics == "both" %}
+	int submitMetrics(const std::string &reply);
+	/*
+	void submitMetrics(const Plugin::MetricsMessage::Response &response);
+	*/
+{% endif %}
 	// exposed functions
 	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
 };
@@ -615,10 +711,12 @@ public:
 
 commands = []
 command_fallback = False
+command_fallback_raw = False
 module = None
 cli = False
 log_handler = False
 channels = False
+metrics = False
 
 class Module:
 	name = ''
@@ -682,7 +780,7 @@ class Command:
 		return '%s'%self.name
 
 def parse_commands(data):
-	global commands, command_fallback
+	global commands, command_fallback, command_fallback_raw
 	if data:
 		for key, value in data.iteritems():
 			desc = ''
@@ -692,8 +790,13 @@ def parse_commands(data):
 			no_mapping = False
 			raw_mapping = False
 			nagios = False
+			print value
 			if key == "fallback" and value:
 				command_fallback = True
+			if key == "fallback" and value == 'raw':
+				print "*****"
+				command_fallback = True
+				command_fallback_raw = True
 			if type(value) is dict:
 				if 'desc' in value:
 					desc = value['desc']
@@ -752,6 +855,8 @@ for key, value in data.iteritems():
 	elif key == "command line exec":
 		if value == "legacy":
 			cli = "legacy"
+		elif value == 'raw' or value == 'pass-through':
+			cli = value
 		elif value:
 			cli = True
 	elif key == "channels" and ( value == 'raw' or value == 'pass-through' ):
@@ -761,6 +866,8 @@ for key, value in data.iteritems():
 	elif key == "log messages":
 		if value:
 			log_handler = True
+	elif key == "metrics":
+		metrics = value
 	else:
 		print '* TODO: %s'%key
 
@@ -797,8 +904,10 @@ def escape_rcstring(str):
 module.commands = commands
 module.cli = cli
 module.channels = channels
+module.metrics = metrics
 module.log_handler = log_handler
 module.command_fallback = command_fallback
+module.command_fallback_raw = command_fallback_raw
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring

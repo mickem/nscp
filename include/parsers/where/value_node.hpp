@@ -13,11 +13,13 @@ namespace parsers {
 		template<class T>
 		struct node_value_impl : public any_node {
 			T value_;
+			bool is_unsure_;
 
-			node_value_impl(T value, value_type type) : any_node(type), value_(value) {}
-			node_value_impl(const node_value_impl<T> &other) : value_(other.value_) {}
+			node_value_impl(T value, value_type type, bool is_unsure) : any_node(type), value_(value), is_unsure_(is_unsure) {}
+			node_value_impl(const node_value_impl<T> &other) : value_(other.value_), is_unsure_(other.is_unsure_) {}
 			const node_value_impl<T>& operator=(const node_value_impl<T> &other) {
 				value_ = other.value_;
+				is_unsure_ = other.is_unsure_;
 				return *this;
 			}
 			virtual std::list<node_type> get_list_value(evaluation_context errors) const {
@@ -43,9 +45,8 @@ namespace parsers {
 		};
 
 		struct string_value : public node_value_impl<std::string>, boost::enable_shared_from_this<string_value> {
-			string_value(const std::string &value) : node_value_impl<std::string>(value, type_string) {}
-			long long get_int_value(evaluation_context context) const;
-			std::string get_string_value(evaluation_context context) const;
+			string_value(const std::string &value, bool is_unsure = false) : node_value_impl<std::string>(value, type_string, is_unsure) {}
+			value_container get_value(evaluation_context context, int type) const;
 			std::string to_string() const;
 			value_type infer_type(object_converter, value_type) {
 				return type_string;
@@ -56,15 +57,26 @@ namespace parsers {
 			bool find_performance_data(evaluation_context context, performance_collector &collector);
 		};
 		struct int_value : public node_value_impl<long long>, boost::enable_shared_from_this<int_value> {
-			int_value(const long long &value) : node_value_impl<long long>(value, type_int) {}
-			long long get_int_value(evaluation_context context) const;
-			std::string get_string_value(evaluation_context context) const;
+			int_value(const long long &value, bool is_unsure = false) : node_value_impl<long long>(value, type_int, is_unsure) {}
+			value_container get_value(evaluation_context context, int type) const;
 			std::string to_string() const;
 			value_type infer_type(object_converter converter, value_type) {
 				return type_int;
 			}
 			value_type infer_type(object_converter converter) {
 				return type_int;
+			}
+			bool find_performance_data(evaluation_context context, performance_collector &collector);
+		};
+		struct float_value : public node_value_impl<double>, boost::enable_shared_from_this<float_value> {
+			float_value(const double &value, bool is_unsure = false) : node_value_impl<double>(value, type_float, is_unsure) {}
+			value_container get_value(evaluation_context context, int type) const;
+			std::string to_string() const;
+			value_type infer_type(object_converter converter, value_type) {
+				return type_float;
+			}
+			value_type infer_type(object_converter converter) {
+				return type_float;
 			}
 			bool find_performance_data(evaluation_context context, performance_collector &collector);
 		};

@@ -12,28 +12,28 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"nrpe_query" : { 
+		"fallback" : "raw",
+		"check_nrpe" : { 
 			"description" : "Request remote information via NRPE.",
 			"mapping"	: false
 		},
-		"nrpe_exec" : { 
+		"exec_nrpe" : { 
 			"description" : "Execute remote script via NRPE. (Most likely you want nrpe_query).",
 			"mapping"	: false
 		},
-		"nrpe_submit" : { 
+		"submit_nrpe" : { 
 			"description" : "Submit information to remote host via NRPE. (Most likely you want nrpe_query).",
 			"mapping"	: false
 		},
 		"nrpe_forward" : { 
 			"description" : "Forward the request as-is to remote host via NRPE.",
-			"mapping"	: "raw"
+			"mapping"	: false
 		}
 	},
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

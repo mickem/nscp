@@ -76,7 +76,7 @@ class PythonTest(BasicTest):
 
 		default_path = '%s/schedules/default'%base_path
 		self.conf.set_string(default_path, 'channel', 'py_stress_test')
-		self.conf.set_string(default_path, 'alias', 'stress')
+		#self.conf.set_string(default_path, 'alias', 'stress')
 		self.conf.set_string(default_path, 'command', 'py_stress_noop')
 		self.conf.set_string(default_path, 'interval', '5s')
 		for i in range(1, install_checks):

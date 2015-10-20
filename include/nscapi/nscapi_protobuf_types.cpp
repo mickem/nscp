@@ -19,11 +19,11 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #include <nscapi/nscapi_protobuf_types.hpp>
-
+/*
 namespace nscapi {
 	namespace protobuf {
 		namespace types {
-			std::string destination_container::to_string() {
+			std::string destination_container::to_string() const {
 				std::stringstream ss;
 				ss << "id: " << id;
 				ss << ", address: " << address.to_string();
@@ -68,3 +68,4 @@ namespace nscapi {
 		}
 	}
 }
+*/

@@ -9,8 +9,8 @@
 	-->
     <Fragment>
         <ComponentGroup Id="Op5ConfigResources">
-            <Component Id="cmp4C19ABDC8A46F6A900DDCFAFFE4B40CE" Directory="INSTALLLOCATION" Guid="{2E480BE5-5D51-4140-8725-B1BA7F009EEE}">
-                <File Id="filEBCF895A6776369E394955195B7B4004" KeyPath="yes" Source="$(var.ConfigSource)\op5.ini"/>
+            <Component Id="cmp4C19ABDC8A46F6A900DDCFAFFE4B40CE" Directory="INSTALLLOCATION" Guid="{F1F25B72-7EFB-4D11-8105-EAB278F46B93}">
+                <File Id="filEBCF895A6776369E394955195B7B4004" KeyPath="yes" Source="$(var.OP5ConfigSource)\op5.ini" />
             </Component>
         </ComponentGroup>
     </Fragment>

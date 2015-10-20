@@ -29,6 +29,18 @@ typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, f
 typedef parsers::where::realtime_filter_helper<check_mem_filter::runtime_data, filters::filter_config_object> mem_filter_helper;
 
 
+
+struct NSC_error_pdh : public process_helper::error_reporter {
+	std::list<std::string> l;
+	void report_error(std::string error) {
+		//l.push_back(error);
+	}
+	void report_warning(std::string error) {
+	}
+	void report_debug(std::string error) {
+	}
+};
+
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
 *
@@ -54,16 +66,17 @@ void pdh_thread::thread_proc() {
 	{
 		PDH::PDHQuery tmpPdh;
 		BOOST_FOREACH(PDH::pdh_object obj, configs_) {
-			PDH::pdh_instance instance = PDH::factory::create(obj);
-
-			if (instance->has_instances()) {
-				BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) { 
-					tmpPdh.addCounter(sc);
-				}
-			} else {
-				tmpPdh.addCounter(instance);
-			}
 			try {
+				PDH::pdh_instance instance = PDH::factory::create(obj);
+
+				if (instance->has_instances()) {
+					BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) {
+						tmpPdh.addCounter(sc);
+					}
+				} else {
+					tmpPdh.addCounter(instance);
+				}
+
 				tmpPdh.open();
 				counters_.push_back(instance);
 				lookups_[instance->get_name()] = instance;
@@ -107,24 +120,30 @@ void pdh_thread::thread_proc() {
 		try {
 			pdh.open();
 		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_EXR("Failed to open counters (thread will now die): ", e);
-			return;
+			NSC_LOG_ERROR_EXR("Failed to open counters (performance counters disabled)", e);
+			check_pdh = false;
+		}
+		try {
+			pdh.collect();
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR_EXR("Failed to collect counters (performance counters disabled): ", e);
+			check_pdh = false;
 		}
 	}
 
 	bool has_realtime = !filters_.empty();
 	cpu_filter_helper cpu_helper(core, plugin_id);
 	mem_filter_helper mem_helper(core, plugin_id);
-	BOOST_FOREACH(filters::filter_config_object object, filters_.get_object_list()) {
-		if (object.check == "memory") {
+	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
+		if (object->check == "memory") {
 			check_mem_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object.data) {
+			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
 			mem_helper.add_item(object, data);
 		} else {
 			check_cpu_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object.data) {
+			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
 			cpu_helper.add_item(object, data);
@@ -147,7 +166,34 @@ void pdh_thread::thread_proc() {
 	do {
 		std::list<std::string>	errors;
 		{
-			windows::system_info::cpu_load load = windows::system_info::get_cpu_load();
+
+			long long handlesTmp = 0;
+			long long procTmp = 0;
+			long long threadTmp = 0;
+
+			try {
+				hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> buffer = windows::system_info::get_system_process_information();
+				windows::winapi::SYSTEM_PROCESS_INFORMATION* b = buffer.get();
+				while (b != NULL) {
+
+					handlesTmp += b->HandleCount;
+					threadTmp += b->NumberOfThreads;
+					procTmp++;
+
+					if (b->NextEntryOffset == NULL)
+						b = NULL;
+					else
+						b = (windows::winapi::SYSTEM_PROCESS_INFORMATION*)((PCHAR)b + b->NextEntryOffset);
+				}
+			} catch (...) {
+				errors.push_back("Failed to get metrics");
+			}
+			windows::system_info::cpu_load load;
+			try {
+				load = windows::system_info::get_cpu_load();
+			} catch (...) { 
+				errors.push_back("Failed to get cpu load"); 
+			}
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!writeLock.owns_lock()) {
 				errors.push_back("Failed to get mutex for writing");
@@ -156,6 +202,21 @@ void pdh_thread::thread_proc() {
 					cpu.push(load);
 					if (check_pdh)
 						pdh.gatherData();
+
+					BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
+						if (e.second->has_instances()) {
+							BOOST_FOREACH(const PDH::pdh_instance i, e.second->get_instances()) {
+								metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
+							}
+						} else {
+							metrics["pdh." + e.first] = e.second->get_int_value();
+						}
+					}
+
+					metrics["procs.handles"] = handlesTmp;
+					metrics["procs.threads"] = threadTmp;
+					metrics["procs.procs"] = procTmp;
+
 
 				} catch (const PDH::pdh_exception &e) {
 					if (first) {
@@ -289,6 +350,16 @@ std::map<std::string,windows::system_info::load_entry> pdh_thread::get_cpu_load(
 	return ret;
 }
 
+pdh_thread::metrics_hash pdh_thread::get_metrics() {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
+		NSC_LOG_ERROR("Failed to get Mutex for: cput");
+		return metrics_hash();
+	}
+	return metrics_hash(metrics);
+}
+
+
 
 bool pdh_thread::start() {
 	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
@@ -308,7 +379,7 @@ void pdh_thread::add_counter(const PDH::pdh_object &counter) {
 
 void pdh_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, filters_path_, key, query, key == "default");
+		filters_.add(proxy, key, query, key == "default");
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {

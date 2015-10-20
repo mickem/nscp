@@ -21,31 +21,28 @@
 #include "SyslogClient.h"
 
 #include <utils.h>
-#include <list>
-#include <string>
+#include <strEx.h>
+#include <nscapi/macros.hpp>
 
+#include <boost/make_shared.hpp>
 #include <boost/asio.hpp>
 
-#include <strEx.h>
 
+#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
+
+#include "syslog_client.hpp"
+#include "syslog_handler.hpp"
+
 
 #include <format.hpp>
 
-namespace sh = nscapi::settings_helper;
-namespace ip = boost::asio::ip;
-
-const std::string command_prefix("syslog");
-const std::string default_command("submit");
 /**
  * Default c-tor
  * @return 
  */
-SyslogClient::SyslogClient() {}
+SyslogClient::SyslogClient() : client_("syslog", boost::make_shared<syslog_client::syslog_client_handler>(), boost::make_shared<syslog_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
@@ -55,38 +52,7 @@ SyslogClient::~SyslogClient() {}
 
 bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
-	facilities["kernel"] = 0;
-	facilities["user"] = 1;
-	facilities["mail"] = 2;
-	facilities["system"] = 3;
-	facilities["security"] = 4;
-	facilities["internal"] = 5;
-	facilities["printer"] = 6;
-	facilities["news"] = 7;
-	facilities["UUCP"] = 8;
-	facilities["clock"] = 9;
-	facilities["authorization"] = 10;
-	facilities["FTP"] = 11;
-	facilities["NTP"] = 12;
-	facilities["audit"] = 13;
-	facilities["alert"] = 14;
-	facilities["clock"] = 15;
-	facilities["local0"] = 16;
-	facilities["local1"] = 17;
-	facilities["local2"] = 18;
-	facilities["local3"] = 19;
-	facilities["local4"] = 20;
-	facilities["local5"] = 21;
-	facilities["local6"] = 22;
-	facilities["local7"] = 23;
-	severities["emergency"] = 0;
-	severities["alert"] = 1;
-	severities["critical"] = 2;
-	severities["error"] = 3;
-	severities["warning"] = 4;
-	severities["notice"] = 5;
-	severities["informational"] = 6;
-	severities["debug"] = 7;
+
 
 	try {
 		sh::settings_registry settings(get_settings_proxy());
@@ -105,41 +71,87 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			;
 
 		settings.alias().add_key_to_settings()
-			("hostname", sh::string_key(&hostname_),
-			"HOSTNAME", "The host name of this host if set to blank (default) the windows name of the computer will be used.")
+			("hostname", sh::string_key(&hostname_, "auto"),
+			"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+			"auto\tHostname\n"
+			"${host}\tHostname\n"
+			"${host_lc}\nHostname in lowercase\n"
+			"${host_uc}\tHostname in uppercase\n"
+			"${domain}\tDomainname\n"
+			"${domain_lc}\tDomainname in lowercase\n"
+			"${domain_uc}\tDomainname in uppercase\n"
+			)
 
 			("channel", sh::string_key(&channel_, "syslog"),
 			"CHANNEL", "The channel to listen to.")
-
 			;
+
 		settings.register_all();
 		settings.notify();
 
-		targets.add_samples(get_settings_proxy(), target_path);
-		targets.add_missing(get_settings_proxy(), target_path, "default", "", true);
+		client_.finalize(get_settings_proxy());
+
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
+
+		if (hostname_ == "auto") {
+			hostname_ = boost::asio::ip::host_name();
+		} else if (hostname_ == "auto-lc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+		} else if (hostname_ == "auto-uc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
+		} else {
+			strEx::s::token dn = strEx::s::getToken(boost::asio::ip::host_name(), '.');
+
+			try {
+				boost::asio::io_service svc;
+				boost::asio::ip::tcp::resolver resolver (svc);
+				boost::asio::ip::tcp::resolver::query query (boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve (query), end;
+
+				std::string s;
+				while (iter != end) {
+					s += iter->host_name();
+					s += " - ";
+					s += iter->endpoint().address().to_string();
+					iter++;
+				}
+			} catch (const std::exception& e) {
+				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
+			}
+
+
+			strEx::replace(hostname_, "${host}", dn.first);
+			strEx::replace(hostname_, "${domain}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			strEx::replace(hostname_, "${host_uc}", dn.first);
+			strEx::replace(hostname_, "${domain_uc}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			strEx::replace(hostname_, "${host_lc}", dn.first);
+			strEx::replace(hostname_, "${domain_lc}", dn.second);
+		}
+
+
 	} catch (nscapi::nscapi_exception &e) {
-		NSC_LOG_ERROR_EXR("load", e);
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {
-		NSC_LOG_ERROR_EXR("load", e);
+		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_EX("load");
+		NSC_LOG_ERROR_EX("NSClient API exception: ");
 		return false;
 	}
 	return true;
 }
 
-
-//////////////////////////////////////////////////////////////////////////
-// Settings helpers
-//
-
 void SyslogClient::add_target(std::string key, std::string arg) {
 	try {
-		targets.add(get_settings_proxy(), target_path , key, arg);
+		client_.add_target(get_settings_proxy(), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {
@@ -147,16 +159,16 @@ void SyslogClient::add_target(std::string key, std::string arg) {
 	}
 }
 
-void SyslogClient::add_command(std::string name, std::string args) {
+void SyslogClient::add_command(std::string key, std::string arg) {
 	try {
 		nscapi::core_helper core(get_core(), get_id());
-		std::string key = commands.add_command(name, args);
-		if (!key.empty())
-			core.register_command(key.c_str(), "NRPE relay for: " + name);
+		std::string k = client_.add_command(key, arg);
+		if (!k.empty())
+			core.register_command(k.c_str(), "Syslog relay for: " + key);
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to add command: " + name, e);
+		NSC_LOG_ERROR_EXR("Failed to add command: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to add command: " + name);
+		NSC_LOG_ERROR_EX("Failed to add command: " + key);
 	}
 }
 
@@ -166,188 +178,20 @@ void SyslogClient::add_command(std::string name, std::string args) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool SyslogClient::unloadModule() {
+	client_.clear();
 	return true;
 }
 
-void SyslogClient::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
-	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
-	setup(config, request_message.header());
-	commands.parse_query(command_prefix, default_command, request.command(), config, request, *response, request_message);
+
+void SyslogClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
+	client_.do_query(request_message, response_message);
 }
 
-bool SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
-	setup(config, request_message.header());
-	return commands.parse_exec(command_prefix, default_command, request.command(), config, request, *response, request_message);
+bool SyslogClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+	return client_.do_exec(request, response);
 }
 
 void SyslogClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
-	client::configuration config(command_prefix, boost::shared_ptr<clp_handler_impl>(new clp_handler_impl(this)), boost::shared_ptr<target_handler>(new target_handler(targets)));
-	setup(config, request_message.header());
-	commands.forward_submit(config, request_message, *response_message);
+	client_.do_submit(request_message, *response_message);
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Parser setup/Helpers
-//
-
-void SyslogClient::add_local_options(po::options_description &desc, client::configuration::data_type data) {
-	desc.add_options()
-		("severity,s", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "severity", _1)), 
-		"Severity of error message")
-
-		("unknown-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "unknown_severity", _1)), 
-		"Severity of error message")
-
-		("ok-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "ok_severity", _1)), 
-		"Severity of error message")
-
-		("warning-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "warning_severity", _1)), 
-		"Severity of error message")
-
-		("critical-severity", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "critical_severity", _1)), 
-		"Severity of error message")
-
-		("facility,f", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "facility", _1)), 
-		"Facility of error message")
-
-		("tag template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "tag template", _1)), 
-		"Tag template (TODO)")
-
-		("message template", po::value<std::string>()->notifier(boost::bind(&nscapi::protobuf::functions::destination_container::set_string_data, &data->recipient, "message template", _1)), 
-		"Message template (TODO)")
-		;
-}
-
-void SyslogClient::setup(client::configuration &config, const ::Plugin::Common_Header& header) {
-	add_local_options(config.local, config.data);
-
-	config.data->recipient.id = header.recipient_id();
-	config.default_command = default_command;
-	std::string recipient = config.data->recipient.id;
-	if (!targets.has_object(recipient))
-		recipient = "default";
-	config.target_lookup->apply(config.data->recipient, recipient);
-	config.data->host_self.id = "self";
-	config.data->host_self.address.host = hostname_;
-}
-
-SyslogClient::connection_data parse_header(const ::Plugin::Common_Header &header, client::configuration::data_type data) {
-	nscapi::protobuf::functions::destination_container recipient;
-	nscapi::protobuf::functions::parse_destination(header, header.recipient_id(), recipient, true);
-	return SyslogClient::connection_data(recipient, data->recipient);
-}
-
-nscapi::protobuf::types::destination_container SyslogClient::target_handler::lookup_target(std::string &id) const {
-	nscapi::targets::optional_target_object opt = targets_.find_object(id);
-	if (opt)
-		return opt->to_destination_container();
-	nscapi::protobuf::types::destination_container ret;
-	return ret;
-}
-
-bool SyslogClient::target_handler::has_object(std::string alias) const {
-	return targets_.has_object(alias);
-}
-bool SyslogClient::target_handler::apply(nscapi::protobuf::types::destination_container &dst, const std::string key) {
-	nscapi::targets::optional_target_object opt = targets_.find_object(key);
-	if (opt)
-		dst.apply(opt->to_destination_container());
-	return static_cast<bool>(opt);
-}
-//////////////////////////////////////////////////////////////////////////
-// Parser implementations
-//
-
-int SyslogClient::clp_handler_impl::query(client::configuration::data_type data, const Plugin::QueryRequestMessage &, Plugin::QueryResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD("SYSLOG does not support query patterns");
-	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support query patterns");
-	return NSCAPI::isSuccess;
-}
-
-int SyslogClient::clp_handler_impl::submit(client::configuration::data_type data, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
-	const ::Plugin::Common_Header& request_header = request_message.header();
-	connection_data con = parse_header(request_header, data);
-
-	nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-
-	//TODO: Map seveity!
-
-	std::list<std::string> messages;
-	for (int i=0;i < request_message.payload_size(); ++i) {
-		const ::Plugin::QueryResponseMessage::Response& payload = request_message.payload(i);
-
-		boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-		std::string date = format::format_date(now, "%b %e %H:%M:%S");
-		std::string tag = con.tag_syntax;
-		std::string message = con.message_syntax;
-		strEx::replace(message, "%message%", payload.message());
-		strEx::replace(tag, "%message%", payload.message());
-
-		std::string severity = con.severity;
-		if (payload.result() == ::Plugin::Common_ResultCode_OK)
-			severity = con.ok_severity;
-		if (payload.result() == ::Plugin::Common_ResultCode_WARNING)
-			severity = con.warn_severity;
-		if (payload.result() == ::Plugin::Common_ResultCode_CRITICAL)
-			severity = con.crit_severity;
-		if (payload.result() == ::Plugin::Common_ResultCode_UNKNOWN)
-			severity = con.unknown_severity;
-
-		messages.push_back(instance->parse_priority(severity, con.facility) + date + " " + tag + " " + message);
-	}
-	boost::tuple<int,std::string> ret = send(con, messages);
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "UNKNOWN", ret.get<0>(), ret.get<1>());
-	return NSCAPI::isSuccess;
-}
-
-int SyslogClient::clp_handler_impl::exec(client::configuration::data_type data, const Plugin::ExecuteRequestMessage &, Plugin::ExecuteResponseMessage &response_message) {
-	NSC_LOG_ERROR_STD("SYSLOG does not support exec patterns");
-	nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), "SYSLOG does not support exec patterns");
-	return NSCAPI::isSuccess;
-}
-std::string	SyslogClient::parse_priority(std::string severity, std::string facility) {
-	syslog_map::const_iterator cit1 = facilities.find(facility);
-	if (cit1 == facilities.end()) {
-		NSC_LOG_ERROR("Undefined facility: " + facility);
-		return "<0>";
-	}
-	syslog_map::const_iterator cit2 = severities.find(severity);
-	if (cit2 == severities.end()) {
-		NSC_LOG_ERROR("Undefined severity: " + severity);
-		return "<0>";
-	}
-	std::stringstream ss;
-	ss << '<' << (cit1->second*8+cit2->second) << '>';
-	return ss.str();
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Protocol implementations
-//
-
-boost::tuple<int,std::string> SyslogClient::clp_handler_impl::send(connection_data con, std::list<std::string> messages) {
-	try {
-		NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
-
-		boost::asio::io_service io_service;
-		ip::udp::resolver resolver(io_service);
-		ip::udp::resolver::query query(ip::udp::v4(), con.host, strEx::s::xtos(con.port));
-		ip::udp::endpoint receiver_endpoint = *resolver.resolve(query);
-
-		ip::udp::socket socket(io_service);
-		socket.open(ip::udp::v4());
-
-		BOOST_FOREACH(const std::string msg, messages) {
-			NSC_DEBUG_MSG_STD("Sending data: " + msg);
-			socket.send_to(boost::asio::buffer(msg), receiver_endpoint);
-		}
-		return boost::make_tuple(NSCAPI::returnOK, "OK");
-	} catch (std::runtime_error &e) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
-	} catch (std::exception &e) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
-	}
-}

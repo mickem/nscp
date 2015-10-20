@@ -193,8 +193,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 	} catch (const wmi_impl::wmi_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "WMIQuery failed: " + e.reason());
 	}
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 inline std::string pad(const std::string &s, const std::size_t &c) {

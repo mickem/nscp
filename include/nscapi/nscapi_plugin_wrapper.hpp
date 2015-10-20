@@ -299,4 +299,40 @@ namespace nscapi {
 			return NSCAPI::hasFailed; 
 		} 
 	};
+
+	template<class impl_class>
+	struct metrics_wrapper {
+		boost::shared_ptr<impl_class> instance;
+		metrics_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+
+		int NSFetchMetrics(char **response_buffer, unsigned int *response_buffer_len) {
+			try {
+				std::string reply;
+				NSCAPI::nagiosReturn retCode = instance->fetchMetrics(reply);
+				helpers::wrap_string(reply, response_buffer, response_buffer_len);
+				return retCode;
+			}
+			catch (const std::exception &e) {
+				NSC_LOG_ERROR_EXR("NSFetchMetrics", e);
+			}
+			catch (...) {
+				NSC_LOG_ERROR_EX("NSFetchMetrics");
+			}
+			return NSCAPI::hasFailed;
+		}
+		int NSSubmitMetrics(const char *buffer, const unsigned int buffer_len) {
+			try {
+				std::string reply(buffer, buffer_len);
+				return instance->submitMetrics(reply);
+			}
+			catch (const std::exception &e) {
+				NSC_LOG_ERROR_EXR("NSFetchMetrics", e);
+			}
+			catch (...) {
+				NSC_LOG_ERROR_EX("NSFetchMetrics");
+			}
+			return NSCAPI::hasFailed;
+		}
+	};
+
 }

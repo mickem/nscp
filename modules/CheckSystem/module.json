@@ -33,6 +33,7 @@
 		"checkProcState"	: "Legacy version of check_process",
 		"checkCounter"		: "Legacy version of check_pdh"
 	},
+	"metrics" : "produce",
 
 	"command line exec" : "legacy",
 	

@@ -98,6 +98,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	info_.allowed_hosts.refresh(errors);
 	NSC_LOG_ERROR_LISTS(errors);
 	NSC_DEBUG_MSG_STD("Allowed hosts definition: " + info_.allowed_hosts.to_string());
+	NSC_DEBUG_MSG_STD("Starting server on: " + info_.to_string());
 
 	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 
@@ -132,10 +133,10 @@ void NSCAServer::handle(nsca::packet p) {
 	if (pos != std::string::npos) {
 		std::string msg = p.result.substr(0, pos);
 		std::string perf = p.result.substr(++pos);
-		helper.submit_simple_message(channel_, p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
+		helper.submit_simple_message(channel_, "", "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
 	} else {
 		std::string empty, msg = p.result;
-		helper.submit_simple_message(channel_, p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+		helper.submit_simple_message(channel_, "", "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
 	}
 }
 

@@ -44,15 +44,10 @@ bool SamplePluginSimple::unloadModule() {
 void SamplePluginSimple::sample_raw_command(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	response->set_command(request.command());
 	if (request.arguments_size() > 0) {
-		response->set_message("");
+		response->add_lines()->set_message("");
 		response->set_result(Plugin::Common_ResultCode_OK);
 	} else {
-		response->set_message("Yaaay it works");
+		response->add_lines()->set_message("Yaaay it works");
 		response->set_result(Plugin::Common_ResultCode_OK);
 	}
-}
-NSCAPI::nagiosReturn SamplePluginSimple::sample_nagios_command(const std::string &target, const std::string &command, std::list<std::string> &arguments, std::string &msg, std::string &perf) {
-	if (arguments.size() == 0)
-		msg = "Yaaay it works";
-	return NSCAPI::returnOK;
 }

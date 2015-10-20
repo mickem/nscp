@@ -56,8 +56,17 @@ struct drive_container {
 	std::string id;
 	std::string letter;
 	std::string name;
-	drive_container() {}
-	drive_container(std::string id, std::string letter, std::string name) : id(id), letter(letter), name(name) {}
+	bool is_mounted;
+	drive_container() : is_mounted(false) {}
+	drive_container(std::string id, std::string letter, std::string name, bool is_mounted) : id(id), letter(letter), name(name), is_mounted(is_mounted) {}
+	drive_container(const drive_container &other) : id(other.id), letter(other.letter), name(other.name), is_mounted(other.is_mounted) {}
+	drive_container& operator=(const drive_container &other) {
+		id = other.id;
+		letter = other.letter;
+		name = other.name;
+		is_mounted = other.is_mounted;
+		return *this;
+	}
 };
 
 
@@ -99,6 +108,9 @@ struct filter_obj {
 	long long get_total_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size==0?0:(total_free*100/drive_size); }
 	long long get_user_used_pct(parsers::where::evaluation_context context) { return 100-get_user_free_pct(context); }
 	long long get_total_used_pct(parsers::where::evaluation_context context) { return 100-get_total_free_pct(context); }
+	long long get_is_mounted(parsers::where::evaluation_context context) {
+		return drive.is_mounted?1:0; 
+	}
 
 	std::string get_user_free_human(parsers::where::evaluation_context context) {
 		return format::format_byte_units(get_user_free(context));
@@ -283,6 +295,7 @@ struct filter_obj_handler : public native_context {
 			("used_pct", &filter_obj::get_total_used_pct, "Shorthand for total_used_pct (% used space)")
 			("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
 			("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
+			("mounted", parsers::where::type_int, &filter_obj::get_is_mounted, "Check if a drive is mounted")
 			;
 
 		registry_.add_human_string()
@@ -510,11 +523,11 @@ public:
 			bool found_mp = false;
 			std::string title = utf8::cvt<std::string>(name);
 			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true));
 				found_mp = true;
 			}
 			if (!found_mp && is_valid)
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false));
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		return ret;
@@ -530,24 +543,24 @@ public:
 };
 
 
-void add_missing(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, const std::string volume, const std::string drive, const std::string title) {
-	if (!drive.empty()) {
-		if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
-			drives.push_back(drive_container(volume, drive, title));
-			exclude_drives.push_back(drive);
+void add_missing(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, const drive_container &drive) {
+	if (!drive.letter.empty()) {
+		if (std::find(exclude_drives.begin(), exclude_drives.end(), drive.letter) == exclude_drives.end()) {
+			drives.push_back(drive);
+			exclude_drives.push_back(drive.letter);
 		}
-	} else if (!volume.empty()) {
-		if (std::find(exclude_drives.begin(), exclude_drives.end(), volume) == exclude_drives.end()) {
-			drives.push_back(drive_container(volume, drive, title));
-			exclude_drives.push_back(volume);
+	} else if (!drive.id.empty()) {
+		if (std::find(exclude_drives.begin(), exclude_drives.end(), drive.id) == exclude_drives.end()) {
+			drives.push_back(drive);
+			exclude_drives.push_back(drive.id);
 		}
 	} else {
-		drives.push_back(drive_container(volume, drive, title));
+		drives.push_back(drive);
 	}
 }
 void find_all_volumes(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
 	BOOST_FOREACH(const drive_container &d, helper.get_volumes()) {
-		add_missing(drives, exclude_drives, d.id, d.letter, d.name);
+		add_missing(drives, exclude_drives, d);
 	}
 }
 
@@ -564,7 +577,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 				std::string title = "";
 				if (!volume.empty())
 					title = utf8::cvt<std::string>(helper.get_title(volume));
-				add_missing(drives, exclude_drives, utf8::cvt<std::string>(volume), drive, title);
+				add_missing(drives, exclude_drives, drive_container(utf8::cvt<std::string>(volume), drive, title, true));
 			}
 			buffer = &buffer[drv.size()];
 			buffer++;
@@ -583,10 +596,10 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 		} else if (d == "all-drives" || d == "drives") {
 			find_all_drives(ret, found_drives, helper);
 		} else if (d == "all" || d == "*") {
-			find_all_drives(ret, found_drives, helper);
 			find_all_volumes(ret, found_drives, helper);
+			find_all_drives(ret, found_drives, helper);
 		} else {
-			ret.push_back(drive_container(d, d, ""));
+			ret.push_back(drive_container(d, d, "", true));
 		}
 	}
 	return ret;
@@ -597,7 +610,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 	std::vector<std::string> drives, excludes;
-	bool ignore_unreadable = false, total = false;
+	bool ignore_unreadable = false, total = false, only_mounted = false;;
 	double magic;
 
 	filter_type filter;
@@ -607,7 +620,9 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		("drive", po::value<std::vector<std::string>>(&drives), 
 		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
-		"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
+			"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
+		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
+			"Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
 		("total", po::bool_switch(&total), "Include the total of all matching drives")
@@ -616,6 +631,12 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	if (!filter_helper.parse_options())
 		return;
+
+	if (only_mounted) {
+		if (!filter_helper.data.filter_string.empty())
+			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add mounted = 1 to your filter.");
+		filter_helper.data.filter_string = "mounted = 1";
+	}
 
 	if (!filter_helper.build_filter(filter))
 		return;
@@ -629,7 +650,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			drives.erase(it);
 		}
 	}
-	boost::shared_ptr<filter_obj> total_obj(new filter_obj(drive_container("total", "total", "total")));
+	boost::shared_ptr<filter_obj> total_obj(new filter_obj(drive_container("total", "total", "total", true)));
 	if (total)
 		total_obj->make_total();
 
@@ -652,8 +673,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());
 	}
 
-	modern_filter::perf_writer writer(response);
-	filter_helper.post_process(filter, &writer);
+	filter_helper.post_process(filter);
 }
 
 

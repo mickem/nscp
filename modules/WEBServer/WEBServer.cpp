@@ -54,6 +54,7 @@ WEBServer::WEBServer() {
 WEBServer::~WEBServer() {}
 
 error_handler log_data;
+metrics_handler metrics_store;
 static const char alphanum[] = "0123456789" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdefghijklmnopqrstuvwxyz";
 class token_store {
 	typedef boost::unordered_set<std::string> token_set;
@@ -383,6 +384,11 @@ public:
 		root.insert(json_spirit::Object::value_type("log", log));
 		response << json_spirit::write(root);
 	}
+	void get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		response << metrics_store.get();
+	}
 	void log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
 			return;
@@ -419,6 +425,7 @@ public:
 		addRoute("GET", "/core/reload", BaseController, reload);
 		addRoute("GET", "/core/isalive", BaseController, alive);
 		addRoute("GET", "/console/exec", BaseController, console_exec);
+		addRoute("GET", "/metrics", BaseController, get_metrics);
 		addRoute("GET", "/", BaseController, redirect_index);
 	}
 };
@@ -632,44 +639,35 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		;
 
-		settings.register_all();
-		settings.notify();
+	settings.register_all();
+	settings.notify();
+	certificate = get_core()->expand_path(certificate);
 
 	if (mode == NSCAPI::normalStart) {
-		try {
-// 			std::list<std::string> errors;
-// 			socket_helpers::validate_certificate(certificate, errors);
-// 			NSC_LOG_ERROR_LISTS(errors);
-			std::string path = get_core()->expand_path("${web-path}");
-			boost::filesystem::path cert = get_core()->expand_path(certificate);
-			if(!boost::filesystem::is_regular_file(cert) && port == "8443s")
-				port = "8080";
+		std::list<std::string> errors;
+ 		socket_helpers::validate_certificate(certificate, errors);
+ 		NSC_LOG_ERROR_LISTS(errors);
+		std::string path = get_core()->expand_path("${web-path}");
+		if(!boost::filesystem::is_regular_file(certificate) && port == "8443s")
+			port = "8080";
 			
-			server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
-			if(!boost::filesystem::is_regular_file(cert)) {
-				NSC_LOG_ERROR("Certificate not found (disabling SSL): " + cert.string());
-			} else {
-                NSC_DEBUG_MSG("Using certificate: " + cert.string());
-				server->setOption("ssl_certificate", cert.string());
-			}
-			server->registerController(new BaseController(password, get_core(), get_id()));
-			server->registerController(new RESTController(password, get_core()));
-			server->registerController(new StaticController(path));
-		
-			server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
-			server->start();
-			NSC_DEBUG_MSG("Loading webserver on port: " + port);
-			if (password.empty()) {
-				NSC_LOG_ERROR("No password set please run nscp web --help");
-			}
-		} catch (const std::string &e) {
-			NSC_LOG_ERROR("Error: " + e);
-			return false;
-		} catch (...) {
-			NSC_LOG_ERROR("Error: ");
-			return false;
+		server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
+		if(!boost::filesystem::is_regular_file(certificate)) {
+			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
+		} else {
+            NSC_DEBUG_MSG("Using certificate: " + certificate);
+			server->setOption("ssl_certificate", certificate);
 		}
-
+		server->registerController(new BaseController(password, get_core(), get_id()));
+		server->registerController(new RESTController(password, get_core()));
+		server->registerController(new StaticController(path));
+		
+		server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
+		server->start();
+		NSC_DEBUG_MSG("Loading webserver on port: " + port);
+		if (password.empty()) {
+			NSC_LOG_ERROR("No password set please run nscp web --help");
+		}
 	}
 	return true;
 }
@@ -730,6 +728,20 @@ error_handler::log_list error_handler::get_errors(int &position) {
 		position++;
 	}
 	return ret;
+}
+
+
+void metrics_handler::set(const std::string &metrics) {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return;
+	metrics_ = metrics;
+}
+std::string metrics_handler::get() {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return "";
+	return metrics_;
 }
 
 void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
@@ -947,4 +959,33 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 		nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
 	}
 	return true;
+}
+
+
+
+void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBundle & b)
+{
+	json_spirit::Object node;
+	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+		build_metrics(node, b2);
+	}
+	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
+		const ::Plugin::Common_AnyDataType &value = v.value();
+		if (value.has_int_data())
+			node.insert(json_spirit::Object::value_type(v.key(), v.value().int_data()));
+		else if (value.has_string_data())
+			node.insert(json_spirit::Object::value_type(v.key(), v.value().string_data()));
+		else if (value.has_float_data())
+			node.insert(json_spirit::Object::value_type(v.key(), v.value().float_data()));
+		else
+			node.insert(json_spirit::Object::value_type(v.key(), "TODO"));
+	}
+	metrics.insert(json_spirit::Object::value_type(b.key(), node));
+}
+void WEBServer::submitMetrics(const Plugin::MetricsMessage::Response &response) {
+	json_spirit::Object metrics;
+	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, response.bundles()) {
+		build_metrics(metrics, b);
+	}
+	metrics_store.set(json_spirit::write(metrics));
 }

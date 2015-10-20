@@ -10,10 +10,10 @@ SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/nsca/nsca_packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_INCLUDEDIR}/utils.cpp
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_CLIENT_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -26,16 +26,19 @@ ENDIF(OPENSSL_FOUND)
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
+		nsca_client.hpp
+		nsca_handler.hpp
+
 		${NSCP_INCLUDEDIR}/nsca/nsca_packet.hpp
 		${NSCP_INCLUDEDIR}/nsca/client/nsca_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/nscpcrypt/nscpcrypt.hpp
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
-		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_CLIENT_HPP}
 	)
 ENDIF(WIN32)
 

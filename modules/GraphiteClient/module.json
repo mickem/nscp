@@ -12,16 +12,16 @@
 	},
 
 	"commands" : {
-		"fallback" : "true",
-		"graphite_submit" : { 
-			"description" : "Submit data to a graphite server.",
+		"fallback" : "raw",
+		"submit_graphite" : { 
+			"description" : "Submit information to the remote Graphite server.",
 			"mapping"	: false
 		}
 	},
 
 	"channels" : "raw",
 
-	"command line exec" : true,
+	"command line exec" : "raw",
 
 	"log messages" : false
 }

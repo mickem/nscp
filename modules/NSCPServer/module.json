@@ -1,9 +1,0 @@
-{
-	"module"		: {
-		"title"			: "NSCP server",
-		"description"	: "A server that listens for incoming NSCP connection and processes incoming requests.",
-		"name"			: "NSCPServer",
-		"alias"			: "nscp",
-		"version"		: "auto"
-	}
-}

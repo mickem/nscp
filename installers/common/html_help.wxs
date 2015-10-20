@@ -14,617 +14,673 @@
     </Fragment>
     <Fragment>
         <ComponentGroup Id="HTMLHelp">
-            <Component Id="cmp54CA01F36C04D1862FDE095ABD5A4ABB" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{2FA0587A-AE0D-438B-8CF1-71EB44535DAE}">
+            <Component Id="cmpB7554C5250A7D11C188DAF639AC294C4" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{1325FE35-2212-4AB6-AC13-140B793ECAAE}">
+                <File Id="filC10C97A0A02CF890BB9CF9C8DC1A3ABC" KeyPath="yes" Source="$(var.WebHelpSource)\.buildinfo" />
+            </Component>
+            <Component Id="cmp54CA01F36C04D1862FDE095ABD5A4ABB" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{1B205314-85C5-46CE-9282-851FF5B63BC6}">
                 <File Id="fil96B2110EE23A75F0458D13367C0CC36E" KeyPath="yes" Source="$(var.WebHelpSource)\about.html" />
             </Component>
-            <Component Id="cmp1806DC75F2733F8E5F13012ECD0EEEED" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{D80D1299-0A99-480F-85D4-C90C5D68E33B}">
+            <Component Id="cmp1806DC75F2733F8E5F13012ECD0EEEED" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{A2C56C52-8AA5-4ADF-B52F-0830207D9A55}">
                 <File Id="fil05A96A1580B63324A4A533A9C62D8B4B" KeyPath="yes" Source="$(var.WebHelpSource)\bugs.html" />
             </Component>
-            <Component Id="cmpA5FCF8383500190647A15155BA14CD69" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{AC8FF680-3368-408E-9313-D520C42A646F}">
+            <Component Id="cmpA5FCF8383500190647A15155BA14CD69" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{B1010471-4948-45DD-B72B-62AEA63F3D82}">
                 <File Id="filF0C07738587FD0829AE5111C4D43587A" KeyPath="yes" Source="$(var.WebHelpSource)\copyright.html" />
             </Component>
-            <Component Id="cmp0FB44265EE0788AB43EB12A80E68524E" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{25871BD8-A484-4369-AD6B-A3498BC818C5}">
+            <Component Id="cmp0FB44265EE0788AB43EB12A80E68524E" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{0EA9140C-FC12-4DC3-A092-0BE27937AE35}">
                 <File Id="fil1476D191730544AEE0150691F296886F" KeyPath="yes" Source="$(var.WebHelpSource)\genindex.html" />
             </Component>
-            <Component Id="cmp850C80C18C1D24D7AF0C8D2B80394E78" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{5B29C80B-FF25-469D-8799-E4B6128DA657}">
+            <Component Id="cmp850C80C18C1D24D7AF0C8D2B80394E78" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{829122FB-DC99-4CA9-AAA1-507774EA4E7F}">
                 <File Id="fil498EC6844EECF233BC4CF32A0796F51F" KeyPath="yes" Source="$(var.WebHelpSource)\glossary.html" />
             </Component>
-            <Component Id="cmp103F0C8B6241FE5DAA39868BC3D2C38F" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{B27730D1-A091-4DCD-85AA-7E64C4656491}">
-                <File Id="HelpIndexHtml" KeyPath="yes" Source="$(var.WebHelpSource)\index.html" />
+            <Component Id="cmp103F0C8B6241FE5DAA39868BC3D2C38F" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{975E1BF2-8670-4013-8353-CEEFDE0F4AE9}">
+                <File Id="filED2BF95DAF5723EA0DAE352803B1AD0F" KeyPath="yes" Source="$(var.WebHelpSource)\index.html" />
             </Component>
-            <Component Id="cmp820ED4090D4C4BAD35A2087A3AA423E7" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{98D73E31-AE2D-4136-91D8-E5122654337D}">
+            <Component Id="cmp820ED4090D4C4BAD35A2087A3AA423E7" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{96372970-F006-46F2-A6E9-A2ABF4A74FFE}">
                 <File Id="fil784E169B09EAA493071A01983C738C80" KeyPath="yes" Source="$(var.WebHelpSource)\license.html" />
             </Component>
-            <Component Id="cmp54E7FC66CBA74278038C2253AF541E3E" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{540AFD02-994A-4042-A962-3796697A79C4}">
+            <Component Id="cmp54E7FC66CBA74278038C2253AF541E3E" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{DFD628F5-D8C1-4BB9-B13F-687944C8D9F4}">
                 <File Id="fil3872944713C94E3B69692D8448FDEF1A" KeyPath="yes" Source="$(var.WebHelpSource)\objects.inv" />
             </Component>
-            <Component Id="cmp94F371A0EE2398C34485B99258A18690" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{E0900F3B-7DFB-4087-9919-C5B3948C25FC}">
+            <Component Id="cmp94F371A0EE2398C34485B99258A18690" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{A6A3E743-F6B3-4585-9FC4-7A715E1F5C6A}">
                 <File Id="filB415548FF65D4B1EDC5158D228A6856E" KeyPath="yes" Source="$(var.WebHelpSource)\search.html" />
             </Component>
-            <Component Id="cmp17FEA1C80EBF1B4856895C41AE185BD8" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{9C5D9C34-2C85-4E2F-9A20-D62EFFD2AE32}">
+            <Component Id="cmp17FEA1C80EBF1B4856895C41AE185BD8" Directory="dirDD098D4A942B28DABA6422080E41E14B" Guid="{1A001498-8E2A-4AED-B7DF-32B5B99B8A47}">
                 <File Id="fil12FCD965CA95F900E3499269E29FD518" KeyPath="yes" Source="$(var.WebHelpSource)\searchindex.js" />
             </Component>
-            <Component Id="cmp52796766C85D2B8255B2771760E4D521" Directory="dir41582E480A8A94D30879DDD967DB1661" Guid="{48AD9F6C-F5D3-42BC-9ACA-80335F6E60E1}">
+            <Component Id="cmp52796766C85D2B8255B2771760E4D521" Directory="dir41582E480A8A94D30879DDD967DB1661" Guid="{CC86C9B6-329C-4FAD-9CAF-D23CDA02045F}">
                 <File Id="filA287EC4AC9D98FD1971F7956AB2DE07C" KeyPath="yes" Source="$(var.WebHelpSource)\api\index.html" />
             </Component>
-            <Component Id="cmp9ED2E9D0DD5A53CC7BB2937BCDA73C81" Directory="dirD88C8CB15AC9A8D4B421DE92CA232797" Guid="{3FFE9191-4D0D-4035-BCC5-4AA88435E868}">
+            <Component Id="cmp540A758F4D732DC9992ED4CAE3FC7D55" Directory="dir41582E480A8A94D30879DDD967DB1661" Guid="{C1E7BA38-1807-45A1-9AB0-841F70507ED6}">
+                <File Id="fil354A54C68AD3A1A0D95B77D41EF36DF7" KeyPath="yes" Source="$(var.WebHelpSource)\api\nscpipc.html" />
+            </Component>
+            <Component Id="cmp7C17316326AE1CE910B66C551436C01A" Directory="dir41582E480A8A94D30879DDD967DB1661" Guid="{FF9B1F6B-3E65-478F-8240-848B081D6D1F}">
+                <File Id="fil303F6257FA0D38EE53C09BDBF50185E7" KeyPath="yes" Source="$(var.WebHelpSource)\api\plugin.html" />
+            </Component>
+            <Component Id="cmp9ED2E9D0DD5A53CC7BB2937BCDA73C81" Directory="dirD88C8CB15AC9A8D4B421DE92CA232797" Guid="{BB7E9296-8949-4D49-A7DC-10697E086EBB}">
                 <File Id="fil543F68B7A0A30BBE78AF2619819E2A4B" KeyPath="yes" Source="$(var.WebHelpSource)\extending\index.html" />
             </Component>
-            <Component Id="cmpEB8945EB79FE4895EB94E6C30F73D861" Directory="dirA8D21ED6D406786E13826C251B09A0D8" Guid="{4F0E5C30-2AED-49CA-AE6E-DD83218291F2}">
+            <Component Id="cmpEB8945EB79FE4895EB94E6C30F73D861" Directory="dirA8D21ED6D406786E13826C251B09A0D8" Guid="{8B07DB0F-F0F3-4ADE-9ED3-F05BA2EFB20C}">
                 <File Id="filFCB432A4F594F906AF51584BBD32E3BB" KeyPath="yes" Source="$(var.WebHelpSource)\faq\index.html" />
             </Component>
-            <Component Id="cmp54C9E4E8DCDE9F1E1A21CD40A14843A2" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{8DAE0602-0513-446C-AAEA-4EBCE5C77FB5}">
+            <Component Id="cmp54C9E4E8DCDE9F1E1A21CD40A14843A2" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{128E587B-7996-4F37-9277-C0F601EDC228}">
                 <File Id="fil544379F51C1CE20A8B65245D2FC7B227" KeyPath="yes" Source="$(var.WebHelpSource)\howto\03x_migration.html" />
             </Component>
-            <Component Id="cmp1759735CE5EBFC2057338C979DEDD7B3" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{CCFCD480-7662-4560-A8D4-6DCA76225EFA}">
+            <Component Id="cmp1759735CE5EBFC2057338C979DEDD7B3" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{833D765B-06C7-4575-ABA8-CF8C2A168DF3}">
                 <File Id="filBB037C8986323DBF5E4103821032FA4E" KeyPath="yes" Source="$(var.WebHelpSource)\howto\counters.html" />
             </Component>
-            <Component Id="cmpCABCCE2C6B7E6AB110E10CC795E65CF1" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{D3AB3779-4A3D-4FD8-9782-FEC445A8CB34}">
+            <Component Id="cmpCABCCE2C6B7E6AB110E10CC795E65CF1" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{9FAE812F-B4C8-446D-82E4-53C3B4E694D7}">
                 <File Id="filBD88E7D410B5197BFEF96CFA7C61FD9B" KeyPath="yes" Source="$(var.WebHelpSource)\howto\external_scripts.html" />
             </Component>
-            <Component Id="cmpC251DD63E092A9699436F152136E9BE3" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{32765252-2888-46ED-9DA1-1767437483E1}">
+            <Component Id="cmpC251DD63E092A9699436F152136E9BE3" Directory="dir90D593AE928B300ED1DB50ED8E2ADE43" Guid="{93E689C4-07CB-42F2-9C97-508DCB03F414}">
                 <File Id="filB439F6A6E46A0CCD20FE470C8180A3A2" KeyPath="yes" Source="$(var.WebHelpSource)\howto\index.html" />
             </Component>
-            <Component Id="cmpF48D0E2BBD26893EAED1F33531D6CD8C" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{4EDA8FC3-C278-4734-B442-0D137B47C819}">
+            <Component Id="cmpF48D0E2BBD26893EAED1F33531D6CD8C" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{E0C5A37A-548D-4883-BC52-1259A2F5DBBA}">
                 <File Id="fil387BB9171B88BAF588F069BB37F4E3A3" KeyPath="yes" Source="$(var.WebHelpSource)\manual\about.html" />
             </Component>
-            <Component Id="cmp54AED3360A8D7ABB60BEA750AB1FEF70" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{C723844C-6CC8-43B3-8BEB-308F62288874}">
+            <Component Id="cmp54AED3360A8D7ABB60BEA750AB1FEF70" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{5880073F-2400-4020-8827-6DDC691E2E35}">
                 <File Id="filC31711FD7F123549A99B73FEEC62C642" KeyPath="yes" Source="$(var.WebHelpSource)\manual\build.html" />
             </Component>
-            <Component Id="cmpA890A334E93D97442F99402ED5B140BB" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{E0742B57-674C-4A0C-A7F2-6F9A77CB84D2}">
+            <Component Id="cmpA890A334E93D97442F99402ED5B140BB" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{D2A29E51-C4DA-4835-BE94-39CA879E2EBA}">
                 <File Id="filC96EC2CA29CF2EB7DD125FB786FF7E9E" KeyPath="yes" Source="$(var.WebHelpSource)\manual\getting_started.html" />
             </Component>
-            <Component Id="cmp816A64231CEC1DA77F1F5E3AE36C176F" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{7E376836-4AB0-44F5-BA80-5AA235CB26C4}">
+            <Component Id="cmp816A64231CEC1DA77F1F5E3AE36C176F" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{0484600E-2D97-4697-9089-C992A6F18790}">
                 <File Id="filC4B155406163F94FB366E6D6C7F39930" KeyPath="yes" Source="$(var.WebHelpSource)\manual\index.html" />
             </Component>
-            <Component Id="cmpC832C3C7643D6876BA694A140034C081" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{BD21E88F-FA96-48EB-866A-015D5A85612A}">
+            <Component Id="cmpC832C3C7643D6876BA694A140034C081" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{5EB66A73-9FB7-49A4-A65C-5243163471B0}">
                 <File Id="fil22E92019F9945BAEBC4B2193A95A653E" KeyPath="yes" Source="$(var.WebHelpSource)\manual\installing.html" />
             </Component>
-            <Component Id="cmp5E92AED597F1ACEF6A6FD1E96405E511" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{15FB38B1-A626-41B4-90E9-C2A2614FC718}">
+            <Component Id="cmpE9A5BDBA88387876D341A471EC7FAA56" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{DA261F87-21B9-4309-8303-3F41C2371AAF}">
+                <File Id="filE1B757EDFB9EA80075FF7CDDA760872B" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_checks.html" />
+            </Component>
+            <Component Id="cmp5E92AED597F1ACEF6A6FD1E96405E511" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{A0441BD1-E138-41D0-915E-B1C9969916F6}">
                 <File Id="filA212C864DDDB79702B48181A04743E7D" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_client.html" />
             </Component>
-            <Component Id="cmp7AEAADBFD4AFE40D0CF43B4A1E90ED9B" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{12F792DD-A51B-4489-B243-5128DA192F2D}">
+            <Component Id="cmp7AEAADBFD4AFE40D0CF43B4A1E90ED9B" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{9881E746-05B6-4AFA-844A-C818230C087B}">
                 <File Id="fil681E063ECC861F77C7E183DFCE2B64DB" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_service.html" />
             </Component>
-            <Component Id="cmp1887B073EB65B7D9351E408D7ADE1E3C" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{26655BAC-ED44-4DFF-9D99-8ED8DC39E78C}">
+            <Component Id="cmp1887B073EB65B7D9351E408D7ADE1E3C" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{7192C3C4-E52F-4903-9250-D32100201F73}">
                 <File Id="fil4907A27C892A9D15BAB85AE86EC3B3E1" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_settings.html" />
             </Component>
-            <Component Id="cmpB93BDF1DE257A775BAC31217B945F413" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{A9A91F3D-2185-4D8E-986E-23FDCC1F0C1C}">
+            <Component Id="cmpB93BDF1DE257A775BAC31217B945F413" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{EA85ABCF-F02B-40F4-B5D0-E6D3A9275144}">
                 <File Id="fil5F75FAC967E4132DCAAD5539A34E5ED3" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_test.html" />
             </Component>
-            <Component Id="cmp0742CBB7A330A00597BAF58A860A83DC" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{525B7E7B-43F9-49B5-B831-F0C7B4012AE3}">
+            <Component Id="cmp0742CBB7A330A00597BAF58A860A83DC" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{403828EA-36B4-4C27-9C66-ECC0CC2BC237}">
                 <File Id="fil699A919E7A8FD7B9E26B3FBE01A8D6E1" KeyPath="yes" Source="$(var.WebHelpSource)\manual\nscp_usage.html" />
             </Component>
-            <Component Id="cmpC76807BA4A82A5D16A572888385AC879" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{10D01BD7-E126-4000-93E3-22E297B40C14}">
+            <Component Id="cmpCE2F494E6F7385594ACB92E69E8C0A8E" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{5582F0B6-85C5-4B63-AE0C-C1FB67F32BFA}">
+                <File Id="filCFB45ECE9E1AC3D9EA600BF31698D38B" KeyPath="yes" Source="$(var.WebHelpSource)\manual\settings.html" />
+            </Component>
+            <Component Id="cmpC76807BA4A82A5D16A572888385AC879" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{A49FF9EB-80A7-4F67-ADBF-03EEEBD060B1}">
                 <File Id="filD1224C2CDD5CC2D7D3A777612341DF25" KeyPath="yes" Source="$(var.WebHelpSource)\manual\theory.html" />
             </Component>
-            <Component Id="cmp874AE985B73780574CFFD592A067DE7A" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{14C9105B-76F8-461A-A42C-736B58237DA7}">
+            <Component Id="cmp874AE985B73780574CFFD592A067DE7A" Directory="dir54AC80318DDCD6A5B149C2AB8F095606" Guid="{07F7E61D-BB2C-47DF-AA4C-9F31B3231AD4}">
                 <File Id="fil5844B2537451E50428D7D32E3B7291D4" KeyPath="yes" Source="$(var.WebHelpSource)\manual\windows_installer.html" />
             </Component>
-            <Component Id="cmp5890437F42169B7B44237EA385DBD5F0" Directory="dir9A776F38735CFC074442DF9F1700A953" Guid="{E1B97B0F-EE50-4451-B4D0-05AD00AEA9D1}">
+            <Component Id="cmp5890437F42169B7B44237EA385DBD5F0" Directory="dir9A776F38735CFC074442DF9F1700A953" Guid="{82230D25-AD45-4399-98B3-14A1940C53DC}">
                 <File Id="filDC6495619A33421E24925D397EE01DFE" KeyPath="yes" Source="$(var.WebHelpSource)\reference\index.html" />
             </Component>
-            <Component Id="cmp96EC27341A24D32841CE34CF104B1C21" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{C27EB288-B94F-476B-A54C-60FB7F5AC6E1}">
+            <Component Id="cmp96EC27341A24D32841CE34CF104B1C21" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{B88C17B4-B9BA-431E-8116-808833DF2F2B}">
                 <File Id="filE784ABA8DC8B0AFA431FD2369996C006" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckExternalScripts.html" />
             </Component>
-            <Component Id="cmp268B471A905541A1B5ED77C421908588" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{F54654D8-3192-466B-9705-EF08FA86C1E0}">
+            <Component Id="cmp268B471A905541A1B5ED77C421908588" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{DB3DBE1A-0673-4BAB-A685-6E93C42E1CAD}">
                 <File Id="filC8BB4D3C53DC329670CEC4C0A68E25B8" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckHelpers.html" />
             </Component>
-            <Component Id="cmpC04189855DC97B0ABA0659561B5BE704" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{B8F732A4-EB62-4113-B401-8785C645EB9B}">
+            <Component Id="cmpC04189855DC97B0ABA0659561B5BE704" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{97DA1B71-27D1-474D-AD3D-3F07AF265573}">
                 <File Id="fil6680527706786CFFE61DEEB8038FCC2D" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckLogFile.html" />
             </Component>
-            <Component Id="cmpE97AA8FBF78CEF1613F6950376874E4A" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{5E4CBA54-2834-4F97-8E09-9A14ADAE19E2}">
+            <Component Id="cmpE97AA8FBF78CEF1613F6950376874E4A" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{FFF2B027-BC6B-4255-A4C7-B96C5080E0E7}">
                 <File Id="fil554B9436FC541AEF7D55CB7AEF030D1D" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckMKClient.html" />
             </Component>
-            <Component Id="cmpEA0B413AB762E635396D4C280BA92C16" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{EAD62493-B2A0-4862-93F9-A79C6651985C}">
+            <Component Id="cmpEA0B413AB762E635396D4C280BA92C16" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{D3CF0D35-7B1A-4BBA-91C8-C34BA346C1F1}">
                 <File Id="fil3B36E3AF268C2E518B85BE2EF73C08B2" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckMKServer.html" />
             </Component>
-            <Component Id="cmp30BAD4DBC15000E9D373CB994488562C" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{EC6C5C3F-2A58-408B-BE91-481017A27FF4}">
+            <Component Id="cmp30BAD4DBC15000E9D373CB994488562C" Directory="dir2DDB57A5CA5415C46885E294E95B3297" Guid="{335F0B22-B0B8-4871-B30C-493C512787B7}">
                 <File Id="fil4447603E1CC7E61D416ECB005535223C" KeyPath="yes" Source="$(var.WebHelpSource)\reference\check\CheckNSCP.html" />
             </Component>
-            <Component Id="cmp72C567BC0F6C7C3FBBF57FD03D7C120A" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{2667F85D-F763-48F7-8F99-EE0B73931076}">
+            <Component Id="cmp72C567BC0F6C7C3FBBF57FD03D7C120A" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{B9E2F189-C7E3-4F43-842C-CB9016E4D1B3}">
                 <File Id="filCD6C9D2DDF29AC27489FC2E7A2EE02FD" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\GraphiteClient.html" />
             </Component>
-            <Component Id="cmp60E5920E746CD2D9684B30FA87594E1C" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{1F28F175-049A-4EE9-AC78-84E64D33AF81}">
+            <Component Id="cmp60E5920E746CD2D9684B30FA87594E1C" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{C09155E2-4D39-4495-B1B6-17E6E84629D4}">
                 <File Id="fil005028D559097B48EF50DBC12A7C9671" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\NRDPClient.html" />
             </Component>
-            <Component Id="cmp19CFF9A09E7B1EBEB88CB70DFBA05E39" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{2AF1FD80-7097-4964-A5A6-C504ED7CEEE5}">
+            <Component Id="cmp19CFF9A09E7B1EBEB88CB70DFBA05E39" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{627072A6-238D-4184-9B1E-B291962C1EEA}">
                 <File Id="fil27BA54C1E8C44DB8E966C319D3967170" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\NRPEClient.html" />
             </Component>
-            <Component Id="cmp5C377E187DA213743B0E95F8C3D56B23" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{D7031A3C-B080-41A1-9D4C-9D2500DB7207}">
+            <Component Id="cmp5C377E187DA213743B0E95F8C3D56B23" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{9ED2D8B3-3827-497D-BBFA-8FC7BE6DF8B1}">
                 <File Id="fil9D06D1172C30F0C75F266012CF1DE55F" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\NRPEServer.html" />
             </Component>
-            <Component Id="cmpF07E9F1C36733C1EDE9C82B25948891F" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{86887689-9D91-4379-A510-79B490922299}">
+            <Component Id="cmpF07E9F1C36733C1EDE9C82B25948891F" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{FB9B4A7A-FA99-4E5A-8EC4-A4772D641445}">
                 <File Id="filFF9B566CE180758936CDE14960CA2A37" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\NSCAClient.html" />
             </Component>
-            <Component Id="cmp6B0BB9C71A9F3FC00BEB4E05405BE92E" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{99ED2EA4-B0F0-491B-A252-6928384AE9DD}">
+            <Component Id="cmp6B0BB9C71A9F3FC00BEB4E05405BE92E" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{E94ACB84-AF17-4A0A-A9D6-3E337340AC74}">
                 <File Id="fil7547BE323B97E7F2D5402DAD2145A80E" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\NSCAServer.html" />
             </Component>
-            <Component Id="cmp9DF098808734E72225D837A1277C8DAB" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{7DC8DB50-3D46-43ED-AF4E-4AB0648352B0}">
-
+            <Component Id="cmp9DF098808734E72225D837A1277C8DAB" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{EACBC549-7129-4FBF-B281-8619A8E635B6}">
                 <File Id="fil35C94B55C6B0D17DD9B8EF170E730A91" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\SMTPClient.html" />
             </Component>
-            <Component Id="cmpC0B39C1D6C4B28D7219F362431609B66" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{B905EE34-3EBB-42AC-B4B5-CDB4E8480BE9}">
+            <Component Id="cmpC0B39C1D6C4B28D7219F362431609B66" Directory="dirCAC230D6454E1F847932B3E0262E291C" Guid="{AA0365B1-0C12-49DD-A99B-38D63EBC50BD}">
                 <File Id="fil41BA04A28AF46777C2C0910331B95CEF" KeyPath="yes" Source="$(var.WebHelpSource)\reference\client\SyslogClient.html" />
             </Component>
-            <Component Id="cmp5A97EFE6839D702B8E0AA800FFA3E00D" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{E6D3CC14-8A20-4BBF-831F-C52F2D04B8D4}">
+            <Component Id="cmp5A97EFE6839D702B8E0AA800FFA3E00D" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{F84BAE0D-A453-48EC-96B4-A302EE881B46}">
                 <File Id="fil71B02D3C6F769D39724D789B69A99BF4" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\CommandClient.html" />
             </Component>
-            <Component Id="cmpF9216475C931710A23E22A13FD49D541" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{723030CC-52F0-4024-91DB-200554CEBEFB}">
+            <Component Id="cmpF9216475C931710A23E22A13FD49D541" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{1CD507D0-55CD-4D5F-A54E-F24C94ECBF92}">
                 <File Id="filFDF1E71DEDBE6F0B1E7E40ACBB78AA68" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\LUAScript.html" />
             </Component>
-            <Component Id="cmp2A55B3DE993A64D3B4A0F18D3108CBD0" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{ED67A693-CA52-45C5-BB16-B3A2D444A28C}">
+            <Component Id="cmp2A55B3DE993A64D3B4A0F18D3108CBD0" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{B4BAC61D-AC23-4C94-98B8-622C86EAE5F0}">
                 <File Id="fil2B2BBF9BFACEADECAF02793DA01BB7F0" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\PythonScript.html" />
             </Component>
-            <Component Id="cmpF3D772FC94411FAC64B9B2D185B96C87" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{AFEFDBC3-8296-4FA9-8C96-440327449496}">
+            <Component Id="cmpF3D772FC94411FAC64B9B2D185B96C87" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{DEA04354-A7AC-46FD-B73E-ABDDBA9364DD}">
                 <File Id="fil8A888F1400FD160A6C94F3D335C4CD80" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\Scheduler.html" />
             </Component>
-            <Component Id="cmp1132A41DE6FC1D64FC6E27D2D78B77A3" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{FB4468F1-FFE5-4FDF-A04D-09765BD35B63}">
+            <Component Id="cmp1132A41DE6FC1D64FC6E27D2D78B77A3" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{3BB1E748-4604-43D8-B661-5611AEAFB932}">
                 <File Id="filAC07001DD2762F67A46D8B4C00B84A82" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\SimpleCache.html" />
             </Component>
-            <Component Id="cmp2F003F53C63B834DBE2E7E01EC51AF3B" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{6239201A-D512-427A-AD35-6FF7A3822156}">
+            <Component Id="cmp2F003F53C63B834DBE2E7E01EC51AF3B" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{A0AEEFF1-4161-4753-A0FD-880F2050ED60}">
                 <File Id="fil308C60BDE72627752FCE5B60A78F96FD" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\SimpleFileWriter.html" />
             </Component>
-            <Component Id="cmp92C65E5455DFE080F35896259E768859" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{FC01AEFB-02D7-4145-892F-D391DD296EE0}">
+            <Component Id="cmp92C65E5455DFE080F35896259E768859" Directory="dir3C39A8CCE8BB99EC7838ED2C70057D97" Guid="{823CEBA4-F962-4018-B84C-B4A0302D2E2E}">
                 <File Id="fil46A3833CCF2C9F6434381194D46CACDD" KeyPath="yes" Source="$(var.WebHelpSource)\reference\generic\WEBServer.html" />
             </Component>
-            <Component Id="cmpFB6BCB3FF895C930339DE8A187113341" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{4CB2B254-2414-41A4-B848-83BDFFECBBA0}">
+            <Component Id="cmpFB6BCB3FF895C930339DE8A187113341" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{BBE2EA02-FCB4-49A8-87D2-6FA5251BEAE1}">
                 <File Id="fil33E62E7B80029455906BA5B463187A39" KeyPath="yes" Source="$(var.WebHelpSource)\reference\misc\CauseCrashes.html" />
             </Component>
-            <Component Id="cmpAFAC60790E356DABA1C77A51236BA39C" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{6BFC21FE-DBA5-4D4B-BF19-011228FF905F}">
+            <Component Id="cmp7E20097B357EB89231DC6980B1591AFC" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{6E6C8797-1F3B-49E5-9A13-7516D0EB8E8C}">
+                <File Id="filD4E3C540C1EE08150EC640507DFAC36C" KeyPath="yes" Source="$(var.WebHelpSource)\reference\misc\CheckNet.html" />
+            </Component>
+            <Component Id="cmp5701373B1B25E22179D45D7403A6EF8F" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{858C3472-DAAB-4E88-B2EE-32ADC58F99E3}">
+                <File Id="fil68965A9C1E31A86FFBF46F4664152C00" KeyPath="yes" Source="$(var.WebHelpSource)\reference\misc\CollectdClient.html" />
+            </Component>
+            <Component Id="cmpAFAC60790E356DABA1C77A51236BA39C" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{EF258415-C27B-4471-A7C3-5115B7C57A94}">
                 <File Id="filC9B1C8FDB0DD91500ABD6AB7C591AED4" KeyPath="yes" Source="$(var.WebHelpSource)\reference\misc\SamplePluginSimple.html" />
             </Component>
-            <Component Id="cmp8B2826219098945750DA660E310EBB8F" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{C2EE9D66-046E-4CB7-BEA1-10F2956247F8}">
+            <Component Id="cmp8B2826219098945750DA660E310EBB8F" Directory="dir22BC7C25C9CCD3DFB5E9758A1ACBF59A" Guid="{6218400D-23C4-426A-9B8B-5D0C87C512B6}">
                 <File Id="filB015ADBDE3250BA3F10CA70E60FB60DE" KeyPath="yes" Source="$(var.WebHelpSource)\reference\misc\WEBClient.html" />
             </Component>
-            <Component Id="cmp04B32FE14EB2C63F0B8DF1F8E40A20F6" Directory="dir44BC9B6E44030D9B2FF744B6794E27DA" Guid="{60F3FFC3-A541-4FC4-95D2-3D59071C5BA5}">
+            <Component Id="cmp04B32FE14EB2C63F0B8DF1F8E40A20F6" Directory="dir44BC9B6E44030D9B2FF744B6794E27DA" Guid="{8CD3697A-2EF2-4C1A-B937-967CBD636832}">
                 <File Id="filE438437B540F83DE4CECFA0DE1A21DBD" KeyPath="yes" Source="$(var.WebHelpSource)\reference\unix\CheckSystemUnix.html" />
             </Component>
-            <Component Id="cmp0A1559996BFF0EC05BAC22DA2780DC2E" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{D8337425-FD02-4AA3-849B-F358D302C20F}">
+            <Component Id="cmp0A1559996BFF0EC05BAC22DA2780DC2E" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{48F54C87-0540-4150-AD9A-1DCF91BE8654}">
                 <File Id="filA76BCEBDEACE0DD2168EBE22F9161167" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\CheckDisk.html" />
             </Component>
-            <Component Id="cmpD604ABF57B40F0FCE920540AA3A4D375" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{8E872026-7F76-4E08-A55D-D8127C29E019}">
+            <Component Id="cmpD604ABF57B40F0FCE920540AA3A4D375" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{4A98F9D2-C59B-4E71-99FD-5A847B3337F6}">
                 <File Id="fil40ABDEA6DFCC4CEAD683FE38B1B7ECAB" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\CheckEventLog.html" />
             </Component>
-            <Component Id="cmpB5A1B975FD86C8D79E35AC2DA633056C" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{466BB9A3-110A-4260-BD82-DA180F3D3DE5}">
+            <Component Id="cmpB5A1B975FD86C8D79E35AC2DA633056C" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{83BB4721-2C32-4DEC-9468-37E72E9DFBD0}">
                 <File Id="fil21A702DBFA9669F0FF30A9D42E2CE955" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\CheckSystem.html" />
             </Component>
-            <Component Id="cmp3FC7A346F749E16E36444CF501CBA695" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{86B602F0-251C-497C-96F3-505AAF5BF69C}">
+            <Component Id="cmp3FC7A346F749E16E36444CF501CBA695" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{14DD82AB-F322-4FBA-AD3C-52825C44F4A7}">
                 <File Id="fil19EB7B9B42D06749A9DEF19C2C394B24" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\CheckTaskSched.html" />
             </Component>
-            <Component Id="cmp94D0CF6166FD1A1632053BD4DA99C8C3" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{D83A0446-058E-46FE-BEE1-FD63B9BB6098}">
+            <Component Id="cmp94D0CF6166FD1A1632053BD4DA99C8C3" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{880DA0CA-35FB-43DA-A4EB-2764492F576D}">
                 <File Id="fil114B34A8DE80CF4363B4F43436BD8F88" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\CheckWMI.html" />
             </Component>
-            <Component Id="cmp2773B5C4C361148B00F98D1695FE9230" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{04462546-D4EE-44CF-89FD-F225E0B7B329}">
+            <Component Id="cmp2773B5C4C361148B00F98D1695FE9230" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{0331184C-C4FE-4E45-9C27-CC444CE3A72E}">
                 <File Id="filFCE32C2F7F789689EDBF4D990D0A716F" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\DotnetPlugins.html" />
             </Component>
-            <Component Id="cmpCEF8EC0591F958F446B79A264B5E4617" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{12525DD2-1765-44E1-BCD5-3A140BF2B501}">
+            <Component Id="cmpCEF8EC0591F958F446B79A264B5E4617" Directory="dir3B69830B8AC611C920AD2A5DD5F8221A" Guid="{B92C84EE-48B6-4313-859B-E4C19509609F}">
                 <File Id="fil98093CCF071FA3F7F8BDBB85372C9F8B" KeyPath="yes" Source="$(var.WebHelpSource)\reference\windows\NSClientServer.html" />
             </Component>
-            <Component Id="cmp77B4B7F2DFD4C9DBF880A94E3B39EEC8" Directory="dirAB0F95A7DC174E278CD8D861AF7DB33D" Guid="{BE264F9A-803C-410C-ACA1-2F3B40081BEA}">
+            <Component Id="cmp2B53B1F4DEFAAD2EF2D919871405C299" Directory="dirAB0F95A7DC174E278CD8D861AF7DB33D" Guid="{B7F3EDF1-AC07-44D2-BB94-7606044D67CC}">
+                <File Id="fil27486166A08E0235D99393A4C71CADE4" KeyPath="yes" Source="$(var.WebHelpSource)\samples\CheckEventLog_samples.html" />
+            </Component>
+            <Component Id="cmp77B4B7F2DFD4C9DBF880A94E3B39EEC8" Directory="dirAB0F95A7DC174E278CD8D861AF7DB33D" Guid="{064FF0F1-1A9E-4001-9D3F-5D3F2F396AF5}">
                 <File Id="fil6AC3E7645A089D6C56F77C086F5C23CB" KeyPath="yes" Source="$(var.WebHelpSource)\samples\index.html" />
             </Component>
-            <Component Id="cmp8FD1A57FB749BE892EE3C8DA8F4F2B6D" Directory="dirC86617D9ABB87D461DA91C8AD9FA8350" Guid="{74D4726A-C1AF-4353-BE44-CDB3BF2A9503}">
+            <Component Id="cmp8FD1A57FB749BE892EE3C8DA8F4F2B6D" Directory="dirC86617D9ABB87D461DA91C8AD9FA8350" Guid="{CFAE1CAC-36E1-4AA7-9A6D-163586849894}">
                 <File Id="filDAB4BB96A657EEDA55C5DD39C43F0B17" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\impatient.html" />
             </Component>
-            <Component Id="cmp269267BC239C0329F4268EE08AB5C63A" Directory="dirC86617D9ABB87D461DA91C8AD9FA8350" Guid="{A43A7ADC-7F7F-416B-80FA-2BAD6E115CD7}">
+            <Component Id="cmp269267BC239C0329F4268EE08AB5C63A" Directory="dirC86617D9ABB87D461DA91C8AD9FA8350" Guid="{A86C8A3A-4E6A-43A1-B21A-E52DF1CEAEF1}">
                 <File Id="fil1695E4C3D7EA5190893555432EEB126C" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\index.html" />
             </Component>
-            <Component Id="cmpBA9FB600738462E535701C4786F15F5D" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{0353A2FA-E67B-458F-B0F1-8372541DADA0}">
+            <Component Id="cmpBA9FB600738462E535701C4786F15F5D" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{B6A316E2-211D-44DE-A64A-2A6721244FD3}">
                 <File Id="filC7973F70EAF50010D28DC929F5EA4CC6" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\check\index.html" />
             </Component>
-            <Component Id="cmp2145C6035FE8CECB7140D0AA54F248C2" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{8B6819C7-F8EC-45B9-91D6-453AACD8AD12}">
+            <Component Id="cmp2145C6035FE8CECB7140D0AA54F248C2" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{7866303F-8E12-4BC0-820F-398A01C6A358}">
                 <File Id="filA46EE322E7045A657892A6B041DDEF04" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\check\normal-monitoring.html" />
             </Component>
-            <Component Id="cmp4894DE847CBD73541B17490D1124B669" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{D0B05D80-D5BD-4EC3-8CD8-BAC4CDC8470D}">
+            <Component Id="cmp4894DE847CBD73541B17490D1124B669" Directory="dir0A7EE07C1DB92609964A3505F2264FF2" Guid="{EB42A450-66E5-42E6-A732-ECDD43FC302A}">
                 <File Id="filC8AD58A9404610CBF38ADA5B44668779" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\check\real-time-monitoring.html" />
             </Component>
-            <Component Id="cmpEE3449BBE9BE70A4135014620909BEAE" Directory="dirD94F4C3BD653A2A1D0EA08F9D9BCD379" Guid="{798970F8-A92B-4341-8EA8-6936D58FB807}">
+            <Component Id="cmpEE3449BBE9BE70A4135014620909BEAE" Directory="dirD94F4C3BD653A2A1D0EA08F9D9BCD379" Guid="{F53FFAE9-36C1-4808-A4BA-2A1AE1C8FF7E}">
                 <File Id="fil3CE3D45D6DF4194F14D6565A7B15C014" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\core\index.html" />
             </Component>
-            <Component Id="cmp5706A325D05F12924D626110C57D4ABF" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{53667FCB-186F-4D12-84EF-DCA139A4F2EC}">
+            <Component Id="cmp5706A325D05F12924D626110C57D4ABF" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{9E0A72E0-0BD7-4CA1-A25D-9B3C422722BF}">
                 <File Id="fil55D217460E35B1B0B0493895E346AEE1" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\nagios\check_nt.html" />
             </Component>
-            <Component Id="cmpFA300AD555D262C8B4734F2560FB0C5C" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{946635A8-B89C-406D-A7C1-A03F4DDD99A2}">
+            <Component Id="cmpFA300AD555D262C8B4734F2560FB0C5C" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{ECA5D14E-E60A-4F75-BB10-67C6EC7BFA38}">
                 <File Id="fil5185EA05EA8B400CE0A8A0E0E9861FDA" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\nagios\index.html" />
             </Component>
-            <Component Id="cmp4A0CA5078CD0202D4F5A9F0FE3A923C3" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{6066167D-D990-4031-94A7-B07F457DAFE3}">
+            <Component Id="cmp4A0CA5078CD0202D4F5A9F0FE3A923C3" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{7DE8456F-E21B-4A7A-9FFD-367B9D84E4CE}">
                 <File Id="fil760C9962CC4E1F79311D939E2E9547C9" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\nagios\nrpe.html" />
             </Component>
-            <Component Id="cmp3D56BD223087B687F341BDE1EAE651D8" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{E91511EC-0352-4EF0-86CA-EB1C12F2E991}">
+            <Component Id="cmp3D56BD223087B687F341BDE1EAE651D8" Directory="dir6B1A28532D317986697B7A23D5E18671" Guid="{1F9E3512-72CF-4545-AF6B-AE5919092898}">
                 <File Id="fil9B01A2CA6BE6CBCE762B2598B9470545" KeyPath="yes" Source="$(var.WebHelpSource)\tutorial\nagios\nsca.html" />
             </Component>
-            <Component Id="cmp74ECB654DFB61A72462AC8EE479816F8" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{15AF9179-9407-45BD-B0E4-C7BCA04F1159}">
+            <Component Id="cmp74ECB654DFB61A72462AC8EE479816F8" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{A7B01086-E927-48C9-AFAE-70AF3D4E0D72}">
                 <File Id="fil9397753F36660255E0B3C1F8034BF95F" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\0.4.0.html" />
             </Component>
-            <Component Id="cmp990DBD1598D4020FC966E8211AA5DA72" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{1D06DA95-D9AE-4A05-B894-BC2ECE14AB59}">
+            <Component Id="cmp990DBD1598D4020FC966E8211AA5DA72" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{F2E19A0B-AA5E-44E0-A74F-576C48A2D0D2}">
                 <File Id="filD504FFCEF3973FD0E57A09AD3865F14D" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\0.4.1.html" />
             </Component>
-            <Component Id="cmpAB5C7F322F965D59F07007B184A96347" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{08F56161-F33A-40ED-8BAC-1EB52F9FD841}">
+            <Component Id="cmpAB5C7F322F965D59F07007B184A96347" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{DF5F595C-4F0B-476F-84FF-03E37DF39023}">
                 <File Id="filCA27BD42F6B5617C06B06246290947A1" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\0.4.2.html" />
             </Component>
-            <Component Id="cmp3928BCB348255F303A53BCE49206A525" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{9CC887DE-4E85-49EB-83E9-88E8A20AAAB3}">
+            <Component Id="cmp3928BCB348255F303A53BCE49206A525" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{A4F9BEC4-C0A4-4E19-9D09-A823AD8A64F6}">
                 <File Id="fil5AFFCE07C265B099B1CEF6653CC5E725" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\0.4.3.html" />
             </Component>
-            <Component Id="cmp336E70616BDBCD99EDDA012D384113C0" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{80871311-9174-4885-9DC9-6203C52E2A4B}">
+            <Component Id="cmp336E70616BDBCD99EDDA012D384113C0" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{D6A894EB-B4E2-4581-9DAA-F2DBEF24CD25}">
                 <File Id="filE83D9DB204F37027ACEB6E3E86703AA2" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\changelog.html" />
             </Component>
-            <Component Id="cmpE0CE1E8E641A3E39B05446BFA3AC0C66" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{0B28DCB5-9548-4471-B983-D3F5DCF05D51}">
+            <Component Id="cmpE0CE1E8E641A3E39B05446BFA3AC0C66" Directory="dir9BDB997F40DEDC0B3A476C171AF6E280" Guid="{695CC0B4-C56A-4B0A-8286-FB67CE55F8DF}">
                 <File Id="filC5C221FF593769EE22BBD5722F43FE54" KeyPath="yes" Source="$(var.WebHelpSource)\whatsnew\index.html" />
             </Component>
-            <Component Id="cmpD4408EEA36068F924D26286FADBBE0C1" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{3158A097-0B12-4055-AC3F-C02344FDFB34}">
+            <Component Id="cmpD4408EEA36068F924D26286FADBBE0C1" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{B67A8A01-33A7-47F9-AC08-23B38E2330C3}">
                 <File Id="fil3CE25794F7B26240151BFDFA7BEE4BEE" KeyPath="yes" Source="$(var.WebHelpSource)\_images\external-scripts-args-1.png" />
             </Component>
-            <Component Id="cmp9674BBDBB8F5868954B1F7F7E59294DF" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{017B0D39-7834-45CB-BD61-4675BC410C15}">
+            <Component Id="cmp9674BBDBB8F5868954B1F7F7E59294DF" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{74ED47EA-5529-4075-98AE-2467D253CDEE}">
                 <File Id="fil8892355BF445A786705CFD93569B48AC" KeyPath="yes" Source="$(var.WebHelpSource)\_images\external-scripts-args-2.png" />
             </Component>
-            <Component Id="cmpD62A9DE9631E41D70AF525F028DC17F6" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{440F289A-BDB1-4CEC-AEB0-CD932CCDF70A}">
+            <Component Id="cmpD62A9DE9631E41D70AF525F028DC17F6" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{D0F94CDA-5292-46FF-8111-6B67DD650F60}">
                 <File Id="filD876C87B22CC94ACB5A31C5BB7BAC8A0" KeyPath="yes" Source="$(var.WebHelpSource)\_images\external-scripts-args-3.png" />
             </Component>
-            <Component Id="cmp48812824974C7F68AA9378CC29875520" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{402322C4-C1E6-4DD4-99E1-EBD08233BF28}">
+            <Component Id="cmp48812824974C7F68AA9378CC29875520" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{398F6620-6D07-47E9-9D20-57B04379B051}">
                 <File Id="filF333D75847DBE4A1CC30178FC31E5B54" KeyPath="yes" Source="$(var.WebHelpSource)\_images\external-scripts.png" />
             </Component>
-            <Component Id="cmp0B8F82A0A9DE25BB62936DCB3386EC62" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{6F396E19-89A9-4C47-9A09-988E9018B27A}">
+            <Component Id="cmp0B8F82A0A9DE25BB62936DCB3386EC62" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{1B36908E-3B56-422A-BA67-1ACE0AAA4C28}">
                 <File Id="fil3251F3623CFA55D1BDE821DE855B9CD0" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nrpe-001.png" />
             </Component>
-            <Component Id="cmp485EFB44B518C6B3A6569C50D3AD5B38" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{2206CD2B-0111-4994-B4E1-281985FD59B4}">
+            <Component Id="cmp485EFB44B518C6B3A6569C50D3AD5B38" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{FFC11D79-9FFD-470A-BCD6-C7750F1DFD41}">
                 <File Id="filA78B6ACB72082AD5ECE7CCB7A2B4FFF3" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nrpe-002.png" />
             </Component>
-            <Component Id="cmp907B7CA0932F7A0DEEDFCD93CBF73C7F" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{B68A4663-D887-4552-8A95-BD87D6ED10D1}">
+            <Component Id="cmp907B7CA0932F7A0DEEDFCD93CBF73C7F" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{C079CA1B-D051-4A43-A2DE-1155293983B8}">
                 <File Id="filDB0CCD88718D404CB193D4DE22EE8ABA" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nrpe-003.png" />
             </Component>
-            <Component Id="cmpE334D521281B14B5B972D4C2E2495197" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{1C01D2AD-1DDC-40CA-B74A-B6393DB67C27}">
+            <Component Id="cmpE334D521281B14B5B972D4C2E2495197" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{19909189-3940-454A-9D0D-4B4518CE1923}">
                 <File Id="fil68BCF238A70B6E6513D30FCE91565E63" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nrpe.png" />
             </Component>
-            <Component Id="cmp9D0E6AC3A1ECBA663EF5C88F0456AAE5" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{E474420E-E37C-4E82-B187-51F5ACA33D20}">
+            <Component Id="cmp9D0E6AC3A1ECBA663EF5C88F0456AAE5" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{03EC4739-AC9E-4AA6-A8E8-956D4669ADBA}">
                 <File Id="filEC5E12E09F62AC9A602691661DBBFC45" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nsclient-001.png" />
             </Component>
-            <Component Id="cmp407CF2BA3E32A08CB5F1F4DB8CE14CF7" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{A5283737-7B91-4EF1-8A41-E9C2B6B6C829}">
+            <Component Id="cmp407CF2BA3E32A08CB5F1F4DB8CE14CF7" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{FB460FB1-3BAB-4B2B-B0FD-F0D14D5BD077}">
                 <File Id="filECCE554DED0ADF0C50784D0989181F24" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nsclient-002.png" />
             </Component>
-            <Component Id="cmp2C581EF81AE326C832F3794438CA7595" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{400AA834-F74C-4C90-A8E4-974AF5D31F2E}">
+            <Component Id="cmp2C581EF81AE326C832F3794438CA7595" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{80DF4C4E-5574-463B-8E69-D674F87F9167}">
                 <File Id="fil2988C4336A9946431A68BEFE43D04F82" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nsclient-003.png" />
             </Component>
-            <Component Id="cmp95F82EFC05457CB7EAFC290D7E76855C" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{AE1F7F50-6D8E-478B-92EA-E8271B7F0E62}">
+            <Component Id="cmp95F82EFC05457CB7EAFC290D7E76855C" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{D64B7E57-6513-45BF-B770-D98409C22ECC}">
                 <File Id="fil1D6AE3A145B8BD4C6FECE9941B0FBE03" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nsclient-and-nrpe.png" />
             </Component>
-            <Component Id="cmpDA82947ECFC422BAE186D07C7CD647F7" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{A5E9AEA0-9FD0-4E3D-A6AF-D5B9C8EDD266}">
+            <Component Id="cmpDA82947ECFC422BAE186D07C7CD647F7" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{6E84D890-38C3-43DB-8C69-629A2C7A6E12}">
                 <File Id="fil39371708EED48042C80330370001F987" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-nsclient.png" />
             </Component>
-            <Component Id="cmp715747706CFF044C3ECDF86D903A37E8" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{4FC4C96C-9E26-44E8-8B5C-594A90672FAA}">
+            <Component Id="cmp715747706CFF044C3ECDF86D903A37E8" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{96CA469E-2C13-4946-9292-084AE3395D88}">
                 <File Id="filB3432622879AFE5526B0FC61AC982ACE" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-active-passive-roll-your-own.png" />
             </Component>
-            <Component Id="cmpF3CF525311B148555468104A5A7E9113" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{CAE9C5DA-5696-4AE8-9735-F3A0AE6DA9A7}">
+            <Component Id="cmpF3CF525311B148555468104A5A7E9113" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{A5574A05-E50E-4F0F-A09C-0A6567D67EFA}">
                 <File Id="fil3ADC754F3A537851C729602B6C24FC0F" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-configuration-inheritance.png" />
             </Component>
-            <Component Id="cmp895CF11596BF0DE4E9AEB767219E59C4" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{3510B646-A186-4105-AF52-C505D218725B}">
+            <Component Id="cmp895CF11596BF0DE4E9AEB767219E59C4" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{91A4D4EB-457B-4512-8AEC-50118B0FEA3A}">
                 <File Id="fil3A3BC32ADFA6E937C68E2449EF0F9AD3" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-passive-nsca-001.png" />
             </Component>
-            <Component Id="cmpD54BFACF9ED57A764ED65003B7520954" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{78F2D287-9F98-47A8-B3B8-CDB9660E69B4}">
+            <Component Id="cmpD54BFACF9ED57A764ED65003B7520954" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{71BC1044-C971-4FE6-B841-C31A9B599932}">
                 <File Id="filAD92EB6EF418267780EB9E66DF870261" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-passive-nsca-002.png" />
             </Component>
-            <Component Id="cmpADB9EE39A347DD3972BAE9CB9346D7C0" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{06405A29-10E9-4A79-9A44-0C159C5E7F73}">
+            <Component Id="cmpADB9EE39A347DD3972BAE9CB9346D7C0" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{7EB7E4AE-01C9-412A-94B8-733269F2E396}">
                 <File Id="fil3EEBF30D72704584E852FB9999CCD09B" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-passive-nsca-003.png" />
             </Component>
-            <Component Id="cmpB8D410FCAA76321F71C51252BFE1009A" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{BF5EC0DE-AF93-46B3-8062-CE99C929937D}">
+            <Component Id="cmpB8D410FCAA76321F71C51252BFE1009A" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{B54DBB4D-B138-4FB5-A051-C1F1FE072D6F}">
                 <File Id="filD16F4A4AD0D41FB6C300262C82AF214F" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nagios-passive-nsca.png" />
             </Component>
-            <Component Id="cmp980360E029199A826F99261E7A763E7A" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{4B92DA3E-FDE2-46C0-8354-643D3B329CF1}">
+            <Component Id="cmp980360E029199A826F99261E7A763E7A" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{1D9026CF-9FEC-4023-8148-E347B6917407}">
                 <File Id="filEEDE55B4BBF6D2E698EE8B94B2865A3F" KeyPath="yes" Source="$(var.WebHelpSource)\_images\normal-nrpe.png" />
             </Component>
-            <Component Id="cmpDB4177981DC9C1C819A752FC4CE73392" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{A98DC17E-8FD4-49EA-9347-62002E9BFF80}">
+            <Component Id="cmpDB4177981DC9C1C819A752FC4CE73392" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{0AFF0EBE-AE54-4205-B199-3AA40AD26309}">
                 <File Id="fil65DDE266B6CE5318A6FBC9DB37A2BCE8" KeyPath="yes" Source="$(var.WebHelpSource)\_images\notepad-administrator.png" />
             </Component>
-            <Component Id="cmp1DFB37239DA8DCE48C37F09A79F07844" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{CC772171-0C98-48B2-AEB6-E13E30D38F23}">
+            <Component Id="cmp1DFB37239DA8DCE48C37F09A79F07844" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{2D218DAA-0596-47F8-9C8B-A7261FCE5682}">
                 <File Id="filC336B2A29294A3ECFCF028D58CEF6D3E" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nrpe-overview.png" />
             </Component>
-            <Component Id="cmpB284802672D63A6B62F9217E9C0C6011" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{490DE352-3E67-40DC-8855-FDFA97156A87}">
+            <Component Id="cmpB284802672D63A6B62F9217E9C0C6011" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{BDFC4790-C12F-4772-897C-06400374768E}">
                 <File Id="fil86FA58508AFF943023BF435B5A5C8027" KeyPath="yes" Source="$(var.WebHelpSource)\_images\nsca-nsclient-internals.png" />
             </Component>
-            <Component Id="cmpB396C3E3FBAF6CF959B8336DE0C879C5" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{4929CD36-FA18-4EEE-BBBD-F81BE0E509C8}">
+            <Component Id="cmpB396C3E3FBAF6CF959B8336DE0C879C5" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{DBE5085A-75B8-4EBA-A2B2-A126A8A51250}">
                 <File Id="filABFAB55AEA16E9A4CAABF685112C3AC0" KeyPath="yes" Source="$(var.WebHelpSource)\_images\pdq_msifolder.png" />
             </Component>
-            <Component Id="cmpEEEB94DA2E242B5D13C430C5DF60FEFD" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{457B92FD-78B2-4A25-9A8C-827D54997EBB}">
+            <Component Id="cmpEEEB94DA2E242B5D13C430C5DF60FEFD" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{D9361655-46B2-4DD2-8A30-49CBE2F60A50}">
                 <File Id="filC598A8744A6595F1809EF5619C7EB86D" KeyPath="yes" Source="$(var.WebHelpSource)\_images\pdq_package.png" />
             </Component>
-            <Component Id="cmpF316EA589742BA255647F65BCE802755" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{C720A2C2-540E-469E-9876-F9FCD853056B}">
+            <Component Id="cmpF316EA589742BA255647F65BCE802755" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{ED23E332-DD63-4C5E-84D8-CF7174D1933E}">
                 <File Id="fil569FD0FB67F66D5243DB2055F403F71E" KeyPath="yes" Source="$(var.WebHelpSource)\_images\timeouts.png" />
             </Component>
-            <Component Id="cmpE270303C162486DB41A0D844024ED7F8" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{1D391A74-656A-4C2D-BCE2-F53310197AF2}">
+            <Component Id="cmpE270303C162486DB41A0D844024ED7F8" Directory="dir0224D6ADD7C3A920E1DF0775751640B0" Guid="{11F0AE24-8545-4D22-9E99-EAC8B2BBC00F}">
                 <File Id="filE8AEDD02C3E80D38FAB131C1E7B9713A" KeyPath="yes" Source="$(var.WebHelpSource)\_images\webui.png" />
             </Component>
-            <Component Id="cmpBBD0E55A0C5D6E66126806AD54954EA1" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{2E660565-6183-438C-BDB0-AB03576EADDB}">
+            <Component Id="cmpBBD0E55A0C5D6E66126806AD54954EA1" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{E723D186-4FB5-4976-BDC1-CE92F6E0C55F}">
                 <File Id="fil1CBDA895B68B035414A5D1FBF5858EB3" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\about.txt" />
             </Component>
-            <Component Id="cmpD09A87787C3FE771C376AD3C9E41DF09" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{3DDB2654-991E-4EC0-8B50-0F4B47E09A9D}">
+            <Component Id="cmpD09A87787C3FE771C376AD3C9E41DF09" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{2E2582F0-2B8D-4B38-8165-9E9F6DB2178D}">
                 <File Id="fil3CC47A1C245D578B2479837083C73D27" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\bugs.txt" />
             </Component>
-            <Component Id="cmp240F02EAE81407DD52D3B680B0625D51" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{41A4F638-CA3A-438D-96C3-7DBCCE11614B}">
+            <Component Id="cmp240F02EAE81407DD52D3B680B0625D51" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{84BDAABF-821C-44F7-BAB2-23C7080135D2}">
                 <File Id="fil21CC9403434CF736096D111C46F0E485" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\copyright.txt" />
             </Component>
-            <Component Id="cmp44F16C6A74C02739C176533CA44D2E4D" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{33CE88FC-9719-47D7-B6AB-D6737D2A26B1}">
+            <Component Id="cmp44F16C6A74C02739C176533CA44D2E4D" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{1E2E38C4-F679-473A-8EA0-04546EBF9C94}">
                 <File Id="fil4F7D6230AD7C82EEF68B6D033C1865A6" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\glossary.txt" />
             </Component>
-            <Component Id="cmp63D1C616488406D0E5019EA2B400608F" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{3867BEB2-6A9B-4A22-B468-F0C7A7BD33EC}">
+            <Component Id="cmp63D1C616488406D0E5019EA2B400608F" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{EF4C199F-883A-4486-9E2D-22237C14176A}">
                 <File Id="filCE06CD0E01B3D73773E480E4F3826D01" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\index.txt" />
             </Component>
-            <Component Id="cmp5F471276D6ADCB37590DC48777ACEED6" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{8D1CBC2A-9DEA-4994-BF65-C313E5A82A0A}">
+            <Component Id="cmp5F471276D6ADCB37590DC48777ACEED6" Directory="dir5A42F3155EC358AE94E3A8AAEA1B19E6" Guid="{E0D1A12F-C8D3-42FD-83EA-32359A1772A2}">
                 <File Id="filD2989EE98A21BF43DD91F65837A6410E" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\license.txt" />
             </Component>
-            <Component Id="cmp0305979E4A0C6FE145F04018FB37FE0C" Directory="dir8572E2864B4CFA6C3B395A4AFCB883AE" Guid="{433A2468-3433-44BD-AF3D-C49FB3F3C696}">
+            <Component Id="cmp0305979E4A0C6FE145F04018FB37FE0C" Directory="dir8572E2864B4CFA6C3B395A4AFCB883AE" Guid="{B66BDD0F-F6C9-4E59-91A0-52471374EC79}">
                 <File Id="fil98BC6EAE7AD3EA2240FE199665D5FC01" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\api\index.txt" />
             </Component>
-            <Component Id="cmp224A15C127910EFDAB9158CF25ED29A0" Directory="dir0B96B2F24035979DF74B13EEC9DF680C" Guid="{D88D5113-1AA3-4F7E-86B6-AD9A9F83992C}">
+            <Component Id="cmp8C65A387DF54EB3C82621DA54291A95D" Directory="dir8572E2864B4CFA6C3B395A4AFCB883AE" Guid="{D93FF802-5CFA-42AF-A26A-8D07C05FC4F3}">
+                <File Id="filC1BE4ED83BEB5DF0D76219D8B1B07C98" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\api\nscpipc.txt" />
+            </Component>
+            <Component Id="cmp974EA04FCE0228DE8643ABDC3C1B9B9E" Directory="dir8572E2864B4CFA6C3B395A4AFCB883AE" Guid="{860F7695-2E4F-4F5D-9E77-37C6E9955900}">
+                <File Id="fil54EC12CE0DC74F65051F2789DAE73EDA" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\api\plugin.txt" />
+            </Component>
+            <Component Id="cmp224A15C127910EFDAB9158CF25ED29A0" Directory="dir0B96B2F24035979DF74B13EEC9DF680C" Guid="{FB67D30A-A06A-4A1D-8FDE-681D5F0D1245}">
                 <File Id="fil8CD4DCA6A0C8411B8283123F2AB262C4" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\extending\index.txt" />
             </Component>
-            <Component Id="cmp4D265AA454598943B0B508F2746BC6F0" Directory="dirBA00D535DADA843512A740FD408C1339" Guid="{4ACAA15A-3BBF-455D-B5CD-12C9BA49823A}">
+            <Component Id="cmp4D265AA454598943B0B508F2746BC6F0" Directory="dirBA00D535DADA843512A740FD408C1339" Guid="{11C78AFD-6FB6-4A0D-A166-9FE7B5769A69}">
                 <File Id="fil149270FE242722E65ADE527AF450DEC5" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\faq\index.txt" />
             </Component>
-            <Component Id="cmp8F8E7A2F064B85354700638D99ADB206" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{4609ABA4-FB85-4ED4-9118-5E3EA7CB0F6B}">
+            <Component Id="cmp8F8E7A2F064B85354700638D99ADB206" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{0E3B6B9F-83A5-40D0-BE99-4F9217D75599}">
                 <File Id="fil34C975114141E98EBB6AE1A2A3AB4212" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\howto\03x_migration.txt" />
             </Component>
-            <Component Id="cmp25986535144AA0FA8377057D31468429" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{D4E25481-A1F5-4B9F-AAEC-BCD3A2D031CA}">
+            <Component Id="cmp25986535144AA0FA8377057D31468429" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{C30B0E96-1B20-4874-BA65-F1E09FA4CE97}">
                 <File Id="fil4146FFDD86F623DE47FAFDF7F99DB026" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\howto\counters.txt" />
             </Component>
-            <Component Id="cmp470268592702479780BF57D66792159B" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{029E4AA9-BA51-42D1-A27D-E743B323A65B}">
+            <Component Id="cmp470268592702479780BF57D66792159B" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{D6C17E5C-97BA-4E56-B86A-90F340944AF2}">
                 <File Id="filD851BB937F8FE0F832C29AC47A5AFC8B" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\howto\external_scripts.txt" />
             </Component>
-            <Component Id="cmpB76D95F32F137928D0F2A5870614CEE6" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{4C4D5990-D0EF-4138-82E1-1AD58DC3F113}">
+            <Component Id="cmpB76D95F32F137928D0F2A5870614CEE6" Directory="dir7C543D05A57BD6440CFFE99018258DDC" Guid="{EE32F548-1A12-4BAD-A77C-7AB8E268347A}">
                 <File Id="filB3F23676591E8670014BD2A6E55A74CD" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\howto\index.txt" />
             </Component>
-            <Component Id="cmpF0E3EC067167EE9D30C83083E8DCFD4C" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{18189975-E959-4D37-B1C1-EA7E19EB72BC}">
+            <Component Id="cmpF0E3EC067167EE9D30C83083E8DCFD4C" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{DAD8B1B1-8CE9-407B-8F94-3E33733D1DF3}">
                 <File Id="fil7BF3C06397C187E4FFBA301269682427" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\about.txt" />
             </Component>
-            <Component Id="cmpB4C8584A10C3B95E9D6266392B92D8E6" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{15DCD256-4FF0-4F85-9093-8AABB178FEF0}">
+            <Component Id="cmpB4C8584A10C3B95E9D6266392B92D8E6" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{35030464-C4D7-4A3F-8963-8657C8FD3C0D}">
                 <File Id="fil8E07029D272C695D7530D271C7FADD84" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\build.txt" />
             </Component>
-            <Component Id="cmp0F3F9322275138B7D96236338447EE11" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{0F179387-F779-4C9A-9E36-9E2A3B086778}">
+            <Component Id="cmp0F3F9322275138B7D96236338447EE11" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{809E282A-F8D5-4BF8-8529-378FF954C716}">
                 <File Id="filE5284A9809C4CB1209FB0A0595D63AD2" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\getting_started.txt" />
             </Component>
-            <Component Id="cmp72B759018F83F0D9FDE5232E4EA127B2" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{E09F01AB-A20D-4877-BBB7-8A1EA7392253}">
+            <Component Id="cmp72B759018F83F0D9FDE5232E4EA127B2" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{7BDC31FD-C0A3-46BC-9218-C8651652980D}">
                 <File Id="fil96B9C18C7909CD163451DD1812371B45" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\index.txt" />
             </Component>
-            <Component Id="cmpFE4E2E352B9327B8F6E6F0C1CAC03630" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{769F417E-C5A8-429C-9B4F-5E1303CFC442}">
+            <Component Id="cmpFE4E2E352B9327B8F6E6F0C1CAC03630" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{96706A8C-8151-4782-9E4B-4B0762A9F8F1}">
                 <File Id="fil6CEC8E5A3CF6A056C194A52FA06A2556" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\installing.txt" />
             </Component>
-            <Component Id="cmp3CC19F0036BD256008D9DBA8A5631377" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{5C2B7956-5AB8-4880-A146-F07CBB56679F}">
+            <Component Id="cmpCF41B55C9748F0291976E84F704ACE67" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{E2E41B05-6B80-4D7D-928E-7B96002FFE6B}">
+                <File Id="filAC8078222BFCEC166BC4B2E94012F499" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_checks.txt" />
+            </Component>
+            <Component Id="cmp3CC19F0036BD256008D9DBA8A5631377" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{18290F84-8A37-464E-843A-5364E736BB09}">
                 <File Id="filE44546A24A86E8FED5A84CA9D822C0AD" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_client.txt" />
             </Component>
-            <Component Id="cmp9831A01DDCFEC84B9F387A223517341A" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{C8F16425-23A1-4513-8F5B-0623588316EF}">
+            <Component Id="cmp9831A01DDCFEC84B9F387A223517341A" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{6DFE6E06-7052-46D4-95AC-0054DC97ED1D}">
                 <File Id="fil5526EDCE8B54652AF967B2B443C19E0A" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_service.txt" />
             </Component>
-            <Component Id="cmpF3391F9F0819A32FCA3BC8FD1CD6C827" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{770D58E5-01AD-4612-862B-324E06F96246}">
+            <Component Id="cmpF3391F9F0819A32FCA3BC8FD1CD6C827" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{646AA1DC-276A-46A3-8D1C-1462DE2AD7E4}">
                 <File Id="fil7D196079F57853AED942FE3C23A853FC" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_settings.txt" />
             </Component>
-            <Component Id="cmp5FC414A2FCFD99272E694F8D7A1CDF1F" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{15C72F9C-444F-442C-B585-88E55F7A6AAD}">
+            <Component Id="cmp5FC414A2FCFD99272E694F8D7A1CDF1F" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{9DA5F84A-EEB1-44A6-AA3B-32E9AB10D25B}">
                 <File Id="fil8BC8434EA60B5525F2DA005ABE54C62A" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_test.txt" />
             </Component>
-            <Component Id="cmp228320221C2C1CAB725285F789201278" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{2A6C1139-D2CF-46D4-8C2F-589262C322C9}">
+            <Component Id="cmp228320221C2C1CAB725285F789201278" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{F2799E6D-5EAD-4C22-BAA6-0A9A237D75BF}">
                 <File Id="fil2846064834E27717BA82BD1AFFF21513" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\nscp_usage.txt" />
             </Component>
-            <Component Id="cmp67889AE538BE641CD5ECF23649B9BB48" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{875060F5-B8CA-4D23-A75F-B7AB5C453B9E}">
+            <Component Id="cmpFF8E229DF5553915BA3CC0CE507E345C" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{14126885-C813-4BB3-B0C4-6862C93F1558}">
+                <File Id="filECB9CD2C4B7FE644CF9663E1966B1D46" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\settings.txt" />
+            </Component>
+            <Component Id="cmp67889AE538BE641CD5ECF23649B9BB48" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{581F68AA-A05F-401D-A5BE-29036A6A8BEB}">
                 <File Id="fil90DC17D4F7867F2D1EF20DE0C87B94CF" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\theory.txt" />
             </Component>
-            <Component Id="cmp641B24BAB10D246795AE1FBE2EE7E304" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{8B76D326-4E84-4500-8638-8A3F9FFAC648}">
+            <Component Id="cmp641B24BAB10D246795AE1FBE2EE7E304" Directory="dir948D6EE77205155D66A0C07930BA815B" Guid="{07C565C4-F7E9-4377-BFD3-1B9042A5B9D1}">
                 <File Id="fil839DCC2A763E3D31DAAE1D08E8CAE25E" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\manual\windows_installer.txt" />
             </Component>
-            <Component Id="cmpF370EDEC6F168313947C493A48BC416B" Directory="dir7D1B609CAEFAD0FC43DEA62499223997" Guid="{6465B41E-5B64-4F76-A5E4-CBC63D47C71E}">
+            <Component Id="cmpF370EDEC6F168313947C493A48BC416B" Directory="dir7D1B609CAEFAD0FC43DEA62499223997" Guid="{9B7FD13E-5A38-40A6-84AE-BCFA2FC0FE9D}">
                 <File Id="filD944AFC8CD9CB0BC357D442D78C3D473" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\index.txt" />
             </Component>
-            <Component Id="cmp731131CDFBD6F80E06D724669AC60395" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{A61B8FD7-DBFF-4096-A885-E252CEF2E567}">
+            <Component Id="cmp731131CDFBD6F80E06D724669AC60395" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{F0D132EA-8E86-4854-9613-B66788D28FA9}">
                 <File Id="filB5015579C6D0A9FFA6C6A93C03449EED" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckExternalScripts.txt" />
             </Component>
-            <Component Id="cmp7F399E0D9E84C214EBB2DBDC1D98873D" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{93C1B358-8F17-47AA-A471-3A1348FFA74B}">
+            <Component Id="cmp7F399E0D9E84C214EBB2DBDC1D98873D" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{F558002A-C26A-46BE-96AB-4EBA5C9D903E}">
                 <File Id="fil75EA2632B18A57BF5F0980D933CEB257" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckHelpers.txt" />
             </Component>
-            <Component Id="cmp0375D21B68045B03653F2889C09D34A1" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{E55A919A-BF21-4E02-B0AA-D75B1C764982}">
+            <Component Id="cmp0375D21B68045B03653F2889C09D34A1" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{CCA4FBFF-F5A9-43A6-ACD0-0167840ECC64}">
                 <File Id="fil3EAE96549E4966D726DF7FED6F0F480A" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckLogFile.txt" />
             </Component>
-            <Component Id="cmpAB1CA17F6AFFDD6FD023A951CFAB83C9" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{6A743A3D-1CA9-47F5-ACE3-B7F6688825AA}">
+            <Component Id="cmpAB1CA17F6AFFDD6FD023A951CFAB83C9" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{6184DBDB-05FA-46EA-B6D7-8FEC00197BC3}">
                 <File Id="fil9DAB674A3218FA8CE7F0A6EA4DEC4519" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckMKClient.txt" />
             </Component>
-            <Component Id="cmp3635CF814973677A01BDA0E825AA82A6" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{9A1FE0F8-FD23-4D21-BBFB-1C352963FAF4}">
+            <Component Id="cmp3635CF814973677A01BDA0E825AA82A6" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{EC28062A-85A4-4EB5-B4DB-6ECB1337BD0D}">
                 <File Id="fil6FC48C2B04E5D277E859690946FC8610" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckMKServer.txt" />
             </Component>
-            <Component Id="cmp562DEBBAE6E9C53B9DEFDCD0B3A734FE" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{F29D6F47-D868-457F-A193-AF36FB137212}">
+            <Component Id="cmp562DEBBAE6E9C53B9DEFDCD0B3A734FE" Directory="dir0BD9811A7F56685ADE316E8774728A74" Guid="{934586DD-D72F-4C1C-BF38-3C82D514DD95}">
                 <File Id="fil61EDA997B2E48B6E7CB9F5F1DD39B46D" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\check\CheckNSCP.txt" />
             </Component>
-            <Component Id="cmp767FB00ABE0A9570AFD1201D29FF8F0F" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{AC04F2F4-15E9-4098-AA04-59D38550950E}">
+            <Component Id="cmp767FB00ABE0A9570AFD1201D29FF8F0F" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{D9B66B57-71CD-4AB8-9A2E-70A0E0D51567}">
                 <File Id="fil91166CD96350C03298548E5D6C19A8FD" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\GraphiteClient.txt" />
             </Component>
-            <Component Id="cmp881737CF49084E5898E29DDA90895CA3" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{B0034EE2-94F5-4859-85B7-1EABAEAA5958}">
+            <Component Id="cmp881737CF49084E5898E29DDA90895CA3" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{A13A0744-FED0-46A8-97F8-73EA3288E18D}">
                 <File Id="filE77A2E2990BDB2A0D5796B67A90FF940" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\NRDPClient.txt" />
             </Component>
-            <Component Id="cmpFD0E86D25BF71EB28B6C722088E1F99B" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{4E19380E-F4D9-4E48-952E-B7341CFF71B0}">
+            <Component Id="cmpFD0E86D25BF71EB28B6C722088E1F99B" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{A2230F98-501E-40A6-A459-536537E0714F}">
                 <File Id="filF37E411559F14B2BE481788D043F8430" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\NRPEClient.txt" />
             </Component>
-            <Component Id="cmpC47F37E37AE516AE95528B652016681D" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{F91ABDDE-6697-4EAE-A59C-A038415347FB}">
+            <Component Id="cmpC47F37E37AE516AE95528B652016681D" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{D0257B6B-9519-49F2-BDF2-CAF72B2DDB56}">
                 <File Id="filF28D7C66679BB79578CEB8CE0D48870F" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\NRPEServer.txt" />
             </Component>
-            <Component Id="cmp9C08D9934816B563A647A5B270379263" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{C22C44A4-9A3F-45DF-955A-5F398ABF9997}">
+            <Component Id="cmp9C08D9934816B563A647A5B270379263" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{500EC665-379B-48C6-8D86-283527D21F4B}">
                 <File Id="fil80A983E800C6122DDFBB9ECAC0973058" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\NSCAClient.txt" />
             </Component>
-            <Component Id="cmp4BE7891918B0614EA8BC5DA33B571B04" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{108A7525-1713-486C-81B6-E28BB7EA3693}">
+            <Component Id="cmp4BE7891918B0614EA8BC5DA33B571B04" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{D8995507-4916-4F40-8D06-AB4199A5FB10}">
                 <File Id="fil5FE68A82C77BF6AEBC41ACDB0F5BEEEF" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\NSCAServer.txt" />
             </Component>
-            <Component Id="cmpBB3541F66BAB8D2116406186E844ED46" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{B145D3F0-9D25-4CC9-AB38-31F663244E48}">
+            <Component Id="cmpBB3541F66BAB8D2116406186E844ED46" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{393DF8EA-DCFE-4A1B-A93B-D92B3319D1AF}">
                 <File Id="fil5AC503AAC53F74021A80BC9BE63E1903" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\SMTPClient.txt" />
             </Component>
-            <Component Id="cmp2991FE9D38B6DEC39B5ADA5BE611E627" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{AEF5EB26-E6D1-4935-A029-2814B17A143C}">
+            <Component Id="cmp2991FE9D38B6DEC39B5ADA5BE611E627" Directory="dir0236224749C96AAB085DFFB3C489D024" Guid="{AB8BB82A-3125-4996-A515-090A92E34774}">
                 <File Id="fil2A78448186E19FDC1A93AF55AC08C006" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\client\SyslogClient.txt" />
             </Component>
-            <Component Id="cmpD9E58A413A74C4166974C499D7C3169B" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{76D94A83-0B5A-4219-9877-50D7F0F99F8D}">
+            <Component Id="cmpD9E58A413A74C4166974C499D7C3169B" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{E55EE56B-D44C-416A-8741-ABC720A209D8}">
                 <File Id="fil817D33076B5933C2C2C484C10564FDDC" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\CommandClient.txt" />
             </Component>
-            <Component Id="cmpD72C891393F47623E6A7D9BD35EE5CB9" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{3C58631F-7AD2-465A-82F7-E7056052AB59}">
+            <Component Id="cmpD72C891393F47623E6A7D9BD35EE5CB9" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{AD54276C-3F15-4B8C-A3B4-D7D91149A0E0}">
                 <File Id="filC16B5CF1EDA3A8C5EC18D7794A4B7B46" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\LUAScript.txt" />
             </Component>
-            <Component Id="cmpCF87EA2AD60F3DC9714F859FE2A92089" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{D657901A-ADCA-413D-86CB-C006C219C302}">
+            <Component Id="cmpCF87EA2AD60F3DC9714F859FE2A92089" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{B6F53761-E4ED-4E8C-B503-F9DDC3533A44}">
                 <File Id="fil6A02F62E379E189C3D5EB90ADD3F81D8" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\PythonScript.txt" />
             </Component>
-            <Component Id="cmp9B75FA77446809BA86C738433BAB2B7D" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{20968342-5BE1-463E-B285-1ED58FC0CEE6}">
+            <Component Id="cmp9B75FA77446809BA86C738433BAB2B7D" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{0C10B74E-9F52-4ED4-9595-7FC7484DB783}">
                 <File Id="filAD1BAAEF116E8A0F8FD9678C7BC85C4D" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\Scheduler.txt" />
             </Component>
-            <Component Id="cmpB5093C87E216BDBA67E1E7E487442297" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{7585DF92-E680-40AA-8DAB-4FC94D1415AB}">
+            <Component Id="cmpB5093C87E216BDBA67E1E7E487442297" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{688C8F43-9399-4680-B711-7DD2C850C928}">
                 <File Id="fil499E8B7E0CF35C81828AFB1EE12D3995" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\SimpleCache.txt" />
             </Component>
-            <Component Id="cmp7704B21BB3D950B50BAF2C879436B6C0" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{401B8FC7-0F96-4E23-A11C-2BB0389C2718}">
+            <Component Id="cmp7704B21BB3D950B50BAF2C879436B6C0" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{20ACF71F-DDA0-4B86-B02D-65836503FD2A}">
                 <File Id="fil376EF0F00B2A4199FF3C0ED7109A0432" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\SimpleFileWriter.txt" />
             </Component>
-            <Component Id="cmp511362BFD29E135FF443B36BE353A991" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{BD652B8C-1401-45A4-A50C-C5D042FD7468}">
+            <Component Id="cmp511362BFD29E135FF443B36BE353A991" Directory="dirA92511D7D4C3593E441C52B5A993D249" Guid="{A5CDA049-1A6F-4F45-857D-F7DC44D92981}">
                 <File Id="fil09373EC80AD6227158D118C741F33C50" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\generic\WEBServer.txt" />
             </Component>
-            <Component Id="cmpEE378F68CC2D322E13E6A717D7F184EA" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{2C1E740F-4CF0-49D3-ACEE-2A3684A46C68}">
+            <Component Id="cmpEE378F68CC2D322E13E6A717D7F184EA" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{E93809D7-F4F7-46D3-B623-45B179C878AD}">
                 <File Id="fil9D0F55F97A1FD73C1C0312EB2E1862D4" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\misc\CauseCrashes.txt" />
             </Component>
-            <Component Id="cmp8BF2B8EBD3541A301E2323CFCC0BC12B" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{A4D9F8D5-9810-4858-8477-719D879AB184}">
+            <Component Id="cmp2F5F8E259A833C5E129EF78A1AA70513" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{437015D4-918D-4ECA-AF1A-0040E763C4E6}">
+                <File Id="fil9C76B754C59D3ADEA9DE7899EA321F50" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\misc\CheckNet.txt" />
+            </Component>
+            <Component Id="cmp52B69D1EC96F76FE3EB6EEAA085EEA1A" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{BE993498-C287-4009-93C4-C730ED1E45F3}">
+                <File Id="fil7BFFFE743D5DF218C90F255261F3C077" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\misc\CollectdClient.txt" />
+            </Component>
+            <Component Id="cmp8BF2B8EBD3541A301E2323CFCC0BC12B" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{DEB46F60-4B35-4FA1-911D-3512FE178618}">
                 <File Id="filB3D37428BAB84172A0E863F7F0B03C4E" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\misc\SamplePluginSimple.txt" />
             </Component>
-            <Component Id="cmp36F46D29993EE44939DCE251D14A5E64" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{25B1F6FA-4E0C-4C57-8276-D5DA83147A2F}">
+            <Component Id="cmp36F46D29993EE44939DCE251D14A5E64" Directory="dir5EB95B4AB6AAA62DE1FB82A3C3C6A529" Guid="{8CB5AC64-A918-418E-A008-7D0747B84468}">
                 <File Id="fil6435F32942BF41F3C7B04A0A5BDC7BFA" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\misc\WEBClient.txt" />
             </Component>
-            <Component Id="cmpE7C2DE469F150811C8E8BC29A3D70391" Directory="dirDAE1583E64DBF9DE49E81A5E29245A07" Guid="{2A23A0D2-C349-4D3A-88FB-83220508DE34}">
+            <Component Id="cmpE7C2DE469F150811C8E8BC29A3D70391" Directory="dirDAE1583E64DBF9DE49E81A5E29245A07" Guid="{5C48013E-CE7D-4D6E-AA6A-5FC031DF98E3}">
                 <File Id="filD5579CAF3CE11A563956DE57A414A95C" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\unix\CheckSystemUnix.txt" />
             </Component>
-            <Component Id="cmpC9C7E4B979317DC32569A26C5523C94C" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{637F23EC-48E5-40BD-8A96-B6F49E926721}">
+            <Component Id="cmpC9C7E4B979317DC32569A26C5523C94C" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{93939D89-5691-4C4B-B73D-E15A63236E7F}">
                 <File Id="fil73DF28B99727FE7B4672128B4D305FD8" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\CheckDisk.txt" />
             </Component>
-            <Component Id="cmp529F17BA405E0C7FC57F37EA40D4DBA2" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{AC8149CE-FF9A-4A69-A518-25372C356AA8}">
+            <Component Id="cmp529F17BA405E0C7FC57F37EA40D4DBA2" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{97A81749-4FA6-4248-8EB4-111643CC1546}">
                 <File Id="fil43DF7887E859890E97CDC1B009BA9222" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\CheckEventLog.txt" />
             </Component>
-            <Component Id="cmp743C8F454349AC9DE9E4BDE534C69A03" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{098B70DD-9398-45E2-82F2-4E1895B06B39}">
+            <Component Id="cmp743C8F454349AC9DE9E4BDE534C69A03" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{4C6112FA-0572-46C7-876B-E1A7B9800572}">
                 <File Id="fil96D5A2D523C78C01C819964451005BB6" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\CheckSystem.txt" />
             </Component>
-            <Component Id="cmp002742F4A8DE967D4A185088A29F671D" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{39B75A25-CA77-4EB8-B0FC-C5FF2228CA66}">
+            <Component Id="cmp002742F4A8DE967D4A185088A29F671D" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{F2586025-1D90-405D-9A2C-33400A47D2EB}">
                 <File Id="fil4D50A55B9E8DC842E7F9747C6EADCB9B" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\CheckTaskSched.txt" />
             </Component>
-            <Component Id="cmp593692AF2A4E90EC3B713777343F5961" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{899B11A2-3C46-48BB-8323-917B64294506}">
+            <Component Id="cmp593692AF2A4E90EC3B713777343F5961" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{787A1022-DADD-4946-B0EA-EED4C9FBDB25}">
                 <File Id="filF0F1021D19E5E4CCD985A30CDE21C36C" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\CheckWMI.txt" />
             </Component>
-            <Component Id="cmp4EEE57A7DB5C8304811A0EB1543A0EDA" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{0DE56434-E5AF-4516-B8D3-1D1AAFB89140}">
+            <Component Id="cmp4EEE57A7DB5C8304811A0EB1543A0EDA" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{6AD2478E-3F40-43FC-B6D8-E03B1A773E71}">
                 <File Id="fil00A4942718EFF7CB01B9B4F9A0DD814A" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\DotnetPlugins.txt" />
             </Component>
-            <Component Id="cmpF15BF88E89E8731A006A85EA6C02723C" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{745F7C93-F516-483E-8959-8047166213F0}">
+            <Component Id="cmpF15BF88E89E8731A006A85EA6C02723C" Directory="dir6FC7B6FC4963DD486D5D2D7743E2087C" Guid="{B0A18096-CA82-4F58-B944-C042E4AE7FA5}">
                 <File Id="filEB914E31B33C11FC067CE2B90998FBB4" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\reference\windows\NSClientServer.txt" />
             </Component>
-            <Component Id="cmp41AC98C4B342546E75D5362C01416212" Directory="dir20F8D053F20FA85BCBBECA677E58B4AC" Guid="{307ACA4B-DF21-477A-A7C2-65F2410B7555}">
+            <Component Id="cmp123AFE2206779E3AA2E2D323C1D41ADB" Directory="dir20F8D053F20FA85BCBBECA677E58B4AC" Guid="{4D12EDBA-CBEB-4D53-9334-FB16E63AC227}">
+                <File Id="fil813244EDEEBC42460C9FDBED54F514C2" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\samples\CheckEventLog_samples.txt" />
+            </Component>
+            <Component Id="cmp41AC98C4B342546E75D5362C01416212" Directory="dir20F8D053F20FA85BCBBECA677E58B4AC" Guid="{3CEA56F1-3CD9-4D98-B03C-AB426914BBFD}">
                 <File Id="fil0D6B5A9B03FF9BFAB65213D7B5623807" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\samples\index.txt" />
             </Component>
-            <Component Id="cmp645C326D544692BD690BA1DD33124810" Directory="dir140C47A48E7D75A1DE543F69F18D4854" Guid="{2B6C1F97-E70C-4E63-9DCE-2C813EBFAE10}">
+            <Component Id="cmp645C326D544692BD690BA1DD33124810" Directory="dir140C47A48E7D75A1DE543F69F18D4854" Guid="{1588E8A0-3F71-4CDC-9C92-9CE6EC0CF7BE}">
                 <File Id="fil5451BE1579048412A15B5FA990723927" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\impatient.txt" />
             </Component>
-            <Component Id="cmp82363E9EDDE5D05B2648140551F986CA" Directory="dir140C47A48E7D75A1DE543F69F18D4854" Guid="{68523E9D-7608-4A77-9B0C-09040A3B558A}">
+            <Component Id="cmp82363E9EDDE5D05B2648140551F986CA" Directory="dir140C47A48E7D75A1DE543F69F18D4854" Guid="{CBF9408A-3C53-4310-9B1E-218D12CCED17}">
                 <File Id="fil208B94C1639768ACFD24011605DD0122" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\index.txt" />
             </Component>
-            <Component Id="cmp404B0B84279AD8E6D988D65247B102A1" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{1AFE1F72-0B57-4FA5-9026-AAA5EDD133B9}">
+            <Component Id="cmp404B0B84279AD8E6D988D65247B102A1" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{4565FA2B-01EB-4EA4-A75B-F7B50A3B7ECF}">
                 <File Id="fil6674EBAB8A4082489C41B9B471A8CDFE" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\check\index.txt" />
             </Component>
-            <Component Id="cmp92DB66F34561DE2F65D68236FFF78A46" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{C6B734C9-94B9-4CEB-B5CC-E649BCEBCA06}">
+            <Component Id="cmp92DB66F34561DE2F65D68236FFF78A46" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{F459C54E-9B9C-4E0C-9879-A7F2E2DCEBCB}">
                 <File Id="fil286C410A6228A23F068160B5699BE0F3" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\check\normal-monitoring.txt" />
             </Component>
-            <Component Id="cmpFA607199AE1A252601514B42F6EBF72F" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{193D938F-8D28-43FE-BA31-2E10E28C4AAF}">
+            <Component Id="cmpFA607199AE1A252601514B42F6EBF72F" Directory="dir36822629BFCB0D89A3B048BEFF80E543" Guid="{D73E3507-3CDF-4D24-B993-2709A1F20426}">
                 <File Id="filD7A834E148069C08E5C9891CD7E56778" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\check\real-time-monitoring.txt" />
             </Component>
-            <Component Id="cmp0C0ADFA4A4E132812EA946E2E3792BA5" Directory="dirF40ADB4E61B9B9733CCF16CE1992EF07" Guid="{5C81D685-B639-4C71-9BDB-911BDBC368F8}">
+            <Component Id="cmp0C0ADFA4A4E132812EA946E2E3792BA5" Directory="dirF40ADB4E61B9B9733CCF16CE1992EF07" Guid="{0C46FC18-32FA-46DA-8940-714969CEF398}">
                 <File Id="filC60D8E46D9FE4E3B764B5E395495FE8F" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\core\index.txt" />
             </Component>
-            <Component Id="cmpE75E3C4CAFE25068061F176804B597EF" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{76A152EA-2650-4C54-94CC-F8FF888499C6}">
+            <Component Id="cmpE75E3C4CAFE25068061F176804B597EF" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{D181D162-3235-4EEF-9E29-E78E6E8622A6}">
                 <File Id="filA7E68F01067131D6492DD3D3D70A32E0" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\nagios\check_nt.txt" />
             </Component>
-            <Component Id="cmp26FEF08F25D8C0DF51B10096752E3F5C" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{E3559926-6C76-4A87-97B5-7DB16227C245}">
+            <Component Id="cmp26FEF08F25D8C0DF51B10096752E3F5C" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{FF08A622-BC63-4147-A5E7-628C4155FAAD}">
                 <File Id="fil801BDBF4A6A7E445ED10E57CABC3826D" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\nagios\index.txt" />
             </Component>
-            <Component Id="cmpF89187ACED170ED8871651393DD44F7A" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{8C9EB614-0ABB-4F1A-B829-1EC1D1D23AB5}">
+            <Component Id="cmpF89187ACED170ED8871651393DD44F7A" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{B111C0D2-49A8-4551-B04B-CBA2AB286ABE}">
                 <File Id="filDEC5D784E362C94C1BA74BB3F94E8C48" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\nagios\nrpe.txt" />
             </Component>
-            <Component Id="cmpDE52E55C690A143531279BC9C9781519" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{24EEA8E5-7FC6-4F2B-B02E-02D1C271377B}">
+            <Component Id="cmpDE52E55C690A143531279BC9C9781519" Directory="dirE3E508994C9EEE55D71FE773B8F9EA2D" Guid="{DFF6A3B4-2E87-477B-BA2E-FFDEBF8A7B02}">
                 <File Id="fil25461B987F1709F1CC660360E41374A3" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\tutorial\nagios\nsca.txt" />
             </Component>
-            <Component Id="cmpFEEE5873D35505CF037A8F930DFC7DA4" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{2919C7DD-912C-441D-B252-EAFDD0697EC3}">
+            <Component Id="cmpFEEE5873D35505CF037A8F930DFC7DA4" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{7F0235ED-3283-45D8-AC92-FFF00BF496E9}">
                 <File Id="filB8FDC2AFAC0EE947C5D04C5CC7728BE7" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\0.4.0.txt" />
             </Component>
-            <Component Id="cmpAD53AC0B1E8AD5DC9DB6E63B2A63B641" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{1F0E34E9-D493-43A6-8960-F5B33047EFD4}">
+            <Component Id="cmpAD53AC0B1E8AD5DC9DB6E63B2A63B641" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{66A40CC8-A8DA-42C3-B843-8B400E2B6073}">
                 <File Id="fil02D18C6375B90BF4C67A11A58CDB8E40" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\0.4.1.txt" />
             </Component>
-            <Component Id="cmpD2BE03F85562E9943B63DDD1701BDDA8" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{5B540C22-9AD9-4BE1-AAF0-393BF50F1A7C}">
+            <Component Id="cmpD2BE03F85562E9943B63DDD1701BDDA8" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{E39B79A8-D416-4641-B03E-9EFF59AA66CC}">
                 <File Id="fil73B8A0324D5CF0ED8472A5C821AE26E9" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\0.4.2.txt" />
             </Component>
-            <Component Id="cmp31DB86D0D5355534594B06CCCBD01903" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{25D53CB1-186D-4737-95C7-79EA3B3C8597}">
+            <Component Id="cmp31DB86D0D5355534594B06CCCBD01903" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{39204156-634D-439E-9F42-F512F959FF04}">
                 <File Id="filC964724099C6D52894A859116C80052F" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\0.4.3.txt" />
             </Component>
-            <Component Id="cmp82920BCDE44817A9FABEC930DEB058F1" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{7CC5C65E-BDCA-465A-955E-0B20952169CF}">
+            <Component Id="cmp82920BCDE44817A9FABEC930DEB058F1" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{87A32E4B-7102-444D-B1F1-2F0870B6F4E4}">
                 <File Id="fil50928199267AF6FCDEC864735D9E5ABF" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\changelog.txt" />
             </Component>
-            <Component Id="cmp762BC9AF7BDA353E873AF38CF60369FE" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{1EEA1713-5F67-4A7A-9F87-5D9F1B78D557}">
+            <Component Id="cmp762BC9AF7BDA353E873AF38CF60369FE" Directory="dir08B45DBAAA718D0512AC610AB5ED485A" Guid="{32C37B3D-B47D-4A4D-92AE-8B70B0D58FEF}">
                 <File Id="filCC8F6FDDCAF4B6185326CA8C635B8B21" KeyPath="yes" Source="$(var.WebHelpSource)\_sources\whatsnew\index.txt" />
             </Component>
-            <Component Id="cmpBF87032691AA4C8671A7265FEB1B976D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{B5916BC1-77EB-4E93-8E22-B4F1F0B85C14}">
+            <Component Id="cmpBF87032691AA4C8671A7265FEB1B976D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{5A3EDA64-DEA2-49C2-BAF1-436ACC9E6445}">
                 <File Id="fil6E4901097AB437801E4A67AF60EB2D87" KeyPath="yes" Source="$(var.WebHelpSource)\_static\ajax-loader.gif" />
             </Component>
-            <Component Id="cmp0CBD09D26BC4BB3C9C28984765AE3A00" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{ECDEEF17-C840-43EF-B271-BE773082EA30}">
+            <Component Id="cmpE400B48DEC9531288BFAC26E21751A3C" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{1A80C2C2-769B-40AD-A337-5B4F128A97D4}">
+                <File Id="filBCC149B8ECB62CE829D884F1AA9BA699" KeyPath="yes" Source="$(var.WebHelpSource)\_static\alabaster.css" />
+            </Component>
+            <Component Id="cmp0CBD09D26BC4BB3C9C28984765AE3A00" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{2EBFFDC1-A875-4462-9C65-1F5994E24BD8}">
                 <File Id="filF98ABAF53502F0AFD489585E61FCCE24" KeyPath="yes" Source="$(var.WebHelpSource)\_static\basic.css" />
             </Component>
-            <Component Id="cmp1536D762494559155F56240446C451CA" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{477E602C-3083-46EB-9170-BB1B13C4DD11}">
+            <Component Id="cmp7F27C2DFC79CB64598556F3643AC54D2" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{FDC7B8A5-D90F-408A-8E24-A3620FF6FB65}">
+                <File Id="fil2D88794D6315E244A1F9C4BA5A7EBF74" KeyPath="yes" Source="$(var.WebHelpSource)\_static\classic.css" />
+            </Component>
+            <Component Id="cmp1536D762494559155F56240446C451CA" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{A6B057EE-F215-4CA8-AA51-099823945806}">
                 <File Id="fil3B9F51E7EC8B35E892898AF1A83133D0" KeyPath="yes" Source="$(var.WebHelpSource)\_static\comment-bright.png" />
             </Component>
-            <Component Id="cmp3480232EC52AD029CFA8B82478226A78" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{6EEE9BD4-990C-4D3A-B15E-7A5ED55A179B}">
+            <Component Id="cmp3480232EC52AD029CFA8B82478226A78" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{DFC6FDF4-ED2A-41C8-9FDD-F19BEC71C3DD}">
                 <File Id="filB78DCC2B8B8F416199F910C08B86DF7D" KeyPath="yes" Source="$(var.WebHelpSource)\_static\comment-close.png" />
             </Component>
-            <Component Id="cmp23DC2F208E4284591CE3EFF17C1EF657" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{FC1B1595-219A-453F-8304-1FFC91DFFE60}">
+            <Component Id="cmp23DC2F208E4284591CE3EFF17C1EF657" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{B0972BAB-470B-47A5-9DE7-CFA4B455338F}">
                 <File Id="filD1AB8A878138C863C11D4D18FB0855AC" KeyPath="yes" Source="$(var.WebHelpSource)\_static\comment.png" />
             </Component>
-            <Component Id="cmp7D1B3AE55FA346577BD8BEB9489DB26C" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{115AAC20-C5C1-4663-9275-339548807D16}">
+            <Component Id="cmp7D1B3AE55FA346577BD8BEB9489DB26C" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{C449EE10-2A2F-4BA9-87FA-64913D7EDC5D}">
                 <File Id="filF9F6979A39CA220AFC6FAE6DA0E5B6BD" KeyPath="yes" Source="$(var.WebHelpSource)\_static\default.css" />
             </Component>
-            <Component Id="cmpECE1AFF5EBCD7E199B76D99BAC5B5D4B" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{78DEFCA7-7038-416A-BCA0-AFA44FD234A4}">
+            <Component Id="cmpECE1AFF5EBCD7E199B76D99BAC5B5D4B" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{0FBFE6B7-53CD-48EB-99F5-026639C47458}">
                 <File Id="fil5F4FA1A4272414BAF046F8B5248CD2C0" KeyPath="yes" Source="$(var.WebHelpSource)\_static\doctools.js" />
             </Component>
-            <Component Id="cmp355BF4C94AB7B14B2EF2D87731D7FE1F" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{638DCCA0-1946-410C-A7ED-0A6937D0870F}">
+            <Component Id="cmp355BF4C94AB7B14B2EF2D87731D7FE1F" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{87ACEE8F-F2F1-40CB-A81C-6DEC15278FA3}">
                 <File Id="fil38DA4030E51BC7767C465ED9ECDEEA52" KeyPath="yes" Source="$(var.WebHelpSource)\_static\down-pressed.png" />
             </Component>
-            <Component Id="cmp5239ED466B4D96DA744E46E0BD223CEE" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{00352D91-D26D-4383-8768-794B474CC503}">
+            <Component Id="cmp5239ED466B4D96DA744E46E0BD223CEE" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{D5A1BC7D-2318-490B-987B-8DAF7FB38B6C}">
                 <File Id="fil517F57A2A0353631806CD2DDEAA4FC39" KeyPath="yes" Source="$(var.WebHelpSource)\_static\down.png" />
             </Component>
-            <Component Id="cmp14C2D0E3A408AB7253647700063B813E" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{76943D10-37AC-41AE-8628-BC69EA96343B}">
+            <Component Id="cmp14C2D0E3A408AB7253647700063B813E" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{2DA9FE9F-D8F7-4A9D-A7F1-AC5438426F3B}">
                 <File Id="fil3E4D162ED1540E066F705CEAE131652E" KeyPath="yes" Source="$(var.WebHelpSource)\_static\file.png" />
             </Component>
-            <Component Id="cmp343939087AC63A5290B5F4EA0B92A85D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{84028589-AA69-4A57-B82B-ADAAC8544FE2}">
+            <Component Id="cmp9F049EB6B188412D768BCE14873D3D06" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{316DDE51-3D5A-4CE5-B7EC-BE0AA70EF07C}">
+                <File Id="filC44E439FDA31788A5C9F3FDC2E38E32A" KeyPath="yes" Source="$(var.WebHelpSource)\_static\jquery-1.11.1.js" />
+            </Component>
+            <Component Id="cmp343939087AC63A5290B5F4EA0B92A85D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{F3130919-848D-43D4-AB42-36FBC1958DD6}">
                 <File Id="fil0F822937E61A65228A5982D4000BFBBE" KeyPath="yes" Source="$(var.WebHelpSource)\_static\jquery.js" />
             </Component>
-            <Component Id="cmp9FDE1ED54BDC576469AD528465BE9464" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{BF0EF4EC-3A75-42AA-862E-7AFD30C6509B}">
+            <Component Id="cmp9FDE1ED54BDC576469AD528465BE9464" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{CB2F6B31-B255-4DFD-82DA-A0B3526402E0}">
                 <File Id="filF5E7A24849FF82868FA08BAE73FAEA18" KeyPath="yes" Source="$(var.WebHelpSource)\_static\minus.png" />
             </Component>
-            <Component Id="cmp5600CA9B571F155A43E3A3E50DCF9A51" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{AD17CC63-A38D-4FC9-A389-2D91A0E83685}">
+            <Component Id="cmp5600CA9B571F155A43E3A3E50DCF9A51" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{F12C07DD-36FC-4D45-B921-FAE7315D3409}">
                 <File Id="filB30B441D5CC7451BA6D3370DF063DEC6" KeyPath="yes" Source="$(var.WebHelpSource)\_static\nsclient.png" />
             </Component>
-            <Component Id="cmp21429772BDEFDF5BCC4101BE5CA3FD14" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{C6A3F564-6FA5-4441-ABE1-2479C9DABD91}">
+            <Component Id="cmp21429772BDEFDF5BCC4101BE5CA3FD14" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{E0C7F6F5-753E-49C1-A7BF-2011522708C6}">
                 <File Id="fil94DBB6C027CD8481730E9853930E1122" KeyPath="yes" Source="$(var.WebHelpSource)\_static\nscp.css" />
             </Component>
-            <Component Id="cmp1AB1D63ED40682931FB227299BBEF7CB" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{506C5260-86A9-4AF0-8533-99B1E71CD0C7}">
+            <Component Id="cmp1AB1D63ED40682931FB227299BBEF7CB" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{6C95BA5A-3345-4336-9B7E-F3826F619EC4}">
                 <File Id="fil32B53F17FB4FC4D74BCD5183CAB4ADFC" KeyPath="yes" Source="$(var.WebHelpSource)\_static\plus.png" />
             </Component>
-            <Component Id="cmpC012972CFDBF42E06FF0945F3C07FDAF" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{B2749388-93D7-4186-952D-5EAA03D515CA}">
+            <Component Id="cmpC012972CFDBF42E06FF0945F3C07FDAF" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{39744AA1-78BA-4E5A-B613-63708BFCA8AB}">
                 <File Id="filC1D90C2ED71A250D25A156333C4C9FAA" KeyPath="yes" Source="$(var.WebHelpSource)\_static\pygments.css" />
             </Component>
-            <Component Id="cmp93048D71FC5C4E807010E05B5883BE6E" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{1270C1EB-2A9D-4DD2-9310-31DDAFC1E3AA}">
+            <Component Id="cmp93048D71FC5C4E807010E05B5883BE6E" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{960E552F-3B1D-41C3-8081-06CF3CDF6C65}">
                 <File Id="fil53C2B6AD4DDAECFBF3558684AC83C517" KeyPath="yes" Source="$(var.WebHelpSource)\_static\searchtools.js" />
             </Component>
-            <Component Id="cmpB9E09F95D7739B848078EF79DB057CDD" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{D3279814-3046-4E6D-A090-26F226EEFADF}">
+            <Component Id="cmpB9E09F95D7739B848078EF79DB057CDD" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{BE3E6E67-A746-422C-8647-2B58590917B0}">
                 <File Id="fil484422C7708170DB1F07C2C39379EB7D" KeyPath="yes" Source="$(var.WebHelpSource)\_static\sidebar.js" />
             </Component>
-            <Component Id="cmp488EEA4A9837676EF1A8A9B6F6992932" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{AF9B332F-11A0-4190-AAD9-8AF6C3AB2599}">
+            <Component Id="cmpB20933F9FA7B3DCF4D634DDA41EAA1C9" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{9FA72E71-36F0-4646-934A-74DDD340A7CB}">
+                <File Id="fil16E83C8E4048B61985524D39DE14BEA2" KeyPath="yes" Source="$(var.WebHelpSource)\_static\underscore-1.3.1.js" />
+            </Component>
+            <Component Id="cmp488EEA4A9837676EF1A8A9B6F6992932" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{0F954E0A-FE13-4CBA-9939-CCA3974BD2C1}">
                 <File Id="filA6517B6C70B4ED2D25255E611251FF28" KeyPath="yes" Source="$(var.WebHelpSource)\_static\underscore.js" />
             </Component>
-            <Component Id="cmpD9AFD52B2238837A623B7D132DDBC54F" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{DF612827-5B0E-44AB-B335-43DE503C8F1F}">
+            <Component Id="cmpD9AFD52B2238837A623B7D132DDBC54F" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{AFB044B7-2DFD-4DF3-8FDD-54E19A1F00A4}">
                 <File Id="fil9757B24227E937CA1A5A0F07B391B0D0" KeyPath="yes" Source="$(var.WebHelpSource)\_static\up-pressed.png" />
             </Component>
-            <Component Id="cmpCE4396FC329D1E3D10E043175FDF808D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{4F86C6FA-30C5-477A-8C02-73269AB2FB82}">
+            <Component Id="cmpCE4396FC329D1E3D10E043175FDF808D" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{47D51C2F-EA86-4447-B842-A62410650658}">
                 <File Id="filDD7A217145F20022F9DD5E2F451D12A4" KeyPath="yes" Source="$(var.WebHelpSource)\_static\up.png" />
             </Component>
-            <Component Id="cmp294E0EF7833B25EEFF84C294D5E7E478" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{49FEB8DB-211A-4D4B-A814-46AF1771A83B}">
+            <Component Id="cmp294E0EF7833B25EEFF84C294D5E7E478" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{B49B9A70-706B-4D98-A833-74EB837C6F6F}">
                 <File Id="fil058C35504C1185D5165A9F0E7BBA3EE7" KeyPath="yes" Source="$(var.WebHelpSource)\_static\version_switch.js" />
             </Component>
-            <Component Id="cmpC021E7E07A69121E4873EC8D2AB56E94" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{BEFBAF1F-369B-47CE-B5A8-920E410597A3}">
+            <Component Id="cmpC021E7E07A69121E4873EC8D2AB56E94" Directory="dir5329B84A25F26FCC4FBC449941F9785C" Guid="{985E1902-9A0E-4F59-A0DF-56A7ED36CF91}">
                 <File Id="fil96702C4A2BFCE2987060801C467264A1" KeyPath="yes" Source="$(var.WebHelpSource)\_static\websupport.js" />
             </Component>
         </ComponentGroup>

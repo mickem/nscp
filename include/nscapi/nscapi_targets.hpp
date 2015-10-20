@@ -12,154 +12,129 @@
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_protobuf_types.hpp>
 
+#include <nscp_string.hpp>
+
 #include <nscapi/dll_defines.hpp>
 
 #include <net/net.hpp>
 
+namespace sh = nscapi::settings_helper;
+
 namespace nscapi {
 	namespace targets {
-		struct target_object {
+		struct target_object : public nscapi::settings_objects::object_instance_interface {
+			typedef nscapi::settings_objects::object_instance_interface parent;
 
-			nscapi::settings_objects::template_object tpl;
-			net::url address;
-			typedef std::map<std::string,std::string> options_type;
-			options_type options;
+			//net::url address;
+
+			target_object(std::string alias, std::string path) : parent(alias, path) {}
+			target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 			std::string to_string() const {
 				std::stringstream ss;
-				ss << "{tpl: " << tpl.to_string();
-				ss << ", address: " << get_address();
-				BOOST_FOREACH(options_type::value_type o, options) {
-					ss << ", option[" << o.first << "]: " << o.second;
-				}
-				ss << "}";
+				ss << "{tpl: " << parent::to_string()
+					//<< ", address: " << get_address()
+					<< "}";
 				return ss.str();
 			}
+			/*
 			std::string get_address() const {
 				return address.to_string();
 			}
+			*/
 			void set_address(std::string value) {
-				net::url n = net::parse(value);
-				address.apply(n);
-			}
-			void set_host(std::string value) {
-				address.host = value;
-			}
-			void set_port(int value) {
-				address.port = value;
-			}
-			bool has_option(std::string key) const {
-				return options.find(key) != options.end();
-			}
-			void set_property_int(std::string key, int value) {
-				if (key == "port") {
-					set_port(value);
-				} else 
-					options[key] = strEx::s::xtos(value);
-			}
-			void set_property_bool(std::string key, bool value) {
-				options[key] = value?"true":"false";
-			}
-			void set_property_string(std::string key, std::string value) {
-				if (key == "host") {
-					set_host(value);
-				} else 
-					options[key] = value;
+				options["address"] = value;
 			}
 
-			nscapi::protobuf::types::destination_container to_destination_container() const {
-				nscapi::protobuf::types::destination_container ret;
-				if (!tpl.alias.empty())
-					ret.id = tpl.alias;
-				ret.address.apply(address);
-				BOOST_FOREACH(const options_type::value_type &kvp, options) {
-					ret.data[kvp.first] = kvp.second;
-				}
-				return ret;
-			}
-
-		};
-		typedef boost::optional<target_object> optional_target_object;
-		typedef std::map<std::string,std::string> targets_type;
-
-		struct target_object_reader {
-			typedef target_object object_type;
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner);
-			static void apply_parent(object_type &object, object_type &parent);
-		};
-
-		namespace sh = nscapi::settings_helper;
-		struct dummy_custom_reader {
-			typedef target_object object_type;
-			static void add_custom_keys(sh::settings_registry&, boost::shared_ptr<nscapi::settings_proxy>, object_type&, bool) {}
-		};
-
-		template<class custom_reader>
-		struct split_object_reader {
-			typedef target_object object_type;
-
-			static void post_process_object(object_type &object) {
-				custom_reader::post_process_target(object);
-			}
-			static void init_default(object_type &object) {
-				custom_reader::init_default(object);
-			}
-
-			static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool, bool is_sample = false) {
-				object.address = net::parse(object.tpl.value, 0);
+			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+				//parent::read(proxy, oneliner, is_sample);
+				set_address(this->value);
 				nscapi::settings_helper::settings_registry settings(proxy);
 
-				nscapi::settings_helper::path_extension root_path = settings.path(object.tpl.path);
+				nscapi::settings_helper::path_extension root_path = settings.path(this->path);
 				if (is_sample)
 					root_path.set_sample();
 
-				object_type::options_type options;
+				//target_object::options_type options;
 				root_path.add_path()
-					(nscapi::settings_helper::string_map_path(&options), 
-					"TARGET DEFENITION", "Target definition for: " + object.tpl.alias,
-					"TARGET", "Target definition for: " + object.tpl.alias)
+					("TARGET", "Target definition for: " + this->alias)
 					;
 
 				root_path.add_key()
 
-					("address", sh::string_fun_key<std::string>(boost::bind(&object_type::set_address, &object, _1)),
+					("address", sh::string_fun_key<std::string>(boost::bind(&target_object::set_address, this, _1)),
 					"TARGET ADDRESS", "Target host address")
 
-					("host", sh::string_fun_key<std::string>(boost::bind(&object_type::set_host, &object, _1)),
+					("host", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "host", _1)),
 					"TARGET HOST", "The target server to report results to.", true)
 
-					("port", sh::int_fun_key<int>(boost::bind(&object_type::set_port, &object, _1)),
+					("port", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "port", _1)),
 					"TARGET PORT", "The target server port", true)
 
-					;
-				custom_reader::add_custom_keys(settings, proxy, object, is_sample);
+					("timeout", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "timeout", _1), 30),
+					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
-				object.tpl.read_object(root_path);
+					("retries", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "retries", _1), 3),
+					"RETRIES", "Number of times to retry sending.")
+
+					;
 
 				settings.register_all();
 				settings.notify();
-
-				BOOST_FOREACH(const object_type::options_type::value_type &kvp, options) {
-					if (!object.has_option(kvp.first))
-						object.options[kvp.first] = kvp.second;
-				}
-
 			}
 
-			static void apply_parent(object_type &object, object_type &parent) {
-				object.address.import(parent.address);
-				BOOST_FOREACH(object_type::options_type::value_type i, parent.options) {
-					if (object.options.find(i.first) == object.options.end())
-						object.options[i.first] = i.second;
-				}
+
+			void add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
+
+				root_path.add_key()
+
+
+					("dh", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "dh", _1)),
+					"DH KEY", "", true)
+
+					("certificate", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate", _1)),
+					"SSL CERTIFICATE", "", false)
+
+					("certificate key", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate key", _1)),
+					"SSL CERTIFICATE", "", true)
+
+					("certificate format", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate format", _1)),
+					"CERTIFICATE FORMAT", "", true)
+
+					("ca", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "ca", _1)),
+					"CA", "", true)
+
+					("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "allowed ciphers", _1)),
+					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
+
+					("verify mode", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "verify mode", _1)),
+					"VERIFY MODE", "", false)
+
+					("use ssl", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "ssl", _1)),
+					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
+
+					;	
 			}
 
+
+
+			virtual void translate(const std::string &key, const std::string &value) {
+				if (key == "host") {
+					net::url n = net::parse(options["address"]);
+					n.host = value;
+					options["address"] = n.to_string();
+				} else if (key == "port") {
+					net::url n = net::parse(options["address"]);
+					n.port = strEx::s::stox<unsigned int>(value);
+					options["address"] = n.to_string();
+				} else
+					parent::translate(key, value);
+			}
 		};
-		template<class custom_reader>
-		struct handler : public nscapi::settings_objects::object_handler<target_object, split_object_reader<custom_reader > > {};
-		struct helpers {
-			static NSCAPI_EXPORT void verify_file(target_object &target, std::string key, std::list<std::string> &errors);
-		};
+		typedef boost::optional<target_object> optional_target_object;
+		typedef std::map<std::string,std::string> targets_type;
+
+		typedef nscapi::settings_objects::object_handler<target_object> handler;
 
 	}
 }

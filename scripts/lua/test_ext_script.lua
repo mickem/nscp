@@ -108,8 +108,8 @@ function TestExtScript:submit_payload(tag, ssl, length, payload_length, source, 
 	
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
 	hdr = msg:get_header()
-	hdr:set_version(1)
 	hdr:set_recipient_id(target)
+	hdr:set_command('nrpe_forward')
 	host = hdr:add_hosts()
 	host:set_address("127.0.0.1:15666")
 	host:set_id(target)
@@ -125,13 +125,10 @@ function TestExtScript:submit_payload(tag, ssl, length, payload_length, source, 
 		enc:set_key("timeout")
 		enc:set_value('10')
 	end
-	meta = hdr:add_metadata()
-	meta:set_key("command")
-	meta:set_value('check_py_nrpe_test_s')
 
 	uid = string.random(12)
 	payload = msg:add_payload()
-	payload:set_command('nrpe_forward')
+	payload:set_command('check_py_nrpe_test_s')
 	payload:set_arguments(1, uid)
 	if payload_length ~= 0 then
 		payload:set_arguments(2, payload_length)
@@ -170,7 +167,7 @@ function TestExtScript:submit_payload(tag, ssl, length, payload_length, source, 
 			break
 		else
 			core:log('info', string.format('Waiting for %s (%s/%s)', uid,tag,target))
-			--nscp.sleep(500)
+			nscp.sleep(500)
 		end
 	end
 	if (not found) then
@@ -245,7 +242,6 @@ function TestExtScript:test_timeout(ssl, server_timeout, client_timeout, length)
 
 	local msg = protobuf.Plugin.QueryRequestMessage.new()
 	hdr = msg:get_header()
-	hdr:set_version(1)
 	hdr:set_recipient_id('test')
 	host = hdr:add_hosts()
 	host:set_address("127.0.0.1:15666")

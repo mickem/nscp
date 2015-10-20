@@ -83,16 +83,16 @@ namespace parsers {
 			return resulting_tree->require_object(context);
 		}
 
-		bool parser::evaluate(evaluation_context context) {
+		value_container parser::evaluate(evaluation_context context) {
 			try {
 				node_type result = resulting_tree->evaluate(context);
-				return result->get_int_value(context) == 1;
+				return result->get_value(context, type_int);
 			} catch (const std::exception &e) {
 				context->error(std::string("Evaluate exception: ") + e.what());
-				return false;
+				return value_container::create_nil();
 			} catch (...) {
 				context->error("Evaluate exception: " + result_as_tree());
-				return false;
+				return value_container::create_nil();
 			}
 		}
 

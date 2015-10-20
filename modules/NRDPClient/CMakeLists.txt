@@ -11,9 +11,9 @@ SET(SRCS ${SRCS}
 	nrdp.cpp
 	${TINYXML2_INCLUDE_DIR}/tinyxml2.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_CLIENT_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -23,10 +23,13 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
 		nrdp.hpp
+		nrdp_client.hpp
+		nrdp_handler.hpp
+
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
-		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 		${TINYXML2_INCLUDE_DIR}/tinyxml2.h
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_CLIENT_HPP}
 	)
 ENDIF(WIN32)
 

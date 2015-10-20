@@ -23,14 +23,20 @@ namespace filters {
 	};
 
 
-	struct filter_config_object {
+	struct filter_config_object : public nscapi::settings_objects::object_instance_interface {
 
-		filter_config_object() {}
+		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		nscapi::settings_objects::template_object tpl;
 		nscapi::settings_filters::filter_object filter;
 		std::string check;
 		std::list<std::string> data;
+
+		filter_config_object(std::string alias, std::string path) 
+			: parent(alias, path) 
+			, filter("TODO", "TODO", "NSCA")
+		{}
+
+		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
 
 		std::string to_string() const;
 		void set_datas(std::string file_string);
@@ -38,13 +44,6 @@ namespace filters {
 	};
 	typedef boost::optional<filter_config_object> optional_filter_config_object;
 
-	struct command_reader {
-		typedef filter_config_object object_type;
-		static void post_process_object(object_type&) {}
-		static void init_default(object_type& object);
-		static void read_object(boost::shared_ptr<nscapi::settings_proxy> proxy, object_type &object, bool oneliner, bool is_sample);
-		static void apply_parent(object_type &object, object_type &parent);
-	};
-	typedef nscapi::settings_objects::object_handler<filter_config_object, command_reader> filter_config_handler;
+	typedef nscapi::settings_objects::object_handler<filter_config_object> filter_config_handler;
 }
 

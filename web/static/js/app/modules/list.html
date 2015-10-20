@@ -1,0 +1,27 @@
+
+<div class="row">
+	<ol class="breadcrumb pull-left" >
+		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
+		<li><a href="" data-bind="click: refresh">Modules</a></li>
+	</ol>
+</div>
+<div class="list-group checked-list-box modules" data-bind="foreach: modules">
+		<a class="list-group-item" href="" data-bind="attr: { href: '#/modules/' + id, title: desc }">
+			<div class="pull-left">
+				<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded(), clickBubble: false"></i>
+				<i class="state-icon fa fa-2x fa-check-circle-o" data-bind="click: unload, visible: is_loaded(), clickBubble: false"></i>
+			</div>
+			<span class="badge" style="background-color: #47A447;border-color: #398439;" data-bind="visible: is_enabled">enabled</span>
+			<div class="pull-left desc">
+				<h4 class="list-group-item-heading">
+					<span data-bind="text: title"></span>
+					<!-- ko if: alias -->
+						<span data-bind="text: '('+alias+')'"></span>
+					<!-- /ko -->
+				</h4>
+				<p class="list-group-item-text" data-bind="text: desc"></p>
+			</div>
+			<div class="clearfix"></div>
+		</a>
+	</div>
+</div>

@@ -15,7 +15,7 @@ GOTO :EOF
 :mk_dirs
 SETLOCAL
 SET ENV=%1
-ECHO Creating folders for %ENV%
+echo Creating folders for %ENV%
 title Creating folders for %ENV%
 mkdir %ROOT%
 mkdir %ROOT%\%ENV%
@@ -83,15 +83,15 @@ GOTO :EOF
 
 :start
 
-:mk_dirs x64
-:mk_dirs w32
+call :mk_dirs x64
+call :mk_dirs w32
 
 IF "%1"=="same" GOTO no_bump
-call :bump_version x64 "Visual Studio 11 Win64" || GOTO :error
+call :bump_version x64 "Visual Studio 11 2012 Win64" || GOTO :error
 :no_bump
 
-call :configure x64 "Visual Studio 11 Win64" || GOTO :error
-call :configure w32 "Visual Studio 11" || GOTO :error
+call :configure x64 "Visual Studio 11 2012 Win64" || GOTO :error
+call :configure w32 "Visual Studio 11 2012" || GOTO :error
 
 call :build x64 x64 || GOTO :error
 call :build w32 Win32 || GOTO :error

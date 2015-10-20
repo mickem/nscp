@@ -173,8 +173,11 @@ namespace socket_helpers {
 			std::string to_string() const {
 				std::stringstream ss;
 				if (enabled) {
-					ss << "ssl: " << verify_mode;
-					ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
+					ss << "ssl enabled: " << verify_mode;
+					if (!certificate.empty())
+						ss << ", cert: " << certificate << " (" << certificate_format << "), " << certificate_key;
+					else
+						ss << ", no certificate";
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
 					ss << ", options: " << ssl_options;
 				} else 
@@ -182,10 +185,10 @@ namespace socket_helpers {
 				return ss.str();
 			}
 #ifdef USE_SSL
-			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors);
-			boost::asio::ssl::context::verify_mode get_verify_mode();
-			boost::asio::ssl::context::file_format get_certificate_format();
-			boost::asio::ssl::context::file_format get_certificate_key_format();
+			void configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const;
+			boost::asio::ssl::context::verify_mode get_verify_mode() const;
+			boost::asio::ssl::context::file_format get_certificate_format() const;
+			boost::asio::ssl::context::file_format get_certificate_key_format() const;
 			long get_ctx_opts() const;
 #endif
 		};
@@ -239,6 +242,14 @@ namespace socket_helpers {
 			return address + ":" + get_port();
 		}
 		long get_ctx_opts();
+
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << "address: " << get_endpoint_string();
+			ss << ", " << ssl.to_string();
+			return ss.str();
+		}
+
 	};
 
 

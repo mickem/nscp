@@ -22,7 +22,10 @@ namespace parsers {
 					value_type rtype = right->get_type();
 
 					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype))
-						return eval_int(ltype, errors,  left, right)?factory::create_true():factory::create_false();
+						return factory::create_num(eval_int(ltype, errors, left, right));
+
+					if (helpers::type_is_float(ltype) && helpers::type_is_float(rtype))
+						return factory::create_num(eval_float(ltype, errors, left, right));
 
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
 						errors->error("Invalid types (not same) for binary operator");
@@ -30,14 +33,52 @@ namespace parsers {
 					}
 					value_type type = left->get_type();
 					if (helpers::type_is_int(type))
-						return eval_int(type, errors,  left, right)?factory::create_true():factory::create_false();
+						return factory::create_num(eval_int(type, errors,  left, right));
+					if (helpers::type_is_float(type))
+						return factory::create_num(eval_float(type, errors, left, right));
 					if (type == type_string)
-						return eval_string(type, errors,  left, right)?factory::create_true():factory::create_false();
+						return factory::create_num(eval_string(type, errors,  left, right));
 					errors->error("missing impl for simple bool binary operator");
 					return factory::create_false();
 				}
-				virtual bool eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const = 0;
-				virtual bool eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const = 0;
+
+				virtual value_container eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const = 0;
+				virtual value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const = 0;
+				virtual value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const = 0;
+			};
+
+			struct even_simpler_bool_binary_operator_impl : public simple_bool_binary_operator_impl {
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_int);
+					value_container rhs = right->get_value(errors, type_int);
+					if (!lhs.is(type_int) || !rhs.is(type_int)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					return do_eval_int(type, errors, lhs, rhs);
+				};
+				value_container eval_float(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_float);
+					value_container rhs = right->get_value(errors, type_float);
+					if (!lhs.is(type_float) || !rhs.is(type_float)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					return do_eval_float(type, errors, lhs, rhs);
+				};
+				value_container eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					value_container rhs = right->get_value(errors, type_string);
+					if (!lhs.is(type_string) || !rhs.is(type_string)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					return do_eval_string(type, errors, lhs, rhs);
+				};
+
+				virtual value_container do_eval_float(value_type type, evaluation_context errors, const value_container left, const value_container right) const = 0;
+				virtual value_container do_eval_int(value_type type, evaluation_context errors, const value_container left, const value_container right) const = 0;
+				virtual value_container do_eval_string(value_type type, evaluation_context errors, const value_container left, const value_container right) const = 0;
 			};
 
 			struct simple_int_binary_operator_impl : public binary_operator_impl {
@@ -45,234 +86,280 @@ namespace parsers {
 					value_type ltype = left->get_type();
 					value_type rtype = right->get_type();
 
-					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype)) 
-						return factory::create_int(eval_int(ltype, errors,  left, right));
+					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype)) {
+						value_container lhs = left->get_value(errors, type_int);
+						value_container rhs = right->get_value(errors, type_int);
+						if (!lhs.is(type_int) || !rhs.is(type_int)) {
+							errors->error("invalid type");
+							return factory::create_false();
+						}
+						return factory::create_num(eval(lhs, rhs));
+					}
 					if ( (ltype != rtype) && (rtype != type_tbd) ) {
 						errors->error("Invalid types (not same) for binary operator");
 						return factory::create_false();
 					}
-					value_type type = left->get_type();
-					if (helpers::type_is_int(type))
-						return factory::create_int(eval_int(type, errors,  left, right));
-					if (type == type_string)
-						return factory::create_int(eval_string(type, errors,  left, right));
 					errors->error("missing impl for simple bool binary operator");
 					return factory::create_false();
 				}
-				virtual long long eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const = 0;
-				virtual long long eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const = 0;
+				virtual value_container eval(const value_container left, const value_container right) const = 0;
 			};
 
-			struct operator_and : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) && right->get_int_value(errors);
+
+			struct operator_eq : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() == rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type, const node_type) const {
-					errors->error("missing impl for and binary operator");
-					return false;
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_float() == rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
+				}
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() == rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
-			struct operator_or : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) || right->get_int_value(errors);
+			struct operator_ne : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() != rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type, const node_type) const {
-					errors->error("missing impl for or binary operator");
-					return false;
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_float() != rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
+				}
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() != rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
-			struct operator_eq : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) == right->get_int_value(errors);
+			struct operator_gt : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() > rhs.get_int(), lhs.is_unsure|rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					if (debug_enabled && debug_level > 10) {
-						std::string lhs = left->get_string_value(errors);
-						std::string rhs = right->get_string_value(errors);
-						std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
-					}
-					return left->get_string_value(errors) == right->get_string_value(errors);
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_float() > rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
+				}
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() > rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
-			struct operator_ne : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) != right->get_int_value(errors);
+			struct operator_lt : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() < rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					return left->get_string_value(errors) != right->get_string_value(errors);
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					if (lhs.get_float() < rhs.get_float())
+						return value_container::create_int(true, lhs.is_unsure | rhs.is_unsure);
+					return value_container::create_int(false, rhs.is_unsure);
+				}
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() < rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
-			struct operator_gt : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					if (debug_enabled && debug_level > 10) {
-						long long lhs = left->get_int_value(errors);
-						long long rhs = right->get_int_value(errors);
-						std::cout << "(op_gt) " << lhs << " > " << rhs << std::endl;
-					}
-					long long lhs = left->get_int_value(errors);
-					long long rhs = right->get_int_value(errors);
-					return lhs > rhs;
+			struct operator_le : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() <= rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					return left->get_string_value(errors) > right->get_string_value(errors);
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_float() <= rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
+				}
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() <= rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
-			struct operator_lt : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					if (debug_enabled && debug_level > 10) {
-						long long lhs = left->get_int_value(errors);
-						long long rhs = right->get_int_value(errors);
-						std::cout << "(op_lt) " << lhs << " < " << rhs << std::endl;
-					}
-					return left->get_int_value(errors) < right->get_int_value(errors);
+			struct operator_ge : public even_simpler_bool_binary_operator_impl {
+				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() >= rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					return left->get_string_value(errors) < right->get_string_value(errors);
-				};
-			};
-			struct operator_le : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) <= right->get_int_value(errors);
+				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_float() >= rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					return left->get_string_value(errors) <= right->get_string_value(errors);
-				};
-			};
-			struct operator_ge : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) >= right->get_int_value(errors);
-				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					return left->get_string_value(errors) >= right->get_string_value(errors);
+				value_container do_eval_string(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_string() >= rhs.get_string(), lhs.is_unsure | rhs.is_unsure);
 				};
 			};
 
 
-			struct operator_bin_and : public simple_int_binary_operator_impl {
-				long long eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) & right->get_int_value(errors);
+			struct operator_and : public simple_int_binary_operator_impl {
+				value_container eval(const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() && rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				long long eval_string(value_type, evaluation_context,  const node_type, const node_type) const { 
-					return 0;
-				};
 			};
-			struct operator_bin_or : public simple_int_binary_operator_impl {
-				long long eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					return left->get_int_value(errors) | right->get_int_value(errors);
+			struct operator_or : public simple_int_binary_operator_impl {
+				value_container eval(const value_container lhs, const value_container rhs) const {
+					return value_container::create_int(lhs.get_int() || rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
-				long long eval_string(value_type, evaluation_context,  const node_type, const node_type) const { 
-					return 0;
-				};
 			};
 
 			struct operator_like : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type, const node_type) const {
+
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					errors->error("Like not supported on numbers...");
-					return false;
-				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					std::string s1 = left->get_string_value(errors);
-					std::string s2 = right->get_string_value(errors);
-					if (s1.size() == 0 && s2.size() == 0)
-						return true;
-					if (s1.size() == 0 || s2.size() == 0)
-						return false;
-					if (s1.size() > s2.size() && s2.size() > 0)
-						return s1.find(s2) != std::string::npos;
-					return s2.find(s1) != std::string::npos;
+					return value_container::create_nil();
 				};
+				value_container eval_float(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					value_container rhs = right->get_value(errors, type_string);
+					if (!lhs.is(type_string) || !rhs.is(type_string)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					std::string s1 = lhs.get_string();
+					std::string s2 = rhs.get_string();
+					if (s1.size() == 0 && s2.size() == 0)
+						return value_container::create_int(1, lhs.is_unsure || rhs.is_unsure);
+					if (s1.size() == 0 || s2.size() == 0)
+						return value_container::create_int(0, lhs.is_unsure || rhs.is_unsure);
+					if (s1.size() > s2.size() && s2.size() > 0)
+						return value_container::create_int(s1.find(s2) != std::string::npos, lhs.is_unsure || rhs.is_unsure);
+					return value_container::create_int(s2.find(s1) != std::string::npos, lhs.is_unsure || rhs.is_unsure);
+				}
 			};
 			struct operator_regexp : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type, const node_type) const {
-					errors->error("Regular expression not supported on numbers...");
-					return false;
-				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					std::string str = left->get_string_value(errors);
-					std::string regexp = right->get_string_value(errors);
-					if (debug_enabled)
-						std::cout << "(op_regexp) " << str << " regexp " << regexp << std::endl;
+
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_float(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					value_container rhs = right->get_value(errors, type_string);
+					if (!lhs.is(type_string) || !rhs.is(type_string)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					std::string str = lhs.get_string();
+					std::string regexp = rhs.get_string();
 					try {
 						boost::regex re(regexp);
-						return boost::regex_match(str, re);
+						return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure||rhs.is_unsure);
 					} catch (const boost::bad_expression e) {
 						errors->error("Invalid syntax in regular expression:" + regexp);
-						return false;
+						return value_container::create_nil();
 					} catch (...) {
 						errors->error("Invalid syntax in regular expression:" + regexp);
-						return false;
+						return value_container::create_nil();
 					}
-				};
+				}
 			};
 			struct operator_not_regexp : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type, const node_type) const {
-					errors->error("Regular expression not supported on numbers...");
-					return false;
-				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					std::string str = left->get_string_value(errors);
-					std::string regexp = right->get_string_value(errors);
-					if (debug_enabled)
-						std::cout << "(op_regexp) " << str << " regexp " << regexp << std::endl;
+
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_float(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					value_container rhs = right->get_value(errors, type_string);
+					if (!lhs.is(type_string) || !rhs.is(type_string)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					std::string str = lhs.get_string();
+					std::string regexp = rhs.get_string();
 					try {
 						boost::regex re(regexp);
-						return !boost::regex_match(str, re);
+						return value_container::create_int(!boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
 					} catch (const boost::bad_expression e) {
 						errors->error("Invalid syntax in regular expression:" + regexp);
-						return false;
+						return value_container::create_nil();
 					} catch (...) {
 						errors->error("Invalid syntax in regular expression:" + regexp);
-						return false;
+						return value_container::create_nil();
 					}
-				};
+				}
 			};
 			struct operator_not_like : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type, const node_type) const {
-					errors->error("Not like not supported on numbers...");
-					return false;
-				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const { 
-					std::string s1 = left->get_string_value(errors);
-					std::string s2 = right->get_string_value(errors);
-					if (s1.size() > s2.size() && s2.size() > 0)
-						return s1.find(s2) == std::string::npos;
-					return s2.find(s1) == std::string::npos;
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
 				};
+				value_container eval_float(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					errors->error("Like not supported on numbers...");
+					return value_container::create_nil();
+				};
+				value_container eval_string(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					value_container rhs = right->get_value(errors, type_string);
+					if (!lhs.is(type_string) || !rhs.is(type_string)) {
+						errors->error("invalid type");
+						return value_container::create_nil();
+					}
+					std::string s1 = lhs.get_string();
+					std::string s2 = rhs.get_string();
+					if (s1.size() == 0 && s2.size() == 0)
+						return value_container::create_int(0, lhs.is_unsure || rhs.is_unsure);
+					if (s1.size() == 0 || s2.size() == 0)
+						return value_container::create_int(1, lhs.is_unsure || rhs.is_unsure);
+					if (s1.size() > s2.size() && s2.size() > 0)
+						return value_container::create_int(s1.find(s2) == std::string::npos, lhs.is_unsure || rhs.is_unsure);
+					return value_container::create_int(s2.find(s1) == std::string::npos, lhs.is_unsure || rhs.is_unsure);
+				}
 			};
 			struct operator_not_in : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					long long val = left->get_int_value(errors);
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_int);
+					long long val = lhs.get_int();
 					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
 						if (itm->get_int_value(errors) == val)
-							return false;
+							return value_container::create_int(false, lhs.is_unsure);
 					}
-					return true;
+					return value_container::create_int(true, lhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					std::string val = left->get_string_value(errors);
+				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_float);
+					double val = lhs.get_float();
+					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+						if (itm->get_float_value(errors) == val)
+							return value_container::create_int(false, lhs.is_unsure);
+					}
+					return value_container::create_int(true, lhs.is_unsure);
+				}
+				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					std::string val = lhs.get_string();
 					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
-							return false;
+							return value_container::create_int(false, lhs.is_unsure);
 					}
-					return true;
+					return value_container::create_int(true, lhs.is_unsure);
 				};
 			};
 			struct operator_in : public simple_bool_binary_operator_impl {
-				bool eval_int(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					long long val = left->get_int_value(errors);
+				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_int);
+					long long val = lhs.get_int();
 					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
 						if (itm->get_int_value(errors) == val)
-							return true;
+							return value_container::create_int(true, lhs.is_unsure);
 					}
-					return false;
+					return value_container::create_int(false, lhs.is_unsure);
 				}
-				bool eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
-					std::string val = left->get_string_value(errors);
+				value_container eval_float(value_type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_float);
+					double val = lhs.get_float();
+					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
+						if (itm->get_float_value(errors) == val)
+							return value_container::create_int(true, lhs.is_unsure);
+					}
+					return value_container::create_int(false, lhs.is_unsure);
+				}
+				value_container eval_string(value_type, evaluation_context errors, const node_type left, const node_type right) const {
+					value_container lhs = left->get_value(errors, type_string);
+					std::string val = lhs.get_string();
 					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
 						if (itm->get_string_value(errors) == val)
-							return true;
+							return value_container::create_int(true, lhs.is_unsure);
 					}
-					return false;
+					return value_container::create_int(false, lhs.is_unsure);
 				};
 			};
 			struct operator_false : public binary_operator_impl, unary_operator_impl, binary_function_impl {
@@ -431,9 +518,9 @@ namespace parsers {
 				return op_factory::bin_op_type(new operator_impl::operator_not_in());
 
 			if (op == op_binand)
-				return op_factory::bin_op_type(new operator_impl::operator_bin_and());
+				return op_factory::bin_op_type(new operator_impl::operator_and());
 			if (op == op_binor)
-				return op_factory::bin_op_type(new operator_impl::operator_bin_or());
+				return op_factory::bin_op_type(new operator_impl::operator_or());
 
 			std::cout << "======== UNHANDLED OPERATOR\n";
 			return op_factory::bin_op_type(new operator_impl::operator_false());

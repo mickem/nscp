@@ -47,26 +47,29 @@ struct generic_closer  {
 };
 typedef hlp::handle<HANDLE, generic_closer> generic_handle;
 
-void enable_token_privilege(LPTSTR privilege, bool enable) {
-	generic_handle token;
-	TOKEN_PRIVILEGES token_privileges;
-	LUID luid;
-	if (!LookupPrivilegeValue(NULL, privilege, &luid))
-		throw nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
-	ZeroMemory(&token_privileges, sizeof(TOKEN_PRIVILEGES));
-	token_privileges.PrivilegeCount = 1;
-	token_privileges.Privileges[0].Luid = luid;
-	if (enable)
-		token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
-	else
-		token_privileges.Privileges[0].Attributes = 0;
-	if ( !OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, token.ref()))
-		throw nscp_exception("Failed to open process token: " + error::lookup::last_error());
-	if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES) NULL, (PDWORD) NULL))
-		throw nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
-}
 
 namespace process_helper {
+
+	void enable_token_privilege(LPTSTR privilege, bool enable) {
+		generic_handle token;
+		TOKEN_PRIVILEGES token_privileges;
+		LUID luid;
+		if (!LookupPrivilegeValue(NULL, privilege, &luid))
+			throw nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
+		ZeroMemory(&token_privileges, sizeof(TOKEN_PRIVILEGES));
+		token_privileges.PrivilegeCount = 1;
+		token_privileges.Privileges[0].Luid = luid;
+		if (enable)
+			token_privileges.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+		else
+			token_privileges.Privileges[0].Attributes = 0;
+		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, token.ref()))
+			throw nscp_exception("Failed to open process token: " + error::lookup::last_error());
+		if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES)NULL, (PDWORD)NULL))
+			throw nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
+	}
+
+
 	struct find_16bit_container {
 		std::list<process_info> *target;
 		DWORD pid;

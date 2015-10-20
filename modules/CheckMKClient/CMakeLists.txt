@@ -9,10 +9,10 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
-	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 	${NSCP_INCLUDEDIR}/check_mk/lua/lua_check_mk.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
+	${NSCP_CLIENT_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -26,6 +26,9 @@ ENDIF(OPENSSL_FOUND)
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
+		check_mk_client.hpp
+		check_mk_handler.hpp
+
 		${NSCP_INCLUDEDIR}/check_mk/data.hpp
 		${NSCP_INCLUDEDIR}/check_mk/parser.hpp
 		${NSCP_INCLUDEDIR}/check_mk/client/client_protocol.hpp
@@ -35,6 +38,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
+		${NSCP_CLIENT_HPP}
 	)
 ENDIF(WIN32)
 

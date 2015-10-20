@@ -9,8 +9,16 @@
 
 namespace windows {
 
+
+#define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
+#define STATUS_INFO_LENGTH_MISMATCH             ((NTSTATUS)0xC0000004L)
+#define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
+#define STATUS_ACCESS_VIOLATION                 ((NTSTATUS)0xC0000005L)
+
 	//////////////////////////////////////////////////////////////////////////
 	namespace winapi {
+
+
 
 		typedef BOOL (WINAPI *tEnumServicesStatusEx)(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName);
 		typedef BOOL (WINAPI *tQueryServiceConfig2)(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
@@ -257,6 +265,23 @@ namespace windows {
 		}
 		return g_systemBasicInformation.NumberOfProcessors;
 	}
+
+	hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*>  system_info::get_system_process_information(int size) {
+
+		hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*> buffer(size);
+		unsigned long bufferSize;
+		LONG r = winapi::NtQuerySystemInformation(winapi::SystemProcessInformation, (BYTE*)buffer, buffer.size(), &bufferSize);
+		if (r == 0)
+			return buffer;
+		if (r == STATUS_INFO_LENGTH_MISMATCH)
+			return get_system_process_information(bufferSize+4000);
+		if (r == STATUS_ACCESS_VIOLATION)
+			throw nscp_exception("Access violation");
+		throw nscp_exception("Failed to enumerate processes: unknown erroir");
+	}
+
+
+
 	system_info::cpu_load system_info::get_cpu_load() {
 		int cores = get_numberOfProcessorscores();
 		init_old_buffer(g_CPUIdleTimeOld, cores);
@@ -366,9 +391,6 @@ namespace windows {
 	}
 
 
-#define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
-#define STATUS_INFO_LENGTH_MISMATCH             ((NTSTATUS)0xC0000004L)
-#define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
 	std::vector<system_info::pagefile_info> system_info::get_pagefile_info() {
 		std::vector<system_info::pagefile_info> ret;
 

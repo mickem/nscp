@@ -1,0 +1,16 @@
+{
+	"module"		: {
+		"title"			: "CollectD Client",
+		"description"	: "CollectD client can be used to submit metrics to a collectd server",
+		"name"			: "CollectdClient",
+		"alias"			: "collectd",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "collectd/client"
+	},
+
+	"metrics" : "consume",
+	"log messages" : false
+}

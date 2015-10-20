@@ -295,7 +295,7 @@ namespace socket_helpers {
 		class client : boost::noncopyable {
 			boost::shared_ptr<connection<protocol_type> > connection_;
 			boost::asio::io_service io_service_;
-			socket_helpers::connection_info info_;
+			const socket_helpers::connection_info &info_;
 			boost::shared_ptr<typename protocol_type::client_handler> handler_;
 
 			typedef connection<protocol_type> connection_type;
@@ -306,7 +306,7 @@ namespace socket_helpers {
 #endif
 
 		public:
-			client(socket_helpers::connection_info info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
+			client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: info_(info), handler_(handler)
 #ifdef USE_SSL
 				, context_(io_service_, boost::asio::ssl::context::sslv23)

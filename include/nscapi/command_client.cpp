@@ -36,7 +36,7 @@ namespace nscapi {
 			Plugin::RegistryResponseMessage response;
 			response.ParseFromString(response_string);
 			for (int i=0;i<response.payload_size();i++) {
-				if (response.payload(i).result().status() != Plugin::Common_Status_StatusType_STATUS_OK) {
+				if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					errors.push_back(response.payload(i).result().message());
 				}
 			}

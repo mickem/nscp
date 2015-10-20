@@ -2,6 +2,7 @@
 
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/replace.hpp>
 #include <unicode_char.hpp>
 #include <utf8.hpp>
 
@@ -64,6 +65,13 @@ namespace file_helpers {
 		}
 		static boost::filesystem::path combine_pattern(pattern_type pattern) {
 			return pattern.first / pattern.second;
+		}
+
+		static std::string glob_to_regexp(std::string mask) {
+			boost::algorithm::replace_all(mask, ".", "\\.");
+			boost::algorithm::replace_all(mask, "*", ".*");
+			boost::algorithm::replace_all(mask, "?", ".");
+			return mask;
 		}
 	}; // END patterns
 }

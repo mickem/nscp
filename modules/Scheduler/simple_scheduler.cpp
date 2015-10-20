@@ -8,26 +8,27 @@
 
 namespace scheduler {
 
-	int simple_scheduler::add_task(schedules::schedule_object item) {
+	int simple_scheduler::add_task(schedules::schedule_handler::object_instance item) {
+
 		{
 			boost::mutex::scoped_lock l(mutex_);
-			item.id = ++schedule_id_;
-			targets_[item.id] = item;
+			item->id = ++schedule_id_;
+			targets_[item->id] = item;
 		}
 		reschedule(item);
-		return item.id;
+		return item->id;
 	}
 	void simple_scheduler::remove_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = targets_.find(id);
 		targets_.erase(it);
 	}
-	boost::optional<schedules::schedule_object> simple_scheduler::get_task(int id) {
+	schedules::schedule_handler::object_instance simple_scheduler::get_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = targets_.find(id);
  		if (it == targets_.end())
-			return boost::optional<schedules::schedule_object>();
-		return boost::optional<schedules::schedule_object>((*it).second);
+			return schedules::schedule_handler::object_instance();
+		return (*it).second;
 	}
 
 	void simple_scheduler::start() {
@@ -113,15 +114,15 @@ namespace scheduler {
 				}
 
 				boost::posix_time::ptime now_time = now();
-				boost::optional<schedules::schedule_object> item = get_task((*instance).schedule_id);
+				schedules::schedule_handler::object_instance item = get_task((*instance).schedule_id);
 				if (item) {
 					try {
 						if (handler_)
 							handler_->handle_schedule(*item);
-						reschedule(*item,now_time);
+						reschedule(item,now_time);
 					} catch (...) {
 						log_error("UNKNOWN ERROR RUNING TASK: ");
-						reschedule(*item);
+						reschedule(item);
 					}
 				} else {
 					log_error("Task not found: " + strEx::s::xtos(instance->schedule_id));
@@ -135,14 +136,14 @@ namespace scheduler {
 
 	}
 
-	void simple_scheduler::reschedule(const schedules::schedule_object &item) {
-		if (item.duration.total_seconds() == 0)
-			log_error("Not scheduling since duration is 0: " + item.to_string());
+	void simple_scheduler::reschedule(const schedules::schedule_handler::object_instance item) {
+		if (item->duration.total_seconds() == 0)
+			log_error("Not scheduling since duration is 0: " + item->to_string());
 		else
-			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
+			reschedule_wnext(item->id, now() + boost::posix_time::seconds(rand()%item->duration.total_seconds()));
 	}
-	void simple_scheduler::reschedule(const schedules::schedule_object &item, boost::posix_time::ptime now) {
-		reschedule_wnext(item.id, now + item.duration);
+	void simple_scheduler::reschedule(const schedules::schedule_handler::object_instance item, boost::posix_time::ptime now) {
+		reschedule_wnext(item->id, now + item->duration);
 	}
 	void simple_scheduler::reschedule_wnext(int id, boost::posix_time::ptime next) {
 		schedule_instance instance;

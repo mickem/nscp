@@ -81,6 +81,8 @@ class NRPEServerTest(BasicTest):
 			return msg
 
 	def set_request(self, msg):
+		msg.got_simple_response = False
+		msg.got_response = False
 		with sync:
 			self._requests[msg.uuid] = msg
 
@@ -142,8 +144,8 @@ class NRPEServerTest(BasicTest):
 	def submit_payload(self, alias, ssl, length, source, status, msg, perf, target):
 		message = plugin_pb2.QueryRequestMessage()
 		
-		message.header.version = plugin_pb2.Common.VERSION_1
-		message.header.recipient_id = target
+		message.header.destination_id = target
+		message.header.command = 'nrpe_forward'
 		host = message.header.hosts.add()
 		host.address = "127.0.0.1:15666"
 		host.id = target
@@ -169,7 +171,7 @@ class NRPEServerTest(BasicTest):
 		rmsg.message = msg
 		rmsg.perfdata = perf
 		self.set_request(rmsg)
-		(result_code, response) = self.core.query('nrpe_forward', message.SerializeToString())
+		(result_code, response) = self.core.query('ignored', message.SerializeToString())
 		response_message = plugin_pb2.QueryResponseMessage()
 		response_message.ParseFromString(response)
 		result = TestResult('Testing NRPE: %s for %s'%(alias, target))
@@ -181,9 +183,9 @@ class NRPEServerTest(BasicTest):
 				#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%alias)
 				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%alias)
 				result.add_message(len(response_message.payload) == 1, 'Verify that we only get one payload response for %s'%alias, '%s != 1'%len(response_message.payload))
-				if len(response_message.payload) == 1:
+				if len(response_message.payload) == 1 and len(response_message.payload[0].lines) == 1:
 					result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
-					result.assert_equals(response_message.payload[0].message, msg, 'Verify that message is sent through %s'%alias)
+					result.assert_equals(response_message.payload[0].lines[0].message, msg, 'Verify that message is sent through %s'%alias)
 					#result.assert_equals(rmsg.perfdata, perf, 'Verify that performance data is sent through')
 				self.del_response(uid)
 				found = True
