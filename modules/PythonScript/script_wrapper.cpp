@@ -52,15 +52,27 @@ std::string pystr(object o) {
 			return s;
 		}
 		return extract<std::string>(o);
-	} catch (...) {
-		NSC_LOG_ERROR("Failed to convert python string");
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to convert python string: ", e);
 		return "Unable to convert python string";
+	} catch (...) {
+		try {
+			object type = o.attr("__class__");
+			std::string stype = extract<std::string>(type);
+			NSC_LOG_ERROR("Failed to convert " + stype +" to string");
+		} catch (...) {
+			NSC_LOG_ERROR("Failed to convert UNKNOWN to string");
+		}
+		return "Unable to convert python string ";
 	}
 }
 std::string pystr(boost::python::api::object_item o) {
 	try {
 		object po = o;
 		return pystr(po);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to convert python string: ", e);
+		return "Unable to convert python string";
 	} catch (...) {
 		NSC_LOG_ERROR("Failed to convert python string");
 		return "Unable to convert python string";
