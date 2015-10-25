@@ -223,6 +223,31 @@ namespace client {
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			list = render_list(response_message, &render_query);
 			handler->output_message(list.empty()?"Nothing found":list);
+		} else if (command.size() > 4 && command.substr(0, 4) == "exec") {
+			try {
+				std::list<std::string> args;
+				strEx::s::parse_command(command, args);
+				if (args.size() < 3) {
+					handler->output_message("Usage: exec <target> <command> [args]");
+					return;
+				}
+				args.pop_front();
+				std::string target = args.front(); args.pop_front();
+				std::string cmd = args.front(); args.pop_front();
+				std::list<std::string> result;
+				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
+				NSCAPI::nagiosReturn ret = helper.exec_simple_command(target, cmd, args, result);
+				if (ret == NSCAPI::returnIgnored) {
+					handler->output_message("No handler for command: " + cmd);
+				} else {
+					BOOST_FOREACH(const std::string &s, result)
+						handler->output_message(s);
+				}
+			} catch (const std::exception &e) {
+				handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));
+			} catch (...) {
+				handler->output_message("Unknown exception");
+			}
 		} else if (!command.empty()) {
 			try {
 				std::list<std::string> args;
