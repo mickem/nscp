@@ -34,6 +34,7 @@ namespace nscapi {
 	public:
 		core_helper(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
 		void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+		void unregister_command(std::string command);
 		void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
 		void register_channel(const std::string channel);
 

@@ -121,6 +121,24 @@ namespace nsclient {
 			descriptions_[lc].name = cmd;
 			commands_[lc] = plugins_[plugin_id];
 		}
+		void unregister_command(unsigned long plugin_id, std::string cmd) {
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!writeLock.owns_lock()) {
+				log_error(__FILE__, __LINE__, "Failed to get mutex: ", cmd);
+				return;
+			}
+			std::string lc = make_key(cmd);
+			if (!have_plugin(plugin_id))
+				throw command_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+			command_list_type::iterator it = commands_.find(lc);
+			if (it == commands_.end()) {
+				log_info(__FILE__, __LINE__, "Command not found: ", cmd);
+			}
+			commands_.erase(it);
+			description_list_type::iterator dit = descriptions_.find(lc);
+			if (dit != descriptions_.end())
+				descriptions_.erase(dit);
+		}
 		void register_alias(unsigned long plugin_id, std::string cmd, std::string desc) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {

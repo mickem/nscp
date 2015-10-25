@@ -171,6 +171,28 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	}
 }
 
+void nscapi::core_helper::unregister_command(std::string command) {
+
+	Plugin::RegistryRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+
+	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->set_plugin_id(plugin_id_);
+	regitem->set_type(Plugin::Registry_ItemType_QUERY);
+	regitem->set_name(command);
+	regitem->set_unregister(true);
+	regitem->mutable_info()->set_title(command);
+	std::string response_string;
+	get_core()->registry_query(request.SerializeAsString(), response_string);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(response_string);
+	for (int i = 0; i < response.payload_size(); i++) {
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to unregister " + command + ": " + response.payload(i).result().message());
+	}
+}
+
 void nscapi::core_helper::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
 
 	Plugin::RegistryRequestMessage request;
