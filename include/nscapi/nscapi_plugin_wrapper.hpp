@@ -285,10 +285,10 @@ namespace nscapi {
 		boost::shared_ptr<impl_class> instance;
 		cliexec_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
 
-		int NSCommandLineExec(char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+		int NSCommandLineExec(const int target_mode, char *request_buffer, unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 			try { 
 				std::string request(request_buffer, request_buffer_len), reply;
-				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(request, reply); 
+				NSCAPI::nagiosReturn retCode = instance->commandRAWLineExec(target_mode, request, reply);
 				helpers::wrap_string(reply, response_buffer, response_buffer_len);
 				return retCode;
 			} catch (const std::exception &e) { 

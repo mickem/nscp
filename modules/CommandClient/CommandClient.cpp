@@ -101,7 +101,7 @@ void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 }
 
 
-bool CommandClient::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CommandClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 
 // 	if (core_->get_service_control().is_started())
 // 		info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");

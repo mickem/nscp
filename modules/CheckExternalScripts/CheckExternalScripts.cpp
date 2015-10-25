@@ -214,7 +214,7 @@ bool CheckExternalScripts::unloadModule() {
 }
 
 
-bool CheckExternalScripts::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	try {
 		if (request.arguments_size() > 0 && request.arguments(0) == "add")
 			add_script(request, response);

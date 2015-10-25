@@ -157,8 +157,8 @@ public:
 	void handleMessage(const char* data, unsigned int len);
 	void unload_dll(void);
 	void unload_plugin(void);
-	int commandLineExec(std::string &request, std::string &reply);
-	int commandLineExec(const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
+	int commandLineExec(bool targeted, std::string &request, std::string &reply);
+	int commandLineExec(bool targeted, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len);
 	bool has_command_line_exec();
 	bool is_duplicate(boost::filesystem::path file, std::string alias);
 

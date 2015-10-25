@@ -255,7 +255,7 @@ std::string list_ns_rec(std::string ns, std::string user, std::string password) 
 	return ss.str();
 }
 
-NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
+NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	try {
 		if (command == "wmi" || command == "help" || command.empty()) {
 
@@ -381,7 +381,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const std::string &command, const
 				}
 			}
 		}
-		return NSCAPI::isSuccess;
+			return NSCAPI::isSuccess;
 	} catch (std::exception e) {
 		result += "ERROR: " + utf8::utf8_from_native(e.what());
 		return NSCAPI::hasFailed;

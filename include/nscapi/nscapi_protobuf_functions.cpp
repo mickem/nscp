@@ -427,9 +427,14 @@ namespace nscapi {
 
 		//////////////////////////////////////////////////////////////////////////
 
-		void functions::create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request) {
+		void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::list<std::string> & args, std::string &request) {
 			Plugin::ExecuteRequestMessage message;
 			create_simple_header(message.mutable_header());
+			if (!module.empty()) {
+				::Plugin::Common_KeyValue* kvp = message.mutable_header()->add_metadata();
+				kvp->set_key("target");
+				kvp->set_value(module);
+			}
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
@@ -440,9 +445,14 @@ namespace nscapi {
 			message.SerializeToString(&request);
 		}
 
-		void functions::create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request) {
+		void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::vector<std::string> & args, std::string &request) {
 			Plugin::ExecuteRequestMessage message;
 			create_simple_header(message.mutable_header());
+			if (!module.empty()) {
+				::Plugin::Common_KeyValue* kvp = message.mutable_header()->add_metadata();
+				kvp->set_key("target");
+				kvp->set_value(module);
+			}
 
 			Plugin::ExecuteRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
@@ -779,6 +789,8 @@ namespace nscapi {
 				return NSCAPI::log_level::critical;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
 				return NSCAPI::log_level::debug;
+			if (ret == Plugin::LogEntry_Entry_Level_LOG_TRACE)
+				return NSCAPI::log_level::trace;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_ERROR)
 				return NSCAPI::log_level::error;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_INFO)

@@ -139,7 +139,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::stri
 
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {
 	std::string request, response;
-	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
+	nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
 	get_core()->exec_command(target, request, response);
 	return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 }
@@ -165,7 +165,7 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
-	for (int i=0;i<response.payload_size();i++) {
+	for (int i = 0; i < response.payload_size(); i++) {
 		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}

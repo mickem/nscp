@@ -130,8 +130,10 @@ void SMTPClient::query_fallback(const Plugin::QueryRequestMessage &request_messa
 	client_.do_query(request_message, response_message);
 }
 
-bool SMTPClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
-	return client_.do_exec(request, response);
+bool SMTPClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+	if (target_mode == NSCAPI::target_module)
+		return client_.do_exec(request, response, "_submit");
+	return false;
 }
 
 void SMTPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {

@@ -210,8 +210,8 @@ namespace nscapi {
 			NSCAPI_EXPORT decoded_simple_command_data parse_simple_query_request(const std::string char_command, const std::string &request);
 			NSCAPI_EXPORT decoded_simple_command_data parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload);
 			NSCAPI_EXPORT int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
-			NSCAPI_EXPORT void create_simple_exec_request(const std::string &command, const std::list<std::string> & args, std::string &request);
-			NSCAPI_EXPORT void create_simple_exec_request(const std::string &command, const std::vector<std::string> & args, std::string &request);
+			NSCAPI_EXPORT void create_simple_exec_request(const std::string &module, const std::string &command, const std::list<std::string> & args, std::string &request);
+			NSCAPI_EXPORT void create_simple_exec_request(const std::string &module, const std::string &command, const std::vector<std::string> & args, std::string &request);
 			NSCAPI_EXPORT int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
 
 			template<class T>

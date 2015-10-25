@@ -365,7 +365,7 @@ namespace client {
 		void finalize(boost::shared_ptr<nscapi::settings_proxy> settings);
 
 		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
-		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
+		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command);
 		void do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
 
 		typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)> client_desc_fun;

@@ -89,7 +89,7 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::
 NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result)
 {
 	std::string request, response;
-	nscapi::protobuf::functions::create_simple_exec_request(command, argument, request);
+	nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
 	bool ret = core_->exec_command(target, request, response) == NSCAPI::isSuccess;
 	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;

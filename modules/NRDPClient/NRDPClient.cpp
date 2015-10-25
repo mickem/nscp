@@ -186,9 +186,11 @@ void NRDPClient::query_fallback(const Plugin::QueryRequestMessage &request_messa
 	client_.do_query(request_message, response_message);
 }
 
-bool NRDPClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
-	return client_.do_exec(request, response);
-	}
+bool NRDPClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+	if (target_mode == NSCAPI::target_module)
+		return client_.do_exec(request, response, "submit_");
+	return false;
+}
 
 void NRDPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);

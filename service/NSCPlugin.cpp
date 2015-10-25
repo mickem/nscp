@@ -20,6 +20,7 @@
 ***************************************************************************/
 #include "NSCPlugin.h"
 #include "core_api.h"
+#include "NSCAPI.h"
 
 /**
  * Default c-tor
@@ -63,7 +64,7 @@ NSCPlugin::~NSCPlugin() {
 		try {
 			unload_plugin();
 			unload_dll();
-		} catch (NSPluginException &e) {
+		} catch (const NSPluginException&) {
 			// ...
 		}
 	}
@@ -501,10 +502,10 @@ void NSCPlugin::loadRemoteProcs_(void) {
 }
 
 
-int NSCPlugin::commandLineExec(std::string &request, std::string &reply) {
+int NSCPlugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
-	NSCAPI::nagiosReturn ret = commandLineExec(request.c_str(), request.size(), &buffer, &len);
+	NSCAPI::nagiosReturn ret = commandLineExec(targeted, request.c_str(), request.size(), &buffer, &len);
 	if (buffer != NULL) {
 		reply = std::string(buffer, len);
 		deleteBuffer(&buffer);
@@ -516,11 +517,11 @@ bool NSCPlugin::has_command_line_exec() {
 	return isLoaded() && fCommandLineExec != NULL;
 }
 
-int NSCPlugin::commandLineExec(const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {
+int NSCPlugin::commandLineExec(bool targeted, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {
 	if (!has_command_line_exec())
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded or modules does not support command line");
 	try {
-		return fCommandLineExec(plugin_id_, request, request_len, reply, reply_len);
+		return fCommandLineExec(plugin_id_, targeted ? NSCAPI::target_module : NSCAPI::target_any, request, request_len, reply, reply_len);
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhanded exception in handleCommand.");
 	}

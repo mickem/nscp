@@ -42,6 +42,10 @@ namespace NSCAPI {
 	const int key_integer = 200;
 	const int key_bool = 300;
 
+
+	const int target_module = 1;
+	const int target_any = 0;
+
 	const int message_processed	= 0x01;
 	const int message_routed	= 0x02;
 	const int message_ignored	= 0x04;
@@ -143,7 +147,7 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn (*lpHasRoutingHandler)(unsigned int plugin_id);
 		typedef NSCAPI::errorReturn (*lpRouteMessage)(unsigned int plugin_id, const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
-		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
+		typedef NSCAPI::errorReturn (*lpCommandLineExec)(unsigned int plugin_id, const int targetFlag, const char* in_buffer ,const unsigned int in_buffer_len, char** out_buffer, unsigned int* out_buffer_len);
 
 		typedef NSCAPI::errorReturn (*lpHandleSchedule)(unsigned int plugin_id, const char* in_buffer, const unsigned int in_buffer_len);
 

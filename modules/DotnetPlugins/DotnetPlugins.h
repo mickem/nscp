@@ -76,7 +76,7 @@ public:
 
 	NSCAPI::nagiosReturn handleRAWCommand(const std::string &request, std::string &response);
 	NSCAPI::nagiosReturn handleRAWNotification(const std::string &channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(const int target_type, const std::string &request, std::string &response);
 	void DotnetPlugins::handleMessageRAW(std::string data);
 
 	bool register_command(std::string command, internal_plugin_instance_ptr plugin);

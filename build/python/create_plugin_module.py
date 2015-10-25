@@ -333,7 +333,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* ch
 {% endif %}
 
 {%if module.cli == "legacy" %}
-NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
 		Plugin::ExecuteRequestMessage request_message;
 		Plugin::ExecuteResponseMessage response_message;
@@ -353,7 +353,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 				std::list<std::string> args;
 				for (int j=0;j<request_payload.arguments_size();++j)
 					args.push_back(request_payload.arguments(j));
-				int ret = impl_->commandLineExec(request_payload.command(), args, output);
+				int ret = impl_->commandLineExec(target_mode, request_payload.command(), args, output);
 				if (ret != NSCAPI::returnIgnored) {
 					found = true;
 					response_payload->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
@@ -375,16 +375,16 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 	}
 }
 {% elif module.cli == "pass-through" %}
-NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
-	return impl_->commandLineExec(request, response);
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
+	return impl_->commandLineExec(target_mode, request, response);
 }
 {% elif module.cli == "raw" %}
-NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
 		Plugin::ExecuteRequestMessage request_message;
 		Plugin::ExecuteResponseMessage response_message;
 		request_message.ParseFromString(request);
-		if (!impl_->commandLineExec(request_message, response_message))
+		if (!impl_->commandLineExec(target_mode, request_message, response_message))
 			return NSCAPI::returnIgnored;
 		response_message.SerializeToString(&response);
 		return NSCAPI::isSuccess;
@@ -397,7 +397,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 	}
 }
 {% elif module.cli %}
-NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(int target_mode, const std::string &request, std::string &response) {
 	try {
 		Plugin::ExecuteRequestMessage request_message;
 		Plugin::ExecuteResponseMessage response_message;
@@ -412,7 +412,7 @@ NSCAPI::nagiosReturn {{module.name}}Module::commandRAWLineExec(const std::string
 			} else {
 				Plugin::ExecuteResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
-				if (!impl_->commandLineExec(request_payload, response_payload, request_message)) {
+				if (!impl_->commandLineExec(target_mode, request_payload, response_payload, request_message)) {
 					// TODO: remove payloads here!
 				} else {
 					found = true;
@@ -539,9 +539,9 @@ extern NSCAPI::nagiosReturn NSHandleCommand(unsigned int, const char*, const uns
 extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int) { return NSCAPI::isfalse; }
 {% endif %}
 {% if module.cli %}
-extern int NSCommandLineExec(unsigned int id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
+extern int NSCommandLineExec(unsigned int id, const int target_mode, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
 	nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
-	return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); 
+	return wrapper.NSCommandLineExec(target_mode, request_buffer, request_len, response_buffer, response_len); 
 }
 {% endif %}
 {% if module.channels %}
@@ -586,7 +586,7 @@ extern "C" void NSHandleMessage(unsigned int plugin_id, const char* data, unsign
 extern "C" NSCAPI::nagiosReturn NSHandleCommand(unsigned int plugin_id, const char* request_buffer, const unsigned int request_buffer_len, char** reply_buffer, unsigned int *reply_buffer_len);
 extern "C" int NSUnloadModule(unsigned int plugin_id);
 {%if module.cli %}
-extern "C" int NSCommandLineExec(unsigned int plugin_id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
+extern "C" int NSCommandLineExec(unsigned int plugin_id, const int target_mode, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len);
 {% endif %}
 {% if module.channels %}
 extern "C" int NSHasNotificationHandler(unsigned int plugin_id);
@@ -682,7 +682,7 @@ public:
 {% endif %}
 
 {%if module.cli %}
-	NSCAPI::nagiosReturn commandRAWLineExec(const std::string &request, std::string &response);
+	NSCAPI::nagiosReturn commandRAWLineExec(int target_mode, const std::string &request, std::string &response);
 	/*
 	Add the following to {{module.name}}
 {%if module.cli == "legacy" %}
@@ -790,11 +790,9 @@ def parse_commands(data):
 			no_mapping = False
 			raw_mapping = False
 			nagios = False
-			print value
 			if key == "fallback" and value:
 				command_fallback = True
 			if key == "fallback" and value == 'raw':
-				print "*****"
 				command_fallback = True
 				command_fallback_raw = True
 			if type(value) is dict:
@@ -918,4 +916,3 @@ render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.tar
 render_template(data, env.from_string(CPP_TEMPLATE), '%s/module.cpp'%options.target)
 render_template(data, env.from_string(DEF_TEMPLATE), '%s/module.def'%options.target)
 render_template(data, env.from_string(RC_TEMPLATE), '%s/module.rc'%options.target)
-

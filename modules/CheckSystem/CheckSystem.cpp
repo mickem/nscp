@@ -90,12 +90,12 @@ std::pair<bool,std::string> validate_counter(std::string counter) {
 		pdh.open();
 		pdh.gatherData();
 		pdh.close();
- 		return std::make_pair(true, "ok(" + strEx::s::xtos(instance->get_value()) + ")");
+		return std::make_pair(true, "ok(" + strEx::s::xtos(instance->get_value()) + ")");
 	} catch (const PDH::pdh_exception &e) {
 		try {
 			pdh.gatherData();
 			pdh.close();
- 			return std::make_pair(true, "ok-rate(" + strEx::s::xtos(instance->get_value()) + ")");
+			return std::make_pair(true, "ok-rate(" + strEx::s::xtos(instance->get_value()) + ")");
 		} catch (const std::exception&) {
 			std::pair<bool,std::string> p(false, "query failed: EXCEPTION" + e.reason());
 			return p;
@@ -293,7 +293,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 	}
 }
 
-int CheckSystem::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
+int CheckSystem::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	if (command == "pdh" || command == "help" || command.empty()) {
 
 		namespace po = boost::program_options;

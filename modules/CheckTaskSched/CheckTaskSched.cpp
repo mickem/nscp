@@ -164,6 +164,3 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	}
 }
 
-int CheckTaskSched::commandLineExec(const std::string &, const std::list<std::string> &, std::string &) {
-	return 0;
-}

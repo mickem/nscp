@@ -134,7 +134,7 @@ void NRPEClient::query_fallback(const Plugin::QueryRequestMessage &request_messa
 	client_.do_query(request_message, response_message);
 }
 
-bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+bool NRPEClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
 	BOOST_FOREACH(const Plugin::ExecuteRequestMessage::Request &payload, request.payload()) {
 		if (payload.arguments_size() > 0 && payload.arguments(0) == "install") {
 			Plugin::ExecuteResponseMessage::Response *rp = response.add_payload();
@@ -150,7 +150,9 @@ bool NRPEClient::commandLineExec(const Plugin::ExecuteRequestMessage &request, P
 			return true;
 		}
 	}
-	return client_.do_exec(request, response);
+	if (target_mode == NSCAPI::target_module)
+		return client_.do_exec(request, response, "check_nrpe");
+	return false;
 }
 
 void NRPEClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {

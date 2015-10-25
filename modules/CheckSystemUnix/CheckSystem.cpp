@@ -75,10 +75,6 @@ bool CheckSystem::unloadModule() {
 	return true;
 }
 
-int CheckSystem::commandLineExec(const std::string &command, const std::list<std::string> &arguments, std::string &result) {
-	return 0;
-}
-
 void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 
 }

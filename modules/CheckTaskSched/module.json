@@ -14,6 +14,5 @@
 	"commands" : {
 		"check_tasksched"	: "Check status of scheduled jobs.",
 		"CheckTaskSched"	: "Legacy version of check_tasksched"
-	},
-	"command line exec" : "legacy"
+	}
 }

@@ -23,7 +23,5 @@
 		"check_os_version"	: "Check the version of the underlaying OS."
 	},
 
-	"command line exec" : "legacy",
-
 	"log messages" : false
 }

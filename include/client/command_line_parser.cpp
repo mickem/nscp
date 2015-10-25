@@ -10,6 +10,17 @@
 namespace po = boost::program_options;
 
 
+std::string client::destination_container::to_string() const {
+	std::stringstream ss;
+	ss << "address: " << address.to_string() << ", timeout: " << timeout << ", retry: " << retry << ", data: { ";
+	BOOST_FOREACH(const data_map::value_type &t, data) {
+		ss << t.first << ": " << t.second << ", ";
+	}
+	ss << "}";
+	return ss.str();
+
+}
+
 void client::options_reader_interface::add_ssl_options(boost::program_options::options_description & desc, client::destination_container & data) {
 	desc.add_options()
 
@@ -287,7 +298,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 	}
 }
 
-bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
+bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command) {
 	Plugin::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
@@ -328,6 +339,8 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 				local_request_message.mutable_header()->CopyFrom(request.header());
 				local_request_message.add_payload()->CopyFrom(local_request);
 				std::string command = local_request.command();
+				if (command.empty())
+					command = default_command;
 				::Plugin::ExecuteResponseMessage local_response_message;
 				if (i_do_exec(s, d, command, local_request_message, local_response_message, false)) {
 					found = true;
@@ -339,8 +352,10 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 			if (!found) {
 				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "failed");
 			}
+			return found;
 		}
 	}
+	return false;
 }
 
 
@@ -364,7 +379,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 		} else {
 			po::options_description desc = create_descriptor(command, s, d);
 			payload_builder builder;
-			if (command.substr(0,6) == "check_") {
+			if (command.substr(0,6) == "check_" || command.empty()) {
 				builder.set_type(payload_builder::type_query);
 				desc.add(add_query_options(s, d, builder));
 			} else if (command.substr(0,5) == "exec_") {
@@ -374,7 +389,7 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 				builder.set_type(payload_builder::type_submit);
 				desc.add(add_submit_options(s, d, builder));
 			} else {
-				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
+				nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Module does not know of any command called: " + command);
 				return false;
 			}
 			reader->process(desc, s, d);

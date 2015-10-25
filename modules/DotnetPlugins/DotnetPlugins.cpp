@@ -96,9 +96,9 @@ extern NSCAPI::boolReturn NSHasCommandHandler(unsigned int id) {
 	nscapi::command_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
 	return wrapper.NSHasCommandHandler(); 
 }
-extern int NSCommandLineExec(unsigned int id, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
+extern int NSCommandLineExec(unsigned int id, int target_mode, char *request_buffer, unsigned int request_len, char **response_buffer, unsigned int *response_len) {
 	nscapi::cliexec_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
-	return wrapper.NSCommandLineExec(request_buffer, request_len, response_buffer, response_len); 
+	return wrapper.NSCommandLineExec(target_mode, request_buffer, request_len, response_buffer, response_len); 
 }
 extern int NSHandleNotification(unsigned int id, const char* channel, const char* buffer, unsigned int buffer_len, char** response_buffer, unsigned int *response_buffer_len) {
 	nscapi::submission_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
@@ -263,7 +263,7 @@ NSCAPI::nagiosReturn DotnetPlugins::handleRAWNotification(const std::string &cha
 	return NSCAPI::returnIgnored;
 }
 
-NSCAPI::nagiosReturn DotnetPlugins::commandRAWLineExec(const std::string &request, std::string &response) {
+NSCAPI::nagiosReturn DotnetPlugins::commandRAWLineExec(const int target_type, const std::string &request, std::string &response) {
 	return NSCAPI::returnIgnored;
 }
 

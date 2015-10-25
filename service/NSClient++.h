@@ -147,7 +147,7 @@ public:
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
 	int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-	NSCAPI::nagiosReturn exec_command(const char* target, std::string &request, std::string &response);
+	NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::errorReturn settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);

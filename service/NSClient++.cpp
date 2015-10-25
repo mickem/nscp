@@ -1008,7 +1008,7 @@ int exec_helper(NSClientT::plugin_type plugin, std::string command, std::vector<
 	std::string response;
 	if (!plugin || !plugin->has_command_line_exec())
 		return -1;
-	int ret = plugin->commandLineExec(request, response);
+	int ret = plugin->commandLineExec(true, request, response);
 	if (ret != NSCAPI::returnIgnored && !response.empty())
 		responses->push_back(response);
 	return ret;
@@ -1024,7 +1024,7 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 		module = command.substr(0, pos);
 		command = command.substr(pos+1);
 	}
-	nscapi::protobuf::functions::create_simple_exec_request(command, arguments, request);
+	nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&exec_helper, _1, command, arguments, request, &responses), errors);
 
 	BOOST_FOREACH(std::string &r, responses) {
@@ -1084,8 +1084,9 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	return ret;
 }
 
-NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string &request, std::string &response) {
+NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string request, std::string &response) {
 	std::string target = raw_target;
+	LOG_DEBUG_CORE_STD("Executing command is target for: " + target);
 	bool match_any = false;
 	bool match_all = false;
 	if (target == "any")
@@ -1105,13 +1106,14 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 				try {
 					if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
 						std::string respbuffer;
-						NSCAPI::nagiosReturn r = p->commandLineExec(request, respbuffer);
+						LOG_DEBUG_CORE_STD("Executing command in: " + p->getName());
+						NSCAPI::nagiosReturn r = p->commandLineExec(! (match_all || match_any), request, respbuffer);
 						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
 							LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
 							found = true;
 							if (match_any) {
 								response = respbuffer;
-								return NSCAPI::isSuccess;
+								return NSCAPI::returnOK;
 							}
 							responses.push_back(respbuffer);
 						}
@@ -2029,10 +2031,15 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
 				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 				if (registration.type() == Plugin::Registry_ItemType_QUERY) {
-					commands_.register_command(registration.plugin_id(), registration.name(), registration.info().description());
-					std::string description = "Alternative name for: " + registration.name();
-					for (int i=0;i<registration.alias_size();i++) {
-						commands_.register_alias(registration.plugin_id(), registration.alias(i), description);
+					if (registration.unregister()) {
+						commands_.unregister_command(registration.plugin_id(), registration.name());
+						BOOST_FOREACH(const std::string &alias, registration.alias())
+							commands_.unregister_command(registration.plugin_id(), alias);
+					} else {
+						commands_.register_command(registration.plugin_id(), registration.name(), registration.info().description());
+						std::string description = "Alternative name for: " + registration.name();
+						BOOST_FOREACH(const std::string &alias, registration.alias())
+							commands_.register_alias(registration.plugin_id(), alias, description);
 					}
 				} else if (registration.type() == Plugin::Registry_ItemType_QUERY_ALIAS) {
 					commands_.register_alias(registration.plugin_id(), registration.name(), registration.info().description());

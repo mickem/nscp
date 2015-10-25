@@ -115,7 +115,7 @@ void LUAScript::query_fallback(const Plugin::QueryRequestMessage::Request &reque
 	return lua_runtime_->on_query(request.command(), cmd->information, cmd->function, false, request, response, request_message);
 }
 
-bool LUAScript::commandLineExec(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+bool LUAScript::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	if (request.command() != "lua-script" && request.command() != "lua-run"
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
 			boost::optional<scripts::command_definition<lua::lua_traits> > cmd = scripts_->find_command(scripts::nscp::tags::simple_exec_tag, request.command());
