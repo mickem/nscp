@@ -66,9 +66,11 @@ namespace socket_helpers {
 				trace("cancel_socket()");
 				boost::system::error_code ignored_ec;
 				if (get_socket().is_open()) {
-					trace("socket.shutdown()");
-					get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-					get_socket().close(ignored_ec);
+					try {
+						trace("socket.shutdown()");
+						get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+						get_socket().close(ignored_ec);
+					} catch (...) {}
 				}
 			}
 
@@ -90,8 +92,10 @@ namespace socket_helpers {
 			}
 
 			virtual void cancel_timer() {
-				trace("cancel_timer()");
-				timer_.cancel();
+				try {
+					trace("cancel_timer()");
+					timer_.cancel();
+				} catch (...) {}
 			}
 
 			virtual void timeout(const boost::system::error_code& e) {
