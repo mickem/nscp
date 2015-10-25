@@ -80,7 +80,7 @@ class Win32WMITest(BasicTest):
 
 	def install(self, arguments):
 		conf = self.conf
-		conf.set_string('/modules', 'test_system', 'CheckWMI')
+		conf.set_string('/modules', 'test_wmi', 'CheckWMI')
 		conf.set_string('/modules', 'pytest', 'PythonScript')
 		conf.set_string('/settings/pytest/scripts', 'test_w32wmi', 'test_w32_wmi.py')
 		conf.save()

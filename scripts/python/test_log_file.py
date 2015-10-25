@@ -14,7 +14,6 @@ def create_test_data(file):
 		f.write("5,C,Test 1\n")
 		f.write("6,B,Test 2\n")
 
-		
 def delete_file(file):
 	if os.path.exists(file):
 		try:
@@ -62,14 +61,13 @@ class LogFileTest(BasicTest):
 	def check_files(self, filter, text, expected):
 		alias = '%s: %s'%(text, filter)
 		result = TestResult('Checking %s'%alias)
-		args = ['file=%s'%self.work_path, 'column-spli=,', 'filter=%s'%filter, 'warn=count gt %d'%expected, 'crit=count gt %d'%expected]
+		args = ['file=%s'%self.work_path, 'column-split=,', 'filter=%s'%filter, 'warn=count gt %d'%expected, 'crit=count gt %d'%expected]
 		#log("Command: %s"%args)
 		(ret, msg, perf) = self.core.simple_query('check_logfile', args)
-		#log("Messge: %s"%msg)
-		#log("Perf: %s"%perf)
+		log("%s : %s -- %s"%(filter, msg, perf))
 		count = self.get_count(perf)
-		result.add_message(count == expected, 'Check that we get correct number of files', 'Invalid result: got %s expected %s'%(count, expected))
-		result.add_message(ret == status.OK, 'Check that we get correct status back (OK)', 'We did not get a OK back as expected: %s'%ret)
+		result.add_message(count == expected, '%s - number of files'%filter, 'got %s expected %s'%(count, expected))
+		result.add_message(ret == status.OK, '%s -- status', 'got %s expected OK'%ret)
 		return result
 
 	def check_bound(self, filter, warn, crit, expected):
@@ -78,8 +76,7 @@ class LogFileTest(BasicTest):
 		args = ['file=%s'%self.work_path, 'column-split=,', 'filter=%s'%filter, 'warn=%s'%warn, 'crit=%s'%crit]
 		#log("Command: %s"%args)
 		(ret, msg, perf) = self.core.simple_query('check_logfile', args)
-		log("Messge: %s"%msg)
-		log("Perf: %s"%perf)
+		log("%s : %s -- %s"%(filter, msg, perf))
 		result.add_message(ret == expected, 'Check status', 'Invalid check status: %s'%ret)
 		return result
 		
@@ -91,7 +88,7 @@ class LogFileTest(BasicTest):
 		result.add(self.check_files("column2 = 'C'", 'Count all C', 1))
 		result.add(self.check_files("column3 = 'Test 1'", 'Count all T1', 4))
 		result.add(self.check_files("column3 like 'Test'", 'Count all T', 6))
-		result.add(self.check_files("column3 not like '1'", 'Count all T', 2))
+		result.add(self.check_files("column3 not like '1'", 'Count all T', 3))
 		result.add(self.check_files("column1 > 1", 'Count all B', 5))
 		result.add(self.check_files("column1 > 3", 'Count all B', 3))
 		result.add(self.check_files("column1 > 5", 'Count all B', 1))

@@ -5,8 +5,6 @@ from types import *
 import socket
 import uuid
 import unicodedata
-#import _thread
-#sync = _thread.allocate_lock()
 
 import threading
 sync = threading.RLock()
@@ -238,7 +236,7 @@ class NSCAServerTest(BasicTest):
 				'--password', 'pwd-%s'%encryption,
 				'--payload-length', '%d'%length,
 			])
-		(result_code, result_message) = self.core.simple_exec('any', 'nsca_submit', args)
+		(result_code, result_message) = self.core.simple_exec('test_nsca_client', 'nsca_submit', args)
 		result = TestResult('Testing payload submission (via command line exec): %s'%tag)
 		
 		result.add_message(result_code == 0, 'Testing to send message using %s/exec:1'%tag)
@@ -292,7 +290,6 @@ class NSCAServerTest(BasicTest):
 	def run_test(self, cases=None):
 		result = TestResult()
 		cryptos = ["none", "xor", "des", "3des", "cast128", "xtea", "blowfish", "twofish", "rc2", "aes", "aes256", "aes192", "aes128", "serpent", "gost", "3way"]
-		#cryptos = ["xor"]
 		for c in cryptos:
 			run_l = None
 			run_this = False
@@ -309,8 +306,7 @@ class NSCAServerTest(BasicTest):
 				if not run_this:
 					result.add_message(True, 'Ignoring: %s-*'%c)
 					continue
-			#for l in [128, 512, 1024, 4096]:
-			for l in [ 512]:
+			for l in [128, 512, 1024, 4096]:
 				if not run_l or run_l == l:
 					result.add(self.test_one_crypto(c, l))
 				else:

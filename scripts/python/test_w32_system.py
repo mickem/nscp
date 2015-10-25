@@ -24,6 +24,8 @@ class Win32SystemTest(BasicTest):
 		None
 
 	def get_expected_state(self, existing, sign, asked):
+		if existing == 0:
+			return status.OK
 		if sign == 'eq':
 			if existing == asked:
 				return status.CRITICAL
@@ -44,11 +46,10 @@ class Win32SystemTest(BasicTest):
 	
 	def test_one_proc_int(self, proc, actual, asked):
 		result = TestResult('Checking one state %d/%d'%(actual, asked))
-		#for s in ['eq', 'gt', 'lt', 'ne']:
-		for s in ['gt']:
-			(retcode, retmessage, retperf) = self.core.simple_query('check_process', ['show-all', 'crit=count %s %d'%(s, asked), "filter=exe='%s'"%proc])
+		for s in ['eq', 'gt', 'lt', 'ne']:
+			(retcode, retmessage, retperf) = self.core.simple_query('check_process', ['empty-state=OK', 'show-all', 'crit=count %s %d'%(s, asked), "filter=exe='%s'"%proc])
 			expected = self.get_expected_state(actual, s, asked)
-			result.add_message(retcode == expected, 'Process: %s (%d %s %d): %s'%(proc, actual, s, asked, retmessage), 'Expected %s'%(expected))
+			result.add_message(retcode == expected, 'Process: %s (%d %s %d): %s'%(proc, actual, s, asked, retmessage), '%s != %s'%(retcode, expected))
 		return result
 		
 	def run_test_proc(self):
