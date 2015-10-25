@@ -102,10 +102,17 @@ namespace nsca_client {
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			connection_data con(target, sender);
 
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("Target configuration: " + target.to_string());
+			}
+			unsigned int len = 512;
+			if (target.has_data("buffer length"))
+				len = target.get_int_data("buffer length", 512);
+			else if (target.has_data("payload length"))
+				len = target.get_int_data("payload length", 512);
 			std::list<nsca::packet> list;
-			for (int i=0;i < request_message.payload_size(); ++i) {
-				nsca::packet packet(sender.get_host(), target.get_int_data("buffer length", 512), 0);
-				const Plugin::QueryResponseMessage::Response &payload = request_message.payload(i);
+			BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &payload, request_message.payload()) {
+				nsca::packet packet(sender.get_host(), len, 0);
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
 				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
 				packet.service = payload.command();

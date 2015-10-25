@@ -48,6 +48,10 @@ namespace nsclient {
 				if (should_log(NSCAPI::log_level::debug))
 					do_log(logger_helper::create(module, NSCAPI::log_level::debug, file, line, message));
 			}
+			void trace(const std::string &module, const char* file, const int line, const std::string &message) {
+				if (should_log(NSCAPI::log_level::trace))
+					do_log(logger_helper::create(module, NSCAPI::log_level::trace, file, line, message));
+			}
 			void info(const std::string &module, const char* file, const int line, const std::string &message) {
 				if (should_log(NSCAPI::log_level::info))
 					do_log(logger_helper::create(module, NSCAPI::log_level::info, file, line, message));

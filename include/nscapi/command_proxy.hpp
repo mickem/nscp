@@ -31,5 +31,8 @@ namespace nscapi {
 		virtual void debug(const char* file, int line, std::string message)  {
 			core_->log(NSCAPI::log_level::debug, file, line, message);
 		}
+		virtual void trace(const char* file, int line, std::string message)  {
+			core_->log(NSCAPI::log_level::trace, file, line, message);
+		}
 	};
 }

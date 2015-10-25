@@ -165,6 +165,8 @@ namespace nscapi {
 					return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
 				if (ret == NSCAPI::log_level::debug)
 					return Plugin::LogEntry_Entry_Level_LOG_DEBUG;
+				if (ret == NSCAPI::log_level::trace)
+					return Plugin::LogEntry_Entry_Level_LOG_TRACE;
 				if (ret == NSCAPI::log_level::error)
 					return Plugin::LogEntry_Entry_Level_LOG_ERROR;
 				if (ret == NSCAPI::log_level::info)

@@ -14,6 +14,8 @@ std::string nsclient::logging::logger_helper::render_log_level_short(NSCAPI::log
 			return "L";
 		case NSCAPI::log_level::debug:
 			return "D";
+		case NSCAPI::log_level::trace:
+			return "T";
 		default:
 			return "?";
 	}
@@ -31,6 +33,8 @@ std::string nsclient::logging::logger_helper::render_log_level_long(NSCAPI::log_
 			return "message";
 		case NSCAPI::log_level::debug:
 			return "debug";
+		case NSCAPI::log_level::trace:
+			return "trace";
 	}
 	return "unknown";
 }

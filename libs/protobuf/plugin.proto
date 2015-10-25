@@ -636,6 +636,7 @@ message SettingsResponseMessage {
 message LogEntry {
 	message Entry {
 		enum Level {
+			LOG_TRACE	= 1000;
 			LOG_DEBUG	= 500;
 			LOG_INFO 	= 150;
 			LOG_WARNING	=  50;

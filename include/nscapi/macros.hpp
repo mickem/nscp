@@ -21,6 +21,10 @@
 #define NSC_DEBUG_MSG_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::debug); }
 #define NSC_DEBUG_MSG(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG(msg, NSCAPI::log_level::debug); }
 
+#define NSC_DEBUG_MSG_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::debug); }
+#define NSC_TRACE_MSG(msg) if (GET_CORE()->should_log(NSCAPI::log_level::trace)) { NSC_ANY_MSG(msg, NSCAPI::log_level::trace); }
+#define NSC_TRACE_ENABLED() if (GET_CORE()->should_log(NSCAPI::log_level::trace)) 
+
 #define NSC_ANY_MSG(msg, type) GET_CORE()->log(type, __FILE__, __LINE__, msg)
 
 //////////////////////////////////////////////////////////////////////////
