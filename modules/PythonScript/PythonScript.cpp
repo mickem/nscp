@@ -197,19 +197,28 @@ void python_script::_exec(const std::string &scriptfile){
 			path /= "python";
 			path /= "lib";
 			NSC_DEBUG_MSG("Lib path: " + path.string());
+			try {
 #ifdef WIN32
 			//TODO: FIXME: Fix this somehow
 			PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
 #else
 			PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
 #endif
+			} catch (error_already_set e) {
+				NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
+				script_wrapper::log_exception();
+				return;
+			}
 
 			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
 		} catch( error_already_set e) {
+			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			script_wrapper::log_exception();
 		} catch (const std::exception &e) {
+			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			NSC_LOG_ERROR_EXR("python script", e);
 		} catch(...) {
+			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			NSC_LOG_ERROR_EX("python script");
 		}
 	} catch (...) {
@@ -217,8 +226,19 @@ void python_script::_exec(const std::string &scriptfile){
 	}
 }
 static bool has_init = false;
-bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
+bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	alias_ = alias;
+
+	if (mode == NSCAPI::reloadStart) {
+		nscapi::core_helper ch(get_core(), get_id());
+		BOOST_FOREACH(const std::string &s, script_wrapper::functions::get()->get_commands()) {
+			ch.unregister_command(s);
+		}
+		instances_.clear();
+		scripts_.clear();
+	}
+
+
 	try {
 		root_ = get_base_path();
 

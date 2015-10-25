@@ -4,7 +4,8 @@
 		"description"	: "Loads and processes internal Python scripts",
 		"name"			: "PythonScript",
 		"alias"			: "python",
-		"version"		: "auto"
+		"version"		: "auto",
+		"reload"		: true
 	},
 	
 	"settings"		: {
