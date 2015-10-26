@@ -61,7 +61,7 @@ extern int NSLoadModuleEx(unsigned int id, char* alias, int mode) {
 	} catch (...) {
 		NSC_LOG_CRITICAL("Unknown exception in: NSLoadModuleEx");
 	}
-	return NSCAPI::hasFailed;
+	return NSCAPI::api_return_codes::hasFailed;
 } 
 extern int NSLoadModule() {
 	return nscapi::basic_wrapper_static<plugin_impl_class>::NSLoadModule(); 
@@ -236,14 +236,14 @@ NSCAPI::nagiosReturn DotnetPlugins::handleRAWCommand(const std::string &request,
 	try {
 		commands_type::const_iterator cit = commands.find(command);
 		if (cit == commands.end())
-			return NSCAPI::returnIgnored;
+			return NSCAPI::cmd_return_codes::returnIgnored;
 		return cit->second->onCommand(command, request, response);
 	} catch(System::Exception ^e) {
 		NSC_LOG_ERROR_STD("Failed to execute command " + command + ": " + to_nstring(e->ToString()));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_STD("Failed to execute command " + command, e);
 	}
-	return NSCAPI::returnIgnored;
+	return NSCAPI::cmd_return_codes::hasFailed;
 }
 
 void DotnetPlugins::handleMessageRAW(std::string data) {
@@ -260,11 +260,11 @@ NSCAPI::nagiosReturn DotnetPlugins::handleRAWNotification(const std::string &cha
 	// 	} catch (const std::exception &e) {
 	// 		NSC_LOG_ERROR_STD("Failed to execute command " + utf8::cvt<std::string>(channel), e);
 	// 	}
-	return NSCAPI::returnIgnored;
+	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
 NSCAPI::nagiosReturn DotnetPlugins::commandRAWLineExec(const int target_type, const std::string &request, std::string &response) {
-	return NSCAPI::returnIgnored;
+	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
 #pragma managed(push, off)

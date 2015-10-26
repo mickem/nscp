@@ -127,7 +127,7 @@ namespace nrpe_client {
 					nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
 				}
 			}
-			return NSCAPI::isSuccess;
+			return true;
 		}
 
 		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
@@ -143,9 +143,10 @@ namespace nrpe_client {
 					data += "!" + request_message.payload(i).arguments(i);
 				}
 				boost::tuple<int,std::string> ret = send(con, data);
-				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
+				bool wentOk = ret.get<0>() != NSCAPI::query_return_codes::returnUNKNOWN;
+				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), command, wentOk ?Plugin::Common_Result_StatusCodeType_STATUS_OK: Plugin::Common_Result_StatusCodeType_STATUS_ERROR, ret.get<1>());
 			}
-			return NSCAPI::isSuccess;
+			return true;
 		}
 
 		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
@@ -162,7 +163,7 @@ namespace nrpe_client {
 				boost::tuple<int,std::string> ret = send(con, data);
 				nscapi::protobuf::functions::append_simple_exec_response_payload(response_message.add_payload(), command, ret.get<0>(), ret.get<1>());
 			}
-			return NSCAPI::isSuccess;
+			return true;
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -173,14 +174,14 @@ namespace nrpe_client {
 			try {
 #ifndef USE_SSL
 				if (con.ssl.enabled)
-					return boost::make_tuple(NSCAPI::returnUNKNOWN, "SSL support not available (compiled without USE_SSL)");
+					return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "SSL support not available (compiled without USE_SSL)");
 #endif
 				nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
 				socket_helpers::client::client<nrpe::client::protocol> client(con, handler_);
 				client.connect();
 				std::list<nrpe::packet> responses = client.process_request(packet);
 				client.shutdown();
-				int result = NSCAPI::returnUNKNOWN;
+				int result = NSCAPI::query_return_codes::returnUNKNOWN;
 				std::string payload;
 				if (responses.size() > 0)
 					result = static_cast<int>(responses.front().getResult());
@@ -189,13 +190,13 @@ namespace nrpe_client {
 				}
 				return boost::make_tuple(result, payload);
 			} catch (nrpe::nrpe_exception &e) {
-				return boost::make_tuple(NSCAPI::returnUNKNOWN, std::string("NRPE Packet error: ") + e.what());
+				return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, std::string("NRPE Packet error: ") + e.what());
 			} catch (std::runtime_error &e) {
-				return boost::make_tuple(NSCAPI::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
+				return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "Socket error: " + utf8::utf8_from_native(e.what()));
 			} catch (std::exception &e) {
-				return boost::make_tuple(NSCAPI::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
+				return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "Error: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
-				return boost::make_tuple(NSCAPI::returnUNKNOWN, "Unknown error -- REPORT THIS!");
+				return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "Unknown error -- REPORT THIS!");
 			}
 		}
 

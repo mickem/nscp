@@ -231,7 +231,7 @@ namespace nscapi {
 			message.SerializeToString(&buffer);
 		}
 
-		void functions::create_simple_submit_response(const std::string channel, const std::string command, const NSCAPI::nagiosReturn ret, const std::string msg, std::string &buffer) {
+		void functions::create_simple_submit_response(const std::string channel, const std::string command, const ::Plugin::Common_Result_StatusCodeType result, const std::string msg, std::string &buffer) {
 			Plugin::SubmitResponseMessage message;
 			create_simple_header(message.mutable_header());
 			//message.set_channel(to_string(channel));
@@ -239,10 +239,10 @@ namespace nscapi {
 			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(command);
 			payload->mutable_result()->set_message(msg);
-			payload->mutable_result()->set_code(status_to_gpb(ret));
+			payload->mutable_result()->set_code(result);
 			message.SerializeToString(&buffer);
 		}
-		NSCAPI::errorReturn functions::parse_simple_submit_response(const std::string &request, std::string &response) {
+		bool functions::parse_simple_submit_response(const std::string &request, std::string &response) {
 			Plugin::SubmitResponseMessage message;
 			message.ParseFromString(request);
 
@@ -251,7 +251,7 @@ namespace nscapi {
 			}
 			::Plugin::SubmitResponseMessage::Response payload = message.payload().Get(0);
 			response = payload.mutable_result()->message();
-			return gbp_to_status(payload.mutable_result()->code());
+			return payload.mutable_result()->code() == Plugin::Common_Result_StatusCodeType_STATUS_OK;
 		}
 		void functions::create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
@@ -289,7 +289,7 @@ namespace nscapi {
 			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
 			payload->add_lines()->set_message(msg);
 			message.SerializeToString(&buffer);
-			return NSCAPI::returnUNKNOWN;
+			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 		NSCAPI::nagiosReturn functions::create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer) {
 			Plugin::QueryResponseMessage message;
@@ -335,9 +335,9 @@ namespace nscapi {
 			payload->set_message(msg);
 			payload->set_result(nagios_status_to_gpb(ret));
 		}
-		void functions::append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, int ret, std::string msg) {
+		void functions::append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, ::Plugin::Common_Result_StatusCodeType result, std::string msg) {
 			payload->set_command(command);
-			payload->mutable_result()->set_code(status_to_gpb(ret));
+			payload->mutable_result()->set_code(result);
 			payload->mutable_result()->set_message(msg);
 		}
 
@@ -414,7 +414,7 @@ namespace nscapi {
 			message.ParseFromString(response);
 
 			if (message.payload_size() == 0 || message.payload(0).lines_size() == 0) {
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::query_return_codes::returnUNKNOWN;
 			} else if (message.payload_size() > 1 && message.payload(0).lines_size() > 1) {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
@@ -514,7 +514,7 @@ namespace nscapi {
 
 			payload->set_result(nagios_status_to_gpb(ret));
 			message.SerializeToString(&response);
-			return ret;
+			return NSCAPI::cmd_return_codes::isSuccess;
 		}
 		int functions::create_simple_exec_response_unknown(std::string command, std::string result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
@@ -524,9 +524,9 @@ namespace nscapi {
 			payload->set_command(command);
 			payload->set_message(result);
 
-			payload->set_result(nagios_status_to_gpb(NSCAPI::returnUNKNOWN));
+			payload->set_result(nagios_status_to_gpb(NSCAPI::exec_return_codes::returnERROR));
 			message.SerializeToString(&response);
-			return NSCAPI::returnUNKNOWN;
+			return NSCAPI::cmd_return_codes::isSuccess;
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -751,11 +751,11 @@ namespace nscapi {
 
 		Plugin::Common::ResultCode functions::nagios_status_to_gpb(int ret)
 		{
-			if (ret == NSCAPI::returnOK)
+			if (ret == NSCAPI::query_return_codes::returnOK)
 				return Plugin::Common_ResultCode_OK;
-			if (ret == NSCAPI::returnWARN)
+			if (ret == NSCAPI::query_return_codes::returnWARN)
 				return Plugin::Common_ResultCode_WARNING;
-			if (ret == NSCAPI::returnCRIT)
+			if (ret == NSCAPI::query_return_codes::returnCRIT)
 				return Plugin::Common_ResultCode_CRITICAL;
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
@@ -763,12 +763,12 @@ namespace nscapi {
 		int functions::gbp_to_nagios_status(Plugin::Common::ResultCode ret)
 		{
 			if (ret == Plugin::Common_ResultCode_OK)
-				return NSCAPI::returnOK;
+				return NSCAPI::query_return_codes::returnOK;
 			if (ret == Plugin::Common_ResultCode_WARNING)
-				return NSCAPI::returnWARN;
+				return NSCAPI::query_return_codes::returnWARN;
 			if (ret == Plugin::Common_ResultCode_CRITICAL)
-				return NSCAPI::returnCRIT;
-			return NSCAPI::returnUNKNOWN;
+				return NSCAPI::query_return_codes::returnCRIT;
+			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 
 		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status)

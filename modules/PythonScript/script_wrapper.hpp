@@ -54,10 +54,10 @@ namespace script_wrapper {
 	};
 	
 	enum status {
-		OK = NSCAPI::returnOK, 
-		WARN = NSCAPI::returnWARN, 
-		CRIT = NSCAPI::returnCRIT, 
-		UNKNOWN = NSCAPI::returnUNKNOWN
+		OK = NSCAPI::query_return_codes::returnOK,
+		WARN = NSCAPI::query_return_codes::returnWARN,
+		CRIT = NSCAPI::query_return_codes::returnCRIT,
+		UNKNOWN = NSCAPI::query_return_codes::returnUNKNOWN
 	};
 
 	status nagios_return_to_py(int code);

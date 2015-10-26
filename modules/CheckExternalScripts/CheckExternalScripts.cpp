@@ -552,9 +552,8 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	}
 	std::string buffer;
 	nscapi::core_helper ch(get_core(), get_id());
-	int result = ch.simple_query(cd.command, args, buffer);
-	if (result == NSCAPI::returnIgnored) {
-		nscapi::protobuf::functions::set_response_bad(*response, "No handler for command: " + cd.alias);
+	if (ch.simple_query(cd.command, args, buffer)) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.alias);
 		return;
 	}
 	Plugin::QueryResponseMessage tmp;

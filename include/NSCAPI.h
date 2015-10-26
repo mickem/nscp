@@ -24,19 +24,35 @@
 
 namespace NSCAPI {
 
+	namespace query_return_codes {
+		const int returnOK = 0;
+		const int returnWARN = 1;
+		const int returnCRIT = 2;
+		const int returnUNKNOWN = 3;
+	}
+	namespace exec_return_codes {
+		const int returnOK = 0;
+		const int returnERROR = 4;
+	}
+
+	namespace api_return_codes {
+		const int isSuccess = 1;
+		const int hasFailed = 0;
+	}
+
+	namespace cmd_return_codes {
+		const int isSuccess = 1;
+		const int hasFailed = 0;
+		const int returnIgnored = -1;
+	}
+	namespace bool_return {
+		const int istrue = 1;
+		const int isfalse = 0;
+	}
+
 	const int normalStart = 0;
 	const int dontStart = 1;
 	const int reloadStart = 2;
-	const int returnOK = 0;
-	const int returnWARN = 1;
-	const int returnCRIT = 2;
-	const int returnUNKNOWN = 3;
-	const int returnInvalidBufferLen = -2;
-	const int returnIgnored = -1;
-	const int istrue = 1;
-	const int isfalse = 0;
-	const int isSuccess = 1;
-	const int hasFailed = 0;
 	const int isInvalidBufferLen = -2;
 	const int key_string = 100;
 	const int key_integer = 200;
@@ -46,19 +62,20 @@ namespace NSCAPI {
 	const int target_module = 1;
 	const int target_any = 0;
 
-	const int message_processed	= 0x01;
-	const int message_routed	= 0x02;
-	const int message_ignored	= 0x04;
-	const int message_digested	= 0x08;
-	const int message_modified	= 0x10;
+	namespace message {
+		const int processed = 0x01;
+		const int routed = 0x02;
+		const int ignored = 0x04;
+		const int digested = 0x08;
+		const int modified = 0x10;
+		const int hasFailed = 0;
+	}
 
 	typedef int nagiosReturn;
 	typedef int boolReturn;
 	typedef int errorReturn;
 	typedef int settings_type;
 	typedef int moduleLoadMode;
-
-	const unsigned int encryption_xor = 1;
 
 	// Settings types
 	const int settings_default = 0;
@@ -81,6 +98,11 @@ namespace NSCAPI {
 	}
 
 	typedef log_level::level messageTypes;		// Message type
+
+	inline bool api_ok(const NSCAPI::errorReturn &e) {
+		return e == NSCAPI::api_return_codes::isSuccess;
+	}
+
 }
 
 namespace nscapi {

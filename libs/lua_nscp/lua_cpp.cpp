@@ -109,7 +109,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 	if (pos == -1)
 		pos = lua_gettop(L);
 	if (pos == 0)
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	switch (lua_type(L, pos)) 
 	{
 	case LUA_TNUMBER: 
@@ -117,10 +117,10 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 	case LUA_TSTRING:
 		return string_to_code(lua_tostring(L, pos));
 	case LUA_TBOOLEAN:
-		return lua_toboolean(L, pos)?NSCAPI::returnOK:NSCAPI::returnCRIT;
+		return lua_toboolean(L, pos)?NSCAPI::query_return_codes::returnOK:NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	NSC_LOG_ERROR_STD("Incorrect type: should be error, ok, warning or unknown: " + strEx::s::xtos(lua_type(L, pos)));
-	return NSCAPI::returnUNKNOWN;
+	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
 std::list<std::string> lua::lua_wrapper::get_array(const int pos) {
@@ -216,7 +216,7 @@ int lua::lua_wrapper::pop_int() {
 NSCAPI::nagiosReturn lua::lua_wrapper::pop_code() {
 	int pos = lua_gettop(L);
 	if (pos == 0)
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	NSCAPI::nagiosReturn ret = get_code(pos);
 	pop();
 	return ret;
@@ -235,16 +235,16 @@ std::list<std::string> lua::lua_wrapper::pop_array() {
 
 NSCAPI::nagiosReturn lua::lua_wrapper::string_to_code(std::string str) {
 	if ((str == "critical")||(str == "crit")||(str == "error")) {
-		return NSCAPI::returnCRIT;
+		return NSCAPI::query_return_codes::returnCRIT;
 	} else if ((str == "warning")||(str == "warn")) {
-		return NSCAPI::returnWARN;
+		return NSCAPI::query_return_codes::returnWARN;
 	} else if (str == "ok") {
-		return NSCAPI::returnOK;
+		return NSCAPI::query_return_codes::returnOK;
 	} else if (str == "unknown") {
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	NSC_LOG_ERROR_STD("Invalid code: " + str);
-	return NSCAPI::returnUNKNOWN;
+	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
 
@@ -279,22 +279,12 @@ std::string lua::lua_wrapper::get_type_as_string(int pos) {
 
 
 void lua::lua_wrapper::push_code(NSCAPI::nagiosReturn code) {
-	if (code == NSCAPI::returnOK)
+	if (code == NSCAPI::query_return_codes::returnOK)
 		lua_pushstring(L, "ok");
-	else if (code == NSCAPI::returnWARN)
+	else if (code == NSCAPI::query_return_codes::returnWARN)
 		lua_pushstring(L, "warning");
-	else if (code == NSCAPI::returnCRIT)
+	else if (code == NSCAPI::query_return_codes::returnCRIT)
 		lua_pushstring(L, "critical");
-	else
-		lua_pushstring(L, "unknown");
-}
-void lua::lua_wrapper::push_exit(NSCAPI::nagiosReturn code) {
-	if (code == NSCAPI::isSuccess)
-		lua_pushstring(L, "ok");
-	else if (code == NSCAPI::hasFailed)
-		lua_pushstring(L, "warning");
-	else if (code == NSCAPI::returnIgnored)
-		lua_pushstring(L, "ignored");
 	else
 		lua_pushstring(L, "unknown");
 }
@@ -441,14 +431,3 @@ void* lua::lua_wrapper::get_raw_userdata(std::string id) {
 	pop();
 	return ret;
 }
-/*
-void lua::lua_wrapper::newmetatable(const std::string &name)
-{
-	luaL_newmetatable(L, name.c_str());
-}
-
-void lua::lua_wrapper::register(const std::string &name, const luaL_Reg *arraylib)
-{
-	luaL_register(L, name.c_str(), arraylib);
-}
-*/

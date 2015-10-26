@@ -288,7 +288,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 				ss << "wmi Command line syntax:" << std::endl;
 				ss << desc;
 				result = ss.str();
-				return NSCAPI::isSuccess;
+				return NSCAPI::exec_return_codes::returnOK;
 			}
 
 			std::vector<std::string> args(arguments.begin(), arguments.end());
@@ -301,7 +301,7 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 				ss << "CheckWMI Command line syntax:" << std::endl;
 				ss << desc;
 				result = ss.str();
-				return NSCAPI::isSuccess;
+				return NSCAPI::exec_return_codes::returnOK;
 			}
 			simple = vm.count("simple") > 0;
 
@@ -320,10 +320,10 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 						widths.push_back(col.size());
 					}
 					result = render(headers, widths, wmiQuery.execute());
-					return NSCAPI::isSuccess;
+					return NSCAPI::exec_return_codes::returnOK;
 				} catch (const wmi_impl::wmi_exception &e) {
 					result += "ERROR: " + e.reason();
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
 			} else if (vm.count("list-classes")) {
 				try {
@@ -335,10 +335,10 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 						ss << wmi_row.get_string("__CLASS") << "\n";
 					}
 					result = ss.str();
-					return NSCAPI::isSuccess;
+					return NSCAPI::exec_return_codes::returnOK;
 				} catch (const wmi_impl::wmi_exception &e) {
 					result += "ERROR: " + e.reason();
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
 			} else if (vm.count("list-instances")) {
 				try {
@@ -350,10 +350,10 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 						ss << wmi_row.get_string("Name") << "\n";
 					}
 					result = ss.str();
-					return NSCAPI::isSuccess;
+					return NSCAPI::exec_return_codes::returnOK;
 				} catch (const wmi_impl::wmi_exception &e) {
 					result += "ERROR: " + e.reason();
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
 			} else if (vm.count("list-ns")) {
 				try {
@@ -365,11 +365,11 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 						ss << wmi_row.get_string("Name") << "\n";
 					}
 					result = ss.str();
-					return NSCAPI::isSuccess;
+					return NSCAPI::exec_return_codes::returnOK;
 				} catch (wmi_impl::wmi_exception e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
 					result += "ERROR: " + e.reason();
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
 			} else if (vm.count("list-all-ns")) {
 				try {
@@ -377,13 +377,14 @@ NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std:
 				} catch (wmi_impl::wmi_exception e) {
 					NSC_LOG_ERROR_EXR("WMIQuery failed: ", e);
 					result += "ERROR: " + e.reason();
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
 			}
+			return NSCAPI::exec_return_codes::returnOK;
 		}
-			return NSCAPI::isSuccess;
+		return NSCAPI::cmd_return_codes::returnIgnored;
 	} catch (std::exception e) {
 		result += "ERROR: " + utf8::utf8_from_native(e.what());
-		return NSCAPI::hasFailed;
+		return NSCAPI::exec_return_codes::returnERROR;
 	}
 }

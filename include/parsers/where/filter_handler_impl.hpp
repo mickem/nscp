@@ -325,12 +325,12 @@ namespace parsers {
 			std::string list_problem;
 			NSCAPI::nagiosReturn returnCode;
 
-			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::returnOK) {}
+			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::query_return_codes::returnOK) {}
 
 			void reset() {
 				count_match = count_ok = count_warn = count_crit = count_total = 0;
 				list_match = list_ok = list_warn = list_crit = "";
-				returnCode = NSCAPI::returnOK;
+				returnCode = NSCAPI::query_return_codes::returnOK;
 			}
 			void count() {
 				count_total++;

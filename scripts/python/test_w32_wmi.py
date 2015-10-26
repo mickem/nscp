@@ -38,7 +38,7 @@ class Win32WMITest(BasicTest):
 	def check_cli_ns(self):
 		result = TestResult('Checking CLI list-ns')
 		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', ['--list-all-ns', '--namespace', 'root'])
-		result.assert_equals(ret, 1, 'Check that --list-all-ns returns ok')
+		result.assert_equals(ret, 0, 'Check that --list-all-ns returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --list-all-ns returns one entry')
 		if len(ns_msgs) > 0:
 			result.assert_contains(ns_msgs[0], 'CIMV2', 'Check that --list-all-ns contains cimv2')
@@ -50,7 +50,7 @@ class Win32WMITest(BasicTest):
 		if ns != None:
 			args.extend(['--namespace', ns])
 		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
-		result.assert_equals(ret, 1, 'Check that --list-classes returns ok')
+		result.assert_equals(ret, 0, 'Check that --list-classes returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --list-classes returns one entry')
 		if len(ns_msgs) > 0:
 			result.assert_contains(ns_msgs[0], expected, 'Check that --list-classes contains %s'%expected)
@@ -63,7 +63,7 @@ class Win32WMITest(BasicTest):
 		if ns != None:
 			args.extend(['--namespace', ns])
 		(ret, ns_msgs) = self.core.simple_exec('any', 'wmi', args)
-		result.assert_equals(ret, 1, 'Check that --select returns ok')
+		result.assert_equals(ret, 0, 'Check that --select returns ok')
 		result.assert_equals(len(ns_msgs), 1, 'Check that --select returns one entry')
 		if len(ns_msgs) > 0:
 			result.add_message(count(ns_msgs[0].splitlines()), 'Check that it contains the right number of rows')

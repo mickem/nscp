@@ -117,7 +117,6 @@ namespace lua {
 		//////////////////////////////////////////////////////////////////////////
 		// push_xxx
 		void push_code(NSCAPI::nagiosReturn code);
-		void push_exit(NSCAPI::nagiosReturn code);
 		void push_string(std::string s);
 		void push_boolean(bool b);
 		void push_int(int b);

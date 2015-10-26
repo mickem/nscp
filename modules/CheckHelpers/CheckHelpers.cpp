@@ -93,7 +93,7 @@ void CheckHelpers::check_version(const Plugin::QueryRequestMessage::Request &req
 bool CheckHelpers::simple_query(const std::string &command, const std::vector<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
 	std::string local_response_buffer;
 	nscapi::core_helper ch(get_core(), get_id());
-	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::isSuccess) {
+	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		return false;
 	}
@@ -114,7 +114,7 @@ void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const
 	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, args)) 
 		return;
 	if (args.size() == 0)
-		return nscapi::protobuf::functions::set_response_bad(*response, "Needs atleas one command");
+		return nscapi::protobuf::functions::set_response_bad(*response, "Needs at least one command");
 	std::string command = args.front();
 	std::vector<std::string> arguments(args.begin()+1, args.end());
 	Plugin::QueryResponseMessage::Response local_response;
@@ -229,7 +229,7 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 struct worker_object {
 	void proc(nscapi::core_wrapper *core, int plugin_id, std::string command, std::vector<std::string> arguments) {
 		nscapi::core_helper ch(core, plugin_id);
-		ch.simple_query(command, arguments, response_buffer);
+		ret = ch.simple_query(command, arguments, response_buffer);
 	}
 	NSCAPI::nagiosReturn ret;
 	std::string response_buffer;
@@ -256,7 +256,7 @@ void CheckHelpers::check_timeout(const Plugin::QueryRequestMessage::Request &req
 	boost::shared_ptr<boost::thread> t = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&worker_object::proc, obj, get_core(), get_id(), command, arguments)));
 
 	if (t->timed_join(boost::posix_time::seconds(timeout))) {
-		if (obj.ret != NSCAPI::isSuccess) {
+		if (obj.ret != NSCAPI::query_return_codes::returnOK) {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
 		}
 		Plugin::QueryResponseMessage local_response;

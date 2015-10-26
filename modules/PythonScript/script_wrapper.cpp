@@ -17,29 +17,29 @@ nscapi::core_wrapper* get_core() {
 }
 
 script_wrapper::status script_wrapper::nagios_return_to_py(int code) {
-	if (code == NSCAPI::returnOK)
+	if (code == NSCAPI::query_return_codes::returnOK)
 		return OK;
-	if (code == NSCAPI::returnWARN)
+	if (code == NSCAPI::query_return_codes::returnWARN)
 		return WARN;
-	if (code == NSCAPI::returnCRIT)
+	if (code == NSCAPI::query_return_codes::returnCRIT)
 		return CRIT;
-	if (code == NSCAPI::returnUNKNOWN)
+	if (code == NSCAPI::query_return_codes::returnUNKNOWN)
 		return UNKNOWN;
 	NSC_LOG_ERROR_STD("Invalid return code: " + strEx::s::xtos(code));
 	return UNKNOWN;
 }
 int script_wrapper::py_to_nagios_return(status code) {
-	NSCAPI::nagiosReturn c = NSCAPI::returnUNKNOWN;
+	NSCAPI::nagiosReturn c = NSCAPI::query_return_codes::returnUNKNOWN;
 	if (code == OK)
-		return NSCAPI::returnOK;
+		return NSCAPI::query_return_codes::returnOK;
 	if (code == WARN)
-		return NSCAPI::returnWARN;
+		return NSCAPI::query_return_codes::returnWARN;
 	if (code == CRIT)
-		return NSCAPI::returnCRIT;
+		return NSCAPI::query_return_codes::returnCRIT;
 	if (code == UNKNOWN)
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	NSC_LOG_ERROR_STD("Invalid return code: "+ strEx::s::xtos(c));
-	return NSCAPI::returnUNKNOWN;
+	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
 
@@ -280,16 +280,16 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
 		functions::function_map_type::iterator it = functions::get()->normal_functions.find(cmd);
 		if (it == functions::get()->normal_functions.end()) {
 			NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
 		{
 			thread_locker locker;
 			try {
 				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), cmd, request);
 				if (ret.ptr() == Py_None) {
-					return NSCAPI::returnUNKNOWN;
+					return NSCAPI::query_return_codes::returnUNKNOWN;
 				}
-				int ret_code = NSCAPI::returnUNKNOWN;
+				int ret_code = NSCAPI::query_return_codes::returnUNKNOWN;
 				if (len(ret) > 0)
 					ret_code = extract<int>(ret[0]);
 				if (len(ret) > 1)
@@ -297,12 +297,12 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
 				return ret_code;
 			} catch( error_already_set e) {
 				log_exception();
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::query_return_codes::returnUNKNOWN;
 			}
 		}
 	} catch(...) {
 		NSC_LOG_ERROR_EX(cmd);
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 }
 
@@ -311,7 +311,7 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 		functions::function_map_type::iterator it = functions::get()->simple_functions.find(cmd);
 		if (it == functions::get()->simple_functions.end()) {
 			NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
 		{
 			thread_locker locker;
@@ -324,11 +324,13 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 				object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), l);
 				if (ret.ptr() == Py_None) {
 					msg = "None";
-					return NSCAPI::returnUNKNOWN;
+					return NSCAPI::query_return_codes::returnUNKNOWN;
 				}
-				int ret_code = NSCAPI::returnUNKNOWN;
-				if (len(ret) > 0)
+				int ret_code = NSCAPI::query_return_codes::returnUNKNOWN;
+				if (len(ret) > 0) {
 					ret_code = extract<int>(ret[0]);
+					NSC_LOG_ERROR_STD("========>: " + strEx::s::xtos(ret_code));
+				}
 				if (len(ret) > 1)
 					msg = pystr(ret[1]);
 				if (len(ret) > 2)
@@ -337,15 +339,15 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 			} catch( error_already_set e) {
 				log_exception();
 				msg = "Exception in: " + cmd;
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::query_return_codes::returnUNKNOWN;
 			}
 		}
 	} catch(const std::exception &e) {
 		msg = "Exception in " + cmd + ": " + e.what();
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	} catch(...) {
 		msg = "Exception in " + cmd;
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 }
 
@@ -361,16 +363,16 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
 		functions::function_map_type::iterator it = functions::get()->normal_cmdline.find(cmd);
 		if (it == functions::get()->normal_cmdline.end()) {
 			NSC_LOG_ERROR_STD("Failed to find python function: " + cmd);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
 		{
 			thread_locker locker;
 			try {
 				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), cmd, request);
 				if (ret.ptr() == Py_None) {
-					return NSCAPI::hasFailed;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
-				int ret_code = NSCAPI::hasFailed;
+				int ret_code = NSCAPI::exec_return_codes::returnERROR;
 				if (len(ret) > 0)
 					ret_code = extract<int>(ret[0]);
 				if (len(ret) > 1)
@@ -378,15 +380,15 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
 				return ret_code;
 			} catch( error_already_set e) {
 				log_exception();
-				return NSCAPI::hasFailed;
+				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		}
 	} catch(const std::exception &e) {
 		NSC_LOG_ERROR_EXR(cmd, e);
-		return NSCAPI::hasFailed;
+		return NSCAPI::exec_return_codes::returnERROR;
 	} catch(...) {
 		NSC_LOG_ERROR_EX(cmd);
-		return NSCAPI::hasFailed;
+		return NSCAPI::exec_return_codes::returnERROR;
 	}
 }
 
@@ -396,7 +398,7 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 		if (it == functions::get()->simple_cmdline.end()) {
 			result = "Failed to find python function: " + cmd;
 			NSC_LOG_ERROR_STD(result);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
 		{
 			thread_locker locker;
@@ -404,9 +406,9 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 				tuple ret = boost::python::call<tuple>(boost::python::object(it->second).ptr(), convert(arguments));
 				if (ret.ptr() == Py_None) {
 					result = "None";
-					return NSCAPI::returnUNKNOWN;
+					return NSCAPI::exec_return_codes::returnERROR;
 				}
-				int ret_code = NSCAPI::returnUNKNOWN;
+				int ret_code = NSCAPI::exec_return_codes::returnERROR;
 				if (len(ret) > 0)
 					ret_code = extract<int>(ret[0]);
 				if (len(ret) > 1)
@@ -415,15 +417,15 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 			} catch( error_already_set e) {
 				log_exception();
 				result = "Exception in: " + cmd;
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		}
 	} catch(const std::exception &e) {
 		result = "Exception in " + cmd + ": " + e.what();
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::exec_return_codes::returnERROR;
 	} catch(...) {
 		result = "Exception in " + cmd;
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::exec_return_codes::returnERROR;
 	}
 }
 
@@ -440,32 +442,32 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 		functions::function_map_type::iterator it = functions::get()->normal_handler.find(channel);
 		if (it == functions::get()->normal_handler.end()) {
 			NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 		{
 			thread_locker locker;
-			int ret_code = NSCAPI::returnIgnored;
+			int ret_code = NSCAPI::api_return_codes::hasFailed;
 			try {
 				object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, request);
 				if (ret.ptr() == Py_None) {
-					return NSCAPI::returnIgnored;
+					return NSCAPI::api_return_codes::hasFailed;
 				}
 				if (len(ret) > 0)
-					ret_code = extract<bool>(ret[0])?NSCAPI::isSuccess:NSCAPI::returnIgnored;
+					ret_code = extract<bool>(ret[0])?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
 				if (len(ret) > 1)
 					response = extract<std::string>(ret[1]);
 			} catch( error_already_set e) {
 				log_exception();
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::api_return_codes::hasFailed;
 			}
 			return ret_code;
 		}
 	} catch(const std::exception &e) {
 		NSC_LOG_ERROR_EXR(channel, e);
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch(...) {
 		NSC_LOG_ERROR_EX(channel);
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 int script_wrapper::function_wrapper::handle_simple_message(const std::string channel, const std::string source, const std::string command, const int code, const std::string &msg, const std::string &perf) const {
@@ -473,30 +475,30 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 		functions::function_map_type::iterator it = functions::get()->simple_handler.find(channel);
 		if (it == functions::get()->simple_handler.end()) {
 			NSC_LOG_ERROR_STD("Failed to find python handler: " + channel);
-			return NSCAPI::returnIgnored;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 		{
 			thread_locker locker;
 			try {
 				object ret = boost::python::call<object>(boost::python::object(it->second).ptr(), channel, source, command, nagios_return_to_py(code), pystr(msg), perf);
-				int ret_code = NSCAPI::returnIgnored;
+				int ret_code = NSCAPI::api_return_codes::hasFailed;
 				if (ret.ptr() == Py_None) {
-					ret_code = NSCAPI::isSuccess;
+					ret_code = NSCAPI::api_return_codes::isSuccess;
 				} else {
-					ret_code = extract<bool>(ret)?NSCAPI::isSuccess:NSCAPI::returnIgnored;
+					ret_code = extract<bool>(ret)?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
 				}
 				return ret_code;
 			} catch( error_already_set e) {
 				log_exception();
-				return NSCAPI::hasFailed;
+				return NSCAPI::api_return_codes::hasFailed;
 			}
 		}
 	} catch(const std::exception &e) {
 		NSC_LOG_ERROR_EXR(channel, e);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch(...) {
 		NSC_LOG_ERROR_EX(channel);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
@@ -554,7 +556,7 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 	}
 	std::string err;
 	nscapi::protobuf::functions::parse_simple_submit_response(response, err);
-	return boost::python::make_tuple(ret==NSCAPI::isSuccess,err);
+	return boost::python::make_tuple(ret==NSCAPI::api_return_codes::isSuccess,err);
 }
 
 bool script_wrapper::command_wrapper::reload(std::string module) {
@@ -563,7 +565,7 @@ bool script_wrapper::command_wrapper::reload(std::string module) {
 		thread_unlocker unlocker;
 		ret = core->reload(module);
 	}
-	return ret==NSCAPI::isSuccess;
+	return ret==NSCAPI::api_return_codes::isSuccess;
 }
 
 std::string script_wrapper::command_wrapper::expand_path(std::string aPath) {

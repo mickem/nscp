@@ -100,11 +100,11 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
 			output = "Command " + args.alias + " didn't terminate within the timeout period " + strEx::s::xtos(args.timeout) + "s";
-			result = NSCAPI::returnUNKNOWN;
+			result = NSCAPI::query_return_codes::returnUNKNOWN;
 		} else {
 			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {
 				output = "Failed to get commands " + args.alias + " return code: " + error::lookup::last_error();
-				result = NSCAPI::returnUNKNOWN;
+				result = NSCAPI::query_return_codes::returnUNKNOWN;
 			} else {
 				result = dwexitcode;
 			}
@@ -119,7 +119,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 		} else {
 			output = "Failed to execute " + args.alias + ": " + error::lookup::last_error(error);
 		}
-		result = NSCAPI::returnUNKNOWN;
+		result = NSCAPI::query_return_codes::returnUNKNOWN;
 		CloseHandle(hChildInR);
 		CloseHandle(hChildInW);
 		CloseHandle(hChildOutW);

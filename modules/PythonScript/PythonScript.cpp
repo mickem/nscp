@@ -417,7 +417,7 @@ void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &re
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_function(request.command())) {
 		std::string buffer;
-		if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::isSuccess) {
+		if (inst->handle_query(request.command(), request_message.SerializeAsString(), buffer) != NSCAPI::query_return_codes::returnOK) {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + request.command());
 		}
 		Plugin::QueryResponseMessage local_response;
@@ -444,7 +444,7 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_message_handler(channel)) {
 		std::string buffer;
-		if (inst->handle_message(channel, request_message.SerializeAsString(), buffer) == NSCAPI::isSuccess) {
+		if (inst->handle_message(channel, request_message.SerializeAsString(), buffer) == NSCAPI::api_return_codes::isSuccess) {
 			Plugin::SubmitResponseMessage local_response;
 			local_response.ParseFromString(buffer);
 			if (local_response.payload_size() == 1) {
@@ -456,7 +456,7 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 	if (inst->has_simple_message_handler(channel)) {
 		BOOST_FOREACH(::Plugin::QueryResponseMessage_Response_Line line, request.lines()) {
 			std::string perf = nscapi::protobuf::functions::build_performance_data(line);
-			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::isSuccess)
+			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::api_return_codes::isSuccess)
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
 		}
 		return nscapi::protobuf::functions::set_response_good(*response, "");

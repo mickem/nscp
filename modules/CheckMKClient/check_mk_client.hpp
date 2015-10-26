@@ -80,10 +80,10 @@ namespace check_mk_client {
 			obj->packet = packet;
 			if (instance.pcall(args, LUA_MULTRET, 0) != 0) {
 				NSC_LOG_ERROR_STD("Failed to process check_mk result: " + instance.pop_string());
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::query_return_codes::returnUNKNOWN;
 			}
 			instance.gc(LUA_GCCOLLECT, 0);
-			return NSCAPI::returnUNKNOWN;
+			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 
 

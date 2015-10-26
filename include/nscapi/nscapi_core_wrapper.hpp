@@ -84,14 +84,14 @@ namespace nscapi {
 		NSCAPI::log_level::level get_loglevel() const ;
 		void DestroyBuffer(char**buffer) const;
 		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
-		NSCAPI::nagiosReturn query(const std::string & request, std::string & result) const ;
+		bool query(const std::string & request, std::string & result) const ;
 
 		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		NSCAPI::nagiosReturn exec_command(const std::string target, std::string request, std::string & result);
+		bool exec_command(const std::string target, std::string request, std::string & result);
 
 		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		NSCAPI::errorReturn submit_message(std::string channel, std::string request, std::string &response);
-		NSCAPI::errorReturn reload(std::string module) const;
+		bool submit_message(std::string channel, std::string request, std::string &response);
+		bool reload(std::string module) const;
 
 		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
 		bool json_to_protobuf(const std::string & request, std::string & result) const ;
@@ -101,7 +101,7 @@ namespace nscapi {
 		bool checkLogMessages(int type);
 
 		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
-		NSCAPI::errorReturn registry_query(const std::string request, std::string &response) const;
+		bool registry_query(const std::string request, std::string &response) const;
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 		void set_alias(const std::string default_alias, const std::string alias);

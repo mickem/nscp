@@ -716,13 +716,13 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 	if (module.size() > 8 && module.substr(0,8) == "delayed,") {
 		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
 		delayed_thread.detach();
-		return NSCAPI::isSuccess;
+		return NSCAPI::api_return_codes::isSuccess;
 	} else if (module.size() > 6 && module.substr(0,6) == "delay,") {
 		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
 		delayed_thread.detach();
-		return NSCAPI::isSuccess;
+		return NSCAPI::api_return_codes::isSuccess;
 	} else {
-		return do_reload(false, module)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+		return NSCAPI::api_ok(do_reload(false, module));
 	}
 }
 
@@ -842,12 +842,12 @@ NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string argument
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_query_request(command, args, request);
 	NSCAPI::nagiosReturn ret = injectRAW(request, response);
-	if (ret == NSCAPI::hasFailed && response.empty()) {
+	if (ret == NSCAPI::cmd_return_codes::hasFailed && response.empty()) {
 		msg = "Failed to execute: " + command;
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	} else if (response.empty()) {
 		msg = "No data returned from: " + command;
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 }
@@ -915,13 +915,13 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 			payload->set_command(missing_commands);
 			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
 			response = response_message.SerializeAsString();
-			return NSCAPI::hasFailed;
+			return NSCAPI::cmd_return_codes::hasFailed;
 		}
 
 		BOOST_FOREACH(command_chunk_type::value_type &v, command_chunks) {
 			std::string local_response;
 			int ret = v.second.plugin->handleCommand(v.second.request.SerializeAsString(), local_response);
-			if (ret != NSCAPI::isSuccess) {
+			if (ret != NSCAPI::cmd_return_codes::isSuccess) {
 				LOG_ERROR_CORE("Failed to execute command");
 			} else {
 				Plugin::QueryResponseMessage local_response_message;
@@ -937,12 +937,12 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 		response = response_message.SerializeAsString();
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE("Failed to process command: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
+		return NSCAPI::cmd_return_codes::hasFailed;
 	} catch (...) {
 		LOG_ERROR_CORE("Failed to process command: ");
-		return NSCAPI::hasFailed;
+		return NSCAPI::cmd_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::cmd_return_codes::isSuccess;
 }
 
 
@@ -1009,7 +1009,7 @@ int exec_helper(NSClientT::plugin_type plugin, std::string command, std::vector<
 	if (!plugin || !plugin->has_command_line_exec())
 		return -1;
 	int ret = plugin->commandLineExec(true, request, response);
-	if (ret != NSCAPI::returnIgnored && !response.empty())
+	if (ret != NSCAPI::cmd_return_codes::returnIgnored && !response.empty())
 		responses->push_back(response);
 	return ret;
 }
@@ -1033,7 +1033,7 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 		} catch (std::exception &e) {
 			resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 			LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::returnUNKNOWN;
+			return NSCAPI::cmd_return_codes::hasFailed;
 		}
 	}
 	BOOST_FOREACH(const std::string &e, errors) {
@@ -1043,7 +1043,7 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 	return ret;
 }
 int query_helper(NSClientT::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
-	return NSCAPI::returnIgnored;
+	return NSCAPI::cmd_return_codes::returnIgnored;
 // 	std::string response;
 // 	if (!plugin->hasCommandHandler())
 // 		return NSCAPI::returnIgnored;
@@ -1064,7 +1064,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	if (!plugin) {
 		LOG_ERROR_CORE("No handler for command: " + command + " available commands: " + commands_.to_string());
 		resp.push_back("No handler for command: " + command);
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	std::string response;
 	ret = plugin->handleCommand(request, response);
@@ -1075,7 +1075,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	} catch (std::exception &e) {
 		resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
 		LOG_ERROR_CORE_STD("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	BOOST_FOREACH(const std::string &e, errors) {
 		LOG_ERROR_CORE_STD(e);
@@ -1108,12 +1108,12 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 						std::string respbuffer;
 						LOG_DEBUG_CORE_STD("Executing command in: " + p->getName());
 						NSCAPI::nagiosReturn r = p->commandLineExec(! (match_all || match_any), request, respbuffer);
-						if (r != NSCAPI::returnIgnored && !respbuffer.empty()) {
+						if (r != NSCAPI::cmd_return_codes::returnIgnored && !respbuffer.empty()) {
 							LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
 							found = true;
 							if (match_any) {
 								response = respbuffer;
-								return NSCAPI::returnOK;
+								return NSCAPI::exec_return_codes::returnOK;
 							}
 							responses.push_back(respbuffer);
 						}
@@ -1138,8 +1138,8 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 	}
 	response_message.SerializeToString(&response);
 	if (found)
-		return NSCAPI::isSuccess;
-	return NSCAPI::returnIgnored;
+		return NSCAPI::cmd_return_codes::isSuccess;
+	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
 
@@ -1149,60 +1149,60 @@ NSCAPI::errorReturn NSClientT::reroute(std::string &channel, std::string &buffer
 		char *new_buffer;
 		unsigned int new_buffer_len;
 		int status = p->route_message(channel.c_str(), buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
-		if ((status&NSCAPI::message_modified) == NSCAPI::message_modified) {
+		if ((status&NSCAPI::message::modified) == NSCAPI::message::modified) {
 			buffer = std::string(new_buffer, new_buffer_len);
 			p->deleteBuffer(&new_buffer);
 		}
-		if ((status&NSCAPI::message_routed) == NSCAPI::message_routed) {
+		if ((status&NSCAPI::message::routed) == NSCAPI::message::routed) {
 			channel = new_channel_buffer;
 			//p->deleteBuffer(new_channel_buffer);
-			return NSCAPI::message_routed;
+			return NSCAPI::message::routed;
 		}
-		if ((status&NSCAPI::message_ignored) == NSCAPI::message_ignored)
-			return NSCAPI::message_ignored;
-		if ((status&NSCAPI::message_digested) == NSCAPI::message_digested)
-			return NSCAPI::message_ignored;
+		if ((status&NSCAPI::message::ignored) == NSCAPI::message::ignored)
+			return NSCAPI::message::ignored;
+		if ((status&NSCAPI::message::digested) == NSCAPI::message::digested)
+			return NSCAPI::message::ignored;
 	}
-	return NSCAPI::isfalse;
+	return NSCAPI::message::hasFailed;
 }
 
 NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const char* channel) {
 	channels_.register_listener(plugin_id, channel);
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const char* channel) {
 	try {
 		routers_.register_listener(plugin_id, channel);
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE("Failed to register channel: " + utf8::cvt<std::string>(channel) + ": " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::string &request, std::string &response) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 
 	std::string schannel = channel;
 	try {
 		int count = 0;
-		while (reroute(schannel, request)==NSCAPI::message_routed && count++ <= 10) {
+		while (reroute(schannel, request)==NSCAPI::message::routed && count++ <= 10) {
 			LOG_DEBUG_CORE_STD("Re-routing message to: " + schannel);
 		}
 		if (count >= 10) {
 			LOG_ERROR_CORE("More then 10 routes, discarding message...");
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 	} catch (nsclient::plugins_list_exception &e) {
 		LOG_ERROR_CORE("Error routing channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch (...) {
 		LOG_ERROR_CORE("Error routing channel: " + schannel);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 
 	bool found = false;
@@ -1214,28 +1214,27 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 				LOG_INFO_CORE("Logging notification: " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i)));
 			}
 			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", NSCAPI::isSuccess, "seems ok", response);
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO",  Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
 			continue;
 		}
 		try {
-			//LOG_ERROR_CORE_STD(_T("Notifying: ") + strEx::strip_hex(to_wstring(std::string(result,result_len))));
 			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
 				p->handleNotification(cur_chan.c_str(), request, response);
 				found = true;
 			}
 		} catch (nsclient::plugins_list_exception &e) {
 			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		} catch (...) {
 			LOG_ERROR_CORE("No handler for channel: " + schannel);
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 	}
 	if (!found) {
 		LOG_ERROR_CORE("No handler for channel: " + schannel);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 NSClientT::plugin_type NSClientT::find_plugin(const unsigned int plugin_id) {
@@ -1799,13 +1798,13 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 		*response_buffer_len = response.ByteSize();
 		*response_buffer = new char[*response_buffer_len + 10];
 		response.SerializeToArray(*response_buffer, *response_buffer_len);
-		return NSCAPI::isSuccess;
+		return NSCAPI::api_return_codes::isSuccess;
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE_STD("Settings error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		LOG_ERROR_CORE_STD("Settings error");
 	}
-	return NSCAPI::hasFailed;
+	return NSCAPI::api_return_codes::hasFailed;
 }
 
 boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem::path path, const std::string filename) {
@@ -2141,15 +2140,15 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		response.SerializeToArray(*response_buffer, *response_buffer_len);
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD("Failed query: " + e.reason());
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE_STD("Failed query: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch (...) {
 		LOG_ERROR_CORE("Failed query");
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 struct metrics_fetcher {

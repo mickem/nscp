@@ -68,7 +68,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	if (fp == NULL) {
 		close(fd[0]);
 		output = "NRPE: Call to popen() failed";
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 	} else {
 		buffer_type buffer(BUFFER_SIZE);
 		while ( (bytes_read=fread(buffer.get(),1,buffer.size()-1,fp)) >0 ) {
@@ -80,7 +80,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 
 		int status = pclose(fp);
 		if (status == -1 || !WIFEXITED(status))
-			result = NSCAPI::returnUNKNOWN;
+			result = NSCAPI::query_return_codes::returnUNKNOWN;
 		else
 			result=WEXITSTATUS(status);
 	}

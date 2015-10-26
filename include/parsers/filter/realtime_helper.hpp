@@ -102,7 +102,7 @@ namespace parsers {
 			void process_timeout(const container_type item) {
 				std::string response;
 				nscapi::core_helper ch(core, plugin_id);
-				if (!ch.submit_simple_message(item->target, item->source_id, item->target_id, item->command, NSCAPI::returnOK, item->timeout_msg, "", response)) {
+				if (!ch.submit_simple_message(item->target, item->source_id, item->target_id, item->command, NSCAPI::query_return_codes::returnOK, item->timeout_msg, "", response)) {
 					NSC_LOG_ERROR("Failed to submit result: " + response);
 				}
 			}

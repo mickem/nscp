@@ -305,8 +305,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 
 	std::string response;
 	nscapi::core_helper ch(get_core(), get_id());
-	NSCAPI::nagiosReturn ret = ch.simple_query(cmd.first, args, response);
-	if (ret != NSCAPI::isSuccess) {
+	if (!ch.simple_query(cmd.first, args, response)) {
 		log_bad_command(cmd.first);
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
 	}

@@ -168,7 +168,7 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	std::list<nrpe::packet> packets;
 	strEx::s::token cmd = strEx::s::getToken(p.getPayload(), '!');
 	if (cmd.first == "_NRPE_CHECK") {
-		packets.push_back(nrpe::packet::create_response(NSCAPI::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
+		packets.push_back(nrpe::packet::create_response(NSCAPI::query_return_codes::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
 		return packets;
 	}
 	if (!allowArgs_) {
@@ -197,14 +197,10 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 			ret = ch.simple_query_from_nrpe(utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_)), utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_)), wmsg, wperf);
 		}
 		switch (ret) {
-		case NSCAPI::returnInvalidBufferLen:
-			throw nrpe::nrpe_exception("UNKNOWN: Return buffer to small to handle this command.");
-		case NSCAPI::returnIgnored:
-			throw nrpe::nrpe_exception("UNKNOWN: No handler for that command.");
-		case NSCAPI::returnOK:
-		case NSCAPI::returnWARN:
-		case NSCAPI::returnCRIT:
-		case NSCAPI::returnUNKNOWN:
+		case NSCAPI::query_return_codes::returnOK:
+		case NSCAPI::query_return_codes::returnWARN:
+		case NSCAPI::query_return_codes::returnCRIT:
+		case NSCAPI::query_return_codes::returnUNKNOWN:
 			break;
 		default:
 			throw nrpe::nrpe_exception("UNKNOWN: Internal error.");
@@ -240,7 +236,7 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 			packets.push_back(nrpe::packet::create_response(ret, data, p.get_payload_length()));
 		}
 	} catch (...) {
-		packets.push_back(nrpe::packet::create_response(NSCAPI::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
+		packets.push_back(nrpe::packet::create_response(NSCAPI::query_return_codes::returnUNKNOWN, "UNKNOWN: Internal exception", p.get_payload_length()));
 		return packets;
 	}
 

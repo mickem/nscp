@@ -101,7 +101,7 @@ NSCP::Core::Result^ CoreImpl::submit(String^ channel, protobuf_data^ request) {
 	return ret;
 }
 bool CoreImpl::reload(String^ module) {
-	return get_core()->reload(to_nstring(module)) == NSCAPI::isSuccess;
+	return get_core()->reload(to_nstring(module)) == NSCAPI::api_return_codes::isSuccess;
 }
 NSCP::Core::Result^ CoreImpl::settings(protobuf_data^ request) {
 	NSCP::Core::Result^ ret= gcnew NSCP::Core::Result();
@@ -183,7 +183,7 @@ bool internal_plugin_instance::unload_plugin() {
 int internal_plugin_instance::onCommand(std::string command, std::string request, std::string &response) {
 	NSCP::Core::IQueryHandler^ handler = plugin->getQueryHandler();
 	if (!handler->isActive())
-		return NSCAPI::returnIgnored;
+		return NSCAPI::cmd_return_codes::returnIgnored;
 	NSCP::Core::Result^ result = handler->onQuery(to_mstring(command), to_pbd(request));
 	response = to_nstring(result->data);
 	return result->result;
@@ -192,7 +192,7 @@ int internal_plugin_instance::onCommand(std::string command, std::string request
 int internal_plugin_instance::onSubmit(std::wstring channel, std::string request, std::string &response) {
 	NSCP::Core::ISubmissionHandler ^handler = plugin->getSubmissionHandler();
 	if (!handler->isActive())
-		return NSCAPI::returnIgnored;
+		return NSCAPI::cmd_return_codes::returnIgnored;
 	NSCP::Core::Result^ result = handler->onSubmission(to_mstring(channel), to_pbd(request));
 	response = to_nstring(result->data);
 	return result->result;

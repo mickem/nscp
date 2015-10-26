@@ -237,12 +237,8 @@ namespace client {
 				std::list<std::string> result;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
 				NSCAPI::nagiosReturn ret = helper.exec_simple_command(target, cmd, args, result);
-				if (ret == NSCAPI::returnIgnored) {
-					handler->output_message("No handler for command: " + cmd);
-				} else {
-					BOOST_FOREACH(const std::string &s, result)
-						handler->output_message(s);
-				}
+				BOOST_FOREACH(const std::string &s, result)
+					handler->output_message(s);
 			} catch (const std::exception &e) {
 				handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
@@ -256,13 +252,9 @@ namespace client {
 				std::string msg, perf;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
 				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, msg, perf);
-				if (ret == NSCAPI::returnIgnored) {
-					handler->output_message("No handler for command: " + cmd);
-				} else {
-					handler->output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
-					if (!perf.empty())
-						handler->output_message(" Performance data: " + perf);
-				}
+				handler->output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
+				if (!perf.empty())
+					handler->output_message(" Performance data: " + perf);
 			} catch (const std::exception &e) {
 				handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {

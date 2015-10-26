@@ -184,12 +184,12 @@ void SimpleFileWriter::handleNotification(const std::string &, const Plugin::Que
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to get lock");
 			return;
 		}
 		std::ofstream out;
 		out.open(filename_.c_str(), std::ios::out|std::ios::app);
 		out << key << std::endl;
 	}
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been written");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_OK, "message has been written");
 }

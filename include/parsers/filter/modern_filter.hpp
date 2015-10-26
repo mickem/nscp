@@ -355,7 +355,7 @@ namespace modern_filter {
 			return engine_filter;
 		}
 		void start_match() {
-			summary.returnCode = NSCAPI::returnOK;
+			summary.returnCode = NSCAPI::query_return_codes::returnOK;
 			has_matched = false;
 			summary.reset();
 		}
@@ -483,7 +483,7 @@ namespace modern_filter {
 		std::string get_message() {
 			if (!summary.has_matched() && !renderer_empty.empty())
 				return renderer_empty.render(context);
-			if (summary.returnCode == NSCAPI::returnOK && !renderer_ok.empty())
+			if (summary.returnCode == NSCAPI::query_return_codes::returnOK && !renderer_ok.empty())
 				return renderer_ok.render(context);
 			return renderer_top.render(context);
 		}

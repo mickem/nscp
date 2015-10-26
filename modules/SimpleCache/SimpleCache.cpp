@@ -182,12 +182,12 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::hasFailed, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to get lock");
 			return;
 		}
 		cache_[key] = data;
 	}
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), NSCAPI::isSuccess, "message has been cached");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_OK, "message has been cached");
 }
 
 void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

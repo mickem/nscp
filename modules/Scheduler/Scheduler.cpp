@@ -92,17 +92,26 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 	try {
 		std::string response;
 		nscapi::core_helper ch(get_core(), get_id());
-		NSCAPI::nagiosReturn code = ch.simple_query(item.command.c_str(), item.arguments, response);
-		if (code == NSCAPI::returnIgnored) {
-			NSC_LOG_ERROR_WA("Command was not found: ", item.command);
+		if (!ch.simple_query(item.command.c_str(), item.arguments, response)) {
+			NSC_LOG_ERROR("Failed to execute: " + item.command);
 			if (item.channel.empty()) {
 				NSC_LOG_ERROR_WA("No channel specified for ", item.alias);
 				return;
 			}
-			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::returnUNKNOWN, "Command was not found: " + item.command, "", response);
+			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item.command, "", response);
 			std::string result;
 			get_core()->submit_message(item.channel, response, result);
-		} else if (nscapi::report::matches(item.report, code)) {
+			return;
+		}
+		Plugin::QueryResponseMessage resp_msg;
+		resp_msg.ParseFromString(response);
+		Plugin::QueryResponseMessage resp_msg_send;
+		resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
+		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
+			if (nscapi::report::matches(item.report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result())))
+				resp_msg_send.add_payload()->CopyFrom(p);
+		}
+		if (resp_msg_send.payload_size() > 0) {
 			if (item.channel.empty()) {
 				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.alias) + " mssage will not be sent.");
 				return;
@@ -111,19 +120,17 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id, item.source_id);
 			std::string result;
-			NSCAPI::errorReturn ret = get_core()->submit_message(item.channel, response, result);
-			if (ret != NSCAPI::isSuccess) {
+			if (!get_core()->submit_message(item.channel, response, result)) {
 				NSC_LOG_ERROR_STD("Failed to submit: " + item.alias);
 				return;
 			}
 			std::string error;
-			ret = nscapi::protobuf::functions::parse_simple_submit_response(result, error);
-			if (ret != NSCAPI::isSuccess) {
+			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
 				NSC_LOG_ERROR_STD("Failed to submit " + item.alias + ": "  + error);
 				return;
 			}
 		} else {
-			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported " + nscapi::report::to_string(item.report) + " != " + nscapi::plugin_helper::translateReturn(code));
+			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported");
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);

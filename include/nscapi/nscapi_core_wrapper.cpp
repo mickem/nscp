@@ -115,12 +115,12 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) const {
 	return fNSAPIDestroyBuffer(buffer);
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) {
+bool nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn ret = submit_message(channel.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool ret = NSCAPI::api_ok(submit_message(channel.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
@@ -130,10 +130,10 @@ NSCAPI::errorReturn nscapi::core_wrapper::submit_message(std::string channel, st
 	return ret;
 }
 
-NSCAPI::errorReturn nscapi::core_wrapper::reload(std::string module) const {
+bool nscapi::core_wrapper::reload(std::string module) const {
 	if (!fNSAPIReload)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	return fNSAPIReload(module.c_str());
+	return NSCAPI::api_ok(fNSAPIReload(module.c_str()));
 }
 NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
 {
@@ -142,12 +142,12 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, c
 	return fNSAPINotify(channel, request, request_len, response, response_len);
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, std::string & result) const {
+bool nscapi::core_wrapper::query(const std::string & request, std::string & result) const {
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
 	if (buffer_size > 0 && buffer != NULL) {
 		//PluginCommand::ResponseMessage rsp_msg;
@@ -155,24 +155,24 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const std::string & request, st
 	}
 
 	DestroyBuffer(&buffer);
-	if (retC != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR("Failed to execute command");
+	if (!retC) {
+		CORE_LOG_ERROR("Failed to execute query");
 	}
 	return retC;
 }
 
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
+bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::nagiosReturn retC = exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 
 	if (buffer_size > 0 && buffer != NULL) {
 		result = std::string(buffer, buffer_size);
 	}
 
 	DestroyBuffer(&buffer);
-	if (retC != NSCAPI::isSuccess) {
-		CORE_LOG_ERROR("Failed to execute command on " + target + ": " + strEx::s::xtos(retC));
+	if (!retC) {
+		CORE_LOG_ERROR("Failed to execute command on " + target);
 	}
 	return retC;
 }
@@ -188,9 +188,9 @@ std::string nscapi::core_wrapper::expand_path(std::string value) {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	char *buffer = new char[buf_len+1];
-	if (fNSAPIExpandPath(value.c_str(), buffer, buf_len) != NSCAPI::isSuccess) {
+	if (!NSCAPI::api_ok(fNSAPIExpandPath(value.c_str(), buffer, buf_len))) {
 		delete [] buffer;
-		throw nscapi::nscapi_exception("Settings could not be retrieved.");
+		throw nscapi::nscapi_exception("Failed to expand path: " + value);
 	}
 	std::string ret = buffer;
 	delete [] buffer;
@@ -204,12 +204,12 @@ NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, co
 bool nscapi::core_wrapper::settings_query(const std::string request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = settings_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(settings_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
 	DestroyBuffer(&buffer);
-	return retC == NSCAPI::isSuccess;
+	return retC;
 }
 
 NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
@@ -217,10 +217,10 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const char *request, co
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIRegistryQuery(request, request_len, response, response_len);
 }
-NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string request, std::string &response) const {
+bool nscapi::core_wrapper::registry_query(const std::string request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = registry_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(registry_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
@@ -231,12 +231,12 @@ NSCAPI::errorReturn nscapi::core_wrapper::registry_query(const std::string reque
 bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = json_to_protobuf(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(json_to_protobuf(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
 	DestroyBuffer(&buffer);
-	return retC == NSCAPI::isSuccess;
+	return retC;
 }
 
 NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
@@ -248,12 +248,12 @@ NSCAPI::errorReturn nscapi::core_wrapper::protobuf_to_json(const char *object, c
 bool nscapi::core_wrapper::protobuf_to_json(const std::string &object, const std::string &request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
-	NSCAPI::errorReturn retC = protobuf_to_json(object.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size);
+	bool retC = NSCAPI::api_ok(protobuf_to_json(object.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
 	if (buffer_size > 0 && buffer != NULL) {
 		response = std::string(buffer, buffer_size);
 	}
 	DestroyBuffer(&buffer);
-	return retC == NSCAPI::isSuccess;
+	return retC;
 }
 
 NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
@@ -272,7 +272,7 @@ std::string nscapi::core_wrapper::getApplicationName() {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	char *buffer = new char[buf_len+1];
-	if (fNSAPIGetApplicationName(buffer, buf_len) != NSCAPI::isSuccess) {
+	if (!NSCAPI::api_ok(fNSAPIGetApplicationName(buffer, buf_len))) {
 		delete [] buffer;
 		throw nscapi::nscapi_exception("Application name could not be retrieved");
 	}
@@ -284,7 +284,7 @@ std::string nscapi::core_wrapper::getApplicationName() {
 bool nscapi::core_wrapper::checkLogMessages(int type) {
 	if (!fNSAPICheckLogMessages)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	return fNSAPICheckLogMessages(type) == NSCAPI::istrue;
+	return NSCAPI::api_ok(fNSAPICheckLogMessages(type));
 }
 /**
 * Retrieve the application version as a string (in human readable format) from the core.
@@ -296,7 +296,7 @@ std::string nscapi::core_wrapper::getApplicationVersionString() {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	char *buffer = new char[buf_len+1];
-	if (fNSAPIGetApplicationVersionStr(buffer, buf_len) != NSCAPI::isSuccess) {
+	if (NSCAPI::api_ok(fNSAPIGetApplicationVersionStr(buffer, buf_len))) {
 		delete [] buffer;
 		return "";
 	}

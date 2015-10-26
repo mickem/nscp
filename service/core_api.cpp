@@ -44,18 +44,18 @@
 
 NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer,unsigned int bufLen) {
 	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::isSuccess);
+		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 	} catch (...) {
 		LOG_ERROR_STD("Failed to getString: " + utf8::cvt<std::string>(key));
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
 NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(APPLICATION_NAME), NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(APPLICATION_NAME), NSCAPI::api_return_codes::isSuccess);
 }
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char *buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(CURRENT_SERVICE_VERSION), NSCAPI::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(CURRENT_SERVICE_VERSION), NSCAPI::api_return_codes::isSuccess);
 }
 void NSAPISimpleMessage(const char* module, int loglevel, const char* file, int line, const char* message) {
 	nsclient::logging::logger::get_logger()->log(module, loglevel, file, line, message);
@@ -119,7 +119,7 @@ NSCAPI::errorReturn NSAPIReload(const char *module) {
 		return mainClient->reload(module);
 	} catch (...) {
 		LOG_ERROR_STD("Reload failed");
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
@@ -199,7 +199,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		std::string response;
 		if (object_type.empty()) {
 			LOG_ERROR_STD("Missing type or payload.");
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		} else if (object_type == "SettingsRequestMessage") {
 			Plugin::SettingsRequestMessage request_message;
 			json_pb::Plugin::SettingsRequestMessage::to_pb(&request_message, o);
@@ -210,7 +210,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			response = request_message.SerializeAsString();
 		} else {
 			LOG_ERROR_STD("Missing type or payload.");
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 		*response_buffer_len = static_cast<unsigned int>(response.size());
 		if (response.empty())
@@ -221,9 +221,9 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		}
 	} catch (const json_spirit::ParseError &e) {
 		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
@@ -244,7 +244,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			root = json_pb::Plugin::QueryResponseMessage::to_json(message);
 		} else {
 			LOG_ERROR_STD("Invalid type: " + obj);
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 		std::string response = json_spirit::write(root);
 		*response_buffer_len = static_cast<unsigned int>(response.size());
@@ -256,9 +256,9 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 		}
 	} catch (const json_spirit::ParseError &e) {
 		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
-		return NSCAPI::hasFailed;
+		return NSCAPI::api_return_codes::hasFailed;
 	}
-	return NSCAPI::isSuccess;
+	return NSCAPI::api_return_codes::isSuccess;
 }
 #else
 NSCAPI::errorReturn NSCAPIJson2protobuf(const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {

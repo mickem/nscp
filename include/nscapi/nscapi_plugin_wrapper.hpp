@@ -91,33 +91,33 @@ namespace nscapi {
 
 		static int NSModuleHelperInit(nscapi::core_api::lpNSAPILoader f) {
 			try { 
-				return nscapi::plugin_singleton->get_core()->load_endpoints(f)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+				return nscapi::plugin_singleton->get_core()->load_endpoints(f)?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: wrapModuleHelperInit");
-				return NSCAPI::hasFailed; 
+				return NSCAPI::api_return_codes::hasFailed;
 			} 
 		}
 		static void set_alias(const char *default_alias, const char *alias) {
 			nscapi::plugin_singleton->get_core()->set_alias(default_alias, alias);
 		}
 		static int NSLoadModule() { 
-			return NSCAPI::hasFailed; 
+			return NSCAPI::api_return_codes::hasFailed; 
 		} 
 		static int NSGetModuleName(char* buf, int buflen) { 
 			try {
-				return helpers::wrap_string(buf, buflen, impl_class::getModuleName(), NSCAPI::isSuccess);
+				return helpers::wrap_string(buf, buflen, impl_class::getModuleName(), NSCAPI::api_return_codes::isSuccess);
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleName");
 			} 
-			return NSCAPI::hasFailed; 
+			return NSCAPI::api_return_codes::hasFailed; 
 		} 
 		static int NSGetModuleDescription(char* buf, int buflen) { 
 			try { 
-				return helpers::wrap_string(buf, buflen, impl_class::getModuleDescription(), NSCAPI::isSuccess);
+				return helpers::wrap_string(buf, buflen, impl_class::getModuleDescription(), NSCAPI::api_return_codes::isSuccess);
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleDescription");
 			} 
-			return NSCAPI::hasFailed; 
+			return NSCAPI::api_return_codes::hasFailed; 
 		} 
 		static int NSGetModuleVersion(int *major, int *minor, int *revision) { 
 			try { 
@@ -125,11 +125,11 @@ namespace nscapi {
 				*major = version.major;
 				*minor = version.minor;
 				*revision = version.revision;
-				return NSCAPI::isSuccess;
+				return NSCAPI::api_return_codes::isSuccess;
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: NSGetModuleVersion");
 			} 
-			return NSCAPI::hasFailed; 
+			return NSCAPI::api_return_codes::hasFailed; 
 		}
 		static void NSDeleteBuffer(char** buffer) { 
 			try {
@@ -152,20 +152,20 @@ namespace nscapi {
 			} catch (...) {
 				NSC_LOG_CRITICAL("Unknown exception in: NSLoadModuleEx");
 			} 
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		} 
 		int NSLoadModuleExNoExcept(unsigned int id, char* alias, int mode) { 
 			instance->set_id(id);
-			return instance->loadModuleEx(alias, mode)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+			return instance->loadModuleEx(alias, mode)?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
 		} 
 		int NSUnloadModule() { 
 			try { 
 				if (instance && instance->unloadModule())
-					return NSCAPI::isSuccess;
+					return NSCAPI::api_return_codes::hasFailed;
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: NSUnloadModule");
 			} 
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 	};
 	template<class impl_class>
@@ -182,11 +182,11 @@ namespace nscapi {
 		NSCAPI::boolReturn NSHasMessageHandler() { 
 			try {
 				if (instance->hasMessageHandler())
-					return NSCAPI::istrue;
+					return NSCAPI::bool_return::istrue;
 			} catch (...) { 
 				NSC_LOG_CRITICAL("Unknown exception in: NSHasMessageHandler");
 			} 
-			return NSCAPI::isfalse; 
+			return NSCAPI::bool_return::isfalse; 
 		}
 	};
 	template<class impl_class>
@@ -205,21 +205,21 @@ namespace nscapi {
 				return retCode;
 			} catch (const std::exception &e) { 
 				NSC_LOG_ERROR_EXR("NSHandleCommand", e);
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::cmd_return_codes::hasFailed;
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSHandleCommand");
-				return NSCAPI::returnUNKNOWN;
+				return NSCAPI::cmd_return_codes::hasFailed;
 			} 
-			return NSCAPI::returnIgnored; 
+			return NSCAPI::cmd_return_codes::returnIgnored; 
 		} 
 		NSCAPI::boolReturn NSHasCommandHandler() { 
 			try { 
 				if (instance->hasCommandHandler())
-					return NSCAPI::istrue;
+					return NSCAPI::bool_return::istrue;
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSHasCommandHandler");
 			} 
-			return NSCAPI::isfalse; 
+			return NSCAPI::bool_return::isfalse; 
 		}
 	};
 
@@ -237,16 +237,16 @@ namespace nscapi {
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSRouteMessage");
 			} 
-			return NSCAPI::returnIgnored; 
+			return NSCAPI::cmd_return_codes::returnIgnored; 
 		} 
 		NSCAPI::boolReturn NSHasRoutingHandler() { 
 			try { 
 				if (instance->hasRoutingHandler())
-					return NSCAPI::istrue;
+					return NSCAPI::bool_return::istrue;
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSHasRoutingHandler");
 			} 
-			return NSCAPI::isfalse; 
+			return NSCAPI::bool_return::isfalse; 
 		}
 	};
 
@@ -267,16 +267,16 @@ namespace nscapi {
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSHandleNotification");
 			} 
-			return NSCAPI::returnIgnored; 
+			return NSCAPI::cmd_return_codes::hasFailed; 
 		} 
 		NSCAPI::boolReturn NSHasNotificationHandler() { 
 			try { 
 				if (instance->hasNotificationHandler())
-					return NSCAPI::istrue;
+					return NSCAPI::bool_return::istrue;
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSHasNotificationHandler");
 			} 
-			return NSCAPI::isfalse; 
+			return NSCAPI::bool_return::isfalse; 
 		}
 	};
 
@@ -296,7 +296,7 @@ namespace nscapi {
 			} catch (...) { 
 				NSC_LOG_ERROR_EX("NSCommandLineExec");
 			} 
-			return NSCAPI::hasFailed; 
+			return NSCAPI::cmd_return_codes::hasFailed; 
 		} 
 	};
 
@@ -318,7 +318,7 @@ namespace nscapi {
 			catch (...) {
 				NSC_LOG_ERROR_EX("NSFetchMetrics");
 			}
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 		int NSSubmitMetrics(const char *buffer, const unsigned int buffer_len) {
 			try {
@@ -331,7 +331,7 @@ namespace nscapi {
 			catch (...) {
 				NSC_LOG_ERROR_EX("NSFetchMetrics");
 			}
-			return NSCAPI::hasFailed;
+			return NSCAPI::api_return_codes::hasFailed;
 		}
 	};
 

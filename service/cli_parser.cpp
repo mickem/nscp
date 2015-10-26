@@ -466,7 +466,7 @@ struct client_arguments {
 			}
 			if (mode == client_arguments::query) {
 				ret = core_->simple_query(module, command, arguments, resp);
-				if (ret == NSCAPI::returnIgnored) {
+				if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 					resp.push_back("Command not found: " + command);
 					std::string commands;
 					BOOST_FOREACH(const std::string &c, core_->list_commands()) {
@@ -476,12 +476,12 @@ struct client_arguments {
 				}
 			} else if (mode == client_arguments::exec || mode == client_arguments::combined) {
 				ret = core_->simple_exec(module + "." + command, arguments, resp);
-				if (ret == NSCAPI::returnIgnored) {
+				if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 					ret = 1;
 					resp.push_back("Command not found: " + command);
 					core_->simple_exec("help", arguments, resp);
 				} else if (mode == client_arguments::combined) {
-					if (ret == NSCAPI::returnOK) {
+					if (ret == NSCAPI::exec_return_codes::returnOK) {
 						core_->reload("service");
 						ret = core_->simple_query(module, combined_query, arguments, resp);
 					} else {
@@ -503,10 +503,10 @@ struct client_arguments {
 			return ret;
 		} catch(const std::exception & e) {
 			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
-			return 1;
+			return NSCAPI::exec_return_codes::returnERROR;
 		} catch(...) {
 			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
-			return 1;
+			return NSCAPI::exec_return_codes::returnERROR;
 		}
 	}
 };

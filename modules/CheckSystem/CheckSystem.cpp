@@ -325,7 +325,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			ss << "system helper Command line syntax:" << std::endl;
 			ss << desc;
 			result = ss.str();
-			return NSCAPI::returnOK;
+			return NSCAPI::exec_return_codes::returnOK;
 		}
 
 		std::vector<std::string> args(arguments.begin(), arguments.end());
@@ -347,7 +347,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			ss << "system helper Command line syntax:" << std::endl;
 			ss << desc;
 			result = ss.str();
-			return NSCAPI::returnCRIT;
+			return NSCAPI::exec_return_codes::returnERROR;
 		}
 
 
@@ -355,13 +355,13 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			if (all) {
 				// If we specified all list all counters
 				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
-				return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+				return render_list(lst, validate, porcelain, counter, result)?NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 			} else {
 				if (vm.count("counter")) {
 					// If we specify a counter object we will only list instances of that
 					PDH::Enumerations::Objects lst;
 					lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
-					return render_list(lst, validate, porcelain, counter, result)?NSCAPI::isSuccess:NSCAPI::hasFailed;
+					return render_list(lst, validate, porcelain, counter, result)?NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 				} else {
 					// If we specify no query we will list all configured counters 
 					int count = 0, match = 0;
@@ -402,7 +402,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 					}
 				}
 			}
-			return NSCAPI::isSuccess;
+			return NSCAPI::exec_return_codes::returnOK;
 		} else if (vm.count("lookup-index")) {
 			try {
 				DWORD dw = PDH::PDHResolver::lookupIndex(lookup);
@@ -415,7 +415,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 				}
 			} catch (const PDH::pdh_exception &e) {
 				result += "Index not found: " + lookup + ": " + e.reason() + "\n";
-				return NSCAPI::hasFailed;
+				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		} else if (vm.count("lookup-name")) {
 			try {
@@ -429,7 +429,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 				}
 			} catch (const PDH::pdh_exception &e) {
 				result += "Failed to lookup index: " + e.reason();
-				return NSCAPI::hasFailed;
+				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		} else if (vm.count("expand-path")) {
 			try {
@@ -445,17 +445,17 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 				}
 			} catch (const PDH::pdh_exception &e) {
 				result += "Failed to lookup index: " + e.reason();
-				return NSCAPI::hasFailed;
+				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		} else {
 			std::stringstream ss;
 			ss << "pdh Command line syntax:" << std::endl;
 			ss << desc;
 			result = ss.str();
-			return NSCAPI::isSuccess;
 		}
+		return NSCAPI::exec_return_codes::returnOK;
 	}
-	return 0;
+	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
 void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

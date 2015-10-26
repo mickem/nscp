@@ -44,12 +44,12 @@ namespace scripts {
 			core_provider_impl(nscapi::core_wrapper* core) : core_(core) {}
 
 			virtual bool submit_simple_message(const std::string channel, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);
-			virtual NSCAPI::nagiosReturn simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf);
-			virtual NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
-			virtual NSCAPI::nagiosReturn exec_command(const std::string target, const std::string &request, std::string &response);
-			virtual NSCAPI::nagiosReturn query(const std::string &request, std::string &response);
-			virtual NSCAPI::nagiosReturn submit(const std::string target, const std::string &request, std::string &response);
-			virtual NSCAPI::nagiosReturn reload(const std::string module);
+			virtual bool simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf);
+			virtual bool exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
+			virtual bool exec_command(const std::string target, const std::string &request, std::string &response);
+			virtual bool query(const std::string &request, std::string &response);
+			virtual bool submit(const std::string target, const std::string &request, std::string &response);
+			virtual bool reload(const std::string module);
 			virtual void log(NSCAPI::log_level::level, const std::string file, int line, const std::string message);
 
 		};

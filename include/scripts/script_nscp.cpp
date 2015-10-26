@@ -72,45 +72,45 @@ bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string 
 {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
-	bool ret = core_->submit_message(channel, request, response) == NSCAPI::isSuccess;
+	bool ret = core_->submit_message(channel, request, response);
 	nscapi::protobuf::functions::parse_simple_submit_response(response, result);
 	return ret;
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf)
+bool scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf)
 {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_query_request(command, argument, request);
-	bool ret = core_->query(request, response) == NSCAPI::isSuccess;
+	bool ret = core_->query(request, response);
 	nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
 	return ret;
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result)
+bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result)
 {
 	std::string request, response;
 	nscapi::protobuf::functions::create_simple_exec_request(target, command, argument, request);
-	bool ret = core_->exec_command(target, request, response) == NSCAPI::isSuccess;
+	bool ret = core_->exec_command(target, request, response);
 	nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 	return ret;
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::exec_command(const std::string target, const std::string &request, std::string &response)
+bool scripts::nscp::core_provider_impl::exec_command(const std::string target, const std::string &request, std::string &response)
 {
 	return core_->exec_command(target, request, response);
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::query(const std::string &request, std::string &response)
+bool scripts::nscp::core_provider_impl::query(const std::string &request, std::string &response)
 {
 	return core_->query(request, response);
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::submit(const std::string target, const std::string &request, std::string &response)
+bool scripts::nscp::core_provider_impl::submit(const std::string target, const std::string &request, std::string &response)
 {
 	return core_->submit_message(target, request, response);
 }
 
-NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::reload(const std::string module)
+bool scripts::nscp::core_provider_impl::reload(const std::string module)
 {
 	return core_->reload(module);
 }

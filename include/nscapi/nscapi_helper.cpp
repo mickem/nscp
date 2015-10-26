@@ -47,11 +47,11 @@ unsigned int nscapi::report::parse(std::string str) {
 }
 bool nscapi::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 	return (
-		(code == NSCAPI::returnOK && ((report&REPORT_OK)==REPORT_OK) ) ||
-		(code == NSCAPI::returnCRIT && ((report&REPORT_ERROR)==REPORT_ERROR) ) ||
-		(code == NSCAPI::returnWARN && ((report&REPORT_WARNING)==REPORT_WARNING) ) ||
-		(code == NSCAPI::returnUNKNOWN && ((report&REPORT_UNKNOWN)==REPORT_UNKNOWN) ) ||
-		( (code != NSCAPI::returnOK) && (code != NSCAPI::returnCRIT) && (code != NSCAPI::returnWARN) && (code != NSCAPI::returnUNKNOWN) )
+		(code == NSCAPI::query_return_codes::returnOK && ((report&REPORT_OK)==REPORT_OK) ) ||
+		(code == NSCAPI::query_return_codes::returnCRIT && ((report&REPORT_ERROR)==REPORT_ERROR) ) ||
+		(code == NSCAPI::query_return_codes::returnWARN && ((report&REPORT_WARNING)==REPORT_WARNING) ) ||
+		(code == NSCAPI::query_return_codes::returnUNKNOWN && ((report&REPORT_UNKNOWN)==REPORT_UNKNOWN) ) ||
+		( (code != NSCAPI::query_return_codes::returnOK) && (code != NSCAPI::query_return_codes::returnCRIT) && (code != NSCAPI::query_return_codes::returnWARN) && (code != NSCAPI::query_return_codes::returnUNKNOWN) )
 		);
 }
 
@@ -141,10 +141,10 @@ int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, s
 }
 
 bool nscapi::plugin_helper::isNagiosReturnCode(NSCAPI::nagiosReturn code) {
-	return ( (code == NSCAPI::returnOK) || (code == NSCAPI::returnWARN) || (code == NSCAPI::returnCRIT) || (code == NSCAPI::returnUNKNOWN) );
+	return ( (code == NSCAPI::query_return_codes::returnOK) || (code == NSCAPI::query_return_codes::returnWARN) || (code == NSCAPI::query_return_codes::returnCRIT) || (code == NSCAPI::query_return_codes::returnUNKNOWN) );
 }
 bool nscapi::plugin_helper::isMyNagiosReturn(NSCAPI::nagiosReturn code) {
-	return code == NSCAPI::returnCRIT || code == NSCAPI::returnOK || code == NSCAPI::returnWARN || code == NSCAPI::returnUNKNOWN  || code == NSCAPI::returnInvalidBufferLen || code == NSCAPI::returnIgnored;
+	return code == NSCAPI::query_return_codes::returnCRIT || code == NSCAPI::query_return_codes::returnOK || code == NSCAPI::query_return_codes::returnWARN || code == NSCAPI::query_return_codes::returnUNKNOWN;
 }
 NSCAPI::nagiosReturn nscapi::plugin_helper::int2nagios(int code) {
 	return code;
@@ -153,11 +153,11 @@ int nscapi::plugin_helper::nagios2int(NSCAPI::nagiosReturn code) {
 	return code;
 }
 void nscapi::plugin_helper::escalteReturnCodeToCRIT(NSCAPI::nagiosReturn &currentReturnCode) {
-	currentReturnCode = NSCAPI::returnCRIT;
+	currentReturnCode = NSCAPI::query_return_codes::returnCRIT;
 }
 void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &currentReturnCode) {
-	if (currentReturnCode != NSCAPI::returnCRIT)
-		currentReturnCode = NSCAPI::returnWARN;
+	if (currentReturnCode != NSCAPI::query_return_codes::returnCRIT)
+		currentReturnCode = NSCAPI::query_return_codes::returnWARN;
 }
 
 /**
@@ -166,13 +166,13 @@ void nscapi::plugin_helper::escalteReturnCodeToWARN(NSCAPI::nagiosReturn &curren
 * @return
 */
 std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCode) {
-	if (returnCode == NSCAPI::returnOK)
+	if (returnCode == NSCAPI::query_return_codes::returnOK)
 		return "OK";
-	else if (returnCode == NSCAPI::returnCRIT)
+	else if (returnCode == NSCAPI::query_return_codes::returnCRIT)
 		return "CRITICAL";
-	else if (returnCode == NSCAPI::returnWARN)
+	else if (returnCode == NSCAPI::query_return_codes::returnWARN)
 		return "WARNING";
-	else if (returnCode == NSCAPI::returnUNKNOWN)
+	else if (returnCode == NSCAPI::query_return_codes::returnUNKNOWN)
 		return "UNKNOWN";
 	else
 		return "BAD_CODE: " + strEx::s::xtos(returnCode);
@@ -184,13 +184,13 @@ std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCo
 */
 NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 	if ((str == "OK") || (str == "ok"))
-		return NSCAPI::returnOK;
+		return NSCAPI::query_return_codes::returnOK;
 	else if ((str == "CRITICAL") || (str == "critical"))
-		return NSCAPI::returnCRIT;
+		return NSCAPI::query_return_codes::returnCRIT;
 	else if ((str == "WARNING") || (str == "warning"))
-		return NSCAPI::returnWARN;
+		return NSCAPI::query_return_codes::returnWARN;
 	else
-		return NSCAPI::returnUNKNOWN;
+		return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 /**
 * Returns the biggest of the two states
@@ -200,13 +200,13 @@ NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 * @return
 */
 NSCAPI::nagiosReturn nscapi::plugin_helper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b) {
-	if (a == NSCAPI::returnCRIT || b == NSCAPI::returnCRIT)
-		return NSCAPI::returnCRIT;
-	else if (a == NSCAPI::returnWARN || b == NSCAPI::returnWARN)
-		return NSCAPI::returnWARN;
-	else if (a == NSCAPI::returnOK || b == NSCAPI::returnOK)
-		return NSCAPI::returnOK;
-	else if (a == NSCAPI::returnUNKNOWN || b == NSCAPI::returnUNKNOWN)
-		return NSCAPI::returnUNKNOWN;
-	return NSCAPI::returnUNKNOWN;
+	if (a == NSCAPI::query_return_codes::returnCRIT || b == NSCAPI::query_return_codes::returnCRIT)
+		return NSCAPI::query_return_codes::returnCRIT;
+	else if (a == NSCAPI::query_return_codes::returnWARN || b == NSCAPI::query_return_codes::returnWARN)
+		return NSCAPI::query_return_codes::returnWARN;
+	else if (a == NSCAPI::query_return_codes::returnOK || b == NSCAPI::query_return_codes::returnOK)
+		return NSCAPI::query_return_codes::returnOK;
+	else if (a == NSCAPI::query_return_codes::returnUNKNOWN || b == NSCAPI::query_return_codes::returnUNKNOWN)
+		return NSCAPI::query_return_codes::returnUNKNOWN;
+	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
