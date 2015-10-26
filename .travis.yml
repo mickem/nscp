@@ -8,21 +8,27 @@ script:
   - make
 after_success:
   - ctest --output-on-failure || exit 1
-before_install:
-  - sudo apt-get update -y
-  - sudo apt-get install -y git 
-  - sudo apt-get install -y build-essential
-  - sudo apt-get install -y cmake
-  - sudo apt-get install -y python python-dev
-  - sudo apt-get install -y libssl-dev 
-  - sudo apt-get install -y libboost-all-dev
-  - sudo apt-get install -y protobuf-compiler python-protobuf libprotobuf-dev
-  - sudo apt-get install -y python-sphinx
-  - sudo apt-get install -y libcrypto++-dev libcrypto++
-  - sudo apt-get install -y liblua5.1-0-dev
-  - sudo apt-get install -y libgtest-dev
-  - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
-  - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
+addons:
+  apt:
+    sources:
+    - git
+    - build-essential
+    - cmake
+    - python
+    - python-dev
+    - libssl-dev 
+    - libboost-all-dev
+    - protobuf-compiler
+    - python-protobuf
+    - libprotobuf-dev
+    - python-sphinx
+    - libcrypto++-dev
+    - libcrypto++
+    - liblua5.1-0-dev
+    - libgtest-dev
+#before_install:
+#  - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
+#  - sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py
 sudo: false
 notifications:
  irc:
