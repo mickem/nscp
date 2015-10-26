@@ -37,8 +37,6 @@ void NSAPISimpleMessage(const char* module, int loglevel, const char* file, int 
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType);
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen);
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t* inBuffer, unsigned int inBufLen, wchar_t* outBuf, unsigned int *outBufLen);
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* buffer, unsigned int buffer_len, char ** result_buffer, unsigned int *result_buffer_len);
 void NSAPIDestroyBuffer(char**);
 NSCAPI::errorReturn NSAPIExpandPath(const char*,char*,unsigned int);

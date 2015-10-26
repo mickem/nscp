@@ -281,39 +281,6 @@ std::string nscapi::core_wrapper::getApplicationName() {
 	return ret;
 }
 
-std::wstring nscapi::core_wrapper::Encrypt(std::wstring str, unsigned int algorithm) {
-	if (!fNSAPIEncrypt)
-		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	unsigned int len = 0;
-	// @todo investigate potential problems with static_cast<unsigned int>
-	fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
-	len+=2;
-	wchar_t *buf = new wchar_t[len+1];
-	NSCAPI::errorReturn ret = fNSAPIEncrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
-	if (ret == NSCAPI::isSuccess) {
-		std::wstring ret = buf;
-		delete [] buf;
-		return ret;
-	}
-	return std::wstring();
-}
-std::wstring nscapi::core_wrapper::Decrypt(std::wstring str, unsigned int algorithm) {
-	if (!fNSAPIDecrypt)
-		throw nscapi::nscapi_exception("NSCore has not been initiated...");
-	unsigned int len = 0;
-	// @todo investigate potential problems with: static_cast<unsigned int>(str.size())
-	fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), NULL, &len);
-	len+=2;
-	wchar_t *buf = new wchar_t[len+1];
-	NSCAPI::errorReturn ret = fNSAPIDecrypt(algorithm, str.c_str(), static_cast<unsigned int>(str.size()), buf, &len);
-	if (ret == NSCAPI::isSuccess) {
-		std::wstring ret = buf;
-		delete [] buf;
-		return ret;
-	}
-	return std::wstring();
-}
-
 bool nscapi::core_wrapper::checkLogMessages(int type) {
 	if (!fNSAPICheckLogMessages)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
@@ -358,8 +325,6 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSAPIDestroyBuffer = (nscapi::core_api::lpNSAPIDestroyBuffer)f("NSAPIDestroyBuffer");
 	fNSAPINotify = (nscapi::core_api::lpNSAPINotify)f("NSAPINotify");
 	fNSAPICheckLogMessages = (nscapi::core_api::lpNSAPICheckLogMessages)f("NSAPICheckLogMessages");
-	fNSAPIDecrypt = (nscapi::core_api::lpNSAPIDecrypt)f("NSAPIDecrypt");
-	fNSAPIEncrypt = (nscapi::core_api::lpNSAPIEncrypt)f("NSAPIEncrypt");
 	fNSAPIReload = (nscapi::core_api::lpNSAPIReload)f("NSAPIReload");
 
 	fNSAPISettingsQuery = (nscapi::core_api::lpNSAPISettingsQuery)f("NSAPISettingsQuery");

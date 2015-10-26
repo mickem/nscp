@@ -40,8 +40,6 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPINotify fNSAPINotify;
 		nscapi::core_api::lpNSAPIReload fNSAPIReload;
 		nscapi::core_api::lpNSAPICheckLogMessages fNSAPICheckLogMessages;
-		nscapi::core_api::lpNSAPIEncrypt fNSAPIEncrypt;
-		nscapi::core_api::lpNSAPIDecrypt fNSAPIDecrypt;
 		nscapi::core_api::lpNSAPISettingsQuery fNSAPISettingsQuery;
 		nscapi::core_api::lpNSAPIExpandPath fNSAPIExpandPath;
 		nscapi::core_api::lpNSAPIGetLoglevel fNSAPIGetLoglevel;
@@ -63,8 +61,6 @@ namespace nscapi {
 			, fNSAPINotify(NULL)
 			, fNSAPIReload(NULL)
 			, fNSAPICheckLogMessages(NULL)
-			, fNSAPIEncrypt(NULL)
-			, fNSAPIDecrypt(NULL)
 			, fNSAPISettingsQuery(NULL)
 			, fNSAPIExpandPath(NULL)
 			, fNSAPIGetLoglevel(NULL)
@@ -103,8 +99,6 @@ namespace nscapi {
 		bool protobuf_to_json(const std::string &object, const std::string & request, std::string & result) const ;
 
 		bool checkLogMessages(int type);
-		std::wstring Encrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
-		std::wstring Decrypt(std::wstring str, unsigned int algorithm = NSCAPI::encryption_xor);
 
 		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		NSCAPI::errorReturn registry_query(const std::string request, std::string &response) const;

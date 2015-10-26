@@ -98,22 +98,6 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
 
-NSCAPI::errorReturn NSAPIEncrypt(unsigned int algorithm, const wchar_t*, unsigned int, wchar_t*, unsigned int*) {
-	if (algorithm != NSCAPI::encryption_xor) {
-		LOG_ERROR("Unknown algortihm requested.");
-		return NSCAPI::hasFailed;
-	}
-
-	return NSCAPI::isSuccess;
-}
-
-NSCAPI::errorReturn NSAPIDecrypt(unsigned int algorithm, const wchar_t*, unsigned int, wchar_t*, unsigned int *) {
-	if (algorithm != NSCAPI::encryption_xor) {
-		LOG_ERROR("Unknown algortihm requested.");
-		return NSCAPI::hasFailed;
-	}
-	return NSCAPI::isSuccess;
-}
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	return mainClient->settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
@@ -154,10 +138,6 @@ void* NSAPILoader(const char* buffer) {
 		return reinterpret_cast<void*>(&NSAPIExecCommand);
 	if (strcmp(buffer, "NSAPICheckLogMessages") == 0)
 		return reinterpret_cast<void*>(&NSAPICheckLogMessages);
-	if (strcmp(buffer, "NSAPIEncrypt") == 0)
-		return reinterpret_cast<void*>(&NSAPIEncrypt);
-	if (strcmp(buffer, "NSAPIDecrypt") == 0)
-		return reinterpret_cast<void*>(&NSAPIDecrypt);
 	if (strcmp(buffer, "NSAPINotify") == 0)
 		return reinterpret_cast<void*>(&NSAPINotify);
 	if (strcmp(buffer, "NSAPIDestroyBuffer") == 0)
