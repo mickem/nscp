@@ -43,6 +43,8 @@
           <Publish Property="NRPEMODE" Value="LEGACY">MONITORING_TOOL="OP5"</Publish>
           <Publish Property="INSTALL_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
           <Publish Property="GENERATE_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
+          <Publish Property="CONFIGURATION_TYPE" Value="registry://HKEY_LOCAL_MACHINE/software/NSClient++">MONITORING_TOOL="OP5"</Publish>
+		  
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
