@@ -48,7 +48,9 @@
 #include <breakpad/breakpad_config.hpp>
 #include <breakpad/exception_handler_win32.hpp>
 #include <client/windows/handler/exception_handler.h>
-
+#ifdef WIN32
+#include <ServiceCmd.h>
+#endif
 #include <boost/foreach.hpp>
 
 // Some simple string typedefs
@@ -205,13 +207,23 @@ static bool MinidumpCallback(const wchar_t *minidump_folder, const wchar_t *mini
 			run_command(this_ptr, path, "send", minidump_path, this_ptr->target());
 	}
 
+#ifdef WIN32
 	if (this_ptr->is_restart()) {
 		std::vector<std::string> commands;
+		try {
+			if (!serviceControll::isStarted(utf8::cvt<std::wstring>(this_ptr->service()))) {
+				report_error("Service not started, not restarting...");
+				return true;
+			}
+		} catch (...) {
+			report_error("Failed to check service state");
+		}
 		commands.push_back(path);
 		commands.push_back("restart");
 		commands.push_back(this_ptr->service());
 		run_proc(build_commandline(commands));
 	}
+#endif
 	return true;
 }
 
