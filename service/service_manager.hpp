@@ -31,7 +31,7 @@ namespace nsclient {
 				std::cout << str << std::endl;
 			}
 			inline void print_error(std::string str) {
-				std::cerr << "ERROR: " << str << std::endl;
+				std::cerr << "ERROR: " << utf8::to_encoding(str, "") << std::endl;
 			}
 		public:
 			int install(std::string service_description) {

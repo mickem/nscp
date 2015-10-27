@@ -169,6 +169,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
 }
 
 int cli_parser::parse(int argc, char* argv[]) {
+	setlocale(LC_ALL, "");
 	handler_map handlers = get_handlers();
 	alias_map aliases = get_aliases();
 	if (argc > 1 && argv[1][0] != L'-') {
