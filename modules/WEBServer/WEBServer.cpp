@@ -115,7 +115,7 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 
 class cli_handler : public client::cli_handler {
 	nscapi::core_wrapper* core;
-    int plugin_id;
+	int plugin_id;
 public:
 	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
@@ -464,12 +464,12 @@ public:
 		}
 
 		boost::filesystem::path file = base / request.getUrl();
-        if(!boost::filesystem::is_regular_file(file)) {
-            NSC_LOG_ERROR("Failed to find: " + file.string());
-            sr->setCode(404);
-            *sr << "Not found: " << request.getUrl();
-            return sr;
-        }
+		if(!boost::filesystem::is_regular_file(file)) {
+			NSC_LOG_ERROR("Failed to find: " + file.string());
+			sr->setCode(404);
+			*sr << "Not found: " << request.getUrl();
+			return sr;
+		}
 
 		if (is_js)
 			sr->setHeader("Content-Type", "application/javascript");
@@ -592,8 +592,8 @@ public:
 
 
 	Response *process(Request &request) {
-        if (!handles(request.getMethod(), request.getUrl()))
-            return NULL;
+		if (!handles(request.getMethod(), request.getUrl()))
+			return NULL;
 		StreamResponse *response = new StreamResponse();
 		std::string url = request.getUrl();
 		if (boost::algorithm::starts_with(url, "/query/")) {
@@ -645,8 +645,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors;
- 		socket_helpers::validate_certificate(certificate, errors);
- 		NSC_LOG_ERROR_LISTS(errors);
+		socket_helpers::validate_certificate(certificate, errors);
+		NSC_LOG_ERROR_LISTS(errors);
 		std::string path = get_core()->expand_path("${web-path}");
 		if(!boost::filesystem::is_regular_file(certificate) && port == "8443s")
 			port = "8080";
@@ -655,7 +655,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		if(!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {
-            NSC_DEBUG_MSG("Using certificate: " + certificate);
+			NSC_DEBUG_MSG("Using certificate: " + certificate);
 			server->setOption("ssl_certificate", certificate);
 		}
 		server->registerController(new BaseController(password, get_core(), get_id()));
