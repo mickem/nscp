@@ -17,11 +17,10 @@ namespace sh = nscapi::settings_helper;
 
 namespace schedules {
 	struct schedule_object : public nscapi::settings_objects::object_instance_interface {
-
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
 		schedule_object(std::string alias, std::string path) : parent(alias, path), report(0), id(0) {}
-		schedule_object(const schedule_object& other) 
+		schedule_object(const schedule_object& other)
 			: parent(other)
 			, source_id(other.source_id)
 			, target_id(other.target_id)
@@ -29,9 +28,7 @@ namespace schedules {
 			, channel(other.channel)
 			, report(other.report)
 			, command(other.command)
-			, arguments(other.arguments)
-		{
-		}
+			, arguments(other.arguments) {}
 
 		// Schedule keys
 		std::string source_id;
@@ -59,19 +56,18 @@ namespace schedules {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss <<alias << "[" << id << "] = "
+			ss << alias << "[" << id << "] = "
 				<< "{tpl: " << parent::to_string()
-				<< ", command: " << command 
-				<< ", channel: " << channel 
+				<< ", command: " << command
+				<< ", channel: " << channel
 				<< ", source_id: " << source_id
-				<< ", target_id: " << target_id 
+				<< ", target_id: " << target_id
 				<< ", duration: " << duration.total_seconds()
 				<< "}";
 			return ss.str();
 		}
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
-
 			parent::read(proxy, oneliner, is_sample);
 
 			set_command(value);
@@ -89,53 +85,47 @@ namespace schedules {
 			root_path.add_key()
 
 				("command", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_command, this, _1)),
-				"SCHEDULE COMMAND", "Command to execute", is_def)
+					"SCHEDULE COMMAND", "Command to execute", is_def)
 
 				("target", sh::string_key(&target_id),
-				"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
+					"TARGET", "The target to send the message to (will be resolved by the consumer)", true)
 				("source", sh::string_key(&source_id),
-				"SOURCE", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
+					"SOURCE", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
 
 				;
 			if (is_def) {
 				root_path.add_key()
 
 					("channel", sh::string_key(&channel, "NSCA"),
-					"SCHEDULE CHANNEL", "Channel to send results on")
+						"SCHEDULE CHANNEL", "Channel to send results on")
 
 					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1), "5m"),
-					"SCHEDULE INTERAVAL", "Time in seconds between each check")
+						"SCHEDULE INTERAVAL", "Time in seconds between each check")
 
 					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1), "all"),
-					"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
+						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
 
 					;
 			} else {
 				root_path.add_key()
 					("channel", sh::string_key(&channel),
-					"SCHEDULE CHANNEL", "Channel to send results on")
+						"SCHEDULE CHANNEL", "Channel to send results on")
 
 					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1)),
-					"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
+						"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
 
 					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1)),
-					"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
+						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
 
 					;
-
 			}
-
 
 			settings.register_all();
 			settings.notify();
-
 		}
-
-
 	};
 
 	typedef boost::optional<schedule_object> optional_target_object;
 
 	typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
 }
-

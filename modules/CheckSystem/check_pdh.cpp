@@ -23,7 +23,7 @@
 
 #include <map>
 #include <set>
- 
+
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
@@ -40,10 +40,8 @@ namespace po = boost::program_options;
 
 void foo() {
 	check_pdh::counter_config_object *a = new check_pdh::counter_config_object("", "");
-
 }
 namespace check_pdh {
-
 	void counter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 		parent::read(proxy, oneliner, is_sample);
 		if (!value.empty())
@@ -58,24 +56,23 @@ namespace check_pdh {
 		if (is_sample)
 			root_path.set_sample();
 
-
 		root_path.add_path()
 			("COUNTER", "Definition for counter: " + alias)
 			;
 
 		root_path.add_key()
 			("collection strategy", sh::string_key(&collection_strategy),
-			"COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
+				"COLLECTION STRATEGY", "The way to handled values when collecting them: static means we keep the last known value, rrd means we store values in a buffer from which you can retrieve the average")
 			("counter", sh::string_key(&counter),
-			"COUNTER", "The counter to check")
+				"COUNTER", "The counter to check")
 			("instances", sh::string_key(&instances),
-			"TODO", "TODO")
+				"TODO", "TODO")
 			("buffer size", sh::string_key(&buffer_size),
-			"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
+				"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
 			("type", sh::string_key(&type),
-			"COUNTER TYPE", "The type of counter to use long, large and double")
+				"COUNTER TYPE", "The type of counter to use long, large and double")
 			("flags", sh::string_key(&flags),
-			"FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
+				"FLAGS", "Extra flags to configure the counter (nocap100, 1000, noscale)")
 			;
 
 		settings.register_all();
@@ -147,7 +144,7 @@ namespace check_pdh {
 
 		PDH::PDHQuery pdh;
 		std::list<PDH::pdh_instance> free_counters;
-		typedef std::map<std::string,std::string> counter_list;
+		typedef std::map<std::string, std::string> counter_list;
 		counter_list named_counters;
 
 		bool has_counter = false;
@@ -181,11 +178,11 @@ namespace check_pdh {
 		BOOST_FOREACH(const std::string &s, extra) {
 			try {
 				std::string counter, alias;
-				if ((s.size() > 8) && (s.substr(0,8) == "counter:")) {
+				if ((s.size() > 8) && (s.substr(0, 8) == "counter:")) {
 					std::string::size_type pos = s.find('=');
 					if (pos != std::string::npos) {
-						alias = s.substr(8,pos-8);
-						counter = s.substr(pos+1);
+						alias = s.substr(8, pos - 8);
+						counter = s.substr(pos + 1);
 					} else
 						return nscapi::protobuf::functions::set_response_bad(*response, "Invalid option: " + s);
 				} else
@@ -229,13 +226,13 @@ namespace check_pdh {
 		}
 		BOOST_FOREACH(const counter_list::value_type &vc, named_counters) {
 			try {
-				typedef std::map<std::string,double> value_list_type;
+				typedef std::map<std::string, double> value_list_type;
 
 				value_list_type values;
 				if (time.empty()) {
 					values = collector->get_value(vc.second);
 				} else {
-					values = collector->get_average(vc.second, strEx::stoui_as_time(time)/1000);
+					values = collector->get_average(vc.second, strEx::stoui_as_time(time) / 1000);
 				}
 				if (values.empty())
 					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
@@ -273,8 +270,4 @@ namespace check_pdh {
 		}
 		filter_helper.post_process(filter);
 	}
-
 }
-
-
-

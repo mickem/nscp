@@ -53,5 +53,4 @@ public:
 private:
 	void add_command(std::string key, std::string args);
 	void add_target(std::string key, std::string args);
-
 };

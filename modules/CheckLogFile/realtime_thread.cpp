@@ -28,7 +28,6 @@
 typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 
 void real_time_thread::thread_proc() {
-
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
@@ -67,17 +66,17 @@ void real_time_thread::thread_proc() {
 	NSC_DEBUG_MSG_STD("Subscribing to folders: " + strEx::s::joinEx(logs, ", "));
 	std::vector<std::string> files_list(logs.begin(), logs.end());
 #ifdef WIN32
-	HANDLE *handles = new HANDLE[1+logs.size()];
+	HANDLE *handles = new HANDLE[1 + logs.size()];
 	handles[0] = stop_event_;
-	for (int i=0;i<files_list.size();i++) {
-		handles[i+1] = FindFirstChangeNotification(utf8::cvt<std::wstring>(files_list[i]).c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
+	for (int i = 0; i < files_list.size(); i++) {
+		handles[i + 1] = FindFirstChangeNotification(utf8::cvt<std::wstring>(files_list[i]).c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
 	}
 #else
 
-	struct pollfd pollfds[2] = { { inotify_init(), POLLIN|POLLPRI, 0}, { stop_event_[0], POLLIN, 0}};
+	struct pollfd pollfds[2] = { { inotify_init(), POLLIN | POLLPRI, 0}, { stop_event_[0], POLLIN, 0} };
 
 	int *wds = new int[logs.size()];
-	for (std::size_t i=0;i<files_list.size();i++) {
+	for (std::size_t i = 0; i < files_list.size(); i++) {
 		wds[i] = inotify_add_watch(pollfds[0].fd, files_list[i].c_str(), IN_MODIFY);
 	}
 
@@ -93,38 +92,37 @@ void real_time_thread::thread_proc() {
 			dwWaitTime = 0;
 		else if (dur)
 			dwWaitTime = dur->total_milliseconds();
-		DWORD dwWaitReason = WaitForMultipleObjects(logs.size()+1, handles, FALSE, dwWaitTime);
+		DWORD dwWaitReason = WaitForMultipleObjects(logs.size() + 1, handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			// we take care of this below...
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
-			delete [] handles;
+			delete[] handles;
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + files_list.size())) {
-			FindNextChangeNotification(handles[dwWaitReason-WAIT_OBJECT_0]);
+			FindNextChangeNotification(handles[dwWaitReason - WAIT_OBJECT_0]);
 		}
 #else
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
 
-		int timeout = 1000*60;
+		int timeout = 1000 * 60;
 		if (dur)
 			timeout = dur->total_milliseconds();
 		char buffer[BUF_LEN];
 		int length = poll(pollfds, 2, timeout);
-		if(!length) {
+		if (!length) {
 			continue;
-		} else if(length < 0) {
+		} else if (length < 0) {
 			NSC_LOG_ERROR("read failed!");
 			continue;
-		}
-		else if (pollfds[1].revents != 0) {
+		} else if (pollfds[1].revents != 0) {
 			return;
 		} else if (pollfds[0].revents != 0) {
-			length = read(pollfds[0].fd, buffer, BUF_LEN);  
-			for (int j=0;j<length;) {
+			length = read(pollfds[0].fd, buffer, BUF_LEN);
+			for (int j = 0; j < length;) {
 				struct inotify_event * event = (struct inotify_event *) &buffer[j];
-				std::wstring wstr = utf8::cvt<std::wstring>( event->name);
+				std::wstring wstr = utf8::cvt<std::wstring>(event->name);
 				j += EVENT_SIZE + event->len;
 			}
 		} else {
@@ -135,9 +133,9 @@ void real_time_thread::thread_proc() {
 	}
 
 #ifdef WIN32
-	delete [] handles;
+	delete[] handles;
 #else
-	for (std::size_t i=0;i<files_list.size();i++) {
+	for (std::size_t i = 0; i < files_list.size(); i++) {
 		inotify_rm_watch(pollfds[0].fd, wds[i]);
 	}
 	close(pollfds[0].fd);
@@ -146,12 +144,11 @@ void real_time_thread::thread_proc() {
 	return;
 }
 
-
 bool real_time_thread::start() {
 	if (!enabled_)
 		return true;
 #ifdef WIN32
- 	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
 #else
 	pipe(stop_event_);
 #endif
@@ -160,7 +157,7 @@ bool real_time_thread::start() {
 }
 bool real_time_thread::stop() {
 #ifdef WIN32
- 	SetEvent(stop_event_);
+	SetEvent(stop_event_);
 #else
 	write(stop_event_[1], " ", 4);
 #endif

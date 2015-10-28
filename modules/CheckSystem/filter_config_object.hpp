@@ -16,25 +16,21 @@
 #include "filter.hpp"
 
 namespace filters {
-
 	struct file_container {
 		std::string file;
 		boost::uintmax_t size;
 	};
 
-
 	struct filter_config_object : public nscapi::settings_objects::object_instance_interface {
-
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
 		nscapi::settings_filters::filter_object filter;
 		std::string check;
 		std::list<std::string> data;
 
-		filter_config_object(std::string alias, std::string path) 
-			: parent(alias, path) 
-			, filter("TODO", "TODO", "NSCA")
-		{}
+		filter_config_object(std::string alias, std::string path)
+			: parent(alias, path)
+			, filter("TODO", "TODO", "NSCA") {}
 
 		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
 
@@ -46,4 +42,3 @@ namespace filters {
 
 	typedef nscapi::settings_objects::object_handler<filter_config_object> filter_config_handler;
 }
-

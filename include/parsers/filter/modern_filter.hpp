@@ -19,17 +19,12 @@ namespace parsers {
 	}
 }
 
-
-	struct perf_writer_interface {
-		//virtual void write(::Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) = 0;
-		virtual void write(const parsers::where::performance_data &value) = 0;
-	};
-
-
-
+struct perf_writer_interface {
+	//virtual void write(::Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) = 0;
+	virtual void write(const parsers::where::performance_data &value) = 0;
+};
 
 namespace modern_filter {
-
 	template<class Tfactory>
 	struct filter_text_renderer {
 		struct my_entry {
@@ -91,7 +86,7 @@ namespace modern_filter {
 
 	template<class Tfactory>
 	struct perf_config_parser {
-		typedef std::map<std::string,std::string> values_type;
+		typedef std::map<std::string, std::string> values_type;
 		struct config_entry {
 			std::string key;
 			values_type values;
@@ -121,7 +116,7 @@ namespace modern_filter {
 						extra_perf.push_back(o.key);
 					}
 				} else {
-					std::map<std::string,std::string> options;
+					std::map<std::string, std::string> options;
 					BOOST_FOREACH(const parsers::perfconfig::perf_option &o, r.options) {
 						options[o.key] = o.value;
 					}
@@ -147,15 +142,13 @@ namespace modern_filter {
 		bool matched_bound;
 		bool is_done;
 
-		match_result(bool matched_filter, bool matched_bound) 
+		match_result(bool matched_filter, bool matched_bound)
 			: matched_filter(matched_filter)
 			, matched_bound(matched_bound)
-			, is_done(false)
-		{
-		}
+			, is_done(false) {}
 	};
 
-	class error_handler_impl : public parsers::where::error_handler_interface {
+	class error_handler_impl : public parsers::where::error_handler_interface{
 		std::string error;
 		bool debug_;
 		error_handler_impl() {}
@@ -204,12 +197,10 @@ namespace modern_filter {
 			parsers::where::node_type minimum_value;
 		};
 
-
 		parsers::where::perf_list_type performance_instance_data;
 
-		typedef std::map<std::string,perf_entry> leaf_performance_entry_type;
+		typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
 		leaf_performance_entry_type leaf_performance_data;
-
 
 		modern_filters() : context(new Tfactory()), has_unique_index(false) {
 			context->set_summary(&summary);
@@ -437,7 +428,6 @@ namespace modern_filter {
 			}
 			return match_result(matched_filter, matched_bound);
 		}
-
 
 		bool match_post() {
 			context->remove_object();

@@ -8,8 +8,6 @@
 #include <buffer.hpp>
 
 namespace windows {
-
-
 #define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
 #define STATUS_INFO_LENGTH_MISMATCH             ((NTSTATUS)0xC0000004L)
 #define STATUS_BUFFER_OVERFLOW                  ((NTSTATUS)0x80000005L)
@@ -17,18 +15,14 @@ namespace windows {
 
 	//////////////////////////////////////////////////////////////////////////
 	namespace winapi {
-
-
-
-		typedef BOOL (WINAPI *tEnumServicesStatusEx)(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName);
-		typedef BOOL (WINAPI *tQueryServiceConfig2)(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
-		typedef BOOL (WINAPI *tQueryServiceStatusEx)(SC_HANDLE hService, SC_STATUS_TYPE InfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
-		typedef INT (WINAPI *tVDMEnumTaskWOWEx)(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam); 
-		typedef LONG (NTAPI *tNtQueryInformationProcess)(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
-		typedef BOOL (WINAPI *tIsWow64Process) (HANDLE ProcessHandle, PBOOL);
-		typedef DWORD (WINAPI *tGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
-		typedef LONG (NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
-
+		typedef BOOL(WINAPI *tEnumServicesStatusEx)(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName);
+		typedef BOOL(WINAPI *tQueryServiceConfig2)(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
+		typedef BOOL(WINAPI *tQueryServiceStatusEx)(SC_HANDLE hService, SC_STATUS_TYPE InfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
+		typedef INT(WINAPI *tVDMEnumTaskWOWEx)(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam);
+		typedef LONG(NTAPI *tNtQueryInformationProcess)(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength);
+		typedef BOOL(WINAPI *tIsWow64Process) (HANDLE ProcessHandle, PBOOL);
+		typedef DWORD(WINAPI *tGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
+		typedef LONG(NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
 
 		tEnumServicesStatusEx pEnumServicesStatusEx = NULL;
 		tQueryServiceConfig2 pQueryServiceConfig2 = NULL;
@@ -73,16 +67,15 @@ namespace windows {
 			return pQueryServiceStatusEx(hService, InfoLevel, lpBuffer, cbBufSize, pcbBytesNeeded);
 		}
 
-
 		bool IsWow64(HANDLE hProcess, bool def) {
 			if (pIsWow64Process == NULL)
-				pIsWow64Process = reinterpret_cast<tIsWow64Process>(GetProcAddress(GetModuleHandle(TEXT("kernel32")),"IsWow64Process"));
+				pIsWow64Process = reinterpret_cast<tIsWow64Process>(GetProcAddress(GetModuleHandle(TEXT("kernel32")), "IsWow64Process"));
 			if (pIsWow64Process == NULL)
 				return def;
 			BOOL bIsWow64 = FALSE;
-			if (!pIsWow64Process(hProcess,&bIsWow64))
+			if (!pIsWow64Process(hProcess, &bIsWow64))
 				return def;
-			return bIsWow64?true:false;
+			return bIsWow64 ? true : false;
 		}
 
 		DWORD GetProcessImageFileName(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize) {
@@ -141,37 +134,29 @@ namespace windows {
 		majorVersion = g_versionInfo.dwMajorVersion;
 		minorVersion = g_versionInfo.dwMinorVersion;
 
-		if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5)
-		{
+		if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5) {
 			g_windowsVersion = WINDOWS_ANCIENT;
 		}
 		/* Windows XP */
-		else if (majorVersion == 5 && minorVersion == 1)
-		{
+		else if (majorVersion == 5 && minorVersion == 1) {
 			g_windowsVersion = WINDOWS_XP;
 		}
 		/* Windows Server 2003 */
-		else if (majorVersion == 5 && minorVersion == 2)
-		{
+		else if (majorVersion == 5 && minorVersion == 2) {
 			g_windowsVersion = WINDOWS_SERVER_2003;
 		}
 		/* Windows Vista, Windows Server 2008 */
-		else if (majorVersion == 6 && minorVersion == 0)
-		{
+		else if (majorVersion == 6 && minorVersion == 0) {
 			g_windowsVersion = WINDOWS_VISTA;
 		}
 		/* Windows 7, Windows Server 2008 R2 */
-		else if (majorVersion == 6 && minorVersion == 1)
-		{
+		else if (majorVersion == 6 && minorVersion == 1) {
 			g_windowsVersion = WINDOWS_7;
 		}
 		/* Windows 8 */
-		else if (majorVersion == 6 && minorVersion == 2)
-		{
+		else if (majorVersion == 6 && minorVersion == 2) {
 			g_windowsVersion = WINDOWS_8;
-		}
-		else if (majorVersion == 6 && minorVersion > 2 || majorVersion > 6)
-		{
+		} else if (majorVersion == 6 && minorVersion > 2 || majorVersion > 6) {
 			g_windowsVersion = WINDOWS_NEW;
 		}
 
@@ -196,7 +181,6 @@ namespace windows {
 	bool g_hasVersion = false;
 	bool g_hasBasicInfo = false;
 
-
 	boost::scoped_array<unsigned long long> g_CPUIdleTimeOld;
 	boost::scoped_array<unsigned long long> g_CPUTotalTimeOld;
 	boost::scoped_array<unsigned long long> g_CPUKernelTimeOld;
@@ -204,7 +188,7 @@ namespace windows {
 	void init_old_buffer(boost::scoped_array<unsigned long long> &array, const std::size_t size) {
 		if (!array) {
 			array.reset(new unsigned long long[size]);
-			for (std::size_t i=0;i<size;i++) {
+			for (std::size_t i = 0; i < size; i++) {
 				array[i] = 0;
 			}
 		}
@@ -235,7 +219,7 @@ namespace windows {
 		BYTE type;
 		majorVersion = g_versionInfo.dwMajorVersion;
 		minorVersion = g_versionInfo.dwMinorVersion;
-		type = g_versionInfo.wProductType; 
+		type = g_versionInfo.wProductType;
 		if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5)
 			return "Pre XP";
 		else if (majorVersion == 5 && minorVersion == 1)
@@ -267,20 +251,17 @@ namespace windows {
 	}
 
 	hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*>  system_info::get_system_process_information(int size) {
-
 		hlp::buffer<BYTE, winapi::SYSTEM_PROCESS_INFORMATION*> buffer(size);
 		unsigned long bufferSize;
 		LONG r = winapi::NtQuerySystemInformation(winapi::SystemProcessInformation, (BYTE*)buffer, buffer.size(), &bufferSize);
 		if (r == 0)
 			return buffer;
 		if (r == STATUS_INFO_LENGTH_MISMATCH)
-			return get_system_process_information(bufferSize+4000);
+			return get_system_process_information(bufferSize + 4000);
 		if (r == STATUS_ACCESS_VIOLATION)
 			throw nscp_exception("Access violation");
 		throw nscp_exception("Failed to enumerate processes: unknown erroir");
 	}
-
-
 
 	system_info::cpu_load system_info::get_cpu_load() {
 		int cores = get_numberOfProcessorscores();
@@ -298,7 +279,7 @@ namespace windows {
 		result.core.resize(cores);
 		result.total.idle = result.total.kernel = result.total.total = 0.0;
 
-		for (int i=0; i < cores; i++) {
+		for (int i = 0; i < cores; i++) {
 			unsigned long long CPUIdleTime = buffer[i].IdleTime.QuadPart;
 			unsigned long long CPUKernelTime = buffer[i].KernelTime.QuadPart - buffer[i].IdleTime.QuadPart;
 			unsigned long long CPUTotalTime = buffer[i].KernelTime.QuadPart + buffer[i].UserTime.QuadPart;
@@ -330,14 +311,11 @@ namespace windows {
 		return result;
 	}
 
-
 	class CheckMemory {
 	public:
-		CheckMemory() : hKernel32(NULL), FEGlobalMemoryStatusEx(NULL), FEGlobalMemoryStatus(NULL)
-		{
+		CheckMemory() : hKernel32(NULL), FEGlobalMemoryStatusEx(NULL), FEGlobalMemoryStatus(NULL) {
 			hKernel32 = ::LoadLibrary(_TEXT("Kernel32"));
-			if (hKernel32)  
-			{
+			if (hKernel32) {
 				FEGlobalMemoryStatusEx = (PFGlobalMemoryStatusEx)::GetProcAddress(hKernel32, "GlobalMemoryStatusEx");
 				FEGlobalMemoryStatus = (PFGlobalMemoryStatus)::GetProcAddress(hKernel32, "GlobalMemoryStatus");
 			}
@@ -377,19 +355,17 @@ namespace windows {
 			}
 		}
 	private:
-		typedef BOOL (WINAPI *PFGlobalMemoryStatusEx)(LPMEMORYSTATUSEX lpBuffer);
-		typedef BOOL (WINAPI *PFGlobalMemoryStatus)(LPMEMORYSTATUS lpBuffer);
+		typedef BOOL(WINAPI *PFGlobalMemoryStatusEx)(LPMEMORYSTATUSEX lpBuffer);
+		typedef BOOL(WINAPI *PFGlobalMemoryStatus)(LPMEMORYSTATUS lpBuffer);
 		HMODULE hKernel32;
 		PFGlobalMemoryStatusEx	FEGlobalMemoryStatusEx;
 		PFGlobalMemoryStatus	FEGlobalMemoryStatus;
 	};
 
-
 	CheckMemory g_memory_checker;
 	system_info::memory_usage system_info::get_memory() {
 		return g_memory_checker.getMemoryStatus();
 	}
-
 
 	std::vector<system_info::pagefile_info> system_info::get_pagefile_info() {
 		std::vector<system_info::pagefile_info> ret;
@@ -397,11 +373,11 @@ namespace windows {
 		SYSTEM_INFO si;
 		GetSystemInfo(&si);
 
-		hlp::buffer<BYTE,LPVOID> buffer(4096);
+		hlp::buffer<BYTE, LPVOID> buffer(4096);
 		DWORD retLen = 0;
 		NTSTATUS status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
 		if (status == STATUS_INFO_LENGTH_MISMATCH) {
-			buffer.resize(retLen+10);
+			buffer.resize(retLen + 10);
 			status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
 		}
 		if (status != STATUS_SUCCESS)
@@ -420,9 +396,4 @@ namespace windows {
 		}
 		return ret;
 	}
-
-
 }
-
-
-

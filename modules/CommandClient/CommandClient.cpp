@@ -29,12 +29,11 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-
 namespace sh = nscapi::settings_helper;
 
 using namespace std;
 
-void client_handler::output_message(const std::string &msg)  {
+void client_handler::output_message(const std::string &msg) {
 	if (msg.find("\n") == std::string::npos) {
 		NSC_LOG_MESSAGE(msg);
 	} else {
@@ -48,8 +47,7 @@ void client_handler::log_debug(std::string module, std::string file, int line, s
 	}
 }
 
-void client_handler::log_error(std::string module, std::string file, int line, std::string msg) const
-{
+void client_handler::log_error(std::string module, std::string file, int line, std::string msg) const {
 	if (get_core()->should_log(NSCAPI::log_level::debug)) {
 		get_core()->log(NSCAPI::log_level::error, file, line, msg);
 	}
@@ -69,7 +67,7 @@ void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	/*
 	using namespace boost::posix_time;
 	using namespace boost::gregorian;
-	
+
 	error_handler::log_entry entry;
 	entry.line = message.line();
 	entry.file = message.file();
@@ -94,17 +92,14 @@ void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 		break;
 	default:
 		entry.type = "unknown";
-
 	}
 	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
 	*/
 }
 
-
 bool CommandClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-
-// 	if (core_->get_service_control().is_started())
-// 		info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");
+	// 	if (core_->get_service_control().is_started())
+	// 		info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");
 
 	NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit...");
 	while (true) {
@@ -115,6 +110,5 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 			return true;
 		}
 		client->handle_command(s);
-
 	}
 }

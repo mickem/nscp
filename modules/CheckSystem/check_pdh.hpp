@@ -10,11 +10,8 @@
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
-
 namespace check_pdh {
-
 	struct counter_config_object : public nscapi::settings_objects::object_instance_interface {
-
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
 		bool debug;
@@ -25,12 +22,11 @@ namespace check_pdh {
 		std::string type;
 		std::string flags;
 
-		counter_config_object(std::string alias, std::string path) 
+		counter_config_object(std::string alias, std::string path)
 			: parent(alias, path)
 			, collection_strategy("static")
 			, instances("auto")
-			, type("double")
-		{}
+			, type("double") {}
 
 		// Runtime items
 
@@ -38,13 +34,12 @@ namespace check_pdh {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << parent::to_string() << "{counter: " << counter << ", "  << collection_strategy << ", "  << type << "}";
+			ss << parent::to_string() << "{counter: " << counter << ", " << collection_strategy << ", " << type << "}";
 			return ss.str();
 		}
 	};
 
 	typedef nscapi::settings_objects::object_handler<counter_config_object> counter_config_handler;
-
 
 	struct filter_obj {
 		std::string alias;

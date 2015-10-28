@@ -54,15 +54,15 @@ std::string render_log_level_long(Plugin::LogEntry::Entry::Level l) {
 }
 std::string rpad(std::string str, std::size_t len) {
 	if (str.length() > len)
-		return str.substr(str.length()-len);
-	return std::string(len-str.length(), ' ') + str;
+		return str.substr(str.length() - len);
+	return std::string(len - str.length(), ' ') + str;
 }
 std::string lpad(std::string str, std::size_t len) {
 	if (str.length() > len)
 		return str.substr(0, len);
-	return str + std::string(len-str.length(), ' ');
+	return str + std::string(len - str.length(), ' ');
 }
-std::pair<bool,std::string> render_console_message(const bool oneline, const std::string &data) {
+std::pair<bool, std::string> render_console_message(const bool oneline, const std::string &data) {
 	std::stringstream ss;
 	bool is_error = false;
 	try {
@@ -72,14 +72,14 @@ std::pair<bool,std::string> render_console_message(const bool oneline, const std
 			return std::make_pair(true, "ERROR");
 		}
 
-		for (int i=0;i<message.entry_size();i++) {
+		for (int i = 0; i < message.entry_size(); i++) {
 			const Plugin::LogEntry::Entry &msg = message.entry(i);
 			std::string tmp = msg.message();
 			strEx::replace(tmp, "\n", "\n    -    ");
 			if (oneline) {
 				ss << msg.file()
 					<< "("
-					<< msg.line() 
+					<< msg.line()
 					<< "): "
 					<< render_log_level_long(msg.level())
 					<< ": "
@@ -127,26 +127,25 @@ public:
 	std::string base_path() {
 #ifdef WIN32
 		unsigned int buf_len = 4096;
-		char* buffer = new char[buf_len+1];
+		char* buffer = new char[buf_len + 1];
 		GetModuleFileNameA(NULL, buffer, buf_len);
 		std::string path = buffer;
 		std::string::size_type pos = path.rfind('\\');
-		path = path.substr(0, pos+1);
-		delete [] buffer;
+		path = path.substr(0, pos + 1);
+		delete[] buffer;
 		return path;
 #else
 		return "";
 #endif
 	}
 
-
 	void do_log(const std::string data) {
 		if (file_.empty())
 			return;
 		try {
-			if (max_size_ != 0 &&  boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
+			if (max_size_ != 0 && boost::filesystem::exists(file_.c_str()) && boost::filesystem::file_size(file_.c_str()) > max_size_) {
 				int target_size = static_cast<int>(max_size_*0.7);
-				char *tmpBuffer = new char[target_size+1];
+				char *tmpBuffer = new char[target_size + 1];
 				try {
 					std::ifstream ifs(file_.c_str());
 					ifs.seekg(-target_size, std::ios_base::end);
@@ -157,14 +156,14 @@ public:
 				} catch (...) {
 					log_fatal("Failed to truncate log file: " + file_);
 				}
-				delete [] tmpBuffer;
+				delete[] tmpBuffer;
 			}
 			if (!boost::filesystem::exists(file_.c_str())) {
 				boost::filesystem::path parent = file_helpers::meta::get_path(file_);
 				if (!boost::filesystem::exists(parent.string())) {
 					try {
 						boost::filesystem::create_directories(parent);
-					} catch(...) {
+					} catch (...) {
 						log_fatal("Failed to create directory: " + parent.string());
 					}
 				}
@@ -175,8 +174,8 @@ public:
 			if (!message.ParseFromString(data)) {
 				log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
 			} else {
-				std::ofstream stream(file_.c_str(), std::ios::out|std::ios::app|std::ios::ate);
-				for (int i=0;i<message.entry_size();i++) {
+				std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+				for (int i = 0; i < message.entry_size(); i++) {
 					Plugin::LogEntry::Entry msg = message.entry(i);
 					if (!stream) {
 						log_fatal(file_ + " could not be opened, Discarding: " + utf8::cvt<std::string>(render_log_level_long(msg.level())) + ": " + msg.message());
@@ -203,7 +202,6 @@ public:
 	config_data do_config(const bool log_fault) {
 		config_data ret;
 		try {
-
 			sh::settings_registry settings(settings_manager::get_proxy());
 			settings.set_alias("log/file");
 
@@ -213,19 +211,18 @@ public:
 				("log/file", "LOG SECTION", "Configure log file properties.")
 				;
 
-
 			settings.add_key_to_settings("log")
 				("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION),
-				"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
+					"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
 
 				("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"),
-				"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
+					"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 				;
 
 			settings.add_key_to_settings("log/file")
 				("max size", sh::size_key(&ret.max_size, 0),
-				"MAXIMUM FILE SIZE", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
+					"MAXIMUM FILE SIZE", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
 				;
 
 			settings.register_all();
@@ -236,7 +233,6 @@ public:
 				ret.file = "${exe-path}/nsclient.log";
 #endif
 			ret.file = mainClient->expand_path(ret.file);
-
 		} catch (const std::exception &e) {
 			if (log_fault)
 				log_fatal(std::string("Failed to configure logger: ") + e.what());
@@ -265,7 +261,6 @@ public:
 			if (file_ == "none") {
 				file_ = "";
 			}
-
 		} catch (const std::exception &e) {
 			// ignored, since this might be after shutdown...
 		} catch (...) {
@@ -273,8 +268,6 @@ public:
 		}
 	}
 };
-
-
 
 class simple_console_logger : public nsclient::logging::logging_interface_impl {
 	std::string format_;
@@ -286,7 +279,7 @@ public:
 
 	void do_log(const std::string data) {
 		if (is_console()) {
-			std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
+			std::pair<bool, std::string> m = render_console_message(is_oneline(), data);
 			if (!is_no_std_err() && m.first)
 				std::cerr << m.second;
 			else
@@ -308,12 +301,11 @@ public:
 
 			settings.add_key_to_settings("log")
 				("date format", sh::string_key(&format_, "%Y-%m-%d %H:%M:%S"),
-				"DATEMASK", "The syntax of the dates in the log file.")
+					"DATEMASK", "The syntax of the dates in the log file.")
 				;
 
 			settings.register_all();
 			settings.notify();
-
 		} catch (nscapi::nscapi_exception &e) {
 			log_fatal(std::string("Failed to register command: ") + e.what());
 		} catch (std::exception &e) {
@@ -340,15 +332,11 @@ public:
 	}
 };
 
-
-
-
 const static std::string QUIT_MESSAGE = "$$QUIT$$";
 const static std::string CONFIGURE_MESSAGE = "$$CONFIGURE$$";
 const static std::string SET_CONFIG_MESSAGE = "$$SET_CONFIG$$";
 
 typedef boost::shared_ptr<nsclient::logging::logging_interface_impl> log_impl_type;
-
 
 class threaded_logger : public nsclient::logging::logging_interface_impl {
 	concurrent_queue<std::string> log_queue_;
@@ -384,11 +372,11 @@ public:
 					background_logger_->set_config(data.substr(SET_CONFIG_MESSAGE.size()));
 				} else {
 					if (is_console()) {
-						std::pair<bool,std::string> m = render_console_message(is_oneline(), data);
+						std::pair<bool, std::string> m = render_console_message(is_oneline(), data);
 						if (!is_no_std_err() && m.first)
 							std::cerr << m.second;
 						else
-							std::cout <<  m.second;
+							std::cout << m.second;
 					}
 					if (background_logger_)
 						background_logger_->do_log(data);
@@ -450,7 +438,6 @@ static nsclient::logging::logging_interface_impl *logger_impl_ = NULL;
 #define THREADED_FILE_BACKEND "threaded-file"
 #define FILE_BACKEND "file"
 
-
 void nsclient::logging::logger::set_backend(std::string backend) {
 	nsclient::logging::logging_interface_impl *tmp = NULL;
 	if (backend == CONSOLE_BACKEND) {
@@ -462,7 +449,7 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 	} else {
 		tmp = new simple_console_logger();
 	}
-	nsclient::logging::logging_interface_impl *old = logger_impl_ ;
+	nsclient::logging::logging_interface_impl *old = logger_impl_;
 	if (old != NULL && tmp != NULL) {
 		if (old->is_console())
 			tmp->set_config("console");
@@ -480,19 +467,17 @@ void nsclient::logging::logger::set_backend(std::string backend) {
 	old = NULL;
 }
 
-
 #define DEFAULT_BACKEND THREADED_FILE_BACKEND
 nsclient::logging::logging_interface_impl* get_impl() {
 	if (logger_impl_ == NULL)
 		nsclient::logging::logger::set_backend(DEFAULT_BACKEND);
-	return logger_impl_ ;
+	return logger_impl_;
 }
 void nsclient::logging::logger::destroy() {
 	nsclient::logging::logging_interface_impl* old = logger_impl_;
 	logger_impl_ = NULL;
 	delete old;
 }
-
 
 nsclient::logging::logger_interface* nsclient::logging::logger::get_logger() {
 	return get_impl();
@@ -522,6 +507,6 @@ void nsclient::logging::logger::set_log_level(std::string level) {
 	NSCAPI::log_level::level iLevel = nscapi::logging::parse(level);
 	if (iLevel == NSCAPI::log_level::unknown)
 		get_impl()->set_config(level);
-	else 
+	else
 		get_impl()->set_log_level(iLevel);
 }

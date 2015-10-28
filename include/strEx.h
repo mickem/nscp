@@ -35,7 +35,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 
-
 #include <nscp_string.hpp>
 
 namespace strEx {
@@ -57,22 +56,22 @@ namespace strEx {
 		std::wstring::size_type pos = string.find(replace);
 		std::wstring::size_type len = replace.length();
 		while (pos != std::wstring::npos) {
-			string = string.substr(0,pos)+with+string.substr(pos+len);
+			string = string.substr(0, pos) + with + string.substr(pos + len);
 			if (with.find(replace) != std::wstring::npos) // If the replace containes the key look after the replace!
-				pos = string.find(replace, pos+with.length());
+				pos = string.find(replace, pos + with.length());
 			else
-				pos = string.find(replace, pos+1);
+				pos = string.find(replace, pos + 1);
 		}
 	}
 	inline void replace(std::string &string, const std::string replace, const std::string with) {
 		std::string::size_type pos = string.find(replace);
 		std::string::size_type len = replace.length();
 		while (pos != std::string::npos) {
-			string = string.substr(0,pos)+with+string.substr(pos+len);
+			string = string.substr(0, pos) + with + string.substr(pos + len);
 			if (with.find(replace) != std::string::npos) // If the replace containes the key look after the replace!
-				pos = string.find(replace, pos+with.length());
+				pos = string.find(replace, pos + with.length());
 			else
-				pos = string.find(replace, pos+1);
+				pos = string.find(replace, pos + 1);
 		}
 	}
 	inline std::string itos_non_sci(double i) {
@@ -102,36 +101,36 @@ namespace strEx {
 	inline unsigned stoui_as_time(std::string time, unsigned int smallest_unit = 1000) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		std::string::size_type pend = time.find_first_not_of("0123456789");
-		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
+		unsigned int value = boost::lexical_cast<unsigned int>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
 		if (p == std::string::npos)
 			return value * smallest_unit;
-		else if ( (time[p] == 's') || (time[p] == 'S') )
+		else if ((time[p] == 's') || (time[p] == 'S'))
 			return value * 1000;
-		else if ( (time[p] == 'm') || (time[p] == 'M') )
+		else if ((time[p] == 'm') || (time[p] == 'M'))
 			return value * 60 * 1000;
-		else if ( (time[p] == 'h') || (time[p] == 'H') )
+		else if ((time[p] == 'h') || (time[p] == 'H'))
 			return value * 60 * 60 * 1000;
-		else if ( (time[p] == 'd') || (time[p] == 'D') )
+		else if ((time[p] == 'd') || (time[p] == 'D'))
 			return value * 24 * 60 * 60 * 1000;
-		else if ( (time[p] == 'w') || (time[p] == 'W') )
+		else if ((time[p] == 'w') || (time[p] == 'W'))
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
 	inline unsigned stoui_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		std::string::size_type pend = time.find_first_not_of("0123456789");
-		unsigned int value = boost::lexical_cast<unsigned int>(pend==std::string::npos?time:time.substr(0,pend).c_str());
+		unsigned int value = boost::lexical_cast<unsigned int>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
 		if (p == std::string::npos)
 			return value * smallest_unit;
-		else if ( (time[p] == 's') || (time[p] == 'S') )
-		return value;
-		else if ( (time[p] == 'm') || (time[p] == 'M') )
+		else if ((time[p] == 's') || (time[p] == 'S'))
+			return value;
+		else if ((time[p] == 'm') || (time[p] == 'M'))
 			return value * 60;
-		else if ( (time[p] == 'h') || (time[p] == 'H') )
+		else if ((time[p] == 'h') || (time[p] == 'H'))
 			return value * 60 * 60;
-		else if ( (time[p] == 'd') || (time[p] == 'D') )
+		else if ((time[p] == 'd') || (time[p] == 'D'))
 			return value * 24 * 60 * 60;
-		else if ( (time[p] == 'w') || (time[p] == 'W') )
+		else if ((time[p] == 'w') || (time[p] == 'W'))
 			return value * 7 * 24 * 60 * 60;
 		return value * smallest_unit;
 	}
@@ -146,15 +145,15 @@ namespace strEx {
 		if (p == std::string::npos)
 			return boost::lexical_cast<long long>(time) * smallest_unit;
 		unsigned long long value = boost::lexical_cast<long long>(time.substr(0, p));
-		if ( (time[p] == 's') || (time[p] == 'S') )
+		if ((time[p] == 's') || (time[p] == 'S'))
 			return value * 1000;
-		else if ( (time[p] == 'm') || (time[p] == 'M') )
+		else if ((time[p] == 'm') || (time[p] == 'M'))
 			return value * 60 * 1000;
-		else if ( (time[p] == 'h') || (time[p] == 'H') )
+		else if ((time[p] == 'h') || (time[p] == 'H'))
 			return value * 60 * 60 * 1000;
-		else if ( (time[p] == 'd') || (time[p] == 'D') )
+		else if ((time[p] == 'd') || (time[p] == 'D'))
 			return value * 24 * 60 * 60 * 1000;
-		else if ( (time[p] == 'w') || (time[p] == 'W') )
+		else if ((time[p] == 'w') || (time[p] == 'W'))
 			return value * 7 * 24 * 60 * 60 * 1000;
 		return value * smallest_unit;
 	}
@@ -166,47 +165,45 @@ namespace strEx {
 #define SEC		(1000)
 	inline std::string itos_as_time(unsigned long long time) {
 		if (time > WEEK) {
-			long long w = time/WEEK;
-			long long d = (time-(w*WEEK))/DAY;
-			long long h = (time-(w*WEEK)-(d*DAY))/HOUR;
-			long long m = (time-(w*WEEK)-(d*DAY)-(h*HOUR))/MINUTES;
+			long long w = time / WEEK;
+			long long d = (time - (w*WEEK)) / DAY;
+			long long h = (time - (w*WEEK) - (d*DAY)) / HOUR;
+			long long m = (time - (w*WEEK) - (d*DAY) - (h*HOUR)) / MINUTES;
 			return s::xtos(w) + "w " + s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
-		}
-		else if (time > DAY) {
-			long long d = time/DAY;
-			long long h = (time-(d*DAY))/HOUR;
-			long long m = (time-(d*DAY)-(h*HOUR))/MINUTES;
+		} else if (time > DAY) {
+			long long d = time / DAY;
+			long long h = (time - (d*DAY)) / HOUR;
+			long long m = (time - (d*DAY) - (h*HOUR)) / MINUTES;
 			return s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
-		}
-		else if (time > HOUR) {
-			long long h = time/HOUR;
-			long long m = (time-(h*HOUR))/MINUTES;
+		} else if (time > HOUR) {
+			long long h = time / HOUR;
+			long long m = (time - (h*HOUR)) / MINUTES;
 			return s::xtos(h) + ":" + s::xtos(m);
 		} else if (time > MINUTES) {
-			return "0:" + s::xtos(time/MINUTES);
+			return "0:" + s::xtos(time / MINUTES);
 		} else if (time > SEC)
-			return s::xtos(time/SEC) + "s";
+			return s::xtos(time / SEC) + "s";
 		return s::xtos(time);
 	}
 
 	template<class T>
 	inline void split(T &ret, const std::string str, const std::string key) {
 		typename std::string::size_type pos = 0, lpos = 0;
-		while ((pos = str.find(key, pos)) !=  std::string::npos) {
-			ret.push_back(str.substr(lpos, pos-lpos));
+		while ((pos = str.find(key, pos)) != std::string::npos) {
+			ret.push_back(str.substr(lpos, pos - lpos));
 			lpos = ++pos;
 		}
 		if (lpos < str.size())
 			ret.push_back(str.substr(lpos));
 	}
 
-	inline std::pair<std::string,std::string> split(const std::string str, const std::string key) {
+	inline std::pair<std::string, std::string> split(const std::string str, const std::string key) {
 		std::string::size_type pos = str.find(key);
 		if (pos == std::string::npos)
-			return std::pair<std::string,std::string>(str, std::string());
-		return std::pair<std::string,std::string>(str.substr(0, pos), str.substr(pos+key.length()));
+			return std::pair<std::string, std::string>(str, std::string());
+		return std::pair<std::string, std::string>(str.substr(0, pos), str.substr(pos + key.length()));
 	}
-	typedef std::pair<std::wstring,std::wstring> token;
+	typedef std::pair<std::wstring, std::wstring> token;
 
 #define MK_FORMAT_FTD(min, key, val) \
 	if (mtm->tm_year > min) \
@@ -218,7 +215,7 @@ namespace strEx {
 		// "Date: %Y-%m-%d %H:%M:%S"
 		MK_FORMAT_FTD(70, "%Y", mtm->tm_year);
 		MK_FORMAT_FTD(0, "%m", mtm->tm_mon);
-		MK_FORMAT_FTD(0, "%d", mtm->tm_mday-1);
+		MK_FORMAT_FTD(0, "%d", mtm->tm_mday - 1);
 		MK_FORMAT_FTD(0, "%H", mtm->tm_hour);
 		MK_FORMAT_FTD(0, "%M", mtm->tm_min);
 		MK_FORMAT_FTD(0, "%S", mtm->tm_sec);
@@ -254,8 +251,7 @@ namespace strEx {
 	inline void parse_command(T cmd_line, T &cmd, std::list<T> &args) {
 		boost::tokenizer<boost::escaped_list_separator<wchar_t>, typename T::const_iterator, T > tok(cmd_line, boost::escaped_list_separator<wchar_t>(L'\\', L' ', L'\"'));
 		bool first = true;
-		BOOST_FOREACH(T s, tok)
-		{
+		BOOST_FOREACH(T s, tok) {
 			if (first) {
 				cmd = s;
 				first = false;

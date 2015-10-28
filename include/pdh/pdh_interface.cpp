@@ -28,8 +28,6 @@ namespace PDH {
 		return instance;
 	}
 
-
-
 	counter_info::counter_info(BYTE *lpBuffer, DWORD, BOOL explainText) {
 		PDH_COUNTER_INFO *info = (PDH_COUNTER_INFO*)lpBuffer;
 		dwType = info->dwType;
@@ -57,8 +55,6 @@ namespace PDH {
 		}
 	}
 
-
-
 	void pdh_object::set_default_buffer_size(std::string buffer_size_) {
 		if (buffer_size == 0)
 			set_buffer_size(buffer_size_);
@@ -68,28 +64,26 @@ namespace PDH {
 		if (buffer_size_.empty())
 			return;
 		try {
-			buffer_size = strEx::stoui_as_time(buffer_size_)/1000;
+			buffer_size = strEx::stoui_as_time(buffer_size_) / 1000;
 		} catch (...) {
 			buffer_size = 0;
 		}
-
 	}
 	unsigned long pdh_object::get_flags() {
 		return flags_;
 	}
 
-
 	pdh_object::data_types pdh_object::get_type() {
-		if ((flags_&format_large)==format_large)
+		if ((flags_&format_large) == format_large)
 			return type_large;
-		if ((flags_&format_long)==format_long)
+		if ((flags_&format_long) == format_long)
 			return type_long;
-		if ((flags_&format_double)==format_double)
+		if ((flags_&format_double) == format_double)
 			return type_double;
 		throw pdh_exception("No type specified");
 	}
 	void pdh_object::set_type(const data_types type) {
-		flags_ &= ~(format_double|format_long|format_large);
+		flags_ &= ~(format_double | format_long | format_large);
 		if (type == type_double)
 			flags_ |= format_double;
 		else if (type == type_long)
@@ -100,7 +94,7 @@ namespace PDH {
 			throw pdh_exception("Invalid type specified");
 	}
 	void pdh_object::set_type(const std::string &type) {
-		flags_ &= ~(format_double|format_long|format_large);
+		flags_ &= ~(format_double | format_long | format_large);
 		if (type == "double")
 			flags_ |= format_double;
 		else if (type == "long")
@@ -119,7 +113,7 @@ namespace PDH {
 				flags_ |= PDH_FMT_1000;
 			else if (f == "noscale")
 				flags_ |= PDH_FMT_NOSCALE;
-			else 
+			else
 				throw pdh_exception("Invalid format specified: " + f);
 		}
 	}
@@ -131,7 +125,7 @@ namespace PDH {
 				flags_ |= PDH_FMT_1000;
 			else if (f == "noscale")
 				flags_ |= PDH_FMT_NOSCALE;
-			else 
+			else
 				throw pdh_exception("Invalid format specified: " + f);
 		}
 	}
@@ -144,27 +138,22 @@ namespace PDH {
 		return instances_ == "true";
 	}
 
-
-
 	std::list<std::string> helpers::build_list(TCHAR *buffer, DWORD bufferSize) {
 		std::list<std::string> ret;
 		if (bufferSize == 0)
 			return ret;
 		DWORD prevPos = 0;
-		for (unsigned int i = 0; i<bufferSize-1; i++) {
+		for (unsigned int i = 0; i < bufferSize - 1; i++) {
 			if (buffer[i] == 0) {
 				std::wstring str = &buffer[prevPos];
 				ret.push_back(utf8::cvt<std::string>(str));
-				prevPos = i+1;
+				prevPos = i + 1;
 			}
 		}
 		return ret;
 	}
 
-
-
 	pdh_instance factory::create(pdh_object object) {
-
 		if (object.has_instances()) {
 			std::string path = object.path;
 
@@ -178,7 +167,7 @@ namespace PDH {
 				if (pos1 != std::string::npos) {
 					std::string::size_type pos2 = s.find(')', pos1);
 					if (pos2 != std::string::npos)
-						tag = s.substr(pos1+1, pos2-pos1-1);
+						tag = s.substr(pos1 + 1, pos2 - pos1 - 1);
 				}
 				pdh_object sub = object;
 				sub.set_instances("");
@@ -224,5 +213,4 @@ namespace PDH {
 		copy.set_counter(counter);
 		return create(copy);
 	}
-
 }

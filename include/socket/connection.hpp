@@ -13,14 +13,13 @@
 
 namespace socket_helpers {
 	namespace server {
-
 		using boost::asio::ip::tcp;
 
 		//
 		// The socket statemachine:
 		// This is the idea not how it currently looks
 		// SOCKET  | SSL-SOCKET | PROTOCOL   | RETURN
-		//         | connect    |            | 
+		//         | connect    |            |
 		// connect | handhake   | on_connect | true = allow, false = disallow
 		// ...
 		//         |            | wants_data | true = yes, read chunk, false = no, start sending
@@ -30,22 +29,18 @@ namespace socket_helpers {
 		// ...
 		//         |            | is_done    | true = is done, disconnect, false (read/write loop)
 
-
 		template<class protocol_type, std::size_t N>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type, N> >, private boost::noncopyable {
 			typedef connection<protocol_type, N> connection_type;
 		public:
-			connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol) 
+			connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol)
 				: strand_(io_service)
 				, timer_(io_service)
-				, protocol_(protocol)
-			{
-			}
-			virtual ~connection() {
-			}
+				, protocol_(protocol) {}
+			virtual ~connection() {}
 
 			inline void trace(std::string msg) const {
-				if (protocol_type::debug_trace) 
+				if (protocol_type::debug_trace)
 					protocol_->log_debug(__FILE__, __LINE__, msg);
 			}
 
@@ -75,7 +70,7 @@ namespace socket_helpers {
 			}
 
 			virtual void on_done(bool all_ok) {
-				trace(std::string("on_done(") + (all_ok?"true":"false") + ")");
+				trace(std::string("on_done(") + (all_ok ? "true" : "false") + ")");
 				try {
 					cancel_timer();
 					cancel_socket();
@@ -88,7 +83,7 @@ namespace socket_helpers {
 			// Timeout related functions
 			virtual void set_timeout(int seconds) {
 				timer_.expires_from_now(boost::posix_time::seconds(seconds));
-				timer_.async_wait(boost::bind(&connection::timeout, this->shared_from_this(), boost::asio::placeholders::error));  
+				timer_.async_wait(boost::bind(&connection::timeout, this->shared_from_this(), boost::asio::placeholders::error));
 			}
 
 			virtual void cancel_timer() {
@@ -164,7 +159,6 @@ namespace socket_helpers {
 				return boost::asio::buffer(buffers_.back());
 			}
 
-
 			boost::asio::io_service::strand strand_;
 			boost::array<char, N> buffer_;
 			boost::asio::deadline_timer timer_;
@@ -181,13 +175,10 @@ namespace socket_helpers {
 			boost::asio::ip::tcp::socket socket_;
 
 		public:
-			tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol) 
+			tcp_connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol)
 				: connection<protocol_type, N>(io_service, protocol)
-				, socket_(io_service)
-			{
-			}
-			virtual ~tcp_connection() {
-			}
+				, socket_(io_service) {}
+			virtual ~tcp_connection() {}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return socket_;
@@ -197,8 +188,8 @@ namespace socket_helpers {
 				this->trace("tcp::start_read_request()");
 				socket_.async_read_some(
 					boost::asio::buffer(parent_type::buffer_), parent_type::strand_.wrap(
-					boost::bind(&parent_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
-					));
+						boost::bind(&parent_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+						));
 			}
 			virtual void start_write_request(const boost::asio::const_buffer& response) {
 				this->trace("start_write_request(" + strEx::s::xtos(boost::asio::buffer_size(response)) + ")");
@@ -214,28 +205,23 @@ namespace socket_helpers {
 			typedef connection<protocol_type, N> parent_type;
 			typedef ssl_connection<protocol_type, N> my_type;
 		public:
-			ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<protocol_type> protocol) 
+			ssl_connection(boost::asio::io_service& io_service, boost::asio::ssl::context &context, boost::shared_ptr<protocol_type> protocol)
 				: connection<protocol_type, N>(io_service, protocol)
-				, ssl_socket_(io_service, context)
-			{
-			}
-			virtual ~ssl_connection() {
-			}
-
+				, ssl_socket_(io_service, context) {}
+			virtual ~ssl_connection() {}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return ssl_socket_.next_layer();
 			}
 
-
 			virtual void start() {
 				this->trace("ssl::start_read_request()");
 				boost::shared_ptr<my_type> self = boost::dynamic_pointer_cast<my_type>(this->shared_from_this());
-				ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server,parent_type::strand_.wrap(
+				ssl_socket_.async_handshake(boost::asio::ssl::stream_base::server, parent_type::strand_.wrap(
 					boost::bind(&ssl_connection::handle_handshake, self, boost::asio::placeholders::error)
 					));
 			}
-			
+
 			virtual void handle_handshake(const boost::system::error_code& e) {
 				if (!e)
 					parent_type::start();
@@ -258,8 +244,8 @@ namespace socket_helpers {
 				ssl_socket_.async_read_some(
 					boost::asio::buffer(parent_type::buffer_),
 					parent_type::strand_.wrap(
-					boost::bind(&parent_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
-					)
+						boost::bind(&parent_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+						)
 					);
 			}
 
@@ -267,8 +253,8 @@ namespace socket_helpers {
 				this->trace("ssl::start_write_request(" + strEx::s::xtos(boost::asio::buffer_size(response)) + ")");
 				boost::asio::async_write(ssl_socket_, boost::asio::const_buffers_1(response),
 					parent_type::strand_.wrap(
-					boost::bind(&parent_type::handle_write_response, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
-					)
+						boost::bind(&parent_type::handle_write_response, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
+						)
 					);
 			}
 

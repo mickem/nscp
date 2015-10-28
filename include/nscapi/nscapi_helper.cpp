@@ -32,7 +32,7 @@ unsigned int nscapi::report::parse(std::string str) {
 	unsigned int report = 0;
 	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(str, std::string(","))) {
 		if (key == "all") {
-			report |= REPORT_ERROR|REPORT_OK|REPORT_UNKNOWN|REPORT_WARNING;
+			report |= REPORT_ERROR | REPORT_OK | REPORT_UNKNOWN | REPORT_WARNING;
 		} else if (key == "error" || key == "err" || key == "critical" || key == "crit") {
 			report |= REPORT_ERROR;
 		} else if (key == "warning" || key == "warn") {
@@ -47,11 +47,11 @@ unsigned int nscapi::report::parse(std::string str) {
 }
 bool nscapi::report::matches(unsigned int report, NSCAPI::nagiosReturn code) {
 	return (
-		(code == NSCAPI::query_return_codes::returnOK && ((report&REPORT_OK)==REPORT_OK) ) ||
-		(code == NSCAPI::query_return_codes::returnCRIT && ((report&REPORT_ERROR)==REPORT_ERROR) ) ||
-		(code == NSCAPI::query_return_codes::returnWARN && ((report&REPORT_WARNING)==REPORT_WARNING) ) ||
-		(code == NSCAPI::query_return_codes::returnUNKNOWN && ((report&REPORT_UNKNOWN)==REPORT_UNKNOWN) ) ||
-		( (code != NSCAPI::query_return_codes::returnOK) && (code != NSCAPI::query_return_codes::returnCRIT) && (code != NSCAPI::query_return_codes::returnWARN) && (code != NSCAPI::query_return_codes::returnUNKNOWN) )
+		(code == NSCAPI::query_return_codes::returnOK && ((report&REPORT_OK) == REPORT_OK)) ||
+		(code == NSCAPI::query_return_codes::returnCRIT && ((report&REPORT_ERROR) == REPORT_ERROR)) ||
+		(code == NSCAPI::query_return_codes::returnWARN && ((report&REPORT_WARNING) == REPORT_WARNING)) ||
+		(code == NSCAPI::query_return_codes::returnUNKNOWN && ((report&REPORT_UNKNOWN) == REPORT_UNKNOWN)) ||
+		((code != NSCAPI::query_return_codes::returnOK) && (code != NSCAPI::query_return_codes::returnCRIT) && (code != NSCAPI::query_return_codes::returnWARN) && (code != NSCAPI::query_return_codes::returnUNKNOWN))
 		);
 }
 
@@ -131,7 +131,7 @@ std::string nscapi::logging::to_string(NSCAPI::log_level::level level) {
 * @param defaultReturnCode The default return code
 * @return NSCAPI::success unless the buffer is to short then it will be NSCAPI::invalidBufferLen
 */
-int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode ) {
+int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, std::string str, int defaultReturnCode) {
 	// @todo deprecate this
 	if (str.length() >= bufLen) {
 		return NSCAPI::isInvalidBufferLen;
@@ -141,7 +141,7 @@ int nscapi::plugin_helper::wrapReturnString(char *buffer, unsigned int bufLen, s
 }
 
 bool nscapi::plugin_helper::isNagiosReturnCode(NSCAPI::nagiosReturn code) {
-	return ( (code == NSCAPI::query_return_codes::returnOK) || (code == NSCAPI::query_return_codes::returnWARN) || (code == NSCAPI::query_return_codes::returnCRIT) || (code == NSCAPI::query_return_codes::returnUNKNOWN) );
+	return ((code == NSCAPI::query_return_codes::returnOK) || (code == NSCAPI::query_return_codes::returnWARN) || (code == NSCAPI::query_return_codes::returnCRIT) || (code == NSCAPI::query_return_codes::returnUNKNOWN));
 }
 bool nscapi::plugin_helper::isMyNagiosReturn(NSCAPI::nagiosReturn code) {
 	return code == NSCAPI::query_return_codes::returnCRIT || code == NSCAPI::query_return_codes::returnOK || code == NSCAPI::query_return_codes::returnWARN || code == NSCAPI::query_return_codes::returnUNKNOWN;

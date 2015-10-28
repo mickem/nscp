@@ -80,7 +80,7 @@ namespace PDH {
 			return;
 		pdh_error status = factory::get_impl()->PdhRemoveCounter(hCounter_);
 		if (status.is_error())
-			throw pdh_exception(getName() +  " PdhRemoveCounter failed", status);
+			throw pdh_exception(getName() + " PdhRemoveCounter failed", status);
 		hCounter_ = NULL;
 	}
 	pdh_error PDHCounter::collect() {

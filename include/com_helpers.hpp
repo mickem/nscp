@@ -4,7 +4,6 @@
 #include <windows.h>
 
 namespace com_helper {
-
 	class com_exception {
 		std::string error_;
 		HRESULT result_;
@@ -16,7 +15,6 @@ namespace com_helper {
 		std::string reason() {
 			return error_;
 		}
-
 	};
 
 	class initialize_com {
@@ -33,8 +31,8 @@ namespace com_helper {
 				throw com_exception("CoInitialize failed: ", hRes);
 			isInitialized_ = true;
 			//hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_PKT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
-			hRes = CoInitializeSecurity(NULL,-1,NULL,NULL,RPC_C_AUTHN_LEVEL_DEFAULT,RPC_C_IMP_LEVEL_IMPERSONATE,NULL,EOAC_NONE,NULL);
-			if (FAILED(hRes)) 
+			hRes = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, NULL);
+			if (FAILED(hRes))
 				throw com_exception("CoInitializeSecurity failed: ", hRes);
 		}
 		void unInitialize() {
@@ -46,7 +44,5 @@ namespace com_helper {
 		bool isInitialized() const {
 			return isInitialized_;
 		}
-
 	};
-
 };

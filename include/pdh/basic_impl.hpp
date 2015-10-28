@@ -24,31 +24,28 @@
 #include <error.hpp>
 
 namespace PDH {
-
 	class NativeExternalPDH : public PDH::impl_interface {
 	protected:
 
 		typedef LONG PDH_STATUS;
 		//typedef struct _PDH_COUNTER_INFO_A;
 
-		typedef PDH_STATUS (WINAPI *fpPdhLookupPerfNameByIndex)(LPCWSTR,DWORD,LPWSTR,LPDWORD);
-		typedef PDH_STATUS (WINAPI *fpPdhLookupPerfIndexByName)(LPCWSTR,LPCWSTR,LPDWORD);
-		typedef PDH_STATUS (WINAPI *fpPdhExpandCounterPath)(LPCWSTR,LPWSTR,LPDWORD);
-		typedef PDH_STATUS (WINAPI *fpPdhGetCounterInfo)(PDH_HCOUNTER,BOOLEAN,LPDWORD,PDH_COUNTER_INFO*);
-		typedef PDH_STATUS (WINAPI *fpPdhAddCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
-		typedef PDH_STATUS (WINAPI *fpPdhAddEnglishCounter)(PDH::PDH_HQUERY,LPCWSTR,DWORD_PTR,PDH::PDH_HCOUNTER*);
-		typedef PDH_STATUS (WINAPI *fpPdhRemoveCounter)(PDH::PDH_HCOUNTER);
-		typedef PDH_STATUS (WINAPI *fpPdhGetRawCounterValue)(PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER);
-		typedef PDH_STATUS (WINAPI *fpPdhGetFormattedCounterValue)(PDH_HCOUNTER,DWORD,LPDWORD,PPDH_FMT_COUNTERVALUE);
-		typedef PDH_STATUS (WINAPI *fpPdhOpenQuery)(LPCTSTR,DWORD_PTR,PDH_HQUERY*);
-		typedef PDH_STATUS (WINAPI *fpPdhCloseQuery)(PDH_HQUERY);
-		typedef PDH_STATUS (WINAPI *fpPdhCollectQueryData)(PDH_HQUERY);
-		typedef PDH_STATUS (WINAPI *fpPdhValidatePath)(LPCWSTR);
-		typedef PDH_STATUS (WINAPI *fpPdhEnumObjects)(LPCWSTR,LPCWSTR,LPWSTR,LPDWORD,DWORD,BOOL);
-		typedef PDH_STATUS (WINAPI *fpPdhEnumObjectItems)(LPCWSTR,LPCWSTR,LPCWSTR,LPWSTR,LPDWORD,LPWSTR,LPDWORD,DWORD,DWORD);
-		typedef PDH_STATUS (WINAPI *fpPdhExpandWildCardPath)(LPCTSTR,LPCTSTR,LPWSTR,LPDWORD,DWORD);
-
-
+		typedef PDH_STATUS(WINAPI *fpPdhLookupPerfNameByIndex)(LPCWSTR, DWORD, LPWSTR, LPDWORD);
+		typedef PDH_STATUS(WINAPI *fpPdhLookupPerfIndexByName)(LPCWSTR, LPCWSTR, LPDWORD);
+		typedef PDH_STATUS(WINAPI *fpPdhExpandCounterPath)(LPCWSTR, LPWSTR, LPDWORD);
+		typedef PDH_STATUS(WINAPI *fpPdhGetCounterInfo)(PDH_HCOUNTER, BOOLEAN, LPDWORD, PDH_COUNTER_INFO*);
+		typedef PDH_STATUS(WINAPI *fpPdhAddCounter)(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER*);
+		typedef PDH_STATUS(WINAPI *fpPdhAddEnglishCounter)(PDH::PDH_HQUERY, LPCWSTR, DWORD_PTR, PDH::PDH_HCOUNTER*);
+		typedef PDH_STATUS(WINAPI *fpPdhRemoveCounter)(PDH::PDH_HCOUNTER);
+		typedef PDH_STATUS(WINAPI *fpPdhGetRawCounterValue)(PDH_HCOUNTER, LPDWORD, PPDH_RAW_COUNTER);
+		typedef PDH_STATUS(WINAPI *fpPdhGetFormattedCounterValue)(PDH_HCOUNTER, DWORD, LPDWORD, PPDH_FMT_COUNTERVALUE);
+		typedef PDH_STATUS(WINAPI *fpPdhOpenQuery)(LPCTSTR, DWORD_PTR, PDH_HQUERY*);
+		typedef PDH_STATUS(WINAPI *fpPdhCloseQuery)(PDH_HQUERY);
+		typedef PDH_STATUS(WINAPI *fpPdhCollectQueryData)(PDH_HQUERY);
+		typedef PDH_STATUS(WINAPI *fpPdhValidatePath)(LPCWSTR);
+		typedef PDH_STATUS(WINAPI *fpPdhEnumObjects)(LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, DWORD, BOOL);
+		typedef PDH_STATUS(WINAPI *fpPdhEnumObjectItems)(LPCWSTR, LPCWSTR, LPCWSTR, LPWSTR, LPDWORD, LPWSTR, LPDWORD, DWORD, DWORD);
+		typedef PDH_STATUS(WINAPI *fpPdhExpandWildCardPath)(LPCTSTR, LPCTSTR, LPWSTR, LPDWORD, DWORD);
 
 		static fpPdhLookupPerfNameByIndex pPdhLookupPerfNameByIndex;
 		static fpPdhLookupPerfIndexByName pPdhLookupPerfIndexByName;
@@ -85,7 +82,6 @@ namespace PDH {
 	protected:
 
 		void unload_procs() {
-
 			pPdhLookupPerfNameByIndex = NULL;
 			pPdhLookupPerfIndexByName = NULL;
 			pPdhExpandCounterPath = NULL;
@@ -102,7 +98,7 @@ namespace PDH {
 			pPdhEnumObjects = NULL;
 			pPdhEnumObjectItems = NULL;
 			pPdhExpandWildCardPath = NULL;
-			
+
 			FreeLibrary(PDH_);
 			PDH_ = NULL;
 		}
@@ -146,41 +142,39 @@ namespace PDH {
 			pPdhCollectQueryData = (fpPdhCollectQueryData)::GetProcAddress(PDH_, "PdhCollectQueryData");
 		}
 
-
 	public:
 
-
-		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName,LPCTSTR szName,DWORD *dwIndex) {
+		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR szName, DWORD *dwIndex) {
 			if (pPdhLookupPerfIndexByName == NULL)
 				throw pdh_exception("Failed to initialize PdhLookupPerfIndexByName");
-			return PDH::pdh_error(pPdhLookupPerfIndexByName(szMachineName,szName,dwIndex));
+			return PDH::pdh_error(pPdhLookupPerfIndexByName(szMachineName, szName, dwIndex));
 		}
 
-		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName,DWORD dwNameIndex,LPTSTR szNameBuffer,LPDWORD pcchNameBufferSize) {
+		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize) {
 			if (pPdhLookupPerfNameByIndex == NULL)
 				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
-			return PDH::pdh_error(pPdhLookupPerfNameByIndex(szMachineName,dwNameIndex,szNameBuffer,pcchNameBufferSize));
+			return PDH::pdh_error(pPdhLookupPerfNameByIndex(szMachineName, dwNameIndex, szNameBuffer, pcchNameBufferSize));
 		}
 
 		virtual pdh_error PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) {
 			if (pPdhExpandCounterPath == NULL)
 				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
-			return PDH::pdh_error(pPdhExpandCounterPath(szWildCardPath,mszExpandedPathList,pcchPathListLength));
+			return PDH::pdh_error(pPdhExpandCounterPath(szWildCardPath, mszExpandedPathList, pcchPathListLength));
 		}
 		virtual pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO *lpBuffer) {
 			if (pPdhGetCounterInfo == NULL)
 				throw pdh_exception("Failed to initialize PdhGetCounterInfo :(");
-			return PDH::pdh_error(pPdhGetCounterInfo(hCounter,bRetrieveExplainText,pdwBufferSize,lpBuffer));
+			return PDH::pdh_error(pPdhGetCounterInfo(hCounter, bRetrieveExplainText, pdwBufferSize, lpBuffer));
 		}
 		virtual pdh_error PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
 			if (pPdhAddCounter == NULL)
 				throw pdh_exception("Failed to initialize PdhAddCounter :(");
-			return PDH::pdh_error(pPdhAddCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
+			return PDH::pdh_error(pPdhAddCounter(hQuery, szFullCounterPath, dwUserData, phCounter));
 		}
 		virtual pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
 			if (pPdhAddEnglishCounter == NULL)
 				throw pdh_exception("PdhAddEnglishCounter is only avalible on Vista and later you need to use localized counters.");
-			return pdh_error(pPdhAddEnglishCounter(hQuery,szFullCounterPath,dwUserData,phCounter));
+			return pdh_error(pPdhAddEnglishCounter(hQuery, szFullCounterPath, dwUserData, phCounter));
 		}
 		virtual pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
 			if (pPdhRemoveCounter == NULL)

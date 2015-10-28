@@ -14,7 +14,6 @@
 namespace nscapi {
 	namespace settings_filters {
 		struct NSCAPI_EXPORT filter_object {
-
 			bool debug;
 
 			std::string syntax_top;
@@ -35,14 +34,12 @@ namespace nscapi {
 			std::string source_id;
 			std::string timeout_msg;
 
-
-			filter_object(std::string syntax_top, std::string syntax_detail, std::string target) 
+			filter_object(std::string syntax_top, std::string syntax_detail, std::string target)
 				: debug(false)
 				, syntax_top(syntax_top)
 				, syntax_detail(syntax_detail)
 				, target(target)
-				, severity(-1) 
-			{}
+				, severity(-1) {}
 
 			std::string to_string() const {
 				std::stringstream ss;
@@ -59,16 +56,16 @@ namespace nscapi {
 				if (p == std::string::npos)
 					return boost::posix_time::seconds(boost::lexical_cast<long>(time));
 				long value = boost::lexical_cast<long>(time.substr(0, p));
-				if ( (time[p] == 's') || (time[p] == 'S') )
+				if ((time[p] == 's') || (time[p] == 'S'))
 					return boost::posix_time::seconds(value);
-				else if ( (time[p] == 'm') || (time[p] == 'M') )
+				else if ((time[p] == 'm') || (time[p] == 'M'))
 					return boost::posix_time::minutes(value);
-				else if ( (time[p] == 'h') || (time[p] == 'H') )
+				else if ((time[p] == 'h') || (time[p] == 'H'))
 					return boost::posix_time::hours(value);
-				else if ( (time[p] == 'd') || (time[p] == 'D') )
-					return boost::posix_time::hours(value*24);
-				else if ( (time[p] == 'w') || (time[p] == 'W') )
-					return boost::posix_time::hours(value*24*7);
+				else if ((time[p] == 'd') || (time[p] == 'D'))
+					return boost::posix_time::hours(value * 24);
+				else if ((time[p] == 'w') || (time[p] == 'W'))
+					return boost::posix_time::hours(value * 24 * 7);
 				return boost::posix_time::seconds(value);
 			}
 
@@ -82,4 +79,3 @@ namespace nscapi {
 		};
 	}
 }
-

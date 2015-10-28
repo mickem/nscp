@@ -6,7 +6,6 @@
 
 namespace po = boost::program_options;
 class cli_parser : public boost::noncopyable {
-
 	NSClient* core_;
 	po::options_description common_light;
 	po::options_description common;
@@ -24,10 +23,10 @@ class cli_parser : public boost::noncopyable {
 	std::vector<std::string> defines;
 	std::string settings_store;
 	std::vector<std::string> unknown_options;
-	
+
 	typedef boost::function<int(int, char**)> handler_function;
-	typedef std::map<std::string,handler_function> handler_map;
-	typedef std::map<std::string,std::string> alias_map;
+	typedef std::map<std::string, handler_function> handler_map;
+	typedef std::map<std::string, std::string> alias_map;
 
 	void init_logger();
 	handler_map get_handlers();

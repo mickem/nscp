@@ -28,7 +28,7 @@ void settings::settings_handler_impl::update_defaults() {
 					get_logger()->debug("settings", __FILE__, __LINE__, "Adding: " + key_to_string(path, key));
 					if (desc.type == key_string)
 						get()->set_string(path, key, desc.defValue);
-					else if (desc.type == key_bool) 
+					else if (desc.type == key_bool)
 						get()->set_bool(path, key, settings::settings_interface::string_to_bool(desc.defValue));
 					else if (desc.type == key_integer) {
 						try {
@@ -59,7 +59,6 @@ void settings::settings_handler_impl::update_defaults() {
 	}
 }
 
-
 void settings::settings_handler_impl::remove_defaults() {
 	BOOST_FOREACH(std::string path, get_reg_sections("", false)) {
 		BOOST_FOREACH(std::string key, get_reg_keys(path, false)) {
@@ -70,20 +69,18 @@ void settings::settings_handler_impl::remove_defaults() {
 						if (get()->get_string(path, key) == desc.defValue) {
 							get()->remove_key(path, key);
 						}
-					}
-					else if (desc.type == key_bool) {
+					} else if (desc.type == key_bool) {
 						if (get()->get_bool(path, key) == settings::settings_interface::string_to_bool(desc.defValue)) {
 							get()->remove_key(path, key);
 						}
-					}
-					else if (desc.type == key_integer) {
+					} else if (desc.type == key_integer) {
 						if (get()->get_int(path, key) == strEx::s::stox<int>(desc.defValue)) {
 							get()->remove_key(path, key);
 						}
 					} else
-						get_logger()->error("settings",__FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
+						get_logger()->error("settings", __FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
 				} catch (const std::exception &) {
-					get_logger()->error("settings",__FILE__, __LINE__, "invalid default value for: " + key_to_string(path, key));
+					get_logger()->error("settings", __FILE__, __LINE__, "invalid default value for: " + key_to_string(path, key));
 				}
 			}
 		}
@@ -92,7 +89,6 @@ void settings::settings_handler_impl::remove_defaults() {
 		}
 	}
 }
-
 
 void settings::settings_handler_impl::destroy_all_instances() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -107,7 +103,6 @@ void settings::settings_handler_impl::house_keeping() {
 		throw settings_exception("destroy_all_instances Failed to get mutex, cant get access settings");
 	instance_->house_keeping();
 }
-
 
 settings::error_list settings::settings_handler_impl::validate() {
 	return get()->validate();

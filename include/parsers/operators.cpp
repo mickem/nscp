@@ -15,7 +15,6 @@ namespace parsers {
 		static int debug_level = 15;
 
 		namespace operator_impl {
-
 			struct simple_bool_binary_operator_impl : public binary_operator_impl {
 				node_type evaluate(evaluation_context errors, const node_type left, const node_type right) const {
 					value_type ltype = left->get_type();
@@ -27,17 +26,17 @@ namespace parsers {
 					if (helpers::type_is_float(ltype) && helpers::type_is_float(rtype))
 						return factory::create_num(eval_float(ltype, errors, left, right));
 
-					if ( (ltype != rtype) && (rtype != type_tbd) ) {
+					if ((ltype != rtype) && (rtype != type_tbd)) {
 						errors->error("Invalid types (not same) for binary operator");
 						return factory::create_false();
 					}
 					value_type type = left->get_type();
 					if (helpers::type_is_int(type))
-						return factory::create_num(eval_int(type, errors,  left, right));
+						return factory::create_num(eval_int(type, errors, left, right));
 					if (helpers::type_is_float(type))
 						return factory::create_num(eval_float(type, errors, left, right));
 					if (type == type_string)
-						return factory::create_num(eval_string(type, errors,  left, right));
+						return factory::create_num(eval_string(type, errors, left, right));
 					errors->error("missing impl for simple bool binary operator");
 					return factory::create_false();
 				}
@@ -95,7 +94,7 @@ namespace parsers {
 						}
 						return factory::create_num(eval(lhs, rhs));
 					}
-					if ( (ltype != rtype) && (rtype != type_tbd) ) {
+					if ((ltype != rtype) && (rtype != type_tbd)) {
 						errors->error("Invalid types (not same) for binary operator");
 						return factory::create_false();
 					}
@@ -104,7 +103,6 @@ namespace parsers {
 				}
 				virtual value_container eval(const value_container left, const value_container right) const = 0;
 			};
-
 
 			struct operator_eq : public even_simpler_bool_binary_operator_impl {
 				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
@@ -130,7 +128,7 @@ namespace parsers {
 			};
 			struct operator_gt : public even_simpler_bool_binary_operator_impl {
 				value_container do_eval_int(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
-					return value_container::create_int(lhs.get_int() > rhs.get_int(), lhs.is_unsure|rhs.is_unsure);
+					return value_container::create_int(lhs.get_int() > rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
 				}
 				value_container do_eval_float(value_type, evaluation_context errors, const value_container lhs, const value_container rhs) const {
 					return value_container::create_int(lhs.get_float() > rhs.get_float(), lhs.is_unsure | rhs.is_unsure);
@@ -175,7 +173,6 @@ namespace parsers {
 				};
 			};
 
-
 			struct operator_and : public simple_int_binary_operator_impl {
 				value_container eval(const value_container lhs, const value_container rhs) const {
 					return value_container::create_int(lhs.get_int() && rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
@@ -188,7 +185,6 @@ namespace parsers {
 			};
 
 			struct operator_like : public simple_bool_binary_operator_impl {
-
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					errors->error("Like not supported on numbers...");
 					return value_container::create_nil();
@@ -216,7 +212,6 @@ namespace parsers {
 				}
 			};
 			struct operator_regexp : public simple_bool_binary_operator_impl {
-
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					errors->error("Like not supported on numbers...");
 					return value_container::create_nil();
@@ -236,7 +231,7 @@ namespace parsers {
 					std::string regexp = rhs.get_string();
 					try {
 						boost::regex re(regexp);
-						return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure||rhs.is_unsure);
+						return value_container::create_int(boost::regex_match(str, re), lhs.is_unsure || rhs.is_unsure);
 					} catch (const boost::bad_expression e) {
 						errors->error("Invalid syntax in regular expression:" + regexp);
 						return value_container::create_nil();
@@ -247,7 +242,6 @@ namespace parsers {
 				}
 			};
 			struct operator_not_regexp : public simple_bool_binary_operator_impl {
-
 				value_container eval_int(value_type type, evaluation_context errors, const node_type left, const node_type right) const {
 					errors->error("Like not supported on numbers...");
 					return value_container::create_nil();
@@ -417,15 +411,15 @@ namespace parsers {
 					long long now = constants::get_now();
 					if (unit.empty())
 						return now + value;
-					else if ( (unit == "s") || (unit == "S") )
+					else if ((unit == "s") || (unit == "S"))
 						return now + (value);
-					else if ( (unit == "m") || (unit == "M") )
+					else if ((unit == "m") || (unit == "M"))
 						return now + (value * 60);
-					else if ( (unit == "h") || (unit == "H") )
+					else if ((unit == "h") || (unit == "H"))
 						return now + (value * 60 * 60);
-					else if ( (unit == "d") || (unit == "D") )
+					else if ((unit == "d") || (unit == "D"))
 						return now + (value * 24 * 60 * 60);
-					else if ( (unit == "w") || (unit == "W") )
+					else if ((unit == "w") || (unit == "W"))
 						return now + (value * 7 * 24 * 60 * 60);
 					return now + value;
 				}
@@ -433,29 +427,27 @@ namespace parsers {
 				inline long long parse_size(long long value, std::string unit) const {
 					if (unit.empty())
 						return value;
-					else if ( (unit == "b") || (unit == "B") )
+					else if ((unit == "b") || (unit == "B"))
 						return value;
-					else if ( (unit == "k") || (unit == "k") )
+					else if ((unit == "k") || (unit == "k"))
 						return value * 1024;
-					else if ( (unit == "m") || (unit == "M") )
+					else if ((unit == "m") || (unit == "M"))
 						return value * 1024 * 1024;
-					else if ( (unit == "g") || (unit == "G") )
+					else if ((unit == "g") || (unit == "G"))
 						return value * 1024 * 1024 * 1024;
-					else if ( (unit == "t") || (unit == "T") )
+					else if ((unit == "t") || (unit == "T"))
 						return value * 1024 * 1024 * 1024 * 1024;
 					return value;
 				}
-				
 			};
-
 
 			struct simple_bool_unary_operator_impl : public unary_operator_impl {
 				node_type evaluate(evaluation_context errors, const node_type subject) const {
 					value_type type = subject->get_type();
 					if (helpers::type_is_int(type))
-						return eval_int(type, errors,  subject)?factory::create_true():factory::create_false();
+						return eval_int(type, errors, subject) ? factory::create_true() : factory::create_false();
 					if (type == type_string)
-						return eval_string(type, errors,  subject)?factory::create_true():factory::create_false();
+						return eval_string(type, errors, subject) ? factory::create_true() : factory::create_false();
 					errors->error("missing impl for bool unary operator");
 					return factory::create_false();
 				}
@@ -467,11 +459,11 @@ namespace parsers {
 				operator_not(const node_type) {}
 				operator_not() {}
 				node_type evaluate(evaluation_context errors, const node_type subject) const {
-					return evaluate(subject->get_type(), errors,  subject);
+					return evaluate(subject->get_type(), errors, subject);
 				}
 				node_type evaluate(value_type type, evaluation_context errors, const node_type subject) const {
 					if (type == type_bool)
-						return subject->get_int_value(errors)?factory::create_false():factory::create_true();
+						return subject->get_int_value(errors) ? factory::create_false() : factory::create_true();
 					if (type == type_int)
 						return  factory::create_int(-subject->get_int_value(errors));
 					if (type == type_date) {

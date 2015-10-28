@@ -30,8 +30,7 @@ namespace dll {
 					module_ = fix_module_name(module_);
 				}
 			}
-			static boost::filesystem::path fix_module_name( boost::filesystem::path module ) {
-
+			static boost::filesystem::path fix_module_name(boost::filesystem::path module) {
 				if (boost::filesystem::is_regular(module))
 					return module;
 				/* this one (below) is wrong I think */
@@ -61,7 +60,7 @@ namespace dll {
 				if (handle_ == NULL)
 					throw dll_exception(std::string("Could not load library: ") + dlerror() + ": " + module_.string());
 #elif defined(HP)
-				handle_ = shl_load(dllname.c_str(), BIND_DEFERRED|DYNAMIC_PATH, 0L);
+				handle_ = shl_load(dllname.c_str(), BIND_DEFERRED | DYNAMIC_PATH, 0L);
 				if (handle_ == NULL)
 					throw dll_exception("Could not load library: " + module_.string());
 #else
@@ -74,13 +73,13 @@ namespace dll {
 					throw dll_exception("Failed to load process from module: " + module_.string());
 				void *ep = NULL;
 #if defined(LINUX) || defined(SUN) || defined(AIX) || defined(CYGWIN)
-				ep = (void*) dlsym(handle_, name.c_str());
+				ep = (void*)dlsym(handle_, name.c_str());
 				return ep;
 #elif defined(HP)
 				int rcode = shl_findsym((shl_t)&handle_, name.c_str(), TYPE_PROCEDURE, &ep);
 				if (rcode == -1)
 					return NULL;
-					//throw dll_exception(_T("Failed to load process from module: ") + module_.string());
+				//throw dll_exception(_T("Failed to load process from module: ") + module_.string());
 				return ep;
 #else
 				/* This type of UNIX has no DLL support yet */
@@ -97,21 +96,19 @@ namespace dll {
 				/* This type of UNIX has no DLL support yet */
 				throw dll_exception("Unsupported Unix flavour (please report this): " + module_.string());
 #endif
-
 			}
 
-			bool is_loaded() const { return handle_!=NULL; }
+			bool is_loaded() const { return handle_ != NULL; }
 			boost::filesystem::path get_file() const { return module_; }
 			std::string get_filename() const { return file_helpers::meta::get_filename(module_); }
 			std::string get_module_name() {
 				std::string ext = get_extension();
 				std::size_t l = ext.length();
 				std::string fn = get_filename();
-				if ((fn.length() > l) && (fn.substr(fn.size()-l) == ext))
-					return fn.substr(0, fn.size()-l);
+				if ((fn.length() > l) && (fn.substr(fn.size() - l) == ext))
+					return fn.substr(0, fn.size() - l);
 				return fn;
 			}
 		};
 	}
 }
-

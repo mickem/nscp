@@ -5,7 +5,6 @@
 namespace parsers {
 	namespace where {
 		namespace helpers {
-
 			std::string type_to_string(value_type type) {
 				if (type == type_bool)
 					return "bool";
@@ -24,11 +23,11 @@ namespace parsers {
 				if (type == type_tbd)
 					return "tbd";
 				if (type >= type_custom)
-					return "u:" + strEx::s::xtos(type-type_custom);
+					return "u:" + strEx::s::xtos(type - type_custom);
 				if (type >= type_custom_float)
 					return "uf:" + strEx::s::xtos(type - type_custom_float);
 				if (type >= type_custom_string)
-					return "us:" + strEx::s::xtos(type-type_custom_string);
+					return "us:" + strEx::s::xtos(type - type_custom_string);
 				if (type >= type_custom_int)
 					return "ui:" + strEx::s::xtos(type - type_custom_int);
 				return "unknown:" + strEx::s::xtos(type);
@@ -80,7 +79,6 @@ namespace parsers {
 					return "like";
 				return "?";
 			}
-
 
 			bool can_convert(value_type src, value_type dst) {
 				if (src == type_invalid || dst == type_invalid)
@@ -142,7 +140,7 @@ namespace parsers {
 						return type_tbd;
 					if (lt == type_multi)
 						lt = left->infer_type(factory, rt);
-					else 
+					else
 						rt = right->infer_type(factory, lt);
 				}
 				if (lt == rt)
@@ -177,7 +175,6 @@ namespace parsers {
 			bool is_upper(operators op) {
 				return op == op_ge || op == op_gt;
 			}
-			
 
 			boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit) {
 				std::list<parsers::where::node_type> list = subject->get_list_value(context);
@@ -196,8 +193,6 @@ namespace parsers {
 				}
 				return boost::make_tuple(value, unit);
 			}
-			
 		}
 	}
 }
-

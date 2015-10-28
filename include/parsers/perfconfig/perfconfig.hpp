@@ -9,7 +9,6 @@
 
 namespace parsers {
 	struct perfconfig {
-
 		struct perf_option {
 			std::string key;
 			std::string value;

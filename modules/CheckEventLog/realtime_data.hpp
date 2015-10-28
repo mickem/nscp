@@ -3,11 +3,9 @@
 
 #include <boost/filesystem/path.hpp>
 
-
 #include "filter.hpp"
 
 struct runtime_data {
-
 	typedef eventlog_filter::filter filter_type;
 	typedef EventLogRecord& transient_data_type;
 

@@ -88,7 +88,7 @@ namespace wmi_impl {
 	struct row {
 		CComPtr<IWbemClassObject> row_obj;
 		const std::list<std::string> &columns;
-		row(const std::list<std::string> &columns): columns(columns) {}
+		row(const std::list<std::string> &columns) : columns(columns) {}
 
 		std::string get_string(const std::string col);
 		std::string to_string();
@@ -101,7 +101,6 @@ namespace wmi_impl {
 		row_enumerator(const std::list<std::string> &columns) : row_instance(columns) {}
 		bool has_next();
 		row& get_next();
-
 	};
 	struct header_enumerator {
 		CComPtr<IEnumWbemClassObject> enumerator_obj;
@@ -115,7 +114,6 @@ namespace wmi_impl {
 		bool is_initialized;
 		wmi_service(std::string ns, std::string username, std::string password) : ns(ns), username(username), password(password), is_initialized(false) {}
 		CComPtr<IWbemServices>& get();
-
 	};
 	struct query {
 		std::string wql_query;
@@ -125,9 +123,8 @@ namespace wmi_impl {
 
 		std::list<std::string> get_columns();
 		row_enumerator execute();
-
 	};
-	
+
 	struct instances {
 		std::string super_class;
 		wmi_service instance;
@@ -142,5 +139,4 @@ namespace wmi_impl {
 		classes(std::string super_class, std::string ns, std::string username, std::string password) : super_class(super_class), instance(ns, username, password) {}
 		row_enumerator get();
 	};
-
 }

@@ -19,14 +19,11 @@
 #include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
-
 	namespace settings_objects {
-
 		inline void import_string(std::string &object, const std::string &parent) {
 			if (object.empty() && !parent.empty())
 				object = parent;
 		}
-
 
 		typedef boost::unordered_map<std::string, std::string> options_map;
 
@@ -43,20 +40,18 @@ namespace nscapi {
 			std::string value;
 			options_map options;
 
-			object_instance_interface(std::string alias, std::string path) 
+			object_instance_interface(std::string alias, std::string path)
 				: alias(alias)
 				, base_path(path)
 				, path(path + "/" + alias)
 				, is_template(false)
-				, parent("default") 
-			{}
-			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string path) 
+				, parent("default") {}
+			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string path)
 				: alias(alias)
 				, base_path(path)
 				, path(path + "/" + alias)
 				, is_template(false)
-				, parent(other->alias) 
-			{
+				, parent(other->alias) {
 				value = other->value;
 				BOOST_FOREACH(const options_map::value_type &e, other->options) {
 					options.insert(e);
@@ -69,8 +64,7 @@ namespace nscapi {
 				, is_template(other.is_template)
 				, parent(other.parent)
 				, value(other.value)
-				, options(other.options)
-			{}
+				, options(other.options) {}
 
 			const options_map& get_options() const {
 				return options;
@@ -126,8 +120,7 @@ namespace nscapi {
 				options[key] = value;
 			}
 
-			virtual void import(boost::shared_ptr<object_instance_interface> parent) {
-			}
+			virtual void import(boost::shared_ptr<object_instance_interface> parent) {}
 
 			// Accessors
 
@@ -163,8 +156,6 @@ namespace nscapi {
 			}
 
 			std::string get_value() const { return value; }
-
-
 		};
 
 		typedef boost::shared_ptr<object_instance_interface> object_instance;
@@ -202,7 +193,7 @@ namespace nscapi {
 			}
 		};
 
-		template<class T, class TFactory=simple_object_factory<T> >
+		template<class T, class TFactory = simple_object_factory<T> >
 		struct object_handler : boost::noncopyable {
 			typedef boost::shared_ptr<T> object_instance;
 			typedef boost::unordered_map<std::string, object_instance> object_map;
@@ -312,7 +303,6 @@ namespace nscapi {
 				templates.clear();
 			}
 
-
 			std::string to_string() {
 				std::stringstream ss;
 				ss << "Objects: ";
@@ -342,9 +332,8 @@ namespace nscapi {
 
 		/*
 		struct NSCAPI_EXPORT template_object {
-
 			template_object() : is_template(false)  {}
-						
+
 			std::string path;
 			std::string alias;
 			std::string value;
@@ -355,7 +344,6 @@ namespace nscapi {
 				return alias == "default";
 			}
 
-
 			void read_object(nscapi::settings_helper::path_extension &root_path);
 			void add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample);
 			std::string to_string() const;
@@ -363,4 +351,3 @@ namespace nscapi {
 		*/
 	}
 }
-

@@ -40,7 +40,7 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
 bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	start_ =  boost::posix_time::microsec_clock::local_time();
+	start_ = boost::posix_time::microsec_clock::local_time();
 
 	std::string path;
 	sh::settings_registry settings(get_settings_proxy());
@@ -67,7 +67,6 @@ void CheckNSCP::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	}
 }
 
-
 int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 	if (!boost::filesystem::is_directory(root)) {
 		return 0;
@@ -77,7 +76,7 @@ int get_crashes(boost::filesystem::path root, std::string &last_crash) {
 	time_t last_write = std::time(0);
 	boost::filesystem::directory_iterator begin(root), end;
 	BOOST_FOREACH(const boost::filesystem::path& p, std::make_pair(begin, end)) {
-		if(boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")
+		if (boost::filesystem::is_regular_file(p) && file_helpers::meta::get_extension(p) == "txt")
 			count++;
 		time_t lw = boost::filesystem::last_write_time(p);
 		if (lw > last_write) {
@@ -92,7 +91,7 @@ std::size_t CheckNSCP::get_errors(std::string &last_error) {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		last_error = "Failed to get lock";
-		return error_count_+1;
+		return error_count_ + 1;
 	}
 	last_error = last_error_;
 	return error_count_;
@@ -101,13 +100,13 @@ std::size_t CheckNSCP::get_errors(std::string &last_error) {
 void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	response->set_result(Plugin::Common_ResultCode_OK);
 	std::string last, message;
 	int crash_count = get_crashes(crashFolder, last);
 	format::append_list(message, strEx::s::xtos(crash_count) + " crash(es)", std::string(", "));
-	if (crash_count > 0){
+	if (crash_count > 0) {
 		response->set_result(Plugin::Common_ResultCode_CRITICAL);
 		format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}

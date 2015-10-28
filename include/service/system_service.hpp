@@ -5,7 +5,7 @@
 #endif
 
 namespace service_helper {
-    class service_exception : public std::exception {
+	class service_exception : public std::exception {
 		std::string what_;
 	public:
 		service_exception(std::string what) : what_(what) {
@@ -13,8 +13,8 @@ namespace service_helper {
 			OutputDebugString(utf8::cvt<std::wstring>(std::string("ERROR:") + what).c_str());
 #endif
 		}
-        virtual ~service_exception() throw() {}
-        virtual const char* what() const throw() {
+		virtual ~service_exception() throw() {}
+		virtual const char* what() const throw() {
 			return what_.c_str();
 		}
 	};
@@ -22,7 +22,7 @@ namespace service_helper {
 
 #ifdef _WIN32
 #include <service/win32_service.hpp>
-#else 
+#else
 #include <service/unix_service.hpp>
 #endif
 

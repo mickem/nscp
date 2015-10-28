@@ -27,7 +27,6 @@
 #include <error.hpp>
 
 namespace PDH {
-
 #define PDH_INDEX_BUF_LEN 2048
 
 	class Enumerations {

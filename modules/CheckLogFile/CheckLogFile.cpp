@@ -47,16 +47,16 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
-		"REALTIME FILTERS", "A set of filters to use in real-time mode",
-		"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
-		)
+		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
+			)
 		;
 
 	settings.alias().add_key_to_settings("real-time")
 
 		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-		"REAL TIME CHECKING", "Spawns a background thread which waits for file changes.")
+			"REAL TIME CHECKING", "Spawns a background thread which waits for file changes.")
 
 		;
 
@@ -87,21 +87,21 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 	std::string mode;
 
 	filter_type filter;
- 	filter_helper.add_options("", "", "", filter.get_filter_syntax());
+	filter_helper.add_options("", "", "", filter.get_filter_syntax());
 	filter_helper.add_syntax("${count}/${total} (${problem_list})", filter.get_format_syntax(), "${column1}", "${column1}", "%(status): Nothing found", "");
- 	filter_helper.get_desc().add_options()
-//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
- 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"), 
- 																	"Character string used to split a file into several lines (default \\n)")
+	filter_helper.get_desc().add_options()
+		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
+		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),
+			"Character string used to split a file into several lines (default \\n)")
 		("column-split", po::value<std::string>(&column_split)->default_value("\\t"),
-																	"Character string to split a line into several columns (default \\t)")
-		("split", po::value<std::string>(&column_split),			"Alias for split-column")
-		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\n"
-																	"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
-																	"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
-		("files", po::value<std::string>(&files_string),			"A comma separated list of files to scan (same as file except a list)")
-//		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
- 		;
+			"Character string to split a line into several columns (default \\t)")
+		("split", po::value<std::string>(&column_split), "Alias for split-column")
+		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\n"
+			"Notice that specifying multiple files will create an aggregate set it will not check each file individually.\n"
+			"In other words if one file contains an error the entire check will result in error or if you check the count it is the global count which is used.")
+		("files", po::value<std::string>(&files_string), "A comma separated list of files to scan (same as file except a list)")
+		//		("mode", po::value<std::string>(&mode),						"Mode of operation: count (count all critical/warning lines), find (find first critical/warning line)")
+		;
 
 	if (!files_string.empty())
 		boost::split(file_list, files_string, boost::is_any_of(","));
@@ -130,7 +130,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 		if (file.is_open()) {
 			std::string line;
 			while (file.good()) {
-				std::getline(file,line, '\n');
+				std::getline(file, line, '\n');
 				std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
 				boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
 				modern_filter::match_result ret = filter.match(record);

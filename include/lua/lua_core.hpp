@@ -21,7 +21,6 @@ extern "C" {
 #include <lua/lua_script.hpp>
 
 namespace lua {
-
 	typedef scripts::script_information<lua_traits> script_information;
 
 	struct lua_runtime_plugin {
@@ -66,4 +65,3 @@ namespace lua {
 		void create_user_data(script_information* info);
 	};
 }
-

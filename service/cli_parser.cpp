@@ -9,10 +9,9 @@
 #include <settings/settings_core.hpp>
 #include "../libs/settings_manager/settings_manager_impl.h"
 
-
 namespace po = boost::program_options;
 nsclient::logging::logger_interface* get_logger() {
-	return nsclient::logging::logger::get_logger(); 
+	return nsclient::logging::logger::get_logger();
 }
 void log_error(unsigned int line, const std::string &message) {
 	get_logger()->error("client", __FILE__, line, message);
@@ -24,7 +23,7 @@ void info(unsigned int line, const std::string &message, const std::string &utf)
 	get_logger()->info("client", __FILE__, line, message + utf8::cvt<std::string>(utf));
 }
 
-cli_parser::cli_parser(NSClient* core) 
+cli_parser::cli_parser(NSClient* core)
 	: core_(core)
 	, common_light("Common options")
 	, common("Common options")
@@ -35,8 +34,7 @@ cli_parser::cli_parser(NSClient* core)
 	, help(false)
 	, version(false)
 	, log_debug(false)
-	, no_stderr(false)
-{
+	, no_stderr(false) {
 	common_light.add_options()
 		("settings", po::value<std::string>(&settings_store), "Override (temporarily) settings subsystem to use")
 		("debug", po::bool_switch(&log_debug), "Set log level to debug (and show debug information)")
@@ -98,9 +96,8 @@ cli_parser::cli_parser(NSClient* core)
 		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
 		;
 
-		test.add_options()
+	test.add_options()
 		;
-
 }
 
 void cli_parser::init_logger() {
@@ -176,11 +173,11 @@ int cli_parser::parse(int argc, char* argv[]) {
 		std::string mod = utf8::cvt<std::string>(argv[1]);
 		handler_map::const_iterator it = handlers.find(mod);
 		if (it != handlers.end())
-			return it->second(argc-1, &argv[1]);
+			return it->second(argc - 1, &argv[1]);
 
 		alias_map::const_iterator alias_it = aliases.find(mod);
 		if (alias_it != aliases.end())
-			return parse_client(argc-1, &argv[1], alias_it->second);
+			return parse_client(argc - 1, &argv[1], alias_it->second);
 
 		parse_help(argc, argv);
 		std::cerr << "Invalid module specified: " << mod << std::endl;
@@ -223,13 +220,13 @@ int cli_parser::parse(int argc, char* argv[]) {
 
 po::basic_parsed_options<char> cli_parser::do_parse(int argc, char* argv[], po::options_description &desc) {
 	int pos = 0;
-	for (;pos<argc;pos++) {
+	for (; pos < argc; pos++) {
 		if (strcmp(argv[pos], "..") == 0)
 			break;
 	}
 	po::basic_parsed_options<char> parsed = po::command_line_parser(pos, argv).options(desc).allow_unregistered().run();
 	unknown_options = po::collect_unrecognized(parsed.options, po::include_positional);
-	for (int i=pos+1;i<argc;i++) {
+	for (int i = pos + 1; i < argc; i++) {
 		unknown_options.push_back(argv[i]);
 	}
 	return parsed;
@@ -253,12 +250,11 @@ void cli_parser::display_help() {
 			std::cout << itm.first << ", ";
 		}
 		std::cout << std::endl;
-	} catch(std::exception & e) {
+	} catch (std::exception & e) {
 		std::cerr << "Unable to parse root option: " << e.what() << std::endl;
 	} catch (...) {
 		std::cerr << "Unable to parse root option" << std::endl;
 	}
-
 }
 
 int cli_parser::parse_help(int argc, char* argv[]) {
@@ -278,10 +274,10 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 		if (process_common_options("settings", all))
 			return 1;
 
-		bool def = vm.count("add-defaults")==1 || vm.count("add-missing")==1;
-		bool rem_def = vm.count("remove-defaults")==1;
-		bool load_all = vm.count("load-all")==1;
-		bool use_samples = vm.count("use-samples")==1;
+		bool def = vm.count("add-defaults") == 1 || vm.count("add-missing") == 1;
+		bool rem_def = vm.count("remove-defaults") == 1;
+		bool load_all = vm.count("load-all") == 1;
+		bool use_samples = vm.count("use-samples") == 1;
 
 		nsclient_core::settings_client client(core_, def, rem_def, load_all, use_samples);
 		int ret = -1;
@@ -317,16 +313,15 @@ int cli_parser::parse_settings(int argc, char* argv[]) {
 				client.list_settings_info();
 				return 1;
 			}
-		} catch(const std::exception & e) {
+		} catch (const std::exception & e) {
 			std::cerr << e.what() << "\n";
 		}
 		return ret;
-	} catch(const std::exception & e) {
+	} catch (const std::exception & e) {
 		std::cerr << std::string("Unable to parse command line (settings): ") << e.what() << "\n";
 		return 1;
 	}
 }
-
 
 int cli_parser::parse_service(int argc, char* argv[]) {
 	try {
@@ -394,13 +389,12 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 					if (!cmd.empty()) {
 						std::cout << "nsclientpp (legacy): " << cmd << std::endl;
 					}
-
 				}
 				return vm.count("info");
 			}
 		}
 		return 0;
-	} catch(std::exception & e) {
+	} catch (std::exception & e) {
 		std::cerr << "Unable to parse command line (settings): " << e.what() << "\n";
 		return 1;
 	}
@@ -409,7 +403,7 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 struct client_arguments {
 	std::string command, combined_query, module;
 	std::vector<std::string> arguments;
-	enum modes { exec, query, submit, none, combined};
+	enum modes { exec, query, submit, none, combined };
 	modes mode;
 	bool boot;
 	bool load_all;
@@ -430,7 +424,6 @@ struct client_arguments {
 				strEx::append_list(args, s, ", ");
 			info(__LINE__, "Arguments: " + args);
 		}
-
 	}
 
 	int exec_client_mode(NSClient* core_, const std::vector<std::string> &defines) {
@@ -451,9 +444,9 @@ struct client_arguments {
 					std::cerr << "Failed to parse: " << s << std::endl;
 					continue;
 				}
-				settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1+1, p2-p1-1), s.substr(p2+1));
+				settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1 + 1, p2 - p1 - 1), s.substr(p2 + 1));
 			}
-			if (load_all)                                                                                                                                                    
+			if (load_all)
 				core_->preboot_load_all_plugin_files();
 			if (module.empty() || module == "CommandClient")
 				core_->boot_load_all_plugins();
@@ -502,16 +495,15 @@ struct client_arguments {
 				std::cout << r << std::endl;
 			}
 			return ret;
-		} catch(const std::exception & e) {
+		} catch (const std::exception & e) {
 			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 			return NSCAPI::exec_return_codes::returnERROR;
-		} catch(...) {
+		} catch (...) {
 			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
 			return NSCAPI::exec_return_codes::returnERROR;
 		}
 	}
 };
-
 
 int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 	try {
@@ -538,7 +530,6 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		if (process_common_options("client", all))
 			return 1;
 
-
 		if (vm.count("exec")) {
 			args.command = vm["exec"].as<std::string>();
 			args.mode = client_arguments::exec;
@@ -554,7 +545,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 			args.mode = client_arguments::submit;
 		}
 
-		args.load_all = vm.count("load-all")==1;
+		args.load_all = vm.count("load-all") == 1;
 
 		if (vm.count("module"))
 			args.module = vm["module"].as<std::string>();
@@ -574,8 +565,8 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 			if (pos == std::string::npos)
 				args.arguments.push_back("--" + s);
 			else {
-				args.arguments.push_back("--" + s.substr(0,pos));
-				args.arguments.push_back(s.substr(pos+1));
+				args.arguments.push_back("--" + s.substr(0, pos));
+				args.arguments.push_back(s.substr(pos + 1));
 			}
 		}
 
@@ -586,15 +577,15 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 			if (pos == std::string::npos)
 				args.arguments.push_back(s);
 			else {
-				args.arguments.push_back(s.substr(0,pos));
-				args.arguments.push_back(s.substr(pos+1));
+				args.arguments.push_back(s.substr(0, pos));
+				args.arguments.push_back(s.substr(pos + 1));
 			}
 		}
 		return args.exec_client_mode(core_, defines);
-	} catch(const std::exception & e) {
+	} catch (const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
-	} catch(...) {
+	} catch (...) {
 		std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
 		return 1;
 	}
@@ -616,7 +607,6 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 
 		if (process_common_options("unitest", all))
 			return 1;
-
 
 		if (vm.count("language")) {
 			std::string lang = vm["language"].as<std::string>();
@@ -656,8 +646,8 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 			if (pos == std::string::npos)
 				args.arguments.push_back("--" + s);
 			else {
-				args.arguments.push_back("--" + s.substr(0,pos));
-				args.arguments.push_back(s.substr(pos+1));
+				args.arguments.push_back("--" + s.substr(0, pos));
+				args.arguments.push_back(s.substr(pos + 1));
 			}
 		}
 
@@ -669,24 +659,21 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 			if (pos == std::string::npos)
 				args.arguments.push_back(s);
 			else {
-				args.arguments.push_back(s.substr(0,pos));
-				args.arguments.push_back(s.substr(pos+1));
+				args.arguments.push_back(s.substr(0, pos));
+				args.arguments.push_back(s.substr(pos + 1));
 			}
 		}
 		return args.exec_client_mode(core_, defines);
-	} catch(const std::exception & e) {
+	} catch (const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
-	} catch(...) {
+	} catch (...) {
 		std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
 		return 1;
 	}
 }
 
-
-
-std::string cli_parser::get_description(std::string key) 
-{
+std::string cli_parser::get_description(std::string key) {
 	if (key == "settings") {
 		return "Change and list settings as well as load and initialize modules.";
 	} else if (key == "service") {
@@ -729,5 +716,5 @@ std::string cli_parser::describe(std::string key) {
 std::string cli_parser::describe(std::string key, std::string alias) {
 	return key + "   (same as nscp client --module " + alias + ")"
 		"\n      " + get_description(key) +
-		+ "\n";
+		+"\n";
 }

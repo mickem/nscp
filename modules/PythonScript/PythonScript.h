@@ -43,7 +43,6 @@ struct python_script : public boost::noncopyable {
 	void _exec(const std::string &scriptfile);
 };
 
-
 class PythonScript : public nscapi::impl::simple_plugin {
 private:
 	boost::filesystem::path root_;
@@ -70,5 +69,4 @@ private:
 	bool loadScript(std::string alias, std::string script);
 	NSCAPI::nagiosReturn execute_and_load_python(std::list<std::wstring> args, std::wstring &message);
 	boost::optional<boost::filesystem::path> find_file(std::string file);
-
 };

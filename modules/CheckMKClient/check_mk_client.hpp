@@ -1,12 +1,10 @@
-	#pragma once
+#pragma once
 
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
 
 namespace check_mk_client {
-		
 	struct connection_data : public socket_helpers::connection_info {
-
 		connection_data(client::destination_container arguments, client::destination_container sender) {
 			address = arguments.address.host;
 			port_ = arguments.address.get_port_string("5667");
@@ -47,20 +45,17 @@ namespace check_mk_client {
 		std::string expand_path(std::string path) {
 			return GET_CORE()->expand_path(path);
 		}
-
 	};
 
-
 	struct check_mk_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
 			check_mk_client::connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 
-			send(response_message.add_payload(),con);
-			return true;			
+			send(response_message.add_payload(), con);
+			return true;
 		}
 
 		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
@@ -85,7 +80,6 @@ namespace check_mk_client {
 			instance.gc(LUA_GCCOLLECT, 0);
 			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
-
 
 		void send(Plugin::QueryResponseMessage::Response *payload, connection_data &con) {
 			try {

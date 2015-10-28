@@ -12,10 +12,8 @@
 
 namespace parsers {
 	namespace where {
-
 		template<class runtime_data, class config_object>
 		struct realtime_filter_helper {
-
 			nscapi::core_wrapper *core;
 			int plugin_id;
 			realtime_filter_helper(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id) {}
@@ -58,7 +56,6 @@ namespace parsers {
 					minNext = next_ok_;
 					return true;
 				}
-
 			};
 
 			typedef boost::shared_ptr<container> container_type;
@@ -127,7 +124,6 @@ namespace parsers {
 				return true;
 			}
 
-
 			void touch_all() {
 				boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 				BOOST_FOREACH(container_type item, items) {
@@ -156,7 +152,7 @@ namespace parsers {
 				}
 			}
 
-			void do_process_no_items(boost::posix_time::ptime current_time)  {
+			void do_process_no_items(boost::posix_time::ptime current_time) {
 				try {
 					// Match any stale items and process timeouts
 					BOOST_FOREACH(container_type item, items) {
@@ -170,11 +166,9 @@ namespace parsers {
 				}
 			}
 
-
-			void process_no_items()  {
+			void process_no_items() {
 				do_process_no_items(boost::posix_time::second_clock::local_time());
 			}
-
 
 			op_duration find_minimum_timeout() {
 				op_duration ret;

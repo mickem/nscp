@@ -4,7 +4,6 @@
 #include <boost/type_traits/is_arithmetic.hpp>
 
 namespace swap_bytes {
-
 	// this function swap the bytes of values given it's size as a template
 	// parameter (could sizeof be used?).
 	template <class T, unsigned int size>

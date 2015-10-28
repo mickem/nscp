@@ -27,7 +27,6 @@
 #include <pdh/basic_impl.hpp>
 
 namespace PDH {
-
 	class ThreadedSafePDH : public PDH::NativeExternalPDH {
 		boost::shared_mutex mutex_;
 		typedef std::list<subscriber*> subscriber_list;
@@ -35,8 +34,7 @@ namespace PDH {
 	private:
 
 	public:
-		ThreadedSafePDH() : NativeExternalPDH() {
-		}
+		ThreadedSafePDH() : NativeExternalPDH() {}
 
 		bool reload();
 		bool reload_unsafe();
@@ -45,8 +43,8 @@ namespace PDH {
 		virtual void add_listener(subscriber* sub);
 		virtual void remove_listener(subscriber* sub);
 
-		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName,LPCTSTR szName,DWORD *dwIndex);
-		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName,DWORD dwNameIndex,LPTSTR szNameBuffer,LPDWORD pcchNameBufferSize);
+		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR szName, DWORD *dwIndex);
+		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize);
 		virtual pdh_error PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength);
 		virtual pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO *lpBuffer);
 		virtual pdh_error PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter);

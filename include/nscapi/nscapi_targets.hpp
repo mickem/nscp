@@ -63,19 +63,19 @@ namespace nscapi {
 				root_path.add_key()
 
 					("address", sh::string_fun_key<std::string>(boost::bind(&target_object::set_address, this, _1)),
-					"TARGET ADDRESS", "Target host address")
+						"TARGET ADDRESS", "Target host address")
 
 					("host", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "host", _1)),
-					"TARGET HOST", "The target server to report results to.", true)
+						"TARGET HOST", "The target server to report results to.", true)
 
 					("port", sh::string_fun_key<std::string>(boost::bind(&target_object::set_property_string, this, "port", _1)),
-					"TARGET PORT", "The target server port", true)
+						"TARGET PORT", "The target server port", true)
 
 					("timeout", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "timeout", _1), 30),
-					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
+						"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 
 					("retries", sh::int_fun_key<int>(boost::bind(&target_object::set_property_int, this, "retries", _1), 3),
-					"RETRIES", "Number of times to retry sending.")
+						"RETRIES", "Number of times to retry sending.")
 
 					;
 
@@ -83,40 +83,35 @@ namespace nscapi {
 				settings.notify();
 			}
 
-
 			void add_ssl_keys(nscapi::settings_helper::path_extension root_path) {
-
 				root_path.add_key()
 
-
 					("dh", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "dh", _1)),
-					"DH KEY", "", true)
+						"DH KEY", "", true)
 
 					("certificate", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate", _1)),
-					"SSL CERTIFICATE", "", false)
+						"SSL CERTIFICATE", "", false)
 
 					("certificate key", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate key", _1)),
-					"SSL CERTIFICATE", "", true)
+						"SSL CERTIFICATE", "", true)
 
 					("certificate format", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "certificate format", _1)),
-					"CERTIFICATE FORMAT", "", true)
+						"CERTIFICATE FORMAT", "", true)
 
 					("ca", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "ca", _1)),
-					"CA", "", true)
+						"CA", "", true)
 
 					("allowed ciphers", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "allowed ciphers", _1)),
-					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
+						"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
 					("verify mode", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "verify mode", _1)),
-					"VERIFY MODE", "", false)
+						"VERIFY MODE", "", false)
 
 					("use ssl", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "ssl", _1)),
-					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
+						"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 
-					;	
+					;
 			}
-
-
 
 			virtual void translate(const std::string &key, const std::string &value) {
 				if (key == "host") {
@@ -132,10 +127,8 @@ namespace nscapi {
 			}
 		};
 		typedef boost::optional<target_object> optional_target_object;
-		typedef std::map<std::string,std::string> targets_type;
+		typedef std::map<std::string, std::string> targets_type;
 
 		typedef nscapi::settings_objects::object_handler<target_object> handler;
-
 	}
 }
-

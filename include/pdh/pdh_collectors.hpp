@@ -29,18 +29,15 @@
 #include <pdh/pdh_counters.hpp>
 
 namespace PDH {
-	
 	namespace instance_providers {
-
-
-		struct container  : public PDH::pdh_instance_interface {
+		struct container : public PDH::pdh_instance_interface {
 			std::string alias_;
 			std::list<boost::shared_ptr<pdh_instance_interface> > children_;
 
 			virtual bool has_instances() {
 				return true;
 			}
-			virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances()  {
+			virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances() {
 				return children_;
 			}
 
@@ -79,8 +76,7 @@ namespace PDH {
 				}
 				return sum;
 			}
-			virtual void collect(const PDH_FMT_COUNTERVALUE &value)  {}
-
+			virtual void collect(const PDH_FMT_COUNTERVALUE &value) {}
 		};
 
 		class base_counter : public PDH::pdh_instance_interface {
@@ -96,28 +92,25 @@ namespace PDH {
 				return path_;
 			}
 			virtual DWORD get_format() {
-				return format_; 
+				return format_;
 			}
 
 			virtual bool has_instances() {
 				return false;
 			}
-			virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances()  {
+			virtual std::list<boost::shared_ptr<pdh_instance_interface> > get_instances() {
 				std::list<boost::shared_ptr<pdh_instance_interface> > ret;
 				return ret;
 			}
-
 		};
 
 		template<class T>
 		struct base_collector : public base_counter {
-
 			base_collector(pdh_object config) : base_counter(config) {}
 
 			virtual void collect(const PDH_FMT_COUNTERVALUE &value) = 0;
 			virtual void update(T value) = 0;
 		};
-
 
 		template<>
 		struct base_collector<double> : public base_counter {
@@ -184,13 +177,13 @@ namespace PDH {
 		public:
 			rrd_collector(pdh_object config) : base_collector<T>(config) {
 				values.resize(config.buffer_size);
-				for (int i=0;i<config.buffer_size;i++) {
+				for (int i = 0; i < config.buffer_size; i++) {
 					values[i] = 0;
 				}
 			}
 			rrd_collector(int size) {
 				values.resize(size);
-				for (int i=0;i<size;i++) {
+				for (int i = 0; i < size; i++) {
 					values[i] = 0;
 				}
 			}
@@ -203,7 +196,7 @@ namespace PDH {
 				if (seconds == 0)
 					throw PDH::pdh_exception(get_name(), "INvalid size");
 
-				double sum = std::accumulate(values.end()-seconds, values.end(), 0.0);
+				double sum = std::accumulate(values.end() - seconds, values.end(), 0.0);
 				return sum / seconds;
 			}
 			virtual double get_value() {
@@ -225,7 +218,6 @@ namespace PDH {
 					throw PDH::pdh_exception(get_name(), "Could not get mutex");
 				values.push_back(value);
 			}
-
 		};
 	}
 }

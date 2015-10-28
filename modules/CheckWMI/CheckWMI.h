@@ -31,8 +31,6 @@
 
 #include "WMIQuery.h"
 
-
-
 struct target_helper {
 	struct target_info {
 		std::string hostname;
@@ -41,12 +39,11 @@ struct target_helper {
 		std::string protocol;
 
 		target_info() {}
-		target_info(const target_info &other) 
+		target_info(const target_info &other)
 			: hostname(other.hostname)
 			, username(other.username)
 			, password(other.password)
-			, protocol(other.protocol)
-		{}
+			, protocol(other.protocol) {}
 		const target_info& operator=(const target_info &other) {
 			hostname = other.hostname;
 			username = other.username;
@@ -56,7 +53,7 @@ struct target_helper {
 		}
 
 		std::string to_string() const {
-			return "hostname: " + hostname + 
+			return "hostname: " + hostname +
 				", username: " + username +
 				", password: " + password +
 				", protocol: " + protocol;
@@ -84,9 +81,7 @@ struct target_helper {
 		NSC_DEBUG_MSG_STD("Found target: " + it->second.to_string());
 		return boost::optional<target_info>(it->second);
 	}
-
 };
-
 
 class CheckWMI : public nscapi::impl::simple_plugin {
 public:

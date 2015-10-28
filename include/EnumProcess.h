@@ -28,7 +28,6 @@
 #define DEFAULT_BUFFER_SIZE 4096
 
 namespace process_helper {
-
 	struct int_var {
 		long long value;
 		int_var() : value(0) {}
@@ -52,7 +51,7 @@ namespace process_helper {
 			if (total == 0) {
 				value = 0;
 			} else {
-				value = 100*(value-previous)/total;
+				value = 100 * (value - previous) / total;
 			}
 		}
 	};
@@ -137,7 +136,6 @@ namespace process_helper {
 			return !started;
 		}
 
-
 		// Handles
 		int_var handleCount;
 		int_var gdiHandleCount;
@@ -214,11 +212,11 @@ namespace process_helper {
 		static long long parse_state(const std::string &s) {
 			if (s == "started")
 				return state_started;
-			if (s=="stopped")
+			if (s == "stopped")
 				return state_stopped;
-			if (s=="hung")
+			if (s == "hung")
 				return state_hung;
-			if (s=="unreadable")
+			if (s == "unreadable")
 				return state_unreadable;
 			return state_unknown;
 		}
@@ -260,7 +258,6 @@ namespace process_helper {
 			return *this;
 		}
 
-
 		process_info& operator -= (const process_info &other) {
 			// Handles
 			handleCount -= other.handleCount;
@@ -300,13 +297,12 @@ namespace process_helper {
 
 		void make_cpu_delta(unsigned long long kernel, unsigned long long user, unsigned long long total) {
 			if (kernel > 0)
-				kernel_time = kernel_time_raw*100/kernel;
+				kernel_time = kernel_time_raw * 100 / kernel;
 			if (user > 0)
-				user_time = user_time_raw*100/user;
+				user_time = user_time_raw * 100 / user;
 			if (total > 0)
-				total_time = (kernel_time_raw+user_time_raw)*100/total;
+				total_time = (kernel_time_raw + user_time_raw) * 100 / total;
 		}
-
 	};
 
 	struct error_reporter {

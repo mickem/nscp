@@ -8,4 +8,3 @@ nscapi::core_wrapper* nscapi::impl::simple_plugin::get_core() const {
 std::string nscapi::impl::simple_plugin::get_base_path() const {
 	return get_core()->expand_path("${base-path}");
 }
-

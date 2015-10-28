@@ -39,5 +39,4 @@ public:
 	bool unloadModule();
 
 	void sample_raw_command(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-
 };

@@ -8,8 +8,6 @@
 #include <format.hpp>
 
 namespace syslog_client {
-
-
 	struct connection_data : public socket_helpers::connection_info {
 		std::string severity;
 		std::string facility;
@@ -17,10 +15,9 @@ namespace syslog_client {
 		std::string message_syntax;
 		std::string ok_severity, warn_severity, crit_severity, unknown_severity;
 
-		typedef std::map<std::string,int> syslog_map;
+		typedef std::map<std::string, int> syslog_map;
 		syslog_map facilities;
 		syslog_map severities;
-
 
 		std::string	parse_priority(std::string severity, std::string facility) {
 			syslog_map::const_iterator cit1 = facilities.find(facility);
@@ -34,10 +31,9 @@ namespace syslog_client {
 				return "<0>";
 			}
 			std::stringstream ss;
-			ss << '<' << (cit1->second*8+cit2->second) << '>';
+			ss << '<' << (cit1->second * 8 + cit2->second) << '>';
 			return ss.str();
 		}
-
 
 		connection_data(client::destination_container arguments, client::destination_container sender) {
 			address = arguments.address.host;
@@ -86,8 +82,6 @@ namespace syslog_client {
 			severities["notice"] = 5;
 			severities["informational"] = 6;
 			severities["debug"] = 7;
-
-
 		}
 
 		std::string to_string() const {
@@ -101,14 +95,12 @@ namespace syslog_client {
 		}
 	};
 
-
 	struct g_data {
 		std::string path;
 		std::string value;
 	};
 
 	struct syslog_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
 		}
@@ -122,7 +114,6 @@ namespace syslog_client {
 			std::list<std::string> messages;
 
 			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
-
 				boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 				std::string date = format::format_date(now, "%b %e %H:%M:%S");
 				std::string tag = con.tag_syntax;
@@ -142,7 +133,6 @@ namespace syslog_client {
 					severity = con.unknown_severity;
 
 				messages.push_back(con.parse_priority(severity, con.facility) + date + " " + tag + " " + message);
-
 			}
 			send(response_message.add_payload(), con, messages);
 			return true;
@@ -151,8 +141,6 @@ namespace syslog_client {
 		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 			return false;
 		}
-
-
 
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<std::string> &messages) {
 			try {

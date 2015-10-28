@@ -3,7 +3,6 @@
 #include <utils.h>
 #include <strEx.h>
 
-
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
 
@@ -19,7 +18,6 @@ namespace check_mk_handler {
 	namespace sh = nscapi::settings_helper;
 
 	struct check_mk_target_object : public nscapi::targets::target_object {
-
 		typedef nscapi::targets::target_object parent;
 
 		check_mk_target_object(std::string alias, std::string path) : parent(alias, path) {
@@ -28,8 +26,6 @@ namespace check_mk_handler {
 			set_property_string("port", "5667");
 		}
 		check_mk_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
-			
-
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
@@ -41,13 +37,10 @@ namespace check_mk_handler {
 				root_path.set_sample();
 
 			add_ssl_keys(root_path);
-
 		}
-
 	};
 
 	struct options_reader_impl : public client::options_reader_interface {
-
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
 			return boost::make_shared<check_mk_target_object>(alias, path);
 		}
@@ -55,12 +48,8 @@ namespace check_mk_handler {
 			return boost::make_shared<check_mk_target_object>(parent, alias, path);
 		}
 
-
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-
 			add_ssl_options(desc, data);
-
 		}
 	};
-
 }

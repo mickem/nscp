@@ -10,7 +10,7 @@ eventlog_wrapper::eventlog_wrapper(const std::string &s_name) : hLog(NULL), pBuf
 eventlog_wrapper::~eventlog_wrapper() {
 	if (isOpen())
 		close();
-	delete [] pBuffer;
+	delete[] pBuffer;
 	bufferSize = 0;
 	lastReadSize = 0;
 }
@@ -62,7 +62,7 @@ bool eventlog_wrapper::notify(HANDLE &handle) {
 	if (!handle) {
 		return false;
 	}
-	return NotifyChangeEventLog(hLog, handle)==TRUE;
+	return NotifyChangeEventLog(hLog, handle) == TRUE;
 }
 
 bool eventlog_wrapper::un_notify(HANDLE &handle) {
@@ -73,7 +73,7 @@ bool eventlog_wrapper::re_notify(HANDLE &handle) {
 	if (!handle) {
 		return false;
 	}
-	return NotifyChangeEventLog(hLog, handle)==TRUE;
+	return NotifyChangeEventLog(hLog, handle) == TRUE;
 }
 
 bool eventlog_wrapper::seek_end() {
@@ -107,7 +107,6 @@ void eventlog_wrapper::resize_buffer(DWORD size) {
 	delete tmp;
 }
 
-
 std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
@@ -121,7 +120,7 @@ std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 				strEx::replace(real_name, "\r", "");
 				if (real_name == name)
 					return utf8::cvt<std::string>(k);
-			} catch (simple_registry::registry_exception &e) { e;}
+			} catch (simple_registry::registry_exception &e) { e; }
 		}
 		return name;
 	} catch (simple_registry::registry_exception &e) {
@@ -132,13 +131,13 @@ std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 }
 EVENTLOGRECORD* eventlog_wrapper::read_record_with_buffer() {
 	if (nextBufferPosition >= lastReadSize) {
-		if (read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
+		if (read_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
 			return NULL;
 	}
 	if (nextBufferPosition >= lastReadSize)
 		return NULL;
 	EVENTLOGRECORD *pevlr = reinterpret_cast<EVENTLOGRECORD*>(&pBuffer[nextBufferPosition]);
-	nextBufferPosition += pevlr->Length; 
+	nextBufferPosition += pevlr->Length;
 	return pevlr;
 }
 
@@ -163,7 +162,7 @@ DWORD eventlog_wrapper::read_record(DWORD dwRecordNumber, DWORD dwFlags) {
 				return status;
 			}
 		} else {
-			if (ERROR_HANDLE_EOF != status)	{
+			if (ERROR_HANDLE_EOF != status) {
 				NSC_LOG_ERROR_STD("Failed to read eventlog record(" + strEx::s::xtos(dwRecordNumber) + "): " + utf8::cvt<std::string>(error::lookup::last_error(status)));
 				return status;
 			}
@@ -171,7 +170,6 @@ DWORD eventlog_wrapper::read_record(DWORD dwRecordNumber, DWORD dwFlags) {
 	}
 	return status;
 }
-
 
 event_source::event_source(const std::wstring &name) : hLog(NULL) {
 	open(_T(""), name);
@@ -190,5 +188,3 @@ void event_source::open(const std::wstring &server, const std::wstring &name) {
 void event_source::close() {
 	DeregisterEventSource(hLog);
 }
-
-

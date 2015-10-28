@@ -59,7 +59,6 @@ private:
 	log_list log_entries;
 	std::string last_error_;
 	unsigned int error_count_;
-
 };
 
 struct metrics_handler {
@@ -86,4 +85,3 @@ private:
 
 	boost::shared_ptr<Mongoose::Server> server;
 };
-

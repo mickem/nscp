@@ -30,32 +30,30 @@
  * @param file The file (DLL) to load as a NSC plug in.
  */
 NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::string alias)
- 	: module_(file)
-	,loaded_(false)
-	,broken_(false)
-	,plugin_id_(id)
-	,alias_(alias)
-	,lastIsMsgPlugin_(false)
-	,fModuleHelperInit(NULL)
-	,fLoadModule(NULL)
-	,fGetName(NULL)
-	,fGetVersion(NULL)
-	,fGetDescription(NULL)
-	,fHasCommandHandler(NULL)
-	,fHasMessageHandler(NULL)
-	,fHandleCommand(NULL)
-	,fHandleMessage(NULL)
-	,fDeleteBuffer(NULL)
-	,fUnLoadModule(NULL)
-	,fCommandLineExec(NULL)
-	,fHasNotificationHandler(NULL)
-	,fHandleNotification(NULL)
-	,fHasRoutingHandler(NULL)
-	,fRouteMessage(NULL)
-	,fFetchMetrics(NULL)
-	,fSubmitMetrics(NULL)
-{
-}
+	: module_(file)
+	, loaded_(false)
+	, broken_(false)
+	, plugin_id_(id)
+	, alias_(alias)
+	, lastIsMsgPlugin_(false)
+	, fModuleHelperInit(NULL)
+	, fLoadModule(NULL)
+	, fGetName(NULL)
+	, fGetVersion(NULL)
+	, fGetDescription(NULL)
+	, fHasCommandHandler(NULL)
+	, fHasMessageHandler(NULL)
+	, fHandleCommand(NULL)
+	, fHandleMessage(NULL)
+	, fDeleteBuffer(NULL)
+	, fUnLoadModule(NULL)
+	, fCommandLineExec(NULL)
+	, fHasNotificationHandler(NULL)
+	, fHandleNotification(NULL)
+	, fHasRoutingHandler(NULL)
+	, fRouteMessage(NULL)
+	, fFetchMetrics(NULL)
+	, fSubmitMetrics(NULL) {}
 /**
  * Default d-tor
  */
@@ -82,7 +80,7 @@ std::string NSCPlugin::getName() {
 		return "Could not get name";
 	}
 	std::string ret = buffer;
-	delete [] buffer;
+	delete[] buffer;
 	return ret;
 }
 std::string NSCPlugin::getDescription() {
@@ -91,14 +89,14 @@ std::string NSCPlugin::getDescription() {
 		throw NSPluginException(get_alias_or_name(), "Could not get description");
 	}
 	std::string ret = buffer;
-	delete [] buffer;
+	delete[] buffer;
 	return ret;
 }
 
 /**
  * Loads the plug in (DLL) and initializes the plug in by calling NSLoadModule
  *
- * @throws NSPluginException when exceptions occur. 
+ * @throws NSPluginException when exceptions occur.
  * Exceptions include but are not limited to: DLL fails to load, DLL is not a correct plug in.
  */
 void NSCPlugin::load_dll() {
@@ -131,15 +129,14 @@ bool NSCPlugin::isBroken() {
 	return broken_;
 }
 
-
 /**
  * Get the plug in version.
  *
  * @bug Not implemented as of yet
  *
- * @param *major 
- * @param *minor 
- * @param *revision 
+ * @param *major
+ * @param *minor
+ * @param *revision
  * @return False
  */
 bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
@@ -148,7 +145,7 @@ bool NSCPlugin::getVersion(int *major, int *minor, int *revision) {
 	if (!fGetVersion)
 		throw NSPluginException(get_alias_or_name(), "Critical error (fGetVersion)");
 	try {
-		return fGetVersion(major, minor, revision)?true:false;
+		return fGetVersion(major, minor, revision) ? true : false;
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception in getVersion.");
 	}
@@ -217,7 +214,7 @@ bool NSCPlugin::has_routing_handler() {
 }
 /**
  * Allow for the plug in to handle a command from the input core.
- * 
+ *
  * Plug ins may refuse to handle the plug in (if not applicable) by returning an empty string.
  *
  * @param command The command name (is a string encoded number for legacy commands)
@@ -264,7 +261,6 @@ NSCAPI::nagiosReturn NSCPlugin::handle_schedule(const std::string &request) {
 	return handle_schedule(request.c_str(), request.size());
 }
 
-
 NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
 	char *buffer = NULL;
 	unsigned int len = 0;
@@ -302,12 +298,10 @@ NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(char** returnBuffer, unsigned int *
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fFetchMetrics(plugin_id_, returnBuffer, returnBuffer_len);
-	}
-	catch (...) {
+	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhanded exception in fFetchMetrics.");
 	}
 }
-
 
 NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const std::string &request) {
 	return submitMetrics(request.c_str(), request.size());
@@ -318,12 +312,10 @@ NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const char* buffer, const unsigned
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fSubmitMetrics(plugin_id_, buffer, buffer_len);
-	}
-	catch (...) {
+	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhanded exception in SubmitMetrics.");
 	}
 }
-
 
 bool NSCPlugin::route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
 	if (!isLoaded() || fRouteMessage == NULL)
@@ -334,7 +326,6 @@ bool NSCPlugin::route_message(const char *channel, const char* buffer, unsigned 
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception in route_message.");
 	}
 }
-
 
 void NSCPlugin::deleteBuffer(char** buffer) {
 	if (!isLoaded())
@@ -408,7 +399,7 @@ bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
 	if (fGetName == NULL)
 		return false;
 	try {
-		return fGetName(buf, buflen)?true:false;
+		return fGetName(buf, buflen) ? true : false;
 	} catch (...) {
 		return false;
 	}
@@ -417,7 +408,7 @@ bool NSCPlugin::getDescription_(char* buf, unsigned int buflen) {
 	if (fGetDescription == NULL)
 		throw NSPluginException(get_alias_or_name(), "Critical error (fGetDescription)");
 	try {
-		return fGetDescription(buf, buflen)?true:false;
+		return fGetDescription(buf, buflen) ? true : false;
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception in getDescription.");
 	}
@@ -430,7 +421,6 @@ bool NSCPlugin::getDescription_(char* buf, unsigned int buflen) {
  * If NSPluginException  is thrown the loaded might remain partially loaded and crashes might occur if plug in is used in this state.
  */
 void NSCPlugin::loadRemoteProcs_(void) {
-
 	try {
 		fLoadModule = (nscapi::plugin_api::lpLoadModule)module_.load_proc("NSLoadModuleEx");
 		if (!fLoadModule)
@@ -490,17 +480,14 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
 		fFetchMetrics = (nscapi::plugin_api::lpFetchMetrics)module_.load_proc("NSFetchMetrics");
 		fSubmitMetrics = (nscapi::plugin_api::lpSubmitMetrics)module_.load_proc("NSSubmitMetrics");
-
 	} catch (NSPluginException &e) {
 		throw e;
- 	} catch (dll::dll_exception &e) {
- 		throw NSPluginException(get_alias_or_name(), std::string("Unhanded exception when loading process: ") + e.what());
+	} catch (dll::dll_exception &e) {
+		throw NSPluginException(get_alias_or_name(), std::string("Unhanded exception when loading process: ") + e.what());
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhandled exception when loading proces: <UNKNOWN>");
 	}
-
 }
-
 
 int NSCPlugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {
 	char *buffer = NULL;
@@ -525,7 +512,6 @@ int NSCPlugin::commandLineExec(bool targeted, const char* request, const unsigne
 	} catch (...) {
 		throw NSPluginException(get_alias_or_name(), "Unhanded exception in handleCommand.");
 	}
-
 }
 boost::filesystem::path NSCPlugin::get_filename(boost::filesystem::path folder, std::string module) {
 	return dll::dll_impl::fix_module_name(folder / module);

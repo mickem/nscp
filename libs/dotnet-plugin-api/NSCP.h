@@ -5,7 +5,6 @@ using namespace System::Collections::Generic;
 
 namespace NSCP {
 	namespace Core {
-
 		typedef cli::array<Byte> protobuf_data;
 
 		public ref class Result {
@@ -27,8 +26,8 @@ namespace NSCP {
 				PluginID = PluginID_;
 				Alias = Alias_;
 			}
-			property long PluginID ;
-			property String^ Alias ;
+			property long PluginID;
+			property String^ Alias;
 		};
 
 		public interface class ICore {
@@ -43,9 +42,7 @@ namespace NSCP {
 			void log(protobuf_data^ request);
 
 			PluginInstance^ getInstance();
-
 		};
-
 
 		public ref class Codes {
 			static int OK = 0;

@@ -5,7 +5,6 @@
 #include <utf8.hpp>
 
 namespace task_scheduler {
-
 	int simple_scheduler::add_task(std::string tag, boost::posix_time::time_duration duration) {
 		return add_task(task_object(tag, duration));
 	}
@@ -27,7 +26,7 @@ namespace task_scheduler {
 	simple_scheduler::op_task_object simple_scheduler::get_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = tasks.find(id);
- 		if (it == tasks.end())
+		if (it == tasks.end())
 			return op_task_object();
 		return op_task_object((*it).second);
 	}
@@ -49,7 +48,7 @@ namespace task_scheduler {
 		stop_requested_ = false;
 		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
-			for (std::size_t i=0;i<missing_threads;i++) {
+			for (std::size_t i = 0; i < missing_threads; i++) {
 				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
 			}
 		}
@@ -58,7 +57,7 @@ namespace task_scheduler {
 
 	void simple_scheduler::watch_dog(int id) {
 		schedule_queue_type::value_type instance;
-		while(!stop_requested_) {
+		while (!stop_requested_) {
 			instance = queue_.top();
 			if (instance) {
 				boost::posix_time::time_duration off = now() - (*instance).time;
@@ -110,7 +109,7 @@ namespace task_scheduler {
 					try {
 						if (handler_)
 							handler_->handle_schedule(*item);
-						reschedule(*item,now_time);
+						reschedule(*item, now_time);
 					} catch (...) {
 						log_error("UNKNOWN ERROR RUNING TASK: ");
 						reschedule(*item);
@@ -124,14 +123,13 @@ namespace task_scheduler {
 		} catch (...) {
 			log_error("Exception in scheduler thread (thread will be killed)");
 		}
-
 	}
 
 	void simple_scheduler::reschedule(const task_object &item) {
 		if (item.duration.total_seconds() == 0)
 			log_error("Not scheduling since duration is 0: " + item.to_string());
 		else
-			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand()%item.duration.total_seconds()));
+			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand() % item.duration.total_seconds()));
 	}
 	void simple_scheduler::reschedule(const task_object &item, boost::posix_time::ptime now) {
 		reschedule_wnext(item.id, now + item.duration);
@@ -146,10 +144,8 @@ namespace task_scheduler {
 		idle_thread_cond_.notify_one();
 	}
 
-
 	void simple_scheduler::log_error(std::string err) {
 		if (handler_)
 			handler_->on_error(err);
 	}
-
 }

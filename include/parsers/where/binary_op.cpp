@@ -47,7 +47,6 @@ namespace parsers {
 			return ss.str();
 		}
 
-
 		bool binary_op::find_performance_data(evaluation_context context, performance_collector &collector) {
 			if (op == op_nin || op == op_in)
 				return false;
@@ -60,8 +59,7 @@ namespace parsers {
 				collector.add_perf(sub_collector_left);
 				collector.add_perf(sub_collector_right);
 				return true;
-			}
-			else if (sub_collector_left.has_candidates() && sub_collector_right.has_candidates()) {
+			} else if (sub_collector_left.has_candidates() && sub_collector_right.has_candidates()) {
 				if (helpers::is_upper(op))
 					return collector.add_bounds_candidates(sub_collector_left, sub_collector_right);
 				else if (helpers::is_lower(op))
@@ -78,7 +76,5 @@ namespace parsers {
 		bool binary_op::static_evaluate(evaluation_context errors) const {
 			return left->static_evaluate(errors) && right->static_evaluate(errors);
 		}
-
 	}
 }
-

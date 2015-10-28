@@ -4,7 +4,7 @@
 
 template<class T>
 void report_errors(const T &response, nscapi::core_wrapper* core, const std::string &action) {
-	for (int i=0;i<response.payload_size();i++) {
+	for (int i = 0; i < response.payload_size(); i++) {
 		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			core->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to " + action + ": " + response.payload(i).result().message());
 	}
@@ -175,14 +175,13 @@ nscapi::settings_proxy::string_list nscapi::settings_proxy::get_sections(std::st
 	Plugin::SettingsResponseMessage response;
 	response.ParseFromString(response_string);
 
-
 	if (response.payload_size() != 1 || !response.payload(0).has_query()) {
 		return ret;
 	}
 
 	const ::Plugin::Common_AnyDataType value = response.payload(0).query().value();
 
-	for (int i=0;i<value.list_data_size();++i) {
+	for (int i = 0; i < value.list_data_size(); ++i) {
 		ret.push_back(value.list_data(i));
 	}
 	return ret;
@@ -203,14 +202,13 @@ nscapi::settings_proxy::string_list nscapi::settings_proxy::get_keys(std::string
 	Plugin::SettingsResponseMessage response;
 	response.ParseFromString(response_string);
 
-
 	if (response.payload_size() != 1 || !response.payload(0).has_query()) {
 		return ret;
 	}
 
 	const ::Plugin::Common_AnyDataType value = response.payload(0).query().value();
 
-	for (int i=0;i<value.list_data_size();++i) {
+	for (int i = 0; i < value.list_data_size(); ++i) {
 		ret.push_back(value.list_data(i));
 	}
 	return ret;
@@ -249,4 +247,3 @@ void nscapi::settings_proxy::save(const std::string context) {
 	response.ParseFromString(response_string);
 	report_errors(response, core_, "save " + context);
 }
-

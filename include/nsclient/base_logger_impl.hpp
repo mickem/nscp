@@ -5,9 +5,7 @@
 #include <nsclient/logger.hpp>
 
 namespace nsclient {
-
 	namespace logging {
-
 		struct logger_helper {
 			static std::string create(const std::string &module, NSCAPI::log_level::level level, const char* file, const int line, const std::string &message);
 			static std::string render_log_level_short(NSCAPI::log_level::level code);
@@ -100,10 +98,7 @@ namespace nsclient {
 			bool is_no_std_err() const {
 				return no_std_err_;
 			}
-			
 		};
 		typedef boost::shared_ptr<nsclient::logging::logging_interface_impl> log_impl_type;
 	}
 }
-
-

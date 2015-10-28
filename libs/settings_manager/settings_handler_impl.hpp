@@ -36,10 +36,10 @@ namespace settings {
 	class settings_handler_impl : public settings_core {
 	private:
 		typedef std::map<std::string, std::string> path_map;
-		typedef std::map<std::string,settings_core::path_description> reg_paths_type;
-		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
+		typedef std::map<std::string, settings_core::path_description> reg_paths_type;
+		typedef std::map<key_path_type, key_path_type> mapped_paths_type;
 		typedef settings_interface::string_list string_list;
-		
+
 		instance_raw_ptr instance_;
 		boost::timed_mutex instance_mutex_;
 		boost::filesystem::path base_path_;
@@ -58,13 +58,13 @@ namespace settings {
 		bool is_ready() {
 			return ready_flag;
 		}
-		void set_ready(bool flag=true) {
+		void set_ready(bool flag = true) {
 			ready_flag = flag;
 		}
 		bool is_dirty() {
 			return dirty_flag;
 		}
-		void set_dirty(bool flag=true) {
+		void set_dirty(bool flag = true) {
 			dirty_flag = flag;
 		}
 		void set_reload(bool flag = true) {
@@ -235,8 +235,6 @@ namespace settings {
 			throw settings_exception("Path not found: " + path);
 		}
 
-
-
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections
 		///
@@ -279,7 +277,6 @@ namespace settings {
 			return ret;
 		}
 
-
 		void set_instance(std::string key) {
 			boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!mutex.owns_lock())
@@ -290,7 +287,6 @@ namespace settings {
 			instance_->set_core(this);
 		}
 
-
 	private:
 		void destroy_all_instances();
 
@@ -299,10 +295,6 @@ namespace settings {
 				return instance_->to_string();
 			return "<NULL>";
 		}
-
 	};
 	typedef settings_interface::string_list string_list;
-
 }
-
-

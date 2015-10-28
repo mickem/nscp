@@ -15,16 +15,13 @@ namespace nrdp_handler {
 	namespace sh = nscapi::settings_helper;
 
 	struct nrdp_target_object : public nscapi::targets::target_object {
-
 		typedef nscapi::targets::target_object parent;
 
 		nrdp_target_object(std::string alias, std::string path) : parent(alias, path) {
 			set_property_int("timeout", 30);
 		}
 
-		nrdp_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {
-		}
-
+		nrdp_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
@@ -37,23 +34,20 @@ namespace nrdp_handler {
 
 			root_path.add_key()
 
-				("key", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)), 
-				"SECURITY TOKEN", "The security token")
+				("key", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+					"SECURITY TOKEN", "The security token")
 
-				("password", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)), 
-				"SECURITY TOKEN", "The security token")
+				("password", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+					"SECURITY TOKEN", "The security token")
 
-				("token", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)), 
-				"SECURITY TOKEN", "The security token")
-
+				("token", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+					"SECURITY TOKEN", "The security token")
 
 				;
 		}
-
 	};
 
 	struct options_reader_impl : public client::options_reader_interface {
-
 		virtual nscapi::settings_objects::object_instance create(std::string alias, std::string path) {
 			return boost::make_shared<nrdp_target_object>(alias, path);
 		}
@@ -61,28 +55,25 @@ namespace nrdp_handler {
 			return boost::make_shared<nrdp_target_object>(parent, alias, path);
 		}
 
-
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
-
 			desc.add_options()
 
-				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)), 
-				"The security token")
+				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+					"The security token")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)), 
-				"The security token")
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+					"The security token")
 
-				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)), 
-				"Source/sender host name (default is auto which means use the name of the actual host)")
+				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)), 
-				"Source/sender host name (default is auto which means use the name of the actual host)")
+				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
+					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)), 
-				"The security token")
+				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+					"The security token")
 
 				;
 		}
 	};
-
 }

@@ -1,10 +1,8 @@
 #pragma once
 
-
 #include "task_scheduler.hpp"
 
 namespace task_scheduler {
-
 	struct schedule_metadata {
 		enum task_source {
 			MODULE,
@@ -31,7 +29,6 @@ namespace task_scheduler {
 		void stop();
 
 		void add_task(const schedule_metadata::task_source source, const std::string interval);
-
 
 		virtual void handle_schedule(scheduled_task item);
 		virtual void on_error(std::string error);

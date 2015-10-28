@@ -15,9 +15,7 @@
 
 #define BUFF_LEN 4096
 
-
 namespace settings {
-
 	struct registry_closer {
 		static void close(HKEY hKey) {
 			RegCloseKey(hKey);
@@ -63,8 +61,6 @@ namespace settings {
 			}
 		};
 
-
-
 		struct write_reg_key {
 			reg_handle hTemp;
 			const reg_key &source;
@@ -99,14 +95,12 @@ namespace settings {
 			}
 			inline void setValueEx(const std::string &key, DWORD type, const std::string &value) const {
 				std::wstring wvalue = utf8::cvt<std::wstring>(value);
-				reg_buffer buffer(wvalue.size()+10, wvalue.c_str());
+				reg_buffer buffer(wvalue.size() + 10, wvalue.c_str());
 				setValueEx(key, type, buffer);
 			}
-
 		};
 
 		reg_key root;
-
 
 	public:
 		REGSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), root(reg_key::from_context(context)) {
@@ -122,7 +116,6 @@ namespace settings {
 				}
 			}
 		}
-
 
 		virtual ~REGSettings(void) {}
 
@@ -208,7 +201,7 @@ namespace settings {
 			} else if (value.type == settings_core::key_integer) {
 				setInt_(get_reg_key(key), key.second, value.get_int());
 			} else if (value.type == settings_core::key_bool) {
-				setInt_(get_reg_key(key), key.second, value.get_bool()?1:0);
+				setInt_(get_reg_key(key), key.second, value.get_bool() ? 1 : 0);
 			} else {
 				throw settings_exception("Invalid settings type.");
 			}
@@ -256,7 +249,6 @@ namespace settings {
 			return root.get_subkey(path);
 		}
 
-
 		static void setString_(const reg_key &path, std::string key, std::string value) {
 			write_reg_key open_key(path);
 			open_key.setValueEx(key, REG_SZ, value);
@@ -280,7 +272,7 @@ namespace settings {
 				if (type == REG_SZ || type == REG_EXPAND_SZ) {
 					if (cbData == 0)
 						return "";
-					if (cbData < data_length-1) {
+					if (cbData < data_length - 1) {
 						bData[cbData] = 0;
 						return utf8::cvt<std::string>(std::wstring(reinterpret_cast<TCHAR*>(bData.get())));
 					}
@@ -304,7 +296,7 @@ namespace settings {
 			DWORD type;
 			DWORD cbData = sizeof(DWORD);
 			DWORD buffer;
-			bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData );
+			bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData);
 			if (type != REG_DWORD)
 				throw settings_exception("Unsupported key type: ");
 			if (bRet == ERROR_SUCCESS) {
@@ -317,14 +309,14 @@ namespace settings {
 			reg_handle hTemp;
 			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS)
 				return;
-			DWORD cValues=0;
-			DWORD cMaxValLen=0;
-			// Get the class name and the value count. 
-			bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,NULL,NULL,NULL,&cValues,&cMaxValLen,NULL,NULL,NULL);
+			DWORD cValues = 0;
+			DWORD cMaxValLen = 0;
+			// Get the class name and the value count.
+			bRet = RegQueryInfoKey(hTemp, NULL, NULL, NULL, NULL, NULL, NULL, &cValues, &cMaxValLen, NULL, NULL, NULL);
 			cMaxValLen++;
-			if ((bRet == ERROR_SUCCESS)&&(cValues>0)) {
-				hlp::buffer<wchar_t> lpValueName(cMaxValLen+1);
-				for (unsigned int i=0; i<cValues; i++) {
+			if ((bRet == ERROR_SUCCESS) && (cValues > 0)) {
+				hlp::buffer<wchar_t> lpValueName(cMaxValLen + 1);
+				for (unsigned int i = 0; i < cValues; i++) {
 					DWORD len = cMaxValLen;
 					bRet = RegEnumValue(hTemp, i, lpValueName.get(), &len, NULL, NULL, NULL, NULL);
 					if (bRet != ERROR_SUCCESS)
@@ -341,16 +333,16 @@ namespace settings {
 		static void getSubKeys_(reg_key path, string_list &list) {
 			LONG bRet;
 			reg_handle hTemp;
-			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS) 
+			if ((bRet = RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS)
 				return;
-			DWORD cSubKeys=0;
+			DWORD cSubKeys = 0;
 			DWORD cMaxKeyLen;
-			// Get the class name and the value count. 
-			bRet = RegQueryInfoKey(hTemp,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
+			// Get the class name and the value count.
+			bRet = RegQueryInfoKey(hTemp, NULL, NULL, NULL, &cSubKeys, &cMaxKeyLen, NULL, NULL, NULL, NULL, NULL, NULL);
 			cMaxKeyLen++;
-			if ((bRet == ERROR_SUCCESS)&&(cSubKeys>0)) {
-				hlp::buffer<wchar_t> lpValueName(cMaxKeyLen+1);
-				for (unsigned int i=0; i<cSubKeys; i++) {
+			if ((bRet == ERROR_SUCCESS) && (cSubKeys > 0)) {
+				hlp::buffer<wchar_t> lpValueName(cMaxKeyLen + 1);
+				for (unsigned int i = 0; i < cSubKeys; i++) {
 					DWORD len = cMaxKeyLen;
 					bRet = RegEnumKey(hTemp, i, lpValueName, len);
 					if (bRet != ERROR_SUCCESS)
@@ -369,7 +361,7 @@ namespace settings {
 		}
 		virtual std::string get_type() { return "registry"; }
 
-public:
+	public:
 		static bool context_exists(settings::settings_core *, std::string key) {
 			return has_key(reg_key::from_context(key));
 		}
@@ -377,7 +369,5 @@ public:
 		void ensure_exists() {
 			write_reg_key open_key(root);
 		}
-
-
 	};
 }

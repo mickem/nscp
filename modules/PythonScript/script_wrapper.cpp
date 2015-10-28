@@ -38,16 +38,15 @@ int script_wrapper::py_to_nagios_return(status code) {
 		return NSCAPI::query_return_codes::returnCRIT;
 	if (code == UNKNOWN)
 		return NSCAPI::query_return_codes::returnUNKNOWN;
-	NSC_LOG_ERROR_STD("Invalid return code: "+ strEx::s::xtos(c));
+	NSC_LOG_ERROR_STD("Invalid return code: " + strEx::s::xtos(c));
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
-
 
 std::string pystr(object o) {
 	try {
 		if (o.ptr() == Py_None)
 			return "";
-		if(PyUnicode_Check(o.ptr())) {
+		if (PyUnicode_Check(o.ptr())) {
 			std::string s = PyBytes_AsString(PyUnicode_AsEncodedString(o.ptr(), "utf-8", "Error"));
 			return s;
 		}
@@ -59,7 +58,7 @@ std::string pystr(object o) {
 		try {
 			object type = o.attr("__class__");
 			std::string stype = extract<std::string>(type);
-			NSC_LOG_ERROR("Failed to convert " + stype +" to string");
+			NSC_LOG_ERROR("Failed to convert " + stype + " to string");
 		} catch (...) {
 			NSC_LOG_ERROR("Failed to convert UNKNOWN to string");
 		}
@@ -93,10 +92,9 @@ std::wstring pywstr(boost::python::api::object_item o) {
 	return utf8::cvt<std::wstring>(pystr(o));
 }
 
-
 std::list<std::string> script_wrapper::convert(py::list lst) {
 	std::list<std::string> ret;
-	for (int i = 0;i<len(lst);i++) {
+	for (int i = 0; i < len(lst); i++) {
 		try {
 			extract<std::string> es(lst[i]);
 			extract<long long> ei(lst[i]);
@@ -106,7 +104,7 @@ std::list<std::string> script_wrapper::convert(py::list lst) {
 				ret.push_back(strEx::s::xtos(ei()));
 			else
 				NSC_LOG_ERROR_STD("Failed to convert object in list");
-		} catch( error_already_set e) {
+		} catch (error_already_set e) {
 			log_exception();
 		} catch (...) {
 			NSC_LOG_ERROR_STD("Failed to parse list");
@@ -135,7 +133,6 @@ py::list script_wrapper::convert(const std::list<std::string> &lst) {
 	}
 	return ret;
 }
-
 
 void script_wrapper::log_msg(object x) {
 	std::string msg = pystr(x);
@@ -166,7 +163,6 @@ void script_wrapper::sleep(unsigned int ms) {
 		}
 	}
 }
-
 
 void script_wrapper::log_exception() {
 	try {
@@ -214,7 +210,6 @@ void script_wrapper::function_wrapper::subscribe_function(std::string channel, P
 		NSC_LOG_ERROR_EX("Failed to register " + channel);
 	}
 }
-
 
 void script_wrapper::function_wrapper::register_simple_function(std::string name, PyObject* callable, std::string desc) {
 	try {
@@ -268,10 +263,10 @@ tuple script_wrapper::function_wrapper::query(std::string request) {
 		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed: ", e);
-		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false, utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Query failed");
-		return boost::python::make_tuple(false,std::wstring());
+		return boost::python::make_tuple(false, std::wstring());
 	}
 }
 
@@ -295,12 +290,12 @@ int script_wrapper::function_wrapper::handle_query(const std::string cmd, const 
 				if (len(ret) > 1)
 					response = extract<std::string>(ret[1]);
 				return ret_code;
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				return NSCAPI::query_return_codes::returnUNKNOWN;
 			}
 		}
-	} catch(...) {
+	} catch (...) {
 		NSC_LOG_ERROR_EX(cmd);
 		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
@@ -336,16 +331,16 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 				if (len(ret) > 2)
 					perf = pystr(ret[2]);
 				return ret_code;
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				msg = "Exception in: " + cmd;
 				return NSCAPI::query_return_codes::returnUNKNOWN;
 			}
 		}
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		msg = "Exception in " + cmd + ": " + e.what();
 		return NSCAPI::query_return_codes::returnUNKNOWN;
-	} catch(...) {
+	} catch (...) {
 		msg = "Exception in " + cmd;
 		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
@@ -378,15 +373,15 @@ int script_wrapper::function_wrapper::handle_exec(const std::string cmd, const s
 				if (len(ret) > 1)
 					response = pystr(ret[1]);
 				return ret_code;
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		}
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR(cmd, e);
 		return NSCAPI::exec_return_codes::returnERROR;
-	} catch(...) {
+	} catch (...) {
 		NSC_LOG_ERROR_EX(cmd);
 		return NSCAPI::exec_return_codes::returnERROR;
 	}
@@ -414,21 +409,20 @@ int script_wrapper::function_wrapper::handle_simple_exec(const std::string cmd, 
 				if (len(ret) > 1)
 					result = extract<std::string>(ret[1]);
 				return ret_code;
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				result = "Exception in: " + cmd;
 				return NSCAPI::exec_return_codes::returnERROR;
 			}
 		}
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		result = "Exception in " + cmd + ": " + e.what();
 		return NSCAPI::exec_return_codes::returnERROR;
-	} catch(...) {
+	} catch (...) {
 		result = "Exception in " + cmd;
 		return NSCAPI::exec_return_codes::returnERROR;
 	}
 }
-
 
 bool script_wrapper::function_wrapper::has_message_handler(const std::string channel) {
 	return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
@@ -453,19 +447,19 @@ int script_wrapper::function_wrapper::handle_message(const std::string channel, 
 					return NSCAPI::api_return_codes::hasFailed;
 				}
 				if (len(ret) > 0)
-					ret_code = extract<bool>(ret[0])?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
+					ret_code = extract<bool>(ret[0]) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
 				if (len(ret) > 1)
 					response = extract<std::string>(ret[1]);
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				return NSCAPI::api_return_codes::hasFailed;
 			}
 			return ret_code;
 		}
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR(channel, e);
 		return NSCAPI::api_return_codes::hasFailed;
-	} catch(...) {
+	} catch (...) {
 		NSC_LOG_ERROR_EX(channel);
 		return NSCAPI::api_return_codes::hasFailed;
 	}
@@ -485,27 +479,22 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 				if (ret.ptr() == Py_None) {
 					ret_code = NSCAPI::api_return_codes::isSuccess;
 				} else {
-					ret_code = extract<bool>(ret)?NSCAPI::api_return_codes::isSuccess:NSCAPI::api_return_codes::hasFailed;
+					ret_code = extract<bool>(ret) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
 				}
 				return ret_code;
-			} catch( error_already_set e) {
+			} catch (error_already_set e) {
 				log_exception();
 				return NSCAPI::api_return_codes::hasFailed;
 			}
 		}
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR(channel, e);
 		return NSCAPI::api_return_codes::hasFailed;
-	} catch(...) {
+	} catch (...) {
 		NSC_LOG_ERROR_EX(channel);
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
-
-
-
-
-
 
 bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {
 	return functions::get()->normal_cmdline.find(command) != functions::get()->normal_cmdline.end();
@@ -550,13 +539,13 @@ tuple script_wrapper::command_wrapper::submit(std::string channel, std::string r
 		thread_unlocker unlocker;
 		ret = core->submit_message(channel, request, response);
 	} catch (const std::exception &e) {
-		return boost::python::make_tuple(false,std::string(e.what()));
+		return boost::python::make_tuple(false, std::string(e.what()));
 	} catch (...) {
-		return boost::python::make_tuple(false,std::string("Failed to submit message"));
+		return boost::python::make_tuple(false, std::string("Failed to submit message"));
 	}
 	std::string err;
 	nscapi::protobuf::functions::parse_simple_submit_response(response, err);
-	return boost::python::make_tuple(ret==NSCAPI::api_return_codes::isSuccess,err);
+	return boost::python::make_tuple(ret == NSCAPI::api_return_codes::isSuccess, err);
 }
 
 bool script_wrapper::command_wrapper::reload(std::string module) {
@@ -565,7 +554,7 @@ bool script_wrapper::command_wrapper::reload(std::string module) {
 		thread_unlocker unlocker;
 		ret = core->reload(module);
 	}
-	return ret==NSCAPI::api_return_codes::isSuccess;
+	return ret == NSCAPI::api_return_codes::isSuccess;
 }
 
 std::string script_wrapper::command_wrapper::expand_path(std::string aPath) {
@@ -591,7 +580,7 @@ tuple script_wrapper::command_wrapper::query(std::string command, std::string re
 		thread_unlocker unlocker;
 		ret = core->query(request, response);
 	}
-	return boost::python::make_tuple(ret,response);
+	return boost::python::make_tuple(ret, response);
 }
 
 tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::string command, py::list args) {
@@ -607,10 +596,10 @@ tuple script_wrapper::command_wrapper::simple_exec(std::string target, std::stri
 		return make_tuple(ret, convert(result));
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to execute " + command, e);
-		return boost::python::make_tuple(false,utf8::utf8_from_native(e.what()));
+		return boost::python::make_tuple(false, utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to execute " + command);
-		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(command));
+		return boost::python::make_tuple(false, utf8::cvt<std::wstring>(command));
 	}
 }
 tuple script_wrapper::command_wrapper::exec(std::string target, std::string request) {
@@ -623,9 +612,9 @@ tuple script_wrapper::command_wrapper::exec(std::string target, std::string requ
 		}
 		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
-		return boost::python::make_tuple(false,utf8::utf8_from_native(e.what()));
+		return boost::python::make_tuple(false, utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		return boost::python::make_tuple(false,"Failed to execute");
+		return boost::python::make_tuple(false, "Failed to execute");
 	}
 }
 
@@ -682,9 +671,9 @@ tuple script_wrapper::settings_wrapper::query(std::string request) {
 		return boost::python::make_tuple(ret, response);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Query failed", e);
-		return boost::python::make_tuple(false,utf8::cvt<std::wstring>(e.what()));
+		return boost::python::make_tuple(false, utf8::cvt<std::wstring>(e.what()));
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Query failed");
-		return boost::python::make_tuple(false,std::wstring());
+		return boost::python::make_tuple(false, std::wstring());
 	}
 }

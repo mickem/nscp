@@ -15,7 +15,6 @@
 #include "parser.hpp"
 
 namespace check_nt {
-
 	static const int socket_bufer_size = 8096;
 	static const bool debug_trace = true;
 	struct read_protocol : public boost::noncopyable {
@@ -39,15 +38,13 @@ namespace check_nt {
 		std::vector<char> data_;
 		check_nt::server::parser parser_;
 
-
 		static boost::shared_ptr<read_protocol> create(socket_helpers::connection_info info, check_nt::server::handler *handler) {
 			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
 		}
-		read_protocol(socket_helpers::connection_info info, check_nt::server::handler *handler) 
+		read_protocol(socket_helpers::connection_info info, check_nt::server::handler *handler)
 			: info_(info)
 			, handler_(handler)
-			, current_state_(none)
-		{}
+			, current_state_(none) {}
 
 		inline void set_state(state new_state) {
 			current_state_ = new_state;

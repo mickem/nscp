@@ -36,20 +36,18 @@
 
 /**
  * Default c-tor
- * @return 
+ * @return
  */
 GraphiteClient::GraphiteClient() : client_("graphite", boost::make_shared<graphite_client::graphite_client_handler>(), boost::make_shared<graphite_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
- * @return 
+ * @return
  */
 GraphiteClient::~GraphiteClient() {}
 
 bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-
 	try {
-
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("graphite", alias, "client");
 		target_path = settings.alias().get_settings_path("targets");
@@ -57,30 +55,29 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("GRAPHITE CLIENT SECTION", "Section for graphite passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&GraphiteClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "",
-			"CLIENT HANDLER", "For more configuration options add a dedicated section")
+			("handlers", sh::fun_values_path(boost::bind(&GraphiteClient::add_command, this, _1, _2)),
+				"CLIENT HANDLER SECTION", "",
+				"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&GraphiteClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
+			("targets", sh::fun_values_path(boost::bind(&GraphiteClient::add_target, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("hostname", sh::string_key(&hostname_, "auto"),
-			"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-			"auto\tHostname\n"
-			"${host}\tHostname\n"
-			"${host_lc}\nHostname in lowercase\n"
-			"${host_uc}\tHostname in uppercase\n"
-			"${domain}\tDomainname\n"
-			"${domain_lc}\tDomainname in lowercase\n"
-			"${domain_uc}\tDomainname in uppercase\n"
-			)
-
+				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+				"auto\tHostname\n"
+				"${host}\tHostname\n"
+				"${host_lc}\nHostname in lowercase\n"
+				"${host_uc}\tHostname in uppercase\n"
+				"${domain}\tDomainname\n"
+				"${domain_lc}\tDomainname in lowercase\n"
+				"${domain_uc}\tDomainname in uppercase\n"
+				)
 
 			("channel", sh::string_key(&channel_, "GRAPHITE"),
-			"CHANNEL", "The channel to listen to.")
+				"CHANNEL", "The channel to listen to.")
 			;
 
 		settings.register_all();
@@ -104,9 +101,9 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 			try {
 				boost::asio::io_service svc;
-				boost::asio::ip::tcp::resolver resolver (svc);
-				boost::asio::ip::tcp::resolver::query query (boost::asio::ip::host_name(), "");
-				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve (query), end;
+				boost::asio::ip::tcp::resolver resolver(svc);
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
 
 				std::string s;
 				while (iter != end) {
@@ -119,7 +116,6 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
-
 			strEx::replace(hostname_, "${host}", dn.first);
 			strEx::replace(hostname_, "${domain}", dn.second);
 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
@@ -131,8 +127,6 @@ bool GraphiteClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			strEx::replace(hostname_, "${host_lc}", dn.first);
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
-
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
@@ -179,7 +173,6 @@ bool GraphiteClient::unloadModule() {
 	return true;
 }
 
-
 void GraphiteClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	client_.do_query(request_message, response_message);
 }
@@ -193,4 +186,3 @@ bool GraphiteClient::commandLineExec(const int target_mode, const Plugin::Execut
 void GraphiteClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
-

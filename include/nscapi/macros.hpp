@@ -1,7 +1,7 @@
 #pragma once
 
 //////////////////////////////////////////////////////////////////////////
-// Logging calls for the core wrapper 
+// Logging calls for the core wrapper
 
 #define NSC_LOG_ERROR_EXR(msg, ex) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG("Exception in " + std::string(msg) + ": " + utf8::utf8_from_native(ex.what()), NSCAPI::log_level::error); }
 #define NSC_LOG_ERROR_EX(msg) if (GET_CORE()->should_log(NSCAPI::log_level::error)) { NSC_ANY_MSG("Exception in " + std::string(msg), NSCAPI::log_level::error); }
@@ -23,7 +23,7 @@
 
 #define NSC_DEBUG_MSG_STD(msg) if (GET_CORE()->should_log(NSCAPI::log_level::debug)) { NSC_ANY_MSG((std::string)msg, NSCAPI::log_level::debug); }
 #define NSC_TRACE_MSG(msg) if (GET_CORE()->should_log(NSCAPI::log_level::trace)) { NSC_ANY_MSG(msg, NSCAPI::log_level::trace); }
-#define NSC_TRACE_ENABLED() if (GET_CORE()->should_log(NSCAPI::log_level::trace)) 
+#define NSC_TRACE_ENABLED() if (GET_CORE()->should_log(NSCAPI::log_level::trace))
 
 #define NSC_ANY_MSG(msg, type) GET_CORE()->log(type, __FILE__, __LINE__, msg)
 

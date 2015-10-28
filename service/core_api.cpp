@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 // NSClient++ Base Service
-// 
+//
 // Copyright (c) 2004 MySolutions NORDIC (http://www.medin.name)
 //
 // Date: 2004-03-13
@@ -42,7 +42,7 @@
 #define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg); }
 #define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
 
-NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer,unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer, unsigned int bufLen) {
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 	} catch (...) {
@@ -68,7 +68,7 @@ void NSAPIStopServer(void) {
 	mainClient->get_service_control().stop();
 }
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->injectRAW(request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -81,7 +81,7 @@ NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int 
 }
 
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->exec_command(target, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -93,11 +93,9 @@ NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_bu
 	return ret;
 }
 
-
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
-
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	return mainClient->settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
@@ -108,11 +106,10 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 
 wchar_t* copyString(const std::wstring &str) {
 	std::size_t sz = str.size();
-	wchar_t *tc = new wchar_t[sz+2];
+	wchar_t *tc = new wchar_t[sz + 2];
 	wcsncpy(tc, str.c_str(), sz);
 	return tc;
 }
-
 
 NSCAPI::errorReturn NSAPIReload(const char *module) {
 	try {
@@ -161,7 +158,7 @@ void* NSAPILoader(const char* buffer) {
 }
 
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->send_notification(channel, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -174,13 +171,12 @@ NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer,
 }
 
 void NSAPIDestroyBuffer(char**buffer) {
-	delete [] *buffer;
+	delete[] * buffer;
 }
 
 NSCAPI::log_level::level NSAPIGetLoglevel() {
 	return nsclient::logging::logger::get_logger()->get_log_level();
 }
-
 
 #ifdef HAVE_JSON_SPIRIT
 #include <nscapi/nscapi_protobuf.hpp>

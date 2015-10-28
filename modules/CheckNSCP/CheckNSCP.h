@@ -47,7 +47,6 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
-
 	void check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 

@@ -14,7 +14,6 @@
 using namespace boost::assign;
 using namespace parsers::where;
 
-
 //////////////////////////////////////////////////////////////////////////
 
 parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
@@ -27,18 +26,16 @@ parsers::where::node_type get_percentage(boost::shared_ptr<ping_filter::filter_o
 	return parsers::where::factory::create_int(number);
 }
 
-
 ping_filter::filter_obj_handler::filter_obj_handler() {
-
 	static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
 	registry_.add_string()
 		("host", &filter_obj::get_host, "The host name or ip address (as given on command line)")
 		("ip", &filter_obj::get_ip, "The ip address name")
-// 		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
-// 		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-// 		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
-// 		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
+		// 		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
+		// 		("filename", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
+		// 		("file", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
+		// 		("name", boost::bind(&filter_obj::get_filename, _1), "The name of the file")
 		;
 	registry_.add_int()
 		("loss", type_custom_pct, &filter_obj::get_loss, "Packet loss")
@@ -47,19 +44,17 @@ ping_filter::filter_obj_handler::filter_obj_handler() {
 		("recv", type_int, &filter_obj::get_recv, "Number of packets received from the host")
 		("timeout", type_int, &filter_obj::get_timeout, "Number of packets which timed out from the host")
 		;
-/*
-	registry_.add_human_string()
-		("access", boost::bind(&filter_obj::get_access_s, _1), "")
-		("creation", boost::bind(&filter_obj::get_creation_s, _1), "")
-		("written", boost::bind(&filter_obj::get_written_s, _1), "")
-		;
-		*/
+	/*
+		registry_.add_human_string()
+			("access", boost::bind(&filter_obj::get_access_s, _1), "")
+			("creation", boost::bind(&filter_obj::get_creation_s, _1), "")
+			("written", boost::bind(&filter_obj::get_written_s, _1), "")
+			;
+			*/
 
 	registry_.add_converter()
 		(type_custom_pct, &get_percentage)
 		;
-
-
 }
 
 void ping_filter::filter_obj::add(boost::shared_ptr<ping_filter::filter_obj> other) {
@@ -73,8 +68,6 @@ void ping_filter::filter_obj::add(boost::shared_ptr<ping_filter::filter_obj> oth
 
 //////////////////////////////////////////////////////////////////////////
 
-
 boost::shared_ptr<ping_filter::filter_obj> ping_filter::filter_obj::get_total() {
 	return boost::make_shared<ping_filter::filter_obj>();
-
 }

@@ -36,20 +36,18 @@
 
 /**
  * Default c-tor
- * @return 
+ * @return
  */
 NSCAClient::NSCAClient() : client_("nsca", boost::make_shared<nsca_client::nsca_client_handler>(), boost::make_shared<nsca_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
- * @return 
+ * @return
  */
 NSCAClient::~NSCAClient() {}
 
 bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-
 	try {
-
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NSCA", alias, "client");
 		std::string target_path = settings.alias().get_settings_path("targets");
@@ -59,39 +57,38 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "",
-			"CLIENT HANDLER", "For more configuration options add a dedicated section")
+			("handlers", sh::fun_values_path(boost::bind(&NSCAClient::add_command, this, _1, _2)),
+				"CLIENT HANDLER SECTION", "",
+				"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
+			("targets", sh::fun_values_path(boost::bind(&NSCAClient::add_target, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("hostname", sh::string_key(&hostname_, "auto"),
-			"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-			"auto\tHostname\n"
-			"${host}\tHostname\n"
-			"${host_lc}\nHostname in lowercase\n"
-			"${host_uc}\tHostname in uppercase\n"
-			"${domain}\tDomainname\n"
-			"${domain_lc}\tDomainname in lowercase\n"
-			"${domain_uc}\tDomainname in uppercase\n"
-			)
+				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+				"auto\tHostname\n"
+				"${host}\tHostname\n"
+				"${host_lc}\nHostname in lowercase\n"
+				"${host_uc}\tHostname in uppercase\n"
+				"${domain}\tDomainname\n"
+				"${domain_lc}\tDomainname in lowercase\n"
+				"${domain_uc}\tDomainname in uppercase\n"
+				)
 
 			("encoding", sh::string_key(&encoding_, ""),
-			"NSCA DATA ENCODING", "", true)
+				"NSCA DATA ENCODING", "", true)
 
 			("channel", sh::string_key(&channel_, "NSCA"),
-			"CHANNEL", "The channel to listen to.")
+				"CHANNEL", "The channel to listen to.")
 			;
 
 		settings.register_all();
 		settings.notify();
 
 		client_.finalize(get_settings_proxy());
-
 
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
@@ -109,9 +106,9 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 			try {
 				boost::asio::io_service svc;
-				boost::asio::ip::tcp::resolver resolver (svc);
-				boost::asio::ip::tcp::resolver::query query (boost::asio::ip::host_name(), "");
-				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve (query), end;
+				boost::asio::ip::tcp::resolver resolver(svc);
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
 
 				std::string s;
 				while (iter != end) {
@@ -198,4 +195,3 @@ bool NSCAClient::commandLineExec(int target_mode, const Plugin::ExecuteRequestMe
 void NSCAClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
-

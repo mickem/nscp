@@ -5,7 +5,7 @@
 namespace parsers {
 	namespace where {
 		struct binary_op : public any_node {
-			binary_op(operators op, node_type left, node_type right): op(op), left(left), right(right) {}
+			binary_op(operators op, node_type left, node_type right) : op(op), left(left), right(right) {}
 
 			//virtual bool can_convert_to(value_type newtype) = 0;
 			//virtual void force_type(value_type newtype) = 0;

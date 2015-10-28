@@ -43,12 +43,11 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 using namespace boost::python;
 
-BOOST_PYTHON_MODULE(NSCP)
-{
+BOOST_PYTHON_MODULE(NSCP) {
 	class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", no_init)
-		.def("get",&script_wrapper::settings_wrapper::create)
+		.def("get", &script_wrapper::settings_wrapper::create)
 		.staticmethod("get")
-		.def("create",&script_wrapper::settings_wrapper::create)
+		.def("create", &script_wrapper::settings_wrapper::create)
 		.staticmethod("create")
 		.def("get_section", &script_wrapper::settings_wrapper::get_section)
 		.def("get_string", &script_wrapper::settings_wrapper::get_string)
@@ -63,9 +62,9 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("query", &script_wrapper::settings_wrapper::query)
 		;
 	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", no_init)
-		.def("get",&script_wrapper::function_wrapper::create)
+		.def("get", &script_wrapper::function_wrapper::create)
 		.staticmethod("get")
-		.def("create",&script_wrapper::function_wrapper::create)
+		.def("create", &script_wrapper::function_wrapper::create)
 		.staticmethod("create")
 		.def("function", &script_wrapper::function_wrapper::register_function)
 		.def("simple_function", &script_wrapper::function_wrapper::register_simple_function)
@@ -76,9 +75,9 @@ BOOST_PYTHON_MODULE(NSCP)
 		.def("query", &script_wrapper::function_wrapper::query)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
-		.def("get",&script_wrapper::command_wrapper::create)
+		.def("get", &script_wrapper::command_wrapper::create)
 		.staticmethod("get")
-		.def("create",&script_wrapper::command_wrapper::create)
+		.def("create", &script_wrapper::command_wrapper::create)
 		.staticmethod("create")
 		.def("simple_query", &script_wrapper::command_wrapper::simple_query)
 		.def("query", &script_wrapper::command_wrapper::query)
@@ -102,11 +101,11 @@ BOOST_PYTHON_MODULE(NSCP)
 	def("log_error", script_wrapper::log_error);
 	def("log_debug", script_wrapper::log_debug);
 	def("sleep", script_wrapper::sleep);
-//	def("get_module_alias", script_wrapper::get_module_alias);
-//	def("get_script_alias", script_wrapper::get_script_alias);
+	//	def("get_module_alias", script_wrapper::get_module_alias);
+	//	def("get_script_alias", script_wrapper::get_script_alias);
 }
 
-python_script::python_script(unsigned int plugin_id, const std::string base_path, const std::string alias, const script_container& script) 
+python_script::python_script(unsigned int plugin_id, const std::string base_path, const std::string alias, const script_container& script)
 	: alias(alias)
 	, base_path(base_path)
 	, plugin_id(plugin_id) {
@@ -119,20 +118,20 @@ python_script::python_script(unsigned int plugin_id, const std::string base_path
 	_exec(script.script.string());
 	callFunction("init", plugin_id, alias, utf8::cvt<std::string>(script.alias));
 }
-python_script::~python_script(){
+python_script::~python_script() {
 	callFunction("shutdown");
 }
 bool python_script::callFunction(const std::string& functionName) {
 	try {
 		script_wrapper::thread_locker locker;
-		try	{
+		try {
 			if (!localDict.has_key(functionName))
 				return true;
 			object scriptFunction = extract<object>(localDict[functionName]);
-			if( scriptFunction )
+			if (scriptFunction)
 				scriptFunction();
 			return true;
-		} catch( error_already_set e) {
+		} catch (error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -144,14 +143,14 @@ bool python_script::callFunction(const std::string& functionName) {
 bool python_script::callFunction(const std::string& functionName, const std::list<std::string> &args) {
 	try {
 		script_wrapper::thread_locker locker;
-		try	{
+		try {
 			if (!localDict.has_key(functionName))
 				return true;
 			object scriptFunction = extract<object>(localDict[functionName]);
 			if (scriptFunction)
 				scriptFunction(script_wrapper::convert(args));
 			return true;
-		} catch( error_already_set e) {
+		} catch (error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -160,17 +159,17 @@ bool python_script::callFunction(const std::string& functionName, const std::lis
 		return false;
 	}
 }
-bool python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2){
+bool python_script::callFunction(const std::string& functionName, unsigned int i1, const std::string &s1, const std::string &s2) {
 	try {
 		script_wrapper::thread_locker locker;
-		try	{
+		try {
 			if (!localDict.has_key(functionName))
 				return true;
 			object scriptFunction = extract<object>(localDict[functionName]);
-			if(scriptFunction)
+			if (scriptFunction)
 				scriptFunction(i1, s1, s2);
 			return true;
-		} catch(error_already_set e) {
+		} catch (error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -179,10 +178,10 @@ bool python_script::callFunction(const std::string& functionName, unsigned int i
 		return false;
 	}
 }
-void python_script::_exec(const std::string &scriptfile){
+void python_script::_exec(const std::string &scriptfile) {
 	try {
 		script_wrapper::thread_locker locker;
-		try	{
+		try {
 			object main_module = import("__main__");
 			dict globalDict = extract<dict>(main_module.attr("__dict__"));
 			localDict = globalDict.copy();
@@ -199,10 +198,10 @@ void python_script::_exec(const std::string &scriptfile){
 			NSC_DEBUG_MSG("Lib path: " + path.string());
 			try {
 #ifdef WIN32
-			//TODO: FIXME: Fix this somehow
-			PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
+				//TODO: FIXME: Fix this somehow
+				PyRun_SimpleString(("sys.path.append('" + path.generic_string() + "')").c_str());
 #else
-			PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
+				PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
 #endif
 			} catch (error_already_set e) {
 				NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
@@ -210,14 +209,14 @@ void python_script::_exec(const std::string &scriptfile){
 				return;
 			}
 
-			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);	
-		} catch( error_already_set e) {
+			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);
+		} catch (error_already_set e) {
 			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			script_wrapper::log_exception();
 		} catch (const std::exception &e) {
 			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			NSC_LOG_ERROR_EXR("python script", e);
-		} catch(...) {
+		} catch (...) {
 			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			NSC_LOG_ERROR_EX("python script");
 		}
@@ -238,7 +237,6 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		scripts_.clear();
 	}
 
-
 	try {
 		root_ = get_base_path();
 
@@ -248,9 +246,9 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		settings.alias().add_path_to_settings()
 			("LUA SCRIPT SECTION", "Section for the PythonScripts module.")
 
-			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)), 
-			"PYTHON SCRIPTS SECTION", "A list of scripts available to run from the PythonScript module.",
-			"SCRIPT", "For more configuration options add a dedicated section")
+			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)),
+				"PYTHON SCRIPTS SECTION", "A list of scripts available to run from the PythonScript module.",
+				"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
 		settings.register_all();
@@ -283,17 +281,14 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 						NSC_DEBUG_MSG("init python");
 						initNSCP();
 					}
-
-				} catch( error_already_set e) {
+				} catch (error_already_set e) {
 					script_wrapper::log_exception();
 				}
-
 			}
 			//PyEval_ReleaseLock();
 			BOOST_FOREACH(script_container &script, scripts_) {
 				instances_.push_back(boost::shared_ptr<python_script>(new python_script(get_id(), root_.string(), alias, script)));
 			}
-
 		} catch (std::exception &e) {
 			NSC_LOG_ERROR_EXR("load python scripts", e);
 		} catch (...) {
@@ -324,7 +319,6 @@ boost::optional<boost::filesystem::path> PythonScript::find_file(std::string fil
 	return boost::optional<boost::filesystem::path>();
 }
 
-
 bool PythonScript::loadScript(std::string alias, std::string file) {
 	try {
 		if (file.empty()) {
@@ -342,7 +336,6 @@ bool PythonScript::loadScript(std::string alias, std::string file) {
 	}
 	return false;
 }
-
 
 bool PythonScript::unloadModule() {
 	instances_.clear();
@@ -366,7 +359,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	}
 	if (inst->has_simple_cmdline(request.command())) {
 		std::list<std::string> args;
-		for (int i=0;i<request.arguments_size();i++)
+		for (int i = 0; i < request.arguments_size(); i++)
 			args.push_back(request.arguments(i));
 		std::string result;
 		NSCAPI::nagiosReturn ret = inst->handle_simple_exec(request.command(), args, result);
@@ -374,9 +367,9 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 		return true;
 	}
-	if (request.command() != "python-script" && request.command() != "python-run" 
+	if (request.command() != "python-script" && request.command() != "python-run"
 		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
-			return false;
+		return false;
 	}
 
 	try {
@@ -412,7 +405,6 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	return true;
 }
 
-
 void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_function(request.command())) {
@@ -428,7 +420,7 @@ void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &re
 	}
 	if (inst->has_simple(request.command())) {
 		std::list<std::string> args;
-		for (int i=0;i<request.arguments_size();i++)
+		for (int i = 0; i < request.arguments_size(); i++)
 			args.push_back(request.arguments(i));
 		std::string msg, perf;
 		NSCAPI::nagiosReturn ret = inst->handle_simple_query(request.command(), args, msg, perf);
@@ -438,7 +430,6 @@ void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &re
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 	}
 }
-
 
 void PythonScript::handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());

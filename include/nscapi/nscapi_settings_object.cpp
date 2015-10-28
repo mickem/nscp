@@ -1,11 +1,7 @@
 #include <nscapi/nscapi_settings_object.hpp>
 
 namespace nscapi {
-
 	namespace settings_objects {
-
-
-
 		/*
 		void object_instance_interface::add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample) {
 				if (oneliner) {
@@ -18,9 +14,7 @@ namespace nscapi {
 						return;
 					}
 				}
-
 			}
 			*/
 	}
 }
-

@@ -5,7 +5,6 @@
 #include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
-
 	class NSCAPI_EXPORT helper_singleton {
 		core_wrapper* core_;
 	public:

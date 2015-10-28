@@ -13,7 +13,6 @@
 #include <boost/thread/shared_mutex.hpp>
 
 namespace task_scheduler {
-
 	struct scheduled_task {
 		int id;
 		std::string tag;
@@ -27,7 +26,6 @@ namespace task_scheduler {
 			ss << id << "[" << tag << "] = " << duration.total_seconds();
 			return ss.str();
 		}
-
 	};
 
 	class schedule_handler {
@@ -54,7 +52,7 @@ namespace task_scheduler {
 	public:
 		bool empty(unsigned int timeout = 5) {
 			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
-			if (!lock.owns_lock()) 
+			if (!lock.owns_lock())
 				return false;
 			return queue_.empty();
 		}
@@ -88,7 +86,7 @@ namespace task_scheduler {
 	class simple_scheduler : public boost::noncopyable {
 	private:
 		typedef scheduled_task task_object;
-		typedef boost::unordered_map<int,task_object> target_list_type;
+		typedef boost::unordered_map<int, task_object> target_list_type;
 		typedef boost::optional<task_object> op_task_object;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
@@ -111,7 +109,6 @@ namespace task_scheduler {
 		simple_scheduler() : schedule_id_(0), stop_requested_(false), running_(false), thread_count_(1), handler_(NULL) {}
 		~simple_scheduler() {}
 
-
 		void set_handler(schedule_handler* handler) {
 			handler_ = handler;
 		}
@@ -127,7 +124,7 @@ namespace task_scheduler {
 		int add_task(task_object item);
 		void remove_task(int id);
 		op_task_object get_task(int id);
-		
+
 		void start();
 		void stop();
 
@@ -135,8 +132,7 @@ namespace task_scheduler {
 			thread_count_ = threads;
 			start_thread();
 		}
-		int get_threads() const { return thread_count_;}
-
+		int get_threads() const { return thread_count_; }
 
 	private:
 		void thread_proc(int id);
@@ -153,7 +149,4 @@ namespace task_scheduler {
 			return boost::get_system_time();
 		}
 	};
-
 }
-
-

@@ -21,21 +21,21 @@ namespace simple_registry {
 	public:
 		registry_key(HKEY hRootKey, std::wstring path) : path_(path), hKey_(NULL), bData_(NULL), buffer_(NULL) {
 			LONG lRet = ERROR_SUCCESS;
-			if (lRet = RegOpenKeyEx(hRootKey, path.c_str(), 0, KEY_QUERY_VALUE|KEY_READ, &hKey_) != ERROR_SUCCESS)
+			if (lRet = RegOpenKeyEx(hRootKey, path.c_str(), 0, KEY_QUERY_VALUE | KEY_READ, &hKey_) != ERROR_SUCCESS)
 				throw registry_exception(path, "Failed to open key: " + error::format::from_system(lRet));
 		}
 		~registry_key() {
 			if (hKey_ != NULL)
 				RegCloseKey(hKey_);
-			delete [] bData_;
-			delete [] buffer_;
+			delete[] bData_;
+			delete[] buffer_;
 		}
 		std::wstring get_string(std::wstring key, DWORD buffer_length = 2048) {
 			DWORD type;
 			std::wstring ret;
 			DWORD cbData = buffer_length;
-			delete [] bData_;
-			bData_ = new BYTE[cbData+2];
+			delete[] bData_;
+			bData_ = new BYTE[cbData + 2];
 			// TODO: add get size here !
 			LONG lRet = RegQueryValueEx(hKey_, key.c_str(), NULL, &type, bData_, &cbData);
 			if (lRet != ERROR_SUCCESS)
@@ -47,8 +47,8 @@ namespace simple_registry {
 				ret = reinterpret_cast<LPCTSTR>(bData_);
 			} else if (type == REG_EXPAND_SZ) {
 				std::wstring s = reinterpret_cast<LPCTSTR>(bData_);
-				delete [] buffer_;
-				buffer_ = new TCHAR[buffer_length+1];
+				delete[] buffer_;
+				buffer_ = new TCHAR[buffer_length + 1];
 				DWORD expRet = ExpandEnvironmentStrings(s.c_str(), buffer_, buffer_length);
 				if (expRet >= buffer_length)
 					throw registry_exception(path_, key, "Buffer to small (expand)");
@@ -73,18 +73,18 @@ namespace simple_registry {
 
 		std::list<std::wstring> get_keys(DWORD buffer_length = 2048) {
 			std::list<std::wstring> ret;
-			DWORD cSubKeys=0;
+			DWORD cSubKeys = 0;
 			DWORD cMaxKeyLen;
-			// Get the class name and the value count. 
-			LONG lRet = RegQueryInfoKey(hKey_,NULL,NULL,NULL,&cSubKeys,&cMaxKeyLen,NULL,NULL,NULL,NULL,NULL,NULL);
+			// Get the class name and the value count.
+			LONG lRet = RegQueryInfoKey(hKey_, NULL, NULL, NULL, &cSubKeys, &cMaxKeyLen, NULL, NULL, NULL, NULL, NULL, NULL);
 			if (lRet != ERROR_SUCCESS)
 				throw registry_exception(path_, "Failed to query key info: " + error::format::from_system(lRet));
 			if (cSubKeys == 0)
 				return ret;
-			delete [] buffer_;
-			buffer_ = new TCHAR[cMaxKeyLen+20];
-			for (unsigned int i=0; i<cSubKeys; i++) {
-				lRet = RegEnumKey(hKey_, i, buffer_, cMaxKeyLen+10);
+			delete[] buffer_;
+			buffer_ = new TCHAR[cMaxKeyLen + 20];
+			for (unsigned int i = 0; i < cSubKeys; i++) {
+				lRet = RegEnumKey(hKey_, i, buffer_, cMaxKeyLen + 10);
 				if (lRet != ERROR_SUCCESS) {
 					throw registry_exception(path_, "Failed to enumerate: " + error::lookup::last_error(lRet));
 				}
@@ -98,8 +98,5 @@ namespace simple_registry {
 			registry_key reg(hKey, path);
 			return reg.get_string(key);
 		}
-
-
 	};
-
 }

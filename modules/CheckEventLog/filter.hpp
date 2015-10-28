@@ -28,9 +28,7 @@
 #include "modern_eventlog.hpp"
 
 namespace eventlog_filter {
-
-
-	struct filter_obj  {
+	struct filter_obj {
 		virtual long long get_id() = 0;
 		virtual std::string get_source() = 0;
 		virtual std::string get_computer() = 0;
@@ -52,7 +50,6 @@ namespace eventlog_filter {
 		}
 	};
 
-
 	struct old_filter_obj : filter_obj {
 		const EventLogRecord &record;
 		const int truncate_message;
@@ -60,7 +57,7 @@ namespace eventlog_filter {
 		old_filter_obj(const EventLogRecord &record, const int truncate_message) : record(record), truncate_message(truncate_message) {}
 
 		long long get_id() {
-			return record.eventID(); 
+			return record.eventID();
 		}
 		std::string get_source() {
 			return utf8::cvt<std::string>(record.get_source());
@@ -69,7 +66,7 @@ namespace eventlog_filter {
 			return utf8::cvt<std::string>(record.get_computer());
 		}
 		long long get_el_type() {
-			return record.eventType(); 
+			return record.eventType();
 		}
 		std::string get_el_type_s();
 		long long get_severity() {
@@ -85,22 +82,22 @@ namespace eventlog_filter {
 			return utf8::cvt<std::string>(record.get_log());
 		}
 		long long get_written() {
-			return record.written(); 
+			return record.written();
 		}
 		long long get_category() {
-			return record.category(); 
+			return record.category();
 		}
 		long long get_facility() {
-			return record.facility(); 
+			return record.facility();
 		}
 		long long get_customer() {
-			return record.customer(); 
+			return record.customer();
 		}
 		long long get_raw_id() {
-			return record.raw_id(); 
+			return record.raw_id();
 		}
 		long long get_generated() {
-			return record.generated(); 
+			return record.generated();
 		}
 		bool is_modern() { return false; }
 	};
@@ -131,26 +128,25 @@ namespace eventlog_filter {
 		long long get_written();
 		long long get_category();
 		long long get_facility() {
-			return 0; 
+			return 0;
 		}
 		long long get_customer() {
-			return 0; 
+			return 0;
 		}
 		long long get_raw_id() {
-			return 0; 
+			return 0;
 		}
 		long long get_generated() {
-			return 0; 
+			return 0;
 		}
 		bool is_modern() { return true; }
 	};
-
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
 		static const parsers::where::value_type type_custom_severity = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
- 		filter_obj_handler();
+		filter_obj_handler();
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }

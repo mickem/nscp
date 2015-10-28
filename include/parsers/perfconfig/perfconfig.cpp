@@ -19,16 +19,15 @@ BOOST_FUSION_ADAPT_STRUCT(
 	perf_option,
 	(std::string, key)
 	(std::string, value)
-)
+	)
 
-BOOST_FUSION_ADAPT_STRUCT(
-	perf_rule,
-	(std::string, name)
-	(std::vector<perf_option>, options)
-)
+	BOOST_FUSION_ADAPT_STRUCT(
+		perf_rule,
+		(std::string, name)
+		(std::vector<perf_option>, options)
+		)
 
 struct spirit_perfconfig_parser {
-
 	template<class Iterator>
 	bool parse_raw(Iterator first, Iterator last, parsers::perfconfig::result_type& v) {
 		using qi::lexeme;
@@ -55,36 +54,36 @@ struct spirit_perfconfig_parser {
 #endif
 #endif
 
- 		rules		%= *rule;
- 		rule		%= keyword >> "(" >> options >> ")";
- 		options		= *(option >> ";") >> option;
- 		option		= op_key						[at_c<0>(_val) = _1]
-						>> ":"  >> op_value			[at_c<1>(_val) = _1]
-					| op_key						[at_c<0>(_val) = _1];
-		keyword		%= valid_keyword;
+		rules %= *rule;
+		rule %= keyword >> "(" >> options >> ")";
+		options = *(option >> ";") >> option;
+		option = op_key[at_c<0>(_val) = _1]
+			>> ":" >> op_value[at_c<1>(_val) = _1]
+			| op_key[at_c<0>(_val) = _1];
+		keyword %= valid_keyword;
 
 #if BOOST_VERSION >= 104900
-		op_key			%= valid_keyword;
-		op_value		= qi::lexeme[ '\'' 
-						>>  +( ascii::char_ - '\'' )	[_val += _1] 
-						>> '\''] 
-						| "''"							
-						| valid_keyword					[_val = _1];
+		op_key %= valid_keyword;
+		op_value = qi::lexeme['\''
+			>> +(ascii::char_ - '\'')[_val += _1]
+			>> '\'']
+			| "''"
+			| valid_keyword[_val = _1];
 		//valid_value		%= lexeme[+(qi::char_("-_a-zA-Z0-9*+%")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%"))])];
-		valid_keyword	%= lexeme[+(qi::char_("-_a-zA-Z0-9*+%'.")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%'."))])];
+		valid_keyword %= lexeme[+(qi::char_("-_a-zA-Z0-9*+%'.")) >> *(qi::hold[+(qi::char_(' ')) >> +(qi::char_("-_a-zA-Z0-9+%'."))])];
 #else
-		op_key		%= valid_keyword;
-		op_value	%= valid_keyword;
+		op_key %= valid_keyword;
+		op_value %= valid_keyword;
 #if BOOST_VERSION >= 104200
 		// THis works with boost prior to 1.49 but has some issues (see removed test simple_space_5 and simple_space_6)
-		valid_keyword %= valid_keyword_1 >> *valid_keyword_2 [_val += _1];
+		valid_keyword %= valid_keyword_1 >> *valid_keyword_2[_val += _1];
 		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+%");
 		valid_keyword_2 %= qi::hold[+qi::char_(' ') >> +qi::char_("-_a-zA-Z0-9+%")];
 #else
 		// THis works with boost prior to 1.42 but has some issues (see removed test ...)
-		valid_keyword %= *qi::char_("-_a-zA-Z0-9*+%") [_val += _1];
-//		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+%");
-//		valid_keyword_2 %= +qi::char_("-_a-zA-Z0-9+%");
+		valid_keyword %= *qi::char_("-_a-zA-Z0-9*+%")[_val += _1];
+		//		valid_keyword_1 %= +qi::char_("-_a-zA-Z0-9*+%");
+		//		valid_keyword_2 %= +qi::char_("-_a-zA-Z0-9+%");
 #endif
 #endif
 

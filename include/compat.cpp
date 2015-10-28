@@ -6,13 +6,12 @@
 #include <nscapi/macros.hpp>
 
 namespace compat {
-
 	namespace po = boost::program_options;
 
 	void log_args(const Plugin::QueryRequestMessage::Request &request) {
 		std::stringstream ss;
-		for (int i=0;i<request.arguments_size();i++) {
-			if (i>0)
+		for (int i = 0; i < request.arguments_size(); i++) {
+			if (i > 0)
 				ss << " ";
 			if (request.arguments(i).find(" ") != std::string::npos)
 				ss << '\"' << request.arguments(i) << '\"';
@@ -25,15 +24,14 @@ namespace compat {
 	void addShowAll(boost::program_options::options_description &desc) {
 		desc.add_options()
 			("ShowAll", po::value<std::string>()->implicit_value("short"), "Configures display format (if set shows all items not only failures, if set to long shows all cores).")
-		;
-
+			;
 	}
 	void addAllNumeric(boost::program_options::options_description &desc, const std::string suffix) {
 		desc.add_options()
-			(std::string("MaxWarn"+suffix).c_str(), po::value<std::vector<std::string> >(), "Maximum value before a warning is returned.")
-			(std::string("MaxCrit"+suffix).c_str(), po::value<std::vector<std::string> >(), "Maximum value before a critical is returned.")
-			(std::string("MinWarn"+suffix).c_str(), po::value<std::vector<std::string> >(), "Minimum value before a warning is returned.")
-			(std::string("MinCrit"+suffix).c_str(), po::value<std::vector<std::string> >(), "Minimum value before a critical is returned.")
+			(std::string("MaxWarn" + suffix).c_str(), po::value<std::vector<std::string> >(), "Maximum value before a warning is returned.")
+			(std::string("MaxCrit" + suffix).c_str(), po::value<std::vector<std::string> >(), "Maximum value before a critical is returned.")
+			(std::string("MinWarn" + suffix).c_str(), po::value<std::vector<std::string> >(), "Minimum value before a warning is returned.")
+			(std::string("MinCrit" + suffix).c_str(), po::value<std::vector<std::string> >(), "Minimum value before a critical is returned.")
 			;
 	}
 	void addOldNumeric(boost::program_options::options_description &desc) {
@@ -51,7 +49,7 @@ namespace compat {
 			if (bounds.size() > 0) {
 				std::string value = bounds.front();
 				if (value.size() > 3 && value[2] == ':')
-					target = var + "=" + bound + " " + value.substr(0,2) + " " + value.substr(3);
+					target = var + "=" + bound + " " + value.substr(0, 2) + " " + value.substr(3);
 				else
 					target = var + "=" + bound + op + bounds.front();
 			}
@@ -75,7 +73,5 @@ namespace compat {
 		if (vm.count("ShowAll")) {
 			request.add_arguments("show-all");
 		}
-
 	}
-
 }

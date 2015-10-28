@@ -68,9 +68,7 @@ public:
 		return payload_length_;
 	}
 
-
 private:
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<nrpe::server::server> server_;
 };
-

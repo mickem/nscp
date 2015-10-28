@@ -19,14 +19,12 @@
 #include <EnumProcess.h>
 
 namespace check_cpu_filter {
-
 	struct filter_obj {
 		std::string time;
 		std::string core;
 		const windows::system_info::load_entry &value;
 
 		filter_obj(std::string time, std::string core, const windows::system_info::load_entry &value) : time(time), core(core), value(value) {}
-
 
 		long long get_total() const {
 			return static_cast<long long>(value.total);
@@ -56,12 +54,10 @@ namespace check_cpu_filter {
 		filter_obj_handler();
 	};
 
-
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
 
 namespace check_mem_filter {
-
 	struct filter_obj {
 		std::string type;
 		unsigned long long used;
@@ -76,13 +72,13 @@ namespace check_mem_filter {
 			return used;
 		}
 		long long get_free() const {
-			return total-used;
+			return total - used;
 		}
 		long long get_used_pct() const {
-			return total==0?0:get_used()*100/total;
+			return total == 0 ? 0 : get_used() * 100 / total;
 		}
 		long long get_free_pct() const {
-			return total==0?0:get_free()*100/total;
+			return total == 0 ? 0 : get_free() * 100 / total;
 		}
 		std::string get_type() const {
 			return type;
@@ -107,7 +103,6 @@ namespace check_mem_filter {
 }
 
 namespace check_page_filter {
-
 	struct filter_obj {
 		const windows::system_info::pagefile_info &info;
 
@@ -123,13 +118,13 @@ namespace check_page_filter {
 			return info.usage;
 		}
 		long long get_free() const {
-			return info.size-info.usage;
+			return info.size - info.usage;
 		}
 		long long get_used_pct() const {
-			return info.size==0?0:get_used()*100/info.size;
+			return info.size == 0 ? 0 : get_used() * 100 / info.size;
 		}
 		long long get_free_pct() const {
-			return info.size==0?0:get_free()*100/info.size;
+			return info.size == 0 ? 0 : get_free() * 100 / info.size;
 		}
 		std::string get_name() const {
 			return info.name;
@@ -153,8 +148,6 @@ namespace check_page_filter {
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
 
-
-
 namespace check_svc_filter {
 	typedef services_helper::service_info filter_obj;
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
@@ -165,7 +158,6 @@ namespace check_svc_filter {
 }
 
 namespace check_uptime_filter {
-
 	struct filter_obj {
 		long long uptime;
 		long long now;
@@ -177,13 +169,13 @@ namespace check_uptime_filter {
 			return uptime;
 		}
 		long long get_boot() const {
-			return now-uptime;
+			return now - uptime;
 		}
 		std::string get_boot_s() const {
 			return format::format_date(boot);
 		}
 		std::string get_uptime_s() const {
-			return format::itos_as_time(get_uptime()*1000);
+			return format::itos_as_time(get_uptime() * 1000);
 		}
 	};
 
@@ -193,8 +185,6 @@ namespace check_uptime_filter {
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
-
-
 
 namespace check_proc_filter {
 	typedef process_helper::process_info filter_obj;
@@ -207,7 +197,6 @@ namespace check_proc_filter {
 }
 
 namespace os_version_filter {
-
 	struct filter_obj {
 		long long major_version;
 		long long minor_version;
@@ -242,7 +231,6 @@ namespace os_version_filter {
 	struct filter_obj_handler : public native_context {
 		filter_obj_handler();
 	};
-
 
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }

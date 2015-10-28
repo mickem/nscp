@@ -7,7 +7,6 @@
 
 namespace parsers {
 	namespace where {
-
 		struct unary_fun : public any_node, boost::enable_shared_from_this<unary_fun> {
 		private:
 			std::string name;
@@ -35,8 +34,7 @@ namespace parsers {
 			virtual bool static_evaluate(evaluation_context context) const;
 			virtual bool require_object(evaluation_context context) const;
 
-
- 		private:
+		private:
 			bool is_transparent(value_type type) const;
 			bool is_bound() const;
 		private:

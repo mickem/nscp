@@ -43,4 +43,3 @@ private:
 	boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
 	boost::filesystem::path root_;
 };
-

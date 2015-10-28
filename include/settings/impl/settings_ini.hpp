@@ -64,7 +64,6 @@ namespace settings {
 			if (str)
 				return strEx::s::stox<int>(*str);
 			return op_int();
-
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
@@ -96,7 +95,6 @@ namespace settings {
 			return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0;
 		}
 
-
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///
@@ -115,13 +113,13 @@ namespace settings {
 				if (!desc.description.empty())
 					comment += desc.description;
 				strEx::replace(comment, "\n", " ");
-				
+
 				ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(comment).c_str());
 			} catch (settings_exception e) {
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), L"; Undocumented key");
 			} catch (...) {
-				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
+				nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}
 		}
 
@@ -136,7 +134,7 @@ namespace settings {
 			} catch (settings_exception e) {
 				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
 			} catch (...) {
-				nsclient::logging::logger::get_logger()->error("settings",__FILE__, __LINE__, "Unknown failure when writing section: " + path);
+				nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing section: " + path);
 			}
 		}
 
@@ -146,7 +144,6 @@ namespace settings {
 		virtual void remove_real_path(std::string path) {
 			ini.Delete(utf8::cvt<std::wstring>(path).c_str(), NULL, true);
 		}
-
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
@@ -167,19 +164,19 @@ namespace settings {
 					if (key.length() > 1) {
 						std::string::size_type pos = key.find('/', 1);
 						if (pos != std::string::npos)
-							key = key.substr(0,pos);
+							key = key.substr(0, pos);
 					}
 					list.push_back(key);
 				}
 			} else {
 				BOOST_FOREACH(const CSimpleIni::Entry &e, lst) {
 					std::string key = utf8::cvt<std::string>(e.pItem);
-					if (key.length() > path_len+1 && key.substr(0,path_len) == path) {
-						std::string::size_type pos = key.find('/', path_len+1);
+					if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
+						std::string::size_type pos = key.find('/', path_len + 1);
 						if (pos == std::string::npos)
-							key = key.substr(path_len+1);
+							key = key.substr(path_len + 1);
 						else
-							key = key.substr(path_len+1, pos-path_len-1);
+							key = key.substr(path_len + 1, pos - path_len - 1);
 						list.push_back(key);
 					}
 				}
@@ -247,7 +244,6 @@ namespace settings {
 			if (is_loaded_)
 				return;
 			if (boost::filesystem::is_directory(get_file_name())) {
-
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
 				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
@@ -260,7 +256,7 @@ namespace settings {
 			}
 			std::string f = utf8::cvt<std::string>(get_file_name().string());
 			ini.SetUnicode();
-			nsclient::logging::logger::get_logger()->debug("settings",__FILE__, __LINE__, "Loading: " + get_file_name().string());
+			nsclient::logging::logger::get_logger()->debug("settings", __FILE__, __LINE__, "Loading: " + get_file_name().string());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to load file");
@@ -270,7 +266,7 @@ namespace settings {
 			ini.GetAllKeys(L"/includes", lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
-				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string, 
+				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string,
 					"INCLUDED FILE", "Included configuration", "", true, false);
 				if (!child.empty())
 					add_child_unsafe(child);
@@ -320,12 +316,12 @@ namespace settings {
 		virtual std::string get_info() {
 			return "INI settings: (" + context_ + ", " + get_file_name().string() + ")";
 		}
-		public:
+	public:
 		static bool context_exists(settings::settings_core *core, std::string key) {
 			net::url url = net::parse(key);
 			std::string file = url.host + url.path;
 			std::string tmp = core->expand_path(file);
-			if (tmp.size()>1 && tmp[0] == '/') {
+			if (tmp.size() > 1 && tmp[0] == '/') {
 				if (boost::filesystem::is_regular(tmp) || boost::filesystem::is_directory(tmp))
 					return true;
 				tmp = tmp.substr(1);
@@ -336,7 +332,5 @@ namespace settings {
 			save();
 		}
 		virtual std::string get_type() { return "ini"; }
-
-
 	};
 }

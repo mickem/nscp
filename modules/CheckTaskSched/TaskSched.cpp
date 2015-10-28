@@ -37,7 +37,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-
 #pragma comment(lib, "taskschd.lib")
 #pragma comment(lib, "comsupp.lib")
 
@@ -45,7 +44,7 @@
 
 void find_old(tasksched_filter::filter &filter) {
 	CComPtr<ITaskScheduler> taskSched;
-	HRESULT hr = CoCreateInstance( CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
+	HRESULT hr = CoCreateInstance(CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
 		throw nscp_exception("CoCreateInstance for CLSID_CTaskScheduler failed: " + error::com::get());
 	}
@@ -74,9 +73,7 @@ void find_old(tasksched_filter::filter &filter) {
 	}
 }
 
-
 void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive);
-
 
 void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive) {
 	CComPtr<ITaskService> taskSched;
@@ -85,30 +82,29 @@ void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, 
 		NSC_DEBUG_MSG("Failed to create mordern finder using old method: " + error::com::get());
 		return find_old(filter);
 	}
-	taskSched->Connect(_variant_t(utf8::cvt<std::wstring>(computer).c_str()), _variant_t(utf8::cvt<std::wstring>(user).c_str()), 
+	taskSched->Connect(_variant_t(utf8::cvt<std::wstring>(computer).c_str()), _variant_t(utf8::cvt<std::wstring>(user).c_str()),
 		_variant_t(utf8::cvt<std::wstring>(domain).c_str()), _variant_t(utf8::cvt<std::wstring>(password).c_str()));
 	do_get(taskSched, filter, folder, recursive);
 }
 
-
 void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive) {
 	CComPtr<ITaskFolder> pRootFolder;
-	HRESULT hr = taskSched->GetFolder( _bstr_t(utf8::cvt<std::wstring>(folder).c_str()) , &pRootFolder);
+	HRESULT hr = taskSched->GetFolder(_bstr_t(utf8::cvt<std::wstring>(folder).c_str()), &pRootFolder);
 	if (FAILED(hr)) {
 		throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
 	}
 
 	if (recursive) {
-		CComPtr<ITaskFolderCollection> folders; 
+		CComPtr<ITaskFolderCollection> folders;
 		if (FAILED(pRootFolder->GetFolders(0, &folders)))
 			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
 		LONG count = 0;
 		if (FAILED(folders->get_Count(&count)))
 			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
 		std::vector<std::string> sub_folders;
-		for(LONG i=0; i < count; ++i) {
+		for (LONG i = 0; i < count; ++i) {
 			CComPtr<ITaskFolder> inst;
-			if (FAILED(folders->get_Item(_variant_t(i+1), &inst)))
+			if (FAILED(folders->get_Item(_variant_t(i + 1), &inst)))
 				throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get());
 			BSTR str;
 			if (FAILED(inst->get_Path(&str)))
@@ -130,16 +126,16 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		throw nscp_exception("Failed to get count: " + error::com::get());
 	}
 
-	if( numTasks == 0 ) {
+	if (numTasks == 0) {
 		return;
 	}
 
 	TASK_STATE taskState;
 
-	for(LONG i=0; i < numTasks; i++) {
+	for (LONG i = 0; i < numTasks; i++) {
 		CComPtr<IRegisteredTask> pRegisteredTask = NULL;
-		hr = pTaskCollection->get_Item(_variant_t(i+1), &pRegisteredTask);
-		if(SUCCEEDED(hr)) {
+		hr = pTaskCollection->get_Item(_variant_t(i + 1), &pRegisteredTask);
+		if (SUCCEEDED(hr)) {
 			boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::new_filter_obj((IRegisteredTask*)pRegisteredTask, folder));
 			modern_filter::match_result ret = filter.match(record);
 			if (ret.is_done) {

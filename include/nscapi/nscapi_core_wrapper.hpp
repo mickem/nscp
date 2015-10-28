@@ -46,11 +46,10 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
 		nscapi::core_api::lpNSCAPIJson2Protobuf fNSCAPIJson2Protobuf;
 		nscapi::core_api::lpNSCAPIProtobuf2Json fNSCAPIProtobuf2Json;
-		
 
 	public:
 
-		core_wrapper() 
+		core_wrapper()
 			: fNSAPIGetApplicationName(NULL)
 			, fNSAPIGetApplicationVersionStr(NULL)
 			, fNSAPIMessage(NULL)
@@ -66,8 +65,7 @@ namespace nscapi {
 			, fNSAPIGetLoglevel(NULL)
 			, fNSAPIRegistryQuery(NULL)
 			, fNSCAPIJson2Protobuf(NULL)
-			, fNSCAPIProtobuf2Json(NULL)
-		{}
+			, fNSCAPIProtobuf2Json(NULL) {}
 
 		std::string expand_path(std::string value);
 
@@ -78,13 +76,13 @@ namespace nscapi {
 		std::string getApplicationName(void);
 		std::string getApplicationVersionString(void);
 
-		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) const ;
-		void log(std::string message) const ;
-		bool should_log(NSCAPI::nagiosReturn msgType) const ;
-		NSCAPI::log_level::level get_loglevel() const ;
+		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) const;
+		void log(std::string message) const;
+		bool should_log(NSCAPI::nagiosReturn msgType) const;
+		NSCAPI::log_level::level get_loglevel() const;
 		void DestroyBuffer(char**buffer) const;
-		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
-		bool query(const std::string & request, std::string & result) const ;
+		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool query(const std::string & request, std::string & result) const;
 
 		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		bool exec_command(const std::string target, std::string request, std::string & result);
@@ -93,10 +91,10 @@ namespace nscapi {
 		bool submit_message(std::string channel, std::string request, std::string &response);
 		bool reload(std::string module) const;
 
-		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
-		bool json_to_protobuf(const std::string & request, std::string & result) const ;
-		NSCAPI::nagiosReturn protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const ;
-		bool protobuf_to_json(const std::string &object, const std::string & request, std::string & result) const ;
+		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool json_to_protobuf(const std::string & request, std::string & result) const;
+		NSCAPI::nagiosReturn protobuf_to_json(const char *object, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool protobuf_to_json(const std::string &object, const std::string & request, std::string & result) const;
 
 		bool checkLogMessages(int type);
 

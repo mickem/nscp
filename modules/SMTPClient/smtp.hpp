@@ -23,7 +23,7 @@ namespace smtp {
 
 				connection(boost::shared_ptr<smtp_client>);
 				void start();
-				std::map<std::string,std::string> config;
+				std::map<std::string, std::string> config;
 			private:
 				boost::shared_ptr<smtp_client> sc;
 
@@ -31,7 +31,7 @@ namespace smtp {
 				boost::asio::ip::tcp::resolver::query que;
 				boost::asio::ip::tcp::socket serv;
 
-				enum state_type { 
+				enum state_type {
 					BANNER,
 					EHLO,
 					HELO,

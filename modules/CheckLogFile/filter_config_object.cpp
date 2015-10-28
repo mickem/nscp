@@ -16,14 +16,13 @@
 
 #include "filter.hpp"
 
-
 namespace sh = nscapi::settings_helper;
 
 namespace filters {
 	std::string filter_config_object::to_string() const {
 		std::stringstream ss;
 		ss << alias << "[" << alias << "] = "
-			<< "{tpl: " << parent::to_string() << ", filter: "  << filter.to_string() << "}";
+			<< "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
 		return ss.str();
 	}
 
@@ -56,7 +55,7 @@ namespace filters {
 			std::string::size_type pos = path.find_last_of("/");
 			if (pos != std::string::npos) {
 				std::string lpath = path.substr(0, pos);
-				std::string key = path.substr(pos+1);
+				std::string key = path.substr(pos + 1);
 				proxy->register_key(lpath, key, NSCAPI::key_string, alias, "Filter for " + alias + ". To configure this item add a section called: " + path, "", false, is_sample);
 				proxy->set_string(lpath, key, value);
 				return;
@@ -69,13 +68,13 @@ namespace filters {
 
 		root_path.add_key()
 			("file", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_file, this, _1)),
-			"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
+				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
 			("files", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_files, this, _1)),
-			"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
+				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
-			("column split", nscapi::settings_helper::string_key(&column_split), 
-			"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
+			("column split", nscapi::settings_helper::string_key(&column_split),
+				"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
 
 			;
 		filter.read_object(root_path, is_default);
@@ -84,4 +83,3 @@ namespace filters {
 		settings.notify();
 	}
 }
-

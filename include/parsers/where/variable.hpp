@@ -11,7 +11,6 @@
 
 namespace parsers {
 	namespace where {
-
 		template<class TObject>
 		struct int_performance_generator_interface {
 			virtual bool is_configured() = 0;
@@ -40,7 +39,7 @@ namespace parsers {
 					ignored = true;
 				configured = true;
 			}
-			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
+			virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
 				if (ignored)
 					return;
 				performance_data data;
@@ -48,7 +47,7 @@ namespace parsers {
 				int_data.value = current_value;
 				int_data.warn = warn;
 				int_data.crit = crit;
- 				data.value_int = int_data;
+				data.value_int = int_data;
 				data.alias = prefix + alias + suffix;
 				data.unit = unit;
 				list.push_back(data);
@@ -75,16 +74,16 @@ namespace parsers {
 					ignored = true;
 				configured = true;
 			}
-			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
+			virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
 				if (ignored)
 					return;
 				long long maximum = maxfun(object, context);
 				performance_data data;
 				performance_data::perf_value<double> double_data;
 				if (maximum > 0) {
-					double_data.value = static_cast<double>(current_value*100/maximum);
-					double_data.warn = static_cast<double>(warn*100/maximum);
-					double_data.crit = static_cast<double>(crit*100/maximum);
+					double_data.value = static_cast<double>(current_value * 100 / maximum);
+					double_data.warn = static_cast<double>(warn * 100 / maximum);
+					double_data.crit = static_cast<double>(crit * 100 / maximum);
 					double_data.maximum = 100;
 					double_data.minimum = 0;
 					data.value_double = double_data;
@@ -106,7 +105,7 @@ namespace parsers {
 			bool configured;
 			bool ignored;
 			scaled_byte_int_performance_generator(maxfun_type minfun, maxfun_type maxfun, std::string prefix, std::string suffix) : minfun(minfun), maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
-			scaled_byte_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix) , suffix(suffix), configured(false), ignored(false) {}
+			scaled_byte_int_performance_generator(maxfun_type maxfun, std::string prefix, std::string suffix) : maxfun(maxfun), prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
 			scaled_byte_int_performance_generator(std::string prefix, std::string suffix) : prefix(prefix), suffix(suffix), configured(false), ignored(false) {}
 			virtual bool is_configured() { return configured; }
 			virtual void configure(const std::string key, object_factory context) {
@@ -120,7 +119,7 @@ namespace parsers {
 					ignored = true;
 				configured = true;
 			}
-			virtual void eval (perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
+			virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
 				if (ignored)
 					return;
 				std::string active_unit = unit;
@@ -237,7 +236,7 @@ namespace parsers {
 				return false;
 			}
 
-			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && native_context->has_object()) {
@@ -256,10 +255,7 @@ namespace parsers {
 				}
 				return ret;
 			}
-
 		};
-
-
 
 		template<class TContext>
 		struct str_variable_node : public any_node {
@@ -340,7 +336,6 @@ namespace parsers {
 				return false;
 			}
 		};
-
 
 		template<class TContext>
 		struct dual_variable_node : public any_node {
@@ -432,14 +427,12 @@ namespace parsers {
 			value_type infer_type(object_converter converter, value_type suggestion) {
 				if (suggestion == type_int) {
 					set_type(type_int);
-				}
-				else if (suggestion == type_string) {
+				} else if (suggestion == type_string) {
 					set_type(type_string);
-				}
-				else if (suggestion == type_tbd) {
+				} else if (suggestion == type_tbd) {
 					set_type(fallback_type);
 				}
-				
+
 				return get_type();
 			}
 			value_type infer_type(object_converter converter) {
@@ -451,7 +444,7 @@ namespace parsers {
 				return false;
 			}
 
-			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && native_context->has_object()) {
@@ -470,14 +463,12 @@ namespace parsers {
 				}
 				return ret;
 			}
-
 		};
-
 
 		//////////////////////////////////////////////////////////////////////////
 
 		struct custom_function_node : public any_node {
-			typedef boost::function<node_type(const value_type,evaluation_context,const node_type)> bound_function_type;
+			typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> bound_function_type;
 
 			std::string name_;
 			bound_function_type fun;
@@ -527,7 +518,6 @@ namespace parsers {
 				return false;
 			}
 		};
-
 
 		template<class TContext>
 		struct summary_int_variable_node : public any_node {
@@ -604,7 +594,7 @@ namespace parsers {
 				collector.set_candidate_variable(name_);
 				return false;
 			}
-			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
 				perf_list_type ret;
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && !native_context->has_object()) {
@@ -626,7 +616,6 @@ namespace parsers {
 				}
 				return ret;
 			}
-
 		};
 		template<class TContext>
 		struct summary_string_variable_node : public any_node {

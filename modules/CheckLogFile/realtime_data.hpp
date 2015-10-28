@@ -3,11 +3,9 @@
 
 #include <boost/filesystem/path.hpp>
 
-
 #include "filter.hpp"
 
 struct runtime_data {
-
 	typedef logfile_filter::filter filter_type;
 	typedef int transient_data_type;
 
@@ -19,7 +17,6 @@ struct runtime_data {
 	std::list<file_container> files;
 	std::string column_split;
 	std::string line_split;
-
 
 	void boot() {}
 	void touch(boost::posix_time::ptime now);

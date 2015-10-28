@@ -8,7 +8,6 @@
 extern NSClient *mainClient;
 
 namespace task_scheduler {
-
 	schedule_metadata scheduler::get(int id) {
 		boost::mutex::scoped_lock l(tasks.get_mutex());
 		return metadata[id];
@@ -38,7 +37,7 @@ namespace task_scheduler {
 
 	boost::posix_time::seconds parse_interval(const std::string &str) {
 		return boost::posix_time::seconds(strEx::stoui_as_time_sec(str, 1));
-	} 
+	}
 
 	void scheduler::add_task(schedule_metadata::task_source source, std::string interval) {
 		unsigned int id = tasks.add_task("internal", parse_interval(interval));
@@ -46,7 +45,6 @@ namespace task_scheduler {
 		data.source = source;
 		metadata[id] = data;
 	}
-
 
 	void scheduler::handle_schedule(scheduled_task item) {
 		schedule_metadata metadata = get(item.id);
@@ -63,5 +61,4 @@ namespace task_scheduler {
 	void scheduler::on_error(std::string error) {
 		nsclient::logging::logger::get_logger()->error("scheduler", __FILE__, __LINE__, error);
 	}
-
 }

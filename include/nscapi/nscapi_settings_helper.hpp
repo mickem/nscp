@@ -45,8 +45,8 @@ namespace nscapi {
 		template<class T>
 		class typed_key : public key_interface {
 		public:
-			typed_key(const T& v, bool has_default)  : has_default_(has_default), default_value_(boost::any(v)), default_value_as_text_(boost::lexical_cast<std::string>(v)) {}
-			typed_key(bool has_default)  : has_default_(has_default) {}
+			typed_key(const T& v, bool has_default) : has_default_(has_default), default_value_(boost::any(v)), default_value_as_text_(boost::lexical_cast<std::string>(v)) {}
+			typed_key(bool has_default) : has_default_(has_default) {}
 
 			virtual typed_key* default_value(const T& v) {
 				default_value_ = boost::any(v);
@@ -222,13 +222,13 @@ namespace nscapi {
 				}
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
-				T default_value = static_cast<T>(core_->get_bool(parent, key, typed_int_value<T>::default_value_as_int_==1));
+				T default_value = static_cast<T>(core_->get_bool(parent, key, typed_int_value<T>::default_value_as_int_ == 1));
 				T value = static_cast<T>(core_->get_bool(path, key, default_value));
 				this->update_target(&value);
 			}
 		};
 
-		template<class T, class TBase, class TDefaultT=T>
+		template<class T, class TBase, class TDefaultT = T>
 		class typed_key_value : public TBase {
 		public:
 			typed_key_value(T* store_to, const TDefaultT& v, bool has_default) : TBase(v, has_default), store_to_(store_to) {}
@@ -258,13 +258,13 @@ namespace nscapi {
 		template<class T, class TBase>
 		class typed_key_fun : public TBase {
 		public:
-			typed_key_fun(boost::function<void (T)> callback, const T& v, bool has_default): TBase(v, has_default), callback_(callback) {}
+			typed_key_fun(boost::function<void(T)> callback, const T& v, bool has_default) : TBase(v, has_default), callback_(callback) {}
 
 			virtual void update_target(T *value) const {
 				callback_(*value);
 			}
 		protected:
-			boost::function<void (T)> callback_;
+			boost::function<void(T)> callback_;
 		};
 
 		template<typename T>
@@ -295,12 +295,12 @@ namespace nscapi {
 		NSCAPI_EXPORT boost::shared_ptr<real_path_key_type> path_key(boost::filesystem::path *val);
 
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void (T)> fun, T def) {
+		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void(T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > r(new typed_key_fun<T, typed_int_value<T> >(fun, def, true));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void (T)> fun) {
+		boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > int_fun_key(boost::function<void(T)> fun) {
 			boost::shared_ptr<typed_key_fun<T, typed_int_value<T> > > r(new typed_key_fun<T, typed_int_value<T> >(fun, 0, false));
 			return r;
 		}
@@ -315,22 +315,22 @@ namespace nscapi {
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void (T)> fun, T def) {
+		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void(T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > r(new typed_key_fun<T, typed_string_value<T> >(fun, def, true));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void (T)> fun) {
+		boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > string_fun_key(boost::function<void(T)> fun) {
 			boost::shared_ptr<typed_key_fun<T, typed_string_value<T> > > r(new typed_key_fun<T, typed_string_value<T> >(fun, T(), false));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void (T)> fun, T def) {
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void(T)> fun, T def) {
 			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > r(new typed_key_fun<T, typed_xpath_value<T, std::string> >(fun, def, true));
 			return r;
 		}
 		template<class T>
-		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void (T)> fun) {
+		boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > path_fun_key(boost::function<void(T)> fun) {
 			boost::shared_ptr<typed_key_fun<T, typed_xpath_value<T, std::string> > > r(new typed_key_fun<T, typed_xpath_value<T, std::string> >(fun, T(), false));
 			return r;
 		}
@@ -340,11 +340,11 @@ namespace nscapi {
 			virtual void notify(settings_impl_interface_ptr core_, std::string path) const = 0;
 		};
 
-		template<class T=std::string>
+		template<class T = std::string>
 		class typed_path_map : public path_interface {
 		public:
-			typedef std::map<T,T> map_type;
-			typed_path_map(map_type* store_to)  : store_to_(store_to) {}
+			typedef std::map<T, T> map_type;
+			typed_path_map(map_type* store_to) : store_to_(store_to) {}
 
 			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (store_to_) {
@@ -364,7 +364,7 @@ namespace nscapi {
 		template<class T>
 		class typed_path_fun_value : public path_interface {
 		public:
-			typed_path_fun_value(boost::function<void (T, T)> callback) : callback_(callback) {}
+			typed_path_fun_value(boost::function<void(T, T)> callback) : callback_(callback) {}
 
 			virtual void notify(settings_impl_interface_ptr core_, std::string path) const {
 				if (callback_) {
@@ -381,29 +381,26 @@ namespace nscapi {
 			}
 
 		protected:
-			boost::function<void (T, T)> callback_;
+			boost::function<void(T, T)> callback_;
 		};
 
-		NSCAPI_EXPORT boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void (std::string,std::string)> fun);
-		NSCAPI_EXPORT boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string,std::string> *val);
+		NSCAPI_EXPORT boost::shared_ptr<typed_path_fun_value<std::string> > fun_values_path(boost::function<void(std::string, std::string)> fun);
+		NSCAPI_EXPORT boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string, std::string> *val);
 
 		struct description_container {
 			std::string title;
 			std::string description;
 			bool advanced;
-			description_container() : advanced(false)
-			{}
+			description_container() : advanced(false) {}
 
 			description_container(std::string title, std::string description, bool advanced)
 				: title(title)
 				, description(description)
-				, advanced(advanced)
-			{}
+				, advanced(advanced) {}
 			description_container(std::string title, std::string description)
 				: title(title)
 				, description(description)
-				, advanced(false)
-			{}
+				, advanced(false) {}
 
 			description_container(const description_container& obj) {
 				title = obj.title;
@@ -431,8 +428,7 @@ namespace nscapi {
 				, key_name(key_name_)
 				, key(key)
 				, description(description_)
-				, is_sample(false)
-			{}
+				, is_sample(false) {}
 			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent), is_sample(obj.is_sample) {}
 			virtual key_info& operator=(const key_info& obj) {
 				path = obj.path;
@@ -461,8 +457,8 @@ namespace nscapi {
 			bool is_sample;
 
 			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
-//			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), subkey_description(subkey_description), is_sample(false) {}
-//			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
+			//			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), subkey_description(subkey_description), is_sample(false) {}
+			//			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
 			path_info(std::string path_name, boost::shared_ptr<path_interface> path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
 
 			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
@@ -523,7 +519,7 @@ namespace nscapi {
 			settings_keys_easy_init(std::string path, settings_registry* owner_, bool is_sample) : owner(owner_), path_(path), is_sample(is_sample) {}
 			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_) : owner(owner_), path_(path), parent_(parent), is_sample(false) {}
 			settings_keys_easy_init(std::string path, std::string parent, settings_registry* owner_, bool is_sample) : owner(owner_), path_(path), parent_(parent), is_sample(is_sample) {}
-			
+
 			virtual ~settings_keys_easy_init() {}
 
 			settings_keys_easy_init& operator()(std::string path, std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
@@ -575,7 +571,7 @@ namespace nscapi {
 		private:
 			settings_registry * owner_;
 			std::string path_;
-			bool is_sample ;
+			bool is_sample;
 		};
 		class alias_extension {
 		public:
@@ -713,7 +709,7 @@ namespace nscapi {
 				return core_->get_string(path, key, def_value);
 			}
 
-			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false)  {
+			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false) {
 				core_->register_key(path, key, type, title, description, defaultValue, advanced, false);
 			}
 			void register_all() {

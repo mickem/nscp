@@ -5,10 +5,8 @@
 
 namespace parsers {
 	namespace where {
-
-
 		std::string unary_fun::to_string() const {
-			return "{" + helpers::type_to_string(get_type()) +"}" + name + "(" + subject->to_string() + ")";
+			return "{" + helpers::type_to_string(get_type()) + "}" + name + "(" + subject->to_string() + ")";
 		}
 
 		value_container unary_fun::get_value(evaluation_context errors, int type) const {
@@ -52,7 +50,7 @@ namespace parsers {
 			}
 		}
 		bool unary_fun::find_performance_data(evaluation_context context, performance_collector &collector) {
-			if ((name == "convert") || (name == "auto_convert" || is_transparent(type_tbd) ) ) {
+			if ((name == "convert") || (name == "auto_convert" || is_transparent(type_tbd))) {
 				performance_collector sub_collector;
 				subject->find_performance_data(context, sub_collector);
 				if (sub_collector.has_candidate_value()) {
@@ -62,7 +60,7 @@ namespace parsers {
 			return false;
 		}
 		bool unary_fun::static_evaluate(evaluation_context context) const {
-			if ((name == "convert") || (name == "auto_convert" || is_transparent(type_tbd) ) ) {
+			if ((name == "convert") || (name == "auto_convert" || is_transparent(type_tbd))) {
 				return subject->static_evaluate(context);
 			}
 			subject->static_evaluate(context);
@@ -80,6 +78,6 @@ namespace parsers {
 
 		bool unary_fun::is_bound() const {
 			return static_cast<bool>(function);
-		}		
+		}
 	}
 }

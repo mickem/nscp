@@ -21,7 +21,6 @@
 #pragma once
 
 namespace process {
-
 	class process_exception : public std::exception {
 		std::string error;
 	public:
@@ -39,7 +38,6 @@ namespace process {
 		///
 		/// @author mickem
 		const char* what() const throw() { return error.c_str(); }
-
 	};
 
 	class exec_arguments {
@@ -47,10 +45,9 @@ namespace process {
 		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding)
 			: root_path(root_path_)
 			, command(command_)
-			, timeout(timeout_) 
+			, timeout(timeout_)
 			, encoding(encoding)
-			, ignore_perf(false)
-		{}
+			, ignore_perf(false) {}
 
 		std::string alias;
 		std::string root_path;

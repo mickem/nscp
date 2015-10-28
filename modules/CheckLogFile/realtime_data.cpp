@@ -45,7 +45,7 @@ bool runtime_data::process_item(filter_type &filter, transient_data_type) {
 			if (sz > c.size)
 				file.seekg(c.size);
 			while (file.good()) {
-				std::getline(file,line, '\n');
+				std::getline(file, line, '\n');
 				if (!line.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
@@ -80,4 +80,3 @@ void runtime_data::set_split(std::string line, std::string column) {
 	strEx::replace(line_split, "\\t", "\t");
 	strEx::replace(line_split, "\\n", "\n");
 }
-

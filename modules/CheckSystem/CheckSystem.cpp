@@ -23,13 +23,13 @@
 
 #include <map>
 #include <set>
- 
+
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
- 
+
 #include <utils.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
@@ -52,7 +52,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-std::pair<bool,std::string> validate_counter(std::string counter) {
+std::pair<bool, std::string> validate_counter(std::string counter) {
 	/*
 	std::wstring error;
 	if (!PDH::PDHResolver::validate(counter, error, false)) {
@@ -75,9 +75,9 @@ std::pair<bool,std::string> validate_counter(std::string counter) {
 				if (pos1 != std::string::npos) {
 					std::string::size_type pos2 = s.find(')', pos1);
 					if (pos2 != std::string::npos)
-						tag = s.substr(pos1+1, pos2-pos1-1);
+						tag = s.substr(pos1 + 1, pos2 - pos1 - 1);
 				}
-				std::pair<bool,std::string> ret = validate_counter(s);
+				std::pair<bool, std::string> ret = validate_counter(s);
 				status &= ret.first;
 				if (!err.empty())
 					err += ", ";
@@ -97,20 +97,20 @@ std::pair<bool,std::string> validate_counter(std::string counter) {
 			pdh.close();
 			return std::make_pair(true, "ok-rate(" + strEx::s::xtos(instance->get_value()) + ")");
 		} catch (const std::exception&) {
-			std::pair<bool,std::string> p(false, "query failed: EXCEPTION" + e.reason());
+			std::pair<bool, std::string> p(false, "query failed: EXCEPTION" + e.reason());
 			return p;
 		}
 	} catch (const std::exception &e) {
-		std::pair<bool,std::string> p(false, "query failed: EXCEPTION" + utf8::utf8_from_native(e.what()));
+		std::pair<bool, std::string> p(false, "query failed: EXCEPTION" + utf8::utf8_from_native(e.what()));
 		return p;
 	}
 }
 
-void load_counters(std::map<std::string,std::string> &counters, sh::settings_registry &settings) {
+void load_counters(std::map<std::string, std::string> &counters, sh::settings_registry &settings) {
 	settings.alias().add_path_to_settings()
-		("counters", sh::string_map_path(&counters), 
-		"PDH COUNTERS", "Define various PDH counters to check.",
-		"COUNTER", "For more configuration options add a dedicated section")
+		("counters", sh::string_map_path(&counters),
+			"PDH COUNTERS", "Define various PDH counters to check.",
+			"COUNTER", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();
@@ -126,17 +126,14 @@ void load_counters(std::map<std::string,std::string> &counters, sh::settings_reg
  * @return true
  */
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-
 	collector.reset(new pdh_thread(get_core(), get_id()));
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("system", alias, "windows");
 	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
-
-
-// 	if (mode == NSCAPI::normalStart) {
-// 		load_counters(counters, settings);
-// 	}
+	// 	if (mode == NSCAPI::normalStart) {
+	// 		load_counters(counters, settings);
+	// 	}
 
 	collector->filters_path_ = settings.alias().get_settings_path("real-time/checks");
 
@@ -145,33 +142,32 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("service mapping", "SERVICE MAPPING SECTION", "Configure which services has to be in which state")
 
-		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)), 
-		"COUNTERS", "Add counters to check",
-		"COUNTER", "For more configuration options add a dedicated section")
+		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)),
+			"COUNTERS", "Add counters to check",
+			"COUNTER", "For more configuration options add a dedicated section")
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, collector, get_settings_proxy(), _1, _2)),  
-		"REALTIME FILTERS", "A set of filters to use in real-time mode",
-		"FILTER", "For more configuration options add a dedicated section")
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, collector, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"FILTER", "For more configuration options add a dedicated section")
 
 		;
 
 	settings.alias().add_key_to_settings()
 		("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
-		"DEFAULT LENGTH", "Used to define the default interval for range buffer checks (ie. CPU).")
+			"DEFAULT LENGTH", "Used to define the default interval for range buffer checks (ie. CPU).")
 
 		("subsystem", sh::string_key(&collector->subsystem, "default"),
-		"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
+			"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
 	settings.register_all();
 	settings.notify();
 
 	pdh_checker.counters_.add_samples(get_settings_proxy());
-		
-	if (mode == NSCAPI::normalStart) {
 
+	if (mode == NSCAPI::normalStart) {
 		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
@@ -194,7 +190,6 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	return true;
 }
-
 
 /**
  * Unload (terminate) module.
@@ -257,7 +252,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 						total++;
 						if (!filter.empty() && line.find(filter) == std::string::npos)
 							continue;
-						boost::tuple<bool,std::string> status;
+						boost::tuple<bool, std::string> status;
 						if (validate) {
 							status = validate_counter(line);
 							result += line + ": " + status.get<1>() + "\n";
@@ -272,11 +267,11 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 					total++;
 					if (!filter.empty() && line.find(filter) == std::string::npos)
 						continue;
-					boost::tuple<bool,std::string> status;
+					boost::tuple<bool, std::string> status;
 					if (validate) {
 						status = validate_counter(line);
 						result += line + ": " + status.get<1>() + "\n";
-					} else 
+					} else
 						result += line + "\n";
 					match++;
 				}
@@ -295,7 +290,6 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 
 int CheckSystem::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	if (command == "pdh" || command == "help" || command.empty()) {
-
 		namespace po = boost::program_options;
 
 		std::string lookup, counter, list_string, computer, username, password;
@@ -350,20 +344,19 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			return NSCAPI::exec_return_codes::returnERROR;
 		}
 
-
 		if (list) {
 			if (all) {
 				// If we specified all list all counters
 				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
-				return render_list(lst, validate, porcelain, counter, result)?NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+				return render_list(lst, validate, porcelain, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 			} else {
 				if (vm.count("counter")) {
 					// If we specify a counter object we will only list instances of that
 					PDH::Enumerations::Objects lst;
 					lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
-					return render_list(lst, validate, porcelain, counter, result)?NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+					return render_list(lst, validate, porcelain, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 				} else {
-					// If we specify no query we will list all configured counters 
+					// If we specify no query we will list all configured counters
 					int count = 0, match = 0;
 					if (counters.empty()) {
 						sh::settings_registry settings(get_settings_proxy());
@@ -373,10 +366,10 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 					if (!porcelain) {
 						result += "Listing configured counters\n";
 						result += "---------------------------\n";
-					} 
+					}
 					BOOST_FOREACH(const counter_map_type::value_type v, counters) {
 						std::string line = v.first + " = " + v.second;
-						boost::tuple<bool,std::string> status;
+						boost::tuple<bool, std::string> status;
 						count++;
 						if (!counter.empty() && line.find(utf8::cvt<std::string>(counter)) == std::string::npos)
 							continue;
@@ -384,11 +377,11 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 						if (validate)
 							status = validate_counter(v.second);
 
-						if (porcelain) 
+						if (porcelain)
 							line = v.first + "," + v.second + "," + status.get<1>();
 						else if (validate)
 							line = v.first + " = " + v.second + ": " + status.get<1>();
-						else 
+						else
 							line = v.first + " = " + v.second;
 						result += line + "\n";
 						match++;
@@ -471,7 +464,7 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	compat::addOldNumeric(desc);
 
 	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	std::string warn, crit;
 
@@ -491,7 +484,6 @@ void CheckSystem::checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin
 	}
 	compat::log_args(request);
 	check_cpu(request, response);
-	
 }
 
 void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -520,8 +512,8 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 		return;
 
 	BOOST_FOREACH(const std::string &time, times) {
-		std::map<std::string,windows::system_info::load_entry> vals = collector->get_cpu_load(format::decode_time<long>(time, 1));
-		typedef std::map<std::string,windows::system_info::load_entry>::value_type vt;
+		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(format::decode_time<long>(time, 1));
+		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
 		BOOST_FOREACH(vt v, vals) {
 			boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
 			filter.match(record);
@@ -530,9 +522,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 	filter_helper.post_process(filter);
 }
 
-
-
-typedef ULONGLONG (*tGetTickCount64)();
+typedef ULONGLONG(*tGetTickCount64)();
 
 tGetTickCount64 pGetTickCount64 = NULL;
 
@@ -557,7 +547,7 @@ void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plu
 	compat::addOldNumeric(desc);
 
 	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	std::string warn, crit;
 
@@ -571,9 +561,7 @@ void CheckSystem::checkUptime(Plugin::QueryRequestMessage::Request &request, Plu
 		request.add_arguments("filter=none");
 	compat::log_args(request);
 	check_uptime(request, response);
-
 }
-
 
 void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_uptime_filter::filter filter_type;
@@ -594,13 +582,13 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	unsigned long long value = nscpGetTickCount64();
 	if (value == 0)
 		value = GetTickCount();
-	value /=1000;
+	value /= 1000;
 
 	boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
-	boost::posix_time::ptime epoch(boost::gregorian::date(1970,1,1));
+	boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
 	boost::posix_time::ptime boot = now - boost::posix_time::time_duration(0, 0, value);
 
-	long long now_delta = (now-epoch).total_seconds();
+	long long now_delta = (now - epoch).total_seconds();
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
 	filter.match(record);
@@ -625,7 +613,6 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	if (!filter_helper.build_filter(filter))
 		return;
 
-
 	boost::shared_ptr<os_version_filter::filter_obj> record(new os_version_filter::filter_obj());
 	OSVERSIONINFOEX *info = windows::system_info::get_versioninfo();
 	record->major_version = info->dwMajorVersion;
@@ -639,8 +626,6 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter_helper.post_process(filter);
 }
-
-
 
 void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
@@ -656,7 +641,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 		return;
 	std::string filter, crit;
 
@@ -676,11 +661,11 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 		std::string ss = "running";
 		const std::string::size_type pos = sn.find('=');
 		if (pos != std::string::npos) {
-			ss = sn.substr(pos+1);
+			ss = sn.substr(pos + 1);
 			sn = sn.substr(0, pos);
 		}
 		request.add_arguments("service=" + sn);
-		strEx::append_list(tmp, "( name like '" + sn + "' and state != '" + ss +"' )", " or ");
+		strEx::append_list(tmp, "( name like '" + sn + "' and state != '" + ss + "' )", " or ");
 	}
 	if (!tmp.empty()) {
 		if (crit.empty())
@@ -700,10 +685,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 
 	compat::log_args(request);
 	check_service(request, response);
-
 }
-
-
 
 void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_svc_filter::filter filter_type;
@@ -737,8 +719,8 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	BOOST_FOREACH(const std::string &service, services) {
 		if (service == "*") {
 			BOOST_FOREACH(const services_helper::service_info &info, services_helper::enum_services(computer, services_helper::parse_service_type(type), services_helper::parse_service_state(state))) {
-				if (std::find(excludes.begin(), excludes.end(), info.get_name())!=excludes.end()
-					|| std::find(excludes.begin(), excludes.end(), info.get_desc())!=excludes.end()
+				if (std::find(excludes.begin(), excludes.end(), info.get_name()) != excludes.end()
+					|| std::find(excludes.begin(), excludes.end(), info.get_desc()) != excludes.end()
 					)
 					continue;
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
@@ -758,7 +740,6 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	}
 	filter_helper.post_process(filter);
 }
-
 
 void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_page_filter::filter filter_type;
@@ -788,7 +769,6 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 	filter_helper.post_process(filter);
 }
 
-
 void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 
@@ -802,7 +782,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	compat::addOldNumeric(desc);
 
 	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	std::string warn, crit;
 
@@ -821,7 +801,6 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
 	}
 	compat::log_args(request);
 	check_memory(request, response);
-
 }
 
 /**
@@ -832,7 +811,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
  * @param argLen The length of the argument buffer
  * @param **char_args The argument buffer
  * @param &msg String to put message in
- * @param &perf String to put performance data in 
+ * @param &perf String to put performance data in
  * @return The status of the command
  */
 void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -869,13 +848,13 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	BOOST_FOREACH(const std::string &type, types) {
 		unsigned long long used(0), total(0);
 		if (type == "committed") {
-			used = mem_data.commited.total-mem_data.commited.avail;
+			used = mem_data.commited.total - mem_data.commited.avail;
 			total = mem_data.commited.total;
 		} else if (type == "physical") {
-			used = mem_data.phys.total-mem_data.phys.avail;
+			used = mem_data.phys.total - mem_data.phys.avail;
 			total = mem_data.phys.total;
 		} else if (type == "virtual") {
-			used = mem_data.virt.total-mem_data.virt.avail;
+			used = mem_data.virt.total - mem_data.virt.avail;
 			total = mem_data.virt.total;
 		} else {
 			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
@@ -899,7 +878,6 @@ class NSC_error : public process_helper::error_reporter {
 	}
 };
 
-
 void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
@@ -910,7 +888,7 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 		return;
 	std::string filter, warn, crit;
 
@@ -926,13 +904,12 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 			std::string::size_type pos = s.find('=');
 			if (pos != std::string::npos) {
 				request.add_arguments("process=" + s.substr(0, pos));
-				strEx::append_list(filter, "( exe like '" + s.substr(0, pos) + "' and state = '" + s.substr(pos+1) +"' )", " or ");
+				strEx::append_list(filter, "( exe like '" + s.substr(0, pos) + "' and state = '" + s.substr(pos + 1) + "' )", " or ");
 			} else {
 				request.add_arguments("process=" + s);
 				strEx::append_list(filter, "(exe like '" + s + "' and state = 'started')", " or ");
 			}
 		}
-
 	} else {
 		request.add_arguments("detail-syntax=${exe} : ${state}");
 		std::string tmp;
@@ -942,7 +919,7 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 				std::string::size_type pos = pn.find('=');
 				if (pos != std::string::npos) {
 					request.add_arguments("process=" + pn.substr(0, pos));
-					strEx::append_list(tmp, "(exe like '" + pn.substr(0, pos) + "' and state != '" + pn.substr(pos+1) +"')", " or ");
+					strEx::append_list(tmp, "(exe like '" + pn.substr(0, pos) + "' and state != '" + pn.substr(pos + 1) + "')", " or ");
 				} else {
 					request.add_arguments("process=" + pn);
 					strEx::append_list(tmp, "(exe like '" + pn + "' and state != 'started')", " or ");
@@ -955,18 +932,16 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 			else
 				crit += tmp;
 		}
-
 	}
 	compat::inline_addarg(request, warn);
 	compat::inline_addarg(request, crit);
-// 	if (!crit.empty())
-// 		request.add_arguments("crit=" + crit);
+	// 	if (!crit.empty())
+	// 		request.add_arguments("crit=" + crit);
 	if (!filter.empty())
 		request.add_arguments("filter=" + filter);
 
 	compat::log_args(request);
 	check_process(request, response);
-
 }
 void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef check_proc_filter::filter filter_type;
@@ -1009,7 +984,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	}
 
 	std::vector<std::string> matched;
-	process_helper::process_list list = delta_scan?process_helper::enumerate_processes_delta(!unreadable_scan, &err):process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
+	process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err) : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
 	BOOST_FOREACH(const process_helper::process_info &info, list) {
 		bool wanted = procs.count(info.exe);
 		if (all || wanted) {
@@ -1043,7 +1018,7 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 		return;
 	std::string warn, crit;
 
@@ -1054,10 +1029,10 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	compat::matchShowAll(vm, request);
 
 	BOOST_FOREACH(const std::string &s, extra) {
-		if ((s.size() > 8) && (s.substr(0,8) == "Counter:")) {
+		if ((s.size() > 8) && (s.substr(0, 8) == "Counter:")) {
 			std::string::size_type pos = s.find('=');
 			if (pos != std::string::npos) {
-				request.add_arguments("counter:" +  s.substr(8));
+				request.add_arguments("counter:" + s.substr(8));
 			}
 		}
 	}
@@ -1068,7 +1043,6 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 	request.add_arguments("perf-config=*(suffix:none)");
 	compat::log_args(request);
 	check_pdh(request, response);
-
 }
 
 void CheckSystem::check_pdh(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
@@ -1100,9 +1074,7 @@ void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, double
 	m->mutable_value()->set_float_data(value);
 }
 
-
 class add_visitor : public boost::static_visitor<> {
-
 	Plugin::Common::MetricsBundle *b;
 	const std::string &key;
 
@@ -1177,11 +1149,9 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		add_metric(section, "boot.raw", value);
 		add_metric(section, "uptime", format::itos_as_time(value * 1000));
 		add_metric(section, "boot", format::format_date(boot));
-
 	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
-
 
 	try {
 		Plugin::Common::MetricsBundle *section = bundle->add_children();
@@ -1191,10 +1161,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 			add_visitor adder(section, e.first);
 			boost::apply_visitor(adder, e.second);
 		}
-
-	}
-	catch (...) {
+	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
-
 }

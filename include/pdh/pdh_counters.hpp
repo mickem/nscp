@@ -28,7 +28,6 @@
 #include <pdh/pdh_interface.hpp>
 
 namespace PDH {
-
 	class PDHCounter;
 	class PDHCounterListener {
 	public:

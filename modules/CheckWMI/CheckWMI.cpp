@@ -33,7 +33,6 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
-
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
@@ -54,22 +53,21 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 
 		settings.add_key_to_settings("targets/" + target.hostname)
 			("hostname", sh::string_key(&target.hostname),
-			"TARGET HOSTNAME", "Hostname or ip address of target")
+				"TARGET HOSTNAME", "Hostname or ip address of target")
 
 			("username", sh::string_key(&target.username),
-			"TARGET USERNAME", "Username used to authenticate with")
+				"TARGET USERNAME", "Username used to authenticate with")
 
 			("password", sh::string_key(&target.password),
-			"TARGET PASSWORD", "Password used to authenticate with")
+				"TARGET PASSWORD", "Password used to authenticate with")
 
 			("protocol", sh::string_key(&target.protocol),
-			"TARGET PROTOCOL", "Protocol identifier used to route requests")
+				"TARGET PROTOCOL", "Protocol identifier used to route requests")
 
 			;
 
 		settings.register_all();
 		settings.notify();
-
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("loading: ", e);
 	} catch (...) {
@@ -83,9 +81,9 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	//settings.set_alias(_T("targets"));
 
 	settings.add_path_to_settings()
-		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)), 
-		"TARGET LIST SECTION", "A list of available remote target systems",
-		"TARGET DEFENTION", "For more configuration options add a dedicated section")
+		("targets", sh::fun_values_path(boost::bind(&target_helper::add_target, &targets, get_settings_proxy(), _1, _2)),
+			"TARGET LIST SECTION", "A list of available remote target systems",
+			"TARGET DEFENTION", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();
@@ -100,7 +98,7 @@ std::string build_namespace(std::string ns, std::string computer) {
 	if (ns.empty())
 		ns = "root\\cimv2";
 	if (!computer.empty())
-		ns ="\\\\" + computer + "\\" + ns;
+		ns = "\\\\" + computer + "\\" + ns;
 	return ns;
 }
 
@@ -112,7 +110,6 @@ std::string build_namespace(std::string ns, std::string computer) {
 #include <parsers/where/filter_handler_impl.hpp>
 
 namespace wmi_filter {
-
 	struct filter_obj {
 		wmi_impl::row &row;
 		filter_obj(wmi_impl::row &row) : row(row) {}
@@ -131,14 +128,11 @@ namespace wmi_filter {
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
 		filter_obj_handler() {
-
 		}
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-
 }
 void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-
 	typedef wmi_filter::filter filter_type;
 	modern_filter::data_container data;
 	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
@@ -197,7 +191,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 }
 
 inline std::string pad(const std::string &s, const std::size_t &c) {
-	return s + std::string(c-s.size(), ' ');
+	return s + std::string(c - s.size(), ' ');
 }
 
 typedef  std::vector<std::string> row_type;
@@ -205,19 +199,19 @@ std::string render_table(const std::vector<std::size_t> &widths, const row_type 
 	std::size_t count = widths.size();
 	std::stringstream ss;
 	std::string line;
-	for (int i=0;i<count;++i) {
-		line += std::string(widths[i]+3, '-');
+	for (int i = 0; i < count; ++i) {
+		line += std::string(widths[i] + 3, '-');
 	}
 	ss << line << "\n";
 	if (headers.size() != widths.size())
 		throw wmi_impl::wmi_exception("Invalid header size");
-	for (int i=0;i<count;++i)
+	for (int i = 0; i < count; ++i)
 		ss << " " << pad(headers[i], widths[i]) << " ";
 	ss << "\n" << line << "\n";
 	BOOST_FOREACH(const row_type &row, rows) {
 		if (row.size() != widths.size())
 			throw wmi_impl::wmi_exception("Invalid row size");
-		for (int i=0;i<count;++i)
+		for (int i = 0; i < count; ++i)
 			ss << " " << pad(row[i], widths[i]) << " ";
 		ss << "\n";
 	}
@@ -231,7 +225,7 @@ std::string render(const row_type &headers, std::vector<std::size_t> &widths, wm
 	while (e.has_next()) {
 		wmi_impl::row wmi_row = e.get_next();
 		row_type row;
-		for (std::size_t i=0;i<count;i++) {
+		for (std::size_t i = 0; i < count; i++) {
 			std::string c = wmi_row.get_string(headers[i]);
 			widths[i] = (std::max)(c.size(), widths[i]);
 			row.push_back(c);
@@ -240,7 +234,6 @@ std::string render(const row_type &headers, std::vector<std::size_t> &widths, wm
 	}
 	return render_table(widths, headers, rows);
 }
-
 
 std::string list_ns_rec(std::string ns, std::string user, std::string password) {
 	std::stringstream ss;
@@ -258,7 +251,6 @@ std::string list_ns_rec(std::string ns, std::string user, std::string password) 
 NSCAPI::nagiosReturn CheckWMI::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
 	try {
 		if (command == "wmi" || command == "help" || command.empty()) {
-
 			namespace po = boost::program_options;
 
 			std::string query, ns, user, password, list_cls, list_inst;

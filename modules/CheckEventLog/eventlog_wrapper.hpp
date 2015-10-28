@@ -37,8 +37,8 @@ struct eventlog_wrapper {
 		return hLog;
 	}
 
-	DWORD get_last_buffer_size() { 
-		return lastReadSize; 
+	DWORD get_last_buffer_size() {
+		return lastReadSize;
 	}
 	const LPBYTE get_last_buffer() {
 		return pBuffer;
@@ -60,5 +60,4 @@ struct event_source {
 	operator HANDLE () {
 		return hLog;
 	}
-
 };

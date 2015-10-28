@@ -35,7 +35,6 @@ extern "C" int NSUnloadModule(unsigned int plugin_id);
 
 #include "plugin_instance.hpp"
 
-
 class DotnetPlugins : public plugin_manager_interface {
 private:
 
@@ -60,7 +59,7 @@ public:
 		return "DotnetPlugin";
 	}
 	static nscapi::module_version getModuleVersion() {
-		nscapi::module_version version = {0, 3, 0 };
+		nscapi::module_version version = { 0, 3, 0 };
 		return version;
 	}
 	static std::string getModuleDescription() {
@@ -92,5 +91,4 @@ public:
 private:
 	void load(std::string key, std::string factory, std::string val);
 	int registry_reg_module(const std::string module);
-
 };

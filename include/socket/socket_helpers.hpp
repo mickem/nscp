@@ -14,7 +14,6 @@
 #include <strEx.h>
 
 namespace socket_helpers {
-
 #ifdef USE_SSL
 	void write_certs(std::string cert, bool ca);
 #endif
@@ -37,22 +36,19 @@ namespace socket_helpers {
 		///
 		/// @author mickem
 		const char* what() const throw() { return error.c_str(); }
-
 	};
 
 	struct allowed_hosts_manager {
 		template<class addr_type_t>
 		struct host_record {
-			host_record(std::string host, addr_type_t addr, addr_type_t mask) 
+			host_record(std::string host, addr_type_t addr, addr_type_t mask)
 				: host(host)
 				, addr(addr)
-				, mask(mask)
-				{}
-			host_record(const host_record &other) 
+				, mask(mask) {}
+			host_record(const host_record &other)
 				: host(other.host)
 				, addr(other.addr)
-				, mask(other.mask)
-				{}
+				, mask(other.mask) {}
 			const host_record& operator=(const host_record &other) {
 				host = other.host;
 				addr = other.addr;
@@ -91,14 +87,14 @@ namespace socket_helpers {
 
 		template<class T>
 		inline bool match_host(const T &allowed, const T &mask, const T &remote) const {
-			for (std::size_t i=0;i<allowed.size(); i++) {
-				if ( (allowed[i]&mask[i]) != (remote[i]&mask[i]) )
+			for (std::size_t i = 0; i < allowed.size(); i++) {
+				if ((allowed[i] & mask[i]) != (remote[i] & mask[i]))
 					return false;
 			}
 			return true;
 		}
 		bool is_allowed(const boost::asio::ip::address &address, std::list<std::string> &errors) {
-			return (entries_v4.empty()&&entries_v6.empty())
+			return (entries_v4.empty() && entries_v6.empty())
 				|| (address.is_v4() && is_allowed_v4(address.to_v4().to_bytes(), errors))
 				|| (address.is_v6() && is_allowed_v6(address.to_v6().to_bytes(), errors))
 				|| (address.is_v6() && address.to_v6().is_v4_compatible() && is_allowed_v4(address.to_v6().to_v4().to_bytes(), errors))
@@ -123,16 +119,15 @@ namespace socket_helpers {
 			}
 			return false;
 		}
-//		std::wstring to_wstring();
+		//		std::wstring to_wstring();
 		std::string to_string();
 	};
 
 	struct connection_info {
-
 		struct ssl_opts {
 			ssl_opts() : enabled(false) {}
 
-			ssl_opts(const ssl_opts &other) 
+			ssl_opts(const ssl_opts &other)
 				: enabled(other.enabled)
 				, certificate(other.certificate)
 				, certificate_format(other.certificate_format)
@@ -141,8 +136,7 @@ namespace socket_helpers {
 				, allowed_ciphers(other.allowed_ciphers)
 				, dh_key(other.dh_key)
 				, verify_mode(other.verify_mode)
-				, ssl_options(other.ssl_options)
-			{}
+				, ssl_options(other.ssl_options) {}
 			ssl_opts& operator=(const ssl_opts &other) {
 				enabled = other.enabled;
 				certificate = other.certificate;
@@ -155,7 +149,6 @@ namespace socket_helpers {
 				ssl_options = other.ssl_options;
 				return *this;
 			}
-
 
 			bool enabled;
 			std::string certificate;
@@ -180,7 +173,7 @@ namespace socket_helpers {
 						ss << ", no certificate";
 					ss << ", dh: " << dh_key << ", ciphers: " << allowed_ciphers << ", ca: " << ca_path;
 					ss << ", options: " << ssl_options;
-				} else 
+				} else
 					ss << "ssl disabled";
 				return ss.str();
 			}
@@ -206,7 +199,7 @@ namespace socket_helpers {
 
 		connection_info() : back_log(backlog_default), port_("0"), thread_pool_size(0), timeout(30), retry(2), reuse(true) {}
 
-		connection_info(const connection_info &other) 
+		connection_info(const connection_info &other)
 			: address(other.address)
 			, back_log(other.back_log)
 			, port_(other.port_)
@@ -215,9 +208,7 @@ namespace socket_helpers {
 			, retry(other.retry)
 			, reuse(other.reuse)
 			, ssl(other.ssl)
-			, allowed_hosts(other.allowed_hosts)
-			{
-			}
+			, allowed_hosts(other.allowed_hosts) {}
 		connection_info& operator=(const connection_info &other) {
 			address = other.address;
 			back_log = other.back_log;
@@ -230,7 +221,6 @@ namespace socket_helpers {
 			allowed_hosts = other.allowed_hosts;
 			return *this;
 		}
-
 
 		std::list<std::string> validate_ssl();
 		std::list<std::string> validate();
@@ -249,10 +239,7 @@ namespace socket_helpers {
 			ss << ", " << ssl.to_string();
 			return ss.str();
 		}
-
 	};
-
-
 
 	namespace io {
 		void set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b);
@@ -295,8 +282,7 @@ namespace socket_helpers {
 					if (read_result) {
 						read_result.reset();
 						return true;
-					}
-					else if (timer_result) {
+					} else if (timer_result) {
 						socket.close();
 						return false;
 					}
@@ -308,9 +294,7 @@ namespace socket_helpers {
 				if (!ec)
 					a->reset(ec);
 			}
-
 		};
-
 
 		template <typename AsyncWriteStream, typename RawSocket, typename MutableBufferSequence>
 		bool write_with_timeout(AsyncWriteStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
@@ -327,8 +311,7 @@ namespace socket_helpers {
 				if (read_result) {
 					timer.cancel();
 					return true;
-				}
-				else if (timer_result) {
+				} else if (timer_result) {
 					rawSocket.close();
 					return false;
 				}
@@ -338,7 +321,6 @@ namespace socket_helpers {
 				throw boost::system::system_error(*read_result);
 			return false;
 		}
-
 
 		struct timed_reader : public boost::enable_shared_from_this<timed_reader> {
 			boost::asio::io_service &io_service;
@@ -378,8 +360,7 @@ namespace socket_helpers {
 					if (write_result) {
 						write_result.reset();
 						return true;
-					}
-					else if (timer_result) {
+					} else if (timer_result) {
 						socket.close();
 						return false;
 					}
@@ -390,9 +371,7 @@ namespace socket_helpers {
 				if (!ec)
 					a->reset(ec);
 			}
-
 		};
-
 
 		template <typename AsyncReadStream, typename RawSocket, typename MutableBufferSequence>
 		bool read_with_timeout(AsyncReadStream& sock, RawSocket& rawSocket, const MutableBufferSequence& buffers, boost::posix_time::time_duration duration) {
@@ -413,11 +392,11 @@ namespace socket_helpers {
 					rawSocket.close();
 					return false;
 				} else {
-// 					if (!rawSocket.is_open()) {
-// 						timer.cancel();
-// 						rawSocket.close();
-// 						return false;
-// 					}
+					// 					if (!rawSocket.is_open()) {
+					// 						timer.cancel();
+					// 						rawSocket.close();
+					// 						return false;
+					// 					}
 				}
 			}
 

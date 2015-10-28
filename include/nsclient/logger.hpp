@@ -41,7 +41,6 @@ namespace nsclient {
 
 			static void set_backend(std::string backend);
 			static void destroy();
-
 		};
 	}
 }

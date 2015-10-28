@@ -52,7 +52,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
@@ -64,15 +63,12 @@ struct parse_exception {
 	parse_exception(std::wstring) {}
 };
 
-
-
 bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-
 	eventlog::api::load_procs();
 
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "eventlog");
-		
+
 	thread_.reset(new real_time_thread(get_core(), get_id()));
 	if (!thread_) {
 		NSC_LOG_ERROR_STD("Failed to create thread container");
@@ -80,45 +76,44 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	}
 	thread_->filters_path_ = settings.alias().get_settings_path("real-time/filters");
 
-
 	settings.alias().add_path_to_settings()
 		("EVENT LOG SECTION", "Section for the EventLog Checker (CheckEventLog.dll).")
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),  
-		"REALTIME FILTERS", "A set of filters to use in real-time mode",
-		"FILTER DEFENITION", "For more configuration options add a dedicated section")
+		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"FILTER DEFENITION", "For more configuration options add a dedicated section")
 		;
 
 	settings.alias().add_key_to_settings()
 		("debug", sh::bool_key(&debug_, false),
-		"DEBUG", "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
+			"DEBUG", "Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
 		("lookup names", sh::bool_key(&lookup_names_, true),
-		"LOOKUP NAMES", "Lookup the names of eventlog files")
+			"LOOKUP NAMES", "Lookup the names of eventlog files")
 
 		("syntax", sh::string_key(&syntax_),
-		"SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).")
+			"SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).")
 
-		("buffer size", sh::int_key(&buffer_length_, 128*1024),
-		"BUFFER_SIZE", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
+		("buffer size", sh::int_key(&buffer_length_, 128 * 1024),
+			"BUFFER_SIZE", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 		;
 
 	settings.alias().add_key_to_settings("real-time")
 
 		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-		"REAL TIME CHECKING", "Spawns a background thread which detects issues and reports them back instantly.")
+			"REAL TIME CHECKING", "Spawns a background thread which detects issues and reports them back instantly.")
 
 		("startup age", sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_start_age, thread_, _1), "30m"),
-		"STARTUP AGE", "The initial age to scan when starting NSClient++")
+			"STARTUP AGE", "The initial age to scan when starting NSClient++")
 
-		("log", sh::string_key(&thread_->logs_ , "application,system"),
-		"LOGS TO CHECK", "Comma separated list of logs to check")
+		("log", sh::string_key(&thread_->logs_, "application,system"),
+			"LOGS TO CHECK", "Comma separated list of logs to check")
 
 		("debug", sh::bool_key(&thread_->debug_, false),
-		"DEBUG", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
+			"DEBUG", "Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.")
 
 		;
 	std::string filter_path = settings.alias().get_settings_path("real-time/filters");
@@ -143,14 +138,14 @@ bool CheckEventLog::unloadModule() {
 
 typedef hlp::buffer<BYTE, EVENTLOGRECORD*> eventlog_buffer;
 
-inline std::time_t to_time_t_epoch(boost::posix_time::ptime t) { 
-	if( t == boost::date_time::neg_infin ) 
-		return 0; 
-	else if( t == boost::date_time::pos_infin ) 
-		return LONG_MAX; 
-	boost::posix_time::ptime start(boost::gregorian::date(1970,1,1)); 
-	return (t-start).total_seconds(); 
-} 
+inline std::time_t to_time_t_epoch(boost::posix_time::ptime t) {
+	if (t == boost::date_time::neg_infin)
+		return 0;
+	else if (t == boost::date_time::pos_infin)
+		return LONG_MAX;
+	boost::posix_time::ptime start(boost::gregorian::date(1970, 1, 1));
+	return (t - start).total_seconds();
+}
 
 inline long long parse_time(std::string time) {
 	long long now = to_time_t_epoch(boost::posix_time::second_clock::universal_time());
@@ -158,48 +153,46 @@ inline long long parse_time(std::string time) {
 	if (p == std::string::npos)
 		return now + boost::lexical_cast<long long>(time);
 	long long value = boost::lexical_cast<long long>(time.substr(0, p));
-	if ( (time[p] == 's') || (time[p] == 'S') )
+	if ((time[p] == 's') || (time[p] == 'S'))
 		return now + value;
-	else if ( (time[p] == 'm') || (time[p] == 'M') )
+	else if ((time[p] == 'm') || (time[p] == 'M'))
 		return now + (value * 60);
-	else if ( (time[p] == 'h') || (time[p] == 'H') )
+	else if ((time[p] == 'h') || (time[p] == 'H'))
 		return now + (value * 60 * 60);
-	else if ( (time[p] == 'd') || (time[p] == 'D') )
+	else if ((time[p] == 'd') || (time[p] == 'D'))
 		return now + (value * 24 * 60 * 60);
-	else if ( (time[p] == 'w') || (time[p] == 'W') )
+	else if ((time[p] == 'w') || (time[p] == 'W'))
 		return now + (value * 7 * 24 * 60 * 60);
 	return now + value;
 }
 
-void check_legacy(const std::string &logfile, std::string &scan_range, const int truncate_message,  eventlog_filter::filter &filter)  {
+void check_legacy(const std::string &logfile, std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter) {
 	typedef eventlog_filter::filter filter_type;
 	eventlog_buffer buffer(4096);
 	HANDLE hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(logfile).c_str());
 	if (hLog == NULL)
-		throw nscp_exception("Could not open the '" + logfile + "' event log: "  + error::lookup::last_error());
+		throw nscp_exception("Could not open the '" + logfile + "' event log: " + error::lookup::last_error());
 	long long stop_date;
 	enum direction_type {
 		direction_none, direction_forwards, direction_backwards
-
 	};
 	direction_type direction = direction_none;
 	DWORD flags = EVENTLOG_SEQUENTIAL_READ;
 	if ((scan_range.size() > 0) && (scan_range[0] == L'-')) {
 		direction = direction_backwards;
-		flags|=EVENTLOG_BACKWARDS_READ;
+		flags |= EVENTLOG_BACKWARDS_READ;
 		stop_date = parse_time(scan_range);
 	} else if (scan_range.size() > 0) {
 		direction = direction_forwards;
-		flags|=EVENTLOG_FORWARDS_READ;
+		flags |= EVENTLOG_FORWARDS_READ;
 		stop_date = parse_time(scan_range);
 	} else {
-		flags|=EVENTLOG_FORWARDS_READ;
+		flags |= EVENTLOG_FORWARDS_READ;
 	}
 
 	DWORD dwRead, dwNeeded;
 	bool is_scanning = true;
 	while (is_scanning) {
-
 		BOOL bStatus = ReadEventLog(hLog, flags, 0, buffer.get(), static_cast<DWORD>(buffer.size()), &dwRead, &dwNeeded);
 		if (bStatus == FALSE) {
 			DWORD err = GetLastError();
@@ -219,8 +212,8 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 		__time64_t ltime;
 		_time64(&ltime);
 
-		EVENTLOGRECORD *pevlr = buffer.get(); 
-		while (dwRead > 0) { 
+		EVENTLOGRECORD *pevlr = buffer.get();
+		while (dwRead > 0) {
 			EventLogRecord record(logfile, pevlr, ltime);
 			if (direction == direction_backwards && record.written() < stop_date) {
 				is_scanning = false;
@@ -234,15 +227,14 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 			if (ret.is_done) {
 				break;
 			}
-			dwRead -= pevlr->Length; 
-			pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length); 
-		} 
+			dwRead -= pevlr->Length;
+			pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length);
+		}
 	}
 	CloseEventLog(hLog);
 }
 
-
-void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter)  {
+void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter) {
 	typedef eventlog_filter::filter filter_type;
 	DWORD status = ERROR_SUCCESS;
 	const int batch_size = 10;	// TODO make configurable
@@ -263,8 +255,7 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 		stop_date = parse_time(scan_range);
 	}
 	eventlog::evt_handle hResults = eventlog::EvtQuery(NULL, utf8::cvt<std::wstring>(logfile).c_str(), pwsQuery, flags);
-	if (!hResults)
-	{
+	if (!hResults) {
 		status = GetLastError();
 		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
 			throw nscp_exception("Channel not found: " + error::lookup::last_error(status));
@@ -313,19 +304,18 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 				}
 			}
 		}
-	} 
+	}
 }
 
 void log_args(const Plugin::QueryRequestMessage::Request &request) {
 	std::stringstream ss;
-	for (int i=0;i<request.arguments_size();i++) {
-		if (i>0)
+	for (int i = 0; i < request.arguments_size(); i++) {
+		if (i > 0)
 			ss << " ";
 		ss << request.arguments(i);
 	}
 	NSC_DEBUG_MSG("Created command: " + ss.str());
 }
-
 
 void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
@@ -351,7 +341,7 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 		;
 
 	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	std::string warn, crit;
 
@@ -376,7 +366,7 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 			boost::replace_all(filter, "generated", "written");
 			boost::replace_all(filter, "severity", "level");
 		}
-		request.add_arguments("filter="+filter);
+		request.add_arguments("filter=" + filter);
 	}
 	boost::replace_all(syntax, "%message%", "${message}");
 	boost::replace_all(syntax, "%source%", "${source}");
@@ -401,12 +391,11 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 	boost::replace_all(syntax, "%file%", "${file}");
 	boost::replace_all(syntax, "%id%", "${id}");
 	boost::replace_all(syntax, "%user%", "${user}");
-	request.add_arguments("detail-syntax="+syntax);
-	request.add_arguments("top-syntax="+top_syntax);
+	request.add_arguments("detail-syntax=" + syntax);
+	request.add_arguments("top-syntax=" + top_syntax);
 	log_args(request);
 	check_eventlog(request, response);
 }
-
 
 void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef eventlog_filter::filter filter_type;
@@ -424,8 +413,8 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	filter_helper.add_index(filter.get_format_syntax(), "");
 	filter_helper.add_syntax("${status}: ${problem_count}/${count} ${problem_list}", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}", "%(status): No entries found", "%(status): Event log seems fine");
 	filter_helper.get_desc().add_options()
-		("file", po::value<std::vector<std::string> >(&file_list),	"File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
-		"In other words if one file contains an error the entire check will result in error.")
+		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
+			"In other words if one file contains an error the entire check will result in error.")
 		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nThis is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
 		("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
 		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
@@ -447,7 +436,6 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	if (!filter_helper.build_filter(filter))
 		return;
 
-
 	BOOST_FOREACH(const std::string &file, file_list) {
 		std::string name = file;
 		if (lookup_names_) {
@@ -463,8 +451,6 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	}
 	filter_helper.post_process(filter);
 }
-
-
 
 bool CheckEventLog::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &) {
 	if (request.command() == "insert-message" || request.command() == "insert") {
@@ -487,7 +473,6 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 
 		boost::program_options::variables_map vm;
 
-
 		nscapi::program_options::process_arguments_from_request(vm, desc, request, *response);
 		{
 			eventlog::evt_handle hProviders;
@@ -501,13 +486,13 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 				return;
 			}
 			while (true) {
-				if  (!eventlog::EvtNextChannelPath(hProviders, buffer.size(), buffer.get(), &dwBufferSize)) {
+				if (!eventlog::EvtNextChannelPath(hProviders, buffer.size(), buffer.get(), &dwBufferSize)) {
 					status = GetLastError();
 					if (ERROR_NO_MORE_ITEMS == status)
 						break;
 					else if (ERROR_INSUFFICIENT_BUFFER == status) {
 						buffer.resize(dwBufferSize);
-						if  (!eventlog::EvtNextChannelPath(hProviders, buffer.size(), buffer.get(), &dwBufferSize))
+						if (!eventlog::EvtNextChannelPath(hProviders, buffer.size(), buffer.get(), &dwBufferSize))
 							throw nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
 					} else if (status != ERROR_SUCCESS)
 						throw nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
@@ -545,26 +530,26 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 			("id,i", po::value<WORD>(&wEventID), "Event ID")
 			;
 		boost::program_options::variables_map vm;
-		if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+		if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 			return;
 
 		event_source source(source_name);
 		WORD wType = EventLogRecord::translateType(type);
 		WORD wSeverity = EventLogRecord::translateSeverity(severity);
-		DWORD tID = (wEventID&0xffff) | ((facility&0xfff)<<16) | ((customer&0x1)<<29) | ((wSeverity&0x3)<<30);
-		LPCWSTR *string_data = new LPCWSTR[strings.size()+1];
-		int i=0;
+		DWORD tID = (wEventID & 0xffff) | ((facility & 0xfff) << 16) | ((customer & 0x1) << 29) | ((wSeverity & 0x3) << 30);
+		LPCWSTR *string_data = new LPCWSTR[strings.size() + 1];
+		int i = 0;
 		// TODO: FIxme this is broken!
- 		BOOST_FOREACH(const std::wstring &s, strings) {
- 			string_data[i++] = s.c_str();
- 		}
+		BOOST_FOREACH(const std::wstring &s, strings) {
+			string_data[i++] = s.c_str();
+		}
 		string_data[i++] = 0;
 
 		if (!ReportEvent(source, wType, category, tID, NULL, static_cast<WORD>(strings.size()), 0, string_data, NULL)) {
-			delete [] string_data;
+			delete[] string_data;
 			return nscapi::protobuf::functions::set_response_bad(*response, "Could not report the event: " + error::lookup::last_error());
 		} else {
-			delete [] string_data;
+			delete[] string_data;
 			return nscapi::protobuf::functions::set_response_good(*response, "Message reported successfully");
 		}
 	} catch (const std::exception &e) {

@@ -36,20 +36,18 @@
 
 /**
  * Default c-tor
- * @return 
+ * @return
  */
 CollectdClient::CollectdClient() : client_("nsca", boost::make_shared<collectd_client::collectd_client_handler>(), boost::make_shared<collectd_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
- * @return 
+ * @return
  */
 CollectdClient::~CollectdClient() {}
 
 bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-
 	try {
-
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NSCA", alias, "client");
 		std::string target_path = settings.alias().get_settings_path("targets");
@@ -59,29 +57,28 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("COLLECTD CLIENT SECTION", "Section for NSCA passive check module.")
 
-			("targets", sh::fun_values_path(boost::bind(&CollectdClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
+			("targets", sh::fun_values_path(boost::bind(&CollectdClient::add_target, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("hostname", sh::string_key(&hostname_, "auto"),
-			"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-			"auto\tHostname\n"
-			"${host}\tHostname\n"
-			"${host_lc}\nHostname in lowercase\n"
-			"${host_uc}\tHostname in uppercase\n"
-			"${domain}\tDomainname\n"
-			"${domain_lc}\tDomainname in lowercase\n"
-			"${domain_uc}\tDomainname in uppercase\n"
-			)
+				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+				"auto\tHostname\n"
+				"${host}\tHostname\n"
+				"${host_lc}\nHostname in lowercase\n"
+				"${host_uc}\tHostname in uppercase\n"
+				"${domain}\tDomainname\n"
+				"${domain_lc}\tDomainname in lowercase\n"
+				"${domain_uc}\tDomainname in uppercase\n"
+				)
 			;
 
 		settings.register_all();
 		settings.notify();
 
 		client_.finalize(get_settings_proxy());
-
 
 		nscapi::core_helper core(get_core(), get_id());
 
@@ -98,9 +95,9 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 			try {
 				boost::asio::io_service svc;
-				boost::asio::ip::tcp::resolver resolver (svc);
-				boost::asio::ip::tcp::resolver::query query (boost::asio::ip::host_name(), "");
-				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve (query), end;
+				boost::asio::ip::tcp::resolver resolver(svc);
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
 
 				std::string s;
 				while (iter != end) {
@@ -150,7 +147,6 @@ void CollectdClient::add_target(std::string key, std::string arg) {
 	}
 }
 
-
 /**
  * Unload (terminate) module.
  * Attempt to stop the background processing thread.
@@ -160,9 +156,6 @@ bool CollectdClient::unloadModule() {
 	client_.clear();
 	return true;
 }
-
-
-
 
 const short multicast_port = 25826;
 const int max_message_count = 10;
@@ -175,17 +168,14 @@ public:
 		: endpoint_(multicast_address, multicast_port),
 		socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string("192.168.0.201"), 25826)),
 		timer_(io_service)
-		, payload(data)
-	{
-
+		, payload(data) {
 		socket_.async_send_to(
 			boost::asio::buffer(payload), endpoint_,
 			boost::bind(&sender::handle_send_to, this,
 				boost::asio::placeholders::error));
 	}
 
-	void handle_send_to(const boost::system::error_code& error) {
-	}
+	void handle_send_to(const boost::system::error_code& error) {}
 
 	void handle_timeout(const boost::system::error_code& error) {
 		if (!error) {
@@ -214,7 +204,6 @@ void CollectdClient::submitMetrics(const Plugin::MetricsMessage::Response &respo
 	std::cout << "microseconds: " << ms << "\n";
 	std::cout << "microseconds: " << (ms << 30) << "\n";
 
-
 	p.add_time_hr(ms << 30);
 	p.add_interval_hr(300 << 30);
 	p.add_plugin("memory");
@@ -227,10 +216,7 @@ void CollectdClient::submitMetrics(const Plugin::MetricsMessage::Response &respo
 
 	p.add_value(values);
 
-
-
 	try {
-
 		boost::asio::io_service io_service;
 
 		boost::asio::ip::udp::resolver resolver(io_service);
@@ -241,10 +227,9 @@ void CollectdClient::submitMetrics(const Plugin::MetricsMessage::Response &respo
 		boost::system::error_code error = boost::asio::error::host_not_found;
 		while (endpoint_iterator != end) {
 			std::cout << endpoint_iterator->host_name() << std::endl;
-			
+
 			endpoint_iterator++;
 		}
-
 
 		sender s(io_service, boost::asio::ip::address::from_string("239.192.74.66"), p.get_buffer());
 		io_service.run();

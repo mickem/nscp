@@ -4,7 +4,6 @@
 
 namespace parsers {
 	namespace where {
-
 		value_container string_value::get_value(evaluation_context errors, int type) const {
 			if (type == type_float) {
 				try {
@@ -71,4 +70,3 @@ namespace parsers {
 		}
 	}
 }
-

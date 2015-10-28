@@ -63,7 +63,6 @@ namespace lua {
 		}
 		void remove_userdata(std::string id);
 
-
 		//////////////////////////////////////////////////////////////////////////
 		/// pop_xxx
 		bool pop_boolean();
@@ -77,11 +76,9 @@ namespace lua {
 		NSCAPI::nagiosReturn pop_code();
 		std::list<std::string> pop_array();
 
-
 		//////////////////////////////////////////////////////////////////////////
 		// Converters
 		NSCAPI::nagiosReturn string_to_code(std::string str);
-
 
 		////////////////////////////////////////////////////////////////////////////
 		// Misc
@@ -113,7 +110,6 @@ namespace lua {
 			return type(pos) == LUA_TTABLE;
 		}
 
-
 		//////////////////////////////////////////////////////////////////////////
 		// push_xxx
 		void push_code(NSCAPI::nagiosReturn code);
@@ -127,7 +123,7 @@ namespace lua {
 		bool empty();
 		void log_stack();
 		int error(std::string s);
-		typedef std::pair<std::string,int> stack_trace;
+		typedef std::pair<std::string, int> stack_trace;
 		stack_trace get_stack_trace(int level = 1);
 		std::string dump_stack();
 

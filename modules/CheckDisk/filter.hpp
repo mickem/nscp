@@ -32,17 +32,15 @@ namespace file_filter {
 		}
 	};
 
-
 	struct filter_obj {
-		filter_obj() 
+		filter_obj()
 			: is_total_(false)
 			, ullCreationTime(0)
 			, ullLastAccessTime(0)
 			, ullLastWriteTime(0)
 			, ullSize(0)
-			, ullNow(0)
-		{}
-		filter_obj(boost::filesystem::path path_, std::string filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0) 
+			, ullNow(0) {}
+		filter_obj(boost::filesystem::path path_, std::string filename_, __int64 now = 0, __int64 creationTime = 0, __int64 lastAccessTime = 0, __int64 lastWriteTime = 0, __int64 size = 0, DWORD attributes = 0)
 			: is_total_(false)
 			, path(path_)
 			, filename(filename_)
@@ -51,10 +49,9 @@ namespace file_filter {
 			, ullLastWriteTime(lastWriteTime)
 			, ullSize(size)
 			, ullNow(now)
-			, attributes(attributes)
-		{}
+			, attributes(attributes) {}
 
-		filter_obj( const filter_obj& other) 
+		filter_obj(const filter_obj& other)
 			: ullSize(other.ullSize)
 			, ullCreationTime(other.ullCreationTime)
 			, ullLastAccessTime(other.ullLastAccessTime)
@@ -64,10 +61,9 @@ namespace file_filter {
 			, path(other.path)
 			, cached_version(other.cached_version)
 			, cached_count(other.cached_count)
-			, attributes(other.attributes)
-		{}
+			, attributes(other.attributes) {}
 
-		const filter_obj& operator=( const filter_obj&other ) {
+		const filter_obj& operator=(const filter_obj&other) {
 			ullSize = other.ullSize;
 			ullCreationTime = other.ullCreationTime;
 			ullLastAccessTime = other.ullLastAccessTime;
@@ -81,7 +77,7 @@ namespace file_filter {
 		}
 
 #ifdef WIN32
-		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem:: path path, std::string filename);
+		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem::path path, std::string filename);
 		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::string filename);
 		static boost::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
 #endif
@@ -104,22 +100,22 @@ namespace file_filter {
 		}
 		long long get_age() {
 			long long now = parsers::where::constants::get_now();
-			return now-get_write();
+			return now - get_write();
 		}
 		__int64 to_local_time(const __int64  &t) {
 			FILETIME ft;
-			ft.dwHighDateTime = t>>32;
+			ft.dwHighDateTime = t >> 32;
 			ft.dwLowDateTime = t;
 			FILETIME lft = ft_utc_to_local_time(ft);
-			return (lft.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)lft.dwLowDateTime;
+			return (lft.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)lft.dwLowDateTime;
 		}
 
 		FILETIME ft_utc_to_local_time(const FILETIME &ft) {
 			FILETIME lft;
-			SYSTEMTIME st1,st2;
-			FileTimeToSystemTime(&ft,&st1);
-			SystemTimeToTzSpecificLocalTime(NULL,&st1,&st2);
-			SystemTimeToFileTime(&st2,&lft);
+			SYSTEMTIME st1, st2;
+			FileTimeToSystemTime(&ft, &st1);
+			SystemTimeToTzSpecificLocalTime(NULL, &st1, &st2);
+			SystemTimeToFileTime(&st2, &lft);
 			return lft;
 		}
 
@@ -143,7 +139,7 @@ namespace file_filter {
 		}
 
 		unsigned long long get_size() { return ullSize; }
-//		std::string render(std::string syntax, std::string datesyntax);
+		//		std::string render(std::string syntax, std::string datesyntax);
 		std::string get_version();
 		unsigned long get_line_count();
 
@@ -164,7 +160,6 @@ namespace file_filter {
 		boost::optional<unsigned long> cached_count;
 		DWORD attributes;
 	};
-
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {

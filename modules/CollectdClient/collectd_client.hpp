@@ -4,7 +4,6 @@
 #include <collectd/client/collectd_client_protocol.hpp>
 
 namespace collectd_client {
-		
 	struct connection_data : public socket_helpers::connection_info {
 		std::string password;
 		std::string sender_hostname;
@@ -58,9 +57,8 @@ namespace collectd_client {
 	//
 	struct client_handler : public socket_helpers::client::client_handler {
 		std::string password_;
-		client_handler(const connection_data &con) 
-			: password_(con.password)
-		{}
+		client_handler(const connection_data &con)
+			: password_(con.password) {}
 		void log_debug(std::string file, int line, std::string msg) const {
 			if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 				GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
@@ -77,12 +75,9 @@ namespace collectd_client {
 		std::string expand_path(std::string path) {
 			return GET_CORE()->expand_path(path);
 		}
-
 	};
 
-
 	struct collectd_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
 		}
@@ -93,7 +88,7 @@ namespace collectd_client {
 			connection_data con(target, sender);
 
 			std::list<collectd::packet> list;
-			for (int i=0;i < request_message.payload_size(); ++i) {
+			for (int i = 0; i < request_message.payload_size(); ++i) {
 				collectd::packet packet;
 				//packet.add_string(0, "Hello WOrld");
 				list.push_back(packet);
@@ -107,7 +102,6 @@ namespace collectd_client {
 			return false;
 		}
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<collectd::packet> packets) {
-		}
+		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<collectd::packet> packets) {}
 	};
 }

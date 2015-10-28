@@ -6,7 +6,6 @@
 
 namespace parsers {
 	namespace where {
-
 		class NSCAPI_EXPORT error_handler_interface {
 		public:
 			virtual void log_error(const std::string error) = 0;

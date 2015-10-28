@@ -14,7 +14,7 @@ pidfile::pidfile(boost::filesystem::path const & filepath) : filepath_(filepath)
 pidfile::~pidfile() {
 	try {
 		remove();
-	} catch(...) {}
+	} catch (...) {}
 }
 
 bool pidfile::create(pid_t const pid) const {
@@ -40,5 +40,3 @@ pid_t pidfile::get_pid() const {
 bool pidfile::remove() const {
 	return boost::filesystem::remove(filepath_);
 }
-
-

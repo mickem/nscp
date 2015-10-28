@@ -40,10 +40,8 @@ namespace check_mk {
 		int get_section(lua_State *L);
 		int add_section(lua_State *L);
 
-
 		check_mk::packet packet;
 	};
-
 
 	class check_mk_section_wrapper {
 	public:
@@ -86,5 +84,4 @@ namespace check_mk {
 		void load(lua::lua_wrapper &instance);
 		void unload(lua::lua_wrapper &instance);
 	};
-
 }

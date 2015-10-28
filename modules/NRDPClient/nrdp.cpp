@@ -2,10 +2,8 @@
 
 #include <error.hpp>
 #include <tinyxml2.h>
-namespace nrdp { 
-
-	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message)
-	{
+namespace nrdp {
+	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message) {
 		item_type item;
 		item.type = type_host;
 		item.host = host;
@@ -14,8 +12,7 @@ namespace nrdp {
 		items.push_back(item);
 	}
 
-	void data::add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message)
-	{
+	void data::add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message) {
 		item_type item;
 		item.type = type_service;
 		item.host = host;
@@ -25,8 +22,7 @@ namespace nrdp {
 		items.push_back(item);
 	}
 
-	void data::add_command(std::string command, std::list<std::string> args)
-	{
+	void data::add_command(std::string command, std::list<std::string> args) {
 		item_type item;
 		item.type = type_command;
 		item.message = command;
@@ -34,7 +30,7 @@ namespace nrdp {
 	}
 
 	void render_item(tinyxml2::XMLDocument &doc, tinyxml2::XMLNode* parent, const nrdp::data::item_type &item) {
-		tinyxml2::XMLNode* node = parent->InsertEndChild( doc.NewElement( "checkresult" ) );
+		tinyxml2::XMLNode* node = parent->InsertEndChild(doc.NewElement("checkresult"));
 		tinyxml2::XMLNode* child;
 		if (item.type == nrdp::data::type_service)
 			node->ToElement()->SetAttribute("type", "service");
@@ -46,17 +42,16 @@ namespace nrdp {
 			child = node->InsertEndChild(doc.NewElement("servicename"));
 			child->InsertEndChild(doc.NewText(item.service.c_str()));
 		}
-		child = node->InsertEndChild( doc.NewElement("state"));
+		child = node->InsertEndChild(doc.NewElement("state"));
 		child->InsertEndChild(doc.NewText(strEx::s::xtos(item.result).c_str()));
-		child = node->InsertEndChild( doc.NewElement("output"));
+		child = node->InsertEndChild(doc.NewElement("output"));
 		child->InsertEndChild(doc.NewText(item.message.c_str()));
 	}
-	
-	std::string data::render_request() const
-	{
+
+	std::string data::render_request() const {
 		tinyxml2::XMLDocument doc;
-		doc.InsertEndChild( doc.NewDeclaration() );
-		tinyxml2::XMLNode* element = doc.InsertEndChild( doc.NewElement( "checkresults" ) );
+		doc.InsertEndChild(doc.NewDeclaration());
+		tinyxml2::XMLNode* element = doc.InsertEndChild(doc.NewElement("checkresults"));
 		BOOST_FOREACH(const item_type &item, items) {
 			render_item(doc, element, item);
 		}
@@ -64,5 +59,4 @@ namespace nrdp {
 		doc.Print(&printer);
 		return printer.CStr();
 	}
-
 }

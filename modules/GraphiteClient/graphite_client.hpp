@@ -4,8 +4,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 
 namespace graphite_client {
-
-
 	struct connection_data : public socket_helpers::connection_info {
 		std::string path;
 		std::string sender_hostname;
@@ -27,14 +25,12 @@ namespace graphite_client {
 		}
 	};
 
-
 	struct g_data {
 		std::string path;
 		std::string value;
 	};
 
 	struct graphite_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
 		}
@@ -87,8 +83,6 @@ namespace graphite_client {
 			return false;
 		}
 
-
-
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<g_data> &data) {
 			try {
 				boost::asio::io_service io_service;
@@ -99,20 +93,20 @@ namespace graphite_client {
 
 				boost::asio::ip::tcp::socket socket(io_service);
 				boost::system::error_code error = boost::asio::error::host_not_found;
-				while(error && endpoint_iterator != end) {
+				while (error && endpoint_iterator != end) {
 					socket.close();
 					socket.connect(*endpoint_iterator++, error);
 				}
-				if(error)
+				if (error)
 					throw boost::system::system_error(error);
 
-				boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
+				boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 				boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
 				boost::posix_time::time_duration diff = now - time_t_epoch;
 				int x = diff.total_seconds();
 
 				BOOST_FOREACH(const g_data &d, data) {
-					std::string msg = d.path + " " +d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
+					std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
 					socket.send(boost::asio::buffer(msg));
 				}
 				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");

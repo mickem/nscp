@@ -36,7 +36,6 @@
 #define BUFF_LEN 4096
 
 namespace settings {
-
 	inline std::string key_to_string(std::string path, std::string key) {
 		return path + "." + key;
 	}
@@ -75,7 +74,7 @@ namespace settings {
 			key_integer = 200,
 			key_bool = 300
 		} key_type;
-		typedef std::pair<std::string,std::string> key_path_type;
+		typedef std::pair<std::string, std::string> key_path_type;
 		struct key_description {
 			std::string title;
 			std::string description;
@@ -84,13 +83,12 @@ namespace settings {
 			bool advanced;
 			bool is_sample;
 			std::set<unsigned int> plugins;
-			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_, bool is_sample_) 
-				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_), is_sample(is_sample_) 
-			{
-					append_plugin(plugin_id); 
+			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_, bool is_sample_)
+				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_), is_sample(is_sample_) {
+				append_plugin(plugin_id);
 			}
 			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false), is_sample(false) { append_plugin(plugin_id); }
-			key_description() : type(settings_core::key_string), advanced(false), is_sample(false) { }
+			key_description() : type(settings_core::key_string), advanced(false), is_sample(false) {}
 			key_description& operator=(const key_description &other) {
 				title = other.title;
 				description = other.description;
@@ -113,11 +111,11 @@ namespace settings {
 			std::string description;
 			bool advanced;
 			bool is_sample;
-			typedef std::map<std::string,key_description> keys_type;
+			typedef std::map<std::string, key_description> keys_type;
 			keys_type keys;
 			std::set<unsigned int> plugins;
-			path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_, bool is_sample_) : title(title_), description(description_), advanced(advanced_), is_sample(is_sample_) { 
-				append_plugin(plugin_id); 
+			path_description(unsigned int plugin_id, std::string title_, std::string description_, bool advanced_, bool is_sample_) : title(title_), description(description_), advanced(advanced_), is_sample(is_sample_) {
+				append_plugin(plugin_id);
 			}
 			path_description(unsigned int plugin_id) : advanced(false), is_sample(false) {
 				append_plugin(plugin_id);
@@ -205,7 +203,7 @@ namespace settings {
 		/// @author mickem
 		virtual instance_ptr get() = 0;
 		virtual instance_ptr get_no_wait() = 0;
-		
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a settings interface
 		///
@@ -237,10 +235,6 @@ namespace settings {
 		virtual void update_defaults() = 0;
 		virtual void remove_defaults() = 0;
 
-
-
-
-		
 		//////////////////////////////////////////////////////////////////////////
 		/// Boot the settings subsystem from the given file (boot.ini).
 		///
@@ -252,7 +246,6 @@ namespace settings {
 		virtual bool is_ready() = 0;
 
 		virtual void house_keeping() = 0;
-
 
 		virtual std::string find_file(std::string file, std::string fallback) = 0;
 
@@ -296,7 +289,6 @@ namespace settings {
 		virtual bool is_dirty() = 0;
 		virtual void set_reload(bool flag = true) = 0;
 		virtual bool needs_reload() = 0;
-
 	};
 
 	class settings_interface {
@@ -344,7 +336,7 @@ namespace settings {
 		virtual op_string get_string(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist the default value will be returned
-		/// 
+		///
 		/// @param path the path to look up
 		/// @param key the key to lookup
 		/// @param def the default value to use when no value is found
@@ -373,7 +365,7 @@ namespace settings {
 		virtual op_int get_int(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist the default value will be returned
-		/// 
+		///
 		/// @param path the path to look up
 		/// @param key the key to lookup
 		/// @param def the default value to use when no value is found
@@ -402,7 +394,7 @@ namespace settings {
 		virtual op_bool get_bool(std::string path, std::string key) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist the default value will be returned
-		/// 
+		///
 		/// @param path the path to look up
 		/// @param key the key to lookup
 		/// @param def the default value to use when no value is found
@@ -443,7 +435,7 @@ namespace settings {
 		virtual string_list get_keys(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the section exists?
-		/// 
+		///
 		/// @param path The path of the section
 		/// @return true/false
 		///
@@ -451,7 +443,7 @@ namespace settings {
 		virtual bool has_section(std::string path) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Does the key exists?
-		/// 
+		///
 		/// @param path The path of the section
 		/// @param key The key to check
 		/// @return true/false
@@ -524,12 +516,11 @@ namespace settings {
 
 		static bool string_to_bool(std::string str) {
 			std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-			return str == "true"||str == "1";
+			return str == "true" || str == "1";
 		}
 
 		virtual std::list<boost::shared_ptr<settings_interface> > get_children() = 0;
 
 		virtual void house_keeping() = 0;
 	};
-
 }

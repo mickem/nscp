@@ -8,10 +8,8 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-
 namespace script_wrapper {
 	using namespace boost::python;
-
 
 	namespace thread_support {
 		static bool enabled = true;
@@ -24,7 +22,6 @@ namespace script_wrapper {
 					NSC_LOG_ERROR("Failed to get mutex: thread_locker");
 			}
 		};
-
 	}
 
 	struct thread_locker {
@@ -40,7 +37,6 @@ namespace script_wrapper {
 		}
 	};
 
-
 	struct thread_unlocker {
 		PyThreadState *state;
 		thread_unlocker() {
@@ -52,7 +48,7 @@ namespace script_wrapper {
 				PyEval_RestoreThread(state);
 		}
 	};
-	
+
 	enum status {
 		OK = NSCAPI::query_return_codes::returnOK,
 		WARN = NSCAPI::query_return_codes::returnWARN,
@@ -75,9 +71,8 @@ namespace script_wrapper {
 	boost::python::list convert(const std::list<std::wstring> &lst);
 	boost::python::list convert(const std::vector<std::wstring> &lst);
 
-
 	struct functions {
-		typedef std::map<std::string,boost::python::handle<> > function_map_type;
+		typedef std::map<std::string, boost::python::handle<> > function_map_type;
 		function_map_type simple_functions;
 		function_map_type normal_functions;
 
@@ -120,9 +115,8 @@ namespace script_wrapper {
 			return *this;
 		}
 		function_wrapper(nscapi::core_wrapper* core, unsigned int plugin_id) : core(core), plugin_id(plugin_id) {}
-		typedef std::map<std::string,PyObject*> function_map_type;
+		typedef std::map<std::string, PyObject*> function_map_type;
 		//typedef boost::python::tuple simple_return;
-
 
 		static boost::shared_ptr<function_wrapper> create(unsigned int plugin_id);
 
@@ -141,7 +135,6 @@ namespace script_wrapper {
 		int handle_exec(const std::string wcmd, const std::string &request, std::string &response) const;
 		bool has_cmdline(const std::string command);
 		bool has_simple_cmdline(const std::string command);
-
 
 		int handle_simple_message(const std::string channel, const std::string wsrc, const std::string wcmd, const int code, const std::string &msg, const std::string &perf) const;
 		int handle_message(const std::string channel, const std::string &request, std::string &response) const;
@@ -208,16 +201,11 @@ namespace script_wrapper {
 		tuple query(std::string request);
 	};
 
-
 	class PyInitializer {
-	public:  PyInitializer()  { Py_Initialize(); }  
+	public:  PyInitializer() { Py_Initialize(); }
 			 ~PyInitializer() { Py_Finalize(); }
-	private:  
-		PyInitializer(const PyInitializer &);  
+	private:
+		PyInitializer(const PyInitializer &);
 		PyInitializer & operator=(const PyInitializer &);
 	};
-
-
-
-
 }

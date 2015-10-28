@@ -22,19 +22,19 @@ static void create_registry_query(nscapi::core_wrapper *core, const std::string 
 
 std::string render_command(const ::Plugin::RegistryResponseMessage::Response::Inventory& inv) {
 	std::string data = "command:\t" + inv.name() + "\n" + inv.info().description() + "\n\nParameters:\n";
-	for (int i=0;i<inv.parameters().parameter_size();i++) {
+	for (int i = 0; i < inv.parameters().parameter_size(); i++) {
 		::Plugin::Registry::ParameterDetail p = inv.parameters().parameter(i);
 		std::string desc = p.long_description();
 		std::size_t pos = desc.find('\n');
 		if (pos != std::string::npos)
-			desc = desc.substr(0, pos-1);
+			desc = desc.substr(0, pos - 1);
 		data += p.name() + "\t" + desc + "\n";
 	}
 	return data;
 }
 std::string render_plugin(const ::Plugin::RegistryResponseMessage::Response::Inventory& inv) {
 	std::string loaded = "[ ]";
-	for (int i=0;i<inv.info().metadata_size();i++) {
+	for (int i = 0; i < inv.info().metadata_size(); i++) {
 		if (inv.info().metadata(i).key() == "loaded" && inv.info().metadata(i).value() == "true")
 			loaded = "[X]";
 	}
@@ -46,9 +46,9 @@ std::string render_query(const ::Plugin::RegistryResponseMessage::Response::Inve
 
 static std::string render_list(const Plugin::RegistryResponseMessage &response_message, boost::function<std::string(const ::Plugin::RegistryResponseMessage::Response::Inventory&)> renderer) {
 	std::string list;
-	for (int i=0;i<response_message.payload_size();i++) {
+	for (int i = 0; i < response_message.payload_size(); i++) {
 		const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
-		for (int j=0;j<pl.inventory_size();j++) {
+		for (int j = 0; j < pl.inventory_size(); j++) {
 			if (!list.empty())
 				list += "\n";
 			list += renderer(pl.inventory(j)); // .name() + "\t-" + pl.inventory(j).info().description();
@@ -60,17 +60,13 @@ static std::string render_list(const Plugin::RegistryResponseMessage &response_m
 	return list;
 }
 
-
 namespace client {
-
-
-
 	void cli_client::handle_command(const std::string &command) {
 		if (command == "plugins") {
 			Plugin::RegistryResponseMessage response_message;
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_MODULE, response_message);
 			std::string list = render_list(response_message, &render_plugin);
-			handler->output_message(list.empty()?"Nothing found":list);
+			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command == "help") {
 			handler->output_message("Commands: \n"
 				"\thelp\t\t\t-get help\n"
@@ -172,7 +168,7 @@ namespace client {
 			Plugin::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
-			for (int i=0;i<response_message.payload_size();i++) {
+			for (int i = 0; i < response_message.payload_size(); i++) {
 				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to load module: " + response_message.payload(i).result().message());
 					has_errors = true;
@@ -180,7 +176,7 @@ namespace client {
 			}
 			if (!has_errors)
 				handler->output_message(name + " loaded successfully...");
-		} else if (command.size() > 6 && command.substr(0,6) == "unload") {
+		} else if (command.size() > 6 && command.substr(0, 6) == "unload") {
 			Plugin::RegistryRequestMessage rrm;
 			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -193,7 +189,7 @@ namespace client {
 			Plugin::RegistryResponseMessage response_message;
 			response_message.ParseFromString(pb_response);
 			bool has_errors = false;
-			for (int i=0;i<response_message.payload_size();i++) {
+			for (int i = 0; i < response_message.payload_size(); i++) {
 				if (response_message.payload(i).result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					handler->output_message("Failed to unload module: " + response_message.payload(i).result().message());
 					has_errors = true;
@@ -205,24 +201,24 @@ namespace client {
 			Plugin::RegistryResponseMessage response_message;
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
-			handler->output_message(list.empty()?"Nothing found":list);
+			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command == "aliases") {
 			Plugin::RegistryResponseMessage response_message;
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			std::string list = render_list(response_message, &render_query);
-			handler->output_message(list.empty()?"Nothing found":list);
-		} else if (command.size() > 5 && command.substr(0,4) == "desc") {
+			handler->output_message(list.empty() ? "Nothing found" : list);
+		} else if (command.size() > 5 && command.substr(0, 4) == "desc") {
 			Plugin::RegistryResponseMessage response_message;
 			create_registry_query(handler->get_core(), command.substr(5), Plugin::Registry_ItemType_QUERY, response_message);
 			std::string data = render_list(response_message, &render_command);
-			handler->output_message(data.empty()?"Command not found":data);
+			handler->output_message(data.empty() ? "Command not found" : data);
 		} else if (command == "list") {
 			Plugin::RegistryResponseMessage response_message;
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY, response_message);
 			std::string list = render_list(response_message, &render_query);
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			list = render_list(response_message, &render_query);
-			handler->output_message(list.empty()?"Nothing found":list);
+			handler->output_message(list.empty() ? "Nothing found" : list);
 		} else if (command.size() > 4 && command.substr(0, 4) == "exec") {
 			try {
 				std::list<std::string> args;
@@ -262,5 +258,4 @@ namespace client {
 			}
 		}
 	}
-
 }

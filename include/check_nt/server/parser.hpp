@@ -15,7 +15,7 @@ namespace check_nt {
 
 			template <typename InputIterator>
 			boost::tuple<bool, InputIterator> digest(InputIterator begin, InputIterator end) {
-				for (;begin != end; ++begin) {
+				for (; begin != end; ++begin) {
 					buffer_.push_back(*begin);
 					if (*begin == '\n') {
 						break;
@@ -30,6 +30,5 @@ namespace check_nt {
 				return packet;
 			}
 		};
-
 	}// namespace server
 } // namespace check_nt

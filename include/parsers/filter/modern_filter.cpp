@@ -3,7 +3,6 @@
 #include <nscapi/macros.hpp>
 
 namespace modern_filter {
-
 	bool error_handler_impl::has_errors() const {
 		return !error.empty();
 	}

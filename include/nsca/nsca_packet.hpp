@@ -41,7 +41,7 @@ namespace nsca {
 				return get_data_offset(host_len);
 			}
 			const char* get_result_ptr(unsigned int host_len, unsigned int desc_len) const {
-				return get_data_offset(host_len+desc_len);
+				return get_data_offset(host_len + desc_len);
 			}
 			char* get_host_ptr() {
 				return get_data_offset(0);
@@ -50,7 +50,7 @@ namespace nsca {
 				return get_data_offset(host_len);
 			}
 			char* get_result_ptr(unsigned int host_len, unsigned int desc_len) {
-				return get_data_offset(host_len+desc_len);
+				return get_data_offset(host_len + desc_len);
 			}
 		} data_packet;
 
@@ -59,7 +59,6 @@ namespace nsca {
 			char      iv[transmitted_iuv_size];
 			u_int32_t timestamp;
 		} init_packet;
-
 	};
 
 	/* data packet containing service check results */
@@ -86,13 +85,13 @@ namespace nsca {
 			return get_packet_length(payload_length_);
 		}
 		static size_type get_packet_length(size_type output_length) {
-			return sizeof(nsca::data::data_packet)+output_length*sizeof(char)+host_length*sizeof(char)+desc_length*sizeof(char);
+			return sizeof(nsca::data::data_packet) + output_length*sizeof(char) + host_length*sizeof(char) + desc_length*sizeof(char);
 		}
 		static size_type get_payload_length() {
 			return payload_length_;
 		}
 		static size_type get_payload_length(size_type packet_length) {
-			return (packet_length- (host_length*sizeof(char)+desc_length*sizeof(char)+sizeof(nsca::data::data_packet)) )/sizeof(char);
+			return (packet_length - (host_length*sizeof(char) + desc_length*sizeof(char) + sizeof(nsca::data::data_packet))) / sizeof(char);
 		}
 		class iv {
 		public:
@@ -117,8 +116,8 @@ namespace nsca {
 	public:
 		packet(std::string _host, unsigned int payload_length = 512, int time_delta = 0) : host(_host), payload_length_(payload_length) {
 			boost::posix_time::ptime now = boost::posix_time::second_clock::local_time()
-				 + boost::posix_time::seconds(time_delta);
-			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
+				+ boost::posix_time::seconds(time_delta);
+			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 			boost::posix_time::time_duration diff = now - time_t_epoch;
 			time = diff.total_seconds();
 		}
@@ -135,10 +134,10 @@ namespace nsca {
 		}
 
 		std::string to_string() const {
-			return "host: " + host + ", " + 
-				"service: " + service + ", " + 
-				"code: " + strEx::s::xtos(code) + ", " + 
-				"time: " + strEx::s::xtos(time) + ", " + 
+			return "host: " + host + ", " +
+				"service: " + service + ", " +
+				"code: " + strEx::s::xtos(code) + ", " +
+				"time: " + strEx::s::xtos(time) + ", " +
 				"result: " + result;
 		}
 
@@ -147,18 +146,18 @@ namespace nsca {
 			memcpy(tmp, buffer, buffer_len);
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(tmp);
 			//packet_version=swap_bytes::ntoh<int16_t>(data->packet_version);
-			time=swap_bytes::ntoh<u_int32_t>(data->timestamp);
+			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);
 			code = swap_bytes::ntoh<int16_t>(data->return_code);
 			//data->crc32_value= swap_bytes::hton<u_int32_t>(0);
 
 			host = data->get_host_ptr();
-			service= data->get_desc_ptr(nsca::length::host_length);
-			result= data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
+			service = data->get_desc_ptr(nsca::length::host_length);
+			result = data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
 
 			unsigned int crc32 = swap_bytes::ntoh<u_int32_t>(data->crc32_value);
 			data->crc32_value = 0;
-			unsigned int calculated_crc32=calculate_crc32(tmp, buffer_len);
-			delete [] tmp;
+			unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
+			delete[] tmp;
 			if (crc32 != calculated_crc32)
 				throw nsca::nsca_exception("Invalid crc: " + strEx::s::xtos(crc32) + " != " + strEx::s::xtos(calculated_crc32));
 		}
@@ -173,28 +172,28 @@ namespace nsca {
 
 		static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
 			memset(data, 0, max_length);
-			value.copy(data, value.size()>max_length?max_length:value.size());
+			value.copy(data, value.size() > max_length ? max_length : value.size());
 		}
 
-		void get_buffer(std::string &buffer, int servertime=0) const {
+		void get_buffer(std::string &buffer, int servertime = 0) const {
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 			if (buffer.size() < get_packet_length())
 				throw nsca::nsca_exception("Buffer is to short: " + strEx::s::xtos(buffer.length()) + " > " + strEx::s::xtos(get_packet_length()));
 
-			data->packet_version=swap_bytes::hton<int16_t>(nsca::data::version3);
+			data->packet_version = swap_bytes::hton<int16_t>(nsca::data::version3);
 			if (servertime != 0)
-				data->timestamp=swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(servertime));
+				data->timestamp = swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(servertime));
 			else
-				data->timestamp=swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(time));
+				data->timestamp = swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(time));
 			data->return_code = swap_bytes::hton<int16_t>(static_cast<int16_t>(code));
-			data->crc32_value= swap_bytes::hton<u_int32_t>(0);
+			data->crc32_value = swap_bytes::hton<u_int32_t>(0);
 
 			copy_string(data->get_host_ptr(), host, nsca::length::host_length);
 			copy_string(data->get_desc_ptr(nsca::length::host_length), service, nsca::length::desc_length);
 			copy_string(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result, get_payload_length());
 
-			unsigned int calculated_crc32=calculate_crc32(buffer.c_str(),static_cast<int>(buffer.size()));
-			data->crc32_value=swap_bytes::hton<u_int32_t>(calculated_crc32);
+			unsigned int calculated_crc32 = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
+			data->crc32_value = swap_bytes::hton<u_int32_t>(calculated_crc32);
 		}
 		std::string get_buffer() const {
 			std::string buffer;
@@ -216,7 +215,7 @@ namespace nsca {
 		}
 		u_int32_t ptime_to_unixtime(boost::posix_time::ptime now) {
 			//boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970,1,1)); 
+			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 			boost::posix_time::time_duration diff = now - time_t_epoch;
 			return diff.total_seconds();
 		}

@@ -15,9 +15,8 @@
 namespace nsca {
 	using boost::asio::ip::tcp;
 
-
 	static const int socket_bufer_size = 8096;
-//	static const bool debug_trace = true;
+	//	static const bool debug_trace = true;
 	struct read_protocol : public boost::noncopyable {
 		static const bool debug_trace = false;
 
@@ -36,7 +35,7 @@ namespace nsca {
 		handler_type handler_;
 		nsca::server::parser parser_;
 		state current_state_;
-		
+
 		std::string data_;
 		nscp::encryption::engine encryption_instance_;
 
@@ -44,12 +43,11 @@ namespace nsca {
 			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
 		}
 
-		read_protocol(socket_helpers::connection_info info, handler_type handler) 
+		read_protocol(socket_helpers::connection_info info, handler_type handler)
 			: info_(info)
 			, handler_(handler)
 			, parser_(handler->get_payload_length())
-			, current_state_(none)
-		{}
+			, current_state_(none) {}
 
 		inline void set_state(state new_state) {
 			current_state_ = new_state;
@@ -141,5 +139,4 @@ namespace nsca {
 	namespace server {
 		typedef socket_helpers::server::server<read_protocol, socket_bufer_size> server;
 	}
-
 } // namespace nsca

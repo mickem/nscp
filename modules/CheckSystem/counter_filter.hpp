@@ -25,7 +25,7 @@ namespace counter_filter {
 	};
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
- 		filter_obj_handler();
+		filter_obj_handler();
 	};
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }

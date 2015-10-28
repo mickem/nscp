@@ -54,7 +54,7 @@
  * any damage to your computer, causes your pet to fall ill, increases baldness
  * or makes your car start emitting strange noises when you start it up.
  * This code has no bugs, just undocumented features!
- * 
+ *
  */
 template<class T>
 struct rrd_buffer {
@@ -77,7 +77,7 @@ public:
 		if (time < 0)
 			return ret;
 		if (time <= seconds.size()) {
-			for (list_type::const_iterator cit = seconds.end()-time; cit != seconds.end(); ++cit) {
+			for (list_type::const_iterator cit = seconds.end() - time; cit != seconds.end(); ++cit) {
 				ret.add(*cit);
 			}
 			ret.normalize(time);
@@ -85,16 +85,16 @@ public:
 		}
 		time /= 60;
 		if (time <= minutes.size()) {
-			for (list_type::const_iterator cit = minutes.end()-time; cit != minutes.end(); ++cit) {
+			for (list_type::const_iterator cit = minutes.end() - time; cit != minutes.end(); ++cit) {
 				ret.add(*cit);
 			}
 			ret.normalize(time);
 			return ret;
 		}
-		time/=60;
+		time /= 60;
 		if (time >= hours.size())
 			throw nscp_exception("Size larger than buffer");
-		for (list_type::const_iterator cit = hours.end()-time; cit != hours.end(); ++cit) {
+		for (list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
 			ret.add(*cit);
 		}
 		ret.normalize(time);
@@ -130,7 +130,7 @@ public:
 	typedef boost::unordered_map<std::string, value_type> metrics_hash;
 
 private:
-	typedef boost::unordered_map<std::string,PDH::pdh_instance> lookup_type;
+	typedef boost::unordered_map<std::string, PDH::pdh_instance> lookup_type;
 
 	boost::shared_ptr<boost::thread> thread_;
 	boost::shared_mutex mutex_;
@@ -157,10 +157,10 @@ public:
 	}
 	void add_counter(const PDH::pdh_object &counter);
 
-	std::map<std::string,double> get_value(std::string counter);
-	std::map<std::string,double> get_average(std::string counter, long seconds);
-	std::map<std::string,long long> get_int_value(std::string counter);
-	std::map<std::string,windows::system_info::load_entry> get_cpu_load(long seconds);
+	std::map<std::string, double> get_value(std::string counter);
+	std::map<std::string, double> get_average(std::string counter, long seconds);
+	std::map<std::string, long long> get_int_value(std::string counter);
+	std::map<std::string, windows::system_info::load_entry> get_cpu_load(long seconds);
 	metrics_hash get_metrics();
 
 	bool start();
@@ -172,5 +172,4 @@ private:
 	filters::filter_config_handler filters_;
 
 	void thread_proc();
-
 };

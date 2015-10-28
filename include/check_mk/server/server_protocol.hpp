@@ -46,11 +46,10 @@ namespace check_mk {
 			return boost::shared_ptr<read_protocol>(new read_protocol(info, handler));
 		}
 
-		read_protocol(socket_helpers::connection_info info, handler_type handler) 
+		read_protocol(socket_helpers::connection_info info, handler_type handler)
 			: info_(info)
 			, handler_(handler)
-			, current_state_(none)
-		{}
+			, current_state_(none) {}
 
 		inline void set_state(state new_state) {
 			current_state_ = new_state;
@@ -109,5 +108,4 @@ namespace check_mk {
 	namespace server {
 		typedef socket_helpers::server::server<read_protocol, socket_bufer_size> server;
 	}
-
 } // namespace nscp

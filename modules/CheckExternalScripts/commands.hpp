@@ -18,13 +18,11 @@ namespace sh = nscapi::settings_helper;
 
 namespace commands {
 	struct command_object : public nscapi::settings_objects::object_instance_interface {
-
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		command_object(std::string alias, std::string path) 
+		command_object(std::string alias, std::string path)
 			: parent(alias, path)
-			, ignore_perf(false) 
-		{}
+			, ignore_perf(false) {}
 
 		std::string encoding;
 		std::string command;
@@ -38,9 +36,9 @@ namespace commands {
 			ss << alias << "[" << alias << "] = "
 				<< "{tpl: " << parent::to_string();
 			if (!user.empty()) {
-				ss << ", user: " << user 
-				<< ", domain: " << domain 
-				<< ", password: " << password;
+				ss << ", user: " << user
+					<< ", domain: " << domain
+					<< ", password: " << password;
 			}
 			ss << "}";
 			return ss.str();
@@ -86,14 +84,11 @@ namespace commands {
 			}
 		}
 
-
 		void set_command(std::string str) {
 			command = str;
 		}
-
 	};
 	typedef boost::shared_ptr<command_object> command_object_instance;
 
 	typedef nscapi::settings_objects::object_handler<command_object> command_handler;
 }
-

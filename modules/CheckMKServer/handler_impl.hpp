@@ -15,7 +15,7 @@ class handler_impl : public check_mk::server::handler {
 public:
 	handler_impl(boost::shared_ptr<scripts::script_manager<lua::lua_traits> > scripts) : allowArgs_(false), scripts_(scripts) {}
 
-	virtual void set_allow_arguments(bool v)  {
+	virtual void set_allow_arguments(bool v) {
 		allowArgs_ = v;
 	}
 

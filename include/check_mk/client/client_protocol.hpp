@@ -39,10 +39,10 @@ namespace check_mk {
 				current_state_ = new_state;
 			}
 		public:
-			protocol(boost::shared_ptr<client_handler> handler) 
+			protocol(boost::shared_ptr<client_handler> handler)
 				: handler_(handler)
 				, current_state_(none) {
-					read_buffer_.resize(40960);
+				read_buffer_.resize(40960);
 			}
 			virtual ~protocol() {}
 

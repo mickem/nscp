@@ -1,8 +1,6 @@
 #pragma once
 
-
 namespace dll {
-
 	class dll_exception : public std::exception {
 		std::string what_;
 	public:
@@ -20,14 +18,9 @@ namespace dll {
 #include <dll/impl_unix.hpp>
 #endif
 namespace dll {
-
 #ifdef WIN32
 	typedef ::dll::win32::impl dll_impl;
 #else
 	typedef dll::iunix::impl dll_impl;
 #endif
 }
-
-
-
-

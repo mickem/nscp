@@ -33,7 +33,6 @@ namespace dll {
 				return ".dll";
 			}
 
-
 			static bool is_module(std::string file) {
 				return boost::ends_with(file, get_extension());
 			}
@@ -65,12 +64,10 @@ namespace dll {
 				std::string ext = ".dll";
 				std::string::size_type l = ext.length();
 				std::string fn = get_filename();
-				if ((fn.length() > l) && (fn.substr(fn.size()-l) == ext))
-					return fn.substr(0, fn.size()-l);
+				if ((fn.length() > l) && (fn.substr(fn.size() - l) == ext))
+					return fn.substr(0, fn.size() - l);
 				return fn;
 			}
 		};
 	}
 }
-
-
