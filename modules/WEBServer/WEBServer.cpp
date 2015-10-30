@@ -570,6 +570,34 @@ public:
 		response << json_response;
 	}
 
+	void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		std::size_t pos = obj.find("/");
+		if (pos == -1)
+			return;
+		std::string target = obj.substr(0, pos);
+		std::string cmd = obj.substr(pos + 1);
+		Plugin::ExecuteRequestMessage rm;
+		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
+		Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+
+		payload->set_command(cmd);
+		Request::arg_vector args = request.getVariablesVector();
+
+		BOOST_FOREACH(const Request::arg_entry &e, args) {
+			if (e.second.empty())
+				payload->add_arguments(e.first);
+			else
+				payload->add_arguments(e.first + "=" + e.second);
+		}
+
+		std::string pb_response, json_response;
+		core->exec_command(target, rm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("ExecuteResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
+
 	Response *process(Request &request) {
 		if (!handles(request.getMethod(), request.getUrl()))
 			return NULL;
@@ -577,6 +605,8 @@ public:
 		std::string url = request.getUrl();
 		if (boost::algorithm::starts_with(url, "/query/")) {
 			handle_query(url.substr(7), request, *response);
+		} else if (boost::algorithm::starts_with(url, "/exec/")) {
+			handle_exec(url.substr(6), request, *response);
 		} else {
 			response->setCode(HTTP_SERVER_ERROR);
 			(*response) << "Unknown REST node: " << url;
@@ -584,7 +614,7 @@ public:
 		return response;
 	}
 	bool handles(string method, string url) {
-		return boost::algorithm::starts_with(url, "/query/");
+		return boost::algorithm::starts_with(url, "/query/") || boost::algorithm::starts_with(url, "/exec/");
 	}
 };
 

@@ -160,7 +160,7 @@ bool nscapi::core_wrapper::query(const std::string & request, std::string & resu
 	return retC;
 }
 
-bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
+bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	bool retC = NSCAPI::api_ok(exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
@@ -175,7 +175,7 @@ bool nscapi::core_wrapper::exec_command(const std::string target, std::string re
 	}
 	return retC;
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPIExecCommand)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIExecCommand(target, request, request_len, response, response_len);

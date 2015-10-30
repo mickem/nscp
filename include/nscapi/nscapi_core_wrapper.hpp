@@ -84,8 +84,8 @@ namespace nscapi {
 		NSCAPI::nagiosReturn query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		bool query(const std::string & request, std::string & result) const;
 
-		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		bool exec_command(const std::string target, std::string request, std::string & result);
+		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool exec_command(const std::string target, std::string request, std::string & result) const;
 
 		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
 		bool submit_message(std::string channel, std::string request, std::string &response);
