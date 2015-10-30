@@ -1593,7 +1593,8 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 											rpp->mutable_node()->set_key(key);
 											rpp->mutable_info()->set_advanced(true);
 											rpp->mutable_info()->set_sample(false);
-											settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(q.node().path(), q.node().key());
+											rpp->mutable_info()->mutable_default_value()->set_string_data("");
+											settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
 											if (val)
 												rpp->mutable_value()->set_string_data(*val);
 										}
