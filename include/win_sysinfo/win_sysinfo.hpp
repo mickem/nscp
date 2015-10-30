@@ -12,6 +12,8 @@
 #define WINDOWS_VISTA 60
 #define WINDOWS_7 61
 #define WINDOWS_8 62
+#define WINDOWS_81 63
+#define WINDOWS_10 100
 #define WINDOWS_NEW MAXLONG
 
 #define WINDOWS_HAS_CONSOLE_HOST (WindowsVersion >= WINDOWS_7)

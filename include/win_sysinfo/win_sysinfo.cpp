@@ -117,65 +117,71 @@ namespace windows {
 	// ACCESS_MASK ThreadSetAccess;
 	// ACCESS_MASK ThreadAllAccess;
 	//RTL_OSVERSIONINFOEXW g_versionInfo;
-	OSVERSIONINFOEX g_versionInfo;
+	RTL_OSVERSIONINFOEXW g_versionInfo;
 	void QuerySystemInformation() {
 		winapi::NtQuerySystemInformation(winapi::SystemBasicInformation, &g_systemBasicInformation, sizeof(winapi::SYSTEM_BASIC_INFORMATION), NULL);
+	}
+
+	// RTL_OSVERSIONINFOEXW is defined in winnt.h
+	bool GetOsVersion(RTL_OSVERSIONINFOEXW* pk_OsVer) {
+		typedef LONG(WINAPI* tRtlGetVersion)(RTL_OSVERSIONINFOEXW*);
+
+		memset(pk_OsVer, 0, sizeof(RTL_OSVERSIONINFOEXW));
+		pk_OsVer->dwOSVersionInfoSize = sizeof(RTL_OSVERSIONINFOEXW);
+
+		HMODULE h_NtDll = GetModuleHandleW(L"ntdll.dll");
+		tRtlGetVersion f_RtlGetVersion = (tRtlGetVersion)GetProcAddress(h_NtDll, "RtlGetVersion");
+
+		if (!f_RtlGetVersion)
+			return FALSE; // This will never happen (all processes load ntdll.dll)
+
+		LONG Status = f_RtlGetVersion(pk_OsVer);
+		return Status == 0; // STATUS_SUCCESS;
 	}
 
 	void GetVersion() {
 		ULONG majorVersion;
 		ULONG minorVersion;
 
-		g_versionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-		if (::GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&g_versionInfo)) == 0) {
-			g_windowsVersion = WINDOWS_NEW;
-			return;
-		}
-		majorVersion = g_versionInfo.dwMajorVersion;
-		minorVersion = g_versionInfo.dwMinorVersion;
 
-		if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5) {
-			g_windowsVersion = WINDOWS_ANCIENT;
-		}
-		/* Windows XP */
-		else if (majorVersion == 5 && minorVersion == 1) {
-			g_windowsVersion = WINDOWS_XP;
-		}
-		/* Windows Server 2003 */
-		else if (majorVersion == 5 && minorVersion == 2) {
-			g_windowsVersion = WINDOWS_SERVER_2003;
-		}
-		/* Windows Vista, Windows Server 2008 */
-		else if (majorVersion == 6 && minorVersion == 0) {
-			g_windowsVersion = WINDOWS_VISTA;
-		}
-		/* Windows 7, Windows Server 2008 R2 */
-		else if (majorVersion == 6 && minorVersion == 1) {
-			g_windowsVersion = WINDOWS_7;
-		}
-		/* Windows 8 */
-		else if (majorVersion == 6 && minorVersion == 2) {
-			g_windowsVersion = WINDOWS_8;
-		} else if (majorVersion == 6 && minorVersion > 2 || majorVersion > 6) {
-			g_windowsVersion = WINDOWS_NEW;
-		}
+		if (GetOsVersion(&g_versionInfo)) {
+			majorVersion = g_versionInfo.dwMajorVersion;
+			minorVersion = g_versionInfo.dwMinorVersion;
 
-		// 	if (WINDOWS_HAS_LIMITED_ACCESS)
-		// 	{
-		// 		ProcessQueryAccess = PROCESS_QUERY_LIMITED_INFORMATION;
-		// 		ProcessAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x1fff;
-		// 		ThreadQueryAccess = THREAD_QUERY_LIMITED_INFORMATION;
-		// 		ThreadSetAccess = THREAD_SET_LIMITED_INFORMATION;
-		// 		ThreadAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff;
-		// 	}
-		// 	else
-		// 	{
-		// 		ProcessQueryAccess = PROCESS_QUERY_INFORMATION;
-		// 		ProcessAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0xfff;
-		// 		ThreadQueryAccess = THREAD_QUERY_INFORMATION;
-		// 		ThreadSetAccess = THREAD_SET_INFORMATION;
-		// 		ThreadAllAccess = STANDARD_RIGHTS_REQUIRED | SYNCHRONIZE | 0x3ff;
-		// 	}
+			if (majorVersion == 5 && minorVersion < 1 || majorVersion < 5) {
+				g_windowsVersion = WINDOWS_ANCIENT;
+			}
+			/* Windows XP */
+			else if (majorVersion == 5 && minorVersion == 1) {
+				g_windowsVersion = WINDOWS_XP;
+			}
+			/* Windows Server 2003 */
+			else if (majorVersion == 5 && minorVersion == 2) {
+				g_windowsVersion = WINDOWS_SERVER_2003;
+			}
+			/* Windows Vista, Windows Server 2008 */
+			else if (majorVersion == 6 && minorVersion == 0) {
+				g_windowsVersion = WINDOWS_VISTA;
+			}
+			/* Windows 7, Windows Server 2008 R2 */
+			else if (majorVersion == 6 && minorVersion == 1) {
+				g_windowsVersion = WINDOWS_7;
+			}
+			/* Windows 8 */
+			else if (majorVersion == 6 && minorVersion == 2) {
+				g_windowsVersion = WINDOWS_8;
+			}
+			/* Windows 8.1 */
+			else if (majorVersion == 6 && minorVersion == 3) {
+				g_windowsVersion = WINDOWS_81;
+			}
+			/* Windows 8.1 */
+			else if (majorVersion == 10 && minorVersion == 0) {
+				g_windowsVersion = WINDOWS_10;
+			} else if (majorVersion == 10 && minorVersion > 0 || majorVersion > 10) {
+				g_windowsVersion = WINDOWS_NEW;
+			}
+		}
 	}
 
 	bool g_hasVersion = false;
@@ -238,8 +244,18 @@ namespace windows {
 			return "Windows 2012";
 		else if (majorVersion == 6 && minorVersion == 2)
 			return "Windows 8";
+		else if (majorVersion == 6 && minorVersion == 3 && type != VER_NT_WORKSTATION)
+			return "Windows Server 2012 R2";
+		else if (majorVersion == 6 && minorVersion == 3)
+			return "Windows 8.1";
+		else if (majorVersion == 10 && minorVersion == 0 && type != VER_NT_WORKSTATION)
+			return "Windows Server 2016 Technical Preview";
+		else if (majorVersion == 10 && minorVersion == 0)
+			return "Windows 10";
+		else if (type != VER_NT_WORKSTATION)
+			return "Post Windows 2016";
 		else
-			return "Post Windows 8";
+			return "Post Windows 10";
 	}
 
 	long system_info::get_numberOfProcessorscores() {
@@ -260,7 +276,7 @@ namespace windows {
 			return get_system_process_information(bufferSize + 4000);
 		if (r == STATUS_ACCESS_VIOLATION)
 			throw nscp_exception("Access violation");
-		throw nscp_exception("Failed to enumerate processes: unknown erroir");
+		throw nscp_exception("Failed to enumerate processes: unknown error");
 	}
 
 	system_info::cpu_load system_info::get_cpu_load() {
