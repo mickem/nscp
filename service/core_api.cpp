@@ -238,6 +238,10 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			Plugin::QueryResponseMessage message;
 			message.ParseFromString(request);
 			root = json_pb::Plugin::QueryResponseMessage::to_json(message);
+		} else if (obj == "ExecuteResponseMessage") {
+			Plugin::ExecuteResponseMessage message;
+			message.ParseFromString(request);
+			root = json_pb::Plugin::ExecuteResponseMessage::to_json(message);
 		} else {
 			LOG_ERROR_STD("Invalid type: " + obj);
 			return NSCAPI::api_return_codes::hasFailed;
