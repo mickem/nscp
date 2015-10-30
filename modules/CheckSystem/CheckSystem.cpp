@@ -46,6 +46,10 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
 
+
+#include <json_spirit.h>
+
+
 #include "filter.hpp"
 #include "counter_filter.hpp"
 
@@ -208,15 +212,26 @@ std::string qoute(const std::string &s) {
 		return s;
 	return "\"" + s + "\"";
 }
-bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, std::string filter, std::string &result) {
-	if (!porcelain) {
+bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, std::string filter, std::string &result) {
+	if (!porcelain && !json) {
 		result += "Listing counters\n";
 		result += "---------------------------\n";
 	}
 	try {
 		int total = 0, match = 0;
+		json_spirit::Array data;
 		BOOST_FOREACH(const PDH::Enumerations::Object &obj, list) {
-			if (porcelain) {
+			if (json) {
+				BOOST_FOREACH(const std::string &inst, obj.instances) {
+					BOOST_FOREACH(const std::string &count, obj.counters) {
+						std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
+						if (!filter.empty() && line.find(filter) == std::string::npos)
+							continue;
+						json_spirit::Value v = line;
+						data.push_back(v);
+					}
+				}
+			} else if (porcelain) {
 				BOOST_FOREACH(const std::string &inst, obj.instances) {
 					std::string line = "\\" + obj.name + "(" + inst + ")\\";
 					total++;
@@ -277,7 +292,9 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 				}
 			}
 		}
-		if (!porcelain) {
+		if (json)
+			result = json_spirit::write(data);
+		else if (!porcelain) {
 			result += "---------------------------\n";
 			result += "Listed " + strEx::s::xtos(match) + " of " + strEx::s::xtos(total) + " counters.";
 		}
@@ -297,6 +314,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 		desc.add_options()
 			("help,h", "Show help screen")
 			("porcelain", "Computer parsable format")
+			("json", "Format reault as JSON")
 			("computer", po::value<std::string>(&computer), "The computer to fetch values from")
 			("user", po::value<std::string>(&username), "The username to login with (only meaningful if computer is specified)")
 			("password", po::value<std::string>(&password), "The password to login with (only meaningful if computer is specified)")
@@ -328,6 +346,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 		po::notify(vm);
 
 		bool porcelain = vm.count("porcelain");
+		bool json = vm.count("json");
 		bool all = vm.count("all");
 		bool validate = vm.count("validate");
 		bool no_objects = vm.count("no-counters");
@@ -348,13 +367,13 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			if (all) {
 				// If we specified all list all counters
 				PDH::Enumerations::Objects lst = PDH::Enumerations::EnumObjects(!no_instances, !no_objects);
-				return render_list(lst, validate, porcelain, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+				return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 			} else {
 				if (vm.count("counter")) {
 					// If we specify a counter object we will only list instances of that
 					PDH::Enumerations::Objects lst;
 					lst.push_back(PDH::Enumerations::EnumObject(counter, !no_instances, !no_objects));
-					return render_list(lst, validate, porcelain, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
+					return render_list(lst, validate, porcelain, json, counter, result) ? NSCAPI::exec_return_codes::returnOK : NSCAPI::exec_return_codes::returnERROR;
 				} else {
 					// If we specify no query we will list all configured counters
 					int count = 0, match = 0;
