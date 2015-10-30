@@ -77,6 +77,8 @@ namespace modern_filter {
 			BOOST_FOREACH(const my_entry &e, entries) {
 				if (!e.origin.is_variable)
 					ret += e.origin.name;
+				else if (e.node->is_int())
+					ret += strEx::s::xtos(e.node->get_int_value(context));
 				else
 					ret += e.node->get_string_value(context);
 			}

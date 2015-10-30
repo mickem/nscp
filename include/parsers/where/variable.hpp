@@ -219,7 +219,7 @@ namespace parsers {
 						return value_container::create_nil();
 					}
 				}
-				context->error("Invalid type " + name_);
+				context->error("Invalid type " + name_ + " we are int but wanted: " + strEx::s::xtos(type));
 				return value_container::create_nil();
 			}
 			std::string to_string() const {
