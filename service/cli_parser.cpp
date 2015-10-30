@@ -492,7 +492,7 @@ struct client_arguments {
 			core_->stop_exit_post();
 
 			BOOST_FOREACH(std::string r, resp) {
-				std::cout << r << std::endl;
+				std::cout << utf8::to_encoding(r, "") << std::endl;
 			}
 			return ret;
 		} catch (const std::exception & e) {
