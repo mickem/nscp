@@ -8,9 +8,6 @@
 	<Property Id="ARPHELPTELEPHONE">http://nsclient.org</Property>
 	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
 
-	<!-- CONFIGURE DEFAULT VALUES (what will happen if missing from config) -->
-	<Property Id="CONFIGURATION_TYPE_DEFAULT">ini://${exe-path}/nsclient.ini</Property>
-
 	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
 	<Property Id="ALLOWED_HOSTS">127.0.0.1,::1</Property>
 	<Property Id="NSCLIENT_PWD">$GEN$</Property>
