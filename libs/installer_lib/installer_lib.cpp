@@ -179,6 +179,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("CONF_NRPE"), _T("1"));
 			h.setProperty(_T("CONF_NSCA_OLD"), _T("1"));
 			h.setProperty(_T("CONF_NSCA"), _T("1"));
+			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
 			h.setProperty(_T("CONF_WEB_OLD"), _T("0"));
 			h.setProperty(_T("CONF_WEB"), _T("0"));
 			h.setProperty(_T("CONF_INCLUDES"), _T("op5;op5.ini"));
@@ -197,6 +198,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("CONF_NRPE"), _T("1"));
 			h.setProperty(_T("CONF_NSCA_OLD"), _T(""));
 			h.setProperty(_T("CONF_NSCA"), _T(""));
+			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
 			h.setProperty(_T("CONF_WEB_OLD"), _T(""));
 			h.setProperty(_T("CONF_WEB"), _T(""));
 			h.setProperty(_T("CONF_INCLUDES"), _T(""));
