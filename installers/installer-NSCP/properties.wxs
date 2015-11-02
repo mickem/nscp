@@ -9,48 +9,26 @@
 	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
 
 	<!-- CONFIGURE DEFAULT VALUES (what will happen if missing from config) -->
-	<!--
-	<Property Id="CONF_CHECKS_DEFAULT">0</Property>
-	<Property Id="CONF_NSCLIENT_DEFAULT">0</Property>
-	<Property Id="CONF_NRPE_DEFAULT">0</Property>
-	<Property Id="CONF_NSCA_DEFAULT">0</Property>
-	<Property Id="CONF_WEB_DEFAULT">0</Property>
-	<Property Id="ALLOWED_HOSTS_DEFAULT"></Property>
-	<Property Id="NSCLIENT_PWD_DEFAULT"></Property>
-   -->
 	<Property Id="CONFIGURATION_TYPE_DEFAULT">ini://${exe-path}/nsclient.ini</Property>
 
 	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
-	<!--
-	<Property Id="CONF_CHECKS">0</Property>
-	<Property Id="CONF_NSCLIENT">0</Property>
-	<Property Id="CONF_NRPE">0</Property>
-	<Property Id="CONF_NSCA">0</Property>
-	<Property Id="CONF_WMI">0</Property>
-	<Property Id="ALLOWED_HOSTS"></Property>
-	<Property Id="NSCLIENT_PWD"></Property>
-	<Property Id="CONFIGURATION_TYPE">ini://${shared-path}/nsclient.ini</Property>
-   -->
 	<Property Id="ALLOWED_HOSTS">127.0.0.1,::1</Property>
 	<Property Id="NSCLIENT_PWD">$GEN$</Property>
 
-  <Property Id="MONITORING_TOOL">GENERIC</Property>
+	<Property Id="MONITORING_TOOL">GENERIC</Property>
 	
 	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
-  <Property Id="GENERATE_SAMPLE_CONFIG">0</Property>
-  <Property Id="INSTALL_SAMPLE_CONFIG">0</Property>
+	<Property Id="GENERATE_SAMPLE_CONFIG">0</Property>
+	<Property Id="INSTALL_SAMPLE_CONFIG">0</Property>
 
-  <Property Id="NRPEMODE">SAFE</Property>
+	<Property Id="NRPEMODE">SAFE</Property>
 
-  <!-- CONFIGURE THE INSTALLER -->
-  <Property Id="ALLOW_CONFIGURATION">1</Property>
-  <Property Id="MAIN_CONFIGURATION_FILE">nsclient.ini</Property>
-  <Property Id="CUSTOM_CONFIGURATION_FILE">nsclient.ini</Property>
-  <WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
-  <WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
+	<!-- CONFIGURE THE INSTALLER -->
+	<Property Id="ALLOW_CONFIGURATION">1</Property>
+	<WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
+	<WixVariable Id="WixUIDialogBmp" Value="Bitmaps\dlgbmp.bmp" />
 
-  <!-- CONFIGURE THE PROGRAM -->
+	<!-- CONFIGURE THE PROGRAM -->
 	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
 	<Property Id="SERVICE_NAME">nscp</Property>
-
 </Include>
