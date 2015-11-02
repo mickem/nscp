@@ -187,6 +187,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("INSTALL_SAMPLE_CONFIG"), _T(""));
 			h.setProperty(_T("GENERATE_SAMPLE_CONFIG"), _T(""));
 			h.setProperty(_T("CONFIGURATION_TYPE"), _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++"));
+			h.setFeatureLocal(_T("OP5Montoring"));
 		} else {
 			h.setProperty(_T("NSCLIENT_PWD"), genpwd(16));
 			h.setProperty(_T("NSCLIENT_PWD_OLD"), _T(""));
@@ -204,6 +205,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("INSTALL_SAMPLE_CONFIG"), _T(""));
 			h.setProperty(_T("GENERATE_SAMPLE_CONFIG"), _T(""));
 			h.setProperty(_T("CONFIGURATION_TYPE"), _T("ini://${shared-path}/nsclient.ini"));
+			h.setFeatureAbsent(_T("OP5Montoring"));
 		}
 
 	} catch (installer_exception e) {

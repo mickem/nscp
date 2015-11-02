@@ -94,7 +94,12 @@ public:
 		}
 		return buffer;
 	}
-
+	void setFeatureLocal(std::wstring feature) {
+		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_LOCAL);
+	}
+	void setFeatureAbsent(std::wstring feature) {
+		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_ABSENT);
+	}
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
 		if (old.empty())

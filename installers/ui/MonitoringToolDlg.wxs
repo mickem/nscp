@@ -22,8 +22,6 @@
         </Control>
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
           <Publish Event="DoAction" Value="ApplyTool">1</Publish>
-          <Publish Event="Remove" Value="OP5Montoring">NOT MONITORING_TOOL="OP5"</Publish>
-          <Publish Event="AddLocal" Value="OP5Montoring">MONITORING_TOOL="OP5"</Publish>
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
