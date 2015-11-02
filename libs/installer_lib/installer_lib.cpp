@@ -198,7 +198,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("CONF_NSCA"), _T(""));
 			h.setProperty(_T("CONF_WEB_OLD"), _T(""));
 			h.setProperty(_T("CONF_WEB"), _T(""));
-			h.setProperty(_T("CONF_INCLUDES"), _T("op5;op5.ini"));
+			h.setProperty(_T("CONF_INCLUDES"), _T(""));
 			h.setProperty(_T("NRPEMODE_OLD"), _T(""));
 			h.setProperty(_T("NRPEMODE"), _T("SAFE"));
 			h.setProperty(_T("INSTALL_SAMPLE_CONFIG"), _T(""));
