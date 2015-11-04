@@ -311,7 +311,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 			}
 		}
 		if (json)
-			result = json_spirit::write(data);
+			result = json_spirit::write(data, json_spirit::raw_utf8);
 		else if (!porcelain) {
 			result += "---------------------------\n";
 			result += "Listed " + strEx::s::xtos(match) + " of " + strEx::s::xtos(total) + " counters.";
