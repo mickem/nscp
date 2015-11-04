@@ -111,6 +111,28 @@ define(['knockout'], function(ko) {
 				cb(matches);
 			};
 		},
+		parseExecCommand: function(cmd) {
+			args = cmd.match(/[\w=-]+|"(?:\\"|[^"]|[=-])+"/g);
+			if (args.length < 2)
+				return ""
+			str = args[0] + "/" + args[1]
+			
+			for (var i = 2; i < args.length; i++) {
+				var sep = "&"
+				if (i == 2)
+					sep = "?"
+				var s = args[i]
+				if (s.substring(0, 1) === '"' && s.substr(s.length-1) === '"')
+					s = s.substring(1, s.length-1)
+				as = s.split('=', 2);
+				if (as.length > 1) {
+					str = str + sep +  encodeURIComponent(as[0]) + "=" + encodeURIComponent(as[1])
+				} else {
+					str = str + sep +  encodeURIComponent(s)
+				}
+			}
+			return str
+		},
 		parseCommand: function(cmd) {
 			args = cmd.match(/[\w=-]+|"(?:\\"|[^"]|[=-])+"/g);
 			str = args[0]
