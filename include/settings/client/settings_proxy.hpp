@@ -32,6 +32,8 @@ namespace settings_client {
 		virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
 			get_core()->register_key(0xffff, path, key, static_cast<settings::settings_core::key_type>(type), title, description, defValue, advanced, is_sample);
 		}
+		virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) {}
+
 
 		virtual std::string get_string(std::string path, std::string key, std::string def) {
 			return get_impl()->get_string(path, key, def);

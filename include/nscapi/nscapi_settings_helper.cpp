@@ -69,6 +69,9 @@ namespace nscapi {
 				d->is_sample = true;
 			owner->add(d);
 		}
+		void settings_tpl_easy_init::add(boost::shared_ptr<tpl_info> d) {
+			owner->add(d);
+		}
 		void settings_keys_easy_init::add(boost::shared_ptr<key_info> d) {
 			if (is_sample)
 				d->is_sample = true;

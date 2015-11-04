@@ -388,6 +388,7 @@ namespace nscapi {
 		NSCAPI_EXPORT boost::shared_ptr<typed_path_map<std::string> > string_map_path(std::map<std::string, std::string> *val);
 
 		struct description_container {
+			std::string icon;
 			std::string title;
 			std::string description;
 			bool advanced;
@@ -397,6 +398,11 @@ namespace nscapi {
 				: title(title)
 				, description(description)
 				, advanced(advanced) {}
+			description_container(std::string title, std::string description, std::string icon)
+				: icon(icon)
+				, title(title)
+				, description(description)
+				, advanced(advanced) {}
 			description_container(std::string title, std::string description)
 				: title(title)
 				, description(description)
@@ -404,10 +410,12 @@ namespace nscapi {
 
 			description_container(const description_container& obj) {
 				title = obj.title;
+				icon = obj.icon;
 				description = obj.description;
 				advanced = obj.advanced;
 			}
 			description_container& operator=(const description_container& obj) {
+				icon= obj.icon;
 				title = obj.title;
 				description = obj.description;
 				advanced = obj.advanced;
@@ -471,6 +479,21 @@ namespace nscapi {
 				return *this;
 			}
 		};
+		struct tpl_info {
+			std::string path_name;
+			description_container description;
+			std::string fields;
+
+			tpl_info(std::string path_name, description_container description, std::string fields) : path_name(path_name), description(description), fields(fields) {}
+
+			tpl_info(const tpl_info& obj) : path_name(obj.path_name), description(obj.description), fields(obj.fields) {}
+			virtual tpl_info& operator=(const tpl_info& obj) {
+				path_name = obj.path_name;
+				description = obj.description;
+				fields = obj.fields;
+				return *this;
+			}
+		};
 
 		class settings_registry;
 		class NSCAPI_EXPORT settings_paths_easy_init {
@@ -511,6 +534,27 @@ namespace nscapi {
 			settings_registry* owner;
 			bool is_sample;
 		};
+
+		class NSCAPI_EXPORT settings_tpl_easy_init {
+		public:
+			settings_tpl_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner) {}
+
+			settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields) {
+				if (!path_.empty())
+					path = path_ + "/" + path;
+				boost::shared_ptr<tpl_info> d(new tpl_info(path, description_container(title, desc, icon), fields));
+				add(d);
+				return *this;
+			}
+
+			void add(boost::shared_ptr<tpl_info> d);
+
+		private:
+			std::string path_;
+			settings_registry* owner;
+			bool is_sample;
+		};
+
 
 		class NSCAPI_EXPORT settings_keys_easy_init {
 		public:
@@ -602,6 +646,9 @@ namespace nscapi {
 			settings_paths_easy_init add_path_to_settings(std::string path = "") {
 				return settings_paths_easy_init(get_settings_path(path), owner_);
 			}
+			settings_tpl_easy_init add_templates(std::string path = "") {
+				return settings_tpl_easy_init(get_settings_path(path), owner_);
+			}
 			inline std::string get_settings_path(std::string path) {
 				if (path.empty())
 					return "/settings/" + alias_;
@@ -646,7 +693,9 @@ namespace nscapi {
 		class settings_registry {
 			typedef std::list<boost::shared_ptr<key_info> > key_list;
 			typedef std::list<boost::shared_ptr<path_info> > path_list;
+			typedef std::list<boost::shared_ptr<tpl_info> > tpl_list_type;
 			key_list keys_;
+			tpl_list_type tpl_;
 			path_list paths_;
 			settings_impl_interface_ptr core_;
 			std::string alias_;
@@ -655,6 +704,9 @@ namespace nscapi {
 			virtual ~settings_registry() {}
 			void add(boost::shared_ptr<key_info> info) {
 				keys_.push_back(info);
+			}
+			void add(boost::shared_ptr<tpl_info> info) {
+				tpl_.push_back(info);
 			}
 			void add(boost::shared_ptr<path_info> info) {
 				paths_.push_back(info);
@@ -730,6 +782,9 @@ namespace nscapi {
 						BOOST_FOREACH(const std::string &s, core_->get_keys(v->path_name))
 							core_->register_key(v->path_name, s, NSCAPI::key_string, v->subkey_description.title, v->subkey_description.description, "", v->description.advanced, v->is_sample);
 					}
+				}
+				BOOST_FOREACH(tpl_list_type::value_type v, tpl_) {
+					core_->register_tpl(v->path_name, v->description.title, v->description.icon, v->description.description, v->fields);
 				}
 			}
 			void clear() {

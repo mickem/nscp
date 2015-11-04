@@ -40,6 +40,8 @@
 
 #include <config.h>
 
+#include <json_spirit.h>
+
 #ifdef WIN32
 #include <ServiceCmd.h>
 #include <com_helpers.hpp>
@@ -1680,6 +1682,18 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 					}
+					if (q.fetch_templates()) {
+						t.start("fetching templates");
+						BOOST_FOREACH(const settings::settings_core::tpl_description &desc, settings_manager::get_core()->get_registred_tpls()) {
+							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+							rpp->mutable_node()->set_path(desc.path);
+							rpp->mutable_info()->set_title(desc.title);
+							rpp->mutable_info()->set_is_template(true);
+							rpp->mutable_value()->set_string_data(desc.data);
+							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, desc.plugin_id, this));
+						}
+						t.end();
+					}
 					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				}
 			} else if (r.has_query()) {
@@ -1712,7 +1726,33 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 			} else if (r.has_registration()) {
 				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration();
 				rp->mutable_registration();
-				if (q.node().has_key()) {
+				if (q.has_fields()) {
+					json_spirit::Object node;
+
+					try {
+						json_spirit::Value value;
+						std::string data = q.fields();
+						json_spirit::read_or_throw(data, value);
+						if (value.isObject())
+							node = value.getObject();
+					} catch (const std::exception &e) {
+						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
+					} catch (const json_spirit::ParseError &e) {
+						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + strEx::s::xtos(e.line_) + ":" + strEx::s::xtos(e.column_));
+					} catch (...) {
+						LOG_ERROR_CORE("Failed to process fields for ");
+					}
+
+					node.insert(json_spirit::Object::value_type("plugin", r.plugin_id()));
+					node.insert(json_spirit::Object::value_type("path", q.node().path()));
+					node.insert(json_spirit::Object::value_type("title", q.info().title()));
+					node.insert(json_spirit::Object::value_type("icon", q.info().icon()));
+					node.insert(json_spirit::Object::value_type("description", q.info().description()));
+
+					//node.insert(json_spirit::Object::value_type("fields", value));
+					std::string tplData = json_spirit::write(node);
+					settings_manager::get_core()->register_tpl(r.plugin_id(), q.node().path(), q.info().title(), tplData);
+				} else if (q.node().has_key()) {
 					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced(), q.info().sample());
 				} else {
 					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());

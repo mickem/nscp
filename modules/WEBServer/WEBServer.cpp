@@ -275,6 +275,8 @@ public:
 			payload->mutable_inventory()->set_recursive_fetch(true);
 		if (request.get("samples", "false") == "true")
 			payload->mutable_inventory()->set_fetch_samples(true);
+		if (request.get("templates", "false") == "true")
+			payload->mutable_inventory()->set_fetch_templates(true);
 		if (request.get("desc", "false") == "true")
 			payload->mutable_inventory()->set_descriptions(true);
 		std::string path = request.get("path", "");

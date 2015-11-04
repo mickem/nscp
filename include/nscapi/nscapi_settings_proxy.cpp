@@ -48,6 +48,27 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, int
 	report_errors(response, core_, "register" + path + "." + key);
 }
 
+void nscapi::settings_proxy::register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) {
+	Plugin::SettingsRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->mutable_node()->set_path(path);
+	regitem->mutable_info()->set_icon(icon);
+	regitem->mutable_info()->set_title(title);
+	regitem->mutable_info()->set_description(description);
+	regitem->mutable_info()->set_advanced(false);
+	regitem->mutable_info()->set_sample(false);
+	regitem->set_fields(fields);
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+	report_errors(response, core_, "register::tpl" + path);
+}
+
+
 std::string nscapi::settings_proxy::get_string(std::string path, std::string key, std::string def) {
 	Plugin::SettingsRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());

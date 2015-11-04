@@ -37,6 +37,8 @@ namespace nscapi {
 			/// @author mickem
 			virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool sample) = 0;
 
+			virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) = 0;
+
 			//////////////////////////////////////////////////////////////////////////
 			/// Get a string value if it does not exist the default value will be returned
 			/// 

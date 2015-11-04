@@ -166,6 +166,23 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
 		;
 
+	settings.alias().add_templates()
+		("counters", "plus", "Add a new counters",
+			"Create a new counter",
+			"{"
+			"\"fields\": [ "
+			" { \"id\": \"alias\",											\"title\" : \"Alias\",				\"type\" : \"input\",		\"desc\" : \"This will identify the counter when it is reported and checked\"} , "
+			" { \"id\": \"counter\",	\"key\" : \"counter\",				\"title\" : \"Counter\",			\"type\" : \"data-choice\",	\"desc\" : \"The name of the counter\",\"exec\" : \"CheckSystem pdh --list --json --all\" } , "
+			" { \"id\": \"cs\",			\"key\" : \"collection strategy\",	\"title\" : \"Collection Strategy\",\"type\" : \"choice\",		\"desc\" : \"How values are stored after collection\",\"data\" : [\"rrd\", \"value\"] } , "
+			" { \"id\": \"instances\",	\"key\" : \"instances\",			\"title\" : \"Instances\",			\"type\" : \"bool\",		\"desc\" : \"If instances should be fetched. I.e. all CPUs not just the total. This requires you to place $INSTANCES$ in the counter name.\" } , "
+			" { \"id\": \"type\",		\"key\" : \"type\",					\"title\" : \"Value type\",			\"type\" : \"choice\",		\"desc\" : \"The type of values for this counter\",\"data\" : [\"large\", \"double\", \"long\"] } , "
+			" { \"id\": \"flags\",		\"key\" : \"flags\",				\"title\" : \"Flags\",				\"type\" : \"input\",		\"desc\" : \"Specify a coma separated list of flags to configure advanced options for this counter: nocap100, 1000, noscale\" } "
+			" ], "
+			"\"events\": { "
+			"\"onSave\": \"(function (node) { node.save_path = self.path + '/' + node.get_field('alias').value();})\"" 
+			"}"
+			"}")
+		;
 	settings.register_all();
 	settings.notify();
 
@@ -212,6 +229,7 @@ std::string qoute(const std::string &s) {
 		return s;
 	return "\"" + s + "\"";
 }
+
 bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool porcelain, bool json, std::string filter, std::string &result) {
 	if (!porcelain && !json) {
 		result += "Listing counters\n";

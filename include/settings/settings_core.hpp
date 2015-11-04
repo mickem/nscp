@@ -133,6 +133,23 @@ namespace settings {
 			}
 		};
 
+		struct tpl_description {
+
+			unsigned int plugin_id;
+			std::string path;
+			std::string title;
+			std::string data;
+
+			tpl_description() : plugin_id(0){}
+			tpl_description(unsigned int plugin_id, std::string path, std::string title, std::string data)
+				: plugin_id(plugin_id)
+				, path(path)
+				, title(title)
+				, data(data)
+			{}
+
+		};
+
 		struct mapped_key {
 			mapped_key(key_path_type src_, key_path_type dst_) : src(src_), dst(dst_) {}
 			key_path_type src;
@@ -150,7 +167,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) = 0;
+		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
@@ -165,7 +182,10 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) = 0;
+		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
+
+
+		virtual void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.
@@ -178,6 +198,8 @@ namespace settings {
 		virtual key_description get_registred_key(std::string path, std::string key) = 0;
 
 		virtual settings_core::path_description get_registred_path(const std::string &path) = 0;
+
+		virtual std::list<settings_core::tpl_description> get_registred_tpls() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all registered sections
