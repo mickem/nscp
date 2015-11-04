@@ -107,7 +107,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				if (entry.plugs.indexOf(self.name()) != -1) {
 					keys.push(entry);
 				}
-				if (entry.path = '/modules' && entry.key == self.name()) {
+				if (entry.path == '/modules' && entry.key == self.name()) {
 					if (entry.value() == "1" || entry.value() == "enabled")
 						self.is_enabled(true)
 					else
@@ -150,6 +150,20 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		var self = this;
 		self.modules = ko.observableArray([]);
 		gs.set_on_logout(function () {self.modules([]);})
+		
+		settings.add_trigger("/modules", function(path, key, value) {
+			if (path == "/modules") {
+				self.modules().forEach(function (entry) {
+					if (entry.name() == key) {
+						if (value == "1" || value == "enabled")
+							entry.is_enabled(true)
+						else
+							entry.is_enabled(false)
+					}
+				})
+			}
+			console.log("===> " + path + " / " + key + " = " + value)
+		})
 
 		self.refresh_settings = function(on_done) {
 			server.json_get("/settings/inventory?path=/modules&recursive=false&keys=true", function(data) {

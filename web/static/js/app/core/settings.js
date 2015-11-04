@@ -258,6 +258,16 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				on_done(m)
 			}
 		}
+		self.triggers = {}
+		self.add_trigger = function(path, cb) {
+			self.triggers[path] = cb
+		}
+		self.touch = function(path, key, value) {
+			Object.keys(self.triggers).forEach(function (p) {
+				if (path.startsWith(p))
+					self.triggers[p](path, key, value)
+			})
+		}
 		self.refresh_paths = function(handler, on_done) {
 			gs.busy('Refreshing', 'paths...')
 			server.json_get("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
@@ -373,15 +383,20 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			root['type'] = 'SettingsRequestMessage';
 			root['payload'] = [];
 			
+			var touched = []
 			self.keys.forEach (function (k) {
 				if (k.is_dirty()) {
+					touched.push(k)
 					root['payload'].push(k.build_payload());
 				}
 			})
 			if (root['payload'].length > 0) {
 				gs.busy('Saving ', 'data...')
 				server.json_post("/settings/query.json", JSON.stringify(root), function(data) {
-					self.old_value = self.value()
+					touched.forEach (function (k) {
+						k.presist_update()
+						self.touch(k.path, k.key, k.value())
+					})
 					gs.not_busy()
 					if (on_done)
 						on_done()
@@ -406,6 +421,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				gs.not_busy()
 				self.refresh(on_done);
 			})
+			self.touch(path, key, value)
 		}
 		
 		
