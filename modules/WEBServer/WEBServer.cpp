@@ -727,6 +727,8 @@ error_handler::log_list error_handler::get_errors(int &position) {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())
 		return ret;
+	if (position >= log_entries.size())
+		return ret;
 	log_list::iterator cit = log_entries.begin() + position;
 	log_list::iterator end = log_entries.end();
 
