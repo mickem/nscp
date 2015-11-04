@@ -64,6 +64,10 @@ NSClient *mainClient = NULL;	// Global core instance.
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::string(msg))
 #define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg);}
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
+#define IS_LOG_DEBUG_CORE(msg) { if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug))
+#define LOG_TRACE_CORE(msg) { nsclient::logging::logger::get_logger()->trace("core", __FILE__, __LINE__, msg);}
+#define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
+#define IS_LOG_TRACE_CORE(msg) if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::trace))
 
 /**
  * Application startup point
@@ -1088,6 +1092,9 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 		}
 		BOOST_FOREACH(plugin_type p, plugins_) {
 			if (p && p->has_command_line_exec()) {
+				IS_LOG_TRACE_CORE() {
+					LOG_TRACE_CORE("Trying : " + p->get_alias_or_name());
+				}
 				try {
 					if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
 						std::string respbuffer;
