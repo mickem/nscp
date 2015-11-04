@@ -83,9 +83,13 @@ namespace nsclient {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + strEx::s::xtos(id)))
 				return;
-			for (simple_plugin_list_type::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
+			simple_plugin_list_type::iterator it = plugins_.begin();
+			while (it != plugins_.end()) {
 				if ((*it)->get_id() == id)
 					it = plugins_.erase(it);
+				else
+					++it;
+
 			}
 		}
 

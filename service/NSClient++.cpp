@@ -2141,6 +2141,8 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 									plugin_type instance = *it;
 									unsigned int plugin_id = instance->get_id();
 									commands_.remove_plugin(plugin_id);
+									metricsFetchers.remove_plugin(plugin_id);
+									metricsSubmitetrs.remove_plugin(plugin_id);
 									it = plugins_.erase(it);
 									instance->unload_plugin();
 									instance->unload_dll();

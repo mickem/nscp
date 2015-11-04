@@ -228,7 +228,7 @@ bool NSCPlugin::has_routing_handler() {
  * @throws NSPluginException if the module is not loaded.
  */
 NSCAPI::nagiosReturn NSCPlugin::handleCommand(const char* dataBuffer, unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
-	if (!isLoaded() || fHandleCommand == NULL)
+	if (!isLoaded() || !loaded_ || fHandleCommand == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fHandleCommand(plugin_id_, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
@@ -273,7 +273,7 @@ NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, std::str
 }
 
 NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, const char* dataBuffer, const unsigned int dataBuffer_len, char** returnBuffer, unsigned int *returnBuffer_len) {
-	if (!isLoaded() || fHandleNotification == NULL)
+	if (!isLoaded() || !loaded_ || fHandleNotification == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fHandleNotification(plugin_id_, channel, dataBuffer, dataBuffer_len, returnBuffer, returnBuffer_len);
@@ -294,7 +294,7 @@ NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(std::string &request) {
 }
 
 NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(char** returnBuffer, unsigned int *returnBuffer_len) {
-	if (!isLoaded() || fFetchMetrics == NULL)
+	if (!isLoaded() || !loaded_ || fFetchMetrics == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fFetchMetrics(plugin_id_, returnBuffer, returnBuffer_len);
@@ -308,7 +308,7 @@ NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const std::string &request) {
 }
 
 NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const char* buffer, const unsigned int buffer_len) {
-	if (!isLoaded() || fSubmitMetrics == NULL)
+	if (!isLoaded() || !loaded_ || fSubmitMetrics == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fSubmitMetrics(plugin_id_, buffer, buffer_len);
@@ -318,7 +318,7 @@ NSCAPI::nagiosReturn NSCPlugin::submitMetrics(const char* buffer, const unsigned
 }
 
 bool NSCPlugin::route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
-	if (!isLoaded() || fRouteMessage == NULL)
+	if (!isLoaded() || !loaded_ || fRouteMessage == NULL)
 		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
 	try {
 		return fRouteMessage(plugin_id_, channel, buffer, buffer_len, new_channel_buffer, new_buffer, new_buffer_len);
@@ -501,7 +501,7 @@ int NSCPlugin::commandLineExec(bool targeted, std::string &request, std::string 
 }
 
 bool NSCPlugin::has_command_line_exec() {
-	return isLoaded() && fCommandLineExec != NULL;
+	return isLoaded() && !loaded_ || fCommandLineExec != NULL;
 }
 
 int NSCPlugin::commandLineExec(bool targeted, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {

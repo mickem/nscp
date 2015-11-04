@@ -226,9 +226,11 @@ public:
 	bool getLastIsMsgPlugin() {
 		return lastIsMsgPlugin_;
 	}
+private:
 	bool isLoaded() const {
 		return module_.is_loaded();
 	}
+public:
 	unsigned int get_id() const { return plugin_id_; }
 	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
 
