@@ -243,6 +243,7 @@ namespace settings {
 				bool unchanged = (current && *current == value) || (!current && value.empty());
 				settings_cache_[cache_key_type(path, key)] = conainer(value, !unchanged);
 				path_cache_.insert(path);
+				core_->register_path(99, path, "in flight", "TODO", true, false);
 
 				if (unchanged)
 					return;

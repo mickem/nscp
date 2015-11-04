@@ -154,7 +154,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) {
+		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception("Failed to lock registry mutex: " + path);
@@ -162,7 +162,7 @@ namespace settings {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id, title, description, advanced, is_sample);
-			} else {
+			} else if (update_existing) {
 				(*it).second.update(plugin_id, title, description, advanced, is_sample);
 			}
 		}
@@ -179,7 +179,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
@@ -188,7 +188,7 @@ namespace settings {
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id);
 				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
-			} else {
+			} else if (update_existing) {
 				(*it).second.append_plugin(plugin_id);
 				path_description::keys_type::iterator kit = (*it).second.keys.find(key);
 				if (kit == (*it).second.keys.end()) {
