@@ -1,5 +1,38 @@
 define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils', 'handlebars'], function(ko, server, gs, ut, Handlebars) {
 
+
+	function executeQuery(query, cb) {
+		server.json_get("/query/" + query, function(data) {
+			r = data['payload'][0]
+			lines = []
+			r.lines.forEach(function (l) {
+				if (l.perf) {
+					for (var i=0;i<l.perf.length;i++) {
+						if (l.perf[i].int_value) {
+							l.perf[i].int_value.r_value = l.perf[i].int_value.value
+							l.perf[i].int_value.r_warning = l.perf[i].int_value.warning
+							l.perf[i].int_value.r_critical = l.perf[i].int_value.critical
+							l.perf[i].int_value.r_minimum = l.perf[i].int_value.minimum
+							l.perf[i].int_value.r_maximum = l.perf[i].int_value.maximum
+							l.perf[i].value = l.perf[i].int_value
+						} else if (l.perf[i].float_value) {
+							l.perf[i].float_value.r_value = Math.round(l.perf[i].float_value.value * 100) / 100
+							l.perf[i].float_value.r_warning = Math.round(l.perf[i].float_value.warning * 100) / 100
+							l.perf[i].float_value.r_critical = Math.round(l.perf[i].float_value.critical * 100) / 100
+							l.perf[i].float_value.r_minimum = Math.round(l.perf[i].float_value.minimum * 100) / 100
+							l.perf[i].float_value.r_maximum = Math.round(l.perf[i].float_value.maximum * 100) / 100
+							l.perf[i].value = l.perf[i].float_value
+						}
+					}
+				} else {
+					l.perf = []
+				}
+				lines.push(l)
+			})
+			cb(r.result, lines)
+		})
+	}
+
 	var ids = 0;
 	function CommandEntry(entry) {
 		var self = this;
@@ -57,35 +90,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			};
 		}
 		self.execute = function() {
-			cmd_query = ut.parseCommand(self.command())
-			server.json_get("/query/" + cmd_query, function(data) {
-				r = data['payload'][0]
-				self.resultStatus(r.result)
-				lines = []
-				r.lines.forEach(function (l) {
-					if (l.perf) {
-						for (var i=0;i<l.perf.length;i++) {
-							if (l.perf[i].int_value) {
-								l.perf[i].int_value.r_value = l.perf[i].int_value.value
-								l.perf[i].int_value.r_warning = l.perf[i].int_value.warning
-								l.perf[i].int_value.r_critical = l.perf[i].int_value.critical
-								l.perf[i].int_value.r_minimum = l.perf[i].int_value.minimum
-								l.perf[i].int_value.r_maximum = l.perf[i].int_value.maximum
-								l.perf[i].value = l.perf[i].int_value
-							} else if (l.perf[i].float_value) {
-								l.perf[i].float_value.r_value = Math.round(l.perf[i].float_value.value * 100) / 100
-								l.perf[i].float_value.r_warning = Math.round(l.perf[i].float_value.warning * 100) / 100
-								l.perf[i].float_value.r_critical = Math.round(l.perf[i].float_value.critical * 100) / 100
-								l.perf[i].float_value.r_minimum = Math.round(l.perf[i].float_value.minimum * 100) / 100
-								l.perf[i].float_value.r_maximum = Math.round(l.perf[i].float_value.maximum * 100) / 100
-								l.perf[i].value = l.perf[i].float_value
-							}
-						}
-					} else {
-						l.perf = []
-					}
-					lines.push(l)
-				})
+			executeQuery(ut.parseCommand(self.command()), function(status, lines) {
+				self.resultStatus(status)
 				self.resultLines(lines)
 			})
 		}
@@ -134,6 +140,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			})
 			return commands;
 		}
+		self.execute = executeQuery
 	}
 	return new queries;
 })
