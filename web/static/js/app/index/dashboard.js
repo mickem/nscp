@@ -81,6 +81,8 @@ define(['jquery', 'knockout', 'text!app/index/dashboard.html',
 		self.mem = metrics.mem
 		self.disk = metrics.disk
 		self.diskGraphs = metrics.diskGraphs
+		self.count = metrics.count
+		self.metricsList = metrics.metricsList
 		metrics.set_refresh_handler(function () {
 			self.refreshChart();
 		})
@@ -94,11 +96,13 @@ define(['jquery', 'knockout', 'text!app/index/dashboard.html',
 				showGraph('#cpuChart', self.cpu.graph, "CPU", "76, 157, 203")
 			else if (self.tab == 'mem')
 				showGraph('#memChart', self.mem.graph, "Memory", "149, 40, 180")
+			else if (self.tab == 'all')
+				;
 			else if (self.tab == 'disk') {
 				id = "TODO" // self.tab.split('-')[1]
 				showGraph('#diskChart', self.diskGraphs[metrics.diskIndex], "Disk " + id, "77, 166, 12")
 			} else {
-				console.log("Unknown chart: " + self.chartShown())
+				console.log("Unknown chart: " + self.tab)
 			}
 		}
 		self.isDiskTab = function(index) {

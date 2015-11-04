@@ -21,6 +21,13 @@
 			</a>
 		</li>
 		<!-- /ko -->
+		<li role="presentation" data-bind="css: { active: tab == 'all'}">
+			<a type="button" class="btn btn-default" href="#/metrics/all" role="tab">
+				<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-tachometer"></span> All Metrics</h4>
+				<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;">
+					<span data-bind="text: count() + ' metrics'"></span></p>
+			</a>
+		</li>
 	</ul>
 	<div class="tab-content col-md-10">
 		<div role="tabpanel" data-bind="if: tab == 'cpu'">
@@ -53,5 +60,22 @@
 				<dash-widget-text params="icon: 'fa-hdd-o', title: 'Active time', value: disk_queue_length(), background: 'primary'"></dash-widget-text>
 			</div>
 		<!-- /ko -->
+		<div role="tabpanel" data-bind="if: tab == 'all'">
+			<h1>Metrics</h1>
+			<table class="table">
+				<thead>
+					<tr>
+						<th>Path</th>
+						<th>Value</th>
+					</tr>
+				</thead>
+				<tbody data-bind="foreach: metricsList">
+					<tr>
+						<td data-bind="text: path"></td>
+						<td data-bind="text: value"></td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
 	</div>
 </div>
