@@ -147,13 +147,17 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 
 		self.default_value = ''
 		self.type = 'string'
-		self.path = entry['node']['path'];
+		self.path = ''
 		self.key = ''
+		if (entry && entry['node']) {
+			if (entry['node'] && entry['node']['path'])
+				self.path = entry['node']['path'];
+			if (entry['node'] && entry['node']['key'])
+				self.key = entry['node']['key'];
+		}
 		self.advanced = false
 		self.plugs = []
-		if (entry['node']['key'])
-			self.key = entry['node']['key'];
-		if (entry['info']) {
+		if (entry && entry['info']) {
 			info = entry['info']
 			if (info['title'])
 				self.title = info['title'];
@@ -171,7 +175,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				self.value(self.default_value)
 			}
 		}
-		if (entry['value']) {
+		if (entry && entry['value']) {
 			self.value(u.settings_get_value(entry['value']))
 		}
 		if (self.value() == self.default_value) {
@@ -205,6 +209,9 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		
 		self.build_payload = function() {
 			return build_payload(self.path, self.key, self.value())
+		}
+		self.presist_update = function() {
+			self.old_value = self.value()
 		}
 	}
 
@@ -275,7 +282,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 					paths = []
 					path_map = {}
 					data['payload'][0]['inventory'].forEach(function(entry) {
-						p = new PathEntry(entry)
+						var p = new PathEntry(entry)
 						if (handler)
 							p = handler(p)
 						paths.push(p);
@@ -302,23 +309,32 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			gs.busy('Refreshing', 'keys...')
 			server.json_get("/settings/inventory?path=/&recursive=true&keys=true", function(data) {
 				if (data['payload'][0]['inventory']) {
+					var keys = []
+					var orphaned_keys = {}
+					
 					data['payload'][0]['inventory'].forEach(function(entry) {
-						p = new KeyEntry(entry)
+						self.path_map[entry['node']['path']].akeys = []
+						self.path_map[entry['node']['path']].keys = []
+					})
+					data['payload'][0]['inventory'].forEach(function(entry) {
+						var p = new KeyEntry(entry)
 						if (handler)
 							p = handler(p)
-						self.keys.push(p);
+						keys.push(p);
 						if (self.path_map[p.path]) {
 							if (p.advanced)
 								self.path_map[p.path].akeys.push(p)
 							else
 								self.path_map[p.path].keys.push(p)
 						} else {
-							if (self.orphaned_keys[p.path])
-								self.orphaned_keys[p.path].push(p)
+							if (orphaned_keys[p.path])
+								orphaned_keys[p.path].push(p)
 							else
-								self.orphaned_keys[p.path] = [p]
+								orphaned_keys[p.path] = [p]
 						}
 					});
+					self.orphaned_keys = orphaned_keys
+					self.keys = keys;
 				}
 				gs.not_busy();
 				if (on_done)
@@ -349,7 +365,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			})
 		}
 		self.addParentNode = function(path) {
-			p = new PathEntry(path)
+			var p = new PathEntry(path)
 			p.path = path
 			self.path_map[p.path] = p
 			if (p.parentPath in self.path_map) {
@@ -412,8 +428,35 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				}
 			})
 		}
+		self.find_key = function(path, key) {
+			for (var i=0;i<self.keys.length;i++) {
+				if (self.keys[i].path == path && self.keys[i].key == key)
+					return self.keys[i]
+				return null;
+			}
+		}
+		self.save_key = function(path, key, value) {
+			console.log("Saving: " + path + ": " + key + " = " + value)
+			var keyInstance = self.find_key(path, key)
+			if (keyInstance)
+				keyInstance.value(value)
+			else
+				self.add_key(path, key, value)
+		}
+		self.add_key = function(path, key, value) {
+			console.log(".. Saving: " + path + ": " + key + " = " + value)
+			var nk = new KeyEntry()
+			nk.path = path;
+			nk.key = key
+			nk.value(value)
+			if (self.path_map[nk.path]) {
+				self.path_map[nk.path].akeys.push(nk)
+			}
+			console.log(nk)
+			self.keys.push(nk)
+		}
 		self.add = function(path, key, value, on_done) {
-			gs.busy('Saving ', 'data...')
+			gs.busy('Adding ', key + '...')
 			root={}
 			root['type'] = 'SettingsRequestMessage';
 			root['payload'] = [ build_payload(path, key, value) ];
@@ -423,8 +466,41 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			})
 			self.touch(path, key, value)
 		}
-		
-		
+			
+		self.loadStore = function() {
+			gs.busy('Loading', 'Loading data...')
+			root={}
+			root['header'] = {};
+			root['header']['version'] = 1;
+			root['type'] = 'SettingsRequestMessage';
+			payload = {}
+			payload['plugin_id'] = 1234
+			payload['control'] = {}
+			payload['control']['command'] = 'LOAD'
+			root['payload'] = [ payload ];
+			
+			server.json_post("/settings/query.json", JSON.stringify(root), function(data) {
+				gs.not_busy()
+				self.refresh()
+			})
+		}
+		self.saveStore = function() {
+			gs.busy('Saving', 'Saving data...')
+			root={}
+			root['header'] = {};
+			root['header']['version'] = 1;
+			root['type'] = 'SettingsRequestMessage';
+			payload = {}
+			payload['plugin_id'] = 1234
+			payload['control'] = {}
+			payload['control']['command'] = 'SAVE'
+			
+			root['payload'] = [ payload ];
+			server.json_post("/settings/query.json", JSON.stringify(root), function(data) {
+				gs.not_busy()
+				self.refresh()
+			})
+		}
 	};
 	
 	return new settings();

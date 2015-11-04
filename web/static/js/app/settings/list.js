@@ -24,6 +24,18 @@ define(['knockout', 'text!app/settings/list.html', 'app/core/settings', 'bootstr
 			node['state']['expanded'] = true;
 			tgt.keys(node.source.keys)
 			tgt.akeys(node.source.akeys)
+			ckeys = []
+			node.source.keys.forEach(function (e) {
+				if (!e.is_default()) {
+					ckeys.push(e);
+				}
+			})
+			node.source.akeys.forEach(function (e) {
+				if (!e.is_default()) {
+					ckeys.push(e);
+				}
+			})
+			tgt.ckeys(ckeys)
 			tgt.current(node.source)
 		}
 		nodeMap[n.path] = node
@@ -35,6 +47,7 @@ define(['knockout', 'text!app/settings/list.html', 'app/core/settings', 'bootstr
 		
 		self.keys = ko.observableArray([])
 		self.akeys = ko.observableArray([])
+		self.ckeys = ko.observableArray([])
 		self.current = ko.observable()
 		self.tpls = ko.observableArray([])
 
