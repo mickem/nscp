@@ -14,7 +14,11 @@
 		</li>
 		<li>
 			<a href="#module-settings" data-toggle="tab">
-				<span class="glyphicon glyphicon-pencil"></span> Settings</a>
+				<span class="fa fa-pencil"></span> Settings</a>
+		</li>
+		<li>
+			<a href="#module-templates" data-toggle="tab">
+				<span class="fa fa-edit"></span> Templates</a>
 		</li>
 		<li>
 			<a href="#module-query" data-toggle="tab">
@@ -93,6 +97,24 @@
 					<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save_settings">Save Changes</button>
 					<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo_settings">Cancel</button>
 				</form>
+			</div>
+		</div>
+		<div class="tab-pane" id="module-templates">
+			<div class="panel-body">
+				<span data-bind="visible: !is_loaded()">You need to load the module for templates to be visible.</span>
+				<button data-bind="click: load, visible: !is_loaded()" class="btn btn-success">Load</button>
+				<span data-bind="visible: is_loaded() && templates().length == 0">No templates available.</span>
+
+				<ul class="list-group" data-bind="if: is_loaded() && templates().length > 0">
+					<li class="list-group-item" data-bind="foreach: templates">
+						<a class="list-group-item list-group-item" data-bind="attr: { href: '#/templates' + path + '/' + $index()}">
+							<h4 class="list-group-item-heading" data-bind="text: title"></h4>
+							<p class="list-group-item-text" data-bind="text: desc"></p>
+						</a>
+					</li>
+				</ul>
+				
+
 			</div>
 		</div>
 		<div class="tab-pane" id="module-query">

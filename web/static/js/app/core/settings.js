@@ -13,6 +13,78 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		return payload
 	}
 
+	function TplEntry(entry) {
+		var self = this;
+		self.path = entry['node']['path'];
+		self.title = entry['info']['title'];
+		self.json_value = u.settings_get_value(entry['value'])
+		self.raw_data = JSON.parse(self.json_value)
+		self.icon = self.raw_data.icon;
+		self.desc = self.raw_data.description;
+		self.fields = self.raw_data.fields;
+		self.events = self.raw_data.events;
+		self.plugin = entry['info']['plugin'];
+		if (self.events && self.events.onSave) {
+			self.events.onSave = eval(self.events.onSave)
+		}
+		self.get_field = function(id) {
+			for (var i = 0; i < self.fields.length; i++) {
+				if (self.fields[i].id == id)
+					return self.fields[i];
+			}
+			return null;
+		}
+		
+		self.fields.forEach(function (item) {
+			if (item.type == 'data-choice') {
+				item.data = []
+				item.fetchData = function findMatches(q, cb) {
+					var matches = [];
+					q = q.replaceAll("\\", "\\\\")
+					q = q.replaceAll("(", "\\(")
+					q = q.replaceAll(")", "\\)")
+					var substrRegex = new RegExp(q, 'i');
+					for (var i=0;i<item.data.length;i++) {
+						if (matches.length > 100) {
+							cb(matches);
+							return;
+						}
+						if (substrRegex.test(item.data[i])) {
+							matches.push({ value: item.data[i] });
+						}
+					}
+					cb(matches);
+				}
+			}
+		});
+		
+		self.getInstance = function(settings) {
+			var instance = jQuery.extend(true, {}, self);
+			instance.settings = settings
+			instance.fields.forEach(function (item) {
+				item.value = ko.observable()
+			})
+			instance.get_field = function(id) {
+				for (var i = 0; i < instance.fields.length; i++) {
+					if (instance.fields[i].id == id)
+						return instance.fields[i];
+				}
+				return null;
+			}
+			instance.save = function() {
+				instance.events.onSave(instance)
+				instance.fields.forEach(function (item) {
+					if (item.key)
+						instance.settings.save_key(instance.save_path, item.key, item.value())
+				})
+				instance.settings.save(function() {
+					console.log("saved")
+				})
+			}
+			return instance;
+		}
+		
+	}
 	function PathEntry(entry) {
 		var self = this;
 		
@@ -155,7 +227,37 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.path_map = {}
 		self.orphaned_keys = {}
 		self.paths = ko.observableArray([])
+		self.templates = ko.observableArray([])
+		self.tpl_map = {}
 		self.keys = []
+		self.get_templates = function(path, handler) {
+			if (self.templates().length == 0) {
+				self.refresh_tpls(false, function() {
+					handler(self.tpl_map[path])
+				})
+			} else {
+				handler(self.tpl_map[path])
+			}
+		}
+		self.find_templates = function(filter, on_done) {
+			if (self.templates().length == 0) {
+				self.refresh_tpls(false, function() {
+					m = []
+					self.templates().forEach(function f(i) {
+						if (filter(i))
+							m.push(i)
+					})
+					on_done(m)
+				})
+			} else {
+				m = []
+				self.templates().forEach(function f(i) {
+					if (filter(i))
+						m.push(i)
+				})
+				on_done(m)
+			}
+		}
 		self.refresh_paths = function(handler, on_done) {
 			gs.busy('Refreshing', 'paths...')
 			server.json_get("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
@@ -211,6 +313,29 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				gs.not_busy();
 				if (on_done)
 					on_done(self.keys)
+			})
+		}
+		self.refresh_tpls = function(handler, on_done) {
+			gs.busy('Refreshing', 'templates...')
+			server.json_get("/settings/inventory?path=/&recursive=true&templates=true", function(data) {
+			if (data['payload'][0]['inventory']) {
+					templates = []
+					tpl_map = {}
+					data['payload'][0]['inventory'].forEach(function(entry) {
+						var p = new TplEntry(entry)
+						if (handler)
+							p = handler(p)
+						templates.push(p);
+						if (!tpl_map[p.path])
+							tpl_map[p.path] = []
+						tpl_map[p.path].push(p)
+					});
+					self.tpl_map = tpl_map;
+					self.templates(templates)
+				}
+				gs.not_busy();
+				if (on_done)
+					on_done()
 			})
 		}
 		self.addParentNode = function(path) {

@@ -22,6 +22,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.is_enabled = ko.observable(false);
 		self.keys = ko.observableArray([]);
 		self.queries = ko.observableArray([]);
+		self.templates = ko.observableArray([]);
 		
 		entry['info']['metadata'].forEach(function(entry) {
 			if (entry.key == "loaded")
@@ -95,6 +96,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			self.refresh_settings()
 		}
 		self.refresh_settings = function(on_done) {
+			settings.find_templates(function (i) { console.log(i); console.log(i.plugin + "==" + self.name()); return i.plugin == self.name() }, function (tpls) { console.log(tpls); self.templates(tpls)})
+			
 			if (!self.is_loaded() || self.keys.length > 0) {
 				if (on_done)
 					on_done();

@@ -5,6 +5,7 @@ require.config({
     'text': 'require-text-2.0.14',
     'knockout': 'knockout-3.3.0',
     'bootstrap': 'bootstrap.min',
+    'select2': 'select2.min',
     'bootstrap-dialog': 'bootstrap-dialog.min',
     'bootstrap-treeview': 'bootstrap-treeview.min',
     'jquery': 'jquery-1.11.1.min',
@@ -14,6 +15,10 @@ require.config({
     'handlebars' : 'handlebars-v2.0.0'
   }
   ,shim: {
+    'select2': {
+      deps: ['jquery'],
+      exports: 'Select2'
+    },
     'bootstrap': {
       deps: ['jquery'],
       exports: '$.fn.popover'
@@ -41,7 +46,13 @@ if (!Array.prototype.last){
 		return this[this.length - 1];
 	};
 };
-define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/authToken'], function(ko, b, gs, Sammy, auth) {
+if (typeof String.prototype.replaceAll != 'function') {
+	String.prototype.replaceAll = function (find, replace) {
+		var str = this;
+		return str.replace(new RegExp(find.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g'), replace);
+	};
+}
+define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/authToken', 'app/core/settings', 'select2'], function(ko, b, gs, Sammy, auth, settings) {
 
 	ko.components.register('dash-widget-text', {
 		viewModel: function(params) { 
@@ -111,23 +122,11 @@ define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/aut
 	};
 
 	ko.bindingHandlers.select2 = {
-		init: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
-			ko.utils.domNodeDisposal.addDisposeCallback(element, function() {
-				//$(element).select2('destroy');
-			});
-			
-			select2 = ko.utils.unwrapObservable(allBindings().select2);
-			$(element).select2(select2);
-		},
-		update: function(element, valueAccessor, allBindings, viewModel, bindingContext) {
-			/*
-			$(element).select2({
-				formatResult: format,
-				formatSelection: format,
-				placeholder: "Add argument",
-				escapeMarkup: function(m) { return m; }
-			});
-			*/
+		init: function(element, valueAccessor, allBindings, data, context) {
+			var options = ko.toJS(valueAccessor()) || {};
+			setTimeout(function() {
+				$(element).select2(options);            
+			}, 0);
 		}
 	};
 	ko.bindingHandlers.typeahead = {
@@ -161,6 +160,7 @@ define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/aut
 		tab: ko.observable(),
 		data: ko.observable(),
 		nscp_status: gs,
+		settings, settings,
 		setRoute: function(name, tab, data) {
 			//console.log(name)
 			//console.log(tab)
@@ -200,6 +200,10 @@ define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/aut
 				tab: 'settings',
 				component: 'settings-list', 
 				module: 'app/settings/list' },
+			{ route: ['#/templates(.*)$', '#/templates(.*)/$'], 
+				tab: 'settings',
+				component: 'settings-tpl', 
+				module: 'app/settings/tpl' },
 			{ route: '#/modules', 
 				tab: 'modules',
 				component: 'modules-list', 

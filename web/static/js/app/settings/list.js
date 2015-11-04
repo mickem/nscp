@@ -22,8 +22,6 @@ define(['knockout', 'text!app/settings/list.html', 'app/core/settings', 'bootstr
 		if (n.path == tgt.path) {
 			node['state']['selected'] = true;
 			node['state']['expanded'] = true;
-			console.log("Updating keys: " + node.source.keys)
-			console.log(node.source.keys)
 			tgt.keys(node.source.keys)
 			tgt.akeys(node.source.akeys)
 			tgt.current(node.source)
@@ -38,6 +36,7 @@ define(['knockout', 'text!app/settings/list.html', 'app/core/settings', 'bootstr
 		self.keys = ko.observableArray([])
 		self.akeys = ko.observableArray([])
 		self.current = ko.observable()
+		self.tpls = ko.observableArray([])
 
 		self.newPath = ko.observable()
 		self.newKey = ko.observable()
@@ -70,6 +69,7 @@ define(['knockout', 'text!app/settings/list.html', 'app/core/settings', 'bootstr
 		}
 		self.update_tree = function() {
 			settings.get("/", function(root) {
+				settings.get_templates(self.path, function(tpls) {self.tpls(tpls)})
 				stree = build_tree(root, self)
 				$('#tree').treeview({
 						data: stree.nodes, 
