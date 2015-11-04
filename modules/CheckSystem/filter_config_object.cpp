@@ -47,7 +47,7 @@ namespace filters {
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(path);
+		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
 			root_path.set_sample();
 

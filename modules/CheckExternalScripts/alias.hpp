@@ -59,18 +59,12 @@ namespace alias {
 			set_command(value);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(path);
+			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 			if (is_sample)
 				root_path.set_sample();
 
-			if (oneliner) {
-				std::string::size_type pos = path.find_last_of("/");
-				if (pos != std::string::npos) {
-					proxy->register_key(path, alias, NSCAPI::key_string, alias, "Alias for " + alias + ". To configure this item add a section called: " + path + "/" + alias, "", false, false);
-					proxy->set_string(path, alias, value);
-					return;
-				}
-			}
+			if (oneliner)
+				return;
 
 			root_path.add_path()
 				("ALIAS DEFENITION", "Alias definition for: " + alias)

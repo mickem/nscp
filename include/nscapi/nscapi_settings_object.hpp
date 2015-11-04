@@ -33,23 +33,25 @@ namespace nscapi {
 
 			std::string alias;
 			std::string base_path;
+		private:
 			std::string path;
+		public:
 			bool is_template;
 			std::string parent;
 
 			std::string value;
 			options_map options;
 
-			object_instance_interface(std::string alias, std::string path)
+			object_instance_interface(std::string alias, std::string inPath)
 				: alias(alias)
-				, base_path(path)
-				, path(path + "/" + alias)
+				, base_path(inPath)
+				, path(inPath + "/" + alias)
 				, is_template(false)
 				, parent("default") {}
-			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string path)
+			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string inPath)
 				: alias(alias)
-				, base_path(path)
-				, path(path + "/" + alias)
+				, base_path(inPath)
+				, path(inPath + "/" + alias)
 				, is_template(false)
 				, parent(other->alias) {
 				value = other->value;
@@ -66,6 +68,11 @@ namespace nscapi {
 				, value(other.value)
 				, options(other.options) {}
 
+			void setup(std::string inAlias, std::string inPath) {
+				alias = inAlias;
+				path = inPath + "/" + inAlias;
+				base_path = inPath;
+			}
 			const options_map& get_options() const {
 				return options;
 			}
@@ -94,6 +101,9 @@ namespace nscapi {
 				}
 				settings.register_all();
 				settings.notify();
+			}
+			std::string get_path() const {
+				return path;
 			}
 
 			virtual std::string to_string() const {
@@ -165,16 +175,6 @@ namespace nscapi {
 			typedef boost::shared_ptr<T> object_instance;
 			virtual object_instance create(std::string alias, std::string path) = 0;
 			virtual object_instance clone(object_instance parent, std::string alias, std::string path) = 0;
-			/*
-			object_instance clone(object_instance parent, const std::string alias, const std::string path) {
-				object_instance inst = boost::make_shared<T>(*parent);
-				if (inst) {
-					inst->alias = alias;
-					inst->path = path;
-				}
-				return inst;
-			}
-			*/
 		};
 
 		template<class T>
@@ -186,8 +186,7 @@ namespace nscapi {
 			object_instance clone(object_instance parent, const std::string alias, const std::string path) {
 				object_instance inst = boost::make_shared<T>(*parent);
 				if (inst) {
-					inst->alias = alias;
-					inst->path = path;
+					inst->setup(alias, path);
 				}
 				return inst;
 			}
@@ -218,7 +217,7 @@ namespace nscapi {
 			}
 
 			void add_samples(boost::shared_ptr<nscapi::settings_proxy> proxy) {
-				object_instance tmp = factory->create("sample", path + "/sample");
+				object_instance tmp = factory->create("sample", path);
 				tmp->read(proxy, false, true);
 			}
 
@@ -247,8 +246,8 @@ namespace nscapi {
 				object_instance object = factory->create(alias, path);
 
 				if (proxy) {
-					std::list<std::string> keys = proxy->get_keys(object->path);
-					std::string parent_name = proxy->get_string(object->path, "parent", "default");
+					std::list<std::string> keys = proxy->get_keys(object->get_path());
+					std::string parent_name = proxy->get_string(object->get_path(), "parent", "default");
 					if (!parent_name.empty() && parent_name != alias) {
 						object_instance parent = add(proxy, parent_name, "", true);
 						if (parent) {

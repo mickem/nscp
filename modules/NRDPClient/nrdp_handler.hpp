@@ -28,9 +28,12 @@ namespace nrdp_handler {
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 
-			nscapi::settings_helper::path_extension root_path = settings.path(this->path);
+			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 			if (is_sample)
 				root_path.set_sample();
+
+			if (oneliner)
+				return;
 
 			root_path.add_key()
 

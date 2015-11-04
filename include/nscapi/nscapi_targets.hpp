@@ -51,7 +51,7 @@ namespace nscapi {
 				set_address(this->value);
 				nscapi::settings_helper::settings_registry settings(proxy);
 
-				nscapi::settings_helper::path_extension root_path = settings.path(this->path);
+				nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 				if (is_sample)
 					root_path.set_sample();
 

@@ -51,10 +51,13 @@ namespace check_pdh {
 			return;
 		}
 
-		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(path);
+ 		nscapi::settings_helper::settings_registry settings(proxy);
+		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
 			root_path.set_sample();
+
+		if (oneliner)
+			return;
 
 		root_path.add_path()
 			("COUNTER", "Definition for counter: " + alias)
