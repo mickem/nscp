@@ -10,6 +10,7 @@
 #include <parsers/where/engine_impl.hpp>
 
 #include <NSCAPI.h>
+#include <strEx.h>
 #include <nscapi/nscapi_helper.hpp>
 
 namespace parsers {
