@@ -13,30 +13,32 @@
 		<!-- /ko -->
 
 	<div class="form-horizontal" data-bind="with: template">
-		<!-- ko foreach: fields -->
+		<!-- ko foreach: save_fields -->
+			<!-- ko if: parent.type != 'hidden' -->
 		<div class="form-group" id="adkeys">
-			<label for="path" class="col-sm-2 control-label" data-bind="text: title">Section</label>
+			<label for="path" class="col-sm-2 control-label" data-bind="text: parent.title">Section</label>
 			<div class="col-sm-10">
-				<!-- ko if: type == 'input' -->
+				<!-- ko if: parent.type == 'input' -->
 					<input class="form-control" id="path" data-bind="value: value"></input>
 				<!-- /ko -->
-				<!-- ko if: type == 'choice' -->
-					<select data-bind="value: value, select2:{ }, foreach: data">
+				<!-- ko if: parent.type == 'choice' -->
+					<select data-bind="value: value, select2:{ }, foreach: parent.data">
 						<option data-bind="text: $data"></option>
 					</select>
 				<!-- /ko -->
-				<!-- ko if: type == 'bool' -->
+				<!-- ko if: parent.type == 'bool' -->
 					<input type="checkbox" id="path" data-bind="value: value"></input>
 				<!-- /ko -->
-				<!-- ko if: type == 'data-choice' -->
+				<!-- ko if: parent.type == 'data-choice' -->
 						<input id="command" class="typeahead form-control" type="text" 
 							placeholder="Command" 
-							data-bind="value: value, typeahead: {name: 'aaa', source: fetchData } ">
+							data-bind="value: value, typeahead: {name: 'aaa', source: parent.fetchData } ">
 						</input>
 				<!-- /ko -->
-				<span class="help-block"><span data-bind="text: desc"></span></span>
+				<span class="help-block"><span data-bind="text: parent.desc"></span></span>
 			</div>
 		</div>
+			<!-- /ko -->
 		<!-- /ko -->
 		<a type="button" class="btn btn-danger" data-bind="attr: { href: '#/settings' + path}">Cancel</a>
 		<button type="button" class="btn btn-success" data-bind="click: save">Save</button>

@@ -21,7 +21,10 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.raw_data = JSON.parse(self.json_value)
 		self.icon = self.raw_data.icon;
 		self.desc = self.raw_data.description;
-		self.fields = self.raw_data.fields;
+		if (self.raw_data.fields)
+			self.fields = self.raw_data.fields;
+		else
+			self.fields = []
 		self.events = self.raw_data.events;
 		self.plugin = entry['info']['plugin'];
 		if (self.events && self.events.onSave) {
@@ -59,21 +62,29 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		});
 		
 		self.getInstance = function(settings) {
-			var instance = jQuery.extend(true, {}, self);
+			var instance = self; //jQuery.extend(true, {}, self);
+			instance.parent = self
 			instance.settings = settings
+			instance.save_fields = []
 			instance.fields.forEach(function (item) {
-				item.value = ko.observable()
+				var sf = {
+					"id": item.id,
+					"key": item.key,
+					"parent": item,
+					"value": ko.observable()
+				}
+				instance.save_fields.push(sf)
 			})
 			instance.get_field = function(id) {
-				for (var i = 0; i < instance.fields.length; i++) {
-					if (instance.fields[i].id == id)
-						return instance.fields[i];
+				for (var i = 0; i < instance.save_fields.length; i++) {
+					if (instance.save_fields[i].id == id)
+						return instance.save_fields[i];
 				}
 				return null;
 			}
 			instance.save = function() {
 				instance.events.onSave(instance)
-				instance.fields.forEach(function (item) {
+				instance.save_fields.forEach(function (item) {
 					if (item.key)
 						instance.settings.save_key(instance.save_path, item.key, item.value())
 				})
@@ -444,10 +455,11 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				self.add_key(path, key, value)
 		}
 		self.add_key = function(path, key, value) {
-			console.log(".. Saving: " + path + ": " + key + " = " + value)
 			var nk = new KeyEntry()
 			nk.path = path;
 			nk.key = key
+			nk.title = key
+			nk.desc = 'UNDEFINED KEY'
 			nk.value(value)
 			if (self.path_map[nk.path]) {
 				self.path_map[nk.path].akeys.push(nk)

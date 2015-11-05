@@ -24,7 +24,7 @@ define(['knockout', 'text!app/settings/tpl.html', 'app/core/settings', 'app/core
 						if (item.data.length === 0) {
 							self.fetching(self.fetching()+1);
 							exe.execute(ut.parseExecCommand(item.exec), function(s, m) {
-								if (s != 0) {
+								if (s != 0 && s != "OK") {
 									gs.warning("Failed to execute query...")
 								}
 								self.fetching(self.fetching()-1);
