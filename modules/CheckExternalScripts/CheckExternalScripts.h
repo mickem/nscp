@@ -60,4 +60,5 @@ private:
 	void add_wrapping(std::string key, std::string command);
 	std::string generate_wrapped_command(std::string command);
 	void configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	void list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 };

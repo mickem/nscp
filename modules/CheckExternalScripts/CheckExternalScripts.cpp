@@ -35,6 +35,8 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
+#include <json_spirit.h>
+
 #include <settings/config.hpp>
 
 #include <file_helpers.hpp>
@@ -210,30 +212,101 @@ bool CheckExternalScripts::unloadModule() {
 }
 
 bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	try {
-		if (request.arguments_size() > 0 && request.arguments(0) == "add")
-			add_script(request, response);
-		else if (request.arguments_size() > 0 && request.arguments(0) == "install")
-			configure(request, response);
-		else if (request.arguments_size() > 0 && request.arguments(0) == "help") {
-			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr add --help");
-		} else
-			return false;
-	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+	if (request.command() == "list") {
+		list(request, response);
+	} else if (request.command().empty()) {
+		try {
+			if (request.arguments_size() > 0 && request.arguments(0) == "add")
+				add_script(request, response);
+			else if (request.arguments_size() > 0 && request.arguments(0) == "install")
+				configure(request, response);
+			else if (request.arguments_size() > 0 && request.arguments(0) == "list")
+				list(request, response);
+			else if (request.arguments_size() > 0 && request.arguments(0) == "help") {
+				nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|install] --help");
+			} else
+				return false;
+		} catch (const std::exception &e) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+		} catch (...) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+		}
+		return true;
 	}
-	return true;
 }
 
+void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	bool json = false;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("json", po::bool_switch(&json),
+			"Return the list in json format.")
+		("include-lib", po::bool_switch(&json),
+			"Do not ignore any lib folders.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+	std::string resp;
+	boost::filesystem::path dir = get_core()->expand_path("${scripts}");
+	boost::filesystem::path rel = get_core()->expand_path("${base-path}");
+
+
+
+	boost::filesystem::recursive_directory_iterator iter(dir), eod;
+
+	json_spirit::Array data;
+	BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+		std::string s = i.string();
+		if (boost::algorithm::starts_with(s, rel.string()))
+			s = s.substr(rel.string().size());
+		if (s.size() == 0)
+			continue;
+		if (s[0] == '\\' || s[0] == '/')
+			s = s.substr(1);
+		boost::filesystem::path clone = i.parent_path();
+		if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
+			if (json) {
+				json_spirit::Value v = s;
+				data.push_back(v);
+			} else {
+				resp += s + "\n";
+			}
+
+		}
+	}
+	if (json)
+		resp = json_spirit::write(data, json_spirit::raw_utf8);
+
+	nscapi::protobuf::functions::set_response_good(*response, resp);
+}
 void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
 	std::string script, arguments, alias;
-	bool wrapped;
+	bool wrapped = false, list = false;
 
 	desc.add_options()
 		("help", "Show help.")
@@ -246,6 +319,9 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 
 		("arguments", po::value<std::string>(&arguments),
 			"Arguments for script.")
+
+		("list", po::bool_switch(&list),
+			"List all scripts in the scripts folder.")
 
 		("wrapped", po::bool_switch(&wrapped),
 			"Add this to add a wrapped script such as ps1, vbs or similar..")
