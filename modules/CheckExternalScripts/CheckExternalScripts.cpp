@@ -177,6 +177,23 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				"SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)")
 			;
 
+
+		settings.alias().add_templates()
+			("scripts", "plus", "Add a new script",
+				"Create a new script",
+				"{"
+				"\"fields\": [ "
+				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+				" { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"CheckExternalScripts list --json\" } , "
+				" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the script use $ARG1$ to specify arguments\" } , "
+				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+				" ], "
+				"\"events\": { "
+				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value() + ' ' + node.get_field('args').value())})\""
+				"}"
+				"}")
+			;
+
 		settings.register_all();
 		settings.notify();
 
