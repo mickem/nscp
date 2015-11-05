@@ -163,17 +163,24 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 				success: function (data, status, xhttp) {
 					if (data['status'] && data['status'] == "ok") {
 						clearTimeout(self.restart_waiter);
+						self.not_busy(true);
 					} else {
 						self.restart_waiter = setTimeout(self.restart_poll, 1000);
 					}
 				},
 				error: function(jqXHR, textStatus, errorThrown) {
-					gs().set_error("Failed to connect to backend")
+					self.set_error("Failed to connect to backend")
 					clearTimeout(self.restart_waiter);
-					//self.restart_waiter = setTimeout(self.restart_poll, 1000);
+					self.restart_waiter = setTimeout(self.restart_poll, 1000);
 				},
 				dataType: 'json'
 			});
+		}
+		self.reload = function() {
+			self.busy("Restarting...", "Please wait while we restart...");
+			server.json_get("/core/reload", function(data) {
+				self.schedule_restart_poll();
+			})
 		}
 		self.restart = function() {
 			self.busy("Restarting...", "Please wait while we restart...");
