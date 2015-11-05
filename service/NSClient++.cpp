@@ -691,7 +691,7 @@ bool NSClientT::do_reload(const std::string module) {
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
-				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading.");
+				LOG_DEBUG_CORE_STD(std::string("Reloading: ") + p->get_alias_or_name());
 				p->load_plugin(NSCAPI::reloadStart);
 				return true;
 			}
@@ -702,13 +702,27 @@ bool NSClientT::do_reload(const std::string module) {
 
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 	std::string task = module;
+	bool delayed = false;
 	if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
 		task = module.substr(8);
+		delayed = true;
 	} else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
 		task = module.substr(6);
+		delayed = true;
+	} else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
+		task = module.substr(8);
+		delayed = false;
+	} else if (module == "service") {
+		delayed = false;
 	}
-	scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
-	return NSCAPI::api_return_codes::isSuccess;
+	if (delayed) {
+		LOG_TRACE_CORE("Delayed reload");
+		scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
+		return NSCAPI::api_return_codes::isSuccess;
+	} else {
+		LOG_TRACE_CORE("Instant reload");
+		return do_reload(task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
+	}
 }
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {

@@ -476,7 +476,7 @@ struct client_arguments {
 					core_->simple_exec("help", arguments, resp);
 				} else if (mode == client_arguments::combined) {
 					if (ret == NSCAPI::exec_return_codes::returnOK) {
-						core_->reload("service");
+						core_->reload("instant,service");
 						ret = core_->simple_query(module, combined_query, arguments, resp);
 					} else {
 						std::cerr << "Failed to execute command, will not attempt query" << std::endl;
