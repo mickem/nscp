@@ -77,6 +77,8 @@ namespace client {
 				"\tdesc <query>\t\t-Describe a query\n"
 				"\tplugins\t\t\t-list all plugins\n"
 				"\t<any other command>\t-Will be executed as a query");
+		} else if (command == "reload") {
+			handler->get_core()->reload("delayed,service");
 		} else if (command.size() > 6 && command.substr(0, 6) == "enable") {
 			std::string name = command.substr(7);
 			bool has_errors = false;
