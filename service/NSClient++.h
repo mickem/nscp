@@ -150,7 +150,7 @@ public:
 	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 
 	NSCAPI::errorReturn reload(const std::string module);
-	bool do_reload(const bool delay, const std::string module);
+	bool do_reload(const std::string module);
 
 	struct service_controller {
 		std::string service;

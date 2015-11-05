@@ -16,6 +16,9 @@ namespace task_scheduler {
 		NSClientT::plugin_type plugin = mainClient->find_plugin(metadata.plugin_id);
 		plugin->handle_schedule("");
 	}
+	void scheduler::handle_reload(const schedule_metadata &metadata) {
+		mainClient->do_reload(metadata.info);
+	}
 	void scheduler::handle_settings() {
 		settings_manager::get_core()->house_keeping();
 		if (settings_manager::get_core()->needs_reload()) {
@@ -60,6 +63,9 @@ namespace task_scheduler {
 		} else if (metadata.source == schedule_metadata::METRICS) {
 			handle_metrics();
 			return true;
+		} else if (metadata.source == schedule_metadata::RELOAD) {
+			handle_reload(metadata);
+			return false;
 		} else {
 			on_error("Unknown source");
 			return false;

@@ -114,6 +114,9 @@ wchar_t* copyString(const std::wstring &str) {
 NSCAPI::errorReturn NSAPIReload(const char *module) {
 	try {
 		return mainClient->reload(module);
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD("Reload failed: " + utf8::utf8_from_native(e.what()));
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch (...) {
 		LOG_ERROR_STD("Reload failed");
 		return NSCAPI::api_return_codes::hasFailed;

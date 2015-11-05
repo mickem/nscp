@@ -656,19 +656,14 @@ void NSClientT::unloadPlugins() {
 	}
 }
 void NSClientT::reloadPlugins() {
-	scheduler_.stop();
 	loadPlugins(NSCAPI::reloadStart);
 	boot_load_all_plugins();
 	loadPlugins(NSCAPI::normalStart);
 	// TODO: Figure out changed set and remove/add delete/added modules.
 	settings_manager::get_core()->set_reload(false);
-	scheduler_.start();
 }
 
-bool NSClientT::do_reload(const bool delay, const std::string module) {
-	if (delay) {
-		boost::this_thread::sleep(boost::posix_time::seconds(3));
-	}
+bool NSClientT::do_reload(const std::string module) {
 	if (module == "settings") {
 		try {
 			settings_manager::get_settings()->clear_cache();
@@ -680,7 +675,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 		}
 	} else if (module == "service") {
 		try {
-			LOG_DEBUG_CORE_STD(std::string("Reloading all modules ") + (delay ? "(delayed)" : "") + ".");
+			LOG_DEBUG_CORE_STD("Reloading all modules.");
 			reloadPlugins();
 			return true;
 		} catch (const std::exception &e) {
@@ -696,7 +691,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
-				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading " + (delay ? "(delayed)" : "") + ".");
+				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading.");
 				p->load_plugin(NSCAPI::reloadStart);
 				return true;
 			}
@@ -706,17 +701,14 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 }
 
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
+	std::string task = module;
 	if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
-		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
-		delayed_thread.detach();
-		return NSCAPI::api_return_codes::isSuccess;
+		task = module.substr(8);
 	} else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
-		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
-		delayed_thread.detach();
-		return NSCAPI::api_return_codes::isSuccess;
-	} else {
-		return NSCAPI::api_ok(do_reload(false, module));
+		task = module.substr(6);
 	}
+	scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
