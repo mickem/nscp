@@ -28,9 +28,10 @@ namespace task_scheduler {
 		void start();
 		void stop();
 
-		void add_task(const schedule_metadata::task_source source, const std::string interval);
+		void add_task(const schedule_metadata::task_source source, const std::string interval, const std::string info = "");
 
-		virtual void handle_schedule(scheduled_task item);
+		virtual bool handle_schedule(scheduled_task item);
 		virtual void on_error(std::string error);
+		virtual void on_trace(std::string error);
 	};
 }

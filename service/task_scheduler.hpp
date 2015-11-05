@@ -30,8 +30,9 @@ namespace task_scheduler {
 
 	class schedule_handler {
 	public:
-		virtual void handle_schedule(scheduled_task item) = 0;
+		virtual bool handle_schedule(scheduled_task item) = 0;
 		virtual void on_error(std::string error) = 0;
+		virtual void on_trace(std::string error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -135,8 +136,8 @@ namespace task_scheduler {
 		int get_threads() const { return thread_count_; }
 
 	private:
-		void thread_proc(int id);
-		void watch_dog(int id);
+		void thread_proc(int id, boost::thread* ownThread);
+		void watch_dog(int id, boost::thread* ownThread);
 
 		void reschedule(const task_object &item);
 		void reschedule(const task_object &item, boost::posix_time::ptime now);
@@ -144,6 +145,7 @@ namespace task_scheduler {
 		void start_thread();
 
 		void log_error(std::string err);
+		void log_trace(std::string err);
 
 		inline boost::posix_time::ptime now() {
 			return boost::get_system_time();

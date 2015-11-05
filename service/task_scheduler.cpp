@@ -32,51 +32,74 @@ namespace task_scheduler {
 	}
 
 	void simple_scheduler::start() {
+		log_trace("starting all threads");
 		running_ = true;
 		start_thread();
+		log_trace("Thread pool conatins: " + strEx::s::xtos(threads_.size()));
 	}
 	void simple_scheduler::stop() {
+		log_trace("stopping all threads");
 		running_ = false;
 		stop_requested_ = true;
 		threads_.interrupt_all();
 		threads_.join_all();
+		log_trace("Thread pool conatins: " + strEx::s::xtos(threads_.size()));
 	}
 
 	void simple_scheduler::start_thread() {
 		if (!running_)
 			return;
 		stop_requested_ = false;
-		std::size_t missing_threads = thread_count_ - threads_.size();
+		std::size_t missing_threads = 0;
+		if (thread_count_ > threads_.size())
+			missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
 			for (std::size_t i = 0; i < missing_threads; i++) {
-				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
+				boost::thread* tp = new boost::thread;
+				boost::thread tmp(boost::bind(&simple_scheduler::thread_proc, this, 100 + i, tp));
+				tp->swap(tmp);
+				threads_.add_thread(tp);
 			}
 		}
-		threads_.create_thread(boost::bind(&simple_scheduler::watch_dog, this, 0));
+		boost::thread* tp = new boost::thread;
+		boost::thread tmp(boost::bind(&simple_scheduler::watch_dog, this, 0, tp));
+		threads_.add_thread(tp);
 	}
 
-	void simple_scheduler::watch_dog(int id) {
+	void simple_scheduler::watch_dog(int id, boost::thread* ownThread) {
 		schedule_queue_type::value_type instance;
 		while (!stop_requested_) {
-			instance = queue_.top();
-			if (instance) {
-				boost::posix_time::time_duration off = now() - (*instance).time;
-				if (off.total_seconds() > 5) {
-					if (thread_count_ < 10)
-						thread_count_++;
-					std::size_t missing_threads = thread_count_ - threads_.size();
-					if (missing_threads > 0) {
-						start_thread();
-					} else {
-						log_error("Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+			try {
+				instance = queue_.top();
+				if (instance) {
+					boost::posix_time::time_duration off = now() - (*instance).time;
+					if (off.total_seconds() > 5) {
+						if (thread_count_ < 10)
+							thread_count_++;
+						if (threads_.size() > thread_count_) {
+							log_error("Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+						} else {
+							std::size_t missing_threads = thread_count_ - threads_.size();
+							if (missing_threads > 0) {
+								start_thread();
+							} else {
+								log_error("Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+							}
+						}
 					}
 				}
+			} catch (const std::exception &e) {
+				log_error("Watchdog issue: " + utf8::utf8_from_native(e.what()));
+			} catch (...) {
+				log_error("Watchdog issue");
 			}
 			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));
 		}
+		log_trace("Terminating thread: " + strEx::s::xtos(id));
+		threads_.remove_thread(ownThread);
 	}
 
-	void simple_scheduler::thread_proc(int id) {
+	void simple_scheduler::thread_proc(int id, boost::thread* ownThread) {
 		try {
 			schedule_queue_type::value_type instance;
 			while (!stop_requested_) {
@@ -93,7 +116,8 @@ namespace task_scheduler {
 					if (!queue_.push(*instance))
 						log_error("Failed to push item");
 					if (stop_requested_) {
-						log_error("Terminating thread: " + strEx::s::xtos(id));
+						log_trace("Terminating thread: " + strEx::s::xtos(id));
+						threads_.remove_thread(ownThread);
 						return;
 					}
 					continue;
@@ -107,9 +131,13 @@ namespace task_scheduler {
 				op_task_object item = get_task((*instance).schedule_id);
 				if (item) {
 					try {
+						bool to_reschedule = false;
 						if (handler_)
-							handler_->handle_schedule(*item);
-						reschedule(*item, now_time);
+							to_reschedule = handler_->handle_schedule(*item);
+						if (to_reschedule)
+							reschedule(*item, now_time);
+						else
+							log_trace("Abandoning: " + item->to_string());
 					} catch (...) {
 						log_error("UNKNOWN ERROR RUNING TASK: ");
 						reschedule(*item);
@@ -123,12 +151,15 @@ namespace task_scheduler {
 		} catch (...) {
 			log_error("Exception in scheduler thread (thread will be killed)");
 		}
+		log_trace("Terminating thread: " + strEx::s::xtos(id));
+		threads_.remove_thread(ownThread);
 	}
 
 	void simple_scheduler::reschedule(const task_object &item) {
-		if (item.duration.total_seconds() == 0)
-			log_error("Not scheduling since duration is 0: " + item.to_string());
-		else
+		if (item.duration.total_seconds() == 0) {
+			log_trace("Warning scheduling task now: " + item.to_string());
+			reschedule_wnext(item.id, now() + boost::posix_time::seconds(0));
+		} else 
 			reschedule_wnext(item.id, now() + boost::posix_time::seconds(rand() % item.duration.total_seconds()));
 	}
 	void simple_scheduler::reschedule(const task_object &item, boost::posix_time::ptime now) {
@@ -147,5 +178,9 @@ namespace task_scheduler {
 	void simple_scheduler::log_error(std::string err) {
 		if (handler_)
 			handler_->on_error(err);
+	}
+	void simple_scheduler::log_trace(std::string err) {
+		if (handler_)
+			handler_->on_trace(err);
 	}
 }
