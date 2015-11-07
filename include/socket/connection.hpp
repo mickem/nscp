@@ -34,7 +34,8 @@ namespace socket_helpers {
 			typedef connection<protocol_type, N> connection_type;
 		public:
 			connection(boost::asio::io_service& io_service, boost::shared_ptr<protocol_type> protocol)
-				: strand_(io_service)
+				: is_active_(true)
+				, strand_(io_service)
 				, timer_(io_service)
 				, protocol_(protocol) {}
 			virtual ~connection() {}
@@ -64,12 +65,15 @@ namespace socket_helpers {
 					try {
 						trace("socket.shutdown()");
 						get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-						get_socket().close(ignored_ec);
+						if (get_socket().is_open())
+							get_socket().close(ignored_ec);
 					} catch (...) {}
 				}
 			}
 
 			virtual void on_done(bool all_ok) {
+				is_active_ = false;
+
 				trace(std::string("on_done(") + (all_ok ? "true" : "false") + ")");
 				try {
 					cancel_timer();
@@ -107,14 +111,17 @@ namespace socket_helpers {
 				trace("s - do_process()");
 				try {
 					if (protocol_->wants_data()) {
-						start_read_request();
+						if (is_active_)
+							start_read_request();
 					} else if (protocol_->has_data()) {
 						trace("s - has_data() == true");
 						//std::vector<boost::asio::const_buffer> buffers;
 						//buffers.push_back();
-						start_write_request(buf(protocol_->get_outbound()));
+						if (is_active_)
+							start_write_request(buf(protocol_->get_outbound()));
 					} else {
-						on_done(true);
+						if (is_active_)
+							on_done(true);
 					}
 				} catch (const std::exception &e) {
 					protocol_->log_error(__FILE__, __LINE__, "Protocol error: " + utf8::utf8_from_native(e.what()));
@@ -160,6 +167,7 @@ namespace socket_helpers {
 			}
 
 			boost::asio::io_service::strand strand_;
+			bool is_active_;
 			boost::array<char, N> buffer_;
 			boost::asio::deadline_timer timer_;
 			std::list<typename protocol_type::outbound_buffer_type> buffers_;
