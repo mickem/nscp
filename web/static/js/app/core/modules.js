@@ -162,7 +162,6 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 					}
 				})
 			}
-			console.log("===> " + path + " / " + key + " = " + value)
 		})
 
 		self.refresh_settings = function(on_done) {
