@@ -324,7 +324,6 @@ int script_wrapper::function_wrapper::handle_simple_query(const std::string cmd,
 				int ret_code = NSCAPI::query_return_codes::returnUNKNOWN;
 				if (len(ret) > 0) {
 					ret_code = extract<int>(ret[0]);
-					NSC_LOG_ERROR_STD("========>: " + strEx::s::xtos(ret_code));
 				}
 				if (len(ret) > 1)
 					msg = pystr(ret[1]);
