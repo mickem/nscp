@@ -115,7 +115,9 @@ namespace nscapi {
 	};
 
 	namespace core_api {
-		typedef void* (*lpNSAPILoader)(const char*);
+
+		typedef void(*FUNPTR)();
+		typedef FUNPTR(lpNSAPILoader)(const char*);
 
 		typedef void(*lpNSAPIDestroyBuffer)(char**);
 
