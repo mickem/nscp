@@ -785,12 +785,18 @@ void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 }
 
 bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	if (target_mode == NSCAPI::target_module || request.command() == "web") {
-		const std::string &command = request.command();
-		if (request.arguments_size() > 0 && request.arguments(0) == "install")
-			return install_server(request, response);
-		if (request.arguments_size() > 0 && request.arguments(0) == "password")
-			return password(request, response);
+	std::string command = request.command();
+	if (command == "web" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	if (command == "install")
+		return install_server(request, response);
+	else if (command == "password")
+		return password(request, response);
+	else if (target_mode == NSCAPI::target_module) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password] --help");
 		return true;
 	}
