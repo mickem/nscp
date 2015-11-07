@@ -12,6 +12,9 @@
 #include <boost/unordered_map.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
+
+#include <has-threads.hpp>
+
 namespace task_scheduler {
 	struct scheduled_task {
 		int id;
@@ -99,7 +102,7 @@ namespace task_scheduler {
 		std::size_t thread_count_;
 		schedule_handler* handler_;
 
-		boost::thread_group threads_;
+		has_threads threads_;
 		boost::mutex mutex_;
 		schedule_queue_type queue_;
 		boost::mutex idle_thread_mutex_;
@@ -136,8 +139,8 @@ namespace task_scheduler {
 		int get_threads() const { return thread_count_; }
 
 	private:
-		void thread_proc(int id, boost::thread* ownThread);
-		void watch_dog(int id, boost::thread* ownThread);
+		void thread_proc(int id);
+		void watch_dog(int id);
 
 		void reschedule(const task_object &item);
 		void reschedule(const task_object &item, boost::posix_time::ptime now);
