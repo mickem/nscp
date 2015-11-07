@@ -244,27 +244,31 @@ bool CheckExternalScripts::unloadModule() {
 }
 
 bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	if (request.command() == "list") {
-		list(request, response);
-	} else if (request.command().empty()) {
-		try {
-			if (request.arguments_size() > 0 && request.arguments(0) == "add")
-				add_script(request, response);
-			else if (request.arguments_size() > 0 && request.arguments(0) == "install")
-				configure(request, response);
-			else if (request.arguments_size() > 0 && request.arguments(0) == "list")
-				list(request, response);
-			else if (request.arguments_size() > 0 && request.arguments(0) == "help") {
-				nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|install] --help");
-			} else
-				return false;
-		} catch (const std::exception &e) {
-			nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
-		} catch (...) {
-			nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
-		}
+	std::string command = request.command();
+	if (command == "ext-scr" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	try {
+		if (command == "add")
+			add_script(request, response);
+		else if (command == "install")
+			configure(request, response);
+		else if (command == "list")
+			list(request, response);
+		else if (command == "help") {
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|install] --help");
+		} else
+			return false;
 		return true;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
 	}
+	return false;
 }
 
 void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
