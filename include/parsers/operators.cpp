@@ -11,9 +11,6 @@
 
 namespace parsers {
 	namespace where {
-		static bool debug_enabled = false;
-		static int debug_level = 15;
-
 		namespace operator_impl {
 			struct simple_bool_binary_operator_impl : public binary_operator_impl {
 				node_type evaluate(evaluation_context errors, const node_type left, const node_type right) const {

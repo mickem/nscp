@@ -141,7 +141,7 @@ int send_dump(std::string file, std::string url) {
 		std::string line, app, ver, date;
 		while (std::getline(infile, line)) {
 			std::string::size_type pos = line.find('=');
-			if (pos == -1) {
+			if (pos == std::string::npos) {
 				std::cout << "Failed to read: " << line << std::endl;
 				return -1;
 			}

@@ -359,7 +359,7 @@ public:
 		json_spirit::Array data;
 
 		std::string str_position = request.get("pos", "0");
-		int pos = strEx::s::stox<int>(str_position);
+		std::size_t pos = strEx::s::stox<std::size_t>(str_position);
 		BOOST_FOREACH(const error_handler::log_entry &e, log_data.get_errors(pos)) {
 			json_spirit::Object node;
 			node.insert(json_spirit::Object::value_type("file", e.file));
@@ -576,7 +576,7 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		std::size_t pos = obj.find("/");
-		if (pos == -1)
+		if (pos == std::string::npos)
 			return;
 		std::string target = obj.substr(0, pos);
 		std::string cmd = obj.substr(pos + 1);
@@ -722,7 +722,7 @@ error_handler::status error_handler::get_status() {
 	ret.last_error = last_error_;
 	return ret;
 }
-error_handler::log_list error_handler::get_errors(int &position) {
+error_handler::log_list error_handler::get_errors(std::size_t &position) {
 	log_list ret;
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())

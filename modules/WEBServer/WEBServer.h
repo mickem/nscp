@@ -53,7 +53,7 @@ struct error_handler {
 	void add_message(bool is_error, const log_entry &message);
 	void reset();
 	status get_status();
-	log_list get_errors(int &position);
+	log_list get_errors(std::size_t &position);
 private:
 	boost::timed_mutex mutex_;
 	log_list log_entries;
