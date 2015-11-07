@@ -431,7 +431,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 			throw NSPluginException(get_alias_or_name(), "Could not load NSModuleHelperInit");
 
 		try {
-			fModuleHelperInit(get_id(), NSAPILoader);
+			fModuleHelperInit(get_id(), &NSAPILoader);
 		} catch (...) {
 			throw NSPluginException(get_alias_or_name(), "Unhandled exception in getDescription.");
 		}

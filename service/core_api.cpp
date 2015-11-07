@@ -123,39 +123,39 @@ NSCAPI::errorReturn NSAPIReload(const char *module) {
 	}
 }
 
-void* NSAPILoader(const char* buffer) {
+nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 	if (strcmp(buffer, "NSAPIGetApplicationName") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetApplicationName);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
 	if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetApplicationVersionStr);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
 	if (strcmp(buffer, "NSAPIMessage") == 0)
-		return reinterpret_cast<void*>(&NSAPIMessage);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIMessage);
 	if (strcmp(buffer, "NSAPISimpleMessage") == 0)
-		return reinterpret_cast<void*>(&NSAPISimpleMessage);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISimpleMessage);
 	if (strcmp(buffer, "NSAPIInject") == 0)
-		return reinterpret_cast<void*>(&NSAPIInject);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIInject);
 	if (strcmp(buffer, "NSAPIExecCommand") == 0)
-		return reinterpret_cast<void*>(&NSAPIExecCommand);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIExecCommand);
 	if (strcmp(buffer, "NSAPICheckLogMessages") == 0)
-		return reinterpret_cast<void*>(&NSAPICheckLogMessages);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPICheckLogMessages);
 	if (strcmp(buffer, "NSAPINotify") == 0)
-		return reinterpret_cast<void*>(&NSAPINotify);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPINotify);
 	if (strcmp(buffer, "NSAPIDestroyBuffer") == 0)
-		return reinterpret_cast<void*>(&NSAPIDestroyBuffer);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIDestroyBuffer);
 	if (strcmp(buffer, "NSAPIExpandPath") == 0)
-		return reinterpret_cast<void*>(&NSAPIExpandPath);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIExpandPath);
 	if (strcmp(buffer, "NSAPIReload") == 0)
-		return reinterpret_cast<void*>(&NSAPIReload);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIReload);
 	if (strcmp(buffer, "NSAPIGetLoglevel") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetLoglevel);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetLoglevel);
 	if (strcmp(buffer, "NSAPISettingsQuery") == 0)
-		return reinterpret_cast<void*>(&NSAPISettingsQuery);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISettingsQuery);
 	if (strcmp(buffer, "NSAPIRegistryQuery") == 0)
-		return reinterpret_cast<void*>(&NSAPIRegistryQuery);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIRegistryQuery);
 	if (strcmp(buffer, "NSCAPIJson2Protobuf") == 0)
-		return reinterpret_cast<void*>(&NSCAPIJson2Protobuf);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
-		return reinterpret_cast<void*>(&NSCAPIProtobuf2Json);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIProtobuf2Json);
 	LOG_ERROR_STD("Function not found: " + buffer);
 	return NULL;
 }

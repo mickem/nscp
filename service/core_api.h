@@ -28,7 +28,7 @@
 // Though I think this is not the case at the moment.
 //
 
-void* NSAPILoader(const char *buffer);
+nscapi::core_api::FUNPTR NSAPILoader(const char *buffer);
 NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen);
 NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char *buffer, unsigned int bufLen);
 void NSAPIMessage(const char* data, unsigned int count);
