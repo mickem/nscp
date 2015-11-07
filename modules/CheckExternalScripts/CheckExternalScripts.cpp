@@ -35,6 +35,8 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
+#include <nscapi/nscapi_protobuf.hpp>
+
 #include <json_spirit.h>
 
 #include <settings/config.hpp>
@@ -179,8 +181,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 
 		settings.alias().add_templates()
-			("scripts", "plus", "Add a new script",
-				"Create a new script",
+			("scripts", "plus", "Add a simple script",
+				"Add binding for a simple script",
 				"{"
 				"\"fields\": [ "
 				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
@@ -189,7 +191,20 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
 				" ], "
 				"\"events\": { "
-				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value() + ' ' + node.get_field('args').value())})\""
+				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('script').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
+				"}"
+				"}")
+			("alias", "plus", "Add an alias",
+				"Add binding for an alias",
+				"{"
+				"\"fields\": [ "
+				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+				" { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
+				" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command. use $ARG1$ to specify arguments\" } , "
+				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+				" ], "
+				"\"events\": { "
+				"\"onSave\": \"(function (node) { node.save_path = self.path; \nvar f = node.get_field('cmd'); \nf.key = node.get_field('alias').value(); \nvar val = node.get_field('command').value(); \nif (node.get_field('args').value()) { \nval += ' ' + node.get_field('args').value(); }; \nf.value(val)})\""
 				"}"
 				"}")
 			;
@@ -257,14 +272,16 @@ void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &re
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	bool json = false;
+	bool json = false, query = false, lib = false;
 
 	desc.add_options()
 		("help", "Show help.")
 
 		("json", po::bool_switch(&json),
 			"Return the list in json format.")
-		("include-lib", po::bool_switch(&json),
+		("query", po::bool_switch(&query),
+			"List queries instead of scripts (for aliases).")
+		("include-lib", po::bool_switch(&lib),
 			"Do not ignore any lib folders.")
 
 		;
@@ -285,31 +302,50 @@ void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &re
 		return;
 	}
 	std::string resp;
-	boost::filesystem::path dir = get_core()->expand_path("${scripts}");
-	boost::filesystem::path rel = get_core()->expand_path("${base-path}");
-
-
-
-	boost::filesystem::recursive_directory_iterator iter(dir), eod;
-
 	json_spirit::Array data;
-	BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
-		std::string s = i.string();
-		if (boost::algorithm::starts_with(s, rel.string()))
-			s = s.substr(rel.string().size());
-		if (s.size() == 0)
-			continue;
-		if (s[0] == '\\' || s[0] == '/')
-			s = s.substr(1);
-		boost::filesystem::path clone = i.parent_path();
-		if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
-			if (json) {
-				json_spirit::Value v = s;
-				data.push_back(v);
-			} else {
-				resp += s + "\n";
-			}
 
+	if (query) {
+		Plugin::RegistryRequestMessage rrm;
+		Plugin::RegistryResponseMessage response;
+		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+		payload->mutable_inventory()->set_fetch_all(true);
+		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
+		std::string pb_response;
+		get_core()->registry_query(rrm.SerializeAsString(), pb_response);
+		response.ParseFromString(pb_response);
+		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &p, response.payload()) {
+			BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory &i, p.inventory()) {
+				if (json) {
+					json_spirit::Value v = i.name();
+					data.push_back(v);
+				} else {
+					resp += i.name() + "\n";
+				}
+			}
+		}
+	} else {
+		boost::filesystem::path dir = get_core()->expand_path("${scripts}");
+		boost::filesystem::path rel = get_core()->expand_path("${base-path}");
+		boost::filesystem::recursive_directory_iterator iter(dir), eod;
+		BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+			std::string s = i.string();
+			if (boost::algorithm::starts_with(s, rel.string()))
+				s = s.substr(rel.string().size());
+			if (s.size() == 0)
+				continue;
+			if (s[0] == '\\' || s[0] == '/')
+				s = s.substr(1);
+			boost::filesystem::path clone = i.parent_path();
+			if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
+				if (json) {
+					json_spirit::Value v = s;
+					data.push_back(v);
+				} else {
+					resp += s + "\n";
+				}
+
+			}
 		}
 	}
 	if (json)
