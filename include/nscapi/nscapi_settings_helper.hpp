@@ -402,7 +402,7 @@ namespace nscapi {
 				: icon(icon)
 				, title(title)
 				, description(description)
-				, advanced(advanced) {}
+				, advanced(false) {}
 			description_container(std::string title, std::string description)
 				: title(title)
 				, description(description)
