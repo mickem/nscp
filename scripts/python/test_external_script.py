@@ -99,6 +99,13 @@ class ExternalScriptTest(BasicTest):
 			subresult.add(self.do_one_test(script, status.UNKNOWN, 'Request contained illegal characters set /settings/external scripts/allow nasty characters=true!', ['OK', '$$$ \\ \\', '$$$ \\ \\']))
 
 			result.add(subresult)
+
+		subresult = TestResult('Upper and lower case')
+		subresult.add(self.do_one_test("tes_upper_LOWER", status.OK, 'OK: Everything is going to be fine', ['OK']))
+		subresult.add(self.do_one_test("alias_UPPER_lower", status.OK, 'OK: Everything is going to be fine', ['OK']))
+
+		result.add(subresult)
+
 		ret.add(result)
 			
 		self.conf.set_string('/settings/test_external_scripts', 'allow nasty characters', 'true')
@@ -127,6 +134,7 @@ class ExternalScriptTest(BasicTest):
 		self.conf.set_string('/settings/test_external_scripts', 'allow nasty characters', 'false')
 
 		if os.name == 'nt':
+			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_UPPER_lower', 	'scripts\\check_ok.bat')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_ok', 	'scripts\\check_ok.bat')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_long', 	'scripts\\check_long.bat')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_test', 	'scripts\\check_test.bat')
@@ -151,6 +159,7 @@ class ExternalScriptTest(BasicTest):
 			self.conf.set_string('/settings/test_external_scripts/wrappings', 'bat', 'scripts\\\\%SCRIPT% %ARGS%')
 
 		else:
+			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_UPPER_lower', 	'scripts/check_ok.sh')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_ok', 	'scripts/check_ok.sh')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_long', 	'scripts/check_long.sh')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_script_sh', 	'scripts/check_test.sh')
@@ -158,8 +167,9 @@ class ExternalScriptTest(BasicTest):
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sa_test', 		'scripts/check_test.sh "ARG1" "ARG 2" "A R G 3"')
 			self.conf.set_string('/settings/test_external_scripts/scripts', 'tes_sca_sh', 	'scripts/check_test.sh $ARG1$ "$ARG2$" "$ARG3$"')
 
-		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_alias_ok', 	'tes_script_test')
-		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_aa_ok', 	'tes_script_test  "ARG1" "ARG 2" "A R G 3"')
+		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_alias_ok', 'tes_script_test')
+		self.conf.set_string('/settings/test_external_scripts/alias', 'tes_aa_ok', 'tes_script_test  "ARG1" "ARG 2" "A R G 3"')
+		self.conf.set_string('/settings/test_external_scripts/alias', 'alias_UPPER_lower', 'tes_UPPER_lower')
 
 		self.conf.save()
 
