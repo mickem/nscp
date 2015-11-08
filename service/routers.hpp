@@ -5,7 +5,6 @@
 
 namespace nsclient {
 	struct routers : plugins_list_with_listener {
-
 		routers() : plugins_list_with_listener() {}
 
 		void add_plugin(plugin_type plugin) {

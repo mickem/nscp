@@ -32,7 +32,6 @@
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
-
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);
 #define CORE_LOG_ERROR_EXR(msg, ex) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, std::string("Exception in: ") + msg + utf8::utf8_from_native(ex.what()));
@@ -42,8 +41,6 @@ nscapi::core_wrapper* nscapi::core_helper::get_core() {
 }
 
 bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
-
-
 	std::string request, buffer;
 
 	Plugin::SubmitRequestMessage request_message;
@@ -87,8 +84,7 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf) 
-{
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf) {
 	std::string response;
 	simple_query(command, argument, response);
 	if (!response.empty()) {
@@ -102,8 +98,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
-bool nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & arguments, std::string & result) 
-{
+bool nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & arguments, std::string & result) {
 	std::string request;
 	try {
 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
@@ -113,8 +108,7 @@ bool nscapi::core_helper::simple_query(const std::string command, const std::lis
 	}
 	return get_core()->query(request, result);
 }
-bool nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) 
-{
+bool nscapi::core_helper::simple_query(const std::string command, const std::vector<std::string> & arguments, std::string & result) {
 	std::string request;
 	try {
 		nscapi::protobuf::functions::create_simple_query_request(command, arguments, request);
@@ -140,10 +134,7 @@ NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string 
 	return nscapi::protobuf::functions::parse_simple_exec_response(response, result);
 }
 
-
-
 void nscapi::core_helper::register_command(std::string command, std::string description, std::list<std::string> aliases) {
-
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 
@@ -168,7 +159,6 @@ void nscapi::core_helper::register_command(std::string command, std::string desc
 }
 
 void nscapi::core_helper::unregister_command(std::string command) {
-
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 
@@ -190,7 +180,6 @@ void nscapi::core_helper::unregister_command(std::string command) {
 }
 
 void nscapi::core_helper::register_alias(std::string command, std::string description, std::list<std::string> aliases) {
-
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 
@@ -208,14 +197,13 @@ void nscapi::core_helper::register_alias(std::string command, std::string descri
 	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
-	for (int i=0;i<response.payload_size();i++) {
+	for (int i = 0; i < response.payload_size(); i++) {
 		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + command + ": " + response.payload(i).result().message());
 	}
 }
 
-void nscapi::core_helper::register_channel(const std::string channel)
-{
+void nscapi::core_helper::register_channel(const std::string channel) {
 	Plugin::RegistryRequestMessage request;
 	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 
@@ -230,7 +218,7 @@ void nscapi::core_helper::register_channel(const std::string channel)
 	get_core()->registry_query(request.SerializeAsString(), response_string);
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(response_string);
-	for (int i=0;i<response.payload_size();i++) {
+	for (int i = 0; i < response.payload_size(); i++) {
 		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
 	}

@@ -1,4 +1,3 @@
-
 /**************************************************************************
 *   Copyright (C) 2004-2007 by Michael Medin <michael@medin.name>         *
 *                                                                         *
@@ -20,7 +19,6 @@
 *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
 ***************************************************************************/
 #pragma once
-
 
 #include <service/system_service.hpp>
 
@@ -52,11 +50,11 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  * any damage to your computer, causes your pet to fall ill, increases baldness
  * or makes your car start emitting strange noises when you start it up.
  * This code has no bugs, just undocumented features!
- * 
+ *
  * @todo Plugininfy the socket somehow ?
  * It is technically possible to make the socket a plug-in but would it be a good idea ?
  *
- * @bug 
+ * @bug
  *
  */
 class NSClientT {
@@ -82,7 +80,7 @@ private:
 	class NSException {
 		std::wstring what_;
 	public:
-		NSException(std::wstring what) : what_(what){}
+		NSException(std::wstring what) : what_(what) {}
 		std::wstring what() {
 			return what_;
 		}
@@ -108,9 +106,8 @@ private:
 
 	task_scheduler::scheduler scheduler_;
 
-
 public:
-	typedef std::multimap<std::string,std::string> plugin_alias_list_type;
+	typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 	// c-tor, d-tor
 	NSClientT();
 	virtual ~NSClientT();
@@ -135,7 +132,6 @@ public:
 	void handle_session_change(unsigned long dwSessionId, bool logon);
 #endif
 
-
 	// Member functions
 	boost::filesystem::path getBasePath();
 	boost::filesystem::path getTempPath();
@@ -154,7 +150,7 @@ public:
 	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 
 	NSCAPI::errorReturn reload(const std::string module);
-	bool do_reload(const bool delay, const std::string module);
+	bool do_reload(const std::string module);
 
 	struct service_controller {
 		std::string service;
@@ -200,12 +196,11 @@ public:
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
 
-	public:
-		void preboot_load_all_plugin_files();
+public:
+	void preboot_load_all_plugin_files();
 
-	private:
-		plugin_type addPlugin(boost::filesystem::path file, std::string alias);
+private:
+	plugin_type addPlugin(boost::filesystem::path file, std::string alias);
 };
-
 
 extern NSClient *mainClient;	// Global core instance forward declaration.

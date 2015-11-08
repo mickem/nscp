@@ -19,7 +19,6 @@
 #include <client/windows/sender/crash_report_sender.cc>
 #endif
 
-
 bool SendMinidump(std::string file, std::string product, std::string version, std::string date, std::string url, std::string &err);
 
 int archive_dump(std::string file, std::string application, std::string version, std::string date, std::string target);
@@ -28,10 +27,9 @@ int send_dump(std::string file, std::string application, std::string version, st
 int send_dump(std::string file, std::string url);
 int restart(std::string service);
 
-
 int nscp_main(int argc, wchar_t* argv[]);
 
-int main(int argc, char* argv[]) { 
+int main(int argc, char* argv[]) {
 	if (argc > 1) {
 		std::string command = argv[1];
 		if (command == "restart" && argc > 2) {
@@ -77,7 +75,6 @@ int restart(std::string service) {
 }
 
 bool write_desc(std::string file, std::string application, std::string version, std::string date) {
-
 	try {
 		std::ofstream descfile;
 		descfile.open(file.c_str());
@@ -90,7 +87,7 @@ bool write_desc(std::string file, std::string application, std::string version, 
 		return false;
 	}
 	return true;
-} 
+}
 
 int archive_dump(std::string file, std::string application, std::string version, std::string date, std::string target) {
 	try {
@@ -125,7 +122,7 @@ int send_dump_ui(std::string file, std::string application, std::string version,
 		std::string msg = "Failed sending report to server: " + application + ", " + version + "\nFile: " + file + "\nUrl: " + url;
 #ifdef WIN32
 		MessageBox(NULL, utf8::cvt<std::wstring>(msg).c_str(), L"NSClient++ Crash report", MB_OK);
-		while (MessageBox(NULL, (std::wstring(L"Failed to send crash report to report server: ") + utf8::cvt<std::wstring>(err)).c_str(), L"NSClient++ Crash report", MB_RETRYCANCEL|MB_ICONERROR) == IDRETRY) {
+		while (MessageBox(NULL, (std::wstring(L"Failed to send crash report to report server: ") + utf8::cvt<std::wstring>(err)).c_str(), L"NSClient++ Crash report", MB_RETRYCANCEL | MB_ICONERROR) == IDRETRY) {
 			if (SendMinidump(file, application, version, date, url, err))
 				break;
 		}
@@ -137,7 +134,6 @@ int send_dump_ui(std::string file, std::string application, std::string version,
 }
 
 int send_dump(std::string file, std::string url) {
-
 	try {
 		std::string desc_file = file + ".txt";
 		std::ifstream infile(desc_file.c_str());
@@ -145,16 +141,16 @@ int send_dump(std::string file, std::string url) {
 		std::string line, app, ver, date;
 		while (std::getline(infile, line)) {
 			std::string::size_type pos = line.find('=');
-			if (pos == -1) {
+			if (pos == std::string::npos) {
 				std::cout << "Failed to read: " << line << std::endl;
 				return -1;
 			}
-			if (line.substr(0,pos) == "application") {
-				app = line.substr(pos+1);
-			} else if (line.substr(0,pos) == "build-version") {
-				ver = line.substr(pos+1);
-			} else if (line.substr(0,pos) == "build-date") {
-				date = line.substr(pos+1);
+			if (line.substr(0, pos) == "application") {
+				app = line.substr(pos + 1);
+			} else if (line.substr(0, pos) == "build-version") {
+				ver = line.substr(pos + 1);
+			} else if (line.substr(0, pos) == "build-date") {
+				date = line.substr(pos + 1);
 			}
 		}
 
@@ -186,18 +182,15 @@ int send_dump(std::string file, std::string application, std::string version, st
 	return 0;
 }
 
-
-
 bool SendMinidump(std::string file, std::string product, std::string version, std::string date, std::string url, std::string &err) {
 #ifdef USE_BREAKPAD
 	google_breakpad::CrashReportSender sender(L"");
-	std::map<std::wstring,std::wstring> params;
+	std::map<std::wstring, std::wstring> params;
 	std::wstring ret;
 	params[L"prod"] = utf8::cvt<std::wstring>(product);
 	params[L"ver"] = utf8::cvt<std::wstring>(version);
 	params[L"Date"] = utf8::cvt<std::wstring>(date);
 	params[L"user-agent"] = L"NSClient++ crash reporter";
-
 
 	google_breakpad::ReportResult result = sender.SendCrashReport(utf8::cvt<std::wstring>(url), params, utf8::cvt<std::wstring>(file), &ret);
 	err = utf8::cvt<std::string>(ret);

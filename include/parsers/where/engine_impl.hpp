@@ -8,12 +8,11 @@
 
 namespace parsers {
 	namespace where {
-
 		template<class TObject>
 		struct generic_summary;
 
 		template<class TObject>
-		struct evaluation_context_impl : public parsers::where::object_factory_interface {
+		struct evaluation_context_impl : public parsers::where::object_factory_interface{
 			typedef TObject object_type;
 			typedef generic_summary<TObject>* summary_type;
 			typedef std::list<std::string> errors_type;

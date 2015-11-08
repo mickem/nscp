@@ -1,4 +1,3 @@
-
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 
@@ -11,7 +10,6 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
-
 
 namespace modern_filter {
 	struct data_container {
@@ -41,8 +39,7 @@ namespace modern_filter {
 					perfData->set_minimum(*value.minimum);
 				if (value.maximum)
 					perfData->set_maximum(*value.maximum);
-			}
-			else if (data.value_double) {
+			} else if (data.value_double) {
 				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
 				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
 				if (!data.unit.empty())
@@ -62,25 +59,20 @@ namespace modern_filter {
 
 	template<class T>
 	struct cli_helper : public  boost::noncopyable {
-
 		data_container &data;
 		boost::program_options::options_description desc;
 		const Plugin::QueryRequestMessage::Request &request;
 		Plugin::QueryResponseMessage::Response *response;
 		bool show_all;
 
-
 		cli_helper(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, data_container &data)
 			: data(data)
 			, desc("Allowed options for " + request.command())
 			, request(request)
 			, response(response)
-			, show_all(false)
-		{
-		}
+			, show_all(false) {}
 
-		~cli_helper() {
-		}
+		~cli_helper() {}
 
 		boost::program_options::options_description& get_desc() {
 			return desc;
@@ -101,39 +93,37 @@ namespace modern_filter {
 				empty_state_op->default_value(empty_state);
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
-				"Show debugging information in the log")
+					"Show debugging information in the log")
 				("show-all", boost::program_options::bool_switch(&show_all),
-				"Show debugging information in the log")
+					"Show debugging information in the log")
 				("filter", filter_op,
-				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warning", warn_op,
-				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("warn", boost::program_options::value<std::string>(),
-				"Short alias for warning")
+					"Short alias for warning")
 				("critical", crit_op,
-				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("crit", boost::program_options::value<std::string>(),
-				"Short alias for critical.")
+					"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
-				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
-				("empty-state", empty_state_op, 
-				"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
+					(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+				("empty-state", empty_state_op,
+					"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
-				"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
+					"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
 				;
-
-
 		}
 
 		bool parse_options(boost::program_options::positional_options_description p) {
 			boost::program_options::variables_map vm;
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p)) 
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p))
 				return false;
 
 			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
-			if (boost::contains(data.syntax_top, "detail_list") 
-				|| boost::contains(data.syntax_top, "(list)") 
+			if (boost::contains(data.syntax_top, "detail_list")
+				|| boost::contains(data.syntax_top, "(list)")
 				|| boost::contains(data.syntax_top, "{list}")
 				|| boost::contains(data.syntax_top, "match_list")
 				|| boost::contains(data.syntax_top, "lines")
@@ -147,12 +137,12 @@ namespace modern_filter {
 		}
 		bool parse_options() {
 			boost::program_options::variables_map vm;
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 				return false;
 			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
-			if (boost::contains(data.syntax_top, "detail_list") 
-				|| boost::contains(data.syntax_top, "(list)") 
+			if (boost::contains(data.syntax_top, "detail_list")
+				|| boost::contains(data.syntax_top, "(list)")
 				|| boost::contains(data.syntax_top, "{list}")
 				|| boost::contains(data.syntax_top, "match_list")
 				|| boost::contains(data.syntax_top, "lines")
@@ -166,12 +156,12 @@ namespace modern_filter {
 		}
 		bool parse_options(std::vector<std::string> &extra) {
 			boost::program_options::variables_map vm;
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 				return false;
 			if (show_all)
 				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
-			if (boost::contains(data.syntax_top, "detail_list") 
-				|| boost::contains(data.syntax_top, "(list)") 
+			if (boost::contains(data.syntax_top, "detail_list")
+				|| boost::contains(data.syntax_top, "(list)")
 				|| boost::contains(data.syntax_top, "{list}")
 				|| boost::contains(data.syntax_top, "match_list")
 				|| boost::contains(data.syntax_top, "lines")
@@ -237,7 +227,7 @@ namespace modern_filter {
 		}
 		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
 			std::string tk = "Top level syntax.\n"
-				"Used to format the message to return can include strings as well as special keywords such as: \n\nKey\tValue\n" + syntax + "\n"; 
+				"Used to format the message to return can include strings as well as special keywords such as: \n\nKey\tValue\n" + syntax + "\n";
 			std::string dk = "Detail level syntax.\n"
 				"This is the syntax of each item in the list of top-syntax (see above).\n"
 				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
@@ -262,7 +252,7 @@ namespace modern_filter {
 
 		void add_index(const std::string &syntax, const std::string &default_unique_syntax) {
 			std::string tk = "Unique syntax.\n"
-				"Used to filter unique items (counted will still increase but messages will not repeaters: \n\nKey\tValue\n" + syntax + "\n"; 
+				"Used to filter unique items (counted will still increase but messages will not repeaters: \n\nKey\tValue\n" + syntax + "\n";
 
 			desc.add_options()
 				("unique-index", boost::program_options::value<std::string>(&data.syntax_unique)->default_value(default_unique_syntax), tk.c_str())
@@ -277,11 +267,9 @@ namespace modern_filter {
 			//filter.end_match();
 			filter.fetch_perf(&writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
- 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
+				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
 			else
 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
 		}
-
 	};
-
 }

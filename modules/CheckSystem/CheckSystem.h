@@ -25,7 +25,6 @@
 
 #include "check_pdh.hpp"
 
-
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
@@ -38,10 +37,10 @@ private:
 	CheckMemory memoryChecker;
 	boost::shared_ptr<pdh_thread> collector;
 
-	typedef std::map<std::string,std::string> counter_map_type;
+	typedef std::map<std::string, std::string> counter_map_type;
 	counter_map_type counters;
 
-//	std::map<DWORD,std::string> lookups_;
+	//	std::map<DWORD,std::string> lookups_;
 
 	check_pdh::check pdh_checker;
 
@@ -67,7 +66,6 @@ public:
 	// Metrics
 	void fetchMetrics(Plugin::MetricsMessage::Response *response);
 
-
 	// Legacy checks
 	void checkCpu(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void checkMem(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
@@ -75,6 +73,4 @@ public:
 	void checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-
-
 };

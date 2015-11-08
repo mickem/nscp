@@ -12,7 +12,6 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
-
 static settings_manager::NSCSettingsImpl* settings_impl = NULL;
 
 namespace settings_manager {
@@ -50,7 +49,6 @@ namespace settings_manager {
 	std::string NSCSettingsImpl::expand_path(std::string file) {
 		return provider_->expand_path(file);
 	}
-
 
 	std::string NSCSettingsImpl::expand_context(const std::string &key) {
 #ifdef WIN32
@@ -99,7 +97,6 @@ namespace settings_manager {
 		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
 	}
 
-
 	bool NSCSettingsImpl::context_exists(std::string key) {
 		key = expand_context(key);
 		net::url url = net::parse(key);
@@ -136,13 +133,13 @@ namespace settings_manager {
 		std::list<std::string> order;
 		if (!key.empty()) {
 			order.push_back(key);
-		} 
+		}
 		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
 		if (boost::filesystem::is_regular_file(boot_)) {
 			get_logger()->debug("settings", __FILE__, __LINE__, "Boot.ini found in: " + boot_.string());
-			for (int i=0;i<20;i++) {
+			for (int i = 0; i < 20; i++) {
 				std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
-				if (!v.empty()) 
+				if (!v.empty())
 					order.push_back(expand_context(v));
 			}
 		}
@@ -182,7 +179,7 @@ namespace settings_manager {
 
 	void NSCSettingsImpl::set_primary(std::string key) {
 		std::list<std::string> order;
-		for (int i=0;i<20;i++) {
+		for (int i = 0; i < 20; i++) {
 			std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
 			if (!v.empty()) {
 				order.push_back(expand_context(v));
@@ -191,7 +188,7 @@ namespace settings_manager {
 		}
 		order.remove(key);
 		order.push_front(key);
-		int i=1;
+		int i = 1;
 		BOOST_FOREACH(const std::string &k, order) {
 			set_boot_string("settings", strEx::s::xtos(i++), k);
 		}
@@ -199,7 +196,6 @@ namespace settings_manager {
 		set_boot_string("main", "write", key);
 		boot(key);
 	}
-
 
 	bool NSCSettingsImpl::create_context(std::string key) {
 		try {
@@ -255,7 +251,5 @@ namespace settings_manager {
 	bool create_context(std::string key) {
 		return internal_get()->create_context(key);
 	}
-	void ensure_exists() {
-	}
-
+	void ensure_exists() {}
 }

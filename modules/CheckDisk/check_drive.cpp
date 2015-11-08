@@ -26,10 +26,7 @@
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
 
-
 const int drive_type_total = 0x77;
-
-
 
 std::string type_to_string(const int type) {
 	if (type == DRIVE_FIXED)
@@ -51,7 +48,6 @@ std::string type_to_string(const int type) {
 	return "unknown";
 }
 
-
 struct drive_container {
 	std::string id;
 	std::string letter;
@@ -69,7 +65,6 @@ struct drive_container {
 	}
 };
 
-
 struct filter_obj {
 	drive_container drive;
 	UINT drive_type;
@@ -81,7 +76,7 @@ struct filter_obj {
 	bool unreadable;
 
 	filter_obj() : drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(false) {}
-	filter_obj(const drive_container drive) 
+	filter_obj(const drive_container drive)
 		: drive(drive)
 		, drive_type(0)
 		, user_free(0)
@@ -89,27 +84,26 @@ struct filter_obj {
 		, drive_size(0)
 		, has_size(false)
 		, has_type(false)
-		, unreadable(true)
-	{};
+		, unreadable(true) {};
 
 	std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
 	std::string get_name(parsers::where::evaluation_context) const { return drive.name; }
 	std::string get_id(parsers::where::evaluation_context) const { return drive.id; }
-	std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty()?drive.id:drive.letter; }
-	std::string get_drive_or_name(parsers::where::evaluation_context) const { return drive.letter.empty()?drive.name:drive.letter; }
+	std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.id : drive.letter; }
+	std::string get_drive_or_name(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.name : drive.letter; }
 
 	long long get_user_free(parsers::where::evaluation_context context) { get_size(context); return user_free; }
 	long long get_total_free(parsers::where::evaluation_context context) { get_size(context); return total_free; }
 	long long get_drive_size(parsers::where::evaluation_context context) { get_size(context); return drive_size; }
-	long long get_total_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-total_free; }
-	long long get_user_used(parsers::where::evaluation_context context) { get_size(context); return drive_size-user_free; }
+	long long get_total_used(parsers::where::evaluation_context context) { get_size(context); return drive_size - total_free; }
+	long long get_user_used(parsers::where::evaluation_context context) { get_size(context); return drive_size - user_free; }
 
-	long long get_user_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size==0?0:(user_free*100/drive_size); }
-	long long get_total_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size==0?0:(total_free*100/drive_size); }
-	long long get_user_used_pct(parsers::where::evaluation_context context) { return 100-get_user_free_pct(context); }
-	long long get_total_used_pct(parsers::where::evaluation_context context) { return 100-get_total_free_pct(context); }
+	long long get_user_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size == 0 ? 0 : (user_free * 100 / drive_size); }
+	long long get_total_free_pct(parsers::where::evaluation_context context) { get_size(context); return drive_size == 0 ? 0 : (total_free * 100 / drive_size); }
+	long long get_user_used_pct(parsers::where::evaluation_context context) { return 100 - get_user_free_pct(context); }
+	long long get_total_used_pct(parsers::where::evaluation_context context) { return 100 - get_total_free_pct(context); }
 	long long get_is_mounted(parsers::where::evaluation_context context) {
-		return drive.is_mounted?1:0; 
+		return drive.is_mounted ? 1 : 0;
 	}
 
 	std::string get_user_free_human(parsers::where::evaluation_context context) {
@@ -136,7 +130,6 @@ struct filter_obj {
 		if (!drive.id.empty())
 			return utf8::cvt<std::wstring>(drive.id);
 		return utf8::cvt<std::wstring>(drive.letter);
-
 	}
 	long long get_type(parsers::where::evaluation_context context) {
 		if (has_type)
@@ -181,7 +174,6 @@ struct filter_obj {
 		user_free += other->user_free;
 		total_free += other->total_free;
 		drive_size += other->drive_size;
-
 	}
 	void make_total() {
 		has_size = true;
@@ -199,7 +191,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
 	std::string unit = value.get<1>();
 
 	if (unit == "%") {
-		number = (object->get_drive_size(context)*(number))/100;
+		number = (object->get_drive_size(context)*(number)) / 100;
 	} else {
 		number = format::decode_byte_units(number, unit);
 	}
@@ -212,7 +204,7 @@ parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> obje
 	std::string unit = value.get<1>();
 
 	if (unit == "%") {
-		number = (object->get_user_free(context)*number)/100;
+		number = (object->get_user_free(context)*number) / 100;
 	} else {
 		number = format::decode_byte_units(number, unit);
 	}
@@ -253,7 +245,6 @@ long long get_zero() {
 }
 typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 struct filter_obj_handler : public native_context {
-
 	static const parsers::where::value_type type_custom_total_used = parsers::where::type_custom_int_1;
 	static const parsers::where::value_type type_custom_total_free = parsers::where::type_custom_int_2;
 	static const parsers::where::value_type type_custom_user_used = parsers::where::type_custom_int_3;
@@ -270,24 +261,24 @@ struct filter_obj_handler : public native_context {
 			;
 		registry_.add_int()
 			("free", type_custom_total_free, &filter_obj::get_total_free, "Shorthand for total_free (Number of free bytes)")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
-				.add_percentage(&filter_obj::get_drive_size, "", " free %")
- 			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
-				.add_percentage(&filter_obj::get_drive_size, "", " free %")
- 			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user free")
-				.add_percentage(&filter_obj::get_drive_size, "", " user free %")
- 			("size", parsers::where::type_size, &filter_obj::get_drive_size, "Total size of drive")
- 			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
-				.add_percentage(&filter_obj::get_drive_size, "", " used %")
- 			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
-				.add_percentage(&filter_obj::get_drive_size, "", " used %")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
+			.add_percentage(&filter_obj::get_drive_size, "", " free %")
+			("total_free", type_custom_total_free, &filter_obj::get_total_free, "Number of free bytes")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " free")
+			.add_percentage(&filter_obj::get_drive_size, "", " free %")
+			("user_free", type_custom_user_free, &filter_obj::get_user_free, "Free space available to user (which runs NSClient++)")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user free")
+			.add_percentage(&filter_obj::get_drive_size, "", " user free %")
+			("size", parsers::where::type_size, &filter_obj::get_drive_size, "Total size of drive")
+			("total_used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
+			.add_percentage(&filter_obj::get_drive_size, "", " used %")
+			("used", type_custom_total_used, &filter_obj::get_total_used, "Number of used bytes")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " used")
+			.add_percentage(&filter_obj::get_drive_size, "", " used %")
 			("user_used", type_custom_user_used, &filter_obj::get_user_used, "Number of used bytes (related to user)")
-				.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user used")
-				.add_percentage(&filter_obj::get_drive_size, "", " user used %")
+			.add_scaled_byte(boost::bind(&get_zero), &filter_obj::get_drive_size, "", " user used")
+			.add_percentage(&filter_obj::get_drive_size, "", " user used %")
 			("type", type_custom_type, &filter_obj::get_type, "Type of drive")
 			("free_pct", &filter_obj::get_total_free_pct, "Shorthand for total_free_pct (% free space)")
 			("total_free_pct", &filter_obj::get_total_free_pct, "% free space")
@@ -309,7 +300,6 @@ struct filter_obj_handler : public native_context {
 			("type", &filter_obj::get_type_as_string, "")
 			;
 
-
 		registry_.add_converter()
 			(type_custom_total_free, &calculate_total_used)
 			(type_custom_total_used, &calculate_total_used)
@@ -317,28 +307,24 @@ struct filter_obj_handler : public native_context {
 			(type_custom_user_used, &calculate_user_used)
 			(type_custom_type, &convert_type)
 			;
-
 	}
 };
 
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
-
-
 
 boost::shared_ptr<filter_obj> get_details(const drive_container &drive, bool ignore_errors) {
 	return boost::make_shared<filter_obj>(drive);
 }
 
 class volume_helper {
-	typedef HANDLE (WINAPI *typeFindFirstVolumeW)( __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
-	typedef BOOL (WINAPI *typeFindNextVolumeW)( __inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
-	typedef HANDLE (WINAPI *typeFindFirstVolumeMountPointW)( __in LPCWSTR lpszRootPathName, __out_ecount(cchBufferLength) LPWSTR lpszVolumeMountPoint, __in DWORD cchBufferLength );
-	typedef BOOL (WINAPI *typeFindNextVolumeMountPointW)( __inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
-	typedef BOOL (WINAPI *typeGetVolumeNameForVolumeMountPointW)( __in LPCWSTR lpszVolumeMountPoint, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength );
-	typedef BOOL (WINAPI *typeGetVolumeInformationByHandleW)(_In_ HANDLE hFile, _Out_opt_ LPWSTR lpVolumeNameBuffer, _In_ DWORD nVolumeNameSize, _Out_opt_ LPDWORD lpVolumeSerialNumber, 
-			_Out_opt_ LPDWORD  lpMaximumComponentLength, _Out_opt_ LPDWORD lpFileSystemFlags, _Out_opt_ LPWSTR lpFileSystemNameBuffer, _In_ DWORD nFileSystemNameSize);
-	typedef BOOL (WINAPI *typeGetVolumePathNamesForVolumeNameW)(_In_ LPCTSTR lpszVolumeName, _Out_ LPTSTR lpszVolumePathNames, _In_ DWORD cchBufferLength, _Out_ PDWORD lpcchReturnLength);
-
+	typedef HANDLE(WINAPI *typeFindFirstVolumeW)(__out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef BOOL(WINAPI *typeFindNextVolumeW)(__inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef HANDLE(WINAPI *typeFindFirstVolumeMountPointW)(__in LPCWSTR lpszRootPathName, __out_ecount(cchBufferLength) LPWSTR lpszVolumeMountPoint, __in DWORD cchBufferLength);
+	typedef BOOL(WINAPI *typeFindNextVolumeMountPointW)(__inout HANDLE hFindVolume, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef BOOL(WINAPI *typeGetVolumeNameForVolumeMountPointW)(__in LPCWSTR lpszVolumeMountPoint, __out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
+	typedef BOOL(WINAPI *typeGetVolumeInformationByHandleW)(_In_ HANDLE hFile, _Out_opt_ LPWSTR lpVolumeNameBuffer, _In_ DWORD nVolumeNameSize, _Out_opt_ LPDWORD lpVolumeSerialNumber,
+		_Out_opt_ LPDWORD  lpMaximumComponentLength, _Out_opt_ LPDWORD lpFileSystemFlags, _Out_opt_ LPWSTR lpFileSystemNameBuffer, _In_ DWORD nFileSystemNameSize);
+	typedef BOOL(WINAPI *typeGetVolumePathNamesForVolumeNameW)(_In_ LPCTSTR lpszVolumeName, _Out_ LPTSTR lpszVolumePathNames, _In_ DWORD cchBufferLength, _Out_ PDWORD lpcchReturnLength);
 
 	typeFindFirstVolumeW ptrFindFirstVolumeW;
 	typeFindNextVolumeW ptrFindNextVolumeW;
@@ -350,18 +336,17 @@ class volume_helper {
 	HMODULE hLib;
 
 public:
-	typedef std::map<std::string,std::string> map_type;
+	typedef std::map<std::string, std::string> map_type;
 
 public:
-	volume_helper() 
+	volume_helper()
 		: ptrFindFirstVolumeW(NULL)
 		, ptrFindNextVolumeW(NULL)
 		, ptrFindFirstVolumeMountPointW(NULL)
 		, ptrFindNextVolumeMountPointW(NULL)
 		, ptrGetVolumeNameForVolumeMountPointW(NULL)
 		, ptrGetVolumeInformationByHandleW(NULL)
-		, ptrGetVolumePathNamesForVolumeNameW(NULL)
-	{
+		, ptrGetVolumePathNamesForVolumeNameW(NULL) {
 		hLib = ::LoadLibrary(_TEXT("KERNEL32"));
 		if (hLib) {
 			ptrFindFirstVolumeW = (typeFindFirstVolumeW)::GetProcAddress(hLib, "FindFirstVolumeW");
@@ -374,8 +359,7 @@ public:
 		}
 	}
 
-	~volume_helper() {
-	}
+	~volume_helper() {}
 
 	HANDLE FindFirstVolume(std::wstring &volume) {
 		if (ptrFindFirstVolumeW == NULL)
@@ -422,9 +406,9 @@ public:
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
 
-		if (!ptrGetVolumeInformationByHandleW(hVolume, volumeName.get(), volumeName.size(), 
+		if (!ptrGetVolumeInformationByHandleW(hVolume, volumeName.get(), volumeName.size(),
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
-				NSC_LOG_ERROR("Failed to get volume information: " + error::lookup::last_error());
+			NSC_LOG_ERROR("Failed to get volume information: " + error::lookup::last_error());
 		} else {
 			name = volumeName.get();
 			fs = fileSysName.get();
@@ -436,13 +420,13 @@ public:
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
 
-		if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(), 
+		if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(),
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
-				DWORD dwErr = GetLastError();
-				if (dwErr == ERROR_PATH_NOT_FOUND)
-					return false;
-				if (dwErr != ERROR_NOT_READY)
-					NSC_LOG_ERROR("Failed to get volume information " + utf8::cvt<std::string>(volume) + ": " + error::lookup::last_error());
+			DWORD dwErr = GetLastError();
+			if (dwErr == ERROR_PATH_NOT_FOUND)
+				return false;
+			if (dwErr != ERROR_NOT_READY)
+				NSC_LOG_ERROR("Failed to get volume information " + utf8::cvt<std::string>(volume) + ": " + error::lookup::last_error());
 		} else {
 			name = volumeName.get();
 			fs = fileSysName.get();
@@ -461,19 +445,17 @@ public:
 			return ret;
 		} else {
 			DWORD last = 0;
-			for (DWORD i=0;i<returnLen;i++) {
+			for (DWORD i = 0; i < returnLen; i++) {
 				if (buffer[i] == 0) {
 					std::wstring item = buffer.get(last);
 					if (!item.empty())
 						ret.push_back(item);
-					last = i+1;
+					last = i + 1;
 				}
 			}
 			return ret;
 		}
 	}
-
-
 
 	bool GetVolumeNameForVolumeMountPoint(std::wstring volumeMountPoint, std::wstring &volumeName) {
 		hlp::tchar_buffer buffer(1024);
@@ -538,10 +520,7 @@ public:
 		getVolumeInformation(volume, title, fs);
 		return title;
 	}
-
-
 };
-
 
 void add_missing(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, const drive_container &drive) {
 	if (!drive.letter.empty()) {
@@ -564,10 +543,9 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
 	}
 }
 
-
 void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
-	DWORD bufSize = GetLogicalDriveStrings(0, NULL)+5;
-	TCHAR *buffer = new TCHAR[bufSize+10];
+	DWORD bufSize = GetLogicalDriveStrings(0, NULL) + 5;
+	TCHAR *buffer = new TCHAR[bufSize + 10];
 	if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
 		while (buffer[0] != 0) {
 			std::wstring drv = buffer;
@@ -617,8 +595,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
 	filter_helper.get_desc().add_options()
-		("drive", po::value<std::vector<std::string>>(&drives), 
-		"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
+		("drive", po::value<std::vector<std::string>>(&drives),
+			"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
 			"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
@@ -655,8 +633,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		total_obj->make_total();
 
 	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
-		if (std::find(excludes.begin(), excludes.end(), drive.letter)!=excludes.end()
-			|| std::find(excludes.begin(), excludes.end(), drive.name)!=excludes.end())
+		if (std::find(excludes.begin(), excludes.end(), drive.letter) != excludes.end()
+			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end())
 			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
 		filter.match(obj);
@@ -675,5 +653,3 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	filter_helper.post_process(filter);
 }
-
-

@@ -11,11 +11,11 @@
 #endif
 bool is_directory(unsigned long dwAttr) {
 	if (dwAttr == INVALID_FILE_ATTRIBUTES) {
- 		return false;
-	} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY)==FILE_ATTRIBUTE_DIRECTORY) {
- 		return true;
- 	}
- 	return false;
+		return false;
+	} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
+		return true;
+	}
+	return false;
 }
 
 void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj, bool recursive, int current_level) {
@@ -26,7 +26,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	WIN32_FIND_DATA wfd;
 
 	DWORD fileAttr = GetFileAttributes(dir.wstring().c_str());
-	if ((fileAttr == INVALID_FILE_ATTRIBUTES)&&(!recursive)) {
+	if ((fileAttr == INVALID_FILE_ATTRIBUTES) && (!recursive)) {
 		context.report_error("Invalid file specified: " + dir.string());
 	} else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
 		context.report_warning("Invalid file specified: " + dir.string());
@@ -59,7 +59,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (is_directory(wfd.dwFileAttributes) && ( wcscmp(wfd.cFileName, _T(".")) == 0 || wcscmp(wfd.cFileName, _T("..")) == 0))
+			if (is_directory(wfd.dwFileAttributes) && (wcscmp(wfd.cFileName, _T(".")) == 0 || wcscmp(wfd.cFileName, _T("..")) == 0))
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
 			modern_filter::match_result ret = filter.match(info);
@@ -78,16 +78,15 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
 			if (is_directory(wfd.dwFileAttributes)) {
-				if ( (wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0) )
-					recursive_scan(filter, context, dir / wfd.cFileName, total_obj, true, current_level+1);
+				if ((wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0))
+					recursive_scan(filter, context, dir / wfd.cFileName, total_obj, true, current_level + 1);
 			}
 		} while (FindNextFile(hFind, &wfd));
 		FindClose(hFind);
 	}
 }
 
-bool file_finder::scanner_context::is_valid_level(int current_level)
-{
+bool file_finder::scanner_context::is_valid_level(int current_level) {
 	return max_depth == -1 || current_level < max_depth;
 }
 

@@ -13,6 +13,7 @@ namespace nsclient {
 		public:
 			virtual void raw(const std::string &message) = 0;
 
+			virtual void trace(const std::string &module, const char* file, const int line, const std::string &message) = 0;
 			virtual void debug(const std::string &module, const char* file, const int line, const std::string &message) = 0;
 			virtual void info(const std::string &module, const char* file, const int line, const std::string &message) = 0;
 			virtual void warning(const std::string &module, const char* file, const int line, const std::string &message) = 0;
@@ -41,7 +42,6 @@ namespace nsclient {
 
 			static void set_backend(std::string backend);
 			static void destroy();
-
 		};
 	}
 }

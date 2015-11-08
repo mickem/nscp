@@ -42,13 +42,13 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.alias().add_key_to_settings()
 		("threads", sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 5),
-		"THREAD COUNT", "Number of threads to use.")
+			"THREAD COUNT", "Number of threads to use.")
 		;
 
 	settings.alias().add_path_to_settings()
-		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)), 
-		"SCHEDULER SECTION", "Section for the Scheduler module.",
-		"SCHEDULE", "For more configuration options add a dedicated section")
+		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)),
+			"SCHEDULER SECTION", "Section for the Scheduler module.",
+			"SCHEDULE", "For more configuration options add a dedicated section")
 		;
 
 	settings.register_all();
@@ -116,7 +116,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.alias) + " mssage will not be sent.");
 				return;
 			}
-			// @todo: allow renaming of commands here item.alias, 
+			// @todo: allow renaming of commands here item.alias,
 			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id, item.source_id);
 			std::string result;
@@ -126,7 +126,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			}
 			std::string error;
 			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
-				NSC_LOG_ERROR_STD("Failed to submit " + item.alias + ": "  + error);
+				NSC_LOG_ERROR_STD("Failed to submit " + item.alias + ": " + error);
 				return;
 			}
 		} else {

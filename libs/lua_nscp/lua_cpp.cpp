@@ -17,7 +17,7 @@ extern "C" {
 #define TRUE 1
 #endif
 
-lua::Lua_State::Lua_State() : L(lua_open()) { }
+lua::Lua_State::Lua_State() : L(lua_open()) {}
 lua::Lua_State::~Lua_State() {
 	lua_close(L);
 }
@@ -34,7 +34,6 @@ int lua::lua_wrapper::append_path(const std::string &path) {
 	lua_pop(L, 1);
 	return 0;
 }
-
 
 std::string lua::lua_wrapper::get_string(int pos) {
 	std::string ret;
@@ -99,10 +98,9 @@ bool lua::lua_wrapper::get_boolean(int pos) {
 	if (is_boolean(pos))
 		return lua_toboolean(L, pos);
 	if (is_number(pos))
-		return lua_tonumber(L, pos)==1;
+		return lua_tonumber(L, pos) == 1;
 	return false;
 }
-
 
 NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 	std::string str;
@@ -110,14 +108,13 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 		pos = lua_gettop(L);
 	if (pos == 0)
 		return NSCAPI::query_return_codes::returnUNKNOWN;
-	switch (lua_type(L, pos)) 
-	{
-	case LUA_TNUMBER: 
+	switch (lua_type(L, pos)) {
+	case LUA_TNUMBER:
 		return static_cast<int>(lua_tonumber(L, pos));
 	case LUA_TSTRING:
 		return string_to_code(lua_tostring(L, pos));
 	case LUA_TBOOLEAN:
-		return lua_toboolean(L, pos)?NSCAPI::query_return_codes::returnOK:NSCAPI::query_return_codes::returnUNKNOWN;
+		return lua_toboolean(L, pos) ? NSCAPI::query_return_codes::returnOK : NSCAPI::query_return_codes::returnUNKNOWN;
 	}
 	NSC_LOG_ERROR_STD("Incorrect type: should be error, ok, warning or unknown: " + strEx::s::xtos(lua_type(L, pos)));
 	return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -126,7 +123,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 std::list<std::string> lua::lua_wrapper::get_array(const int pos) {
 	std::list<std::string> ret;
 	const int len = lua_objlen(L, pos);
-	for ( int i = 1; i <= len; ++i ) {
+	for (int i = 1; i <= len; ++i) {
 		lua_pushinteger(L, i);
 		lua_gettable(L, -2);
 		ret.push_back(get_string(-1));
@@ -134,11 +131,6 @@ std::list<std::string> lua::lua_wrapper::get_array(const int pos) {
 	}
 	return ret;
 }
-
-
-
-
-
 
 bool lua::lua_wrapper::pop_boolean() {
 	int pos = lua_gettop(L);
@@ -231,12 +223,10 @@ std::list<std::string> lua::lua_wrapper::pop_array() {
 	return ret;
 }
 
-
-
 NSCAPI::nagiosReturn lua::lua_wrapper::string_to_code(std::string str) {
-	if ((str == "critical")||(str == "crit")||(str == "error")) {
+	if ((str == "critical") || (str == "crit") || (str == "error")) {
 		return NSCAPI::query_return_codes::returnCRIT;
-	} else if ((str == "warning")||(str == "warn")) {
+	} else if ((str == "warning") || (str == "warn")) {
 		return NSCAPI::query_return_codes::returnWARN;
 	} else if (str == "ok") {
 		return NSCAPI::query_return_codes::returnOK;
@@ -246,7 +236,6 @@ NSCAPI::nagiosReturn lua::lua_wrapper::string_to_code(std::string str) {
 	NSC_LOG_ERROR_STD("Invalid code: " + str);
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
-
 
 int lua::lua_wrapper::type(int pos) {
 	if (pos == -1)
@@ -261,9 +250,8 @@ std::string lua::lua_wrapper::get_type_as_string(int pos) {
 		pos = lua_gettop(L);
 	if (pos == 0)
 		return "<EMPTY>";
-	switch (lua_type(L, pos)) 
-	{
-	case LUA_TNUMBER: 
+	switch (lua_type(L, pos)) {
+	case LUA_TNUMBER:
 		return "<NUMBER>";
 	case LUA_TSTRING:
 		return "<STRING>";
@@ -276,7 +264,6 @@ std::string lua::lua_wrapper::get_type_as_string(int pos) {
 	}
 	return "<UNKNOWN>";
 }
-
 
 void lua::lua_wrapper::push_code(NSCAPI::nagiosReturn code) {
 	if (code == NSCAPI::query_return_codes::returnOK)
@@ -292,7 +279,7 @@ void lua::lua_wrapper::push_string(std::string s) {
 	lua_pushstring(L, s.c_str());
 }
 void lua::lua_wrapper::push_boolean(bool b) {
-	lua_pushboolean(L, b?1:0);
+	lua_pushboolean(L, b ? 1 : 0);
 }
 void lua::lua_wrapper::push_int(int b) {
 	lua_pushinteger(L, b);
@@ -302,20 +289,20 @@ void lua::lua_wrapper::push_raw_string(std::string s) {
 }
 void lua::lua_wrapper::push_array(const std::list<std::string> &arr) {
 	lua_createtable(L, 0, static_cast<int>(arr.size()));
-	int i=0;
+	int i = 0;
 	BOOST_FOREACH(const std::string &s, arr) {
-		lua_pushnumber(L,i++);
-		lua_pushstring(L,s.c_str());
-		lua_settable(L,-3);
+		lua_pushnumber(L, i++);
+		lua_pushstring(L, s.c_str());
+		lua_settable(L, -3);
 	}
 }
 void lua::lua_wrapper::push_array(const std::vector<std::string> &arr) {
 	lua_createtable(L, 0, static_cast<int>(arr.size()));
-	int i=0;
+	int i = 0;
 	BOOST_FOREACH(const std::string &s, arr) {
-		lua_pushnumber(L,i++);
-		lua_pushstring(L,s.c_str());
-		lua_settable(L,-3);
+		lua_pushnumber(L, i++);
+		lua_pushstring(L, s.c_str());
+		lua_settable(L, -3);
 	}
 }
 int lua::lua_wrapper::size() {
@@ -328,8 +315,8 @@ bool lua::lua_wrapper::empty() {
 void lua::lua_wrapper::log_stack() {
 	int args = size();
 	NSC_DEBUG_MSG_STD("Invalid lua stack state, dumping stack");
-	for (int i=1;i<args+1;i++) {
-		NSC_DEBUG_MSG_STD(get_type_as_string(i) +": " + get_string(i));
+	for (int i = 1; i < args + 1; i++) {
+		NSC_DEBUG_MSG_STD(get_type_as_string(i) + ": " + get_string(i));
 	}
 }
 
@@ -346,7 +333,7 @@ lua::lua_wrapper::stack_trace lua::lua_wrapper::get_stack_trace(int level) {
 			return stack_trace(ar.short_src, ar.currentline);
 		}
 	}
-	return stack_trace("unknown",0);
+	return stack_trace("unknown", 0);
 }
 
 std::string lua::lua_wrapper::dump_stack() {
@@ -385,7 +372,6 @@ int lua::lua_wrapper::pcall(int nargs, int nresults, int errfunc) {
 	return lua_pcall(L, nargs, nresults, errfunc);
 }
 
-
 std::string lua::lua_wrapper::op_string(int pos, std::string def) {
 	return luaL_optstring(L, pos, def.c_str());
 }
@@ -399,7 +385,7 @@ std::list<std::string> lua::lua_wrapper::check_array(int pos) {
 }
 
 bool lua::lua_wrapper::check_bool(int pos) {
-	return lua_toboolean(L, pos)==TRUE;
+	return lua_toboolean(L, pos) == TRUE;
 }
 int lua::lua_wrapper::op_int(int pos, int def) {
 	return luaL_optinteger(L, pos, def);
@@ -407,8 +393,7 @@ int lua::lua_wrapper::op_int(int pos, int def) {
 int lua::lua_wrapper::checkint(int pos) {
 	return luaL_checkint(L, pos);
 }
-int lua::lua_wrapper::gc(int what, int data)
-{
+int lua::lua_wrapper::gc(int what, int data) {
 	return lua_gc(L, what, data);
 }
 

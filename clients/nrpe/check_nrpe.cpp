@@ -9,16 +9,16 @@
 
 std::string gLog = "";
 
-int main(int argc, char* argv[]) { 
+int main(int argc, char* argv[]) {
 	Plugin::QueryResponseMessage response_message;
 	std::vector<std::string> args;
-	for (int i=1;i<argc; i++) {
+	for (int i = 1; i < argc; i++) {
 		args.push_back(argv[i]);
 	}
 	Plugin::QueryRequestMessage request_message;
 	Plugin::QueryRequestMessage::Request *request = request_message.add_payload();
 	request->set_command("check_nrpe");
-	for (int i=1;i<argc;i++) {
+	for (int i = 1; i < argc; i++) {
 		request->add_arguments(argv[i]);
 	}
 
@@ -35,11 +35,10 @@ int main(int argc, char* argv[]) {
 	return 99; //response.result();
 }
 
-
 #ifdef WIN32
 boost::filesystem::path get_selfpath() {
 	wchar_t buff[4096];
-	if (GetModuleFileName(NULL, buff, sizeof(buff)-1)) {
+	if (GetModuleFileName(NULL, buff, sizeof(buff) - 1)) {
 		boost::filesystem::path p = std::wstring(buff);
 		return p.parent_path();
 	}
@@ -48,7 +47,7 @@ boost::filesystem::path get_selfpath() {
 #else
 boost::filesystem::path get_selfpath() {
 	char buff[1024];
-	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
 	if (len != -1) {
 		buff[len] = '\0';
 		boost::filesystem::path p = std::string(buff);
@@ -62,24 +61,23 @@ boost::filesystem::path getBasePath(void) {
 }
 
 #ifdef WIN32
-typedef DWORD (WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
+typedef DWORD(WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
 #endif
 boost::filesystem::path getTempPath() {
-	std::string tempPath ;
+	std::string tempPath;
 #ifdef WIN32
 	unsigned int buf_len = 4096;
 	HMODULE hKernel = ::LoadLibrary(L"kernel32");
-	if (hKernel)  
-	{
+	if (hKernel) {
 		// Find PSAPI functions
 		PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");
 		if (FGetTempPath) {
-			wchar_t* buffer = new wchar_t[buf_len+1];
+			wchar_t* buffer = new wchar_t[buf_len + 1];
 			if (FGetTempPath(buf_len, buffer)) {
 				std::wstring s = buffer;
 				tempPath = utf8::cvt<std::string>(s);
 			}
-			delete [] buffer;
+			delete[] buffer;
 		}
 	}
 #else
@@ -88,25 +86,23 @@ boost::filesystem::path getTempPath() {
 	return tempPath;
 }
 #ifdef WIN32
-#ifndef CSIDL_COMMON_APPDATA 
-#define CSIDL_COMMON_APPDATA 0x0023 
+#ifndef CSIDL_COMMON_APPDATA
+#define CSIDL_COMMON_APPDATA 0x0023
 #endif
-typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
+typedef BOOL(WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
 
 __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
 	static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
 	if (!__SHGetSpecialFolderPath) {
 		HMODULE hDLL = LoadLibrary(L"shfolder.dll");
 		if (hDLL != NULL)
-			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL, "SHGetSpecialFolderPathW");
 	}
-	if(__SHGetSpecialFolderPath)
+	if (__SHGetSpecialFolderPath)
 		return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
 	return FALSE;
 }
 #endif
-
-
 
 struct stdout_client_handler : public socket_helpers::client::client_handler {
 	void log_debug(std::string, int, std::string msg) const {
@@ -117,7 +113,6 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 		if (gLog == "debug" || gLog == "error")
 			std::cout << msg << std::endl;
 	}
-
 
 	std::string getFolder(std::string key) {
 		std::string default_value = getBasePath().string();
@@ -142,10 +137,10 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 		}
 #ifdef WIN32
 		else if (key == "common-appdata") {
-			wchar_t buf[MAX_PATH+1];
+			wchar_t buf[MAX_PATH + 1];
 			if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
 				default_value = utf8::cvt<std::string>(buf);
-			else 
+			else
 				default_value = getBasePath().string();
 		}
 #else
@@ -161,12 +156,12 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 		while (pos != std::string::npos) {
 			std::string::size_type pstart = file.find('{', pos);
 			std::string::size_type pend = file.find('}', pstart);
-			std::string key = file.substr(pstart+1, pend-2);
+			std::string key = file.substr(pstart + 1, pend - 2);
 
 			std::string tmp = file;
 			strEx::replace(file, "${" + key + "}", getFolder(key));
 			if (file == tmp)
-				pos = file.find_first_of('$', pos+1);
+				pos = file.find_first_of('$', pos + 1);
 			else
 				pos = file.find_first_of('$');
 		}
@@ -183,8 +178,8 @@ bool test(client::destination_container &source, client::destination_container &
 boost::program_options::options_description add_client_options(client::destination_container &source, client::destination_container &destination) {
 	po::options_description desc("Client options");
 	desc.add_options()
-		("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", _1)), 
-		"Set log level")
+		("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", _1)),
+			"Set log level")
 		;
 	return desc;
 }
@@ -194,7 +189,6 @@ check_nrpe::check_nrpe() : client_("nrpe", boost::make_shared<nrpe_client_handle
 	client_.client_desc = &add_client_options;
 	client_.client_pre = &test;
 }
-
 
 void check_nrpe::query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	client_.do_query(request, response);

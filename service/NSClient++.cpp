@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 // NSClient++ Base Service
-// 
+//
 // Copyright (c) 2004 MySolutions NORDIC (http://www.medin.name)
 //
 // Date: 2004-03-13
@@ -23,7 +23,6 @@
 #include <shellapi.h>
 #endif
 
-
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <timer.hpp>
@@ -41,12 +40,13 @@
 
 #include <config.h>
 
+#include <json_spirit.h>
+
 #ifdef WIN32
 #include <ServiceCmd.h>
 #include <com_helpers.hpp>
 com_helper::initialize_com com_helper_;
 #endif
-
 
 #ifdef USE_BREAKPAD
 #include <breakpad/exception_handler_win32.hpp>
@@ -64,6 +64,10 @@ NSClient *mainClient = NULL;	// Global core instance.
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::string(msg))
 #define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg);}
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
+#define IS_LOG_DEBUG_CORE(msg) { if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug))
+#define LOG_TRACE_CORE(msg) { nsclient::logging::logger::get_logger()->trace("core", __FILE__, __LINE__, msg);}
+#define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
+#define IS_LOG_TRACE_CORE(msg) if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::trace))
 
 /**
  * Application startup point
@@ -76,30 +80,29 @@ NSClient *mainClient = NULL;	// Global core instance.
 int nscp_main(int argc, char* argv[]);
 
 #ifdef WIN32
-int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) { 
+int wmain(int argc, wchar_t* argv[], wchar_t* envp[]) {
 	char **wargv = new char*[argc];
-	for (int i=0;i<argc;i++) {
+	for (int i = 0; i < argc; i++) {
 		std::string s = utf8::cvt<std::string>(argv[i]);
-		wargv[i] = new char[s.length()+10];
-		strncpy(wargv[i], s.c_str(), s.size()+1);
+		wargv[i] = new char[s.length() + 10];
+		strncpy(wargv[i], s.c_str(), s.size() + 1);
 	}
-	int ret = nscp_main(argc, wargv); 
-	for (int i=0;i<argc;i++) {
-		delete [] wargv[i];
+	int ret = nscp_main(argc, wargv);
+	for (int i = 0; i < argc; i++) {
+		delete[] wargv[i];
 	}
-	delete [] wargv;
+	delete[] wargv;
 	return ret;
 }
 #else
-int main(int argc, char* argv[]) { 
-	return nscp_main(argc, argv); 
+int main(int argc, char* argv[]) {
+	return nscp_main(argc, argv);
 }
 #endif
 
-int nscp_main(int argc, char* argv[])
-{
+int nscp_main(int argc, char* argv[]) {
 	mainClient = new NSClient();
-	srand( (unsigned)time( NULL ) );
+	srand((unsigned)time(NULL));
 	cli_parser parser(mainClient);
 	int exit = parser.parse(argc, argv);
 	delete mainClient;
@@ -111,7 +114,7 @@ std::list<std::string> NSClientT::list_commands() {
 }
 
 bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
-	std::pair<std::string,std::string> v;
+	std::pair<std::string, std::string> v;
 	BOOST_FOREACH(v, ret.equal_range(alias)) {
 		if (v.second == plugin)
 			return true;
@@ -119,22 +122,20 @@ bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::string alias, 
 	return false;
 }
 
-NSClientT::NSClientT() 
+NSClientT::NSClientT()
 	: enable_shared_session_(false)
 	, next_plugin_id_(0)
-	, service_name_(DEFAULT_SERVICE_NAME) 
-{
-		nsclient::logging::logger::startup();
+	, service_name_(DEFAULT_SERVICE_NAME) {
+	nsclient::logging::logger::startup();
 }
 
 NSClientT::~NSClientT() {
 	try {
 		nsclient::logging::logger::destroy();
-	} catch(...) {
+	} catch (...) {
 		std::cerr << "UNknown exception raised: When destroying logger" << std::endl;
 	}
 }
-
 
 NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 	plugin_alias_list_type ret;
@@ -151,10 +152,10 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 			plugin = alias;
 			alias = "";
 		} else if (alias == "enabled" || alias == "1") {
-				alias = "";
+			alias = "";
 		} else if ((active && plugin == "disabled") || (active && alias == "disabled"))
 			continue;
-		 else if ((active && plugin == "0") || (active && alias == "0"))
+		else if ((active && plugin == "0") || (active && alias == "0"))
 			continue;
 		else if (plugin == "disabled" || plugin == "0") {
 			plugin = alias;
@@ -172,17 +173,17 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		} else {
 			LOG_DEBUG_CORE_STD("Found: " + plugin + " as " + alias);
 		}
-		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == ".dll")
-			plugin = plugin.substr(0, plugin.length()-4);
+		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
+			plugin = plugin.substr(0, plugin.length() - 4);
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
 	if (!active) {
 		boost::filesystem::path pluginPath = expand_path("${module-path}");
 		boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
-		for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
-			if ( !is_directory(itr->status()) ) {
-				boost::filesystem::path file= itr->path().filename();
-				if (NSCPlugin::is_module(pluginPath  / file)) {
+		for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
+			if (!is_directory(itr->status())) {
+				boost::filesystem::path file = itr->path().filename();
+				if (NSCPlugin::is_module(pluginPath / file)) {
 					const std::string module = NSCPlugin::file_to_module(file);
 					if (!contains_plugin(ret, "", module))
 						ret.insert(plugin_alias_list_type::value_type("", module));
@@ -233,7 +234,6 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 	}
 };
 
-
 nscp_settings_provider provider;
 
 namespace sh = nscapi::settings_helper;
@@ -258,7 +258,6 @@ bool NSClientT::boot_init(const bool override_log) {
 
 	nsclient::logging::logger::configure();
 
-
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " booting...");
 	LOG_DEBUG_CORE("Booted settings subsystem...");
 
@@ -267,52 +266,50 @@ bool NSClientT::boot_init(const bool override_log) {
 	bool crash_restart = false;
 	std::string crash_url, crash_folder, crash_target, log_level;
 	try {
-
 		sh::settings_registry settings(settings_manager::get_proxy());
 
 		settings.add_path()
-			(MAIN_MODULES_SECTION,			"MODULES", "A list of modules.")
+			(MAIN_MODULES_SECTION, "MODULES", "A list of modules.")
 			;
 
 		settings.add_path_to_settings()
-			("log",				"LOG SETTINGS", "Section for configuring the log handling.")
-			("shared session",	"SHRED SESSION", "Section for configuring the shared session.")
-			("crash",			"CRASH HANDLER", "Section for configuring the crash handler.")
+			("log", "LOG SETTINGS", "Section for configuring the log handling.")
+			("shared session", "SHRED SESSION", "Section for configuring the shared session.")
+			("crash", "CRASH HANDLER", "Section for configuring the crash handler.")
 			;
 
 		settings.add_key_to_settings("log")
 			("level", sh::string_key(&log_level, "info"),
-			"LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
+				"LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
 			;
 
 		settings.add_key_to_settings("shared session")
-			("enabled", sh::bool_key(&enable_shared_session_ , false),
-			"ENABLE THE SAHRED SESSION", "This is currently not added in 0.4.x")
+			("enabled", sh::bool_key(&enable_shared_session_, false),
+				"ENABLE THE SAHRED SESSION", "This is currently not added in 0.4.x")
 			;
 
 		settings.add_key_to_settings("crash")
 			("submit", sh::bool_key(&crash_submit, false),
-			"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
+				"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
 
 			("archive", sh::bool_key(&crash_archive, true),
-			"ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
+				"ARCHIVE CRASHREPORTS", "Archive crash reports in the archive folder")
 
 			("restart", sh::bool_key(&crash_restart, true),
-			"RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
+				"RESTART", "Submit crash reports to nsclient.org (or your configured submission server)")
 
 			("restart target", sh::string_key(&crash_target, utf8::cvt<std::string>(get_service_control().get_service_name())),
-			"RESTART SERVICE NAME", "The url to submit crash reports to")
+				"RESTART SERVICE NAME", "The url to submit crash reports to")
 
 			("submit url", sh::string_key(&crash_url, CRASH_SUBMIT_URL),
-			"SUBMISSION URL", "The url to submit crash reports to")
+				"SUBMISSION URL", "The url to submit crash reports to")
 
 			("archive folder", sh::path_key(&crash_folder, CRASH_ARCHIVE_FOLDER),
-			"CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
+				"CRASH ARCHIVE LOCATION", "The folder to archive crash dumps in")
 			;
 
 		settings.register_all();
 		settings.notify();
-
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD("Could not find settings: " + e.reason());
 	}
@@ -349,48 +346,47 @@ bool NSClientT::boot_init(const bool override_log) {
 		}
 	}
 #else
-//	LOG_ERROR_CORE("Warning Not compiled with google breakpad support!");
+	//	LOG_ERROR_CORE("Warning Not compiled with google breakpad support!");
 #endif
-
 
 	if (enable_shared_session_) {
 		LOG_INFO_CORE("shared session not ported yet!...");
-// 		if (boot) {
-// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
-// 			try {
-// 				shared_server_.reset(new nsclient_session::shared_server_session(this));
-// 				if (!shared_server_->session_exists()) {
-// 					shared_server_->create_new_session();
-// 				} else {
-// 					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
-// 				}
-// 				startTrayIcons();
-// 			} catch (nsclient_session::session_exception e) {
-// 				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
-// 				shared_server_.reset(NULL);
-// 			} catch (...) {
-// 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
-// 				shared_server_.reset(NULL);
-// 			}
-// 		} else {
-// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
-// 			try {
-// 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
-// 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
-// 				if (shared_client_->session_exists()) {
-// 					shared_client_->attach_to_session(id);
-// 				} else {
-// 					LOG_ERROR_STD(_T("No session was found cant attach!"));
-// 				}
-// 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
-// 			} catch (nsclient_session::session_exception e) {
-// 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
-// 				shared_client_.reset(NULL);
-// 			} catch (...) {
-// 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
-// 				shared_client_.reset(NULL);
-// 			}
-// 		}
+		// 		if (boot) {
+		// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
+		// 			try {
+		// 				shared_server_.reset(new nsclient_session::shared_server_session(this));
+		// 				if (!shared_server_->session_exists()) {
+		// 					shared_server_->create_new_session();
+		// 				} else {
+		// 					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
+		// 				}
+		// 				startTrayIcons();
+		// 			} catch (nsclient_session::session_exception e) {
+		// 				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
+		// 				shared_server_.reset(NULL);
+		// 			} catch (...) {
+		// 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
+		// 				shared_server_.reset(NULL);
+		// 			}
+		// 		} else {
+		// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
+		// 			try {
+		// 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
+		// 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
+		// 				if (shared_client_->session_exists()) {
+		// 					shared_client_->attach_to_session(id);
+		// 				} else {
+		// 					LOG_ERROR_STD(_T("No session was found cant attach!"));
+		// 				}
+		// 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
+		// 			} catch (nsclient_session::session_exception e) {
+		// 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
+		// 				shared_client_.reset(NULL);
+		// 			} catch (...) {
+		// 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
+		// 				shared_client_.reset(NULL);
+		// 			}
+		// 		}
 	}
 #ifdef WIN32
 	try {
@@ -419,7 +415,7 @@ bool NSClientT::boot_load_all_plugins() {
 			boost::filesystem::path module = pluginPath / file;
 			try {
 				addPlugin(module, alias);
-			} catch(const NSPluginException& e) {
+			} catch (const NSPluginException& e) {
 				if (e.file().find("FileLogger") != std::string::npos) {
 					LOG_DEBUG_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
 				} else {
@@ -445,8 +441,8 @@ bool NSClientT::boot_load_all_plugins() {
 
 bool NSClientT::boot_load_plugin(std::string plugin, bool boot) {
 	try {
-		if (plugin.length() > 4 && plugin.substr(plugin.length()-4) == ".dll")
-			plugin = plugin.substr(0, plugin.length()-4);
+		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
+			plugin = plugin.substr(0, plugin.length() - 4);
 
 		std::string plugin_file = NSCPlugin::get_plugin_file(plugin);
 		boost::filesystem::path pluginPath = expand_path("${module-path}");
@@ -481,16 +477,16 @@ bool NSClientT::boot_load_plugin(std::string plugin, bool boot) {
 		return true;
 	} catch (const NSPluginException &e) {
 		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
-	} catch(const std::exception &e) {
+	} catch (const std::exception &e) {
 		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
-	} catch(...) {
+	} catch (...) {
 		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
 	}
 	return false;
 }
 bool NSClientT::boot_start_plugins(bool boot) {
 	try {
-		loadPlugins(boot?NSCAPI::normalStart:NSCAPI::dontStart);
+		loadPlugins(boot ? NSCAPI::normalStart : NSCAPI::dontStart);
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception loading plugins");
 		return false;
@@ -545,9 +541,9 @@ bool NSClientT::stop_unload_plugins_pre() {
 	try {
 		LOG_DEBUG_CORE("Stopping all plugins");
 		mainClient->unloadPlugins();
-	} catch(NSPluginException e) {
+	} catch (NSPluginException e) {
 		LOG_ERROR_CORE_STD("Exception raised when unloading non msg plguins: " + e.reason() + " in module: " + e.file());
-	} catch(...) {
+	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception raised when unloading non msg plugins");
 	}
 	return true;
@@ -575,33 +571,33 @@ bool NSClientT::stop_exit_pre() {
 	*/
 	LOG_DEBUG_CORE("Stopping: Settings instance");
 	settings_manager::destroy_settings();
-// 	try {
-// 		if (shared_client_.get() != NULL) {
-// 			LOG_DEBUG_STD(_T("Stopping: shared client"));
-// 			shared_client_->set_handler(NULL);
-// 			shared_client_->close_session();
-// 		}
-// 	} catch(nsclient_session::session_exception &e) {
-// 		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
-// 	} catch(...) {
-// 		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
-// 	}
-// 	try {
-// 		if (shared_server_.get() != NULL) {
-// 			LOG_DEBUG_STD(_T("Stopping: shared server"));
-// 			shared_server_->set_handler(NULL);
-// 			shared_server_->close_session();
-// 		}
-// 	} catch(...) {
-// 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
-// 	}
+	// 	try {
+	// 		if (shared_client_.get() != NULL) {
+	// 			LOG_DEBUG_STD(_T("Stopping: shared client"));
+	// 			shared_client_->set_handler(NULL);
+	// 			shared_client_->close_session();
+	// 		}
+	// 	} catch(nsclient_session::session_exception &e) {
+	// 		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
+	// 	} catch(...) {
+	// 		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
+	// 	}
+	// 	try {
+	// 		if (shared_server_.get() != NULL) {
+	// 			LOG_DEBUG_STD(_T("Stopping: shared server"));
+	// 			shared_server_->set_handler(NULL);
+	// 			shared_server_->close_session();
+	// 		}
+	// 	} catch(...) {
+	// 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
+	// 	}
 	return true;
 }
 bool NSClientT::stop_exit_post() {
 	try {
 		nsclient::logging::logger::shutdown();
 		google::protobuf::ShutdownProtobufLibrary();
-	} catch(...) {
+	} catch (...) {
 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
 	}
 	return true;
@@ -623,8 +619,6 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
-
-
 /**
  * Unload all plug-ins (in reversed order)
  */
@@ -642,9 +636,9 @@ void NSClientT::unloadPlugins() {
 			try {
 				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
 				p->unload_plugin();
-			} catch(const NSPluginException &e) {
+			} catch (const NSPluginException &e) {
 				LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
-			} catch(...) {
+			} catch (...) {
 				LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
 			}
 		}
@@ -662,36 +656,31 @@ void NSClientT::unloadPlugins() {
 	}
 }
 void NSClientT::reloadPlugins() {
-	scheduler_.stop();
 	loadPlugins(NSCAPI::reloadStart);
 	boot_load_all_plugins();
 	loadPlugins(NSCAPI::normalStart);
 	// TODO: Figure out changed set and remove/add delete/added modules.
 	settings_manager::get_core()->set_reload(false);
-	scheduler_.start();
 }
 
-bool NSClientT::do_reload(const bool delay, const std::string module) {
-	if (delay) {
-		boost::this_thread::sleep(boost::posix_time::seconds(3));
-	}
+bool NSClientT::do_reload(const std::string module) {
 	if (module == "settings") {
 		try {
 			settings_manager::get_settings()->clear_cache();
 			return true;
-		} catch(const std::exception &e) {
+		} catch (const std::exception &e) {
 			LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
-		} catch(...) {
+		} catch (...) {
 			LOG_ERROR_CORE("Exception raised when reloading: UNKNOWN");
 		}
 	} else if (module == "service") {
 		try {
-			LOG_DEBUG_CORE_STD(std::string("Reloading all modules ") + (delay?"(delayed)":"") + ".");
+			LOG_DEBUG_CORE_STD("Reloading all modules.");
 			reloadPlugins();
 			return true;
-		} catch(const std::exception &e) {
+		} catch (const std::exception &e) {
 			LOG_ERROR_CORE_STD("Exception raised when reloading: " + utf8::utf8_from_native(e.what()));
-		} catch(...) {
+		} catch (...) {
 			LOG_ERROR_CORE("Exception raised when reloading: UNKNOWN");
 		}
 	} else {
@@ -702,7 +691,7 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 		}
 		BOOST_FOREACH(plugin_type &p, plugins_) {
 			if (p->get_alias() == module) {
-				LOG_DEBUG_CORE_STD(std::string("Found module: ") + p->get_alias_or_name() + ", reloading " + (delay?"(delayed)":"") + ".");
+				LOG_DEBUG_CORE_STD(std::string("Reloading: ") + p->get_alias_or_name());
 				p->load_plugin(NSCAPI::reloadStart);
 				return true;
 			}
@@ -711,18 +700,28 @@ bool NSClientT::do_reload(const bool delay, const std::string module) {
 	return false;
 }
 
-
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
-	if (module.size() > 8 && module.substr(0,8) == "delayed,") {
-		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(8)));
-		delayed_thread.detach();
-		return NSCAPI::api_return_codes::isSuccess;
-	} else if (module.size() > 6 && module.substr(0,6) == "delay,") {
-		boost::thread delayed_thread(boost::bind(&NSClientT::do_reload, this, true, module.substr(6)));
-		delayed_thread.detach();
+	std::string task = module;
+	bool delayed = false;
+	if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
+		task = module.substr(8);
+		delayed = true;
+	} else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
+		task = module.substr(6);
+		delayed = true;
+	} else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
+		task = module.substr(8);
+		delayed = false;
+	} else if (module == "service") {
+		delayed = false;
+	}
+	if (delayed) {
+		LOG_TRACE_CORE("Delayed reload");
+		scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
 		return NSCAPI::api_return_codes::isSuccess;
 	} else {
-		return NSCAPI::api_ok(do_reload(false, module));
+		LOG_TRACE_CORE("Instant reload");
+		return do_reload(task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
@@ -760,10 +759,10 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 				LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 				return;
 			}
-			for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
+			for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
 				if (broken.find((*it)->get_id()) != broken.end())
 					it = plugins_.erase(it);
-				else 
+				else
 					++it;
 			}
 		}
@@ -771,7 +770,7 @@ void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 }
 /**
  * Load and add a plugin to various internal structures
- * @param plugin The plug-in instance to load. The pointer is managed by the 
+ * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::string alias) {
 	{
@@ -794,9 +793,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 				return plug;
 			}
 		}
-
 	}
-
 
 	plugin_type plugin(new NSCPlugin(next_plugin_id_++, file.normalize(), alias));
 	plugin->load_dll();
@@ -824,7 +821,6 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 	}
 	return plugin;
 }
-
 
 std::string NSClientT::describeCommand(std::string command) {
 	return commands_.describe(command).description;
@@ -929,7 +925,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 				if (!response_message.has_header()) {
 					response_message.mutable_header()->CopyFrom(local_response_message.header());
 				}
-				for (int i=0;i<local_response_message.payload_size();i++) {
+				for (int i = 0; i < local_response_message.payload_size(); i++) {
 					response_message.add_payload()->CopyFrom(local_response_message.payload(i));
 				}
 			}
@@ -944,7 +940,6 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 	}
 	return NSCAPI::cmd_return_codes::isSuccess;
 }
-
 
 int NSClientT::load_and_run(std::string module, run_function fun, std::list<std::string> &errors) {
 	int ret = -1;
@@ -993,10 +988,10 @@ int NSClientT::load_and_run(std::string module, run_function fun, std::list<std:
 			}
 		} catch (const NSPluginException &e) {
 			errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
-		} catch(const std::exception &e) {
+		} catch (const std::exception &e) {
 			errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
 			return 1;
-		} catch(...) {
+		} catch (...) {
 			errors.push_back("Module (" + module + ") was not found...");
 			return 1;
 		}
@@ -1022,7 +1017,7 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 	std::string::size_type pos = command.find('.');
 	if (pos != std::string::npos) {
 		module = command.substr(0, pos);
-		command = command.substr(pos+1);
+		command = command.substr(pos + 1);
 	}
 	nscapi::protobuf::functions::create_simple_exec_request(module, command, arguments, request);
 	int ret = load_and_run(module, boost::bind(&exec_helper, _1, command, arguments, request, &responses), errors);
@@ -1044,13 +1039,13 @@ int NSClientT::simple_exec(std::string command, std::vector<std::string> argumen
 }
 int query_helper(NSClientT::plugin_type plugin, std::string command, std::vector<std::string> arguments, std::string request, std::list<std::string> *responses) {
 	return NSCAPI::cmd_return_codes::returnIgnored;
-// 	std::string response;
-// 	if (!plugin->hasCommandHandler())
-// 		return NSCAPI::returnIgnored;
-// 	int ret = plugin->handleCommand(command.c_str(), request, response);
-// 	if (ret != NSCAPI::returnIgnored && !response.empty())
-// 		responses->push_back(response);
-// 	return ret;
+	// 	std::string response;
+	// 	if (!plugin->hasCommandHandler())
+	// 		return NSCAPI::returnIgnored;
+	// 	int ret = plugin->handleCommand(command.c_str(), request, response);
+	// 	if (ret != NSCAPI::returnIgnored && !response.empty())
+	// 		responses->push_back(response);
+	// 	return ret;
 }
 
 int NSClientT::simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp) {
@@ -1103,11 +1098,14 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 		}
 		BOOST_FOREACH(plugin_type p, plugins_) {
 			if (p && p->has_command_line_exec()) {
+				IS_LOG_TRACE_CORE() {
+					LOG_TRACE_CORE("Trying : " + p->get_alias_or_name());
+				}
 				try {
 					if (match_all || match_any || p->get_alias() == target || p->get_alias_or_name().find(target) != std::string::npos) {
 						std::string respbuffer;
 						LOG_DEBUG_CORE_STD("Executing command in: " + p->getName());
-						NSCAPI::nagiosReturn r = p->commandLineExec(! (match_all || match_any), request, respbuffer);
+						NSCAPI::nagiosReturn r = p->commandLineExec(!(match_all || match_any), request, respbuffer);
 						if (r != NSCAPI::cmd_return_codes::returnIgnored && !respbuffer.empty()) {
 							LOG_DEBUG_CORE_STD("Module handled execution request: " + p->getName());
 							found = true;
@@ -1131,7 +1129,7 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 	BOOST_FOREACH(std::string r, responses) {
 		Plugin::ExecuteResponseMessage tmp;
 		tmp.ParseFromString(r);
-		for (int i=0;i<tmp.payload_size();i++) {
+		for (int i = 0; i < tmp.payload_size(); i++) {
 			Plugin::ExecuteResponseMessage::Response *r = response_message.add_payload();
 			r->CopyFrom(tmp.payload(i));
 		}
@@ -1141,7 +1139,6 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 		return NSCAPI::cmd_return_codes::isSuccess;
 	return NSCAPI::cmd_return_codes::returnIgnored;
 }
-
 
 NSCAPI::errorReturn NSClientT::reroute(std::string &channel, std::string &buffer) {
 	BOOST_FOREACH(nsclient::plugin_type p, routers_.get(channel)) {
@@ -1190,7 +1187,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	std::string schannel = channel;
 	try {
 		int count = 0;
-		while (reroute(schannel, request)==NSCAPI::message::routed && count++ <= 10) {
+		while (reroute(schannel, request) == NSCAPI::message::routed && count++ <= 10) {
 			LOG_DEBUG_CORE_STD("Re-routing message to: " + schannel);
 		}
 		if (count >= 10) {
@@ -1210,11 +1207,11 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 		if (cur_chan == "log") {
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
-			for (int i=0;i<msg.payload_size();i++) {
+			for (int i = 0; i < msg.payload_size(); i++) {
 				LOG_INFO_CORE("Logging notification: " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i)));
 			}
 			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO",  Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
 			continue;
 		}
 		try {
@@ -1279,7 +1276,7 @@ void NSClientT::listPlugins() {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return;
 	}
-	for (pluginList::iterator it=plugins_.begin(); it != plugins_.end(); ++it) {
+	for (pluginList::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
 		try {
 			if ((*it)->isBroken()) {
 				std::cout << (*it)->getModule() << ": " << "broken" << std::endl;
@@ -1294,7 +1291,7 @@ void NSClientT::listPlugins() {
 #ifdef WIN32
 boost::filesystem::path get_selfpath() {
 	wchar_t buff[4096];
-	if (GetModuleFileName(NULL, buff, sizeof(buff)-1)) {
+	if (GetModuleFileName(NULL, buff, sizeof(buff) - 1)) {
 		boost::filesystem::path p = std::wstring(buff);
 		return p.parent_path();
 	}
@@ -1303,7 +1300,7 @@ boost::filesystem::path get_selfpath() {
 #else
 boost::filesystem::path get_selfpath() {
 	char buff[1024];
-	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff)-1);
+	ssize_t len = ::readlink("/proc/self/exe", buff, sizeof(buff) - 1);
 	if (len != -1) {
 		buff[len] = '\0';
 		boost::filesystem::path p = std::string(buff);
@@ -1332,7 +1329,7 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 }
 
 #ifdef WIN32
-typedef DWORD (WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
+typedef DWORD(WINAPI *PFGetTempPath)(__in DWORD nBufferLength, __out  LPTSTR lpBuffer);
 #endif
 boost::filesystem::path NSClientT::getTempPath() {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -1345,16 +1342,15 @@ boost::filesystem::path NSClientT::getTempPath() {
 #ifdef WIN32
 	unsigned int buf_len = 4096;
 	HMODULE hKernel = ::LoadLibrary(_TEXT("kernel32"));
-	if (hKernel)  
-	{
+	if (hKernel) {
 		// Find PSAPI functions
 		PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");
 		if (FGetTempPath) {
-			wchar_t* buffer = new wchar_t[buf_len+1];
+			wchar_t* buffer = new wchar_t[buf_len + 1];
 			if (FGetTempPath(buf_len, buffer)) {
 				tempPath = buffer;
 			}
-			delete [] buffer;
+			delete[] buffer;
 		}
 	}
 #else
@@ -1374,13 +1370,13 @@ void NSClientT::handle_startup(std::string service_name) {
 	boot_load_all_plugins();
 	boot_start_plugins(true);
 	LOG_DEBUG_CORE("Starting: DONE");
-/*
-	DWORD dwSessionId = remote_processes::getActiveSessionId();
-	if (dwSessionId != 0xFFFFFFFF)
-		tray_starter::start(dwSessionId);
-	else
-		LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
-		*/
+	/*
+		DWORD dwSessionId = remote_processes::getActiveSessionId();
+		if (dwSessionId != 0xFFFFFFFF)
+			tray_starter::start(dwSessionId);
+		else
+			LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
+			*/
 }
 void NSClientT::handle_shutdown(std::string service_name) {
 	stop_unload_plugins_pre();
@@ -1415,21 +1411,20 @@ bool NSClientT::service_controller::is_started() {
 	return false;
 }
 
-
 #ifdef WIN32
-#ifndef CSIDL_COMMON_APPDATA 
-#define CSIDL_COMMON_APPDATA 0x0023 
+#ifndef CSIDL_COMMON_APPDATA
+#define CSIDL_COMMON_APPDATA 0x0023
 #endif
-typedef BOOL (WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
+typedef BOOL(WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
 
 __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
 	static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
 	if (!__SHGetSpecialFolderPath) {
 		HMODULE hDLL = LoadLibrary(_T("shfolder.dll"));
 		if (hDLL != NULL)
-			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL,"SHGetSpecialFolderPathW");
+			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL, "SHGetSpecialFolderPathW");
 	}
-	if(__SHGetSpecialFolderPath)
+	if (__SHGetSpecialFolderPath)
 		return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
 	return FALSE;
 }
@@ -1466,10 +1461,10 @@ std::string NSClientT::getFolder(std::string key) {
 	}
 #ifdef WIN32
 	else if (key == "common-appdata") {
-		wchar_t buf[MAX_PATH+1];
+		wchar_t buf[MAX_PATH + 1];
 		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
 			default_value = utf8::cvt<std::string>(buf);
-		else 
+		else
 			default_value = getBasePath().string();
 	}
 #else
@@ -1537,12 +1532,12 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 	modules_type module_cache;
 	request.ParseFromArray(request_buffer, request_buffer_len);
 	timer t;
-	for (int i=0;i<request.payload_size();i++) {
+	for (int i = 0; i < request.payload_size(); i++) {
 		Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 		try {
 			const Plugin::SettingsRequestMessage::Request &r = request.payload(i);
 			if (r.has_inventory()) {
-				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory(); 
+				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory();
 				boost::optional<unsigned int> plugin_id;
 				if (q.has_plugin()) {
 					plugin_type p = find_plugin(q.plugin());
@@ -1613,7 +1608,8 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 											rpp->mutable_node()->set_key(key);
 											rpp->mutable_info()->set_advanced(true);
 											rpp->mutable_info()->set_sample(false);
-											settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(q.node().path(), q.node().key());
+											rpp->mutable_info()->mutable_default_value()->set_string_data("");
+											settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
 											if (val)
 												rpp->mutable_value()->set_string_data(*val);
 										}
@@ -1657,11 +1653,11 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
 								try {
 									if (desc.type == NSCAPI::key_string)
-											rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(path, key, ""));
+										rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(path, key, ""));
 									else if (desc.type == NSCAPI::key_integer)
-											rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(path, key, 0));
+										rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(path, key, 0));
 									else if (desc.type == NSCAPI::key_bool)
-											rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(path, key, false));
+										rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(path, key, false));
 									else {
 										LOG_ERROR_CORE("Invalid type");
 									}
@@ -1680,7 +1676,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 										rpp->mutable_info()->set_advanced(true);
 										rpp->mutable_info()->set_sample(false);
 										settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-										if (val) 
+										if (val)
 											rpp->mutable_value()->set_string_data(*val);
 									}
 								}
@@ -1699,10 +1695,22 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
 						}
 					}
+					if (q.fetch_templates()) {
+						t.start("fetching templates");
+						BOOST_FOREACH(const settings::settings_core::tpl_description &desc, settings_manager::get_core()->get_registred_tpls()) {
+							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+							rpp->mutable_node()->set_path(desc.path);
+							rpp->mutable_info()->set_title(desc.title);
+							rpp->mutable_info()->set_is_template(true);
+							rpp->mutable_value()->set_string_data(desc.data);
+							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, desc.plugin_id, this));
+						}
+						t.end();
+					}
 					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				}
 			} else if (r.has_query()) {
-				const Plugin::SettingsRequestMessage::Request::Query &q = r.query(); 
+				const Plugin::SettingsRequestMessage::Request::Query &q = r.query();
 				Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
 				rpp->mutable_node()->CopyFrom(q.node());
 				if (q.node().has_key()) {
@@ -1729,16 +1737,42 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				}
 				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_registration()) {
-				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration(); 
+				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration();
 				rp->mutable_registration();
-				if (q.node().has_key()) {
+				if (q.has_fields()) {
+					json_spirit::Object node;
+
+					try {
+						json_spirit::Value value;
+						std::string data = q.fields();
+						json_spirit::read_or_throw(data, value);
+						if (value.isObject())
+							node = value.getObject();
+					} catch (const std::exception &e) {
+						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
+					} catch (const json_spirit::ParseError &e) {
+						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + strEx::s::xtos(e.line_) + ":" + strEx::s::xtos(e.column_));
+					} catch (...) {
+						LOG_ERROR_CORE("Failed to process fields for ");
+					}
+
+					node.insert(json_spirit::Object::value_type("plugin", r.plugin_id()));
+					node.insert(json_spirit::Object::value_type("path", q.node().path()));
+					node.insert(json_spirit::Object::value_type("title", q.info().title()));
+					node.insert(json_spirit::Object::value_type("icon", q.info().icon()));
+					node.insert(json_spirit::Object::value_type("description", q.info().description()));
+
+					//node.insert(json_spirit::Object::value_type("fields", value));
+					std::string tplData = json_spirit::write(node);
+					settings_manager::get_core()->register_tpl(r.plugin_id(), q.node().path(), q.info().title(), tplData);
+				} else if (q.node().has_key()) {
 					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced(), q.info().sample());
 				} else {
 					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
 				}
 				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_update()) {
-				const Plugin::SettingsRequestMessage::Request::Update &p = r.update(); 
+				const Plugin::SettingsRequestMessage::Request::Update &p = r.update();
 				rp->mutable_update();
 				if (p.value().has_string_data()) {
 					settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
@@ -1751,7 +1785,7 @@ NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const 
 				}
 				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (r.has_control()) {
-				const Plugin::SettingsRequestMessage::Request::Control &p = r.control(); 
+				const Plugin::SettingsRequestMessage::Request::Control &p = r.control();
 				rp->mutable_control();
 				if (p.command() == Plugin::Settings_Command_LOAD) {
 					if (p.has_context() && p.context().size() > 0)
@@ -1811,28 +1845,27 @@ boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem
 	boost::filesystem::path fullpath = path / filename;
 #ifdef WIN32
 	std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
-	SHFILEINFOW sfi = {0};
+	SHFILEINFOW sfi = { 0 };
 	boost::replace_all(tmp, "/", "\\");
-	HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi),SHGFI_DISPLAYNAME);
+	HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
 	if (SUCCEEDED(hr)) {
 		tmp = sfi.szDisplayName;
 		boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
 		return rpath;
 	}
 #else
-	if(boost::filesystem::is_regular_file(fullpath))
+	if (boost::filesystem::is_regular_file(fullpath))
 		return fullpath;
 	boost::filesystem::directory_iterator it(path), eod;
 	std::string tmp = boost::algorithm::to_lower_copy(filename);
 	BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-		if(boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
+		if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
 			return p;
-		} 
+		}
 	}
 #endif
 	return boost::optional<boost::filesystem::path>();
 }
-
 
 NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	try {
@@ -1842,14 +1875,14 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 		modules_type module_cache;
 		request.ParseFromArray(request_buffer, request_buffer_len);
-		for (int i=0;i<request.payload_size();i++) {
+		for (int i = 0; i < request.payload_size(); i++) {
 			const Plugin::RegistryRequestMessage::Request &r = request.payload(i);
 			if (r.has_inventory()) {
-				const Plugin::RegistryRequestMessage::Request::Inventory &q = r.inventory(); 
+				const Plugin::RegistryRequestMessage::Request::Inventory &q = r.inventory();
 				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 				timer tme;
 				tme.start("...");
-				for (int i=0;i<q.type_size();i++) {
+				for (int i = 0; i < q.type_size(); i++) {
 					Plugin::Registry_ItemType type = q.type(i);
 					if (type == Plugin::Registry_ItemType_QUERY || type == Plugin::Registry_ItemType_ALL) {
 						if (q.has_name()) {
@@ -1866,13 +1899,13 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 									Plugin::QueryRequestMessage req;
 									Plugin::QueryResponseMessage res;
 									nscapi::protobuf::functions::create_simple_header(req.mutable_header());
-									Plugin::QueryRequestMessage::Request * p =req.add_payload();
+									Plugin::QueryRequestMessage::Request * p = req.add_payload();
 									p->set_command(q.name());
 									p->add_arguments("help-pb");
 									std::string msg = req.SerializeAsString();
 									injectRAW(msg, resp);
 									res.ParseFromString(resp);
-									for (int i=0;i<res.payload_size();i++) {
+									for (int i = 0; i < res.payload_size(); i++) {
 										const Plugin::QueryResponseMessage::Response p = res.payload(i);
 										rpp->mutable_parameters()->ParseFromString(p.data());
 									}
@@ -1892,20 +1925,20 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 									Plugin::QueryRequestMessage req;
 									Plugin::QueryResponseMessage res;
 									nscapi::protobuf::functions::create_simple_header(req.mutable_header());
-									Plugin::QueryRequestMessage::Request * p =req.add_payload();
+									Plugin::QueryRequestMessage::Request * p = req.add_payload();
 									p->set_command(command);
 									p->add_arguments("help-pb");
 									std::string msg = req.SerializeAsString();
 									injectRAW(msg, resp);
 									res.ParseFromString(resp);
-									for (int i=0;i<res.payload_size();i++) {
+									for (int i = 0; i < res.payload_size(); i++) {
 										const Plugin::QueryResponseMessage::Response p = res.payload(i);
 										rpp->mutable_parameters()->ParseFromString(p.data());
 									}
 								}
 							}
 						}
-					} 
+					}
 					if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
 						BOOST_FOREACH(const std::string &command, commands_.list_aliases()) {
 							nsclient::commands::command_info info = commands_.describe(command);
@@ -1916,7 +1949,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 							rpp->mutable_info()->set_title(info.name);
 							rpp->mutable_info()->set_description(info.description);
 						}
-					} 
+					}
 					if (type == Plugin::Registry_ItemType_MODULE || type == Plugin::Registry_ItemType_ALL) {
 						boost::unordered_set<std::string> cache;
 						bool has_files = false;
@@ -1964,13 +1997,13 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 						tme.end();
 						if (!has_files) {
 							tme.start("enumerating files");
- 							plugin_cache_list  tmp_plugin_cache;
+							plugin_cache_list  tmp_plugin_cache;
 							boost::filesystem::path pluginPath = expand_path("${module-path}");
- 							boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
- 							for ( boost::filesystem::directory_iterator itr( pluginPath ); itr != end_itr; ++itr ) {
- 								if ( !is_directory(itr->status()) ) {
- 									boost::filesystem::path file= itr->path().filename();
- 									if (NSCPlugin::is_module(pluginPath  / file)) {
+							boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
+							for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
+								if (!is_directory(itr->status())) {
+									boost::filesystem::path file = itr->path().filename();
+									if (NSCPlugin::is_module(pluginPath / file)) {
 										const std::string module = NSCPlugin::file_to_module(file);
 										plugin_cache_item itm;
 										try {
@@ -2005,9 +2038,9 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 											kvp->set_key("loaded");
 											kvp->set_value("false");
 										}
- 									}
- 								}
- 							}
+									}
+								}
+							}
 							tme.end();
 
 							{
@@ -2042,7 +2075,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 					}
 				} else if (registration.type() == Plugin::Registry_ItemType_QUERY_ALIAS) {
 					commands_.register_alias(registration.plugin_id(), registration.name(), registration.info().description());
-					for (int i=0;i<registration.alias_size();i++) {
+					for (int i = 0; i < registration.alias_size(); i++) {
 						commands_.register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
 					}
 				} else if (registration.type() == Plugin::Registry_ItemType_HANDLER) {
@@ -2079,9 +2112,9 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 				if (control.type() == Plugin::Registry_ItemType_MODULE) {
 					if (control.command() == Plugin::Registry_Command_LOAD) {
 						boost::filesystem::path pluginPath = expand_path("${module-path}");
-						boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath,  NSCPlugin::get_plugin_file(control.name()));
+						boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath, NSCPlugin::get_plugin_file(control.name()));
 						if (!module)
-							module = locateFileICase(boost::filesystem::path("./modules"),  NSCPlugin::get_plugin_file(control.name()));
+							module = locateFileICase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(control.name()));
 						if (!module) {
 							LOG_ERROR_CORE("Failed to find: " + control.name());
 						} else {
@@ -2090,7 +2123,7 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 							try {
 								plugin_type instance = addPlugin(*module, control.alias());
 								instance->load_plugin(NSCAPI::normalStart);
-							} catch(const NSPluginException& e) {
+							} catch (const NSPluginException& e) {
 								if (e.file().find("FileLogger") != std::string::npos) {
 									LOG_DEBUG_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
 								} else {
@@ -2109,11 +2142,13 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 						if (!writeLock.owns_lock()) {
 							LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 						} else {
-							for (pluginList::iterator it=plugins_.begin(); it != plugins_.end();) {
+							for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
 								if ((*it)->getModule() == control.name()) {
 									plugin_type instance = *it;
 									unsigned int plugin_id = instance->get_id();
 									commands_.remove_plugin(plugin_id);
+									metricsFetchers.remove_plugin(plugin_id);
+									metricsSubmitetrs.remove_plugin(plugin_id);
 									it = plugins_.erase(it);
 									instance->unload_plugin();
 									instance->unload_dll();
@@ -2176,12 +2211,8 @@ void NSClientT::process_metrics() {
 	metricsFetchers.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
 	f.render();
 	metricsSubmitetrs.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
-
 }
-
 
 #ifdef _WIN32
-void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {
-
-}
+void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}
 #endif

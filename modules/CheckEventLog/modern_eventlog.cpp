@@ -6,7 +6,6 @@
 
 namespace eventlog {
 	namespace api {
-
 		tEvtOpenPublisherEnum pEvtOpenPublisherEnum = NULL;
 		tEvtClose pEvtClose = NULL;
 		tEvtNextPublisherId ptEvtNextPublisherId = NULL;
@@ -69,7 +68,7 @@ namespace eventlog {
 			throw nscp_exception("Failed to load: EvtSeek");
 		return api::pEvtSeek(ResultSet, Position, Bookmark, Timeout, Flags);
 	}
-	api::EVT_HANDLE EvtQuery(api::EVT_HANDLE Session, LPCWSTR Path, LPCWSTR Query, DWORD Flags){
+	api::EVT_HANDLE EvtQuery(api::EVT_HANDLE Session, LPCWSTR Path, LPCWSTR Query, DWORD Flags) {
 		if (!api::pEvtQuery)
 			throw nscp_exception("Failed to load: EvtQuery");
 		return api::pEvtQuery(Session, Path, Query, Flags);

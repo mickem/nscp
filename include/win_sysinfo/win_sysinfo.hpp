@@ -12,6 +12,8 @@
 #define WINDOWS_VISTA 60
 #define WINDOWS_7 61
 #define WINDOWS_8 62
+#define WINDOWS_81 63
+#define WINDOWS_10 100
 #define WINDOWS_NEW MAXLONG
 
 #define WINDOWS_HAS_CONSOLE_HOST (WindowsVersion >= WINDOWS_7)
@@ -24,10 +26,8 @@
 #define WINDOWS_HAS_SERVICE_TAGS (WindowsVersion >= WINDOWS_VISTA)
 #define WINDOWS_HAS_UAC (WindowsVersion >= WINDOWS_VISTA)
 
-
 namespace windows {
 	struct system_info {
-
 		struct load_entry {
 			double idle;
 			double total;
@@ -55,7 +55,7 @@ namespace windows {
 				total.add(n.total);
 				cores = max(cores, n.cores);
 				core.resize(cores);
-				for (unsigned long i=0;i<n.cores; ++i) {
+				for (unsigned long i = 0; i < n.cores; ++i) {
 					core[i].add(n.core[i]);
 				}
 			}
@@ -90,10 +90,7 @@ namespace windows {
 			}
 		};
 
-
-
 		static std::vector<pagefile_info> get_pagefile_info();
-
 
 		static std::string get_version_string();
 		static unsigned long get_version();
@@ -103,11 +100,10 @@ namespace windows {
 		static cpu_load get_cpu_load();
 		static memory_usage get_memory();
 		static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> get_system_process_information(int size = 0x4000);
-
 	};
 
 	namespace winapi {
-		typedef BOOL (*tTASKENUMPROCEX)(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined );
+		typedef BOOL(*tTASKENUMPROCEX)(DWORD dwThreadId, WORD hMod16, WORD hTask16, PSZ pszModName, PSZ pszFileName, LPARAM lpUserDefined);
 
 		BOOL EnumServicesStatusEx(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName);
 		BOOL QueryServiceConfig2(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded);
@@ -118,5 +114,4 @@ namespace windows {
 
 		INT VDMEnumTaskWOWEx(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam);
 	}
-
 };

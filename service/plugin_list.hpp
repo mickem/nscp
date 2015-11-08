@@ -11,7 +11,7 @@
 
 namespace nsclient {
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
-	typedef std::map<unsigned long,plugin_type> plugin_list_type;
+	typedef std::map<unsigned long, plugin_type> plugin_list_type;
 	typedef std::set<unsigned long> plugin_id_type;
 
 	class plugins_list_exception : public std::exception {
@@ -25,9 +25,7 @@ namespace nsclient {
 		}
 	};
 
-
 	struct simple_plugins_list : public boost::noncopyable {
-
 		typedef std::list<plugin_type> simple_plugin_list_type;
 		simple_plugin_list_type plugins_;
 		boost::shared_mutex mutex_;
@@ -85,9 +83,13 @@ namespace nsclient {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + strEx::s::xtos(id)))
 				return;
-			for (simple_plugin_list_type::iterator it = plugins_.begin(); it != plugins_.end(); ++it) {
+			simple_plugin_list_type::iterator it = plugins_.begin();
+			while (it != plugins_.end()) {
 				if ((*it)->get_id() == id)
 					it = plugins_.erase(it);
+				else
+					++it;
+
 			}
 		}
 
@@ -120,11 +122,8 @@ namespace nsclient {
 		}
 	};
 
-
-
 	template<class parent>
 	struct plugins_list : boost::noncopyable, public parent {
-
 		plugin_list_type plugins_;
 		boost::shared_mutex mutex_;
 
@@ -217,9 +216,8 @@ namespace nsclient {
 		}
 	};
 
-
 	struct plugins_list_listeners_impl {
-		typedef std::map<std::string,plugin_id_type > listener_list_type;
+		typedef std::map<std::string, plugin_id_type > listener_list_type;
 		listener_list_type listeners_;
 
 		void add_plugin(plugin_type plugin) {}
@@ -289,5 +287,4 @@ namespace nsclient {
 			return ret;
 		}
 	};
-
 }

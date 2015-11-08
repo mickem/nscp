@@ -14,7 +14,6 @@
 using namespace parsers::where;
 
 namespace check_cpu_filter {
-
 	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
 		long long number = value.get<0>();
@@ -26,7 +25,6 @@ namespace check_cpu_filter {
 	}
 
 	filter_obj_handler::filter_obj_handler() {
-
 		static const parsers::where::value_type type_custom_pct = parsers::where::type_custom_int_1;
 
 		registry_.add_string()
@@ -43,20 +41,17 @@ namespace check_cpu_filter {
 		registry_.add_converter()
 			(type_custom_pct, &calculate_load)
 			;
-
 	}
 }
 
-
 namespace check_mem_filter {
-
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
 		long long number = value.get<0>();
 		std::string unit = value.get<1>();
 
 		if (unit == "%") {
-			number = (object->get_total()*(number))/100;
+			number = (object->get_total()*(number)) / 100;
 		} else {
 			number = format::decode_byte_units(number, unit);
 		}
@@ -92,24 +87,21 @@ namespace check_mem_filter {
 			("used", boost::bind(&filter_obj::get_used_human, _1), "")
 			;
 
-
 		registry_.add_converter()
 			(type_custom_free, &calculate_free)
 			(type_custom_used, &calculate_free)
 			;
-
 	}
 }
 
 namespace check_page_filter {
-
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
 		long long number = value.get<0>();
 		std::string unit = value.get<1>();
 
 		if (unit == "%") {
-			number = (object->get_total()*(number))/100;
+			number = (object->get_total()*(number)) / 100;
 		} else {
 			number = format::decode_byte_units(number, unit);
 		}
@@ -149,13 +141,10 @@ namespace check_page_filter {
 			(type_custom_free, &calculate_free)
 			(type_custom_used, &calculate_free)
 			;
-
 	}
 }
 
-
 namespace check_svc_filter {
-
 	bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
 		if (trigger)
 			return true;
@@ -191,8 +180,8 @@ namespace check_svc_filter {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
-		bool delayed = n_context->get_object()->get_delayed()==1;
-		bool trigger = n_context->get_object()->get_is_trigger()==1;
+		bool delayed = n_context->get_object()->get_delayed() == 1;
+		bool trigger = n_context->get_object()->get_is_trigger() == 1;
 		if (check_state_is_ok(state, start_type, delayed, trigger))
 			return factory::create_true();
 		else
@@ -203,7 +192,7 @@ namespace check_svc_filter {
 		native_context* n_context = reinterpret_cast<native_context*>(context.get());
 		DWORD state = n_context->get_object()->state;
 		DWORD start_type = n_context->get_object()->start_type;
-		bool trigger = n_context->get_object()->get_is_trigger()==1;
+		bool trigger = n_context->get_object()->get_is_trigger() == 1;
 		if (check_state_is_perfect(state, start_type, trigger))
 			return factory::create_true();
 		else
@@ -227,7 +216,6 @@ namespace check_svc_filter {
 		}
 	}
 
-
 	filter_obj_handler::filter_obj_handler() {
 		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
@@ -239,21 +227,21 @@ namespace check_svc_filter {
 			;
 		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
-			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state ()").add_perf("","")
-			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1),  "The configured start type ()")
-			("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, _1),  "If the service is delayed")
-			("is_trigger", parsers::where::type_bool, boost::bind(&filter_obj::get_is_trigger, _1),  "If the service is has associated triggers")
-			("triggers", parsers::where::type_int, boost::bind(&filter_obj::get_triggers, _1),  "The number of associated triggers for this service")
+			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state ()").add_perf("", "")
+			("start_type", type_custom_start_type, boost::bind(&filter_obj::get_start_type_i, _1), "The configured start type ()")
+			("delayed", parsers::where::type_bool, boost::bind(&filter_obj::get_delayed, _1), "If the service is delayed")
+			("is_trigger", parsers::where::type_bool, boost::bind(&filter_obj::get_is_trigger, _1), "If the service is has associated triggers")
+			("triggers", parsers::where::type_int, boost::bind(&filter_obj::get_triggers, _1), "The number of associated triggers for this service")
 			;
 
 		registry_.add_int_fun()
-			("state_is_perfect",  parsers::where::type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
-			("state_is_ok",  parsers::where::type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
+			("state_is_perfect", parsers::where::type_bool, &state_is_perfect, "Check if the state is ok, i.e. all running services are running")
+			("state_is_ok", parsers::where::type_bool, &state_is_ok, "Check if the state is ok, i.e. all running services are runningelayed services are allowed to be stopped)")
 			;
 
 		registry_.add_human_string()
 			("state", boost::bind(&filter_obj::get_state_s, _1), "The current state ()")
-			("start_type", boost::bind(&filter_obj::get_start_type_s, _1),  "The configured start type ()")
+			("start_type", boost::bind(&filter_obj::get_start_type_s, _1), "The configured start type ()")
 			;
 
 		registry_.add_converter()
@@ -263,10 +251,7 @@ namespace check_svc_filter {
 	}
 }
 
-
-
 namespace check_uptime_filter {
-
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(subject->get_string_value(context)));
 	}
@@ -284,16 +269,10 @@ namespace check_uptime_filter {
 			("boot", boost::bind(&filter_obj::get_boot_s, _1), "The system boot time")
 			("uptime", boost::bind(&filter_obj::get_uptime_s, _1), "Time sine last boot")
 			;
-
-
 	}
 }
 
-
-
 namespace check_proc_filter {
-
-
 	parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
 	}
@@ -302,14 +281,14 @@ namespace check_proc_filter {
 		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
 
- 		registry_.add_string()
+		registry_.add_string()
 			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
 			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
 			("error", boost::bind(&filter_obj::get_error, _1), "Any error messages associated with fetching info")
 			("command_line", boost::bind(&filter_obj::get_command_line, _1), "Command line of process (not always available)")
 			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get process status (for legacy use via check_nt only)")
- 			;
- 		registry_.add_int()
+			;
+		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
 			("started", parsers::where::type_bool, boost::bind(&filter_obj::get_started, _1), "Process is started")
 			("hung", parsers::where::type_bool, boost::bind(&filter_obj::get_hung, _1), "Process is hung")
@@ -324,10 +303,10 @@ namespace check_proc_filter {
 			("page_fault", boost::bind(&filter_obj::get_PageFaultCount, _1), "Page fault count").add_perf("", "", " pf_count")
 			("peak_working_set", parsers::where::type_size, boost::bind(&filter_obj::get_PeakWorkingSetSize, _1), "Peak working set in bytes").add_scaled_byte(std::string(""), " pws_size")
 			("working_set", parsers::where::type_size, boost::bind(&filter_obj::get_WorkingSetSize, _1), "Working set in bytes").add_scaled_byte(std::string(""), " ws_size")
-// 			("qouta", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+			// 			("qouta", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
+			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
 			("peak_pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PagefileUsage, _1), "Page file usage in bytes").add_scaled_byte(std::string(""), " ppf_use")
 			("pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PeakPagefileUsage, _1), "Peak page file use in bytes").add_scaled_byte(std::string(""), " pf_use")
 
@@ -336,8 +315,8 @@ namespace check_proc_filter {
 			("user", boost::bind(&filter_obj::get_user_time, _1), "User time in seconds").add_perf("", "", " user")
 			("time", boost::bind(&filter_obj::get_total_time, _1), "User-kernel time in seconds").add_perf("", "", " total")
 
- 			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state (started, stopped hung)").add_perf("", ""," state")
- 			;
+			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state (started, stopped hung)").add_perf("", "", " state")
+			;
 
 		registry_.add_human_string()
 			("state", boost::bind(&filter_obj::get_state_s, _1), "The current state (started, stopped hung)")
@@ -346,8 +325,6 @@ namespace check_proc_filter {
 		registry_.add_converter()
 			(type_custom_state, &parse_state)
 			;
-
-
 	}
 }
 
@@ -361,4 +338,3 @@ namespace os_version_filter {
 			;
 	}
 }
-

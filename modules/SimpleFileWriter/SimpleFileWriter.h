@@ -31,12 +31,10 @@ private:
 	std::string filename_;
 	boost::shared_mutex cache_mutex_;
 
-
 public:
 	SimpleFileWriter() {}
 	virtual ~SimpleFileWriter() {}
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
-
 };

@@ -251,9 +251,10 @@
       </Feature>
     </Feature>
 
-    <CustomAction Id='ImportConfig'			BinaryKey='InstallerHelper' DllEntry='ImportConfig'			Impersonate='yes' Execute="immediate" Return="check" />
+    <CustomAction Id='ImportConfig'			    BinaryKey='InstallerHelper' DllEntry='ImportConfig'			    Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id='ScheduleWriteConfig'	BinaryKey='InstallerHelper' DllEntry='ScheduleWriteConfig'	Impersonate='yes' Execute="immediate" Return="check" />
-    <CustomAction Id="ExecWriteConfig"		BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	Impersonate="no" Execute="deferred" Return="check"  />
+    <CustomAction Id="ExecWriteConfig"		  BinaryKey="InstallerHelper" DllEntry="ExecWriteConfig"	    Impersonate="no" Execute="deferred" Return="check"  />
+    <CustomAction Id="ApplyTool"		        BinaryKey="InstallerHelper" DllEntry="ApplyTool"	          Impersonate="no" Execute="immediate" Return="check"  />
 
     <CustomAction Id='NeedUninstall'		BinaryKey='InstallerHelper' DllEntry='NeedUninstall'	Impersonate='yes' Execute="immediate" Return="check" />
     <CustomAction Id="PreventDowngrading"	Error="Newer version already installed." />
@@ -270,8 +271,12 @@
 
     <InstallExecuteSequence>
       <RemoveExistingProducts After='InstallValidate'/>
+
+      <Custom Action="ApplyTool" Before="CostFinalize">NOT (REMOVE ="ALL") AND NOT (UILevel=5)</Custom>
+
+
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
-      <Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT (REMOVE ="ALL") </Custom>
+      <Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT (REMOVE ="ALL")</Custom>
       <Custom Action="GenConfig.Command" After="ScheduleWriteConfig">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>
       <Custom Action="GenConfig" After="GenConfig.Command">NOT (REMOVE ="ALL") AND GENERATE_SAMPLE_CONFIG = 1</Custom>
 

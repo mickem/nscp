@@ -73,9 +73,7 @@ public:
 		return password_;
 	}
 
-
 private:
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<nsca::server::server> server_;
 };
-

@@ -24,4 +24,3 @@
 
 //unsigned int nrpe::length::payload_length_ = 980;
 unsigned int nrpe::length::payload_length_ = 1024;
-

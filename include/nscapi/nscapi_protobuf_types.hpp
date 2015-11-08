@@ -35,13 +35,11 @@
 namespace nscapi {
 	namespace protobuf {
 		namespace types {
-	
 			struct NSCAPI_EXPORT decoded_simple_command_data {
 				std::string command;
 				std::string target;
 				std::list<std::string> args;
 			};
-
 		}
 	}
 }

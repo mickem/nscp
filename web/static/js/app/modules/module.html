@@ -1,6 +1,6 @@
 <div class="row" data-bind="with: module">
 	<ol class="breadcrumb pull-left" >
-		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
+		<li><a href="#/"><i class="fa fa-home"></i></a></li>
 		<li><a href="#/modules">Modules</a></li>
 		<li><span data-bind="text: name()"></span></li>
 	</ol>
@@ -10,15 +10,19 @@
 	<ul class="nav nav-tabs">
 		<li class="active">
 			<a href="#module-desc" data-toggle="tab">
-				<span class="glyphicon glyphicon-home"></span> Overview</a>
+				<span class="fa fa-home"></span> Overview</a>
 		</li>
 		<li>
 			<a href="#module-settings" data-toggle="tab">
-				<span class="glyphicon glyphicon-pencil"></span> Settings</a>
+				<span class="fa fa-pencil"></span> Settings</a>
+		</li>
+		<li>
+			<a href="#module-templates" data-toggle="tab">
+				<span class="fa fa-edit"></span> Templates</a>
 		</li>
 		<li>
 			<a href="#module-query" data-toggle="tab">
-				<span class="glyphicon glyphicon-fire"></span> Queries</a>
+				<span class="fa fa-fire"></span> Queries</a>
 		</li>
 	</ul>
 </div>
@@ -69,30 +73,46 @@
 				<span data-bind="visible: is_loaded() && keys().length == 0">No settings available.</span>
 
 
-				<form class="form-horizontal" role="form">
+				<form class="form-horizontal" role="form" data-bind="if: keys().length > 0">
 					<div id="accordion" class="panel-group">
-						<!-- ko if: keys().length > 0 -->
-							<!-- ko foreach: keys -->
-								<div class="panel panel-default">
-									<div class="panel-heading">
-										<h4 class="panel-title">
-											<a class="accordion-toggle" href="#" class=""
-												data-toggle="collapse" data-parent="#accordion" 
-												data-bind="text: 'Settings: ' + $data[0].path, attr: {href: '#collapse' + $index()}"></a>
-										</h4>
-									</div>
-									<div class="panel-collapse collapse" data-bind="attr: {id: 'collapse' + $index()}">
-										<div class="panel-body">
-											<settings-list-wdgt params="keys: $data"></settings-list-wdgt>
-										</div>
+						<!-- ko foreach: keys -->
+							<div class="panel panel-default">
+								<div class="panel-heading">
+									<h4 class="panel-title">
+										<a class="accordion-toggle" href="#"
+											data-toggle="collapse" data-parent="#accordion" 
+											data-bind="text: $data[0].path, attr: {href: '#collapse' + $index()}"></a>
+									</h4>
+								</div>
+								<div class="panel-collapse collapse" data-bind="attr: {id: 'collapse' + $index()}">
+									<div class="panel-body">
+										<settings-list-wdgt params="keys: $data"></settings-list-wdgt>
 									</div>
 								</div>
-							<!-- /ko -->
+							</div>
 						<!-- /ko -->
 					</div>
 					<button type="button" class="btn btn-success" data-dismiss="modal" data-bind="click: save_settings">Save Changes</button>
 					<button type="button" class="btn" data-dismiss="modal" data-bind="click: undo_settings">Cancel</button>
 				</form>
+			</div>
+		</div>
+		<div class="tab-pane" id="module-templates">
+			<div class="panel-body">
+				<span data-bind="visible: !is_loaded()">You need to load the module for templates to be visible.</span>
+				<button data-bind="click: load, visible: !is_loaded()" class="btn btn-success">Load</button>
+				<span data-bind="visible: is_loaded() && templates().length == 0">No templates available.</span>
+
+				<ul class="list-group" data-bind="if: is_loaded() && templates().length > 0">
+					<li class="list-group-item" data-bind="foreach: templates">
+						<a class="list-group-item list-group-item" data-bind="attr: { href: '#/templates' + path + '/' + $index()}">
+							<h4 class="list-group-item-heading" data-bind="text: title"></h4>
+							<p class="list-group-item-text" data-bind="text: desc"></p>
+						</a>
+					</li>
+				</ul>
+				
+
 			</div>
 		</div>
 		<div class="tab-pane" id="module-query">

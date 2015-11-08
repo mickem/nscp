@@ -118,6 +118,15 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	}
 };
 
+static const wchar_t alphanum[] = _T("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+std::wstring genpwd(const int len) {
+	srand((unsigned)time(NULL ));
+	std::wstring ret;
+	for(int i=0; i < len; i++)
+		ret += alphanum[rand() %  ((sizeof(alphanum)/sizeof(wchar_t))-1)];
+	return ret;
+}
+
 bool has_mod(std::string key) {
 	std::string val = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "0");
 	return val == "enabled" || val == "1";
@@ -153,34 +162,78 @@ std::wstring read_map_data(msi_helper &h) {
 	return ret;
 }
 
+extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
+	msi_helper h(hInstall, _T("ImportConfig"));
+	try {
+		h.logMessage("Applying monitorin tool config");
+		std::wstring tool = h.getPropery(_T("MONITORING_TOOL"));
+		h.logMessage(_T("Monitoring tool is: ") + tool);
 
-static const wchar_t alphanum[] = _T("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-std::wstring genpwd(const int len) {
-	srand((unsigned)time(NULL ));
-	std::wstring ret;
-	for(int i=0; i < len; i++)
-		ret += alphanum[rand() %  ((sizeof(alphanum)/sizeof(wchar_t))-1)];
-	return ret;
+		if (tool == _T("OP5")) {
+			h.setProperty(_T("NSCLIENT_PWD"), _T(""));
+			h.setProperty(_T("NSCLIENT_PWD_OLD"), _T(""));
+			h.setProperty(_T("NSCLIENT_PWD_DEFAULT"), _T(""));
+			h.setProperty(_T("CONF_CHECKS_OLD"), _T("1"));
+			h.setProperty(_T("CONF_CHECKS"), _T("1"));
+			h.setProperty(_T("CONF_NRPE_OLD"), _T("1"));
+			h.setProperty(_T("CONF_NRPE"), _T("1"));
+			h.setProperty(_T("CONF_NSCA_OLD"), _T("1"));
+			h.setProperty(_T("CONF_NSCA"), _T("1"));
+			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
+			h.setProperty(_T("CONF_WEB_OLD"), _T("0"));
+			h.setProperty(_T("CONF_WEB"), _T("0"));
+			h.setProperty(_T("CONF_INCLUDES"), _T("op5;op5.ini"));
+			h.setProperty(_T("NRPEMODE_OLD"), _T("LEGACY"));
+			h.setProperty(_T("NRPEMODE"), _T("LEGACY"));
+			h.setProperty(_T("INSTALL_SAMPLE_CONFIG"), _T(""));
+			h.setProperty(_T("GENERATE_SAMPLE_CONFIG"), _T(""));
+			h.setProperty(_T("CONFIGURATION_TYPE"), _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++"));
+			h.setFeatureLocal(_T("OP5Montoring"));
+		} else {
+			h.setProperty(_T("NSCLIENT_PWD"), genpwd(16));
+			h.setProperty(_T("NSCLIENT_PWD_OLD"), _T(""));
+			h.setProperty(_T("CONF_CHECKS_OLD"), _T(""));
+			h.setProperty(_T("CONF_CHECKS"), _T("1"));
+			h.setProperty(_T("CONF_NRPE_OLD"), _T(""));
+			h.setProperty(_T("CONF_NRPE"), _T("1"));
+			h.setProperty(_T("CONF_NSCA_OLD"), _T(""));
+			h.setProperty(_T("CONF_NSCA"), _T(""));
+			h.setProperty(_T("CONF_CAN_CHANGE"), _T("1"));
+			h.setProperty(_T("CONF_WEB_OLD"), _T(""));
+			h.setProperty(_T("CONF_WEB"), _T(""));
+			h.setProperty(_T("CONF_INCLUDES"), _T(""));
+			h.setProperty(_T("NRPEMODE_OLD"), _T(""));
+			h.setProperty(_T("NRPEMODE"), _T("SAFE"));
+			h.setProperty(_T("INSTALL_SAMPLE_CONFIG"), _T(""));
+			h.setProperty(_T("GENERATE_SAMPLE_CONFIG"), _T(""));
+			h.setProperty(_T("CONFIGURATION_TYPE"), _T("ini://${shared-path}/nsclient.ini"));
+			h.setFeatureAbsent(_T("OP5Montoring"));
+		}
+
+	} catch (installer_exception e) {
+		h.logMessage(_T("Failed to apply monitoring tool: ") + e.what());
+		return ERROR_SUCCESS;
+	} catch (...) {
+		h.logMessage(_T("Failed to apply monitoring tool: Unknown exception"));
+		return ERROR_SUCCESS;
+	}
+	return ERROR_SUCCESS;
 }
+
+
+
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ImportConfig"));
 	try {
 		h.logMessage("importing config");
 		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
-		std::wstring main = h.getPropery(_T("MAIN_CONFIGURATION_FILE"));
-		std::wstring custom = h.getPropery(_T("CUSTOM_CONFIGURATION_FILE"));
 		std::wstring allow = h.getPropery(_T("ALLOW_CONFIGURATION"));
 
 		std::wstring pwd = h.getPropery(_T("NSCLIENT_PWD"));
 		if (pwd == _T("$GEN$")) {
 			h.setProperty(_T("NSCLIENT_PWD"), genpwd(16));
 		}
-		
-
-		std::wstring tmpPath = h.getTempPath();
-
 		std::wstring map_data = read_map_data(h);
-
 		if (allow == _T("0")) {
 			h.logMessage(_T("Configuration not allowed: ") + allow);
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
@@ -196,21 +249,6 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			h.setProperty(_T("CONF_HAS_ERRORS"), _T("0"));
 			return ERROR_SUCCESS;
 		}
-
-		boost::filesystem::path restore_path = h.getTempPath();
-		restore_path = restore_path / (_T("old_nsc.ini"));
-		boost::filesystem::path old_path = target;
-		old_path = old_path / (_T("nsc.ini"));
-
-		h.logMessage(_T("Looking for old settings file (for archiving): ") + old_path.wstring());
-		h.logMessage(_T("Using restore path: ") + restore_path.wstring());
-		if (boost::filesystem::exists(old_path)) {
-			h.logMessage(_T("Found old file: ") + strEx::xtos(boost::filesystem::file_size(old_path)));
-			h.setProperty(_T("RESTORE_FILE"), restore_path.wstring());
-			copy_file(h, old_path.wstring(), restore_path.wstring());
-		}
-		if (boost::filesystem::exists(restore_path))
-			h.logMessage(_T("Found restore file: ") + strEx::xtos(boost::filesystem::file_size(restore_path)));
 
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, "")) {
@@ -351,17 +389,6 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			for (int i=0;i+1<lst.size();i+=2) {
 				h.logMessage(_T(" + : ") + lst[i] + _T("=") + lst[i+1]);
 				write_key(h, data, 1, _T("/includes"), lst[i], lst[i+1]);
-			}
-		}
-
-		std::wstring confSet = h.getPropery(_T("CONF_SET"));
-		h.logMessage(_T("Adding conf: ") + confSet);
-		if (!confSet.empty()) {
-			std::vector<std::wstring> lst;
-			boost::split(lst, confSet, boost::is_any_of(_T(";")));
-			for (int i = 0; i + 2 < lst.size(); i += 3) {
-				h.logMessage(_T(" + : ") + lst[i] + _T(" ") + lst[i + 1] + _T("=") + lst[i + 2]);
-				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
 			}
 		}
 

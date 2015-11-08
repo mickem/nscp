@@ -34,14 +34,13 @@ namespace check_mk {
 	class check_mk_exception : public std::exception {
 		std::string error_;
 	public:
-//		check_mk_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
+		//		check_mk_exception(std::wstring error) : error_(utf8::cvt<std::string>(error)) {}
 		check_mk_exception(std::string error) : error_(error) {}
 		virtual ~check_mk_exception() throw() {}
 		virtual const char* what() const throw() {
 			return error_.c_str();
 		}
 	};
-
 
 	struct packet {
 		struct section {
@@ -74,7 +73,7 @@ namespace check_mk {
 					if (id >= items.size())
 						throw check_mk::check_mk_exception("Invalid line");
 					std::list<std::string>::const_iterator cit = items.begin();
-					for (std::size_t i=0;i<id;i++) {
+					for (std::size_t i = 0; i < id; i++) {
 						cit++;
 					}
 					return *cit;
@@ -84,18 +83,15 @@ namespace check_mk {
 					return to_string();
 				}
 
-				void set_line(const std::string &data) 
-				{
+				void set_line(const std::string &data) {
 					std::istringstream split(data);
 					std::string chunk;
-					while(std::getline(split, chunk, ' ')) {
+					while (std::getline(split, chunk, ' ')) {
 						items.push_back(chunk);
 					}
 				}
 
-
 				std::list<std::string> items;
-
 			};
 			std::list<line> lines;
 			section() {}
@@ -120,7 +116,6 @@ namespace check_mk {
 				return ret;
 			}
 
-
 			bool empty() const {
 				return title.empty() && lines.empty();
 			}
@@ -129,19 +124,15 @@ namespace check_mk {
 				if (id >= lines.size())
 					throw check_mk::check_mk_exception("Invalid line");
 				std::list<line>::const_iterator cit = lines.begin();
-				for (std::size_t i=0;i<id;i++) {
+				for (std::size_t i = 0; i < id; i++) {
 					cit++;
 				}
 				return *cit;
 			}
 
-			void add_line(check_mk::packet::section::line line) 
-			{
+			void add_line(check_mk::packet::section::line line) {
 				lines.push_back(line);
 			}
-
-
-
 		};
 		std::list<section> section_list;
 
@@ -151,7 +142,6 @@ namespace check_mk {
 			section_list = other.section_list;
 			return *this;
 		}
-
 
 		//////////////////////////////////////////////////////////////////////////
 		// Write to string
@@ -164,7 +154,6 @@ namespace check_mk {
 			return ret;
 		}
 
-
 		//////////////////////////////////////////////////////////////////////////
 		// Read from vector (string?)
 		void add_section(section s) {
@@ -176,11 +165,11 @@ namespace check_mk {
 
 			std::string chunk;
 			section s;
-			while(std::getline(split, chunk)) {
-				if (chunk.length() > 6 && chunk.substr(0,3) == "<<<" && chunk.substr(chunk.length()-3, 3) == ">>>") {
+			while (std::getline(split, chunk)) {
+				if (chunk.length() > 6 && chunk.substr(0, 3) == "<<<" && chunk.substr(chunk.length() - 3, 3) == ">>>") {
 					if (!s.empty())
 						section_list.push_back(s);
-					s = section(chunk.substr(3, chunk.length()-6));
+					s = section(chunk.substr(3, chunk.length() - 6));
 				} else {
 					s.push(chunk);
 				}
@@ -197,20 +186,15 @@ namespace check_mk {
 			if (id >= section_list.size())
 				throw check_mk::check_mk_exception("Invalid section");
 			std::list<section>::const_iterator cit = section_list.begin();
-			for (std::size_t i=0;i<id;i++) {
+			for (std::size_t i = 0; i < id; i++) {
 				cit++;
 			}
 			return *cit;
 		}
 
-		std::vector<char> to_vector() 
-		{
+		std::vector<char> to_vector() {
 			std::string s = to_string();
 			return std::vector<char>(s.begin(), s.end());
 		}
-
-
-
 	};
 }
-

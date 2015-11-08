@@ -36,16 +36,18 @@ namespace settings {
 	class settings_handler_impl : public settings_core {
 	private:
 		typedef std::map<std::string, std::string> path_map;
-		typedef std::map<std::string,settings_core::path_description> reg_paths_type;
-		typedef std::map<key_path_type,key_path_type> mapped_paths_type;
+		typedef std::map<std::string, settings_core::path_description> reg_paths_type;
+		typedef std::map<key_path_type, key_path_type> mapped_paths_type;
+		typedef std::map<std::string, tpl_description> tpl_desc_type;
 		typedef settings_interface::string_list string_list;
-		
+
 		instance_raw_ptr instance_;
 		boost::timed_mutex instance_mutex_;
 		boost::filesystem::path base_path_;
 
 		boost::shared_mutex registry_mutex_;
 		reg_paths_type registred_paths_;
+		tpl_desc_type registered_tpls_;
 		bool ready_flag;
 		bool dirty_flag;
 		bool reload_flag;
@@ -58,13 +60,13 @@ namespace settings {
 		bool is_ready() {
 			return ready_flag;
 		}
-		void set_ready(bool flag=true) {
+		void set_ready(bool flag = true) {
 			ready_flag = flag;
 		}
 		bool is_dirty() {
 			return dirty_flag;
 		}
-		void set_dirty(bool flag=true) {
+		void set_dirty(bool flag = true) {
 			dirty_flag = flag;
 		}
 		void set_reload(bool flag = true) {
@@ -152,7 +154,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample) {
+		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception("Failed to lock registry mutex: " + path);
@@ -160,7 +162,7 @@ namespace settings {
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id, title, description, advanced, is_sample);
-			} else {
+			} else if (update_existing) {
 				(*it).second.update(plugin_id, title, description, advanced, is_sample);
 			}
 		}
@@ -177,7 +179,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
@@ -186,7 +188,7 @@ namespace settings {
 			if (it == registred_paths_.end()) {
 				registred_paths_[path] = path_description(plugin_id);
 				registred_paths_[path].keys[key] = key_description(plugin_id, title, description, type, defValue, advanced, is_sample);
-			} else {
+			} else if (update_existing) {
 				(*it).second.append_plugin(plugin_id);
 				path_description::keys_type::iterator kit = (*it).second.keys.find(key);
 				if (kit == (*it).second.keys.end()) {
@@ -199,6 +201,13 @@ namespace settings {
 				}
 			}
 		}
+
+		void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) {
+			std::string key = path + "::" + title;
+			registered_tpls_[key] = tpl_description(plugin_id, path, title, data);
+		}
+
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get info about a registered key.
 		/// Used when writing settings files.
@@ -235,6 +244,17 @@ namespace settings {
 			throw settings_exception("Path not found: " + path);
 		}
 
+		std::list<settings_core::tpl_description> get_registred_tpls() {
+			std::list<settings_core::tpl_description> ret;
+			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+			if (!readLock.owns_lock()) {
+				throw settings_exception("Failed to lock registry mutex: when fetching tpls");
+			}
+			BOOST_FOREACH(const tpl_desc_type::value_type &d, registered_tpls_) {
+				ret.push_back(d.second);
+			}
+			return ret;
+		}
 
 
 		//////////////////////////////////////////////////////////////////////////
@@ -279,7 +299,6 @@ namespace settings {
 			return ret;
 		}
 
-
 		void set_instance(std::string key) {
 			boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!mutex.owns_lock())
@@ -290,7 +309,6 @@ namespace settings {
 			instance_->set_core(this);
 		}
 
-
 	private:
 		void destroy_all_instances();
 
@@ -299,10 +317,6 @@ namespace settings {
 				return instance_->to_string();
 			return "<NULL>";
 		}
-
 	};
 	typedef settings_interface::string_list string_list;
-
 }
-
-

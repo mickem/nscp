@@ -52,10 +52,10 @@ void real_time_thread::thread_proc() {
 
 	// TODO: add support for scanning "missed messages" at startup
 
-	HANDLE *handles = new HANDLE[1+evlog_list.size()];
+	HANDLE *handles = new HANDLE[1 + evlog_list.size()];
 	handles[0] = stop_event_;
-	for (int i=0;i<evlog_list.size();i++) {
-		evlog_list[i]->notify(handles[i+1]);
+	for (int i = 0; i < evlog_list.size(); i++) {
+		evlog_list[i]->notify(handles[i + 1]);
 	}
 	__time64_t ltime;
 
@@ -74,23 +74,22 @@ void real_time_thread::thread_proc() {
 			dwWaitTime = dur->total_milliseconds();
 
 		NSC_DEBUG_MSG("Sleeping for: " + strEx::s::xtos(dwWaitTime) + "ms");
-		DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size()+1), handles, FALSE, dwWaitTime);
+		DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size() + 1), handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
 			helper.process_no_items();
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
-			delete [] handles;
+			delete[] handles;
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
-
-			int index = dwWaitReason-WAIT_OBJECT_0-1;
+			int index = dwWaitReason - WAIT_OBJECT_0 - 1;
 			eventlog_type el = evlog_list[index];
 			NSC_DEBUG_MSG_STD("Reading eventlog messages...");
-			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ|EVENTLOG_FORWARDS_READ);
+			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ);
 			if (status != ERROR_SUCCESS  && status != ERROR_HANDLE_EOF) {
 				NSC_LOG_MESSAGE("Assuming eventlog reset (re-reading from start)");
-				el->un_notify(handles[index+1]);
+				el->un_notify(handles[index + 1]);
 				el->reopen();
-				el->notify(handles[index+1]);
+				el->notify(handles[index + 1]);
 				el->seek_start();
 			}
 
@@ -107,15 +106,14 @@ void real_time_thread::thread_proc() {
 			NSC_LOG_ERROR("Error failed to wait for eventlog message: " + error::lookup::last_error());
 			if (errors++ > 10) {
 				NSC_LOG_ERROR("To many errors giving up");
-				delete [] handles;
+				delete[] handles;
 				return;
 			}
 		}
 	}
-	delete [] handles;
+	delete[] handles;
 	return;
 }
-
 
 bool real_time_thread::start() {
 	if (!enabled_)

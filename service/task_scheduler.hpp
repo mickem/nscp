@@ -12,8 +12,10 @@
 #include <boost/unordered_map.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
-namespace task_scheduler {
 
+#include <has-threads.hpp>
+
+namespace task_scheduler {
 	struct scheduled_task {
 		int id;
 		std::string tag;
@@ -27,13 +29,13 @@ namespace task_scheduler {
 			ss << id << "[" << tag << "] = " << duration.total_seconds();
 			return ss.str();
 		}
-
 	};
 
 	class schedule_handler {
 	public:
-		virtual void handle_schedule(scheduled_task item) = 0;
+		virtual bool handle_schedule(scheduled_task item) = 0;
 		virtual void on_error(std::string error) = 0;
+		virtual void on_trace(std::string error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -54,7 +56,7 @@ namespace task_scheduler {
 	public:
 		bool empty(unsigned int timeout = 5) {
 			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
-			if (!lock.owns_lock()) 
+			if (!lock.owns_lock())
 				return false;
 			return queue_.empty();
 		}
@@ -88,7 +90,7 @@ namespace task_scheduler {
 	class simple_scheduler : public boost::noncopyable {
 	private:
 		typedef scheduled_task task_object;
-		typedef boost::unordered_map<int,task_object> target_list_type;
+		typedef boost::unordered_map<int, task_object> target_list_type;
 		typedef boost::optional<task_object> op_task_object;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
@@ -100,7 +102,7 @@ namespace task_scheduler {
 		std::size_t thread_count_;
 		schedule_handler* handler_;
 
-		boost::thread_group threads_;
+		has_threads threads_;
 		boost::mutex mutex_;
 		schedule_queue_type queue_;
 		boost::mutex idle_thread_mutex_;
@@ -110,7 +112,6 @@ namespace task_scheduler {
 
 		simple_scheduler() : schedule_id_(0), stop_requested_(false), running_(false), thread_count_(1), handler_(NULL) {}
 		~simple_scheduler() {}
-
 
 		void set_handler(schedule_handler* handler) {
 			handler_ = handler;
@@ -127,7 +128,7 @@ namespace task_scheduler {
 		int add_task(task_object item);
 		void remove_task(int id);
 		op_task_object get_task(int id);
-		
+
 		void start();
 		void stop();
 
@@ -135,8 +136,7 @@ namespace task_scheduler {
 			thread_count_ = threads;
 			start_thread();
 		}
-		int get_threads() const { return thread_count_;}
-
+		int get_threads() const { return thread_count_; }
 
 	private:
 		void thread_proc(int id);
@@ -148,12 +148,10 @@ namespace task_scheduler {
 		void start_thread();
 
 		void log_error(std::string err);
+		void log_trace(std::string err);
 
 		inline boost::posix_time::ptime now() {
 			return boost::get_system_time();
 		}
 	};
-
 }
-
-

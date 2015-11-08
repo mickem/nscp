@@ -29,7 +29,6 @@
 #include <boost/shared_ptr.hpp>
 
 namespace PDH {
-
 	typedef HANDLE PDH_HCOUNTER;
 	typedef HANDLE PDH_HQUERY;
 	typedef HANDLE PDH_HLOG;
@@ -38,8 +37,7 @@ namespace PDH {
 		PDH_STATUS status_;
 	public:
 		pdh_error() : status_(ERROR_SUCCESS) {}
-		pdh_error(PDH_STATUS status) : status_(status) {
-		}
+		pdh_error(PDH_STATUS status) : status_(status) {}
 		pdh_error(const pdh_error &other) : status_(other.status_) {}
 		pdh_error& operator=(pdh_error const& other) {
 			status_ = other.status_;
@@ -53,23 +51,23 @@ namespace PDH {
 		}
 
 		bool is_error() const {
-			return status_!=ERROR_SUCCESS;
+			return status_ != ERROR_SUCCESS;
 		}
 		bool is_ok() const {
-			return status_==ERROR_SUCCESS;
+			return status_ == ERROR_SUCCESS;
 		}
 		bool is_more_data() {
-			return status_==PDH_MORE_DATA;
+			return status_ == PDH_MORE_DATA;
 		}
 		bool is_invalid_data() {
-			return status_==PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA;
+			return status_ == PDH_INVALID_DATA || status_ == PDH_CSTATUS_INVALID_DATA;
 		}
 		bool is_not_found() {
-			return status_==PDH_CSTATUS_NO_OBJECT || status_==PDH_CSTATUS_NO_COUNTER;
+			return status_ == PDH_CSTATUS_NO_OBJECT || status_ == PDH_CSTATUS_NO_COUNTER;
 		}
 
 		bool is_negative_denominator() {
-			return status_==PDH_CALC_NEGATIVE_DENOMINATOR;
+			return status_ == PDH_CALC_NEGATIVE_DENOMINATOR;
 		}
 	};
 
@@ -86,33 +84,32 @@ namespace PDH {
 		pdh_exception(std::string error) : error_(error) {}
 		~pdh_exception() throw() {}
 		const char* what() const throw() { return error_.c_str(); }
-		
+
 		std::string reason() const {
 			return error_;
 		}
 	};
 
 	namespace types {
-			typedef enum data_type_struct {
-				type_int64, type_uint64
-			};
-			typedef enum data_format_struct {
-				format_large
-			};
-			typedef enum collection_strategy_struct {
-				rrd, static_value
-			};
+		typedef enum data_type_struct {
+			type_int64, type_uint64
+		};
+		typedef enum data_format_struct {
+			format_large
+		};
+		typedef enum collection_strategy_struct {
+			rrd, static_value
+		};
 	}
-	
-	
+
 	struct pdh_object {
 		std::string path;
 		std::string alias;
-		
+
 		types::data_type_struct type;
 		types::data_format_struct format;
 		types::collection_strategy_struct strategy_;
-		
+
 		long buffer_size;
 		unsigned long flags_;
 		std::string instances_;
@@ -215,8 +212,8 @@ namespace PDH {
 
 	class impl_interface {
 	public:
-		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName,LPCTSTR szName,DWORD *dwIndex) = 0;
-		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName,DWORD dwNameIndex,LPTSTR szNameBuffer,LPDWORD pcchNameBufferSize) = 0;
+		virtual pdh_error PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR szName, DWORD *dwIndex) = 0;
+		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize) = 0;
 		virtual pdh_error PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) = 0;
 		virtual pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO* lpBuffer) = 0;
 		virtual pdh_error PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) = 0;

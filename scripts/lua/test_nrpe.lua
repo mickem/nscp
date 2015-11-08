@@ -97,7 +97,6 @@ end
 
 function TestNRPE:simple_handler(command, args)
 	local core = nscp.Core()
-	core:log('info', string.format('Got %s', args[0]))
 	msg = self:get_response(args[0])
 	msg.got_simple_response = true
 	self:set_response(msg)

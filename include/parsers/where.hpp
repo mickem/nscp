@@ -4,7 +4,6 @@
 
 namespace parsers {
 	namespace where {
-
 		struct parser {
 			node_type resulting_tree;
 			std::string rest;
@@ -16,9 +15,6 @@ namespace parsers {
 			bool collect_perfkeys(evaluation_context context, performance_collector &boundries);
 			std::string result_as_tree() const;
 			bool require_object(evaluation_context context) const;
-
 		};
 	}
 }
-
-

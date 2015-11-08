@@ -21,7 +21,6 @@
 #include <parsers/where/filter_handler_impl.hpp>
 
 namespace tasksched_filter {
-
 	namespace helpers {
 		struct task_sched_date {
 			unsigned long long date_;
@@ -33,12 +32,12 @@ namespace tasksched_filter {
 				date_ = date;
 				never_ = false;
 			}
-			operator unsigned long long () {
+			operator unsigned long long() {
 				if (never_ || date_ == 0)
 					return 0;
 				return strEx::filetime_to_time(date_);
 			}
-			operator const unsigned long long () const {
+			operator const unsigned long long() const {
 				if (never_ || date_ == 0)
 					return 0;
 				return strEx::filetime_to_time(date_);
@@ -51,13 +50,12 @@ namespace tasksched_filter {
 		typedef boost::optional<task_sched_date> op_date;
 		typedef boost::optional<bool> op_bool;
 
-
 		template<typename TRawType, typename TType, typename TObject>
 		struct fetch_traits {
 			typedef typename TRawType raw_type;
 			typedef typename TType data_type;
 			typedef typename TObject object_type;
-			typedef HRESULT (__stdcall TObject::*fun_ptr_type)(TRawType*);
+			typedef HRESULT(__stdcall TObject::*fun_ptr_type)(TRawType*);
 		};
 		template<typename TObject>
 		struct lpwstr_traits : public fetch_traits<LPWSTR, std::string, TObject> {
@@ -91,7 +89,7 @@ namespace tasksched_filter {
 				FILETIME localFileTime, fileTime;
 				SystemTimeToFileTime(&time, &localFileTime);
 				LocalFileTimeToFileTime(&localFileTime, &fileTime);
-				return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD+1)) + (unsigned long long)fileTime.dwLowDateTime);
+				return ((fileTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)fileTime.dwLowDateTime);
 			}
 			static unsigned long long convert_time(const DATE &date) {
 				SYSTEMTIME time;
@@ -102,7 +100,7 @@ namespace tasksched_filter {
 			static TReturn convert(HRESULT hr, TRawType &value) {
 				if (hr == SCHED_S_TASK_HAS_NOT_RUN)
 					return task_sched_date(true);
-				return task_sched_date(convert_time(value)); 
+				return task_sched_date(convert_time(value));
 			}
 		};
 		template<typename TTarget, typename TReturn, typename TObject>
@@ -110,7 +108,7 @@ namespace tasksched_filter {
 			static TReturn get_default() { return false; }
 			static void cleanup(TTarget) {}
 			static bool has_failed(HRESULT hr) { return FAILED(hr); }
-			static TReturn convert(HRESULT, TTarget value) { return value==VARIANT_TRUE; }
+			static TReturn convert(HRESULT, TTarget value) { return value == VARIANT_TRUE; }
 		};
 
 		template<typename traits>
@@ -147,15 +145,10 @@ namespace tasksched_filter {
 				}
 				return *data_;
 			}
-
 		};
-
 	}
-	
-	
-	
-	struct filter_obj {
 
+	struct filter_obj {
 		virtual bool is_new() = 0;
 
 		virtual std::string get_folder() = 0;
@@ -178,12 +171,9 @@ namespace tasksched_filter {
 		virtual std::string get_status_s() = 0;
 		virtual long long get_most_recent_run_time() = 0;
 		virtual std::string get_most_recent_run_time_s() = 0;
-
 	};
 
-	
 	struct old_filter_obj : public filter_obj {
-
 		typedef helpers::com_variable<helpers::lpwstr_traits<ITask> > string_variable;
 		typedef helpers::com_variable<helpers::word_traits<WORD, long, ITask> > word_variable;
 		typedef helpers::com_variable<helpers::word_traits<DWORD, long long, ITask> > dword_variable;
@@ -207,8 +197,6 @@ namespace tasksched_filter {
 		hresult_variable status;
 		date_variable most_recent_run_time;
 
-
-
 		old_filter_obj(ITask* task, std::string title);
 
 		bool is_new() { return false; }
@@ -216,7 +204,7 @@ namespace tasksched_filter {
 		std::string get_title() { return title; }
 		std::string get_folder() { return "/"; }
 
-		long long is_enabled() { return (get_status()&SCHED_S_TASK_DISABLED==SCHED_S_TASK_DISABLED)?0:1; }
+		long long is_enabled() { return (get_status()&SCHED_S_TASK_DISABLED == SCHED_S_TASK_DISABLED) ? 0 : 1; }
 
 		std::string get_account_name() { return account_name(task, title); }
 		std::string get_application_name() { return application_name(task, title); }
@@ -231,7 +219,7 @@ namespace tasksched_filter {
 		long long get_priority() { return priority(task, title); }
 
 		long long get_status() { return status(task, title); }
-		std::string get_status_s() { 
+		std::string get_status_s() {
 			long long i = get_status();
 			if (i == SCHED_S_TASK_READY)
 				return "ready";
@@ -255,9 +243,7 @@ namespace tasksched_filter {
 		}
 	};
 
-
 	struct new_filter_obj : public filter_obj {
-
 		typedef helpers::com_variable<helpers::bstr_traits<IRegisteredTask> > string_variable;
 		typedef helpers::com_variable<helpers::word_traits<WORD, long, IRegisteredTask> > word_variable;
 		typedef helpers::com_variable<helpers::word_traits<LONG, long, IRegisteredTask> > long_variable;
@@ -269,7 +255,6 @@ namespace tasksched_filter {
 		typedef helpers::com_variable<helpers::bstr_traits<IRegistrationInfo> > info_string_variable;
 		typedef helpers::com_variable<helpers::word_traits<int, long long, ITaskSettings> > settings_int_variable;
 		typedef helpers::com_variable<helpers::bstr_traits<ITaskSettings> > settings_string_variable;
-		
 
 		IRegisteredTask* task;
 		CComPtr<IRegistrationInfo> reginfo;
@@ -288,11 +273,9 @@ namespace tasksched_filter {
 		settings_string_variable max_run_time;
 		std::string str_title;
 
-
 		new_filter_obj(IRegisteredTask* task, std::string folder);
 
 		bool is_new() { return true; }
-
 
 		CComPtr<IRegistrationInfo> get_reginfo();
 		CComPtr<ITaskSettings> get_settings();
@@ -301,7 +284,6 @@ namespace tasksched_filter {
 		std::string get_folder() { return folder; }
 
 		long long is_enabled() { return enabled(task, get_title()); }
-
 
 		std::string get_title() { if (str_title.empty()) str_title = title(task, "unknown"); return str_title; }
 		std::string get_account_name() { throw nscp_exception("account_name is not supported"); }
@@ -318,7 +300,7 @@ namespace tasksched_filter {
 		long long get_priority() { return priority(get_settings(), get_title()); }
 
 		long long get_status() { return status(task, get_title()); }
-		std::string get_status_s() { 
+		std::string get_status_s() {
 			long long i = get_status();
 			if (i == TASK_STATE_QUEUED)
 				return "queued";
@@ -344,7 +326,6 @@ namespace tasksched_filter {
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
 	struct filter_obj_handler : public native_context {
-
 		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
 
 		filter_obj_handler();

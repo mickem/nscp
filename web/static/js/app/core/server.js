@@ -1,7 +1,7 @@
 define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], function($, require, auth, globalStatus) {
 
 	function gs() {
-		return require("core/globalStatus");
+		return require("app/core/globalStatus");
 	}
 
 	return {
@@ -17,7 +17,7 @@ define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], fun
 						auth.showLogin();
 					}
 					gs().set_error(xhr.responseText)
-					gs().not_busy(100, false)
+					gs().not_busy(false)
 				},
 				beforeSend: function (xhr) {
 					xhr.setRequestHeader('TOKEN', auth.get());
@@ -38,7 +38,7 @@ define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], fun
 						auth.showLogin();
 					}
 					gs().set_error(xhr.responseText)
-					gs().not_busy(100, false)
+					gs().not_busy(false)
 				},
 				beforeSend: function (xhr) {
 					xhr.setRequestHeader('TOKEN', auth.get());

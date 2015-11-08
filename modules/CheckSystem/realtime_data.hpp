@@ -8,7 +8,6 @@
 
 namespace check_cpu_filter {
 	struct runtime_data {
-
 		typedef check_cpu_filter::filter filter_type;
 		typedef pdh_thread* transient_data_type;
 
@@ -25,13 +24,10 @@ namespace check_cpu_filter {
 		bool process_item(filter_type &filter, transient_data_type);
 		void add(const std::string &time);
 	};
-
 }
-
 
 namespace check_mem_filter {
 	struct runtime_data {
-
 		typedef check_mem_filter::filter filter_type;
 		typedef CheckMemory* transient_data_type;
 
@@ -43,5 +39,4 @@ namespace check_mem_filter {
 		bool process_item(filter_type &filter, transient_data_type);
 		void add(const std::string &data);
 	};
-
 }

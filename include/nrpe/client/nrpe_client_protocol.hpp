@@ -49,7 +49,7 @@ namespace nrpe {
 			void prepare_request(request_type &packet) {
 				set_state(has_request);
 				payload_length_ = packet.get_payload_length();
-				buffer_ =  packet.get_buffer();
+				buffer_ = packet.get_buffer();
 			}
 
 			write_buffer_type& get_outbound() {
@@ -78,7 +78,7 @@ namespace nrpe {
 				nrpe::packet packet = nrpe::packet(&buffer_[0], static_cast<unsigned int>(buffer_.size()));
 				if (packet.getType() == nrpe::data::moreResponsePacket)
 					set_state(has_more);
-				else 
+				else
 					set_state(connected);
 				responses_.push_back(packet);
 				return true;

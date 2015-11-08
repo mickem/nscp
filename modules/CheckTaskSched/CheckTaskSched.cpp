@@ -39,7 +39,6 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
@@ -52,8 +51,8 @@ bool CheckTaskSched::unloadModule() {
 
 void log_args(const Plugin::QueryRequestMessage::Request &request) {
 	std::stringstream ss;
-	for (int i=0;i<request.arguments_size();i++) {
-		if (i>0)
+	for (int i = 0; i < request.arguments_size(); i++) {
+		if (i > 0)
 			ss << " ";
 		ss << request.arguments(i);
 	}
@@ -84,7 +83,7 @@ void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &reque
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 		return;
 	std::string warn, crit;
 
@@ -118,14 +117,13 @@ void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &reque
 		boost::replace_all(syntax, "%status%", "${status}");
 		boost::replace_all(syntax, "%exit_code%", "${exit_code}");
 		boost::replace_all(syntax, "%most_recent_run_time%", "${most_recent_run_time}");
-		
+
 		request.add_arguments("detail-syntax=" + syntax);
 	}
 
 	log_args(request);
 	check_tasksched(request, response);
 }
-
 
 void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	typedef tasksched_filter::filter filter_type;
@@ -163,4 +161,3 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to fetch tasks: " + e.reason());
 	}
 }
-

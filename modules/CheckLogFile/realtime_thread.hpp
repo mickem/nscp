@@ -34,7 +34,6 @@ struct real_time_thread {
 	int stop_event_[2];
 #endif
 
-
 	nscapi::core_wrapper *core;
 	int plugin_id;
 	bool enabled_;
@@ -44,7 +43,7 @@ struct real_time_thread {
 	real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), debug_(false), cache_(false) {}
 
 	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
-	void set_enabled(bool flag) { enabled_ = flag; } 
+	void set_enabled(bool flag) { enabled_ = flag; }
 
 	void set_language(std::string lang);
 	void set_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string flt) {

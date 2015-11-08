@@ -35,7 +35,7 @@
 //////////////////////////////////////////////////////////////////////////
 
 bool nscapi::core_wrapper::should_log(NSCAPI::nagiosReturn msgType) const {
-	enum log_status {unknown, set };
+	enum log_status { unknown, set };
 	static NSCAPI::log_level::level level = NSCAPI::log_level::info;
 	static log_status status = unknown;
 	if (status == unknown) {
@@ -135,8 +135,7 @@ bool nscapi::core_wrapper::reload(std::string module) const {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return NSCAPI::api_ok(fNSAPIReload(module.c_str()));
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
-{
+NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPINotify(channel, request, request_len, response, response_len);
@@ -161,7 +160,7 @@ bool nscapi::core_wrapper::query(const std::string & request, std::string & resu
 	return retC;
 }
 
-bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) {
+bool nscapi::core_wrapper::exec_command(const std::string target, std::string request, std::string & result) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
 	bool retC = NSCAPI::api_ok(exec_command(target.c_str(), request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
@@ -176,8 +175,7 @@ bool nscapi::core_wrapper::exec_command(const std::string target, std::string re
 	}
 	return retC;
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len)
-{
+NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPIExecCommand)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIExecCommand(target, request, request_len, response, response_len);
@@ -187,13 +185,13 @@ std::string nscapi::core_wrapper::expand_path(std::string value) {
 	if (!fNSAPIExpandPath)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
-	char *buffer = new char[buf_len+1];
+	char *buffer = new char[buf_len + 1];
 	if (!NSCAPI::api_ok(fNSAPIExpandPath(value.c_str(), buffer, buf_len))) {
-		delete [] buffer;
+		delete[] buffer;
 		throw nscapi::nscapi_exception("Failed to expand path: " + value);
 	}
 	std::string ret = buffer;
-	delete [] buffer;
+	delete[] buffer;
 	return ret;
 }
 NSCAPI::errorReturn nscapi::core_wrapper::settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
@@ -271,13 +269,13 @@ std::string nscapi::core_wrapper::getApplicationName() {
 	if (!fNSAPIGetApplicationName)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
-	char *buffer = new char[buf_len+1];
+	char *buffer = new char[buf_len + 1];
 	if (!NSCAPI::api_ok(fNSAPIGetApplicationName(buffer, buf_len))) {
-		delete [] buffer;
+		delete[] buffer;
 		throw nscapi::nscapi_exception("Application name could not be retrieved");
 	}
 	std::string ret = buffer;
-	delete [] buffer;
+	delete[] buffer;
 	return ret;
 }
 
@@ -295,13 +293,13 @@ std::string nscapi::core_wrapper::getApplicationVersionString() {
 	if (!fNSAPIGetApplicationVersionStr)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
-	char *buffer = new char[buf_len+1];
+	char *buffer = new char[buf_len + 1];
 	if (NSCAPI::api_ok(fNSAPIGetApplicationVersionStr(buffer, buf_len))) {
-		delete [] buffer;
+		delete[] buffer;
 		return "";
 	}
 	std::string ret = buffer;
-	delete [] buffer;
+	delete[] buffer;
 	return ret;
 }
 

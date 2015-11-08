@@ -531,11 +531,13 @@ message Settings {
 	message Information {
 		optional string title = 1;
 		optional string description = 2;
+		optional string icon = 10;
 		optional Common.AnyDataType default_value = 3;
 		optional string min_version = 4;
 		optional string max_version = 5;
 		optional bool advanced = 6;
 		optional bool sample = 7;
+		optional bool is_template = 11;
 		optional string sample_usage = 8;
 		repeated string plugin = 9;
 	};
@@ -551,6 +553,7 @@ message SettingsRequestMessage {
 		message Registration {
 			optional Settings.Node node = 1;
 			optional Settings.Information info = 2;
+			optional string fields = 3;
 		};
 		message Query {
 			optional Settings.Node node = 1;
@@ -571,6 +574,7 @@ message SettingsRequestMessage {
 			optional bool fetch_keys = 3;
 			optional bool fetch_paths = 4;
 			optional bool fetch_samples = 5;
+			optional bool fetch_templates = 7;
 			optional bool descriptions = 6;
 		};
 		message Control {

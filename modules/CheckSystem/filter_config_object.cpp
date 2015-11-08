@@ -16,14 +16,13 @@
 
 #include "filter.hpp"
 
-
 namespace sh = nscapi::settings_helper;
 
 namespace filters {
 	std::string filter_config_object::to_string() const {
 		std::stringstream ss;
 		ss << alias << "[" << alias << "] = "
-			<< "{tpl: " << parent::to_string() << ", filter: "  << filter.to_string() << "}";
+			<< "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
 		return ss.str();
 	}
 
@@ -48,7 +47,7 @@ namespace filters {
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(path);
+		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
 			root_path.set_sample();
 
@@ -59,7 +58,7 @@ namespace filters {
 			;
 		root_path.add_key()
 			("check", sh::string_key(&check, "cpu"),
-			"TYPE OF CHECK", "The type of check cpu or memory", false)
+				"TYPE OF CHECK", "The type of check cpu or memory", false)
 			;
 
 		settings.register_all();
@@ -74,12 +73,11 @@ namespace filters {
 
 			root_path.add_key()
 				("type", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
-				"TIME", "The time to check", false)
+					"TIME", "The time to check", false)
 
 				("types", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
-				"FILES", "A list of times to check (soma separated)", true)
+					"FILES", "A list of times to check (soma separated)", true)
 				;
-
 		} else {
 			if (is_default) {
 				// Populate default values!
@@ -90,10 +88,10 @@ namespace filters {
 
 			root_path.add_key()
 				("time", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
-				"TIME", "The time to check", false)
+					"TIME", "The time to check", false)
 
 				("times", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
-				"FILES", "A list of times to check (soma separated)", true)
+					"FILES", "A list of times to check (soma separated)", true)
 				;
 		}
 
@@ -102,6 +100,4 @@ namespace filters {
 		settings.register_all();
 		settings.notify();
 	}
-
 }
-

@@ -17,12 +17,8 @@
 
 namespace parsers {
 	namespace where {
-
-
 		template<class T>
 		struct function_registry;
-
-
 
 		template<class T>
 		struct filter_variable {
@@ -39,10 +35,9 @@ namespace parsers {
 			void set_no_perf() { add_default_perf = false; }
 
 			filter_variable(std::string name, value_type type, std::string description) : name(name), type(type), description(description), add_default_perf(true) {}
-
 		};
 		template<class T>
-		struct filter_converter : public parsers::where::binary_function_impl {
+		struct filter_converter : public parsers::where::binary_function_impl{
 			value_type type;
 			typedef boost::function<node_type(T, evaluation_context, node_type)> converter_fun_type;
 			converter_fun_type function;
@@ -50,17 +45,15 @@ namespace parsers {
 			filter_converter(value_type type) : type(type) {}
 
 			virtual node_type evaluate(value_type type, evaluation_context context, const node_type subject) const;
-
 		};
 
 		struct filter_function {
 			std::string name;
 			std::string description;
-			typedef boost::function<node_type(const value_type,evaluation_context,const node_type)> generic_fun_type;
+			typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> generic_fun_type;
 			generic_fun_type function;
 			value_type type;
 			filter_function(std::string name) : name(name) {}
-
 		};
 
 		template<class T>
@@ -122,8 +115,6 @@ namespace parsers {
 				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(maxfun, prefix, suffix)));
 				return *this;
 			}
-			
-
 
 		private:
 			boost::shared_ptr<filter_variable<T> > get_last();
@@ -134,7 +125,6 @@ namespace parsers {
 
 		template<class T>
 		struct registry_adders_variables_string {
-
 			registry_adders_variables_string(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
 
 			registry_adders_variables_string& operator()(std::string key, typename filter_variable<T>::str_fun_type s_fun, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
@@ -159,7 +149,6 @@ namespace parsers {
 
 		template<class T>
 		struct registry_adders_converters {
-
 			registry_adders_converters(function_registry<T>* owner_) : owner(owner_) {}
 
 			registry_adders_converters& operator()(value_type type, typename filter_converter<T>::converter_fun_type fun) {
@@ -175,7 +164,6 @@ namespace parsers {
 
 		template<class T>
 		struct registry_adders_function {
-
 			registry_adders_function(function_registry<T>* owner_, value_type type) : owner(owner_), type(type) {}
 
 			registry_adders_function& operator()(std::string key, typename filter_function::generic_fun_type fun, std::string description) {
@@ -186,7 +174,7 @@ namespace parsers {
 				add_functions(var);
 				return *this;
 			}
-			registry_adders_function& operator()(std::string key,value_type type_,  typename filter_function::generic_fun_type fun, std::string description) {
+			registry_adders_function& operator()(std::string key, value_type type_, typename filter_function::generic_fun_type fun, std::string description) {
 				boost::shared_ptr<filter_function> var(new filter_function(key));
 				var->function = fun;
 				var->type = type_;
@@ -258,17 +246,17 @@ namespace parsers {
 				return boost::shared_ptr<filter_variable<T> >(new filter_variable<T>("dummy", type_tbd, "dummy"));
 			}
 			boost::shared_ptr<filter_converter<T> > get_converter(const value_type type) const {
- 				typename converter_type::const_iterator cit = converters.find(type);
- 				if (cit != converters.end()) {
- 					return cit->second;
- 				}
+				typename converter_type::const_iterator cit = converters.find(type);
+				if (cit != converters.end()) {
+					return cit->second;
+				}
 				return boost::shared_ptr<filter_converter<T> >(new filter_converter<T>(type_tbd));
 			}
 			boost::shared_ptr<filter_function> get_function(const std::string &key) const {
- 				typename function_type::const_iterator cit = functions.find(key);
- 				if (cit != functions.end()) {
- 					return cit->second;
- 				}
+				typename function_type::const_iterator cit = functions.find(key);
+				if (cit != functions.end()) {
+					return cit->second;
+				}
 				return boost::shared_ptr<filter_function>(new filter_function("dummy"));
 			}
 			void add(boost::shared_ptr<filter_variable<T> > d, bool human) {
@@ -309,7 +297,6 @@ namespace parsers {
 		void registry_adders_converters<T>::add_converter(boost::shared_ptr<filter_converter<T> > d) {
 			owner->add(d);
 		}
-
 
 		template<class TObject>
 		struct generic_summary {
@@ -414,13 +401,13 @@ namespace parsers {
 				return count_crit;
 			}
 			long long get_count_problem() {
-				return count_warn+count_crit;
+				return count_warn + count_crit;
 			}
 			long long get_count_total() {
 				return count_total;
 			}
 			std::string get_format_syntax() const {
-				return 
+				return
 					"${count}\tNumber of items matching the filter\n"
 					"${total}\t Total number of items\n"
 					"${ok_count}\t Number of items matched the ok criteria\n"
@@ -435,8 +422,8 @@ namespace parsers {
 					"${detail_list}\t A special list with critical, then warning and fainally ok\n"
 					"${status}\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
 			}
- 			std::string get_filter_syntax() const {
-				return 
+			std::string get_filter_syntax() const {
+				return
 					"count\tNumber of items matching the filter\n"
 					"total\t Total number of items\n"
 					"ok_count\t Number of items matched the ok criteria\n"
@@ -450,7 +437,7 @@ namespace parsers {
 					"problem_list\t A list of all items which matched either the critical or the warning criteria\n"
 					"detail_list\t A special list with critical, then warning and fainally ok\n"
 					"status\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
- 			}
+			}
 
 			bool has_variable(const std::string &name) {
 				return name == "count" || name == "total" || name == "ok_count" || name == "warn_count" || name == "crit_count" || name == "problem_count"
@@ -461,13 +448,12 @@ namespace parsers {
 			node_type create_variable(const std::string &name, bool human_readable = false);
 		};
 
-
 		template<class TObject>
 		struct filter_handler_impl : public parsers::where::evaluation_context_impl<TObject> {
 			typedef TObject object_type;
 			typedef boost::function<std::string(object_type, evaluation_context)> bound_string_type;
 			typedef boost::function<long long(object_type, evaluation_context)> bound_int_type;
-			typedef boost::function<node_type(const value_type,evaluation_context,const node_type)> bound_function_type;
+			typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> bound_function_type;
 			typedef function_registry<object_type> registry_type;
 
 			registry_type registry_;
@@ -552,8 +538,8 @@ namespace parsers {
 				return false;
 			}
 
-			typedef std::map<std::string,std::string> perf_object_options_type;
-			typedef boost::unordered_map<std::string,perf_object_options_type> perf_options_type;
+			typedef std::map<std::string, std::string> perf_object_options_type;
+			typedef boost::unordered_map<std::string, perf_object_options_type> perf_options_type;
 			perf_options_type perf_options;
 
 			virtual bool has_performance_config_for_object(const std::string object) const {
@@ -563,11 +549,11 @@ namespace parsers {
 				std::string value = v;
 				bool has_p = !prefix.empty();
 				bool has_s = !suffix.empty();
-				if (has_p&&has_s&&get_performance_config_value(prefix+"."+object+"."+suffix, key, value))
+				if (has_p&&has_s&&get_performance_config_value(prefix + "." + object + "." + suffix, key, value))
 					return value;
-				if (has_p&&get_performance_config_value(prefix+"."+object, key, value))
+				if (has_p&&get_performance_config_value(prefix + "." + object, key, value))
 					return value;
-				if (has_s&&get_performance_config_value(object+"."+suffix, key, value))
+				if (has_s&&get_performance_config_value(object + "." + suffix, key, value))
 					return value;
 				if (has_p&&get_performance_config_value(prefix, key, value))
 					return value;
@@ -589,11 +575,10 @@ namespace parsers {
 				value = cit2->second;
 				return true;
 			}
-			virtual void add_perf_config(const std::string &key, const std::map<std::string,std::string> &options) {
+			virtual void add_perf_config(const std::string &key, const std::map<std::string, std::string> &options) {
 				perf_options[key] = options;
 			}
 		};
-
 
 		template<class TObject>
 		node_type generic_summary<TObject>::create_variable(const std::string &key, bool) {
@@ -625,7 +610,6 @@ namespace parsers {
 				return node_type(new summary_string_variable_node<parsers::where::evaluation_context_impl<TObject> >(key, boost::bind(&generic_summary<TObject>::get_status, _1)));
 			return parsers::where::factory::create_false();
 		}
-
 
 		template<class T>
 		node_type filter_converter<T>::evaluate(value_type, evaluation_context context, const node_type subject) const {

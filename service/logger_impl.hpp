@@ -3,7 +3,6 @@
 #include <boost/thread/mutex.hpp>
 
 namespace nsclient {
-
 	namespace logging {
 		namespace impl {
 			class raw_subscribers {
@@ -12,7 +11,6 @@ namespace nsclient {
 
 				subscribers_type subscribers_;
 				mutable boost::timed_mutex mutex_;
-
 
 			public:
 				void add(subscriber_type subscriber) {
@@ -42,5 +40,3 @@ namespace nsclient {
 		}
 	}
 }
-
-

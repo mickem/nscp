@@ -1,7 +1,7 @@
 #include "resource.h"
 #include <version.hpp>
 
-/////////////////////////////////////////////////////////////////////// 
+///////////////////////////////////////////////////////////////////////
 //
 // Icon
 //
@@ -10,43 +10,41 @@
 // remains consistent on all systems.
 IDI_NSCP                ICON                    "res/nscp.ico"
 
-
-/////////////////////////////////////////////////////////////////////// 
-// 
+///////////////////////////////////////////////////////////////////////
+//
 // Version
-// 
+//
 
 1 VERSIONINFO
- FILEVERSION PRODUCTVER
- PRODUCTVERSION PRODUCTVER
- FILEFLAGSMASK 0x3fL
+FILEVERSION PRODUCTVER
+PRODUCTVERSION PRODUCTVER
+FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
- FILEFLAGS 0x1L
+FILEFLAGS 0x1L
 #else
- FILEFLAGS 0x0L
+FILEFLAGS 0x0L
 #endif
- FILEOS 0x4L
- FILETYPE 0x1L
- FILESUBTYPE 0x0L
+FILEOS 0x4L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
 BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904B0"
-        BEGIN
-            VALUE "Comments", "NSClient++\0"
-            VALUE "CompanyName", "MySolutions Nordic (Michael Medin)\0"
-            VALUE "FileDescription", "Monitoring Agent\0"
-            VALUE "FileVersion", STRPRODUCTVER "\0"
-            VALUE "InternalName", "NSCP\0"
-            VALUE "LegalCopyright", "Copyright (C) 2012 - Michael Medin\0"
-            VALUE "OriginalFilename", "NSCP.EXE\0"
-            VALUE "ProductName", "NSClient++\0"
-            VALUE "ProductVersion", STRPRODUCTVER "\0"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x409, 1200
-    END
+BLOCK "StringFileInfo"
+BEGIN
+BLOCK "040904B0"
+BEGIN
+VALUE "Comments", "NSClient++\0"
+VALUE "CompanyName", "MySolutions Nordic (Michael Medin)\0"
+VALUE "FileDescription", "Monitoring Agent\0"
+VALUE "FileVersion", STRPRODUCTVER "\0"
+VALUE "InternalName", "NSCP\0"
+VALUE "LegalCopyright", "Copyright (C) 2012 - Michael Medin\0"
+VALUE "OriginalFilename", "NSCP.EXE\0"
+VALUE "ProductName", "NSClient++\0"
+VALUE "ProductVersion", STRPRODUCTVER "\0"
 END
-				
+END
+BLOCK "VarFileInfo"
+BEGIN
+VALUE "Translation", 0x409, 1200
+END
+END

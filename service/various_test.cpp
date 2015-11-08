@@ -5,35 +5,33 @@
 
 #include <gtest/gtest.h>
 
-
 TEST(format, format_byte_units_units) {
 	EXPECT_EQ(format::format_byte_units(0LL), "0B");
 	EXPECT_EQ(format::format_byte_units(1LL), "1B");
 	EXPECT_EQ(format::format_byte_units(1024LL), "1KB");
-	EXPECT_EQ(format::format_byte_units(1024*1024LL), "1MB");
-	EXPECT_EQ(format::format_byte_units(1024*1024*1024LL), "1GB");
-	EXPECT_EQ(format::format_byte_units(1024*1024*1024*1024LL), "1TB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024LL), "1MB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024LL), "1GB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024 * 1024LL), "1TB");
 	EXPECT_EQ(format::format_byte_units(-76100000000LL), "-70.874GB");
 	EXPECT_EQ(format::format_byte_units(9223372036854775807LL), "8192PB");
 	EXPECT_EQ(format::format_byte_units(-1LL), "-1B");
 	EXPECT_EQ(format::format_byte_units(-1024LL), "-1KB");
-	EXPECT_EQ(format::format_byte_units(-1024*1024LL), "-1MB");
-	EXPECT_EQ(format::format_byte_units(-1024*1024*1024LL), "-1GB");
-	EXPECT_EQ(format::format_byte_units(-1024*1024*1024*1024LL), "-1TB");
+	EXPECT_EQ(format::format_byte_units(-1024 * 1024LL), "-1MB");
+	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024LL), "-1GB");
+	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024 * 1024LL), "-1TB");
 
 	EXPECT_EQ(format::format_byte_units(0ULL), "0B");
 	EXPECT_EQ(format::format_byte_units(1ULL), "1B");
 	EXPECT_EQ(format::format_byte_units(1024ULL), "1KB");
-	EXPECT_EQ(format::format_byte_units(1024*1024ULL), "1MB");
-	EXPECT_EQ(format::format_byte_units(1024*1024*1024ULL), "1GB");
-	EXPECT_EQ(format::format_byte_units(1024*1024*1024*1024ULL), "1TB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024ULL), "1MB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024ULL), "1GB");
+	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024 * 1024ULL), "1TB");
 	EXPECT_EQ(format::format_byte_units(-76100000000ULL), "16384PB");
 	EXPECT_EQ(format::format_byte_units(9223372036854775807ULL), "8192PB");
 
 	EXPECT_EQ(format::format_byte_units(-1ULL), "16384PB");
 	EXPECT_EQ(format::format_byte_units(-1024ULL), "16384PB");
-	EXPECT_EQ(format::format_byte_units(-1024*1024*1024*1024ULL), "16383.999PB");
-
+	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024 * 1024ULL), "16383.999PB");
 }
 
 TEST(format, format_byte_units_common) {
@@ -81,7 +79,6 @@ TEST(format, strex_s__xtos_float) {
 	EXPECT_EQ(strEx::s::xtos(9223372036854775807.0), "9.22337e+18");
 #endif
 }
-
 
 TEST(format, strex_s__xtos_no_sci_int) {
 	EXPECT_EQ(strEx::s::xtos_non_sci(0LL), "0");

@@ -8,7 +8,6 @@
 #include "filter.hpp"
 
 namespace file_finder {
-
 	struct scanner_context {
 		bool debug;
 		std::string pattern;

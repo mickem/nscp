@@ -11,8 +11,6 @@
 #include <NSCAPI.h>
 
 namespace scripts {
-
-
 	struct sample_trait {
 		struct user_data {
 			std::string foo;
@@ -26,7 +24,6 @@ namespace scripts {
 		};
 		typedef function function_type;
 	};
-
 
 	struct settings_provider;
 	struct core_provider;
@@ -86,22 +83,19 @@ namespace scripts {
 		virtual void load(scripts::script_information<script_trait> *info) = 0;
 		virtual void unload(scripts::script_information<script_trait> *info) = 0;
 		virtual void create_user_data(scripts::script_information<script_trait> *info) = 0;
-
 	};
 
 	struct nscp_runtime_interface {
-
 		virtual void register_command(const std::string type, const std::string &command, const std::string &description) = 0;
 		virtual boost::shared_ptr<settings_provider> get_settings_provider() = 0;
 		virtual boost::shared_ptr<core_provider> get_core_provider() = 0;
-
 	};
 
 	template<class script_trait>
 	struct command_definition {
 		command_definition() {}
 		command_definition(script_information<script_trait> *information) : information(information) {}
-		command_definition(const command_definition &other) 
+		command_definition(const command_definition &other)
 			: function(other.function), information(other.information), type(other.type), command(other.command) {}
 		command_definition& operator=(const command_definition &other) {
 			function = other.function;
@@ -117,7 +111,6 @@ namespace scripts {
 		std::string command;
 	};
 
-
 	template<class script_trait>
 	struct script_manager;
 
@@ -130,8 +123,7 @@ namespace scripts {
 		script_information_impl(script_manager<script_trait> *reg, boost::shared_ptr<settings_provider> settings, boost::shared_ptr<core_provider> core)
 			: reg(reg)
 			, settings(settings)
-			, core(core) 
-		{}
+			, core(core) {}
 		virtual boost::shared_ptr<settings_provider> get_settings_provider() {
 			return settings;
 		}
@@ -143,7 +135,6 @@ namespace scripts {
 			reg->register_command(this, type, command, description, function);
 		}
 	};
-
 
 	template<class script_trait>
 	struct script_manager {
@@ -160,13 +151,12 @@ namespace scripts {
 
 	public:
 
-		script_manager(boost::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, boost::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id, std::string plugin_alias) 
+		script_manager(boost::shared_ptr<script_runtime_interface<script_trait> > script_runtime_, boost::shared_ptr<nscp_runtime_interface> nscp_runtime, int plugin_id, std::string plugin_alias)
 			: script_runtime(script_runtime_)
 			, nscp_runtime(nscp_runtime)
 			, plugin_id(plugin_id)
 			, script_id(0)
-			, plugin_alias(plugin_alias) 
-		{}
+			, plugin_alias(plugin_alias) {}
 		script_information<script_trait>* add(std::string alias, std::string script) {
 			script_information<script_trait> *info = new script_information_impl<script_trait>(this, nscp_runtime->get_settings_provider(), nscp_runtime->get_core_provider());
 			info->plugin_alias = plugin_alias;
@@ -219,21 +209,16 @@ namespace scripts {
 			}
 			return boost::optional<command_definition<script_trait> >((*it).second);
 		}
-/*
-		virtual NSCAPI::errorReturn execute_command(const std::string &type, const std::string &command, const std::string &request, std::string &response) {
-			boost::optional<command_definition<script_trait> > cmd = find_command(type, command);
-			if (!cmd)
-				return NSCAPI::returnIgnored;
-			nscp_runtime->execute(type, command, description);
-		}
-*/
-		bool empty() const
-		{
+		/*
+				virtual NSCAPI::errorReturn execute_command(const std::string &type, const std::string &command, const std::string &request, std::string &response) {
+					boost::optional<command_definition<script_trait> > cmd = find_command(type, command);
+					if (!cmd)
+						return NSCAPI::returnIgnored;
+					nscp_runtime->execute(type, command, description);
+				}
+		*/
+		bool empty() const {
 			return scripts_.empty();
 		}
-
 	};
-
-
-
 }

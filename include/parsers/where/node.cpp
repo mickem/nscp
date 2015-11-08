@@ -6,7 +6,6 @@
 #include <parsers/where/node.hpp>
 #include <parsers/where/helpers.hpp>
 
-
 #include <parsers/where/list_node.hpp>
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/unary_op.hpp>
@@ -15,7 +14,6 @@
 
 namespace parsers {
 	namespace where {
-
 		std::string value_container::get_string() const {
 			if (i_value)
 				return strEx::s::xtos(*i_value);
@@ -34,7 +32,6 @@ namespace parsers {
 				return *s_value;
 			return def;
 		}
-
 
 		std::string filter_exception::reason() const throw() {
 			return utf8::utf8_from_native(what());
@@ -61,8 +58,6 @@ namespace parsers {
 		bool performance_collector::has_candidates() const {
 			return has_candidate_value() || has_candidate_variable();
 		}
-
-
 
 		bool performance_collector::add_bounds_candidates(const performance_collector &lower, const performance_collector &upper) {
 			if (lower.has_candidate_variable() && upper.has_candidate_value()) {
@@ -118,14 +113,13 @@ namespace parsers {
 			return false;
 		}
 
-
-// 		std::string performance_value::to_string() const {
-// 			if (string_value)
-// 				return *string_value;
-// 			if (int_value)
-// 				return strEx::s::xtos(*int_value);
-// 			return "N/A";
-// 		}
+		// 		std::string performance_value::to_string() const {
+		// 			if (string_value)
+		// 				return *string_value;
+		// 			if (int_value)
+		// 				return strEx::s::xtos(*int_value);
+		// 			return "N/A";
+		// 		}
 
 		bool performance_collector::has_candidate_value() const {
 			return static_cast<bool>(candidate_value_);
@@ -142,7 +136,6 @@ namespace parsers {
 		node_type performance_collector::get_value() const {
 			return candidate_value_;
 		}
-
 
 		void performance_collector::set_candidate_value(node_type value) {
 			candidate_value_ = value;
@@ -177,9 +170,9 @@ namespace parsers {
 			}
 			return node;
 		}
-// 		list_node_type create_fun(const unary_fun &other) {
-// 			return boost::make_shared<unary_fun>();
-// 		}
+		// 		list_node_type create_fun(const unary_fun &other) {
+		// 			return boost::make_shared<unary_fun>();
+		// 		}
 		node_type factory::create_bin_op(const operators &op, node_type lhs, node_type rhs) {
 			return node_type(new binary_op(op, lhs, rhs));
 		}
@@ -242,7 +235,5 @@ namespace parsers {
 				return node_type(new string_value(value.get_string(0), value.is_unsure));
 			return node_type(new int_value(0));
 		}
-
 	}
 }
-

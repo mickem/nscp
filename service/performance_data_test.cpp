@@ -11,7 +11,6 @@ std::string do_parse(std::string str) {
 	return nscapi::protobuf::functions::build_performance_data(r);
 }
 
-
 TEST(PerfDataTest, fractions) {
 	EXPECT_EQ("'aaa'=1.23374g;0.12345;4.47538;2.23747;5.94849", do_parse("aaa=1.2337399999999999999g;0.123456;4.4753845;2.2374742;5.9484945"));
 }

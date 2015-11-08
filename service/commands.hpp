@@ -20,7 +20,6 @@ namespace nsclient {
 			virtual const char* what() const throw() {
 				return what_.c_str();
 			}
-
 		};
 		struct command_info {
 			std::string description;
@@ -29,10 +28,9 @@ namespace nsclient {
 		};
 
 		typedef boost::shared_ptr<NSCPlugin> plugin_type;
-		typedef std::map<unsigned long,plugin_type> plugin_list_type;
-		typedef std::map<std::string,command_info> description_list_type;
-		typedef std::map<std::string,plugin_type> command_list_type;
-
+		typedef std::map<unsigned long, plugin_type> plugin_list_type;
+		typedef std::map<std::string, command_info> description_list_type;
+		typedef std::map<std::string, plugin_type> command_list_type;
 
 	private:
 		plugin_list_type plugins_;
@@ -114,7 +112,7 @@ namespace nsclient {
 			if (!have_plugin(plugin_id))
 				throw command_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			if (commands_.find(lc) != commands_.end()) {
-				log_info(__FILE__,__LINE__, "Duplicate command", cmd);
+				log_info(__FILE__, __LINE__, "Duplicate command", cmd);
 			}
 			descriptions_[lc].description = desc;
 			descriptions_[lc].plugin_id = plugin_id;
@@ -154,19 +152,18 @@ namespace nsclient {
 			aliases_[lc] = plugins_[plugin_id];
 		}
 
-private:
+	private:
 
 		std::string unsafe_get_all_plugin_ids() {
 			std::string ret;
-			std::pair<unsigned long,plugin_type> cit;
+			std::pair<unsigned long, plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
 				ret += strEx::s::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getFilename()) + "), ";
 			}
 			return ret;
 		}
 
-
-public:
+	public:
 		command_info describe(std::string command) {
 			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!readLock.owns_lock()) {
@@ -229,7 +226,7 @@ public:
 				log_error(__FILE__, __LINE__, "Failed to get mutex");
 				return lst;
 			}
-			std::pair<unsigned long,plugin_type> cit;
+			std::pair<unsigned long, plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
 				lst.push_back(strEx::s::xtos(cit.first));
 			}
@@ -283,6 +280,5 @@ public:
 		inline bool have_plugin(unsigned long plugin_id) {
 			return !(plugins_.find(plugin_id) == plugins_.end());
 		}
-
 	};
 }

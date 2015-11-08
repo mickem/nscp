@@ -51,12 +51,8 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 		}
 
 		self.logout = function() {
-			$.getJSON("/auth/logout?token="+auth.get(), function(data, textStatus, xhr) {
-				auth.set('');
-				self.password('')
-				self.is_loggedin(false)
-				self.on_logout.forEach(function (handler) { handler(); });
-			})
+			self.is_loggedin(false);
+			auth.showLogin();
 		}
 		
 		
@@ -118,7 +114,6 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 		}
 
 		self.do_update = function() {
-			console.log("doing_update")
 			server.json_get("/log/status", function(data) {
 				self.update(data['status']);
 			}).error(function(xhr, error, status) {
@@ -146,9 +141,11 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 		}
 
 		self.reset = function() {
-			server.json_get("/log/reset", function(data) {
-				self.do_update();
-			})
+			 if ($.active == 0) {
+				server.json_get("/log/reset", function(data) {
+					self.do_update();
+				})
+			 }
 		}
 		self.cancelPoller = function() {
 			clearTimeout(self.poller);
@@ -166,15 +163,24 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 				success: function (data, status, xhttp) {
 					if (data['status'] && data['status'] == "ok") {
 						clearTimeout(self.restart_waiter);
+						self.not_busy(true);
 					} else {
 						self.restart_waiter = setTimeout(self.restart_poll, 1000);
 					}
 				},
 				error: function(jqXHR, textStatus, errorThrown) {
+					self.set_error("Failed to connect to backend")
+					clearTimeout(self.restart_waiter);
 					self.restart_waiter = setTimeout(self.restart_poll, 1000);
 				},
 				dataType: 'json'
 			});
+		}
+		self.reload = function() {
+			self.busy("Restarting...", "Please wait while we restart...");
+			server.json_get("/core/reload", function(data) {
+				self.schedule_restart_poll();
+			})
 		}
 		self.restart = function() {
 			self.busy("Restarting...", "Please wait while we restart...");

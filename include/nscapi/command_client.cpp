@@ -1,4 +1,3 @@
-
 #include <nscapi/command_client.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
@@ -35,7 +34,7 @@ namespace nscapi {
 			core_->registry_query(request.SerializeAsString(), response_string);
 			Plugin::RegistryResponseMessage response;
 			response.ParseFromString(response_string);
-			for (int i=0;i<response.payload_size();i++) {
+			for (int i = 0; i < response.payload_size(); i++) {
 				if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
 					errors.push_back(response.payload(i).result().message());
 				}

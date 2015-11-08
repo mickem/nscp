@@ -9,13 +9,12 @@ class EventLogRecord {
 	__int64 currentTime_;
 	std::string file_;
 public:
-	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
-	}
+	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {}
 	inline __int64 timeGenerated() const {
-		return (currentTime_-pevlr_->TimeGenerated)*1000;
+		return (currentTime_ - pevlr_->TimeGenerated) * 1000;
 	}
 	inline __int64 timeWritten() const {
-		return (currentTime_-pevlr_->TimeWritten)*1000;
+		return (currentTime_ - pevlr_->TimeWritten) * 1000;
 	}
 	inline __int64 generated() const {
 		return pevlr_->TimeGenerated;
@@ -31,19 +30,19 @@ public:
 	}
 	inline std::wstring get_computer() const {
 		size_t len = wcslen(reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD)));
-		return reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD) + (len+1)*sizeof(wchar_t));
+		return reinterpret_cast<const WCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + sizeof(EVENTLOGRECORD) + (len + 1)*sizeof(wchar_t));
 	}
 	inline DWORD eventID() const {
-		return (pevlr_->EventID&0xffff);
+		return (pevlr_->EventID & 0xffff);
 	}
 	inline DWORD severity() const {
-		return (pevlr_->EventID>>30) & 0x3;
+		return (pevlr_->EventID >> 30) & 0x3;
 	}
 	inline DWORD facility() const {
-		return (pevlr_->EventID>>16) & 0xfff;
+		return (pevlr_->EventID >> 16) & 0xfff;
 	}
 	inline WORD customer() const {
-		return (pevlr_->EventID>>29) & 0x1;
+		return (pevlr_->EventID >> 29) & 0x1;
 	}
 	inline DWORD raw_id() const {
 		return pevlr_->EventID;
@@ -62,16 +61,16 @@ public:
 		SID_NAME_USE sidName;
 
 		LookupAccountSid(NULL, p, NULL, &userLen, NULL, &domainLen, &sidName);
-		LPTSTR user = new TCHAR[userLen+10];
-		LPTSTR domain = new TCHAR[domainLen+10];
+		LPTSTR user = new TCHAR[userLen + 10];
+		LPTSTR domain = new TCHAR[domainLen + 10];
 
 		LookupAccountSid(NULL, p, user, &userLen, domain, &domainLen, &sidName);
 		user[userLen] = 0;
 		domain[domainLen] = 0;
 		std::wstring ustr = user;
 		std::wstring dstr = domain;
-		delete [] user;
-		delete [] domain;
+		delete[] user;
+		delete[] domain;
 		if (!dstr.empty())
 			dstr = dstr + _T("\\");
 		if (ustr.empty() && dstr.empty())
@@ -83,7 +82,7 @@ public:
 	std::wstring enumStrings() const {
 		std::wstring ret;
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
-		for (unsigned int i =0;i<pevlr_->NumStrings;i++) {
+		for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
 			std::wstring s = p;
 			if (!s.empty())
 				s += _T(", ");
@@ -206,38 +205,37 @@ public:
 		std::size_t size;
 		tchar_array(std::size_t size) : buffer(NULL), size(size) {
 			buffer = new TCHAR*[size];
-			for (std::size_t i=0;i<size;i++) 
+			for (std::size_t i = 0; i < size; i++)
 				buffer[i] = NULL;
 		}
 		~tchar_array() {
-			for (std::size_t i=0;i<size;i++) 
-				delete [] buffer[i];
-			delete [] buffer;
+			for (std::size_t i = 0; i < size; i++)
+				delete[] buffer[i];
+			delete[] buffer;
 		}
 		std::size_t set(std::size_t i, const TCHAR* str) {
 			std::size_t len = wcslen(str);
-			buffer[i] = new TCHAR[len+2];
-			wcsncpy(buffer[i], str, len+1);
+			buffer[i] = new TCHAR[len + 2];
+			wcsncpy(buffer[i], str, len + 1);
 			return len;
 		}
 		TCHAR** get_buffer_unsafe() { return buffer; }
-
 	};
 
-	boost::tuple<DWORD,std::wstring> safe_format(HMODULE hDLL, DWORD dwLang) const {
+	boost::tuple<DWORD, std::wstring> safe_format(HMODULE hDLL, DWORD dwLang) const {
 		LPVOID lpMsgBuf;
-		unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY|FORMAT_MESSAGE_IGNORE_INSERTS,hDLL,
-			pevlr_->EventID,dwLang,(LPTSTR)&lpMsgBuf,0,NULL);
+		unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_IGNORE_INSERTS, hDLL,
+			pevlr_->EventID, dwLang, (LPTSTR)&lpMsgBuf, 0, NULL);
 		if (dwRet == 0) {
-			return boost::tuple<DWORD,std::wstring>(GetLastError(), _T(""));
+			return boost::tuple<DWORD, std::wstring>(GetLastError(), _T(""));
 		}
 		std::wstring msg = reinterpret_cast<wchar_t*>(lpMsgBuf);
 		LocalFree(lpMsgBuf);
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
-		for (unsigned int i = 0;i<pevlr_->NumStrings;i++) {
-			strEx::replace(msg, _T("%")+strEx::xtos(i+1), std::wstring(p));
+		for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
+			strEx::replace(msg, _T("%") + strEx::xtos(i + 1), std::wstring(p));
 			std::size_t len = wcslen(p);
-			p = &(p[len+1]);
+			p = &(p[len + 1]);
 		}
 		return boost::make_tuple(0, msg);
 	}
@@ -258,8 +256,8 @@ public:
 					continue;
 				}
 				if (dwLang == 0)
-					dwLang = MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT);
-				boost::tuple<DWORD,std::wstring> formated_data = safe_format(hDLL, dwLang);
+					dwLang = MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT);
+				boost::tuple<DWORD, std::wstring> formated_data = safe_format(hDLL, dwLang);
 				if (formated_data.get<0>() != 0) {
 					FreeLibrary(hDLL);
 					if (formated_data.get<0>() == 15100) {
@@ -284,7 +282,7 @@ public:
 			strEx::replace(msg, _T("\t"), _T(" "));
 			std::string::size_type pos = msg.find_last_not_of(_T("\n\t "));
 			if (pos != std::string::npos) {
-				msg = msg.substr(0,pos);
+				msg = msg.substr(0, pos);
 			}
 			if (!msg.empty()) {
 				if (!ret.empty())
@@ -302,9 +300,9 @@ public:
 		__int64 lgTemp;
 		__int64 SecsTo1970 = 116444736000000000;
 
-		lgTemp = Int32x32To64(time,10000000) + SecsTo1970;
+		lgTemp = Int32x32To64(time, 10000000) + SecsTo1970;
 
-		FileTime.dwLowDateTime = (DWORD) lgTemp;
+		FileTime.dwLowDateTime = (DWORD)lgTemp;
 		FileTime.dwHighDateTime = (DWORD)(lgTemp >> 32);
 
 		FileTimeToLocalFileTime(&FileTime, &LocalFileTime);

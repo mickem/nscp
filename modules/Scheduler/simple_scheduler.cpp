@@ -7,9 +7,7 @@
 #include <nscapi/macros.hpp>
 
 namespace scheduler {
-
 	int simple_scheduler::add_task(schedules::schedule_handler::object_instance item) {
-
 		{
 			boost::mutex::scoped_lock l(mutex_);
 			item->id = ++schedule_id_;
@@ -26,7 +24,7 @@ namespace scheduler {
 	schedules::schedule_handler::object_instance simple_scheduler::get_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		target_list_type::iterator it = targets_.find(id);
- 		if (it == targets_.end())
+		if (it == targets_.end())
 			return schedules::schedule_handler::object_instance();
 		return (*it).second;
 	}
@@ -45,7 +43,7 @@ namespace scheduler {
 		while (!queue_.empty()) {
 			queue_.pop();
 		}
-//		queue_.clear();
+		//		queue_.clear();
 	}
 
 	void simple_scheduler::start_thread() {
@@ -54,7 +52,7 @@ namespace scheduler {
 		stop_requested_ = false;
 		std::size_t missing_threads = thread_count_ - threads_.size();
 		if (missing_threads > 0 && missing_threads <= thread_count_) {
-			for (std::size_t i=0;i<missing_threads;i++) {
+			for (std::size_t i = 0; i < missing_threads; i++) {
 				threads_.create_thread(boost::bind(&simple_scheduler::thread_proc, this, i));
 			}
 		}
@@ -63,23 +61,21 @@ namespace scheduler {
 	}
 
 	void simple_scheduler::watch_dog(int id) {
-
 		schedule_queue_type::value_type instance;
-		while(!stop_requested_) {
+		while (!stop_requested_) {
 			instance = queue_.top();
 			if (instance) {
 				boost::posix_time::time_duration off = now() - (*instance).time;
 				if (off.total_seconds() > error_threshold_) {
 					log_error("NOONE IS HANDLING scheduled item " + strEx::s::xtos(instance->schedule_id) + " " + strEx::s::xtos(off.total_seconds()) + " seconds to late from thread " + strEx::s::xtos(id));
 				}
-// 			} else {
-// 				log_error(_T("Nothing is scheduled to run"));
+				// 			} else {
+				// 				log_error(_T("Nothing is scheduled to run"));
 			}
 
 			// add support for checking queue length
 			boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(5));
 		}
-
 	}
 
 	void simple_scheduler::thread_proc(int id) {
@@ -119,7 +115,7 @@ namespace scheduler {
 					try {
 						if (handler_)
 							handler_->handle_schedule(*item);
-						reschedule(item,now_time);
+						reschedule(item, now_time);
 					} catch (...) {
 						log_error("UNKNOWN ERROR RUNING TASK: ");
 						reschedule(item);
@@ -133,14 +129,13 @@ namespace scheduler {
 		} catch (...) {
 			log_error("Exception in scheduler thread (thread will be killed)");
 		}
-
 	}
 
 	void simple_scheduler::reschedule(const schedules::schedule_handler::object_instance item) {
 		if (item->duration.total_seconds() == 0)
 			log_error("Not scheduling since duration is 0: " + item->to_string());
 		else
-			reschedule_wnext(item->id, now() + boost::posix_time::seconds(rand()%item->duration.total_seconds()));
+			reschedule_wnext(item->id, now() + boost::posix_time::seconds(rand() % item->duration.total_seconds()));
 	}
 	void simple_scheduler::reschedule(const schedules::schedule_handler::object_instance item, boost::posix_time::ptime now) {
 		reschedule_wnext(item->id, now + item->duration);
@@ -155,13 +150,8 @@ namespace scheduler {
 		idle_thread_cond_.notify_one();
 	}
 
-
 	void simple_scheduler::log_error(std::string err) {
 		if (handler_)
 			handler_->on_error(err);
 	}
-
 }
-
-
-

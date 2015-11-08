@@ -48,9 +48,8 @@ namespace check_nt {
 		packet(std::vector<char> buffer) {
 			data_ = std::string(buffer.begin(), buffer.end());
 		};
-		packet(std::string data) 
-			: data_(data) 
-		{}
+		packet(std::string data)
+			: data_(data) {}
 		packet(const packet &other) : data_(other.data_) {}
 		packet& operator=(packet const& other) {
 			data_ = other.data_;
@@ -79,4 +78,3 @@ namespace check_nt {
 		}
 	};
 }
-

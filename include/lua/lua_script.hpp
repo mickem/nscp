@@ -17,11 +17,8 @@ extern "C" {
 #include <lua/lua_cpp.hpp>
 #include <scripts/script_interface.hpp>
 
-
 namespace lua {
-
 	struct lua_traits {
-
 		static const std::string user_data_tag;
 
 		struct user_data_type {
@@ -36,9 +33,7 @@ namespace lua {
 			int function_ref;
 		};
 		typedef function function_type;
-
 	};
-
 
 	typedef lua::lua_wrapper lua_wrapper;
 
@@ -46,7 +41,6 @@ namespace lua {
 	typedef scripts::core_provider core_provider;
 	typedef scripts::settings_provider settings_provider;
 	typedef scripts::regitration_provider<lua_traits> regitration_provider;
-
 
 	class core_wrapper {
 	private:
@@ -91,8 +85,8 @@ namespace lua {
 		int register_simple_cmdline(lua_State *L);
 		int subscription(lua_State *L);
 		int simple_subscription(lua_State *L);
-//	private:
-//		boost::shared_ptr<regitration_provider> get();
+		//	private:
+		//		boost::shared_ptr<regitration_provider> get();
 	};
 
 	class settings_wrapper {

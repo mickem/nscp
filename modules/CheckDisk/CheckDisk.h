@@ -21,7 +21,7 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
-class CheckDisk : public nscapi::impl::simple_plugin  {
+class CheckDisk : public nscapi::impl::simple_plugin {
 private:
 	bool show_errors_;
 

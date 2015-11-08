@@ -82,15 +82,11 @@ namespace settings {
 		/// @param value The value to write
 		///
 		/// @author mickem
-		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-		}
+		virtual void set_real_value(settings_core::key_path_type key, conainer value) {}
 
-		virtual void set_real_path(std::string path) {
-		}
-		virtual void remove_real_value(settings_core::key_path_type key) {
-		}
-		virtual void remove_real_path(std::string path) {
-		}
+		virtual void set_real_path(std::string path) {}
+		virtual void remove_real_value(settings_core::key_path_type key) {}
+		virtual void remove_real_path(std::string path) {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all (sub) sections (given a path).
@@ -101,8 +97,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::string, string_list &) {
-		}
+		virtual void get_real_sections(std::string, string_list &) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
 		/// If the path is empty all root sections will be returned
@@ -112,8 +107,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::string, string_list &) {
-		}
+		virtual void get_real_keys(std::string, string_list &) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
 		///
@@ -130,12 +124,11 @@ namespace settings {
 		}
 		virtual std::string get_type() { return "dummy"; }
 
-		public:
-			virtual void real_clear_cache() {}
-			static bool context_exists(settings::settings_core*, std::string) {
-				return true;
-			}
-			void ensure_exists() {
-			}
+	public:
+		virtual void real_clear_cache() {}
+		static bool context_exists(settings::settings_core*, std::string) {
+			return true;
+		}
+		void ensure_exists() {}
 	};
 }

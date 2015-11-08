@@ -5,7 +5,6 @@
 
 namespace nsclient {
 	struct channels : public plugins_list_with_listener {
-
 		channels() : plugins_list_with_listener() {}
 
 		void add_plugin(plugin_type plugin) {
@@ -13,6 +12,5 @@ namespace nsclient {
 				return;
 			plugins_list_with_listener::add_plugin(plugin);
 		}
-
 	};
 }

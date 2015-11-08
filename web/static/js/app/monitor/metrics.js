@@ -1,5 +1,23 @@
 define(['knockout', 'app/core/utils', 'app/core/server', 'app/core/globalStatus'], function(ko, ut, server, gs) {
 
+	function flatten_metrics(path, metrics) {
+		var prefix = path
+		if (prefix)
+			prefix = prefix + "."
+		if (metrics === null) {
+			return [];
+		}
+		if (typeof metrics === 'object') {
+			var count = []
+			Object.keys(metrics).forEach( function (key) {
+				count = count.concat(flatten_metrics(prefix + key, metrics[key]))
+			})
+			return count
+		}
+		return [{'path':path, 'value': metrics}]
+	}
+	
+
 	function metrics() {
 		var self = this;
 
@@ -8,6 +26,8 @@ define(['knockout', 'app/core/utils', 'app/core/server', 'app/core/globalStatus'
 		
 		self.refresh_handler = false;
 
+		self.count = ko.observable('0')
+		self.metricsList = ko.observableArray()
 		self.cpu = {
 			'load' : ko.observable('0%'),
 			'handles' : ko.observable('0'),
@@ -39,7 +59,10 @@ define(['knockout', 'app/core/utils', 'app/core/server', 'app/core/globalStatus'
 						var load = Math.round(data['system']['cpu']['total.total'])
 						var steps = 10
 						self.cpu.load(load + "%")
-						
+						var x = flatten_metrics("", data)
+						console.log(x)
+						self.metricsList(x)
+						self.count(x.length)
 						self.cpu.handles(data['system']['metrics']['procs.handles'])
 						self.cpu.threads(data['system']['metrics']['procs.threads'])
 						self.cpu.procs(data['system']['metrics']['procs.procs'])

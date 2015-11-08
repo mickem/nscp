@@ -4,11 +4,9 @@
 #include <nscapi/plugin.hpp>
 #include <client/simple_client.hpp>
 
-
-
 struct client_handler : public client::cli_handler {
 private:
-    nscapi::core_wrapper* core;
+	nscapi::core_wrapper* core;
 	int plugin_id;
 
 public:
@@ -36,6 +34,4 @@ public:
 	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 
 private:
-
 };
-

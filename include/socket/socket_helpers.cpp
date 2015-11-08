@@ -23,8 +23,8 @@ void socket_helpers::validate_certificate(const std::string &certificate, std::l
 			list.push_back("Certificate not found: " + certificate + " (generating a default certificate)");
 			write_certs(certificate, false);
 		} else if (boost::algorithm::ends_with(certificate, "/ca.pem")) {
-				list.push_back("CA not found: " + certificate + " (generating a default CA)");
-				write_certs(certificate, true);
+			list.push_back("CA not found: " + certificate + " (generating a default CA)");
+			write_certs(certificate, true);
 		} else
 			list.push_back("Certificate not found: " + certificate);
 	}
@@ -52,8 +52,7 @@ std::list<std::string> socket_helpers::connection_info::validate_ssl() {
 	return list;
 }
 
-long socket_helpers::connection_info::get_ctx_opts()
-{
+long socket_helpers::connection_info::get_ctx_opts() {
 	long opts = 0;
 #ifdef USE_SSL
 	opts |= ssl.get_ctx_opts();
@@ -103,7 +102,7 @@ addr calculate_mask(std::string mask_s) {
 
 	std::size_t value = largest_byte - (largest_byte >> reminder);
 
-	for (std::size_t i=0;i<ret.size();i++) {
+	for (std::size_t i = 0; i < ret.size(); i++) {
 		if (i < index)
 			ret[i] = largest_byte;
 		else if (i == index)
@@ -155,7 +154,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 				ip::tcp::resolver::query query(addr, "");
 				ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 				ip::tcp::resolver::iterator end;
-				for (;endpoint_iterator != end; ++endpoint_iterator) {
+				for (; endpoint_iterator != end; ++endpoint_iterator) {
 					ip::address a = endpoint_iterator->endpoint().address();
 					if (a.is_v4()) {
 						entries_v4.push_back(host_record_v4(record, a.to_v4().to_bytes(), calculate_mask<addr_v4>(mask)));
@@ -172,14 +171,11 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 	}
 }
 
-
-
-
 void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b) {
 	if (!b) {
 		a->reset(b);
-// 	} else {
-// 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
+		// 	} else {
+		// 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
 	}
 }
 #ifdef USE_SSL
@@ -217,8 +213,7 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 	}
 }
 
-boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const
-{
+boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts::get_verify_mode() const {
 	boost::asio::ssl::context::verify_mode mode = boost::asio::ssl::context_base::verify_none;
 	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(verify_mode, std::string(","))) {
 		if (key == "client-once")
@@ -232,8 +227,7 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 		else if (key == "peer-cert") {
 			mode |= boost::asio::ssl::context_base::verify_peer;
 			mode |= boost::asio::ssl::context_base::verify_fail_if_no_peer_cert;
-		}
-		else if (key == "workarounds")
+		} else if (key == "workarounds")
 			mode |= boost::asio::ssl::context_base::default_workarounds;
 		else if (key == "single")
 			mode |= boost::asio::ssl::context::single_dh_use;
@@ -241,22 +235,19 @@ boost::asio::ssl::context::verify_mode socket_helpers::connection_info::ssl_opts
 	return mode;
 }
 
-boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const
-{
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_format() const {
 	if (certificate_format == "asn1")
 		return boost::asio::ssl::context::asn1;
 	return boost::asio::ssl::context::pem;
 }
 
-boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format() const
-{
+boost::asio::ssl::context::file_format socket_helpers::connection_info::ssl_opts::get_certificate_key_format() const {
 	if (certificate_key_format == "asn1")
 		return boost::asio::ssl::context::asn1;
 	return boost::asio::ssl::context::pem;
 }
 #ifdef USE_SSL
-long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const
-{
+long socket_helpers::connection_info::ssl_opts::get_ctx_opts() const {
 	long opts = 0;
 	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(ssl_options, std::string(","))) {
 		if (key == "default-workarounds")
@@ -280,17 +271,17 @@ void genkey_callback(int, int, void*) {
 
 int add_ext(X509 *cert, int nid, const char *value) {
 	std::size_t len = strlen(value);
-	char *tmp = new char[len+10];
+	char *tmp = new char[len + 10];
 	strncpy(tmp, value, len);
 	X509_EXTENSION *ex;
 	X509V3_CTX ctx;
 	X509V3_set_ctx_nodb(&ctx);
 	X509V3_set_ctx(&ctx, cert, cert, NULL, NULL, 0);
 	ex = X509V3_EXT_conf_nid(NULL, &ctx, nid, tmp);
-	delete [] tmp;
+	delete[] tmp;
 	if (!ex)
 		return 0;
-	X509_add_ext(cert,ex,-1);
+	X509_add_ext(cert, ex, -1);
 	X509_EXTENSION_free(ex);
 	return 1;
 }
@@ -298,38 +289,36 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 	X509 *x;
 	EVP_PKEY *pk;
 	RSA *rsa;
-	X509_NAME *name=NULL;
+	X509_NAME *name = NULL;
 	if ((pkeyp == NULL) || (*pkeyp == NULL)) {
-		if ((pk=EVP_PKEY_new()) == NULL)
+		if ((pk = EVP_PKEY_new()) == NULL)
 			throw socket_helpers::socket_exception("Failed to create private key");
 	} else
 		pk = *pkeyp;
 
 	if ((x509p == NULL) || (*x509p == NULL)) {
-		if ((x=X509_new()) == NULL)
+		if ((x = X509_new()) == NULL)
 			throw socket_helpers::socket_exception("Failed to create certificate");
 	} else
 		x = *x509p;
 
-	rsa=RSA_generate_key(bits,RSA_F4,genkey_callback,NULL);
-	if (!EVP_PKEY_assign_RSA(pk,rsa))
+	rsa = RSA_generate_key(bits, RSA_F4, genkey_callback, NULL);
+	if (!EVP_PKEY_assign_RSA(pk, rsa))
 		throw socket_helpers::socket_exception("Failed to assign RSA data");
-	rsa=NULL;
+	rsa = NULL;
 
+	X509_set_version(x, 2);
+	ASN1_INTEGER_set(X509_get_serialNumber(x), serial);
+	X509_gmtime_adj(X509_get_notBefore(x), 0);
+	X509_gmtime_adj(X509_get_notAfter(x), (long)60 * 60 * 24 * days);
+	X509_set_pubkey(x, pk);
 
-
-	X509_set_version(x,2);
-	ASN1_INTEGER_set(X509_get_serialNumber(x),serial);
-	X509_gmtime_adj(X509_get_notBefore(x),0);
-	X509_gmtime_adj(X509_get_notAfter(x),(long)60*60*24*days);
-	X509_set_pubkey(x,pk);
-
-	name=X509_get_subject_name(x);
+	name = X509_get_subject_name(x);
 
 	//X509_NAME_add_entry_by_txt(name,"C", MBSTRING_ASC, (unsigned char*)"NA", -1, -1, 0);
-	X509_NAME_add_entry_by_txt(name,"CN", MBSTRING_ASC, (unsigned char*)"localhost", -1, -1, 0);
+	X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char*)"localhost", -1, -1, 0);
 
-	X509_set_issuer_name(x,name);
+	X509_set_issuer_name(x, name);
 
 	if (ca) {
 		add_ext(x, NID_basic_constraints, "critical,CA:TRUE");
@@ -339,22 +328,20 @@ void make_certificate(X509 **x509p, EVP_PKEY **pkeyp, int bits, int serial, int 
 		add_ext(x, NID_netscape_comment, "example comment extension");
 	}
 
-	if (!X509_sign(x,pk,EVP_sha1()))
+	if (!X509_sign(x, pk, EVP_sha1()))
 		throw socket_helpers::socket_exception("Failed to sign certificate");
 
-	*x509p=x;
-	*pkeyp=pk;
+	*x509p = x;
+	*pkeyp = pk;
 }
 
-
 void socket_helpers::write_certs(std::string cert, bool ca) {
-	X509 *x509=NULL;
-	EVP_PKEY *pkey=NULL;
+	X509 *x509 = NULL;
+	EVP_PKEY *pkey = NULL;
 
 	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
 
-	make_certificate(&x509,&pkey,2048,0,365, ca);
-
+	make_certificate(&x509, &pkey, 2048, 0, 365, ca);
 
 	BIO *bio = BIO_new(BIO_s_mem());
 	PEM_write_bio_PKCS8PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL);

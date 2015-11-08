@@ -14,17 +14,14 @@
 #include "filter.hpp"
 
 namespace eventlog_filter {
-
 	struct filter_config_object : public nscapi::settings_objects::object_instance_interface {
-
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		filter_config_object(std::string alias, std::string path) 
+		filter_config_object(std::string alias, std::string path)
 			: parent(alias, path)
 			, filter("${file}: ${count} (${list})", "${level}: ${message}", "NSCA")
-			, dwLang(0) 
-		{}
-	
+			, dwLang(0) {}
+
 		nscapi::settings_filters::filter_object filter;
 		DWORD dwLang;
 		std::list<std::string> files;
@@ -61,4 +58,3 @@ namespace eventlog_filter {
 
 	typedef nscapi::settings_objects::object_handler<filter_config_object> filter_config_handler;
 }
-

@@ -18,7 +18,6 @@
 
 const std::string lua::lua_traits::user_data_tag = "nscp.userdata.info";
 
-
 //////////////////////////////////////////////////////////////////////////
 // Core Wrapper
 lua::core_wrapper::core_wrapper(lua_State *L, bool) : isExisting(false) {
@@ -169,11 +168,10 @@ const Luna<lua::core_wrapper>::FunctionType lua::core_wrapper::Functions[] = {
 	{ "log", &lua::core_wrapper::log },
 	{ 0 }
 };
-const Luna<lua::core_wrapper>::PropertyType lua::core_wrapper::Properties[] = {{0}};
+const Luna<lua::core_wrapper>::PropertyType lua::core_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 // Registry wrapper
-
 
 lua::registry_wrapper::registry_wrapper(lua_State *L, bool) : isExisting(false) {
 	lua::lua_wrapper instance(L);
@@ -210,7 +208,7 @@ int lua::registry_wrapper::register_function(lua_State *L) {
 	if (error)
 		return *error;
 
-	if (description.empty()) 
+	if (description.empty())
 		description = "Lua script: " + command;
 	info->register_command(scripts::nscp::tags::query_tag, command, description, fundata);
 	return lua_instance.size();
@@ -224,7 +222,7 @@ int lua::registry_wrapper::register_simple_function(lua_State *L) {
 	if (error)
 		return *error;
 
-	if (description.empty()) 
+	if (description.empty())
 		description = "Lua script: " + command;
 	info->register_command(scripts::nscp::tags::simple_query_tag, command, description, fundata);
 	return lua_instance.size();
@@ -270,7 +268,7 @@ const Luna<lua::registry_wrapper>::FunctionType lua::registry_wrapper::Functions
 	{ "simple_subscription", &lua::registry_wrapper::simple_subscription },
 	{ 0 }
 };
-const Luna<lua::registry_wrapper>::PropertyType lua::registry_wrapper::Properties[] = {{0}};
+const Luna<lua::registry_wrapper>::PropertyType lua::registry_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 // Settings
@@ -282,7 +280,7 @@ lua::settings_wrapper::settings_wrapper(lua_State *L, bool) : info(NULL), isExis
 
 int lua::settings_wrapper::get_section(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_section([section])");
@@ -297,7 +295,7 @@ int lua::settings_wrapper::get_section(lua_State *L) {
 }
 int lua::settings_wrapper::get_string(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: get_string(section, key, value)");
@@ -313,7 +311,7 @@ int lua::settings_wrapper::get_string(lua_State *L) {
 }
 int lua::settings_wrapper::set_string(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_string(section, key, value)");
@@ -329,7 +327,7 @@ int lua::settings_wrapper::set_string(lua_State *L) {
 }
 int lua::settings_wrapper::get_bool(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: get_bool(section, key, [value])");
@@ -337,7 +335,7 @@ int lua::settings_wrapper::get_bool(lua_State *L) {
 	std::string k = lua_instance.pop_string();
 	std::string s = lua_instance.pop_string();
 	try {
-		lua_instance.push_boolean(get()->get_int(s, k, v?1:0)==1);
+		lua_instance.push_boolean(get()->get_int(s, k, v ? 1 : 0) == 1);
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
@@ -345,7 +343,7 @@ int lua::settings_wrapper::get_bool(lua_State *L) {
 }
 int lua::settings_wrapper::set_bool(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_bool(section, key, value)");
@@ -353,7 +351,7 @@ int lua::settings_wrapper::set_bool(lua_State *L) {
 	std::string k = lua_instance.pop_string();
 	std::string s = lua_instance.pop_string();
 	try {
-		get()->set_int(s, k, v?1:0);
+		get()->set_int(s, k, v ? 1 : 0);
 	} catch (...) {
 		return lua_instance.error("Unknown exception");
 	}
@@ -361,7 +359,7 @@ int lua::settings_wrapper::set_bool(lua_State *L) {
 }
 int lua::settings_wrapper::get_int(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: get_int(section, key, [value])");
@@ -377,7 +375,7 @@ int lua::settings_wrapper::get_int(lua_State *L) {
 }
 int lua::settings_wrapper::set_int(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	if (lua_instance.size() < 3)
 		return lua_instance.error("Invalid syntax: set_int(section, key, value)");
@@ -393,7 +391,7 @@ int lua::settings_wrapper::set_int(lua_State *L) {
 }
 int lua::settings_wrapper::save(lua_State *L) {
 	lua_wrapper lua_instance(L);
-	if (info == NULL) 
+	if (info == NULL)
 		return lua_instance.error("Invalid core");
 	try {
 		get()->save();
@@ -453,7 +451,7 @@ const Luna<lua::settings_wrapper>::FunctionType lua::settings_wrapper::Functions
 	{ "register_key", &lua::settings_wrapper::register_key },
 	{ 0 }
 };
-const Luna<lua::settings_wrapper>::PropertyType lua::settings_wrapper::Properties[] = {{0}};
+const Luna<lua::settings_wrapper>::PropertyType lua::settings_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 // traits
@@ -467,19 +465,18 @@ static int log_any(lua_State *L, int mode) {
 	GET_CORE()->log(mode, trace.first, trace.second, str);
 	return 0;
 }
-static int info (lua_State *L) {
+static int info(lua_State *L) {
 	return log_any(L, NSCAPI::log_level::info);
 }
-static int error (lua_State *L) {
+static int error(lua_State *L) {
 	return log_any(L, NSCAPI::log_level::error);
 }
-static int lua_sleep (lua_State *L) {
+static int lua_sleep(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	int time = lua_instance.pop_int();
 	boost::this_thread::sleep(boost::posix_time::milliseconds(time));
 	return 0;
 }
-
 
 const luaL_Reg my_funcs[] = {
 	{"sleep", lua_sleep},
@@ -502,7 +499,6 @@ void lua::lua_script::luaopen(lua_State *L) {
 
 #endif
 }
-
 
 boost::optional<boost::filesystem::path> lua::lua_script::find_script(boost::filesystem::path root, std::string file) {
 	std::list<boost::filesystem::path> checks;

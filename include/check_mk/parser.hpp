@@ -6,11 +6,9 @@
 
 namespace check_mk {
 	namespace server {
-
 		class parser : public boost::noncopyable {
 			std::vector<char> buffer_;
 		public:
-
 		};
 	}// namespace server
 } // namespace nscp

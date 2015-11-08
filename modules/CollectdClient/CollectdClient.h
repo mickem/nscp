@@ -47,9 +47,7 @@ public:
 	bool unloadModule();
 	void submitMetrics(const Plugin::MetricsMessage::Response &response);
 
-
 private:
 
 	void add_target(std::string key, std::string args);
-
 };

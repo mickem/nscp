@@ -9,7 +9,6 @@
 
 namespace parsers {
 	namespace where {
-
 		struct list_node : public list_node_interface {
 			list_node() {}
 			std::list<node_type> value_;
@@ -35,7 +34,6 @@ namespace parsers {
 			bool find_performance_data(evaluation_context context, performance_collector &collector);
 			bool static_evaluate(evaluation_context context) const;
 			bool require_object(evaluation_context context) const;
-
 		};
 	}
 }

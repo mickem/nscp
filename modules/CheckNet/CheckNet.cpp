@@ -37,8 +37,6 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-
-
 void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<ping_filter::filter> filter_helper(request, response, data);
@@ -52,15 +50,15 @@ void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, P
 	filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status}: ${problem_count}/${count} (${problem_list})", filter.get_format_syntax(), "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found", "%(status): All %(count) hosts are ok");
 	filter_helper.get_desc().add_options()
-		("host", po::value<std::vector<std::string> >(&hosts),	
-		"The host to check (or multiple hosts).")
+		("host", po::value<std::vector<std::string> >(&hosts),
+			"The host to check (or multiple hosts).")
 		("total", po::bool_switch(&total), "Include the total of all matching hosts")
-		("hosts", po::value<std::string>(&hosts_string),	
-		"The host to check (or multiple hosts).")
-		("count", po::value<int>(&count)->default_value(1),	
-		"Number of packets to send.")
-		("timeout", po::value<int>(&timeout)->default_value(500),	
-		"Timeout in milliseconds.")
+		("hosts", po::value<std::string>(&hosts_string),
+			"The host to check (or multiple hosts).")
+		("count", po::value<int>(&count)->default_value(1),
+			"Number of packets to send.")
+		("timeout", po::value<int>(&timeout)->default_value(500),
+			"Timeout in milliseconds.")
 		;
 
 	if (!filter_helper.parse_options())
@@ -83,7 +81,7 @@ void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, P
 
 	BOOST_FOREACH(const std::string &host, hosts) {
 		result_container result;
-		for (int i=0;i<count;i++) {
+		for (int i = 0; i < count; i++) {
 			boost::asio::io_service io_service;
 			pinger ping(io_service, result, host.c_str(), timeout);
 			ping.ping();

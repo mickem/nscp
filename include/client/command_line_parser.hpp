@@ -14,7 +14,6 @@
 #include <nscapi/nscapi_targets.hpp>
 
 namespace client {
-
 	struct cli_exception : public std::exception {
 		std::string error_;
 	public:
@@ -154,7 +153,6 @@ namespace client {
 		}
 	};
 
-
 	struct destination_container {
 		typedef std::map<std::string, std::string> data_map;
 
@@ -217,8 +215,7 @@ namespace client {
 				return def;
 			try {
 				return boost::lexical_cast<int>(value);
-			}
-			catch (...) {
+			} catch (...) {
 				return def;
 			}
 		}
@@ -278,7 +275,6 @@ namespace client {
 		}
 	};
 
-
 	struct nscp_clp_data {
 		std::string target_id;
 		std::string command;
@@ -301,7 +297,7 @@ namespace client {
 			}
 			ss << ", message: " << message;
 			ss << ", result: " << result;
-			int i=0;
+			int i = 0;
 			BOOST_FOREACH(std::string a, arguments) {
 				ss << ", argument[" << i++ << "]: " << a;
 			}
@@ -312,7 +308,6 @@ namespace client {
 	struct options_reader_interface : public  nscapi::settings_objects::object_factory_interface<nscapi::settings_objects::object_instance_interface> {
 		virtual void process(boost::program_options::options_description &desc, destination_container &source, destination_container &destination) = 0;
 		void add_ssl_options(boost::program_options::options_description & desc, client::destination_container & data);
-
 	};
 	typedef boost::shared_ptr<options_reader_interface> options_reader_type;
 
@@ -335,13 +330,10 @@ namespace client {
 		std::string default_command;
 		command_type commands;
 
-		configuration(std::string caption, handler_type handler, options_reader_type reader) 
+		configuration(std::string caption, handler_type handler, options_reader_type reader)
 			: handler(handler)
 			, reader(reader)
-			, targets(reader) 
-		{
-		}
-
+			, targets(reader) {}
 
 		std::string to_string() {
 			std::stringstream ss;
@@ -372,7 +364,6 @@ namespace client {
 		typedef boost::function<bool(client::destination_container &source, client::destination_container &destination)> client_pre_fun;
 		client_desc_fun client_desc;
 		client_pre_fun client_pre;
-
 
 	private:
 		boost::program_options::options_description create_descriptor(const std::string command, client::destination_container &source, client::destination_container &destination);

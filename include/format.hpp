@@ -50,12 +50,10 @@
 #include <locale>
 
 namespace format {
-
 	inline std::wstring strip_ctrl_chars(std::wstring str) {
 		std::wstring ret; ret.reserve(str.size());
-		BOOST_FOREACH(wchar_t c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+		BOOST_FOREACH(wchar_t c, str) {
+			if (c == 0 || c == 7 || c == 10 || c == 11 || c == 12 || c == 13 || c == 127)
 				ret.push_back(L'?');
 			else
 				ret.push_back(c);
@@ -65,9 +63,8 @@ namespace format {
 
 	inline std::string strip_ctrl_chars(std::vector<char> str) {
 		std::string ret; ret.reserve(str.size());
-		BOOST_FOREACH(char c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+		BOOST_FOREACH(char c, str) {
+			if (c == 0 || c == 7 || c == 10 || c == 11 || c == 12 || c == 13 || c == 127)
 				ret.push_back('?');
 			else
 				ret.push_back(c);
@@ -76,9 +73,8 @@ namespace format {
 	}
 	inline std::string strip_ctrl_chars(std::string str) {
 		std::string ret; ret.reserve(str.size());
-		BOOST_FOREACH(char c, str)
-		{
-			if (c==0||c==7||c==10||c==11||c==12||c==13||c==127)
+		BOOST_FOREACH(char c, str) {
+			if (c == 0 || c == 7 || c == 10 || c == 11 || c == 12 || c == 13 || c == 127)
 				ret.push_back('?');
 			else
 				ret.push_back(c);
@@ -100,8 +96,8 @@ namespace format {
 	inline std::string format_buffer(const char* buf, std::string::size_type len) {
 		std::stringstream ss;
 		std::string chars;
-		for (std::string::size_type i=0;i<len;i++) {
-			if (i%32==0) {
+		for (std::string::size_type i = 0; i < len; i++) {
+			if (i % 32 == 0) {
 				if (i > 0) {
 					ss << chars;
 					ss << "\n";
@@ -126,8 +122,8 @@ namespace format {
 	inline std::string format_buffer(const std::vector<char> &buf) {
 		std::stringstream ss;
 		std::string chars;
-		for (unsigned int i=0;i<buf.size();i++) {
-			if (i%32==0) {
+		for (unsigned int i = 0; i < buf.size(); i++) {
+			if (i % 32 == 0) {
 				if (i > 0) {
 					ss << chars;
 					ss << "\n";
@@ -200,18 +196,18 @@ namespace format {
 	inline T decode_time(std::string time, unsigned int factor = 1) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		std::string::size_type pend = time.find_first_not_of("0123456789");
-		T value = boost::lexical_cast<T>(pend==std::string::npos?time:time.substr(0,pend).c_str());
+		T value = boost::lexical_cast<T>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
 		if (p == std::string::npos)
 			return value * factor;
-		else if ( (time[p] == 's') || (time[p] == 'S') )
+		else if ((time[p] == 's') || (time[p] == 'S'))
 			return value * factor;
-		else if ( (time[p] == 'm') || (time[p] == 'M') )
+		else if ((time[p] == 'm') || (time[p] == 'M'))
 			return value * 60 * factor;
-		else if ( (time[p] == 'h') || (time[p] == 'H') )
+		else if ((time[p] == 'h') || (time[p] == 'H'))
 			return value * 60 * 60 * factor;
-		else if ( (time[p] == 'd') || (time[p] == 'D') )
+		else if ((time[p] == 'd') || (time[p] == 'D'))
 			return value * 24 * 60 * 60 * factor;
-		else if ( (time[p] == 'w') || (time[p] == 'W') )
+		else if ((time[p] == 'w') || (time[p] == 'W'))
 			return value * 7 * 24 * 60 * 60 * factor;
 		return value * factor;
 	}
@@ -224,34 +220,32 @@ namespace format {
 	inline std::string itos_as_time(unsigned long long time) {
 		std::stringstream ss;
 		if (time > WEEK) {
-			unsigned int w = static_cast<unsigned int>(time/WEEK);
-			unsigned int d = static_cast<unsigned int>((time-(w*WEEK))/DAY);
-			unsigned int h = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(w*WEEK)-(d*DAY)-(h*HOUR))/MINUTE);
+			unsigned int w = static_cast<unsigned int>(time / WEEK);
+			unsigned int d = static_cast<unsigned int>((time - (w*WEEK)) / DAY);
+			unsigned int h = static_cast<unsigned int>((time - (w*WEEK) - (d*DAY)) / HOUR);
+			unsigned int m = static_cast<unsigned int>((time - (w*WEEK) - (d*DAY) - (h*HOUR)) / MINUTE);
 			ss << w;
-			ss << "w " << d << "d " ;
-			ss  << std::setfill('0') << std::setw(2);
-			ss << h << ":" << m;
-		}
-		else if (time > DAY) {
-			unsigned int d = static_cast<unsigned int>((time)/DAY);
-			unsigned int h = static_cast<unsigned int>((time-(d*DAY))/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(d*DAY)-(h*HOUR))/MINUTE);
-			ss << d;
-			ss << "d " ;
+			ss << "w " << d << "d ";
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
-		}
-		else if (time > HOUR) {
-			unsigned int h = static_cast<unsigned int>((time)/HOUR);
-			unsigned int m = static_cast<unsigned int>((time-(h*HOUR))/MINUTE);
+		} else if (time > DAY) {
+			unsigned int d = static_cast<unsigned int>((time) / DAY);
+			unsigned int h = static_cast<unsigned int>((time - (d*DAY)) / HOUR);
+			unsigned int m = static_cast<unsigned int>((time - (d*DAY) - (h*HOUR)) / MINUTE);
+			ss << d;
+			ss << "d ";
+			ss << std::setfill('0') << std::setw(2);
+			ss << h << ":" << m;
+		} else if (time > HOUR) {
+			unsigned int h = static_cast<unsigned int>((time) / HOUR);
+			unsigned int m = static_cast<unsigned int>((time - (h*HOUR)) / MINUTE);
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
 		} else if (time > MINUTE) {
 			ss << std::setfill('0') << std::setw(2);
-			ss << "0:" << static_cast<unsigned int>(time/(60 * 1000));
+			ss << "0:" << static_cast<unsigned int>(time / (60 * 1000));
 		} else if (time > SEC)
-			ss << boost::lexical_cast<std::string>(static_cast<unsigned int>(time/(1000))) << "s";
+			ss << boost::lexical_cast<std::string>(static_cast<unsigned int>(time / (1000))) << "s";
 		else
 			ss << static_cast<unsigned int>(time);
 		return ss.str();
@@ -263,13 +257,13 @@ namespace format {
 		if (unit[0] == 'B')
 			return value;
 		else if (unit[0] == 'K')
-			return value*1024;
+			return value * 1024;
 		else if (unit[0] == 'M')
-			return value*1024*1024;
+			return value * 1024 * 1024;
 		else if (unit[0] == 'G')
-			return value*1024*1024*1024;
+			return value * 1024 * 1024 * 1024;
 		else if (unit[0] == 'T')
-			return value*1024*1024*1024*1024;
+			return value * 1024 * 1024 * 1024 * 1024;
 		else
 			return value;
 	}
@@ -287,10 +281,10 @@ namespace format {
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
-		double acpy = cpy<0?-cpy:cpy;
-		while ((acpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
-			acpy = cpy<0?-cpy:cpy;
+		double acpy = cpy < 0 ? -cpy : cpy;
+		while ((acpy > 999) && (idx < BKMG_SIZE)) {
+			cpy /= 1024;
+			acpy = cpy < 0 ? -cpy : cpy;
 			idx++;
 		}
 		std::stringstream ss;
@@ -300,7 +294,7 @@ namespace format {
 		if (pos != std::string::npos) {
 			if (ret[pos] == '.')
 				pos--;
-			ret = ret.substr(0,pos+1);
+			ret = ret.substr(0, pos + 1);
 		}
 		ret += postfix[idx];
 		if (idx > 0)
@@ -311,8 +305,8 @@ namespace format {
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
+		while ((cpy > 999) && (idx < BKMG_SIZE)) {
+			cpy /= 1024;
 			idx++;
 		}
 		std::stringstream ss;
@@ -322,7 +316,7 @@ namespace format {
 		if (pos != std::string::npos) {
 			if (ret[pos] == '.')
 				pos--;
-			ret = ret.substr(0,pos+1);
+			ret = ret.substr(0, pos + 1);
 		}
 		ret += postfix[idx];
 		if (idx > 0)
@@ -338,11 +332,11 @@ namespace format {
 			return i;
 		}
 		double cpy = static_cast<double>(i);
-		while (idx<BKMG_SIZE) {
+		while (idx < BKMG_SIZE) {
 			if (unit_uc[0] == postfix[idx]) {
 				return cpy;
 			}
-			cpy/=1024.0;
+			cpy /= 1024.0;
 			idx++;
 		}
 		return cpy;
@@ -356,17 +350,17 @@ namespace format {
 			ss << cpy;
 			return ss.str();
 		}
-		for (int i=0;i<BKMG_SIZE;i++) {
+		for (int i = 0; i < BKMG_SIZE; i++) {
 			if (unit[0] == postfix[i]) {
 				ss << std::setiosflags(std::ios::fixed) << std::setprecision(3) << cpy;
 				std::string s = ss.str();
 				std::string::size_type pos = s.find_last_not_of("0");
 				if (pos != std::string::npos) {
-					s = s.substr(0,pos+1);
+					s = s.substr(0, pos + 1);
 				}
 				return s;
 			}
-			cpy/=1024;
+			cpy /= 1024;
 		}
 		ss << cpy;
 		return ss.str();
@@ -375,8 +369,8 @@ namespace format {
 		double cpy = static_cast<double>(i);
 		char postfix[] = BKMG_RANGE;
 		int idx = 0;
-		while ((cpy > 999)&&(idx<BKMG_SIZE)) {
-			cpy/=1024;
+		while ((cpy > 999) && (idx < BKMG_SIZE)) {
+			cpy /= 1024;
 			idx++;
 		}
 		std::string ret = std::string(1, postfix[idx]);
@@ -389,8 +383,8 @@ namespace format {
 	inline splitList splitEx(const std::wstring str, const std::wstring key) {
 		splitList ret;
 		std::wstring::size_type pos = 0, lpos = 0;
-		while ((pos = str.find(key, pos)) !=  std::wstring::npos) {
-			ret.push_back(str.substr(lpos, pos-lpos));
+		while ((pos = str.find(key, pos)) != std::wstring::npos) {
+			ret.push_back(str.substr(lpos, pos - lpos));
 			lpos = ++pos;
 		}
 		if (lpos < str.size())
@@ -402,8 +396,8 @@ namespace format {
 	inline std::vector<T> splitV(const T str, const T key) {
 		std::vector<T> ret;
 		typename T::size_type pos = 0, lpos = 0;
-		while ((pos = str.find(key, pos)) !=  T::npos) {
-			ret.push_back(str.substr(lpos, pos-lpos));
+		while ((pos = str.find(key, pos)) != T::npos) {
+			ret.push_back(str.substr(lpos, pos - lpos));
 			lpos = ++pos;
 		}
 		if (lpos < str.size())

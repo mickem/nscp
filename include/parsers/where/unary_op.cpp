@@ -4,7 +4,6 @@
 
 namespace parsers {
 	namespace where {
-
 		std::string unary_op::to_string() const {
 			return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) ";
 		}
@@ -48,8 +47,5 @@ namespace parsers {
 		bool unary_op::require_object(evaluation_context errors) const {
 			return subject->require_object(errors);
 		}
-
-
 	}
 }
-

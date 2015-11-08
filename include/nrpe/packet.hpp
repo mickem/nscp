@@ -29,9 +29,6 @@
 #include <utils.h>
 
 namespace nrpe {
-
-
-
 	class data {
 	public:
 		static const short unknownPacket = 0;
@@ -48,7 +45,6 @@ namespace nrpe {
 			u_int32_t crc32_value;
 			int16_t   result_code;
 		};
-
 	};
 
 	class length {
@@ -62,13 +58,13 @@ namespace nrpe {
 			return get_packet_length(payload_length_);
 		}
 		static size_type get_packet_length(size_type payload_length) {
-			return sizeof(nrpe::data::packet)+payload_length*sizeof(char);
+			return sizeof(nrpe::data::packet) + payload_length*sizeof(char);
 		}
 		static size_type get_payload_length() {
 			return payload_length_;
 		}
 		static size_type get_payload_length(size_type packet_length) {
-			return (packet_length-sizeof(nrpe::data::packet))/sizeof(char);
+			return (packet_length - sizeof(nrpe::data::packet)) / sizeof(char);
 		}
 	};
 
@@ -85,7 +81,6 @@ namespace nrpe {
 	class packet /*: public boost::noncopyable*/ {
 	public:
 
-
 	private:
 		char *tmpBuffer;
 		unsigned int payload_length_;
@@ -98,40 +93,36 @@ namespace nrpe {
 	public:
 		packet(unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {};
 		packet(std::vector<char> buffer, unsigned int payload_length) : tmpBuffer(NULL), payload_length_(payload_length) {
-			char *tmp = new char[buffer.size()+1];
-			copy( buffer.begin(), buffer.end(), tmp);
+			char *tmp = new char[buffer.size() + 1];
+			copy(buffer.begin(), buffer.end(), tmp);
 			try {
 				readFrom(tmp, buffer.size());
 			} catch (const nrpe::nrpe_exception &e) {
-				delete [] tmp;
+				delete[] tmp;
 				throw e;
 			}
-			delete [] tmp;
+			delete[] tmp;
 		};
 		packet(const char *buffer, unsigned int buffer_length) : tmpBuffer(NULL), payload_length_(length::get_payload_length(buffer_length)) {
 			readFrom(buffer, buffer_length);
 		};
-		packet(short type, short version, int result, std::string payLoad, unsigned int payload_length) 
-			: tmpBuffer(NULL) 
+		packet(short type, short version, int result, std::string payLoad, unsigned int payload_length)
+			: tmpBuffer(NULL)
 			, payload_length_(payload_length)
 			, type_(type)
 			, version_(version)
 			, result_(result)
 			, payload_(payLoad)
 			, crc32_(0)
-			, calculatedCRC32_(0)
-		{
-		}
-		packet() 
-			: tmpBuffer(NULL) 
+			, calculatedCRC32_(0) {}
+		packet()
+			: tmpBuffer(NULL)
 			, payload_length_(nrpe::length::get_payload_length())
 			, type_(nrpe::data::unknownPacket)
 			, version_(nrpe::data::version2)
 			, result_(0)
 			, crc32_(0)
-			, calculatedCRC32_(0)
-		{
-		}
+			, calculatedCRC32_(0) {}
 		packet(const packet &other) : tmpBuffer(NULL) {
 			payload_ = other.payload_;
 			type_ = other.type_;
@@ -142,7 +133,7 @@ namespace nrpe {
 			payload_length_ = other.payload_length_;
 		}
 		packet& operator=(packet const& other) {
-			tmpBuffer=NULL;
+			tmpBuffer = NULL;
 			payload_ = other.payload_;
 			type_ = other.type_;
 			version_ = other.version_;
@@ -158,7 +149,7 @@ namespace nrpe {
 		}
 
 		~packet() {
-			delete [] tmpBuffer;
+			delete[] tmpBuffer;
 		}
 		static packet make_request(std::string payload, unsigned int buffer_length) {
 			return packet(nrpe::data::queryPacket, nrpe::data::version2, -1, payload, buffer_length);
@@ -180,10 +171,10 @@ namespace nrpe {
 		}
 
 		const char* create_buffer() {
-			delete [] tmpBuffer;
+			delete[] tmpBuffer;
 			unsigned int packet_length = nrpe::length::get_packet_length(payload_length_);
-			tmpBuffer = new char[packet_length+1];
-			memset(tmpBuffer, 0, packet_length+1);
+			tmpBuffer = new char[packet_length + 1];
+			memset(tmpBuffer, 0, packet_length + 1);
 			nrpe::data::packet *p = reinterpret_cast<nrpe::data::packet*>(tmpBuffer);
 			p->result_code = swap_bytes::hton<int16_t>(result_);
 			p->packet_type = swap_bytes::hton<int16_t>(type_);
@@ -198,7 +189,7 @@ namespace nrpe {
 
 		std::vector<char> get_buffer() {
 			const char *c = create_buffer();
-			std::vector<char> buf(c, c+get_packet_length());
+			std::vector<char> buf(c, c + get_packet_length());
 			return buf;
 		}
 
@@ -217,13 +208,13 @@ namespace nrpe {
 			crc32_ = swap_bytes::ntoh<u_int32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
-			char * tb = new char[length+1];
+			char * tb = new char[length + 1];
 			memcpy(tb, buffer, length);
 			nrpe::data::packet *p2 = reinterpret_cast<nrpe::data::packet*>(tb);
 			p2->crc32_value = 0;
 			calculatedCRC32_ = calculate_crc32(tb, get_packet_length());
-			delete [] tb;
-			if (crc32_ != calculatedCRC32_) 
+			delete[] tb;
+			if (crc32_ != calculatedCRC32_)
 				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + strEx::s::xtos(crc32_) + "!=" + strEx::s::xtos(calculatedCRC32_));
 			// Verify CRC32 end
 			result_ = swap_bytes::ntoh<int16_t>(p->result_code);
@@ -258,4 +249,3 @@ namespace nrpe {
 		}
 	};
 }
-

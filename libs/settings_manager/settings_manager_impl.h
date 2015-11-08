@@ -7,7 +7,6 @@
 #include "settings_handler_impl.hpp"
 
 namespace settings_manager {
-
 	struct provider_interface {
 		virtual std::string expand_path(std::string file) = 0;
 		virtual std::string get_data(std::string key) = 0;
@@ -34,7 +33,7 @@ namespace settings_manager {
 			wchar_t* buffer = new wchar_t[1024];
 			GetPrivateProfileString(utf8::cvt<std::wstring>(section).c_str(), utf8::cvt<std::wstring>(key).c_str(), utf8::cvt<std::wstring>(def).c_str(), buffer, 1023, boot_.wstring().c_str());
 			std::string ret = utf8::cvt<std::string>(buffer);
-			delete [] buffer;
+			delete[] buffer;
 			if (ret == def) {
 				std::string tmp = utf8::cvt<std::string>(provider_->get_data(key));
 				if (!tmp.empty())

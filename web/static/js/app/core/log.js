@@ -51,7 +51,9 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus'], function(ko, se
 		self.command = ko.observable('');
 		self.command.extend({ notify: 'always' });
 
+		self.refresh_handler = false;
 		self.set_refresh_handler = function(handler) {
+			self.refresh_handler = handler;
 			if (!handler)
 				gs.remove_refresh_handler('log')
 			else
@@ -72,6 +74,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus'], function(ko, se
 			server.json_get("/log/reset", function(data) {
 				self.log = []
 				self.pos = 0
+				if (self.refresh_handler)
+					self.refresh_handler(self.log)
 			})
 		}
 		self.exec = function(command){

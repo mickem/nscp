@@ -6,7 +6,6 @@
 
 namespace nscp {
 	namespace encryption {
-
 		class encryption_exception : public std::exception {
 			std::string msg_;
 		public:
@@ -43,7 +42,6 @@ namespace nscp {
 				delete core_;
 			}
 
-
 			static bool hasEncryption(int encryption_method);
 			static any_encryption* get_encryption_core(int encryption_method);
 			static std::string generate_transmitted_iv(unsigned int len = TRANSMITTED_IV_SIZE);
@@ -59,7 +57,7 @@ namespace nscp {
 				if (core_ == NULL)
 					return "<NULL>";
 				std::stringstream ss;
-				ss << "Name: " << core_->getName() 
+				ss << "Name: " << core_->getName()
 					<< ", block size: " << core_->get_blockSize()
 					<< ", key size: " << core_->get_keySize();
 				return ss.str();

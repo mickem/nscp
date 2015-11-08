@@ -22,4 +22,3 @@
 #include "collectd_packet.hpp"
 
 //unsigned int collectd::length::payload_length_ = 512;
-

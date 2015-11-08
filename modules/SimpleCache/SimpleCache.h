@@ -39,7 +39,7 @@ private:
 	index_lookup_type index_lookup_;
 	command_lookup_type command_lookup_;
 
-	std::map<std::string,std::string> cache_;
+	std::map<std::string, std::string> cache_;
 	boost::shared_mutex cache_mutex_;
 
 public:
@@ -50,5 +50,4 @@ public:
 
 	void handleNotification(const std::string &channel, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message);
 	void check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
-
 };

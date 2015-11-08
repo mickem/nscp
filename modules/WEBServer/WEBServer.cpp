@@ -43,14 +43,12 @@
 
 #include <json_spirit.h>
 
-
 namespace sh = nscapi::settings_helper;
 
 using namespace std;
 using namespace Mongoose;
 
-WEBServer::WEBServer() {
-}
+WEBServer::WEBServer() {}
 WEBServer::~WEBServer() {}
 
 error_handler log_data;
@@ -59,12 +57,11 @@ static const char alphanum[] = "0123456789" "ABCDEFGHIJKLMNOPQRSTUVWXYZ" "abcdef
 class token_store {
 	typedef boost::unordered_set<std::string> token_set;
 
-
 	token_set tokens;
 	std::string seed_token(int len) {
 		std::string ret;
-		for(int i=0; i < len; i++)
-			ret += alphanum[rand() %  (sizeof(alphanum)-1)];
+		for (int i = 0; i < len; i++)
+			ret += alphanum[rand() % (sizeof(alphanum) - 1)];
 		return ret;
 	}
 
@@ -84,9 +81,7 @@ public:
 		if (it != tokens.end())
 			tokens.erase(it);
 	}
-
 };
-
 
 token_store tokens;
 
@@ -119,7 +114,6 @@ class cli_handler : public client::cli_handler {
 public:
 	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
-
 	void output_message(const std::string &msg) {
 		error_handler::log_entry e;
 		e.date = "";
@@ -135,8 +129,7 @@ public:
 		}
 	}
 
-	virtual void log_error(std::string module, std::string file, int line, std::string msg) const
-	{
+	virtual void log_error(std::string module, std::string file, int line, std::string msg) const {
 		if (core->should_log(NSCAPI::log_level::debug)) {
 			core->log(NSCAPI::log_level::error, file, line, msg);
 		}
@@ -144,11 +137,9 @@ public:
 
 	virtual int get_plugin_id() const { return plugin_id; }
 	virtual nscapi::core_wrapper* get_core() const { return core; }
-
 };
 
-class BaseController : public Mongoose::WebController
-{
+class BaseController : public Mongoose::WebController {
 	const std::string password;
 	const nscapi::core_wrapper* core;
 	const unsigned int plugin_id;
@@ -156,30 +147,28 @@ class BaseController : public Mongoose::WebController
 	boost::shared_mutex mutex_;
 	client::cli_client client_;
 
-public: 
+public:
 
-	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id) 
+	BaseController(std::string password, nscapi::core_wrapper* core, unsigned int plugin_id)
 		: password(password)
 		, core(core)
 		, plugin_id(plugin_id)
 		, status("ok")
-		, client_(client::cli_handler_ptr(new cli_handler(core, plugin_id))){}
+		, client_(client::cli_handler_ptr(new cli_handler(core, plugin_id))) {}
 
 	std::string get_status() {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
-		if (!lock.owns_lock()) 
+		if (!lock.owns_lock())
 			return "unknown";
 		return status;
 	}
 	bool set_status(std::string status_) {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
-		if (!lock.owns_lock()) 
+		if (!lock.owns_lock())
 			return false;
 		status = status_;
 		return true;
 	}
-
-
 
 	void console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
@@ -286,6 +275,8 @@ public:
 			payload->mutable_inventory()->set_recursive_fetch(true);
 		if (request.get("samples", "false") == "true")
 			payload->mutable_inventory()->set_fetch_samples(true);
+		if (request.get("templates", "false") == "true")
+			payload->mutable_inventory()->set_fetch_templates(true);
 		if (request.get("desc", "false") == "true")
 			payload->mutable_inventory()->set_descriptions(true);
 		std::string path = request.get("path", "");
@@ -330,7 +321,6 @@ public:
 		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
 		response << json_response;
 	}
-	
 
 	void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (password.empty() || password != request.get("password")) {
@@ -369,7 +359,7 @@ public:
 		json_spirit::Array data;
 
 		std::string str_position = request.get("pos", "0");
-		int pos = strEx::s::stox<int>(str_position);
+		std::size_t pos = strEx::s::stox<std::size_t>(str_position);
 		BOOST_FOREACH(const error_handler::log_entry &e, log_data.get_errors(pos)) {
 			json_spirit::Object node;
 			node.insert(json_spirit::Object::value_type("file", e.file));
@@ -406,8 +396,7 @@ public:
 		response << "{\"status\" : \"" + get_status() + "\"}";
 	}
 
-	void setup()
-	{
+	void setup() {
 		addRoute("GET", "/registry/control/module/load", BaseController, registry_control_module_load);
 		addRoute("GET", "/registry/control/module/unload", BaseController, registry_control_module_unload);
 		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
@@ -430,12 +419,11 @@ public:
 	}
 };
 
-
-bool nonAsciiChar(const char c) {  
-	return !( (c>='A' && c < 'Z') || (c>='a' && c < 'z') || (c>='0' && c < '9') || c == '_');
-} 
-void stripNonAscii(string &str) { 
-	str.erase(std::remove_if(str.begin(),str.end(), nonAsciiChar), str.end());
+bool nonAsciiChar(const char c) {
+	return !((c >= 'A' && c < 'Z') || (c >= 'a' && c < 'z') || (c >= '0' && c < '9') || c == '_');
+}
+void stripNonAscii(string &str) {
+	str.erase(std::remove_if(str.begin(), str.end(), nonAsciiChar), str.end());
 }
 
 #define BUF_SIZE 4096
@@ -443,8 +431,7 @@ void stripNonAscii(string &str) {
 class StaticController : public Mongoose::WebController {
 	boost::filesystem::path base;
 public:
-	StaticController(std::string path) : base(path){}
-
+	StaticController(std::string path) : base(path) {}
 
 	Response *process(Request &request) {
 		bool is_js = boost::algorithm::ends_with(request.getUrl(), ".js");
@@ -457,14 +444,14 @@ public:
 			|| boost::algorithm::ends_with(request.getUrl(), ".svg")
 			|| boost::algorithm::ends_with(request.getUrl(), ".woff");
 		StreamResponse *sr = new StreamResponse();
-		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png)  {
+		if (!is_js && !is_html && !is_css && !is_font && !is_jpg && !is_gif && !is_png) {
 			sr->setCode(404);
 			*sr << "Not found: " << request.getUrl();
 			return sr;
 		}
 
 		boost::filesystem::path file = base / request.getUrl();
-		if(!boost::filesystem::is_regular_file(file)) {
+		if (!boost::filesystem::is_regular_file(file)) {
 			NSC_LOG_ERROR("Failed to find: " + file.string());
 			sr->setCode(404);
 			*sr << "Not found: " << request.getUrl();
@@ -488,9 +475,8 @@ public:
 		}
 		if (is_css || is_font || is_gif || is_png || is_jpg || is_js) {
 			sr->setHeader("Cache-Control", "max-age=3600"); //1 hour (60*60)
-
 		}
-		std::ifstream in(file.string().c_str(), ios_base::in|ios_base::binary);
+		std::ifstream in(file.string().c_str(), ios_base::in | ios_base::binary);
 		char buf[BUF_SIZE];
 
 		std::string token = request.get("__TOKEN");
@@ -505,21 +491,21 @@ public:
 				if (pos != std::string::npos) {
 					std::string::size_type end = line.find("%>", pos);
 					if (end != std::string::npos) {
-						pos+=3;
-						std::string key = line.substr(pos, end-pos);
+						pos += 3;
+						std::string key = line.substr(pos, end - pos);
 						if (boost::starts_with(key, "INCLUDE:")) {
 							std::string fname = key.substr(8);
 							stripNonAscii(fname);
 							fname += ".html";
 							boost::filesystem::path file2 = base / "include" / fname;
 							NSC_DEBUG_MSG("File: " + file2.string());
-							std::ifstream in2(file2.string().c_str(), ios_base::in|ios_base::binary);
+							std::ifstream in2(file2.string().c_str(), ios_base::in | ios_base::binary);
 							do {
 								in2.read(&buf[0], BUF_SIZE);
 								sr->write(&buf[0], in2.gcount());
 							} while (in2.gcount() > 0);
 							in2.close();
-							line = line.substr(0, pos-3) + line.substr(end+2);
+							line = line.substr(0, pos - 3) + line.substr(end + 2);
 							boost::replace_all(line, "<%=TOKEN%>", token);
 						} else {
 							boost::replace_all(line, "<%=TOKEN%>", token);
@@ -541,8 +527,7 @@ public:
 		in.close();
 		return sr;
 	}
-	bool handles(string method, string url)
-	{ 
+	bool handles(string method, string url) {
 		return boost::algorithm::ends_with(url, ".js")
 			|| boost::algorithm::ends_with(url, ".css")
 			|| boost::algorithm::ends_with(url, ".html")
@@ -552,19 +537,16 @@ public:
 			|| boost::algorithm::ends_with(url, ".gif")
 			|| boost::algorithm::ends_with(url, ".png")
 			|| boost::algorithm::ends_with(url, ".jpg");
-			;
+		;
 	}
-
 };
-
 
 class RESTController : public Mongoose::WebController {
 	const std::string password;
 	const nscapi::core_wrapper* core;
-public: 
+public:
 
 	RESTController(std::string password, nscapi::core_wrapper* core) : password(password), core(core) {}
-
 
 	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
@@ -590,6 +572,33 @@ public:
 		response << json_response;
 	}
 
+	void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		std::size_t pos = obj.find("/");
+		if (pos == std::string::npos)
+			return;
+		std::string target = obj.substr(0, pos);
+		std::string cmd = obj.substr(pos + 1);
+		Plugin::ExecuteRequestMessage rm;
+		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
+		Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
+
+		payload->set_command(cmd);
+		Request::arg_vector args = request.getVariablesVector();
+
+		BOOST_FOREACH(const Request::arg_entry &e, args) {
+			if (e.second.empty())
+				payload->add_arguments(e.first);
+			else
+				payload->add_arguments(e.first + "=" + e.second);
+		}
+
+		std::string pb_response, json_response;
+		core->exec_command(target, rm.SerializeAsString(), pb_response);
+		core->protobuf_to_json("ExecuteResponseMessage", pb_response, json_response);
+		response << json_response;
+	}
 
 	Response *process(Request &request) {
 		if (!handles(request.getMethod(), request.getUrl()))
@@ -598,6 +607,8 @@ public:
 		std::string url = request.getUrl();
 		if (boost::algorithm::starts_with(url, "/query/")) {
 			handle_query(url.substr(7), request, *response);
+		} else if (boost::algorithm::starts_with(url, "/exec/")) {
+			handle_exec(url.substr(6), request, *response);
 		} else {
 			response->setCode(HTTP_SERVER_ERROR);
 			(*response) << "Unknown REST node: " << url;
@@ -605,12 +616,9 @@ public:
 		return response;
 	}
 	bool handles(string method, string url) {
-		return boost::algorithm::starts_with(url, "/query/");
+		return boost::algorithm::starts_with(url, "/query/") || boost::algorithm::starts_with(url, "/exec/");
 	}
-
 };
-
-
 
 bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	sh::settings_registry settings(get_settings_proxy());
@@ -625,17 +633,17 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 	settings.alias().add_key_to_settings()
 		("port", sh::string_key(&port, "8443s"),
-		"PORT NUMBER", "Port to use for WEB server.")
+			"PORT NUMBER", "Port to use for WEB server.")
 		;
 	settings.alias().add_key_to_settings()
 		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
-		"CERTIFICATE", "Ssl certificate to use for the ssl server")
+			"CERTIFICATE", "Ssl certificate to use for the ssl server")
 		;
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("password", sh::string_key(&password),
-		DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
+			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
 
@@ -648,11 +656,11 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		socket_helpers::validate_certificate(certificate, errors);
 		NSC_LOG_ERROR_LISTS(errors);
 		std::string path = get_core()->expand_path("${web-path}");
-		if(!boost::filesystem::is_regular_file(certificate) && port == "8443s")
+		if (!boost::filesystem::is_regular_file(certificate) && port == "8443s")
 			port = "8080";
-			
+
 		server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
-		if(!boost::filesystem::is_regular_file(certificate)) {
+		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
@@ -661,7 +669,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new BaseController(password, get_core(), get_id()));
 		server->registerController(new RESTController(password, get_core()));
 		server->registerController(new StaticController(path));
-		
+
 		server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
 		server->start();
 		NSC_DEBUG_MSG("Loading webserver on port: " + port);
@@ -684,7 +692,6 @@ bool WEBServer::unloadModule() {
 	}
 	return true;
 }
-
 
 void error_handler::add_message(bool is_error, const log_entry &message) {
 	{
@@ -715,21 +722,22 @@ error_handler::status error_handler::get_status() {
 	ret.last_error = last_error_;
 	return ret;
 }
-error_handler::log_list error_handler::get_errors(int &position) {
+error_handler::log_list error_handler::get_errors(std::size_t &position) {
 	log_list ret;
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock())
 		return ret;
-	log_list::iterator cit = log_entries.begin()+position;
+	if (position >= log_entries.size())
+		return ret;
+	log_list::iterator cit = log_entries.begin() + position;
 	log_list::iterator end = log_entries.end();
 
-	for (;cit != end;++cit) {
+	for (; cit != end; ++cit) {
 		ret.push_back(*cit);
 		position++;
 	}
 	return ret;
 }
-
 
 void metrics_handler::set(const std::string &metrics) {
 	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
@@ -747,7 +755,7 @@ std::string metrics_handler::get() {
 void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	using namespace boost::posix_time;
 	using namespace boost::gregorian;
-	
+
 	error_handler::log_entry entry;
 	entry.line = message.line();
 	entry.file = message.file();
@@ -772,19 +780,23 @@ void WEBServer::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 		break;
 	default:
 		entry.type = "unknown";
-
 	}
 	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
 }
 
-
 bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
-	if (target_mode == NSCAPI::target_module || request.command() == "web") {
-		const std::string &command = request.command();
-		if (request.arguments_size() > 0 && request.arguments(0) == "install")
-			return install_server(request, response);
-		if (request.arguments_size() > 0 && request.arguments(0) == "password")
-			return password(request, response);
+	std::string command = request.command();
+	if (command == "web" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	if (command == "install")
+		return install_server(request, response);
+	else if (command == "password")
+		return password(request, response);
+	else if (target_mode == NSCAPI::target_module) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password] --help");
 		return true;
 	}
@@ -792,7 +804,6 @@ bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequ
 }
 
 bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
-
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
@@ -805,7 +816,6 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
 	q.get(path, "certificate key", "");
 	q.get(path, "port", "8443s");
-
 
 	get_core()->settings_query(q.request(), q.response());
 	if (!q.validate_response()) {
@@ -826,17 +836,17 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	desc.add_options()
 		("help", "Show help.")
 
-		("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts), 
-		"Set which hosts are allowed to connect")
+		("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts),
+			"Set which hosts are allowed to connect")
 
-		("certificate", po::value<std::string>(&cert)->default_value(cert), 
-		"Length of payload (has to be same as on the server)")
+		("certificate", po::value<std::string>(&cert)->default_value(cert),
+			"Length of payload (has to be same as on the server)")
 
-		("certificate-key", po::value<std::string>(&key)->default_value(key), 
-		"Client certificate to use")
+		("certificate-key", po::value<std::string>(&key)->default_value(key),
+			"Client certificate to use")
 
-		("port", po::value<std::string>(&port)->default_value(port), 
-		"Port to use suffix with s for ssl")
+		("port", po::value<std::string>(&port)->default_value(port),
+			"Port to use suffix with s for ssl")
 
 		;
 
@@ -885,7 +895,6 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	}
 }
 
-
 bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
@@ -898,14 +907,14 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 	desc.add_options()
 		("help", "Show help.")
 
-		("set,s", po::value<std::string>(&password), 
-		"Set the new password")
+		("set,s", po::value<std::string>(&password),
+			"Set the new password")
 
-		("display,d", po::bool_switch(&display), 
-		"Display the current configured password")
+		("display,d", po::bool_switch(&display),
+			"Display the current configured password")
 
-		("only-web", po::bool_switch(&setweb), 
-		"Set the password for WebServer only (if not specified the default password is used)")
+		("only-web", po::bool_switch(&setweb),
+			"Set the password for WebServer only (if not specified the default password is used)")
 
 		;
 	try {
@@ -932,7 +941,7 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 		settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 			("password", sh::string_key(&password),
-			"PASSWORD", "Password used to authenticate against server")
+				"PASSWORD", "Password used to authenticate against server")
 
 			;
 
@@ -958,17 +967,13 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 			return true;
 		}
 		nscapi::protobuf::functions::set_response_good(*response, "Password updated successfully, please restart nsclient++ for changes to affect.");
-
 	} else {
 		nscapi::protobuf::functions::set_response_bad(*response, nscapi::program_options::help(desc));
 	}
 	return true;
 }
 
-
-
-void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBundle & b)
-{
+void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBundle & b) {
 	json_spirit::Object node;
 	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
 		build_metrics(node, b2);

@@ -19,7 +19,6 @@
 namespace sh = nscapi::settings_helper;
 
 namespace eventlog_filter {
-
 	unsigned short filter_config_object::get_language(std::string lang) {
 		if (lang == "neutral") return LANG_NEUTRAL;
 		if (lang == "arabic") return LANG_ARABIC;
@@ -94,7 +93,7 @@ namespace eventlog_filter {
 
 	std::string filter_config_object::to_string() const {
 		std::stringstream ss;
-		ss << alias << "[" << alias << "] = " 
+		ss << alias << "[" << alias << "] = "
 			<< "{tpl: " << parent::to_string() << ", filter: " << filter.to_string() << "}";
 		return ss.str();
 	}
@@ -106,20 +105,12 @@ namespace eventlog_filter {
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
-		nscapi::settings_helper::path_extension root_path = settings.path(path);
+		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
 			root_path.set_sample();
 
-		if (oneliner) {
-			std::string::size_type pos = path.find_last_of("/");
-			if (pos != std::string::npos) {
-				std::string kpath = path.substr(0, pos);
-				std::string key = path.substr(pos+1);
-				proxy->register_key(path, key, NSCAPI::key_string, alias, "Filter for " + alias + ". To configure this item add a section called: " + path, "", false, is_sample);
-				proxy->set_string(path, key, value);
-				return;
-			}
-		}
+		if (oneliner)
+			return;
 
 		root_path.add_path()
 			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + alias)
@@ -127,10 +118,10 @@ namespace eventlog_filter {
 
 		root_path.add_key()
 			("log", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_file, this, _1)),
-			"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
+				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
 			("logs", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_files, this, _1)),
-			"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
+				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
 			;
 
@@ -140,4 +131,3 @@ namespace eventlog_filter {
 		settings.notify();
 	}
 }
-

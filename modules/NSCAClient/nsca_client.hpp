@@ -5,7 +5,6 @@
 #include <socket/client.hpp>
 
 namespace nsca_client {
-		
 	struct connection_data : public socket_helpers::connection_info {
 		std::string password;
 		std::string encryption;
@@ -64,10 +63,9 @@ namespace nsca_client {
 	struct client_handler : public socket_helpers::client::client_handler {
 		unsigned int encryption_;
 		std::string password_;
-		client_handler(const connection_data &con) 
+		client_handler(const connection_data &con)
 			: encryption_(con.get_encryption())
-			, password_(con.password)
-		{}
+			, password_(con.password) {}
 		void log_debug(std::string file, int line, std::string msg) const {
 			if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {
 				GET_CORE()->log(NSCAPI::log_level::debug, file, line, msg);
@@ -87,12 +85,9 @@ namespace nsca_client {
 		std::string expand_path(std::string path) {
 			return GET_CORE()->expand_path(path);
 		}
-
 	};
 
-
 	struct nsca_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
 		}

@@ -4,10 +4,8 @@
 
 namespace parsers {
 	namespace where {
-
 		struct unary_op : public any_node {
-			unary_op(operators op, node_type const subject): op(op), subject(subject) {}
-
+			unary_op(operators op, node_type const subject) : op(op), subject(subject) {}
 
 			virtual std::string to_string() const;
 
@@ -28,7 +26,5 @@ namespace parsers {
 			operators op;
 			node_type subject;
 		};
-
-
 	}
 }

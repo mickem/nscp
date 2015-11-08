@@ -37,18 +37,17 @@
 
 /**
  * Default c-tor
- * @return 
+ * @return
  */
 SMTPClient::SMTPClient() : client_("graphite", boost::make_shared<smtp_client::smtp_client_handler>(), boost::make_shared<smtp_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
- * @return 
+ * @return
  */
 SMTPClient::~SMTPClient() {}
 
 bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-
 	std::wstring template_string, sender, recipient;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
@@ -57,18 +56,18 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		settings.alias().add_path_to_settings()
 			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")
-			("handlers", sh::fun_values_path(boost::bind(&SMTPClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "",
-			"CLIENT HANDLER", "For more configuration options add a dedicated section")
+			("handlers", sh::fun_values_path(boost::bind(&SMTPClient::add_command, this, _1, _2)),
+				"CLIENT HANDLER SECTION", "",
+				"CLIENT HANDLER", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&SMTPClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
+			("targets", sh::fun_values_path(boost::bind(&SMTPClient::add_target, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"TARGET", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("channel", sh::string_key(&channel_, "SMTP"),
-			"CHANNEL", "The channel to listen to.")
+				"CHANNEL", "The channel to listen to.")
 
 			;
 
@@ -125,7 +124,6 @@ bool SMTPClient::unloadModule() {
 	return true;
 }
 
-
 void SMTPClient::query_fallback(const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 	client_.do_query(request_message, response_message);
 }
@@ -139,4 +137,3 @@ bool SMTPClient::commandLineExec(const int target_mode, const Plugin::ExecuteReq
 void SMTPClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
-

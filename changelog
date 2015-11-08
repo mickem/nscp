@@ -1,3 +1,31 @@
+2015-10-27 Michael Medin
+ * Added support for setting arbitrary keys on command line
+ * Fixed password command line for the web client (i.e. nscp web password)
+ * Fixed command lines for password in WEB UI
+ * Service wont restart if it is not started when crashed (ie. running in test mode for instance)
+ * Fixed locale setting (and error logging for service related errors)
+ * Started to cleanuup "return codes" in the API which has been all over the place before. This will most likely fix all NSCA/Scheduler issues
+ * Removed encrypt from the API has it has not been implemented for some time
+ * Fixed issues and problems with unit tests
+ 
+2015-10-25 Michael Medin
+ * Added exec from clients (i.e. web and test):
+   Usage: exec any help
+        exec mymodule mycommand
+ * Fixed python to string (will log better when it cant convert to string)
+ * Fixed so python script will unregister its commands on reload
+ * Added support for unregistring commands
+ * Fixed erratic segv in clients when socket is closed twice
+ * Started to implement trace logging
+ * Added target_mode flag to exec to diverge between targeted commands and generic ones.
+ * Tweked some build issues
+
+2015-10-19 Ola Sandström
+ * updated comments [in op5 config]
+
+... Need to add in all missing commits here...
+
+
 2015-05-02 Michael Medin
  * Updated some libs to work on centos 6.x
 

@@ -116,7 +116,6 @@ TEST(PerfConfigTest, simple_star_1) {
 	EXPECT_EQ("*(a:b;)", to_string(v));
 }
 
-
 TEST(PerfConfigTest, simple_multiple_advanced) {
 	EXPECT_TRUE(do_parse("foo(a:b)foo(1:b)    bar(e:r) test(a:b;e:r;f:t)", v));
 	ASSERT_EQ(4, v.size());

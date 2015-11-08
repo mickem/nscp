@@ -15,10 +15,8 @@ using boost::asio::ip::tcp;
 
 namespace http {
 	class client {
-
 		boost::asio::io_service io_service;
 		tcp::socket socket;
-
 
 		static std::string charToHex(char c) {
 			std::string result;
@@ -35,53 +33,48 @@ namespace http {
 			return result;
 		}
 
-		static std::string uri_encode(const std::string& src)
-		{
+		static std::string uri_encode(const std::string& src) {
 			std::string result;
 			std::string::const_iterator iter;
 
-			for(iter = src.begin(); iter != src.end(); ++iter) {
-				switch(*iter) {
-	case ' ':
-		result.append(1, '+');
-		break;
-		// alnum
-	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-	case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
-	case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-	case 'V': case 'W': case 'X': case 'Y': case 'Z':
-	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-	case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-	case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-	case 'v': case 'w': case 'x': case 'y': case 'z':
-	case '0': case '1': case '2': case '3': case '4': case '5': case '6':
-	case '7': case '8': case '9':
-		// mark
-	case '-': case '_': case '.': case '!': case '~': case '*': case '\'': 
-	case '(': case ')':
-		result.append(1, *iter);
-		break;
-		// escape
-	default:
-		result.append(1, '%');
-		result.append(charToHex(*iter));
-		break;
+			for (iter = src.begin(); iter != src.end(); ++iter) {
+				switch (*iter) {
+				case ' ':
+					result.append(1, '+');
+					break;
+					// alnum
+				case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
+				case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
+				case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
+				case 'V': case 'W': case 'X': case 'Y': case 'Z':
+				case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
+				case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
+				case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
+				case 'v': case 'w': case 'x': case 'y': case 'z':
+				case '0': case '1': case '2': case '3': case '4': case '5': case '6':
+				case '7': case '8': case '9':
+					// mark
+				case '-': case '_': case '.': case '!': case '~': case '*': case '\'':
+				case '(': case ')':
+					result.append(1, *iter);
+					break;
+					// escape
+				default:
+					result.append(1, '%');
+					result.append(charToHex(*iter));
+					break;
 				}
 			}
 
 			return result;
 		}
 
-
 	public:
 		client()
 			: io_service()
-			, socket(io_service)
-		{
-		}
+			, socket(io_service) {}
 
 		void connect() {
-
 		}
 		struct response_type {
 			unsigned int code;
@@ -90,15 +83,12 @@ namespace http {
 			std::string version;
 			std::string message;
 
-			void add_header(const std::string &header) 
-			{
+			void add_header(const std::string &header) {
 				headers.push_back(header);
 			}
-
-
 		};
 		struct request_type {
-			typedef std::map<std::string,std::string> post_map_type;
+			typedef std::map<std::string, std::string> post_map_type;
 			std::string verb;
 			std::list<std::string> headers;
 			std::string payload;
@@ -120,7 +110,7 @@ namespace http {
 					os << s << crlf;
 				}
 				os << crlf;
-				if (!payload.empty()) 
+				if (!payload.empty())
 					os << payload;
 				os << crlf;
 				os << crlf;
@@ -161,7 +151,7 @@ namespace http {
 			request.build_request(request.verb, server, path, request_stream);
 			boost::asio::write(socket, requestbuf);
 		}
-		boost::tuple<std::string,unsigned int,std::string> read_result(boost::asio::streambuf &response) {
+		boost::tuple<std::string, unsigned int, std::string> read_result(boost::asio::streambuf &response) {
 			std::string http_version, status_message;
 			unsigned int status_code;
 			boost::asio::read_until(socket, response, "\r\n");
@@ -174,7 +164,6 @@ namespace http {
 			std::getline(response_stream, status_message);
 			return boost::make_tuple(http_version, status_code, status_message);
 		}
-
 
 		response_type execute(std::string server, std::string port, std::string path, request_type &request) {
 			response_type response;
@@ -193,7 +182,6 @@ namespace http {
 				boost::asio::read_until(socket, response_buffer, "\r\n\r\n");
 			} catch (const std::exception &e) {
 				throw socket_helpers::socket_exception(std::string("Failed to read header: ") + e.what());
-
 			}
 
 			std::istream response_stream(&response_buffer);
@@ -229,5 +217,4 @@ namespace http {
 			}
 		}
 	};
-
 }

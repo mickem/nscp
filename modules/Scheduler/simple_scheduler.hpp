@@ -40,7 +40,7 @@ namespace scheduler {
 	public:
 		bool empty(unsigned int timeout = 5) {
 			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
-			if (!lock.owns_lock()) 
+			if (!lock.owns_lock())
 				return false;
 			return queue_.empty();
 		}
@@ -73,7 +73,7 @@ namespace scheduler {
 
 	class simple_scheduler : public boost::noncopyable {
 	private:
-		typedef std::map<int,schedules::schedule_handler::object_instance> target_list_type;
+		typedef std::map<int, schedules::schedule_handler::object_instance> target_list_type;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
 		// thread variables
@@ -95,7 +95,6 @@ namespace scheduler {
 		simple_scheduler() : schedule_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
 		~simple_scheduler() {}
 
-
 		void set_handler(schedule_handler* handler) {
 			handler_ = handler;
 		}
@@ -106,7 +105,7 @@ namespace scheduler {
 		int add_task(schedules::schedule_handler::object_instance item);
 		void remove_task(int id);
 		schedules::schedule_handler::object_instance get_task(int id);
-		
+
 		void start();
 		void stop();
 
@@ -114,8 +113,7 @@ namespace scheduler {
 			thread_count_ = threads;
 			start_thread();
 		}
-		int get_threads() const { return thread_count_;}
-
+		int get_threads() const { return thread_count_; }
 
 	private:
 		void thread_proc(int id);
@@ -133,7 +131,4 @@ namespace scheduler {
 			return boost::get_system_time();
 		}
 	};
-
 }
-
-

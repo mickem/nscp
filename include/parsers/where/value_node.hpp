@@ -5,11 +5,8 @@
 
 #include <parsers/where/node.hpp>
 
-
 namespace parsers {
 	namespace where {
-
-
 		template<class T>
 		struct node_value_impl : public any_node {
 			T value_;

@@ -8,8 +8,6 @@
 #include <http/client.hpp>
 
 namespace nrdp_client {
-
-
 	struct connection_data : public socket_helpers::connection_info {
 		std::string token;
 
@@ -37,14 +35,12 @@ namespace nrdp_client {
 		}
 	};
 
-
 	struct g_data {
 		std::string path;
 		std::string value;
 	};
 
 	struct nrdp_client_handler : public client::handler_interface {
-
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
 		}
@@ -75,8 +71,6 @@ namespace nrdp_client {
 		bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) {
 			return false;
 		}
-
-
 
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
 			try {

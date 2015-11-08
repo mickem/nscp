@@ -24,7 +24,6 @@
 #include <pdh/pdh_query.hpp>
 
 namespace PDH {
-
 	PDHQuery::~PDHQuery(void) {
 		removeAllCounters();
 	}
@@ -34,14 +33,13 @@ namespace PDH {
 			BOOST_FOREACH(pdh_instance child, instance->get_instances()) {
 				counters_.push_back(boost::make_shared<PDHCounter>(child));
 			}
-		} else 
+		} else
 			counters_.push_back(boost::make_shared<PDHCounter>(instance));
 	}
 
 	bool PDHQuery::has_counters() {
 		return !counters_.empty();
 	}
-
 
 	void PDHQuery::removeAllCounters() {
 		if (hQuery_)

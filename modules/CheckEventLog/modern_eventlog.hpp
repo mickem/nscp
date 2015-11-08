@@ -7,46 +7,40 @@ namespace eventlog {
 	namespace api {
 		typedef HANDLE EVT_HANDLE, *PEVT_HANDLE;
 
-		typedef enum _EVT_VARIANT_TYPE
-		{
-			EvtVarTypeNull        = 0,
-			EvtVarTypeString      = 1,
-			EvtVarTypeAnsiString  = 2,
-			EvtVarTypeSByte       = 3,
-			EvtVarTypeByte        = 4,
-			EvtVarTypeInt16       = 5,
-			EvtVarTypeUInt16      = 6,
-			EvtVarTypeInt32       = 7,
-			EvtVarTypeUInt32      = 8,
-			EvtVarTypeInt64       = 9,
-			EvtVarTypeUInt64      = 10,
-			EvtVarTypeSingle      = 11,
-			EvtVarTypeDouble      = 12,
-			EvtVarTypeBoolean     = 13,
-			EvtVarTypeBinary      = 14,
-			EvtVarTypeGuid        = 15,
-			EvtVarTypeSizeT       = 16,
-			EvtVarTypeFileTime    = 17,
-			EvtVarTypeSysTime     = 18,
-			EvtVarTypeSid         = 19,
-			EvtVarTypeHexInt32    = 20,
-			EvtVarTypeHexInt64    = 21,
+		typedef enum _EVT_VARIANT_TYPE {
+			EvtVarTypeNull = 0,
+			EvtVarTypeString = 1,
+			EvtVarTypeAnsiString = 2,
+			EvtVarTypeSByte = 3,
+			EvtVarTypeByte = 4,
+			EvtVarTypeInt16 = 5,
+			EvtVarTypeUInt16 = 6,
+			EvtVarTypeInt32 = 7,
+			EvtVarTypeUInt32 = 8,
+			EvtVarTypeInt64 = 9,
+			EvtVarTypeUInt64 = 10,
+			EvtVarTypeSingle = 11,
+			EvtVarTypeDouble = 12,
+			EvtVarTypeBoolean = 13,
+			EvtVarTypeBinary = 14,
+			EvtVarTypeGuid = 15,
+			EvtVarTypeSizeT = 16,
+			EvtVarTypeFileTime = 17,
+			EvtVarTypeSysTime = 18,
+			EvtVarTypeSid = 19,
+			EvtVarTypeHexInt32 = 20,
+			EvtVarTypeHexInt64 = 21,
 
 			// these types used internally
-			EvtVarTypeEvtHandle   = 32,
-			EvtVarTypeEvtXml      = 35
-
+			EvtVarTypeEvtHandle = 32,
+			EvtVarTypeEvtXml = 35
 		} EVT_VARIANT_TYPE;
-
 
 #define EVT_VARIANT_TYPE_MASK 0x7f
 #define EVT_VARIANT_TYPE_ARRAY 128
 
-
-		typedef struct _EVT_VARIANT
-		{
-			union
-			{
+		typedef struct _EVT_VARIANT {
+			union {
 				BOOL        BooleanVal;
 				INT8        SByteVal;
 				INT16       Int16Val;
@@ -95,39 +89,32 @@ namespace eventlog {
 
 			DWORD Count;   // number of elements (not length) in bytes.
 			DWORD Type;
-
 		} EVT_VARIANT, *PEVT_VARIANT;
 
+		typedef enum _EVT_QUERY_FLAGS {
+			EvtQueryChannelPath = 0x1,
+			EvtQueryFilePath = 0x2,
 
-		typedef enum _EVT_QUERY_FLAGS
-		{
-			EvtQueryChannelPath                 = 0x1,
-			EvtQueryFilePath                    = 0x2,
+			EvtQueryForwardDirection = 0x100,
+			EvtQueryReverseDirection = 0x200,
 
-			EvtQueryForwardDirection            = 0x100,
-			EvtQueryReverseDirection            = 0x200,
-
-			EvtQueryTolerateQueryErrors         = 0x1000
-
+			EvtQueryTolerateQueryErrors = 0x1000
 		} EVT_QUERY_FLAGS;
 
-		typedef enum _EVT_SEEK_FLAGS
-		{
-			EvtSeekRelativeToFirst    = 1,
-			EvtSeekRelativeToLast     = 2,
-			EvtSeekRelativeToCurrent  = 3,
+		typedef enum _EVT_SEEK_FLAGS {
+			EvtSeekRelativeToFirst = 1,
+			EvtSeekRelativeToLast = 2,
+			EvtSeekRelativeToCurrent = 3,
 			EvtSeekRelativeToBookmark = 4,
-			EvtSeekOriginMask         = 7,
+			EvtSeekOriginMask = 7,
 
-			EvtSeekStrict             = 0x10000,
-
+			EvtSeekStrict = 0x10000,
 		} EVT_SEEK_FLAGS;
 
-		typedef enum _EVT_SYSTEM_PROPERTY_ID
-		{
-			EvtSystemProviderName = 0,          // EvtVarTypeString             
-			EvtSystemProviderGuid,              // EvtVarTypeGuid  
-			EvtSystemEventID,                   // EvtVarTypeUInt16  
+		typedef enum _EVT_SYSTEM_PROPERTY_ID {
+			EvtSystemProviderName = 0,          // EvtVarTypeString
+			EvtSystemProviderGuid,              // EvtVarTypeGuid
+			EvtSystemEventID,                   // EvtVarTypeUInt16
 			EvtSystemQualifiers,                // EvtVarTypeUInt16
 			EvtSystemLevel,                     // EvtVarTypeUInt8
 			EvtSystemTask,                      // EvtVarTypeUInt16
@@ -139,50 +126,43 @@ namespace eventlog {
 			EvtSystemRelatedActivityID,         // EvtVarTypeGuid
 			EvtSystemProcessID,                 // EvtVarTypeUInt32
 			EvtSystemThreadID,                  // EvtVarTypeUInt32
-			EvtSystemChannel,                   // EvtVarTypeString 
-			EvtSystemComputer,                  // EvtVarTypeString 
+			EvtSystemChannel,                   // EvtVarTypeString
+			EvtSystemComputer,                  // EvtVarTypeString
 			EvtSystemUserID,                    // EvtVarTypeSid
 			EvtSystemVersion,                   // EvtVarTypeUInt8
 			EvtSystemPropertyIdEND
-
 		} EVT_SYSTEM_PROPERTY_ID;
 
-		typedef enum _EVT_RENDER_CONTEXT_FLAGS
-		{
+		typedef enum _EVT_RENDER_CONTEXT_FLAGS {
 			EvtRenderContextValues = 0,         // Render specific properties
 			EvtRenderContextSystem,             // Render all system properties (System)
 			EvtRenderContextUser                // Render all user properties (User/EventData)
-
 		} EVT_RENDER_CONTEXT_FLAGS;
 
-		typedef enum _EVT_RENDER_FLAGS
-		{
+		typedef enum _EVT_RENDER_FLAGS {
 			EvtRenderEventValues = 0,           // Variants
 			EvtRenderEventXml,                  // XML
 			EvtRenderBookmark                   // Bookmark
-
 		} EVT_RENDER_FLAGS;
 
-		typedef enum _EVT_FORMAT_MESSAGE_FLAGS
-		{
+		typedef enum _EVT_FORMAT_MESSAGE_FLAGS {
 			EvtFormatMessageEvent = 1,
 			EvtFormatMessageLevel,
 			EvtFormatMessageTask,
 			EvtFormatMessageOpcode,
 			EvtFormatMessageKeyword,
-			EvtFormatMessageChannel, 
-			EvtFormatMessageProvider, 
+			EvtFormatMessageChannel,
+			EvtFormatMessageProvider,
 			EvtFormatMessageId,
 			EvtFormatMessageXml,
-
 		} EVT_FORMAT_MESSAGE_FLAGS;
 
-		typedef EVT_HANDLE (WINAPI *tEvtOpenPublisherEnum)(
+		typedef EVT_HANDLE(WINAPI *tEvtOpenPublisherEnum)(
 			EVT_HANDLE Session,
 			DWORD Flags
 			);
 
-		typedef BOOL (WINAPI *tEvtNextPublisherId)(
+		typedef BOOL(WINAPI *tEvtNextPublisherId)(
 			EVT_HANDLE PublisherEnum,
 			DWORD PublisherIdBufferSize,
 			_Out_writes_to_opt_(PublisherIdBufferSize, *PublisherIdBufferUsed)
@@ -190,26 +170,26 @@ namespace eventlog {
 			_Out_ PDWORD PublisherIdBufferUsed
 			);
 
-		typedef EVT_HANDLE (WINAPI *tEvtOpenChannelEnum)(
+		typedef EVT_HANDLE(WINAPI *tEvtOpenChannelEnum)(
 			_In_  EVT_HANDLE Session,
 			_In_  DWORD Flags
 			);
-		typedef BOOL (WINAPI *tEvtNextChannelPath)(
+		typedef BOOL(WINAPI *tEvtNextChannelPath)(
 			_In_   EVT_HANDLE ChannelEnum,
 			_In_   DWORD ChannelPathBufferSize,
 			_In_   LPWSTR ChannelPathBuffer,
 			_Out_  PDWORD ChannelPathBufferUsed
 			);
-		typedef BOOL (WINAPI *tEvtClose)(
+		typedef BOOL(WINAPI *tEvtClose)(
 			_In_  EVT_HANDLE Object
 			);
-		typedef EVT_HANDLE (WINAPI *tEvtQuery)(
+		typedef EVT_HANDLE(WINAPI *tEvtQuery)(
 			EVT_HANDLE Session,
 			LPCWSTR Path,
 			LPCWSTR Query,
 			DWORD Flags
 			);
-		typedef BOOL (WINAPI *tEvtNext)(
+		typedef BOOL(WINAPI *tEvtNext)(
 			EVT_HANDLE ResultSet,
 			DWORD EventsSize,
 			PEVT_HANDLE Events,
@@ -218,7 +198,7 @@ namespace eventlog {
 			_Out_ PDWORD Returned
 			);
 
-		typedef BOOL (WINAPI *tEvtSeek)(
+		typedef BOOL(WINAPI *tEvtSeek)(
 			EVT_HANDLE ResultSet,
 			LONGLONG Position,
 			EVT_HANDLE Bookmark,
@@ -226,13 +206,13 @@ namespace eventlog {
 			DWORD Flags
 			);
 
-		typedef EVT_HANDLE (WINAPI *tEvtCreateRenderContext)(
+		typedef EVT_HANDLE(WINAPI *tEvtCreateRenderContext)(
 			DWORD ValuePathsCount,
 			_In_reads_opt_(ValuePathsCount) LPCWSTR* ValuePaths,
 			DWORD Flags                         // EVT_RENDER_CONTEXT_FLAGS
 			);
 
-		typedef BOOL (WINAPI *tEvtRender)(
+		typedef BOOL(WINAPI *tEvtRender)(
 			EVT_HANDLE Context,
 			EVT_HANDLE Fragment,
 			DWORD Flags,                        // EVT_RENDER_FLAGS
@@ -242,7 +222,7 @@ namespace eventlog {
 			_Out_ PDWORD PropertyCount
 			);
 
-		typedef EVT_HANDLE (WINAPI *tEvtOpenPublisherMetadata)(
+		typedef EVT_HANDLE(WINAPI *tEvtOpenPublisherMetadata)(
 			EVT_HANDLE Session,
 			LPCWSTR PublisherId,
 			LPCWSTR LogFilePath,
@@ -250,7 +230,7 @@ namespace eventlog {
 			DWORD Flags
 			);
 
-		typedef BOOL (WINAPI *tEvtFormatMessage)(
+		typedef BOOL(WINAPI *tEvtFormatMessage)(
 			EVT_HANDLE PublisherMetadata,       // Except for forwarded events
 			EVT_HANDLE Event,
 			DWORD MessageId,

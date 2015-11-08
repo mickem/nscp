@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 // NSClient++ Base Service
-// 
+//
 // Copyright (c) 2004 MySolutions NORDIC (http://www.medin.name)
 //
 // Date: 2004-03-13
@@ -42,7 +42,7 @@
 #define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg); }
 #define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
 
-NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer,unsigned int bufLen) {
+NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer, unsigned int bufLen) {
 	try {
 		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 	} catch (...) {
@@ -68,7 +68,7 @@ void NSAPIStopServer(void) {
 	mainClient->get_service_control().stop();
 }
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->injectRAW(request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -81,7 +81,7 @@ NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int 
 }
 
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->exec_command(target, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -93,11 +93,9 @@ NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_bu
 	return ret;
 }
 
-
 NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
 	return nsclient::logging::logger::get_logger()->should_log(messageType);
 }
-
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	return mainClient->settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
@@ -108,60 +106,62 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 
 wchar_t* copyString(const std::wstring &str) {
 	std::size_t sz = str.size();
-	wchar_t *tc = new wchar_t[sz+2];
+	wchar_t *tc = new wchar_t[sz + 2];
 	wcsncpy(tc, str.c_str(), sz);
 	return tc;
 }
 
-
 NSCAPI::errorReturn NSAPIReload(const char *module) {
 	try {
 		return mainClient->reload(module);
+	} catch (const std::exception &e) {
+		LOG_ERROR_STD("Reload failed: " + utf8::utf8_from_native(e.what()));
+		return NSCAPI::api_return_codes::hasFailed;
 	} catch (...) {
 		LOG_ERROR_STD("Reload failed");
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
-void* NSAPILoader(const char* buffer) {
+nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 	if (strcmp(buffer, "NSAPIGetApplicationName") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetApplicationName);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationName);
 	if (strcmp(buffer, "NSAPIGetApplicationVersionStr") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetApplicationVersionStr);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetApplicationVersionStr);
 	if (strcmp(buffer, "NSAPIMessage") == 0)
-		return reinterpret_cast<void*>(&NSAPIMessage);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIMessage);
 	if (strcmp(buffer, "NSAPISimpleMessage") == 0)
-		return reinterpret_cast<void*>(&NSAPISimpleMessage);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISimpleMessage);
 	if (strcmp(buffer, "NSAPIInject") == 0)
-		return reinterpret_cast<void*>(&NSAPIInject);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIInject);
 	if (strcmp(buffer, "NSAPIExecCommand") == 0)
-		return reinterpret_cast<void*>(&NSAPIExecCommand);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIExecCommand);
 	if (strcmp(buffer, "NSAPICheckLogMessages") == 0)
-		return reinterpret_cast<void*>(&NSAPICheckLogMessages);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPICheckLogMessages);
 	if (strcmp(buffer, "NSAPINotify") == 0)
-		return reinterpret_cast<void*>(&NSAPINotify);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPINotify);
 	if (strcmp(buffer, "NSAPIDestroyBuffer") == 0)
-		return reinterpret_cast<void*>(&NSAPIDestroyBuffer);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIDestroyBuffer);
 	if (strcmp(buffer, "NSAPIExpandPath") == 0)
-		return reinterpret_cast<void*>(&NSAPIExpandPath);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIExpandPath);
 	if (strcmp(buffer, "NSAPIReload") == 0)
-		return reinterpret_cast<void*>(&NSAPIReload);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIReload);
 	if (strcmp(buffer, "NSAPIGetLoglevel") == 0)
-		return reinterpret_cast<void*>(&NSAPIGetLoglevel);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIGetLoglevel);
 	if (strcmp(buffer, "NSAPISettingsQuery") == 0)
-		return reinterpret_cast<void*>(&NSAPISettingsQuery);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPISettingsQuery);
 	if (strcmp(buffer, "NSAPIRegistryQuery") == 0)
-		return reinterpret_cast<void*>(&NSAPIRegistryQuery);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSAPIRegistryQuery);
 	if (strcmp(buffer, "NSCAPIJson2Protobuf") == 0)
-		return reinterpret_cast<void*>(&NSCAPIJson2Protobuf);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
-		return reinterpret_cast<void*>(&NSCAPIProtobuf2Json);
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIProtobuf2Json);
 	LOG_ERROR_STD("Function not found: " + buffer);
 	return NULL;
 }
 
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
-	std::string request (request_buffer, request_buffer_len), response;
+	std::string request(request_buffer, request_buffer_len), response;
 	NSCAPI::nagiosReturn ret = mainClient->send_notification(channel, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
@@ -174,13 +174,12 @@ NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer,
 }
 
 void NSAPIDestroyBuffer(char**buffer) {
-	delete [] *buffer;
+	delete[] * buffer;
 }
 
 NSCAPI::log_level::level NSAPIGetLoglevel() {
 	return nsclient::logging::logger::get_logger()->get_log_level();
 }
-
 
 #ifdef HAVE_JSON_SPIRIT
 #include <nscapi/nscapi_protobuf.hpp>
@@ -242,6 +241,10 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			Plugin::QueryResponseMessage message;
 			message.ParseFromString(request);
 			root = json_pb::Plugin::QueryResponseMessage::to_json(message);
+		} else if (obj == "ExecuteResponseMessage") {
+			Plugin::ExecuteResponseMessage message;
+			message.ParseFromString(request);
+			root = json_pb::Plugin::ExecuteResponseMessage::to_json(message);
 		} else {
 			LOG_ERROR_STD("Invalid type: " + obj);
 			return NSCAPI::api_return_codes::hasFailed;

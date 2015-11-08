@@ -1,5 +1,5 @@
 #include <list>
-#include <iostream> 
+#include <iostream>
 #include <sstream>
 
 // #include <boost/spirit/include/qi.hpp>
@@ -18,7 +18,6 @@
 
 namespace parsers {
 	namespace where {
-
 		bool parser::parse(object_factory factory, std::string expr) {
 			constants::reset();
 
@@ -65,7 +64,7 @@ namespace parsers {
 				return false;
 			}
 		}
-		
+
 		bool parser::bind(object_converter context) {
 			try {
 				resulting_tree->bind(context);

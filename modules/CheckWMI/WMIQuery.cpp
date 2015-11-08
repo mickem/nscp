@@ -31,20 +31,17 @@
 #include <error_com.hpp>
 
 namespace wmi_impl {
-
 	struct identidy_container {
-		identidy_container(std::wstring domain, std::wstring username, std::wstring password) 
+		identidy_container(std::wstring domain, std::wstring username, std::wstring password)
 			: domain(domain)
 			, username(username)
-			, password(password)
-		{
+			, password(password) {
 			setup();
 		}
-		identidy_container(const identidy_container &other) 
+		identidy_container(const identidy_container &other)
 			: domain(other.domain)
 			, username(other.username)
-			, password(other.password)
-		{
+			, password(other.password) {
 			setup();
 		}
 		const identidy_container& operator=(const identidy_container &other) {
@@ -71,32 +68,30 @@ namespace wmi_impl {
 			auth_identity.Domain = const_cast<USHORT*>(reinterpret_cast<const USHORT*>(domain.c_str()));
 			auth_identity.Flags = SEC_WINNT_AUTH_IDENTITY_UNICODE;
 		}
-
 	};
 
 	identidy_container get_identity(const std::wstring &username, const std::wstring &password) {
 		std::wstring::size_type pos = username.find('\\');
-		if(pos == std::string::npos) {
+		if (pos == std::string::npos) {
 			return identidy_container(_T(""), username, password);
 		}
-		return identidy_container(username.substr(0, pos), username.substr(pos+1), password);
+		return identidy_container(username.substr(0, pos), username.substr(pos + 1), password);
 	}
 
 	void set_proxy_blanket(IUnknown *pProxy, const std::string &user, const std::string &password) {
 		if (user.empty() || password.empty())
 			return;
 		identidy_container auth = get_identity(utf8::cvt<std::wstring>(user), utf8::cvt<std::wstring>(password));
-		HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT, 
-			RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE );
+		HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT,
+			RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE);
 		if (FAILED(hr))
 			throw wmi_exception("CoSetProxyBlanket failed: " + ComError::getComError(ComError::getWMIError(hr)));
 	}
 
-
 	CComPtr<IWbemServices>& wmi_service::get() {
 		if (!is_initialized) {
 			CComPtr<IWbemLocator> locator;
-			HRESULT hr = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast< void** >(&locator));
+			HRESULT hr = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast<void**>(&locator));
 			if (FAILED(hr))
 				throw wmi_exception("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!", hr);
 
@@ -105,7 +100,7 @@ namespace wmi_impl {
 			CComBSTR strPassword(utf8::cvt<std::wstring>(password).c_str());
 
 			// @todo: WBEM_FLAG_CONNECT_USE_MAX_WAIT
-			hr = locator->ConnectServer(strNamespace, username.empty()?NULL:strUser, password.empty()?NULL:strPassword, NULL, NULL, 0, NULL, &service );
+			hr = locator->ConnectServer(strNamespace, username.empty() ? NULL : strUser, password.empty() ? NULL : strPassword, NULL, NULL, 0, NULL, &service);
 			if (FAILED(hr))
 				throw wmi_exception("ConnectServer failed: namespace=" + ns + ", user=" + username, hr);
 
@@ -114,7 +109,6 @@ namespace wmi_impl {
 		}
 		return service;
 	}
-
 
 	std::string row::get_string(const std::string col) {
 		CComBSTR bCol(utf8::cvt<std::wstring>(col).c_str());
@@ -125,14 +119,14 @@ namespace wmi_impl {
 		if (vValue.vt == VT_NULL)
 			return "<NULL>";
 
-		if (vValue.vt == (VT_ARRAY|VT_BSTR)) {
+		if (vValue.vt == (VT_ARRAY | VT_BSTR)) {
 			long begin, end;
 			CComSafeArray<BSTR> arr(vValue.parray);
 			begin = arr.GetLowerBound();
 			end = arr.GetUpperBound();
 			std::stringstream ss;
 			ss << "[";
-			for (long index = begin; index <= end; index++ ) {
+			for (long index = begin; index <= end; index++) {
 				CComBSTR bColumn = arr.GetAt(index);
 				ss << utf8::cvt<std::string>(bColumn.m_str) << ", ";
 			}
@@ -185,11 +179,9 @@ namespace wmi_impl {
 		return hr == WBEM_S_NO_ERROR;
 	}
 
-
 	row& row_enumerator::get_next() {
 		return row_instance;
 	}
-
 
 	std::list<std::string> header_enumerator::get() {
 		std::list<std::string> ret;
@@ -199,11 +191,11 @@ namespace wmi_impl {
 		HRESULT hr = enumerator_obj->Next(WBEM_INFINITE, 1L, &row, &retcnt);
 		if (FAILED(hr) || !row)
 			throw wmi_exception("Failed to enumerate columns: " + ComError::getComError(ComError::getWMIError(hr)));
-		if (retcnt == 0) 
+		if (retcnt == 0)
 			throw wmi_exception("We got no results");
 
 		SAFEARRAY* pstrNames;
-		hr = row->GetNames(NULL,WBEM_FLAG_ALWAYS|WBEM_FLAG_NONSYSTEM_ONLY,NULL,&pstrNames);
+		hr = row->GetNames(NULL, WBEM_FLAG_ALWAYS | WBEM_FLAG_NONSYSTEM_ONLY, NULL, &pstrNames);
 		if (FAILED(hr))
 			throw wmi_exception("Failed to fetch columns:" + ComError::getComError(ComError::getWMIError(hr)));
 
@@ -211,7 +203,7 @@ namespace wmi_impl {
 		CComSafeArray<BSTR> arr = pstrNames;
 		begin = arr.GetLowerBound();
 		end = arr.GetUpperBound();
-		for (long index = begin; index <= end; index++ ) {
+		for (long index = begin; index <= end; index++) {
 			CComBSTR bColumn = arr.GetAt(index);
 			std::string column = utf8::cvt<std::string>(bColumn.m_str);
 			ret.push_back(column);
@@ -233,7 +225,7 @@ namespace wmi_impl {
 		row_enumerator ret(columns);
 		CComBSTR strSuperClass = utf8::cvt<std::wstring>(super_class).c_str();
 		CComPtr<IEnumWbemClassObject> enumerator;
-		HRESULT hr = instance.get()->CreateClassEnum(strSuperClass,WBEM_FLAG_DEEP|WBEM_FLAG_USE_AMENDED_QUALIFIERS|WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
+		HRESULT hr = instance.get()->CreateClassEnum(strSuperClass, WBEM_FLAG_DEEP | WBEM_FLAG_USE_AMENDED_QUALIFIERS | WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
 		if (FAILED(hr))
 			throw wmi_exception("CreateInstanceEnum failed: " + ComError::getComError(ComError::getWMIError(hr)) + ")");
 		return ret;
@@ -243,12 +235,12 @@ namespace wmi_impl {
 		row_enumerator ret(columns);
 		CComBSTR strSuperClass = utf8::cvt<std::wstring>(super_class).c_str();
 		CComPtr<IEnumWbemClassObject> enumerator;
-		HRESULT hr = instance.get()->CreateInstanceEnum(strSuperClass,WBEM_FLAG_SHALLOW|WBEM_FLAG_USE_AMENDED_QUALIFIERS|WBEM_FLAG_RETURN_IMMEDIATELY|WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
+		HRESULT hr = instance.get()->CreateInstanceEnum(strSuperClass, WBEM_FLAG_SHALLOW | WBEM_FLAG_USE_AMENDED_QUALIFIERS | WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
 		if (FAILED(hr))
 			throw wmi_exception("CreateInstanceEnum failed: " + ComError::getComError(ComError::getWMIError(hr)) + ")");
 		return ret;
 	}
-	
+
 	std::list<std::string> query::get_columns() {
 		if (!columns.empty())
 			return columns;
@@ -263,8 +255,7 @@ namespace wmi_impl {
 		return columns;
 	}
 
-	std::string ComError::getComError(std::wstring inDesc /*= _T("")*/)
-	{
+	std::string ComError::getComError(std::wstring inDesc /*= _T("")*/) {
 		return error::com::get();
 	}
 }

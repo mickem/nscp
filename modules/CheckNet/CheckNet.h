@@ -21,7 +21,7 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
-class CheckNet : public nscapi::impl::simple_plugin  {
+class CheckNet : public nscapi::impl::simple_plugin {
 public:
 	CheckNet() {};
 

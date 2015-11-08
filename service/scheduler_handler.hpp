@@ -1,15 +1,14 @@
 #pragma once
 
-
 #include "task_scheduler.hpp"
 
 namespace task_scheduler {
-
 	struct schedule_metadata {
 		enum task_source {
 			MODULE,
 			SETTINGS,
-			METRICS
+			METRICS,
+			RELOAD
 		};
 		int plugin_id;
 		task_source source;
@@ -24,16 +23,17 @@ namespace task_scheduler {
 
 		schedule_metadata get(int id);
 		void handle_plugin(const schedule_metadata &metadata);
+		void handle_reload(const schedule_metadata &metadata);
 		void handle_settings();
 		void handle_metrics();
 
 		void start();
 		void stop();
 
-		void add_task(const schedule_metadata::task_source source, const std::string interval);
+		void add_task(const schedule_metadata::task_source source, const std::string interval, const std::string info = "");
 
-
-		virtual void handle_schedule(scheduled_task item);
+		virtual bool handle_schedule(scheduled_task item);
 		virtual void on_error(std::string error);
+		virtual void on_trace(std::string error);
 	};
 }

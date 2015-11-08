@@ -38,7 +38,7 @@ namespace settings {
 			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
 			boost::filesystem::path path = core->expand_path(CACHE_FOLDER_KEY);
 			if (!boost::filesystem::is_directory(path)) {
-				if (boost::filesystem::is_regular_file(path)) 
+				if (boost::filesystem::is_regular_file(path))
 					throw new settings_exception("Cache path not found: " + path.string());
 				boost::filesystem::create_directories(path);
 				if (!boost::filesystem::is_directory(path))
@@ -49,20 +49,18 @@ namespace settings {
 			initial_load();
 		}
 
-		virtual void real_clear_cache() {
-		}
+		virtual void real_clear_cache() {}
 
 		std::string hash_file(const boost::filesystem::path &file) {
 			std::string result;
 #ifdef HAVE_LIBCRYPTOPP
 			CryptoPP::SHA1 hash;
-			CryptoPP::FileSource(file.string().c_str(),true, 
+			CryptoPP::FileSource(file.string().c_str(), true,
 				new CryptoPP::HashFilter(hash, new CryptoPP::HexEncoder(
-				new CryptoPP::StringSink(result), true)));
+					new CryptoPP::StringSink(result), true)));
 #endif
 			return result;
 		}
-		
 
 		boost::filesystem::path resolve_cache_file(const net::url &url) const {
 			boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER_KEY);
@@ -194,20 +192,20 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
+			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
 			throw settings_exception("Cannot save settings over HTTP");
 		}
 
 		virtual void set_real_path(std::string path) {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP: " + path);
+			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP: " + path);
 			throw settings_exception("Cannot save settings over HTTP");
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
+			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP");
 			throw settings_exception("Cannot save settings over HTTP");
 		}
 		virtual void remove_real_path(std::string path) {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cant save over HTTP");
+			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP");
 			throw settings_exception("Cannot save settings over HTTP");
 		}
 
@@ -220,8 +218,7 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_sections(std::string, string_list &) {
-		}
+		virtual void get_real_sections(std::string, string_list &) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys given a path/section.
 		/// If the path is empty all root sections will be returned
@@ -231,14 +228,13 @@ namespace settings {
 		/// @return a list of sections
 		///
 		/// @author mickem
-		virtual void get_real_keys(std::string, string_list &) {
-		}
+		virtual void get_real_keys(std::string, string_list &) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
 		///
 		/// @author mickem
 		virtual void save() {
-			get_logger()->error("settings",__FILE__, __LINE__, "Cannot save settings over HTTP");
+			get_logger()->error("settings", __FILE__, __LINE__, "Cannot save settings over HTTP");
 			throw settings_exception("Cannot save settings over HTTP");
 		}
 
@@ -246,15 +242,13 @@ namespace settings {
 			settings::error_list ret;
 			return ret;
 		}
-		void ensure_exists() {
-		}
+		void ensure_exists() {}
 
 		virtual std::string get_type() { return "http"; }
 
-
 		virtual void house_keeping() {
 			reload_data();
-		} 
+		}
 
 	private:
 
@@ -270,6 +264,5 @@ namespace settings {
 		virtual std::string get_info() {
 			return "HTTP settings: (" + context_ + ", " + get_file_name() + ")";
 		}
-
 	};
 }

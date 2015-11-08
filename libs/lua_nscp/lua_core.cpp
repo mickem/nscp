@@ -9,25 +9,22 @@
 #include <lua/lua_cpp.hpp>
 #include <lua/lua_core.hpp>
 
-void lua::lua_runtime::register_query(const std::string &command, const std::string &description)
-{
+void lua::lua_runtime::register_query(const std::string &command, const std::string &description) {
 	throw lua::lua_exception("The method or operation is not implemented(reg_query).");
 }
 
-void lua::lua_runtime::register_subscription(const std::string &channel, const std::string &description)
-{
+void lua::lua_runtime::register_subscription(const std::string &channel, const std::string &description) {
 	throw lua::lua_exception("The method or operation is not implemented(reg_sub).");
 }
 
-void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message)
-{
+void lua::lua_runtime::on_query(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	lua_wrapper lua(prep_function(information, function));
 	int args = 2;
 	if (function.object_ref != 0)
 		args = 3;
 	if (simple) {
 		std::list<std::string> argslist;
-		for (int i=0;i<request.arguments_size();i++)
+		for (int i = 0; i < request.arguments_size(); i++)
 			argslist.push_back(request.arguments(i));
 		lua.push_string(command);
 		lua.push_array(argslist);
@@ -81,15 +78,14 @@ void lua::lua_runtime::exec_main(script_information *information, const std::vec
 	lua.gc(LUA_GCCOLLECT, 0);
 	nscapi::protobuf::functions::append_simple_exec_response_payload(response, "", ret, msg);
 }
-void lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message)
-{
+void lua::lua_runtime::on_exec(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
 	lua_wrapper lua(prep_function(information, function));
 	int args = 2;
 	if (function.object_ref != 0)
 		args = 3;
 	if (simple) {
 		std::list<std::string> argslist;
-		for (int i=0;i<request.arguments_size();i++)
+		for (int i = 0; i < request.arguments_size(); i++)
 			argslist.push_back(request.arguments(i));
 		lua.push_string(command);
 		lua.push_array(argslist);
@@ -125,15 +121,13 @@ void lua::lua_runtime::on_exec(std::string command, script_information *informat
 	}
 }
 
-NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response)
-{
+NSCAPI::nagiosReturn lua::lua_runtime::on_submit(std::string command, script_information *information, lua::lua_traits::function_type function, bool simple, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response) {
 	throw lua::lua_exception("The method or operation is not implemented(on_submit).");
 }
 
 void lua::lua_runtime::create_user_data(scripts::script_information<lua_traits> *info) {
 	info->user_data.base_path_ = base_path;
 }
-
 
 void lua::lua_runtime::load(scripts::script_information<lua_traits> *info) {
 	std::string base_path = info->user_data.base_path_;
@@ -158,4 +152,3 @@ void lua::lua_runtime::unload(scripts::script_information<lua_traits> *info) {
 	lua_instance.gc(LUA_GCCOLLECT, 0);
 	lua_instance.remove_userdata(lua::lua_traits::user_data_tag);
 }
-

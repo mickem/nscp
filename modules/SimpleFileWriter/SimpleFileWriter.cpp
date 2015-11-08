@@ -58,7 +58,7 @@ struct simple_string_functor {
 struct header_host_functor {
 	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
-		for (int i=0;i<hdr.hosts_size();i++) {
+		for (int i = 0; i < hdr.hosts_size(); i++) {
 			if (hdr.hosts(i).id() == sender)
 				return hdr.hosts(i).host();
 		}
@@ -83,7 +83,7 @@ struct payload_alias_functor {
 struct payload_message_functor {
 	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		std::string ret;
-		BOOST_FOREACH(Plugin::QueryResponseMessage::Response::Line l, payload.lines()) 
+		BOOST_FOREACH(Plugin::QueryResponseMessage::Response::Line l, payload.lines())
 			ret += l.message();
 		return ret;
 	}
@@ -109,9 +109,9 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	std::string channel;
 	try {
 		sh::settings_registry settings(get_settings_proxy());
-		
+
 		settings.set_alias(alias, "writers/file");
-		
+
 		settings.alias().add_path_to_settings()
 			("FILE WRITER", "Section for simple file writer module (SimpleFileWriter.dll).")
 
@@ -119,14 +119,14 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		settings.alias().add_key_to_settings()
 			("syntax", sh::string_key(&primary_key, "${alias-or-command} ${result} ${message}"),
-			"MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
-			"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).")
+				"MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
+				"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).")
 
 			("file", sh::path_key(&filename_, "output.txt"),
-			"FILE TO WRITE TO", "The filename to write output to.")
+				"FILE TO WRITE TO", "The filename to write output to.")
 
 			("channel", sh::string_key(&channel, "FILE"),
-			"CHANNEL", "The channel to listen to.")
+				"CHANNEL", "The channel to listen to.")
 
 			;
 
@@ -188,7 +188,7 @@ void SimpleFileWriter::handleNotification(const std::string &, const Plugin::Que
 			return;
 		}
 		std::ofstream out;
-		out.open(filename_.c_str(), std::ios::out|std::ios::app);
+		out.open(filename_.c_str(), std::ios::out | std::ios::app);
 		out << key << std::endl;
 	}
 	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_OK, "message has been written");

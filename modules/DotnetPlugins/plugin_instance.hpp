@@ -7,9 +7,7 @@
 #include <string>
 #include <boost/enable_shared_from_this.hpp>
 
-
 typedef cli::array<System::Byte> protobuf_data;
-
 
 std::string to_nstring(System::String^ s);
 System::String^ to_mstring(const std::string &s);
@@ -39,7 +37,6 @@ public:
 	virtual NSCP::Core::PluginInstance^ get_instance() {
 		return instance;
 	}
-
 };
 
 typedef boost::shared_ptr<internal_plugin_instance> internal_plugin_instance_ptr;
@@ -50,14 +47,12 @@ public:
 	virtual nscapi::core_wrapper* get_core() = 0;
 };
 
-
 ref class CoreImpl : public NSCP::Core::ICore {
 private:
 	plugin_manager_interface *manager;
 	clr::clr_scoped_ptr<internal_plugin_instance_ptr> internal_instance;
 
 	nscapi::core_wrapper* get_core();
-
 
 public:
 	CoreImpl(plugin_manager_interface *manager);
@@ -78,7 +73,6 @@ public:
 		internal_instance.reset(new internal_plugin_instance_ptr(newInstance));
 	}
 };
-
 
 struct plugin_manager {
 	virtual bool register_command(std::string command, internal_plugin_instance_ptr plugin) = 0;

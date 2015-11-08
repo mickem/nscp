@@ -2,7 +2,6 @@
 
 namespace parsers {
 	namespace where {
-
 		engine::engine(std::string filter, error_handler error) : filter_string(filter), error(error) {}
 
 		engine::boundries_type engine::fetch_performance_data() {

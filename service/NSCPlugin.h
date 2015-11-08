@@ -42,11 +42,11 @@
  * any damage to your computer, causes your pet to fall ill, increases baldness
  * or makes your car start emitting strange noises when you start it up.
  * This code has no bugs, just undocumented features!
- * 
- * @todo 
+ *
+ * @todo
  * Add status codes to make error type simpler to parse out.
  *
- * @bug 
+ * @bug
  *
  */
 class NSPluginException : public std::exception {
@@ -69,7 +69,6 @@ public:
 	const char* what() const throw() { return error.c_str(); }
 	const std::string file() const throw() { return file_; }
 	std::string reason() const throw() { return utf8::utf8_from_native(what()); }
-
 };
 
 /**
@@ -92,14 +91,14 @@ public:
  * any damage to your computer, causes your pet to fall ill, increases baldness
  * or makes your car start emitting strange noises when you start it up.
  * This code has no bugs, just undocumented features!
- * 
- * @todo 
+ *
+ * @todo
  * getVersion() is not implemented as of yet.
  *
- * @bug 
+ * @bug
  *
  */
-class NSCPlugin :  public boost::noncopyable, public nsclient::logging::raw_subscriber {
+class NSCPlugin : public boost::noncopyable, public nsclient::logging::raw_subscriber {
 private:
 	//bool bLoaded_;			// Status of plug in
 	::dll::dll_impl module_;
@@ -162,10 +161,8 @@ public:
 	bool has_command_line_exec();
 	bool is_duplicate(boost::filesystem::path file, std::string alias);
 
-
 	bool has_routing_handler();
 
-	
 	bool route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len);
 
 	bool hasMetricsFetcher() {
@@ -194,7 +191,7 @@ public:
 	std::string getModule() {
 #ifndef WIN32
 		std::string file = module_.get_module_name();
-		if (file.substr(0,3) == "lib")
+		if (file.substr(0, 3) == "lib")
 			file = file.substr(3);
 		return file;
 #else
@@ -210,28 +207,30 @@ public:
 	}
 	static bool is_module(const boost::filesystem::path file) {
 #ifdef WIN32
-	return boost::ends_with(file.string(), ".dll");
+		return boost::ends_with(file.string(), ".dll");
 #else
-	return boost::ends_with(file.string(), ".so");
+		return boost::ends_with(file.string(), ".so");
 #endif
 	}
 	static std::string file_to_module(const boost::filesystem::path &file) {
 		const std::string str = file.string();
 #ifdef WIN32
-		if (boost::ends_with(str, ".dll")) 
-			return str.substr(0, str.size()-4);
+		if (boost::ends_with(str, ".dll"))
+			return str.substr(0, str.size() - 4);
 #else
-		if (boost::ends_with(file.string(), ".so")) 
-			return str.substr(0, str.size()-3);
+		if (boost::ends_with(file.string(), ".so"))
+			return str.substr(0, str.size() - 3);
 #endif
 		return str;
 	}
 	bool getLastIsMsgPlugin() {
 		return lastIsMsgPlugin_;
 	}
+private:
 	bool isLoaded() const {
 		return module_.is_loaded();
 	}
+public:
 	unsigned int get_id() const { return plugin_id_; }
 	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
 
@@ -245,7 +244,3 @@ private:
 	bool getDescription_(char* buf, unsigned int buflen);
 	void loadRemoteProcs_(void);
 };
-
-
-
-

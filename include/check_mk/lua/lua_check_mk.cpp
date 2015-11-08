@@ -53,14 +53,14 @@ const Luna<check_mk::check_mk_lua_wrapper>::FunctionType check_mk::check_mk_lua_
 	{ "server", &check_mk::check_mk_lua_wrapper::server_callback },
 	{ 0 }
 };
-const Luna<check_mk::check_mk_lua_wrapper>::PropertyType check_mk::check_mk_lua_wrapper::Properties[] = {{0}};
+const Luna<check_mk::check_mk_lua_wrapper>::PropertyType check_mk::check_mk_lua_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 int check_mk::check_mk_packet_wrapper::get_section(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_section(id)");
-	int id = lua_instance.pop_int()-1;
+	int id = lua_instance.pop_int() - 1;
 	try {
 		check_mk::packet::section s = packet.get_section(id);
 		check_mk_section_wrapper* obj = Luna<check_mk_section_wrapper>::createNew(lua_instance);
@@ -97,14 +97,14 @@ const Luna<check_mk::check_mk_packet_wrapper>::FunctionType check_mk::check_mk_p
 	{ "size_section", &check_mk::check_mk_packet_wrapper::size_section },
 	{ 0 }
 };
-const Luna<check_mk::check_mk_packet_wrapper>::PropertyType check_mk::check_mk_packet_wrapper::Properties[] = {{0}};
+const Luna<check_mk::check_mk_packet_wrapper>::PropertyType check_mk::check_mk_packet_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 int check_mk::check_mk_section_wrapper::get_line(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_line(id)");
-	int id = lua_instance.pop_int()-1;
+	int id = lua_instance.pop_int() - 1;
 	try {
 		check_mk::packet::section::line l = section.get_line(id);
 		check_mk_line_wrapper* obj = Luna<check_mk_line_wrapper>::createNew(lua_instance);
@@ -167,14 +167,14 @@ const Luna<check_mk::check_mk_section_wrapper>::FunctionType check_mk::check_mk_
 	{ "size_line", &check_mk::check_mk_section_wrapper::size_line },
 	{ 0 }
 };
-const Luna<check_mk::check_mk_section_wrapper>::PropertyType check_mk::check_mk_section_wrapper::Properties[] = {{0}};
+const Luna<check_mk::check_mk_section_wrapper>::PropertyType check_mk::check_mk_section_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 int check_mk::check_mk_line_wrapper::get_item(lua_State *L) {
 	lua::lua_wrapper lua_instance(L);
 	if (lua_instance.size() < 1)
 		return lua_instance.error("Invalid syntax: get_line(id)");
-	int id = lua_instance.pop_int()-1;
+	int id = lua_instance.pop_int() - 1;
 	try {
 		std::string item = line.get_item(id);
 		lua_instance.push_string(item);
@@ -220,7 +220,7 @@ const Luna<check_mk::check_mk_line_wrapper>::FunctionType check_mk::check_mk_lin
 	{ "size_item", &check_mk::check_mk_line_wrapper::size_item },
 	{ 0 }
 };
-const Luna<check_mk::check_mk_line_wrapper>::PropertyType check_mk::check_mk_line_wrapper::Properties[] = {{0}};
+const Luna<check_mk::check_mk_line_wrapper>::PropertyType check_mk::check_mk_line_wrapper::Properties[] = { {0} };
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -230,6 +230,4 @@ void check_mk::check_mk_plugin::load(lua::lua_wrapper &instance) {
 	Luna<check_mk::check_mk_section_wrapper>::Register(instance, "nscp");
 	Luna<check_mk::check_mk_line_wrapper>::Register(instance, "nscp");
 }
-void check_mk::check_mk_plugin::unload(lua::lua_wrapper &) {
-
-}
+void check_mk::check_mk_plugin::unload(lua::lua_wrapper &) {}

@@ -24,16 +24,14 @@
 #include "simple_scheduler.hpp"
 #include "schedules.hpp"
 
-
 class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
 private:
 	scheduler::simple_scheduler scheduler_;
 	schedules::schedule_handler schedules_;
 
-
 public:
 	Scheduler() {
-		scheduler_.set_handler(this); 
+		scheduler_.set_handler(this);
 	}
 	virtual ~Scheduler() {}
 	// Module calls

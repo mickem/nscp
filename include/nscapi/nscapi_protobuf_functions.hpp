@@ -32,14 +32,12 @@
 
 #include <strEx.h>
 
-
 namespace nscapi {
 	namespace protobuf {
 		namespace functions {
-
-//			typedef nscapi::protobuf::types::destination_container destination_container;
+			//			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
-			
+
 			class NSCAPI_EXPORT settings_query {
 				::Plugin::SettingsRequestMessage request_message;
 				::Plugin::SettingsResponseMessage response_message;
@@ -72,12 +70,11 @@ namespace nscapi {
 				const std::string request() const;
 				std::string& response() { return response_buffer; }
 				bool validate_response();
-				std::list<key_values> get_query_key_response() const ;
+				std::list<key_values> get_query_key_response() const;
 				std::string get_response_error() const;
 				void save();
 				void load();
 				void reload();
-
 			};
 
 			NSCAPI_EXPORT std::string query_data_to_nagios_string(const Plugin::QueryResponseMessage &message);
@@ -111,7 +108,7 @@ namespace nscapi {
 				if (!response.has_command())
 					response.set_command("unknown");
 			}
-			
+
 			inline void set_response_good_wdata(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
 				response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_OK);
 				response.mutable_result()->set_data(message);
@@ -145,11 +142,11 @@ namespace nscapi {
 				return Plugin::Common_ResultCode_UNKNOWN;
 			}
 			inline Plugin::Common::Result::StatusCodeType gbp_to_nagios_gbp_status(Plugin::Common::ResultCode ret) {
-				if (ret == Plugin::Common_ResultCode_UNKNOWN||ret == Plugin::Common_ResultCode_WARNING||ret == Plugin::Common_ResultCode_CRITICAL)
+				if (ret == Plugin::Common_ResultCode_UNKNOWN || ret == Plugin::Common_ResultCode_WARNING || ret == Plugin::Common_ResultCode_CRITICAL)
 					return Plugin::Common_Result_StatusCodeType_STATUS_ERROR;
 				return Plugin::Common_Result_StatusCodeType_STATUS_OK;
 			}
-			
+
 			inline Plugin::LogEntry::Entry::Level log_to_gpb(NSCAPI::messageTypes ret) {
 				if (ret == NSCAPI::log_level::critical)
 					return Plugin::LogEntry_Entry_Level_LOG_CRITICAL;
@@ -167,10 +164,9 @@ namespace nscapi {
 			}
 			NSCAPI::messageTypes gpb_to_log(Plugin::LogEntry::Entry::Level ret);
 
-
 			NSCAPI_EXPORT void create_simple_header(Plugin::Common::Header* hdr);
-//			NSCAPI_EXPORT void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
-//			NSCAPI_EXPORT bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
+			//			NSCAPI_EXPORT void add_host(Plugin::Common::Header* hdr, const destination_container &dst);
+			//			NSCAPI_EXPORT bool parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta = false);
 
 			NSCAPI_EXPORT void make_submit_from_query(std::string &message, const std::string channel, const std::string alias = "", const std::string target = "", const std::string source = "");
 			NSCAPI_EXPORT void make_query_from_exec(std::string &data);
@@ -191,7 +187,6 @@ namespace nscapi {
 			NSCAPI_EXPORT NSCAPI::nagiosReturn create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer);
 			NSCAPI_EXPORT void append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
 
-
 			NSCAPI_EXPORT void append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf = "");
 			NSCAPI_EXPORT void append_simple_exec_response_payload(Plugin::ExecuteResponseMessage::Response *payload, std::string command, int ret, std::string msg);
 			NSCAPI_EXPORT void append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, ::Plugin::Common_Result_StatusCodeType result, std::string msg);
@@ -210,7 +205,7 @@ namespace nscapi {
 			void append_response_payloads(T &target_message, std::string &payload) {
 				T source_message;
 				source_message.ParseFromString(payload);
-				for (int i=0;i<source_message.payload_size();++i)
+				for (int i = 0; i < source_message.payload_size(); ++i)
 					target_message.add_payload()->CopyFrom(source_message.payload(i));
 			}
 
@@ -235,7 +230,6 @@ namespace nscapi {
 			NSCAPI_EXPORT void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
 			NSCAPI_EXPORT void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
 			NSCAPI_EXPORT void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
-			
 		}
 	}
 }

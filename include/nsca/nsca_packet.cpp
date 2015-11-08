@@ -22,4 +22,3 @@
 #include "nsca_packet.hpp"
 
 unsigned int nsca::length::payload_length_ = 512;
-

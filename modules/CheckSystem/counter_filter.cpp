@@ -12,5 +12,4 @@ counter_filter::filter_obj_handler::filter_obj_handler() {
 	registry_.add_string()
 		("counter", boost::bind(&filter_obj::get_counter, _1), "The name of the file")
 		;
-
 }

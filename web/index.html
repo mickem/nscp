@@ -47,7 +47,7 @@
 								<a href="#/modules">Modules</a>
 							</li>
 							<li data-bind="css: { active: tab() == 'settings' }">
-								<a href="#/settings"><span class="label label-danger" data-bind="visible: nscp_status.settings().has_changed"><span class="glyphicon glyphicon-warning-sign"></span></span> Settings</a>
+								<a href="#/settings"> Settings</a>
 							</li>
 							<li data-bind="css: { active: tab() == 'queries' }">
 								<a href="#/queries">Queries</a>
@@ -60,20 +60,39 @@
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
-							<li class="dropdown">
-								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-globe"></span> Help</a>
+							<!-- ko if: nscp_status.settings().has_changed -->
+								<li class="dropdown">
+									<a href="#" class="dropdown-toggle" data-toggle="dropdown">
+										<span class="label label-danger">
+											<span class="fa fa-warning label-danger"></span>
+										</span> Changes <b class="caret"></b>
+									</a>
 								<ul class="dropdown-menu">
-							<li>
+									<li>
+										<a data-bind="click: settings.saveStore"><span class="fa fa-download"></span> Save configuration</a>
+									</li>
+									<li>
+										<a data-bind="click: settings.loadStore"><span class="fa fa-upload"></span> Undo (reload configuration) </a>
+									</li>
+								</ul>
+							<!-- /ko -->
+							<li class="dropdown">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-globe"></span> Help <b class="caret"></b></a>
+								<ul class="dropdown-menu">
+									<li>
 										<a href="http://www.nsclient.org"><span class="glyphicon glyphicon-globe"></span> NSClient++ Website</a>
 										<a href="http://docs.nsclient.org"><span class="glyphicon glyphicon-globe"></span> NSClient++ online Help</a>
 									</li>
 								</ul>
 							</li>
-							<li class="dropdown">
-								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-repeat"></span> Restart <b class="caret"></b></a>
+							<li class="dropdown" data-bind="if: $root.nscp_status.is_loggedin">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="fa fa-cog"></span> Control <b class="caret"></b></a>
 								<ul class="dropdown-menu">
 									<li>
-										<a data-bind="click: nscp_status.restart"><span class="glyphicon glyphicon-repeat"></span> Restart NSClient++</a>
+										<a data-bind="click: nscp_status.reload"><span class="fa fa-refresh"></span> Reload</a>
+									</li>
+									<li>
+										<a><span class="fa fa-power-off"></span> Shutdown</a>
 									</li>
 								</ul>
 							</li>

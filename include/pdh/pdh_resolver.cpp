@@ -27,40 +27,38 @@
 #include <error.hpp>
 #include <pdh/pdh_resolver.hpp>
 
-
 namespace PDH {
-
 	std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {
-		TCHAR *buffer = new TCHAR[PDH_INDEX_BUF_LEN+1];
+		TCHAR *buffer = new TCHAR[PDH_INDEX_BUF_LEN + 1];
 		DWORD bufLen = PDH_INDEX_BUF_LEN;
 
-		pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName,dwNameIndex,buffer,&bufLen);
+		pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer, &bufLen);
 		if (status.is_error()) {
-			delete [] buffer;
+			delete[] buffer;
 			throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + strEx::s::xtos(dwNameIndex), status);
 		}
 		std::wstring ret = buffer;
-		delete [] buffer;
+		delete[] buffer;
 		return ret;
 	}
 	std::list<std::string> PDHResolver::PdhExpandCounterPath(std::string szWildCardPath, DWORD buffSize) {
-		TCHAR *buffer = new TCHAR[buffSize+1];
+		TCHAR *buffer = new TCHAR[buffSize + 1];
 		DWORD bufLen = buffSize;
-		pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(),buffer,&bufLen);
+		pdh_error status = factory::get_impl()->PdhExpandCounterPath(utf8::cvt<std::wstring>(szWildCardPath).c_str(), buffer, &bufLen);
 		if (status.is_error()) {
-			delete [] buffer;
+			delete[] buffer;
 			if (buffSize == PDH_INDEX_BUF_LEN && bufLen > buffSize)
-				return PdhExpandCounterPath(szWildCardPath, bufLen+10);
+				return PdhExpandCounterPath(szWildCardPath, bufLen + 10);
 			throw pdh_exception("PdhExpandCounterPath: Could not find index: " + utf8::cvt<std::string>(szWildCardPath), status);
 		}
 		std::list<std::string> ret = helpers::build_list(buffer, bufLen);
-		delete [] buffer;
+		delete[] buffer;
 		return ret;
 	}
 
 	DWORD PDHResolver::PdhLookupPerfIndexByName(LPCTSTR szMachineName, LPCTSTR indexName) {
 		DWORD ret;
-		pdh_error status = factory::get_impl()->PdhLookupPerfIndexByName(szMachineName,indexName, &ret);
+		pdh_error status = factory::get_impl()->PdhLookupPerfIndexByName(szMachineName, indexName, &ret);
 		if (status.is_error()) {
 			throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + utf8::cvt<std::string>(indexName), status);
 		}
@@ -89,7 +87,7 @@ namespace PDH {
 			if (p2 <= p1)
 				return false;
 			if (p1 > 0) {
-				if (!is_speacial_char(counter[p1-1])) {
+				if (!is_speacial_char(counter[p1 - 1])) {
 					pos = p2;
 					continue;
 				}
@@ -100,9 +98,9 @@ namespace PDH {
 					continue;
 				}
 			}
-			unsigned int index = strEx::s::stox<unsigned int>(counter.substr(p1, p2-p1));
+			unsigned int index = strEx::s::stox<unsigned int>(counter.substr(p1, p2 - p1));
 			std::string sindex = PDHResolver::lookupIndex(index);
-			counter.replace(p1, p2-p1, sindex);
+			counter.replace(p1, p2 - p1, sindex);
 			pos = p1 + sindex.size();
 		} while (true);
 	}

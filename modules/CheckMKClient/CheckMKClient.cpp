@@ -36,18 +36,18 @@
 
 /**
  * Default c-tor
- * @return 
+ * @return
  */
 CheckMKClient::CheckMKClient() : client_("check_mk", boost::make_shared<check_mk_client::check_mk_client_handler>(), boost::make_shared<check_mk_handler::options_reader_impl>()) {}
 
 /**
  * Default d-tor
- * @return 
+ * @return
  */
 CheckMKClient::~CheckMKClient() {}
 
 bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
-	std::map<std::wstring,std::wstring> commands;
+	std::map<std::wstring, std::wstring> commands;
 
 	try {
 		root_ = get_base_path();
@@ -56,7 +56,6 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		lua_runtime_->register_plugin(boost::shared_ptr<check_mk::check_mk_plugin>(new check_mk::check_mk_plugin()));
 		scripts_.reset(new scripts::script_manager<lua::lua_traits>(lua_runtime_, nscp_runtime_, get_id(), utf8::cvt<std::string>(alias)));
 
-
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("check_mk", alias, "client");
 		target_path = settings.alias().get_settings_path("targets");
@@ -64,25 +63,24 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_path_to_settings()
 			("CHECK MK CLIENT SECTION", "Section for check_mk active/passive check module.")
 
-			("handlers", sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, _1, _2)), 
-			"CLIENT HANDLER SECTION", "",
-			"CLIENT", "For more configuration options add a dedicated section")
+			("handlers", sh::fun_values_path(boost::bind(&CheckMKClient::add_command, this, _1, _2)),
+				"CLIENT HANDLER SECTION", "",
+				"CLIENT", "For more configuration options add a dedicated section")
 
-			("targets", sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"TARGET", "For more configuration options add a dedicated section")
+			("targets", sh::fun_values_path(boost::bind(&CheckMKClient::add_target, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"TARGET", "For more configuration options add a dedicated section")
 
-			("scripts", sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, _1, _2)), 
-			"REMOTE TARGET DEFINITIONS", "",
-			"SCRIPT", "For more configuration options add a dedicated section")
+			("scripts", sh::fun_values_path(boost::bind(&CheckMKClient::add_script, this, _1, _2)),
+				"REMOTE TARGET DEFINITIONS", "",
+				"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
 		settings.alias().add_key_to_settings()
 			("channel", sh::string_key(&channel_, "CheckMK"),
-			"CHANNEL", "The channel to listen to.")
+				"CHANNEL", "The channel to listen to.")
 
 			;
-
 
 		settings.register_all();
 		settings.notify();
@@ -97,7 +95,6 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		core.register_channel(channel_);
 
 		scripts_->load_all();
-
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
@@ -181,4 +178,3 @@ bool CheckMKClient::commandLineExec(const int target_mode, const Plugin::Execute
 void CheckMKClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
-

@@ -4,7 +4,6 @@
 
 namespace parsers {
 	namespace where {
-
 		std::string list_node::to_string() const {
 			std::string ret;
 			BOOST_FOREACH(const node_type n, value_) {
@@ -93,7 +92,5 @@ namespace parsers {
 			}
 			return true;
 		}
-
 	}
 }
-

@@ -57,7 +57,7 @@ private:
 	void set_password(std::string password) {
 		password_ = password;
 	}
-	virtual void set_allow_arguments(bool v)  {
+	virtual void set_allow_arguments(bool v) {
 		allowArgs_ = v;
 	}
 	virtual void set_allow_nasty_arguments(bool v) {
@@ -77,5 +77,4 @@ private:
 	socket_helpers::connection_info info_;
 	boost::shared_ptr<check_nt::server::server> server_;
 	std::string password_;
-
 };

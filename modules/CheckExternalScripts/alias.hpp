@@ -19,13 +19,11 @@
 namespace sh = nscapi::settings_helper;
 
 namespace alias {
-	struct command_object : public nscapi::settings_objects::object_instance_interface{
-
+	struct command_object : public nscapi::settings_objects::object_instance_interface {
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		command_object(std::string alias, std::string path) 
-			: parent(alias, path)
-		{}
+		command_object(std::string alias, std::string path)
+			: parent(alias, path) {}
 
 		std::string command;
 		std::list<std::string> arguments;
@@ -49,7 +47,7 @@ namespace alias {
 			BOOST_FOREACH(const std::string &s, arguments) {
 				if (first)
 					first = false;
-				else 
+				else
 					ss << ',';
 				ss << s;
 			}
@@ -61,19 +59,12 @@ namespace alias {
 			set_command(value);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
-			nscapi::settings_helper::path_extension root_path = settings.path(path);
+			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 			if (is_sample)
 				root_path.set_sample();
 
-			if (oneliner) {
-				std::string::size_type pos = path.find_last_of("/");
-				if (pos != std::string::npos) {
-					proxy->register_key(path, alias, NSCAPI::key_string, alias, "Alias for " + alias + ". To configure this item add a section called: " + path + "/" + alias, "", false, false);
-					proxy->set_string(path, alias, value);
-					return;
-				}
-			}
-
+			if (oneliner)
+				return;
 
 			root_path.add_path()
 				("ALIAS DEFENITION", "Alias definition for: " + alias)
@@ -81,7 +72,7 @@ namespace alias {
 
 			root_path.add_key()
 				("command", sh::string_fun_key<std::string>(boost::bind(&command_object::set_command, this, _1)),
-				"COMMAND", "Command to execute")
+					"COMMAND", "Command to execute")
 				;
 
 			parent::read(proxy, oneliner, is_sample);
@@ -90,14 +81,12 @@ namespace alias {
 			settings.notify();
 		}
 
-
 		void set_command(std::string str) {
 			if (str.empty())
 				return;
 			try {
 				strEx::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
-
 				NSC_LOG_MESSAGE("Failed to parse arguments for command using old split string method: " + utf8::utf8_from_native(e.what()) + ": " + str);
 				std::list<std::string> list = strEx::s::splitEx(str, std::string(" "));
 				if (list.size() > 0) {
@@ -109,15 +98,15 @@ namespace alias {
 				BOOST_FOREACH(const std::string &s, list) {
 					std::size_t len = s.length();
 					if (buffer.empty()) {
-						if (len > 2 && s[0] == '\"' && s[len-1]  == '\"') {
-							buffer.push_back(s.substr(1, len-2));
+						if (len > 2 && s[0] == '\"' && s[len - 1] == '\"') {
+							buffer.push_back(s.substr(1, len - 2));
 						} else if (len > 1 && s[0] == '\"') {
 							buffer.push_back(s);
 						} else {
 							arguments.push_back(s);
 						}
 					} else {
-						if (len > 1 && s[len-1] == '\"') {
+						if (len > 1 && s[len - 1] == '\"') {
 							std::string tmp;
 							BOOST_FOREACH(const std::string &s2, buffer) {
 								if (tmp.empty()) {
@@ -126,7 +115,7 @@ namespace alias {
 									tmp += " " + s2;
 								}
 							}
-							arguments.push_back(tmp + " " + s.substr(0, len-1));
+							arguments.push_back(tmp + " " + s.substr(0, len - 1));
 							buffer.clear();
 						} else {
 							buffer.push_back(s);
@@ -140,10 +129,8 @@ namespace alias {
 				}
 			}
 		}
-
 	};
 	typedef boost::shared_ptr<command_object> command_object_instance;
 
 	typedef nscapi::settings_objects::object_handler<command_object> command_handler;
 }
-

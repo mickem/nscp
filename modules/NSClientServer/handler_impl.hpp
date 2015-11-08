@@ -14,7 +14,7 @@ class handler_impl : public check_nt::server::handler {
 
 	std::string password_;
 public:
-	handler_impl() 
+	handler_impl()
 		: noPerfData_(false)
 		, allowNasty_(false)
 		, allowArgs_(false) {}
@@ -25,7 +25,7 @@ public:
 		return check_nt::packet("ERROR: Failed to parse");
 	}
 
-	virtual void set_allow_arguments(bool v)  {
+	virtual void set_allow_arguments(bool v) {
 		allowArgs_ = v;
 	}
 	virtual void set_allow_nasty_arguments(bool v) {
@@ -34,7 +34,6 @@ public:
 	virtual void set_perf_data(bool v) {
 		noPerfData_ = !v;
 	}
-
 
 	void log_debug(std::string module, std::string file, int line, std::string msg) {
 		if (GET_CORE()->should_log(NSCAPI::log_level::debug)) {

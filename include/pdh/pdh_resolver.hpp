@@ -28,7 +28,6 @@
 #include <pdh/pdh_counters.hpp>
 
 namespace PDH {
-
 	class PDHResolver {
 	public:
 #define PDH_INDEX_BUF_LEN 2048

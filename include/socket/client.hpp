@@ -9,8 +9,6 @@ using boost::asio::ip::tcp;
 
 namespace socket_helpers {
 	namespace client {
-
-
 		template<class protocol_type>
 		class connection : public boost::enable_shared_from_this<connection<protocol_type> >, private boost::noncopyable {
 		private:
@@ -24,13 +22,12 @@ namespace socket_helpers {
 			boost::optional<bool> data_result_;
 
 		public:
-			connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
+			connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: io_service_(io_service)
 				, timer_(io_service)
 				, timeout_(timeout)
 				, handler_(handler)
-				, protocol_(handler)
-			{}
+				, protocol_(handler) {}
 
 			virtual ~connection() {
 				try {
@@ -42,7 +39,7 @@ namespace socket_helpers {
 				}
 			}
 
-			typedef boost::asio::basic_socket<tcp,boost::asio::stream_socket_service<tcp> >  basic_socket_type;
+			typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
 
 			//////////////////////////////////////////////////////////////////////////
 			// Time related functions
@@ -50,7 +47,7 @@ namespace socket_helpers {
 			void start_timer() {
 				timer_result_.reset();
 				timer_.expires_from_now(timeout_);
-				timer_.async_wait(boost::bind(&connection::on_timeout, this->shared_from_this(),  boost::asio::placeholders::error));
+				timer_.async_wait(boost::bind(&connection::on_timeout, this->shared_from_this(), boost::asio::placeholders::error));
 			}
 			void cancel_timer() {
 				trace("cancel_timer()");
@@ -67,7 +64,7 @@ namespace socket_helpers {
 			// External API functions
 			//
 			virtual boost::system::error_code connect(std::string host, std::string port) {
-				trace("connect(" + host + ", " + port +")");
+				trace("connect(" + host + ", " + port + ")");
 				tcp::resolver resolver(io_service_);
 				tcp::resolver::query query(host, port, boost::asio::ip::resolver_query_base::numeric_service);
 
@@ -108,7 +105,6 @@ namespace socket_helpers {
 				close_socket();
 			};
 
-
 			virtual void close_socket() {
 				trace("close_socket()");
 				boost::system::error_code ignored_ec;
@@ -136,7 +132,7 @@ namespace socket_helpers {
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_read(bytes_transferred);
 					do_process();
@@ -156,7 +152,7 @@ namespace socket_helpers {
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_request(" + utf8::utf8_from_native(e.message())  + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_write(bytes_transferred);
 					do_process();
@@ -173,8 +169,7 @@ namespace socket_helpers {
 					if (data_result_) {
 						trace("data_result()");
 						return true;
-					}
-					else if (timer_result_) {
+					} else if (timer_result_) {
 						trace("timer_result()");
 						return false;
 					}
@@ -185,16 +180,15 @@ namespace socket_helpers {
 			// Internal helper functions
 			//
 			inline void trace(std::string msg) const {
-				if (protocol_type::debug_trace && handler_) 
+				if (protocol_type::debug_trace && handler_)
 					handler_->log_debug(__FILE__, __LINE__, msg);
 			}
 			inline void log_error(std::string file, int line, std::string msg) const {
-				if (handler_) 
+				if (handler_)
 					handler_->log_error(__FILE__, __LINE__, msg);
 			}
 
 			virtual basic_socket_type& get_socket() = 0;
-
 		};
 
 		template<class protocol_type>
@@ -203,10 +197,9 @@ namespace socket_helpers {
 			tcp::socket socket_;
 
 		public:
-			tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
-				: connection_type(io_service, timeout, handler) 
-				, socket_(io_service)
-			{}
+			tcp_connection(boost::asio::io_service &io_service, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler)
+				: connection_type(io_service, timeout, handler)
+				, socket_(io_service) {}
 			virtual ~tcp_connection() {
 				try {
 					this->close_socket();
@@ -219,14 +212,14 @@ namespace socket_helpers {
 
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
 				this->trace("tcp::start_read_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
-				async_read(socket_, buffer, 
+				async_read(socket_, buffer,
 					boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
 				this->trace("tcp::start_write_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
-				async_write(socket_, buffer, 
+				async_write(socket_, buffer,
 					boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
@@ -244,10 +237,9 @@ namespace socket_helpers {
 			boost::asio::ssl::stream<tcp::socket> ssl_socket_;
 
 		public:
-			ssl_connection(boost::asio::io_service &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler) 
-				: connection_type(io_service, timeout, handler) 
-				, ssl_socket_(io_service, context)
-			{}
+			ssl_connection(boost::asio::io_service &io_service, boost::asio::ssl::context &context, boost::posix_time::time_duration timeout, boost::shared_ptr<typename protocol_type::client_handler> handler)
+				: connection_type(io_service, timeout, handler)
+				, ssl_socket_(io_service, context) {}
 			virtual ~ssl_connection() {
 				try {
 					this->close_socket();
@@ -274,14 +266,14 @@ namespace socket_helpers {
 
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
 				this->trace("ssl::start_read_request()");
-				async_read(ssl_socket_, buffer, 
+				async_read(ssl_socket_, buffer,
 					boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
 				this->trace("ssl::start_write_request()");
-				async_write(ssl_socket_, buffer, 
+				async_write(ssl_socket_, buffer,
 					boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
@@ -311,8 +303,7 @@ namespace socket_helpers {
 #ifdef USE_SSL
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
 #endif
-			{
-			}
+			{}
 			~client() {
 				try {
 					if (connection_)
@@ -351,7 +342,7 @@ namespace socket_helpers {
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
 				boost::optional<typename protocol_type::response_type> response = connection_->process_request(packet);
 				if (!response) {
-					for (int i=0;i<info_.retry;i++) {
+					for (int i = 0; i < info_.retry; i++) {
 						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(info_.retry));
 						connect();
 						response = connection_->process_request(packet);
@@ -367,7 +358,6 @@ namespace socket_helpers {
 				connection_->shutdown();
 				connection_.reset();
 			};
-
 		};
 
 		struct client_handler : private boost::noncopyable {
@@ -377,8 +367,6 @@ namespace socket_helpers {
 			virtual void log_debug(std::string file, int line, std::string msg) const = 0;
 			virtual void log_error(std::string file, int line, std::string msg) const = 0;
 			virtual std::string expand_path(std::string path) = 0;
-
 		};
-	
 	}
 }

@@ -54,7 +54,6 @@ namespace collectd {
 		boost::optional<double> double_data;
 		boost::optional<long long> int_data;
 
-
 		static collectd_value mk_gague(const double  &v) {
 			collectd_value ret;
 			ret.type = 0x01;
@@ -64,7 +63,7 @@ namespace collectd {
 
 		void append_to(std::string &buffer) const {
 			std::string::size_type pos = buffer.length();
-			int sz = sizeof(int8_t)+sizeof(int64_t);
+			int sz = sizeof(int8_t) + sizeof(int64_t);
 			buffer.append(sz, '\0');
 			int8_t *b_type = reinterpret_cast<int8_t*>(&buffer[pos]);
 			*b_type = type;
@@ -87,7 +86,6 @@ namespace collectd {
 				ss << *int_data;
 			return ss.str();
 		}
-
 	};
 
 	typedef std::list<collectd_value> collectd_value_list;
@@ -164,7 +162,6 @@ namespace collectd {
 				data->length = swap_bytes::hton<int16_t>(len);
 			}
 		}
-
 	};
 	typedef std::list<collectd_element> collectd_data;
 
@@ -184,7 +181,6 @@ namespace collectd {
 			std::stringstream ss;
 			BOOST_FOREACH(const collectd_element &e, data) {
 				ss << e.to_string() << ", ";
-
 			}
 			return ss.str();
 		}
@@ -214,19 +210,17 @@ namespace collectd {
 			data.push_back(collectd_element::mk_int(0x0009, time));
 		}
 
-		void parse_data(const char* buffer, unsigned int buffer_len) {
-		}
-/*
-		static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
-			memset(data, 0, max_length);
-			value.copy(data, value.size()>max_length?max_length:value.size());
-		}
-´*/
+		void parse_data(const char* buffer, unsigned int buffer_len) {}
+		/*
+				static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
+					memset(data, 0, max_length);
+					value.copy(data, value.size()>max_length?max_length:value.size());
+				}
+		´*/
 		void get_buffer(std::string &buffer) const {
 			BOOST_FOREACH(const collectd_element &e, data) {
 				e.append_to(buffer);
 			}
-
 		}
 		std::string get_buffer() const {
 			std::string buffer;

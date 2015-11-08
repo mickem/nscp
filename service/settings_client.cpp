@@ -1,6 +1,5 @@
 #include "settings_client.hpp"
 
-
 #ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
 #endif
@@ -13,12 +12,10 @@ settings::settings_core* nsclient_core::settings_client::get_core() const {
 	return settings_manager::get_core();
 }
 
-nsclient_core::settings_client::settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples) 
-	: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples)
-{
+nsclient_core::settings_client::settings_client(NSClient* core, bool update_defaults, bool remove_defaults, bool load_all, bool use_samples)
+	: started_(false), core_(core), default_(update_defaults), remove_default_(remove_defaults), load_all_(load_all), use_samples_(use_samples) {
 	startup();
 }
-
 
 nsclient_core::settings_client::~settings_client() {
 	terminate();
@@ -128,7 +125,6 @@ int nsclient_core::settings_client::generate(std::string target) {
 	}
 }
 
-
 void nsclient_core::settings_client::switch_context(std::string contect) {
 	get_core()->set_primary(expand_context(contect));
 }
@@ -151,7 +147,7 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 int nsclient_core::settings_client::show(std::string path, std::string key) {
 	settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
 	if (val)
-		 std::cout << *val;
+		std::cout << *val;
 	return 0;
 }
 int nsclient_core::settings_client::list(std::string path) {
@@ -184,15 +180,14 @@ void list_settings_context_info(int padding, settings::instance_ptr instance) {
 	std::string pad = std::string(padding, ' ');
 	std::cout << pad << instance->get_info() << std::endl;
 	BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
-		list_settings_context_info(padding+2, child);
+		list_settings_context_info(padding + 2, child);
 	}
 }
 void nsclient_core::settings_client::list_settings_info() {
 	std::cout << "Current settings instance loaded: " << std::endl;
 	list_settings_context_info(2, settings_manager::get_settings());
 }
-void nsclient_core::settings_client::activate(const std::string &module) 
-{
+void nsclient_core::settings_client::activate(const std::string &module) {
 	if (!core_->boot_load_plugin(module)) {
 		std::cerr << "Failed to load module (Wont activate): " << module << std::endl;
 	}

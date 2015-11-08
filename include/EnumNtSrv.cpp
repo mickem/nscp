@@ -8,8 +8,7 @@
 
 #include <win_sysinfo/win_sysinfo.hpp>
 
-
-struct service_closer  {
+struct service_closer {
 	static void close(SC_HANDLE handle) {
 		CloseServiceHandle(handle);
 	}
@@ -58,7 +57,7 @@ namespace services_helper {
 		if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
 			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
 
-		hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> buf(bytesNeeded+10);
+		hlp::buffer<BYTE, QUERY_SERVICE_CONFIG*> buf(bytesNeeded + 10);
 		if (!QueryServiceConfig(hService, buf.get(), bytesNeeded, &bytesNeeded))
 			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
 		return buf;
@@ -71,7 +70,7 @@ namespace services_helper {
 		if (windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
 			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error(deErr));
 
-		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> buf(bytesNeeded+10);
+		hlp::buffer<BYTE, SERVICE_STATUS_PROCESS*> buf(bytesNeeded + 10);
 		if (!windows::winapi::QueryServiceStatusEx(hService, SC_STATUS_PROCESS_INFO, buf, bytesNeeded, &bytesNeeded))
 			throw nscp_exception("Failed to query service: " + service + ": " + error::lookup::last_error());
 		return buf;
@@ -82,7 +81,7 @@ namespace services_helper {
 		DWORD deErr = 0;
 		if (QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, NULL, 0, &bytesNeeded) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
 			return;
-		hlp::buffer<BYTE> buffer(bytesNeeded+10);
+		hlp::buffer<BYTE> buffer(bytesNeeded + 10);
 
 		if (!QueryServiceConfig2W(hService, SERVICE_CONFIG_TRIGGER_INFO, buffer.get(), bytesNeeded, &bytesNeeded))
 			throw nscp_exception("Failed to open service: " + info.name);
@@ -92,7 +91,7 @@ namespace services_helper {
 
 	void fetch_delayed(service_handle &hService, service_info &info) {
 		SERVICE_DELAYED_AUTO_START_INFO delayed;
-		DWORD size=sizeof(SERVICE_DELAYED_AUTO_START_INFO);
+		DWORD size = sizeof(SERVICE_DELAYED_AUTO_START_INFO);
 		if (windows::winapi::QueryServiceConfig2W(hService, SERVICE_CONFIG_DELAYED_AUTO_START_INFO, reinterpret_cast<LPBYTE>(&delayed), size, &size)) {
 			info.delayed = delayed.fDelayedAutostart;
 		}
@@ -102,8 +101,8 @@ namespace services_helper {
 		std::list<service_info> ret;
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-		service_handle sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
-		if (!sc) 
+		service_handle sc = OpenSCManager(comp.empty() ? NULL : comp.c_str(), NULL, SC_MANAGER_ENUMERATE_SERVICE);
+		if (!sc)
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
 		DWORD bytesNeeded = 0;
@@ -113,12 +112,12 @@ namespace services_helper {
 		if (bRet || GetLastError() != ERROR_MORE_DATA)
 			throw nscp_exception("Failed to enumerate services");
 
-		hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS*> buf(bytesNeeded+10);
+		hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS*> buf(bytesNeeded + 10);
 		bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, NULL);
-		if (!bRet) 
+		if (!bRet)
 			throw nscp_exception("Failed to enumerate service: " + error::lookup::last_error());
 		ENUM_SERVICE_STATUS_PROCESS *data = buf.get();
-		for (DWORD i=0; i<count;++i) {
+		for (DWORD i = 0; i < count; ++i) {
 			service_info info(utf8::cvt<std::string>(data[i].lpServiceName), utf8::cvt<std::string>(data[i].lpDisplayName));
 			info.pid = data[i].ServiceStatusProcess.dwProcessId;
 			info.state = data[i].ServiceStatusProcess.dwCurrentState;
@@ -143,11 +142,11 @@ namespace services_helper {
 	service_info get_service_info(const std::string computer, const std::string service) {
 		std::wstring comp = utf8::cvt<std::wstring>(computer);
 
-		service_handle sc = OpenSCManager(comp.empty()?NULL:comp.c_str(),NULL,SC_MANAGER_ENUMERATE_SERVICE);
-		if (!sc) 
+		service_handle sc = OpenSCManager(comp.empty() ? NULL : comp.c_str(), NULL, SC_MANAGER_ENUMERATE_SERVICE);
+		if (!sc)
 			throw nscp_exception("Failed to open service manager: " + error::lookup::last_error());
 
-		service_handle hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
+		service_handle hService = OpenService(sc, utf8::cvt<std::wstring>(service).c_str(), SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS);
 		if (!hService) {
 			DWORD error = GetLastError();
 			if (error == ERROR_SERVICE_DOES_NOT_EXIST) {
@@ -156,7 +155,7 @@ namespace services_helper {
 				if (!GetServiceKeyName(sc, utf8::cvt<std::wstring>(service).c_str(), buf.get(), &size)) {
 					throw nscp_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
 				}
-				hService = OpenService(sc, buf.get(), SERVICE_QUERY_CONFIG|SERVICE_QUERY_STATUS );
+				hService = OpenService(sc, buf.get(), SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS);
 				if (!hService)
 					throw nscp_exception("Failed to open service " + service + ": " + error::lookup::last_error(error));
 			} else
@@ -174,7 +173,7 @@ namespace services_helper {
 		DWORD deErr = 0;
 		if (QueryServiceConfig(hService, NULL, 0, &bytesNeeded2) || (deErr = GetLastError()) != ERROR_INSUFFICIENT_BUFFER)
 			throw nscp_exception("Failed to open service " + info.name + ": " + error::lookup::last_error(deErr));
-		hlp::buffer<BYTE> buf2(bytesNeeded2+10);
+		hlp::buffer<BYTE> buf2(bytesNeeded2 + 10);
 
 		if (!QueryServiceConfig(hService, reinterpret_cast<QUERY_SERVICE_CONFIG*>(buf2.get()), bytesNeeded2, &bytesNeeded2))
 			throw nscp_exception("Failed to open service: " + info.name);
@@ -187,7 +186,6 @@ namespace services_helper {
 		fetch_triggers(hService, info);
 		return info;
 	}
-
 
 	long long service_info::parse_start_type(const std::string &s) {
 		if (s == "auto")
@@ -288,5 +286,4 @@ namespace services_helper {
 			strEx::append_list(str, "interactive");
 		return str;
 	}
-
 }

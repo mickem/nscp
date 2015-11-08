@@ -21,28 +21,7 @@
         <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
         </Control>
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next">
-          <Publish Event="Remove" Value="OP5Montoring">NOT MONITORING_TOOL="OP5"</Publish>
-          <Publish Event="AddLocal" Value="OP5Montoring">MONITORING_TOOL="OP5"</Publish>
-
-          <Publish Property="NSCLIENT_PWD" Value="{}">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="NSCLIENT_PWD_OLD" Value="$EMPTY$">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="NSCLIENT_PWD_DEFAULT" Value="$EMPTY$">MONITORING_TOOL="OP5"</Publish>
-
-          <Publish Property="CONF_CHECKS_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_CHECKS" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_NRPE_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_NRPE" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_NSCA_OLD" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_NSCA" Value="1">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_WEB_OLD" Value="0">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="CONF_WEB" Value="0">MONITORING_TOOL="OP5"</Publish>
-
-          <Publish Property="CONF_INCLUDES" Value="op5;op5.ini">MONITORING_TOOL="OP5"</Publish>
-
-          <Publish Property="NRPEMODE_OLD" Value="LEGACY">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="NRPEMODE" Value="LEGACY">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="INSTALL_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
-          <Publish Property="GENERATE_SAMPLE_CONFIG" Value="{}">MONITORING_TOOL="OP5"</Publish>
+          <Publish Event="DoAction" Value="ApplyTool">1</Publish>
         </Control>
         <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
           <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>

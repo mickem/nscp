@@ -14,13 +14,11 @@
 #include <nscapi/macros.hpp>
 
 namespace eventlog_filter {
-
-	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message) 
+	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message)
 		: logfile(logfile)
 		, hEvent(hEvent)
 		, buffer(4096)
-		, truncate_message(truncate_message)
-	{
+		, truncate_message(truncate_message) {
 		DWORD dwBufferSize = 0;
 		DWORD dwPropertyCount = 0;
 		if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
@@ -48,7 +46,7 @@ namespace eventlog_filter {
 		if (ival == 3)
 			return "warning";
 		//if (ival == 4)
-			return "information";
+		return "information";
 		//return "unknown";
 	}
 	std::string old_type_to_string(long long ival) {
@@ -65,14 +63,12 @@ namespace eventlog_filter {
 		return "unknown";
 	}
 
-
 	std::string new_filter_obj::get_el_type_s() {
 		return new_type_to_string(get_el_type());
 	}
 	std::string old_filter_obj::get_el_type_s() {
 		return old_type_to_string(get_el_type());
 	}
-
 
 	long long new_filter_obj::get_el_type() {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type)
@@ -94,8 +90,7 @@ namespace eventlog_filter {
 				message_buffer.resize(dwBufferSize);
 				if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize))
 					throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error());
-			}
-			else if (status != ERROR_EVT_MESSAGE_NOT_FOUND  && ERROR_EVT_MESSAGE_ID_NOT_FOUND != status)
+			} else if (status != ERROR_EVT_MESSAGE_NOT_FOUND  && ERROR_EVT_MESSAGE_ID_NOT_FOUND != status)
 				throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
 		}
 		std::string msg = utf8::cvt<std::string>(message_buffer.get_t<wchar_t*>());
@@ -128,7 +123,6 @@ namespace eventlog_filter {
 			return 0;
 		return buffer.get()[eventlog::api::EvtSystemTask].UInt16Val;
 	}
-
 
 	using namespace parsers::where;
 
@@ -198,7 +192,6 @@ namespace eventlog_filter {
 	//////////////////////////////////////////////////////////////////////////
 
 	filter_obj_handler::filter_obj_handler() {
-
 		registry_.add_string()
 			("source", boost::bind(&filter_obj::get_source, _1), "Source system.")
 			("message", boost::bind(&filter_obj::get_message, _1), "The message rendered as a string.")
@@ -227,7 +220,6 @@ namespace eventlog_filter {
 			registry_.add_int()
 				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
 				;
-
 		} else {
 			registry_.add_int()
 				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info)")

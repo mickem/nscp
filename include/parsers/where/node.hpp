@@ -11,7 +11,6 @@
 
 namespace parsers {
 	namespace where {
-
 		class NSCAPI_EXPORT filter_exception : public std::exception {
 			std::string what_;
 		public:
@@ -29,35 +28,35 @@ namespace parsers {
 
 		enum NSCAPI_EXPORT value_type {
 			type_invalid = 99, type_tbd = 66, type_multi = 88,
-			type_int = 1, 
+			type_int = 1,
 			type_bool = 2,
 			type_float = 3,
 			type_string = 10,
-			type_date = 20, 
-			type_size = 30, 
+			type_date = 20,
+			type_size = 30,
 			type_custom_int = 1024,
-			type_custom_int_1 = 1024+1,
-			type_custom_int_2 = 1024+2,
-			type_custom_int_3 = 1024+3,
-			type_custom_int_4 = 1024+4,
-			type_custom_int_5 = 1024+5,
-			type_custom_int_6 = 1024+6,
-			type_custom_int_7 = 1024+7,
-			type_custom_int_8 = 1024+8,
-			type_custom_int_9 = 1024+9,
-			type_custom_int_10 = 1024+10,
-			type_custom_int_end = 1024+100,
+			type_custom_int_1 = 1024 + 1,
+			type_custom_int_2 = 1024 + 2,
+			type_custom_int_3 = 1024 + 3,
+			type_custom_int_4 = 1024 + 4,
+			type_custom_int_5 = 1024 + 5,
+			type_custom_int_6 = 1024 + 6,
+			type_custom_int_7 = 1024 + 7,
+			type_custom_int_8 = 1024 + 8,
+			type_custom_int_9 = 1024 + 9,
+			type_custom_int_10 = 1024 + 10,
+			type_custom_int_end = 1024 + 100,
 			type_custom_string = 2048,
-			type_custom_string_1 = 2048+1,
-			type_custom_string_2 = 2048+2,
-			type_custom_string_3 = 2048+3,
-			type_custom_string_4 = 2048+4,
-			type_custom_string_5 = 2048+5,
-			type_custom_string_6 = 2048+6,
-			type_custom_string_7 = 2048+7,
-			type_custom_string_8 = 2048+8,
-			type_custom_string_9 = 2048+9,
-			type_custom_string_end = 2048+100,
+			type_custom_string_1 = 2048 + 1,
+			type_custom_string_2 = 2048 + 2,
+			type_custom_string_3 = 2048 + 3,
+			type_custom_string_4 = 2048 + 4,
+			type_custom_string_5 = 2048 + 5,
+			type_custom_string_6 = 2048 + 6,
+			type_custom_string_7 = 2048 + 7,
+			type_custom_string_8 = 2048 + 8,
+			type_custom_string_9 = 2048 + 9,
+			type_custom_string_end = 2048 + 100,
 			type_custom_float = 3096,
 			type_custom_float_1 = 3096 + 1,
 			type_custom_float_2 = 3096 + 2,
@@ -71,13 +70,11 @@ namespace parsers {
 			type_custom_float_10 = 3096 + 10,
 			type_custom_float_end = 3096 + 100,
 			type_custom = 4096,
-			type_custom_1 = 4096+1,
-			type_custom_2 = 4096+2,
-			type_custom_3 = 4096+3,
-			type_custom_4 = 4096+4
+			type_custom_1 = 4096 + 1,
+			type_custom_2 = 4096 + 2,
+			type_custom_3 = 4096 + 3,
+			type_custom_4 = 4096 + 4
 		};
-
-
 
 		struct NSCAPI_EXPORT value_container {
 			boost::optional<int> i_value;
@@ -107,7 +104,7 @@ namespace parsers {
 			}
 			static value_container create_bool(bool value, bool is_unsure = false) {
 				value_container ret(is_unsure);
-				ret.set_int(value?1:0);
+				ret.set_int(value ? 1 : 0);
 				return ret;
 			}
 			static value_container create_string(std::string value, bool is_unsure = false) {
@@ -191,7 +188,6 @@ namespace parsers {
 			}
 		};
 
-
 		struct evaluation_context_interface {
 			virtual bool has_error() const = 0;
 			virtual std::string get_error() const = 0;
@@ -236,10 +232,9 @@ namespace parsers {
 			node_type value;
 			performance_node_type perf_node_type;
 			performance_node() {}
-
 		};
 		struct NSCAPI_EXPORT performance_collector {
-			typedef std::map<std::string,performance_node> boundries_type;
+			typedef std::map<std::string, performance_node> boundries_type;
 		private:
 			boundries_type boundries;
 			node_type candidate_value_;
@@ -260,7 +255,6 @@ namespace parsers {
 			boundries_type get_candidates();
 		};
 
-
 		struct binary_operator_impl {
 			virtual node_type evaluate(evaluation_context context, const node_type left, const node_type right) const = 0;
 		};
@@ -270,7 +264,6 @@ namespace parsers {
 		struct unary_operator_impl {
 			virtual node_type evaluate(evaluation_context context, const node_type subject) const = 0;
 		};
-
 
 		struct object_converter_interface : public evaluation_context_interface {
 			virtual bool can_convert(value_type from, value_type to) = 0;
@@ -333,7 +326,7 @@ namespace parsers {
 
 			// Performance data functions
 			virtual bool find_performance_data(evaluation_context context, performance_collector &collector) = 0;
-			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum)  {
+			virtual perf_list_type get_performance_data(object_factory context, std::string alias, node_type warn, node_type crit, node_type minimum, node_type maximum) {
 				perf_list_type ret;
 				return ret;
 			}
@@ -343,8 +336,6 @@ namespace parsers {
 			virtual void push_back(node_type value) = 0;
 		};
 		typedef boost::shared_ptr<list_node_interface> list_node_type;
-
-
 
 		struct factory {
 			static NSCAPI_EXPORT node_type create_list(const std::list<std::string> &other);

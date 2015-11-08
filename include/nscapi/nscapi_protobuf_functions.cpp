@@ -28,7 +28,7 @@ namespace nscapi {
 		double trim_to_double(std::string s) {
 			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
 			if (pend != std::string::npos)
-				s = s.substr(0,pend);
+				s = s.substr(0, pend);
 			strEx::replace(s, ",", ".");
 			if (s.empty()) {
 				return 0.0;
@@ -40,17 +40,16 @@ namespace nscapi {
 			}
 		}
 
-		void functions::create_simple_header(Plugin::Common::Header* hdr)  {
-		}
+		void functions::create_simple_header(Plugin::Common::Header* hdr) {}
 
 		std::string functions::query_data_to_nagios_string(const Plugin::QueryResponseMessage &message) {
 			std::stringstream ss;
-			for (int i=0;i<message.payload_size();++i) {
+			for (int i = 0; i < message.payload_size(); ++i) {
 				Plugin::QueryResponseMessage::Response p = message.payload(i);
-				for (int j=0;j<p.lines_size();++j) {
+				for (int j = 0; j < p.lines_size(); ++j) {
 					Plugin::QueryResponseMessage::Response::Line l = p.lines(j);
 					if (l.perf_size() > 0)
-						ss << l.message() <<  "|" << build_performance_data(l);
+						ss << l.message() << "|" << build_performance_data(l);
 					else
 						ss << l.message();
 				}
@@ -59,10 +58,10 @@ namespace nscapi {
 		}
 		std::string functions::query_data_to_nagios_string(const Plugin::QueryResponseMessage::Response &p) {
 			std::stringstream ss;
-			for (int j=0;j<p.lines_size();++j) {
+			for (int j = 0; j < p.lines_size(); ++j) {
 				Plugin::QueryResponseMessage::Response::Line l = p.lines(j);
 				if (l.perf_size() > 0)
-					ss << l.message() <<  "|" << build_performance_data(l);
+					ss << l.message() << "|" << build_performance_data(l);
 				else
 					ss << l.message();
 			}
@@ -114,7 +113,7 @@ namespace nscapi {
 			return false;
 		}
 */
-		//////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 
 		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target, const std::string source) {
 			Plugin::QueryResponseMessage response;
@@ -122,7 +121,7 @@ namespace nscapi {
 			Plugin::SubmitRequestMessage request;
 			request.mutable_header()->CopyFrom(response.header());
 			request.mutable_header()->set_source_id(request.mutable_header()->recipient_id());
-			for (int i=0;i<request.mutable_header()->hosts_size();i++) {
+			for (int i = 0; i < request.mutable_header()->hosts_size(); i++) {
 				Plugin::Common_Host *host = request.mutable_header()->mutable_hosts(i);
 				if (host->id() == request.mutable_header()->recipient_id()) {
 					host->clear_address();
@@ -135,7 +134,7 @@ namespace nscapi {
 			if (!source.empty()) {
 				request.mutable_header()->set_sender_id(source);
 				bool found = false;
-				for (int i=0;i<request.mutable_header()->hosts_size();i++) {
+				for (int i = 0; i < request.mutable_header()->hosts_size(); i++) {
 					Plugin::Common_Host *host = request.mutable_header()->mutable_hosts(i);
 					if (host->id() == source) {
 						host->set_address(source);
@@ -148,7 +147,7 @@ namespace nscapi {
 					host->set_address(source);
 				}
 			}
-			for (int i=0;i<response.payload_size();++i) {
+			for (int i = 0; i < response.payload_size(); ++i) {
 				request.add_payload()->CopyFrom(response.payload(i));
 				if (!alias.empty())
 					request.mutable_payload(i)->set_alias(alias);
@@ -161,7 +160,7 @@ namespace nscapi {
 			exec_response_message.ParseFromString(data);
 			Plugin::QueryResponseMessage query_response_message;
 			query_response_message.mutable_header()->CopyFrom(exec_response_message.header());
-			for (int i=0;i<exec_response_message.payload_size();++i) {
+			for (int i = 0; i < exec_response_message.payload_size(); ++i) {
 				Plugin::ExecuteResponseMessage::Response p = exec_response_message.payload(i);
 				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), p.result(), p.message());
 			}
@@ -172,7 +171,7 @@ namespace nscapi {
 			submit_response_message.ParseFromString(data);
 			Plugin::QueryResponseMessage query_response_message;
 			query_response_message.mutable_header()->CopyFrom(submit_response_message.header());
-			for (int i=0;i<submit_response_message.payload_size();++i) {
+			for (int i = 0; i < submit_response_message.payload_size(); ++i) {
 				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
 				append_simple_query_response_payload(query_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.result().code()), p.result().message(), "");
 			}
@@ -184,7 +183,7 @@ namespace nscapi {
 			submit_response_message.ParseFromString(data);
 			Plugin::ExecuteResponseMessage exec_response_message;
 			exec_response_message.mutable_header()->CopyFrom(submit_response_message.header());
-			for (int i=0;i<submit_response_message.payload_size();++i) {
+			for (int i = 0; i < submit_response_message.payload_size(); ++i) {
 				Plugin::SubmitResponseMessage::Response p = submit_response_message.payload(i);
 				append_simple_exec_response_payload(exec_response_message.add_payload(), p.command(), gbp_status_to_gbp_nagios(p.result().code()), p.result().message());
 			}
@@ -195,13 +194,13 @@ namespace nscapi {
 			query_response_message.ParseFromString(data);
 			Plugin::ExecuteResponseMessage exec_response_message;
 			exec_response_message.mutable_header()->CopyFrom(query_response_message.header());
-			for (int i=0;i<query_response_message.payload_size();++i) {
+			for (int i = 0; i < query_response_message.payload_size(); ++i) {
 				Plugin::QueryResponseMessage::Response p = query_response_message.payload(i);
 				std::stringstream ss;
-				for (int j=0;j<p.lines_size();++j) {
+				for (int j = 0; j < p.lines_size(); ++j) {
 					Plugin::QueryResponseMessage::Response::Line l = p.lines(j);
 					if (l.perf_size() > 0)
-						ss << l.message() <<  "|" << build_performance_data(l);
+						ss << l.message() << "|" << build_performance_data(l);
 					else
 						ss << l.message();
 				}
@@ -365,7 +364,7 @@ namespace nscapi {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				args.push_back(payload.arguments(i));
 			}
 		}
@@ -380,7 +379,7 @@ namespace nscapi {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
@@ -396,7 +395,7 @@ namespace nscapi {
 				THROW_INVALID_SIZE(message.payload_size());
 			}
 			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
@@ -404,7 +403,7 @@ namespace nscapi {
 		functions::decoded_simple_command_data functions::parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload) {
 			decoded_simple_command_data data;
 			data.command = payload.command();
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
@@ -467,9 +466,9 @@ namespace nscapi {
 			Plugin::ExecuteResponseMessage message;
 			message.ParseFromString(response);
 
-			for (int i=0;i<message.payload_size(); i++) {
+			for (int i = 0; i < message.payload_size(); i++) {
 				result.push_back(message.payload(i).message());
-				int r=gbp_to_nagios_status(message.payload(i).result());
+				int r = gbp_to_nagios_status(message.payload(i).result());
 				if (r > ret)
 					ret = r;
 			}
@@ -491,7 +490,7 @@ namespace nscapi {
 			}
 			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
 			data.command = payload.command();
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
@@ -499,7 +498,7 @@ namespace nscapi {
 		functions::decoded_simple_command_data functions::parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload) {
 			decoded_simple_command_data data;
 			data.command = payload.command();
-			for (int i=0;i<payload.arguments_size();i++) {
+			for (int i = 0; i < payload.arguments_size(); i++) {
 				data.args.push_back(payload.arguments(i));
 			}
 			return data;
@@ -537,11 +536,11 @@ namespace nscapi {
 			if (unit[0] == 'K')
 				return 1024ll;
 			if (unit[0] == 'M')
-				return 1024ll*1024ll;
+				return 1024ll * 1024ll;
 			if (unit[0] == 'G')
-				return 1024ll*1024ll*1024ll;
+				return 1024ll * 1024ll * 1024ll;
 			if (unit[0] == 'T')
-				return 1024ll*1024ll*1024ll*1024ll;
+				return 1024ll * 1024ll * 1024ll * 1024ll;
 			return 1;
 		}
 		std::string functions::extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf) {
@@ -552,7 +551,7 @@ namespace nscapi {
 				return strEx::s::xtos_non_sci(val.value());
 			} else if (perf.has_bool_value()) {
 				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
-				return val.value()?"true":"false";
+				return val.value() ? "true" : "false";
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
 				return strEx::s::xtos_non_sci(val.value()*get_multiplier(val.unit()));
@@ -570,7 +569,7 @@ namespace nscapi {
 				return val.value();
 			} else if (perf.has_bool_value()) {
 				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
-				return val.value()?1:0;
+				return val.value() ? 1 : 0;
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
 				if (val.has_unit())
@@ -616,7 +615,7 @@ namespace nscapi {
 				if (p != 0)
 					perf = perf.substr(p);
 				if (perf[0] == perf_lable_enclosure[0]) {
-					p = perf.find(perf_lable_enclosure[0], 1)+1;
+					p = perf.find(perf_lable_enclosure[0], 1) + 1;
 					if (p == std::string::npos)
 						return;
 				}
@@ -639,17 +638,17 @@ namespace nscapi {
 				strEx::split(items, chunk, perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
-					std::pair<std::string,std::string> fitem = strEx::split("", perf_equal_sign);
+					std::pair<std::string, std::string> fitem = strEx::split("", perf_equal_sign);
 					perfData->set_alias("invalid");
 					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");
 					break;
 				}
 
-				std::pair<std::string,std::string> fitem = strEx::split(items[0], perf_equal_sign);
+				std::pair<std::string, std::string> fitem = strEx::split(items[0], perf_equal_sign);
 				std::string alias = fitem.first;
-				if (alias.size() > 0 && alias[0] == perf_lable_enclosure[0] && alias[alias.size()-1] == perf_lable_enclosure[0])
-					alias = alias.substr(1, alias.size()-2);
+				if (alias.size() > 0 && alias[0] == perf_lable_enclosure[0] && alias[alias.size() - 1] == perf_lable_enclosure[0])
+					alias = alias.substr(1, alias.size() - 2);
 
 				if (alias.empty())
 					continue;
@@ -668,7 +667,7 @@ namespace nscapi {
 				if (pend == std::string::npos) {
 					floatPerfData->set_value(trim_to_double(fitem.second));
 				} else {
-					floatPerfData->set_value(trim_to_double(fitem.second.substr(0,pend)));
+					floatPerfData->set_value(trim_to_double(fitem.second.substr(0, pend)));
 					floatPerfData->set_unit(fitem.second.substr(pend));
 				}
 				if (items.size() >= 2 && items[1].size() > 0)
@@ -687,7 +686,7 @@ namespace nscapi {
 			ss.precision(5);
 
 			bool first = true;
-			for (int i=0;i<payload.perf_size();i++) {
+			for (int i = 0; i < payload.perf_size(); i++) {
 				Plugin::Common::PerformanceData perfData = payload.perf(i);
 				if (!first)
 					ss << " ";
@@ -749,8 +748,7 @@ namespace nscapi {
 			return ss.str();
 		}
 
-		Plugin::Common::ResultCode functions::nagios_status_to_gpb(int ret)
-		{
+		Plugin::Common::ResultCode functions::nagios_status_to_gpb(int ret) {
 			if (ret == NSCAPI::query_return_codes::returnOK)
 				return Plugin::Common_ResultCode_OK;
 			if (ret == NSCAPI::query_return_codes::returnWARN)
@@ -760,8 +758,7 @@ namespace nscapi {
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
 
-		int functions::gbp_to_nagios_status(Plugin::Common::ResultCode ret)
-		{
+		int functions::gbp_to_nagios_status(Plugin::Common::ResultCode ret) {
 			if (ret == Plugin::Common_ResultCode_OK)
 				return NSCAPI::query_return_codes::returnOK;
 			if (ret == Plugin::Common_ResultCode_WARNING)
@@ -771,8 +768,7 @@ namespace nscapi {
 			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 
-		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status)
-		{
+		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status) {
 			std::string lcstat = boost::to_lower_copy(status);
 			if (lcstat == "o" || lcstat == "ok")
 				return Plugin::Common_ResultCode_OK;
@@ -783,8 +779,7 @@ namespace nscapi {
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
 
-		NSCAPI::messageTypes functions::gpb_to_log(Plugin::LogEntry::Entry::Level ret)
-		{
+		NSCAPI::messageTypes functions::gpb_to_log(Plugin::LogEntry::Entry::Level ret) {
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_CRITICAL)
 				return NSCAPI::log_level::critical;
 			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
@@ -801,14 +796,13 @@ namespace nscapi {
 		}
 
 		namespace functions {
-
 			std::string settings_query::key_values::get_string() const {
 				if (str_value)
 					return *str_value;
 				if (int_value)
 					return strEx::s::xtos(*int_value);
 				if (bool_value)
-					return *bool_value?"true":"false";
+					return *bool_value ? "true" : "false";
 				return "";
 			}
 
@@ -818,7 +812,7 @@ namespace nscapi {
 				if (int_value)
 					return *int_value;
 				if (bool_value)
-					return *bool_value?1:0;
+					return *bool_value ? 1 : 0;
 				return 0;
 			}
 
@@ -834,7 +828,6 @@ namespace nscapi {
 					return *bool_value;
 				return "";
 			}
-
 
 			settings_query::settings_query(int plugin_id) : plugin_id(plugin_id) {
 				create_simple_header(request_message.mutable_header());
@@ -884,7 +877,6 @@ namespace nscapi {
 				r->mutable_query()->set_recursive(false);
 			}
 
-
 			void settings_query::save() {
 				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
 				r->set_plugin_id(plugin_id);
@@ -907,7 +899,7 @@ namespace nscapi {
 			bool settings_query::validate_response() {
 				response_message.ParsePartialFromString(response_buffer);
 				bool ret = true;
-				for (int i=0;i<response_message.payload_size();++i) {
+				for (int i = 0; i < response_message.payload_size(); ++i) {
 					if (response_message.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 						ret = false;
 				}
@@ -915,14 +907,14 @@ namespace nscapi {
 			}
 			std::string settings_query::get_response_error() const {
 				std::string ret;
-				for (int i=0;i<response_message.payload_size();++i) {
+				for (int i = 0; i < response_message.payload_size(); ++i) {
 					ret += response_message.payload(i).result().message();
 				}
 				return ret;
 			}
 			std::list<settings_query::key_values> settings_query::get_query_key_response() const {
 				std::list<key_values> ret;
-				for (int i=0;i<response_message.payload_size();++i) {
+				for (int i = 0; i < response_message.payload_size(); ++i) {
 					::Plugin::SettingsResponseMessage::Response pl = response_message.payload(i);
 					if (pl.has_query()) {
 						::Plugin::SettingsResponseMessage::Response::Query q = pl.query();
@@ -989,7 +981,6 @@ namespace nscapi {
 				target->mutable_result()->set_message(query_data_to_nagios_string(source));
 				target->mutable_result()->set_code(gbp_to_nagios_gbp_status(source.result()));
 			}
-
 		}
- 	}
+	}
 }

@@ -34,7 +34,6 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-
 #include "file_finder.hpp"
 #include "filter.hpp"
 #include <char_buffer.hpp>
@@ -45,9 +44,7 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-CheckDisk::CheckDisk() : show_errors_(false) {
-}
-
+CheckDisk::CheckDisk() : show_errors_(false) {}
 
 void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
@@ -70,7 +67,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 
 	boost::program_options::variables_map vm;
 	std::vector<std::string> extra;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 		return;
 	std::string warn, crit;
 
@@ -91,9 +88,9 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 		request.add_arguments("perf-config=free(unit:" + perf_unit + ")used(unit:" + perf_unit + ")");
 	request.add_arguments("detail-syntax=%(drive): Total: %(size) - Used: %(used) (%(used_pct)%) - Free: %(free) (%(free_pct)%)");
 	compat::matchShowAll(vm, request);
-	std::string keyword = exclude?"exclude=":"drive=";
+	std::string keyword = exclude ? "exclude=" : "drive=";
 	BOOST_FOREACH(const std::string &t, times) {
-			request.add_arguments(keyword + t);
+		request.add_arguments(keyword + t);
 	}
 	BOOST_FOREACH(const std::string &t, extra) {
 		request.add_arguments(keyword + t);
@@ -106,7 +103,7 @@ void CheckDisk::checkDriveSize(Plugin::QueryRequestMessage::Request &request, Pl
 				type_list += ", ";
 			type_list += "'" + s + "'";
 		}
-		request.add_arguments("filter=type in (" + type_list +")");
+		request.add_arguments("filter=type in (" + type_list + ")");
 	}
 	compat::log_args(request);
 	check_drive::check(request, response);
@@ -125,9 +122,9 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 	std::string master_syntax = "${list}";
 	std::string path;
 	std::string pattern;
-	std::string filter; 
-	std::string warn2; 
-	std::string crit2; 
+	std::string filter;
+	std::string warn2;
+	std::string crit2;
 	bool debug = false;
 	int maxDepth = 0;
 	nscapi::program_options::add_help(desc);
@@ -146,7 +143,7 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 	compat::addAllNumeric(desc);
 
 	boost::program_options::variables_map vm;
-	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response)) 
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 		return;
 	std::string warn, crit;
 
@@ -156,13 +153,13 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 		NSC_LOG_ERROR("Duplicate warnings not supported.");
 	} else if (!warn2.empty()) {
 		boost::replace_all(warn2, ":", " ");
-		warn = "warn=count "+warn2;
+		warn = "warn=count " + warn2;
 	}
 	if (!crit.empty() && !crit2.empty()) {
 		NSC_LOG_ERROR("Duplicate warnings not supported.");
 	} else if (!crit2.empty()) {
 		boost::replace_all(crit2, ":", " ");
-		crit = "crit=count "+crit2;
+		crit = "crit=count " + crit2;
 	}
 	compat::inline_addarg(request, warn);
 	compat::inline_addarg(request, crit);
@@ -188,7 +185,6 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 	check_files(request, response);
 }
 
-
 void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
 	modern_filter::cli_helper<file_filter::filter> filter_helper(request, response, data);
@@ -204,12 +200,12 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", filter.get_format_syntax(), "${name}", "${name}", "No files found", "%(status): All %(count) files are ok");
 	filter_helper.get_desc().add_options()
-		("path", po::value<std::vector<std::string> >(&file_list),	"The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
-		"In other words if one path contains an error the entire check will result in error.")
-		("file", po::value<std::vector<std::string> >(&file_list),	"Alias for path.")
-		("paths", po::value<std::string>(&files_string),			"A comma separated list of paths to scan")
-		("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"),			"The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
-		("max-depth", po::value<int>(&context.max_depth),			"Maximum depth to recurse")
+		("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
+			"In other words if one path contains an error the entire check will result in error.")
+		("file", po::value<std::vector<std::string> >(&file_list), "Alias for path.")
+		("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
+		("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
+		("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
 		("total", po::bool_switch(&total), "Include the total of all matching files")
 		;
 

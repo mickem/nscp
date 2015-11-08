@@ -32,7 +32,6 @@ namespace nsclient_core {
 
 		int generate(std::string target);
 
-
 		void switch_context(std::string contect);
 		std::string expand_context(const std::string &key) const;
 

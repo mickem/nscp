@@ -9,7 +9,7 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-namespace smtp { 
+namespace smtp {
 	namespace client {
 		void smtp_client::send_mail(const std::string sender, const std::list<std::string> &recipients, std::string message) {
 			BOOST_FOREACH(std::string r, recipients) {
@@ -31,8 +31,7 @@ namespace smtp {
 			bool active;
 			{
 				boost::lock_guard<boost::mutex> lg(m);
-				while (!deferred.empty())
-				{
+				while (!deferred.empty()) {
 					ready.push_back(deferred.front());
 					deferred.pop_front();
 					n++;
@@ -43,9 +42,9 @@ namespace smtp {
 			if (active)
 				async_run_queue();
 
-// 			if (n > 0) {
-// 				NSC_DEBUG_MSG(_T("activated ") + strEx::itos(n) + _T(" deferred emails"));
-// 			}
+			// 			if (n > 0) {
+			// 				NSC_DEBUG_MSG(_T("activated ") + strEx::itos(n) + _T(" deferred emails"));
+			// 			}
 		}
 
 		void smtp_client::async_run_queue() {
@@ -57,12 +56,11 @@ namespace smtp {
 			}
 		}
 
-		smtp_client::connection::connection(boost::shared_ptr<smtp_client> sc) 
+		smtp_client::connection::connection(boost::shared_ptr<smtp_client> sc)
 			: sc(sc)
 			, res(sc->io_service)
 			, que("imap.medin.name", "1234")
-			, serv(sc->io_service)
-		{
+			, serv(sc->io_service) {
 			config["canonical-name"] = "test.medin.name";
 		}
 
@@ -70,7 +68,7 @@ namespace smtp {
 			res.async_resolve(que, boost::bind(&connection::resolved, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::iterator));
 		}
 
-		void smtp_client::connection::resolved(boost::system::error_code ec,boost::asio::ip::tcp::resolver::iterator iter) {
+		void smtp_client::connection::resolved(boost::system::error_code ec, boost::asio::ip::tcp::resolver::iterator iter) {
 			if (ec) {
 				NSC_LOG_ERROR("smtp failed resolving: " + ec.message());
 				boost::lock_guard<boost::mutex> lg(sc->m);
@@ -110,7 +108,7 @@ namespace smtp {
 			if (ec) {
 				NSC_LOG_ERROR("smtp failure in reading: " + ec.message());
 				boost::lock_guard<boost::mutex> lg(sc->m);
-				if (cur) 
+				if (cur)
 					sc->ready.push_back(cur);
 				sc->active_connection.reset();
 				return;
@@ -124,19 +122,18 @@ namespace smtp {
 			resp += line;
 
 			if (line.length() >= 4 && line[3] == '-') {
-				boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response,  shared_from_this(), resp, _1, _2));
+				boost::asio::async_read_until(serv, readbuf, "\r\n", boost::bind(&connection::got_response, shared_from_this(), resp, _1, _2));
 				return;
 			}
 			NSC_DEBUG_MSG("smtp read " + resp);
 
-			bool broken_resp = resp.empty() || !('2' <= resp[0] && resp[0] <= '5') || (resp[0] == '3' && (state != DATA || resp.substr(0,3) != "354"));
+			bool broken_resp = resp.empty() || !('2' <= resp[0] && resp[0] <= '5') || (resp[0] == '3' && (state != DATA || resp.substr(0, 3) != "354"));
 
 			// FIXME deferral / drop-on-the-floor notifications
 
-			if (broken_resp || resp[0] == '4')
-			{
+			if (broken_resp || resp[0] == '4') {
 				boost::lock_guard<boost::mutex> lg(sc->m);
-				if (cur) 
+				if (cur)
 					sc->deferred.push_back(cur);
 			}
 
@@ -148,7 +145,7 @@ namespace smtp {
 				return;
 			}
 
-			if ((resp[0] == '4' || resp[0] == '5' || state == DATA_354) && (resp.substr(0,3) != "502" || state != EHLO)) {
+			if ((resp[0] == '4' || resp[0] == '5' || state == DATA_354) && (resp.substr(0, 3) != "502" || state != EHLO)) {
 				cur.reset();
 				if (sc->ready.empty() || state <= RSET) {
 					state = QUIT;
@@ -169,8 +166,7 @@ namespace smtp {
 				send_line("EHLO " + config["canonical-name"]);
 				break;
 			case EHLO:
-				if (resp.substr(0,3) == "502")
-				{
+				if (resp.substr(0, 3) == "502") {
 					state = HELO;
 					send_line("HELO" + config["canonical-name"]);
 					break;
@@ -183,8 +179,7 @@ namespace smtp {
 				assert(!cur);
 				{
 					boost::lock_guard<boost::mutex> lg(sc->m);
-					if (sc->ready.empty())
-					{
+					if (sc->ready.empty()) {
 						state = QUIT;
 						send_line("QUIT");
 						break;
@@ -209,12 +204,12 @@ namespace smtp {
 				send_line("DATA");
 				break;
 			case DATA:
-				assert(resp.substr(0,3) == "354");
+				assert(resp.substr(0, 3) == "354");
 				assert(cur);
 				state = DATA_354;
 				send_raw(cur->data + ".\r\n");
 				break;
-			case DATA_354: 
+			case DATA_354:
 			case QUIT:
 				assert(0); // handled above
 				break;
@@ -227,7 +222,7 @@ namespace smtp {
 
 		void smtp_client::connection::send_raw(std::string raw) {
 			NSC_DEBUG_MSG("smtp sending " + raw);
-			boost::shared_ptr<boost::asio::const_buffers_1> rb(new boost::asio::const_buffers_1 (boost::asio::buffer(raw)));
+			boost::shared_ptr<boost::asio::const_buffers_1> rb(new boost::asio::const_buffers_1(boost::asio::buffer(raw)));
 			boost::asio::async_write(serv, *rb, boost::bind(&connection::sent, shared_from_this(), rb, _1, _2));
 		}
 
@@ -235,7 +230,7 @@ namespace smtp {
 			if (ec) {
 				NSC_LOG_ERROR("smtp failure in reading: " + ec.message());
 				boost::lock_guard<boost::mutex> lg(sc->m);
-				if (cur) 
+				if (cur)
 					sc->ready.push_back(cur);
 				sc->active_connection.reset();
 				return;
