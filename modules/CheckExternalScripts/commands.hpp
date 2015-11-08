@@ -46,6 +46,7 @@ namespace commands {
 
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
+			alias = boost::algorithm::to_lower_copy(alias);
 			set_command(value);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
