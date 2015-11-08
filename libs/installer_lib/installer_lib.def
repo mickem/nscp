@@ -6,3 +6,4 @@ EXPORTS
 	ExecWriteConfig
 	NeedUninstall
 	TranslateSid
+	ApplyTool
