@@ -670,7 +670,7 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	}
 	std::string buffer;
 	nscapi::core_helper ch(get_core(), get_id());
-	if (ch.simple_query(cd.command, args, buffer)) {
+	if (!ch.simple_query(cd.command, args, buffer)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.alias);
 		return;
 	}
