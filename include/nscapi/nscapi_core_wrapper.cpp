@@ -294,7 +294,7 @@ std::string nscapi::core_wrapper::getApplicationVersionString() {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
 	char *buffer = new char[buf_len + 1];
-	if (NSCAPI::api_ok(fNSAPIGetApplicationVersionStr(buffer, buf_len))) {
+	if (!NSCAPI::api_ok(fNSAPIGetApplicationVersionStr(buffer, buf_len))) {
 		delete[] buffer;
 		return "";
 	}
