@@ -54,28 +54,13 @@ namespace graphite_client {
 				if (con.send_perf) {
 					BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
 						BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
-						g_data d;
-						double value = 0.0;
-						d.path = tmp_path;
-						strEx::replace(d.path, "${perf_alias}", perf.alias());
-						if (perf.has_float_value()) {
-							if (perf.float_value().has_value())
-								value = perf.float_value().value();
-							else
-								NSC_LOG_ERROR("Unsopported performance data (no value)");
-						} else if (perf.has_int_value()) {
-							if (perf.int_value().has_value())
-								value = static_cast<double>(perf.int_value().value());
-							else
-								NSC_LOG_ERROR("Unsopported performance data (no value)");
-						} else {
-							NSC_LOG_ERROR("Unsopported performance data type: " + perf.alias());
-							continue;
-						}
-						strEx::replace(d.path, " ", "_");
-						d.value = strEx::s::xtos(value);
-						list.push_back(d);
-
+							g_data d;
+							d.path = tmp_path;
+							strEx::replace(d.path, "${perf_alias}", perf.alias());
+							d.value = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+							strEx::replace(d.path, " ", "_");
+							strEx::replace(d.path, "\\", "_");
+							list.push_back(d);
 						}
 					}
 				}
