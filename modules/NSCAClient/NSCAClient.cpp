@@ -131,6 +131,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			strEx::replace(hostname_, "${host_lc}", dn.first);
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
+		client_.set_sender(hostname_);
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
