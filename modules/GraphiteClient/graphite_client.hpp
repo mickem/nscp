@@ -80,6 +80,10 @@ namespace graphite_client {
 				}
 
 			}
+			if (list.empty()) {
+				nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), std::string("No performance data to send"));
+				return true;
+			}
 			send(response_message.add_payload(), con, list);
 			return true;
 		}
