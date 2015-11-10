@@ -6,8 +6,10 @@
 namespace graphite_client {
 	struct connection_data : public socket_helpers::connection_info {
 		std::string ppath;
+		std::string spath;
 		std::string sender_hostname;
 		bool send_perf;
+		bool send_status;
 
 		connection_data(client::destination_container sender, client::destination_container target) {
 			address = target.address.host;
@@ -15,7 +17,9 @@ namespace graphite_client {
 			timeout = target.get_int_data("timeout", 30);
 			retry = target.get_int_data("retry", 3);
 			ppath = target.get_string_data("perf path");
+			spath = target.get_string_data("status path");
 			send_perf = target.get_bool_data("send perfdata");
+			send_status = target.get_bool_data("send status");
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
 		}
@@ -43,7 +47,9 @@ namespace graphite_client {
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			std::string ppath = con.ppath;
+			std::string spath = con.spath;
 			strEx::replace(ppath, "${hostname}", con.sender_hostname);
+			strEx::replace(spath, "${hostname}", con.sender_hostname);
 
 			std::list<g_data> list;
 
@@ -64,6 +70,15 @@ namespace graphite_client {
 						}
 					}
 				}
+				if (con.send_status) {
+					g_data d;
+					d.path = spath;
+					strEx::replace(d.path, "${check_alias}", p.alias());
+					strEx::replace(d.path, " ", "_");
+					d.value = strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
+					list.push_back(d);
+				}
+
 			}
 			send(response_message.add_payload(), con, list);
 			return true;
