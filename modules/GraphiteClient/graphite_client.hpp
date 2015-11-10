@@ -22,6 +22,8 @@ namespace graphite_client {
 			send_status = target.get_bool_data("send status");
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
+			else 
+				sender_hostname = sender.get_host();
 		}
 
 		std::string to_string() const {
