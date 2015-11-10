@@ -392,6 +392,17 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			}
 		}
 
+		std::wstring confSet = h.getPropery(_T("CONF_SET"));
+		h.logMessage(_T("Adding conf: ") + confSet);
+		if (!confSet.empty()) {
+			std::vector<std::wstring> lst;
+			boost::split(lst, confSet, boost::is_any_of(_T(";")));
+			for (int i = 0; i + 2 < lst.size(); i += 3) {
+				h.logMessage(_T(" + : ") + lst[i] + _T(" ") + lst[i + 1] + _T("=") + lst[i + 2]);
+				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
+			}
+		}
+
 		std::wstring modpath = _T(MAIN_MODULES_SECTION);
 		write_changed_key(h, data, _T("CONF_NRPE"), modpath, _T("NRPEServer"));
 		write_changed_key(h, data, _T("CONF_SCHEDULER"), modpath, _T("Scheduler"));
