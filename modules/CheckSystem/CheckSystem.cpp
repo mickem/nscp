@@ -629,10 +629,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 	long long uptime = static_cast<long long>(value);
 	boost::shared_ptr<check_uptime_filter::filter_obj> record(new check_uptime_filter::filter_obj(uptime, now_delta, boot));
 	filter.match(record);
-	/*
-	modern_filter::perf_writer scaler(response);
-	filter_helper.post_process(filter, &scaler);
-	*/
+	filter_helper.post_process(filter);
 }
 
 void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
