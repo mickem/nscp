@@ -268,7 +268,9 @@ namespace check_svc_filter {
 namespace check_uptime_filter {
 
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(subject->get_string_value(context)));
+		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "d");
+		std::string expr = strEx::s::xtos(value.get<0>()) + value.get<1>();
+		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(expr));
 	}
 
 	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
