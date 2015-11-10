@@ -15,6 +15,10 @@
 
 typedef parsers::where::realtime_filter_helper<runtime_data, eventlog_filter::filter_config_object> filter_helper;
 
+void real_time_thread::set_path(const std::string &p) {
+	filters_.set_path(p);
+}
+
 void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;

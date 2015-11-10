@@ -34,7 +34,6 @@ class GraphiteClient : public nscapi::impl::simple_plugin {
 private:
 
 	std::string channel_;
-	std::string target_path;
 	std::string hostname_;
 
 	client::configuration client_;

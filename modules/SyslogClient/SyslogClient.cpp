@@ -52,7 +52,7 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("syslog", alias, "client");
-		target_path = settings.alias().get_settings_path("targets");
+		client_.set_path(settings.alias().get_settings_path("targets"));
 
 		settings.alias().add_path_to_settings()
 			("SYSLOG CLIENT SECTION", "Section for SYSLOG passive check module.")

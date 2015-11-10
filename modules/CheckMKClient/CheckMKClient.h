@@ -41,7 +41,6 @@ private:
 	boost::shared_ptr<scripts::nscp::nscp_runtime_impl> nscp_runtime_;
 	boost::filesystem::path root_;
 	std::string channel_;
-	std::string target_path;
 	std::string hostname_;
 	std::string encoding_;
 
