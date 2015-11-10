@@ -5,15 +5,17 @@
 
 namespace graphite_client {
 	struct connection_data : public socket_helpers::connection_info {
-		std::string path;
+		std::string ppath;
 		std::string sender_hostname;
+		bool send_perf;
 
-		connection_data(client::destination_container arguments, client::destination_container sender) {
-			address = arguments.address.host;
-			port_ = arguments.address.get_port_string("2003");
-			timeout = arguments.get_int_data("timeout", 30);
-			retry = arguments.get_int_data("retry", 3);
-			path = arguments.get_string_data("path");
+		connection_data(client::destination_container sender, client::destination_container target) {
+			address = target.address.host;
+			port_ = target.address.get_port_string("2003");
+			timeout = target.get_int_data("timeout", 30);
+			retry = target.get_int_data("retry", 3);
+			ppath = target.get_string_data("perf path");
+			send_perf = target.get_bool_data("send perfdata");
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
 		}
@@ -40,17 +42,18 @@ namespace graphite_client {
 			connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-			std::string path = con.path;
-			strEx::replace(path, "${hostname}", con.sender_hostname);
+			std::string ppath = con.ppath;
+			strEx::replace(ppath, "${hostname}", con.sender_hostname);
 
 			std::list<g_data> list;
 
 			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
-				std::string tmp_path = path;
+				std::string tmp_path = ppath;
 				strEx::replace(tmp_path, "${check_alias}", p.alias());
 
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
-					BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
+				if (con.send_perf) {
+					BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
+						BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
 						g_data d;
 						double value = 0.0;
 						d.path = tmp_path;
@@ -72,6 +75,8 @@ namespace graphite_client {
 						strEx::replace(d.path, " ", "_");
 						d.value = strEx::s::xtos(value);
 						list.push_back(d);
+
+						}
 					}
 				}
 			}
