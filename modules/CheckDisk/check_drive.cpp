@@ -486,6 +486,7 @@ public:
 			ret.push_back(volume);
 			bFlag = FindNextVolumeMountPoint(hVol, volume);
 		}
+		CloseHandle(hVol);
 		return ret;
 	}
 
@@ -512,6 +513,7 @@ public:
 				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false));
 			bFlag = FindNextVolume(hVol, volume);
 		}
+		FindVolumeClose(hVol);
 		return ret;
 	}
 
@@ -545,10 +547,13 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
 
 void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
 	DWORD bufSize = GetLogicalDriveStrings(0, NULL) + 5;
-	TCHAR *buffer = new TCHAR[bufSize + 10];
-	if (GetLogicalDriveStrings(bufSize, buffer) > 0) {
-		while (buffer[0] != 0) {
-			std::wstring drv = buffer;
+	hlp::tchar_buffer buffer(bufSize);
+
+	if (GetLogicalDriveStrings(bufSize, buffer.get()) > 0) {
+		for (std::size_t i = 0; i < buffer.size();) {
+			std::wstring drv = buffer.get(i);
+			if (drv.empty())
+				break;
 			std::string drive = utf8::cvt<std::string>(drv);
 			if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
 				std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(drv);
@@ -557,8 +562,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 					title = utf8::cvt<std::string>(helper.get_title(volume));
 				add_missing(drives, exclude_drives, drive_container(utf8::cvt<std::string>(volume), drive, title, true));
 			}
-			buffer = &buffer[drv.size()];
-			buffer++;
+			i += drv.size()+1;
 		}
 	} else
 		throw nscp_exception("Failed to get volume list: " + error::lookup::last_error());
