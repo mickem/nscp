@@ -1221,10 +1221,17 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 		}
 		try {
 			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
-				p->handleNotification(cur_chan.c_str(), request, response);
+				try {
+					p->handleNotification(cur_chan.c_str(), request, response);
+				} catch (...) {
+					LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
+				}
 				found = true;
 			}
 		} catch (nsclient::plugins_list_exception &e) {
+			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
+			return NSCAPI::api_return_codes::hasFailed;
+		} catch (const std::exception &e) {
 			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::api_return_codes::hasFailed;
 		} catch (...) {
@@ -1233,7 +1240,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 		}
 	}
 	if (!found) {
-		LOG_ERROR_CORE("No handler for channel: " + schannel);
+		LOG_ERROR_CORE("No handler for channel: " + schannel + " channels: " + channels_.to_string());
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;
