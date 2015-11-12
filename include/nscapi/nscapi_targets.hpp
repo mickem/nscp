@@ -43,7 +43,7 @@ namespace nscapi {
 			}
 			*/
 			void set_address(std::string value) {
-				options["address"] = value;
+				set_property_string("address", value);
 			}
 
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
@@ -115,13 +115,13 @@ namespace nscapi {
 
 			virtual void translate(const std::string &key, const std::string &value) {
 				if (key == "host") {
-					net::url n = net::parse(options["address"]);
+					net::url n = net::parse(get_property_string("address"));
 					n.host = value;
-					options["address"] = n.to_string();
+					set_property_string("address", n.to_string());
 				} else if (key == "port") {
-					net::url n = net::parse(options["address"]);
+					net::url n = net::parse(get_property_string("address"));
 					n.port = strEx::s::stox<unsigned int>(value);
-					options["address"] = n.to_string();
+					set_property_string("address", n.to_string());
 				} else
 					parent::translate(key, value);
 			}

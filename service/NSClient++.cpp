@@ -1204,6 +1204,11 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 
 	bool found = false;
 	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
+		if (cur_chan == "noop") {
+			found = true;
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			continue;
+		}
 		if (cur_chan == "log") {
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
@@ -1216,10 +1221,17 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 		}
 		try {
 			BOOST_FOREACH(nsclient::plugin_type p, channels_.get(cur_chan)) {
-				p->handleNotification(cur_chan.c_str(), request, response);
+				try {
+					p->handleNotification(cur_chan.c_str(), request, response);
+				} catch (...) {
+					LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
+				}
 				found = true;
 			}
 		} catch (nsclient::plugins_list_exception &e) {
+			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
+			return NSCAPI::api_return_codes::hasFailed;
+		} catch (const std::exception &e) {
 			LOG_ERROR_CORE("No handler for channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
 			return NSCAPI::api_return_codes::hasFailed;
 		} catch (...) {
@@ -1228,7 +1240,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 		}
 	}
 	if (!found) {
-		LOG_ERROR_CORE("No handler for channel: " + schannel);
+		LOG_ERROR_CORE("No handler for channel: " + schannel + " channels: " + channels_.to_string());
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;
@@ -2189,16 +2201,22 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 struct metrics_fetcher {
 	Plugin::MetricsMessage result;
 	std::string buffer;
+	metrics_fetcher() {
+		result.add_payload();
+	}
 	void fetch(nsclient::plugin_type p) {
 		std::string buffer;
 		p->fetchMetrics(buffer);
 		Plugin::MetricsMessage payload;
 		payload.ParseFromString(buffer);
 		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
-			result.add_payload()->CopyFrom(r);
+			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
+				result.mutable_payload(0)->add_bundles()->CopyFrom(b);
+			}
 		}
 	}
 	void render() {
+		result.mutable_payload(0)->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		buffer = result.SerializeAsString();
 	}
 	void digest(nsclient::plugin_type p) {

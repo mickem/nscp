@@ -19,7 +19,6 @@ struct real_time_thread {
 
 	bool cache_;
 	bool debug_;
-	std::string filters_path_;
 
 	real_time_thread(nscapi::core_wrapper *core, int plugin_id) : core(core), plugin_id(plugin_id), enabled_(false), start_age_(0), debug_(false), cache_(false) {
 		set_start_age("30m");
@@ -39,6 +38,8 @@ struct real_time_thread {
 	bool has_filters() {
 		return !filters_.has_objects();
 	}
+
+	void set_path(const std::string &p);
 	bool start();
 	bool stop();
 

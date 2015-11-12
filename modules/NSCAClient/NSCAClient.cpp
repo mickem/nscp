@@ -50,9 +50,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("NSCA", alias, "client");
-		std::string target_path = settings.alias().get_settings_path("targets");
-
-		client_.set_path(target_path);
+		client_.set_path(settings.alias().get_settings_path("targets"));
 
 		settings.alias().add_path_to_settings()
 			("NSCA CLIENT SECTION", "Section for NSCA passive check module.")
@@ -131,6 +129,7 @@ bool NSCAClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			strEx::replace(hostname_, "${host_lc}", dn.first);
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
+		client_.set_sender(hostname_);
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;

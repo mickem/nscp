@@ -52,7 +52,7 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("SMTP", alias, "client");
-		target_path = settings.alias().get_settings_path("targets");
+		client_.set_path(settings.alias().get_settings_path("targets"));
 
 		settings.alias().add_path_to_settings()
 			("SMTP CLIENT SECTION", "Section for SMTP passive check module.")

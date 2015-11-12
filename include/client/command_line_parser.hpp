@@ -328,6 +328,7 @@ namespace client {
 
 		std::string title;
 		std::string default_command;
+		std::string default_sender;
 		command_type commands;
 
 		configuration(std::string caption, handler_type handler, options_reader_type reader)
@@ -344,6 +345,10 @@ namespace client {
 
 		void set_path(std::string path) {
 			targets.set_path(path);
+		}
+
+		void set_sender(std::string _sender) {
+			default_sender = _sender;
 		}
 
 		void add_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string value) {

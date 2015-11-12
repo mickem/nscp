@@ -28,6 +28,10 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 
+#if BOOST_VERSION >= 105300
+#include <boost/interprocess/detail/atomic.hpp>
+#endif
+
 namespace sh = nscapi::settings_helper;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -87,8 +91,21 @@ bool Scheduler::unloadModule() {
 void Scheduler::on_error(std::string error) {
 	NSC_LOG_ERROR(error);
 }
+
+#if BOOST_VERSION >= 105300
+volatile boost::uint32_t taskes = 0;
+volatile boost::uint32_t submitted = 0;
+volatile boost::uint32_t errors = 0;
+using namespace boost::interprocess::ipcdetail;
+#else
+volatile int taskes = 0;
+volatile int submitted = 0;
+volatile int errors = 0;
+void atomic_inc32(&errors) {}
+#endif
 #include <nscapi/functions.hpp>
 void Scheduler::handle_schedule(schedules::schedule_object item) {
+	atomic_inc32(&taskes);
 	try {
 		std::string response;
 		nscapi::core_helper ch(get_core(), get_id());
@@ -96,6 +113,7 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 			NSC_LOG_ERROR("Failed to execute: " + item.command);
 			if (item.channel.empty()) {
 				NSC_LOG_ERROR_WA("No channel specified for ", item.alias);
+				atomic_inc32(&errors);
 				return;
 			}
 			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item.command, "", response);
@@ -114,32 +132,64 @@ void Scheduler::handle_schedule(schedules::schedule_object item) {
 		if (resp_msg_send.payload_size() > 0) {
 			if (item.channel.empty()) {
 				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.alias) + " mssage will not be sent.");
+				atomic_inc32(&errors);
 				return;
 			}
-			// @todo: allow renaming of commands here item.alias,
-			// @todo this is broken, fix this (uses the wrong message)
 			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id, item.source_id);
 			std::string result;
+			atomic_inc32(&submitted);
 			if (!get_core()->submit_message(item.channel, response, result)) {
 				NSC_LOG_ERROR_STD("Failed to submit: " + item.alias);
+				atomic_inc32(&errors);
 				return;
 			}
 			std::string error;
 			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
 				NSC_LOG_ERROR_STD("Failed to submit " + item.alias + ": " + error);
+				atomic_inc32(&errors);
 				return;
 			}
 		} else {
 			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported");
 		}
 	} catch (nscapi::nscapi_exception &e) {
+		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
 		scheduler_.remove_task(item.id);
 	} catch (std::exception &e) {
+		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Exception: ", e);
 		scheduler_.remove_task(item.id);
 	} catch (...) {
+		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EX(item.alias);
 		scheduler_.remove_task(item.id);
 	}
+}
+
+void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+
+#if BOOST_VERSION >= 105300
+	boost::uint64_t taskes__ = atomic_read32(&taskes);
+	boost::uint64_t submitted__ = atomic_read32(&submitted);
+	boost::uint64_t errors__ = atomic_read32(&errors);
+
+	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	Plugin::Common::Metric *m = bundle->add_value();
+	m->set_key("jobs");
+	m->mutable_value()->set_int_data(taskes__);
+	m = bundle->add_value();
+	m->set_key("submitted");
+	m->mutable_value()->set_int_data(submitted__);
+	m = bundle->add_value();
+	m->set_key("errors");
+	m->mutable_value()->set_int_data(errors__);
+	bundle->set_key("scheduler");
+#else
+	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	Plugin::Common::Metric *m = bundle->add_value();
+	m->set_key("unavailable");
+	m->mutable_value()->set_string_data("true");
+	m = bundle->add_value();
+#endif
 }

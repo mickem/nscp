@@ -18,8 +18,11 @@ namespace graphite_handler {
 		typedef nscapi::targets::target_object parent;
 
 		graphite_target_object(std::string alias, std::string path) : parent(alias, path) {
+			set_property_bool("send perfdata", true);
+			set_property_bool("send status", true);
 			set_property_int("timeout", 30);
-			set_property_string("path", "/nsclient++");
+			set_property_string("perf path", "system.${hostname}.${check_alias}.${perf_alias}");
+			set_property_string("status path", "system.${hostname}.${check_alias}.status");
 		}
 		graphite_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
@@ -34,10 +37,21 @@ namespace graphite_handler {
 
 			root_path.add_key()
 
-				("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
-					"PATH FOR VALUES", "Path mapping for metrics")
+				("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1)),
+					"PATH FOR METRICS", "Path mapping for metrics")
+
+				("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1)),
+					"PATH FOR STATUS", "Path mapping for status")
+
+				("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
+					"SEND PERF DATA", "Send performance data to this server")
+
+				("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1)),
+					"SEND STATUS", "Send status data to this server")
 
 				;
+			settings.register_all();
+			settings.notify();
 		}
 	};
 

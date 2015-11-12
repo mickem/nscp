@@ -58,7 +58,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("check_mk", alias, "client");
-		target_path = settings.alias().get_settings_path("targets");
+		client_.set_path(settings.alias().get_settings_path("targets"));
 
 		settings.alias().add_path_to_settings()
 			("CHECK MK CLIENT SECTION", "Section for check_mk active/passive check module.")

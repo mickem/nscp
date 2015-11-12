@@ -99,8 +99,6 @@ namespace process_helper {
 			return TRUE;
 		PDWORD result;
 		if (!SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 500, reinterpret_cast<PDWORD_PTR>(&result))) {
-			if (data->error_interface != NULL)
-				data->error_interface->report_debug("pid: " + strEx::s::xtos(pid) + " was hung");
 			data->crashed_pids.push_back(pid);
 		}
 		return TRUE;

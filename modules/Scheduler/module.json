@@ -5,5 +5,8 @@
 		"name"			: "Scheduler",
 		"alias"			: "schedule",
 		"version"		: "auto"
-	}
+	},
+
+	"metrics" : "produce"
+
 }

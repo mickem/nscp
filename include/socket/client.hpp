@@ -93,6 +93,7 @@ namespace socket_helpers {
 					close_socket();
 					timer_result_.reset();
 					wait();
+					cancel_timer();
 					return boost::optional<typename protocol_type::response_type>();
 				}
 				cancel_timer();

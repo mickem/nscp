@@ -5,17 +5,25 @@
 
 namespace graphite_client {
 	struct connection_data : public socket_helpers::connection_info {
-		std::string path;
+		std::string ppath;
+		std::string spath;
 		std::string sender_hostname;
+		bool send_perf;
+		bool send_status;
 
-		connection_data(client::destination_container arguments, client::destination_container sender) {
-			address = arguments.address.host;
-			port_ = arguments.address.get_port_string("2003");
-			timeout = arguments.get_int_data("timeout", 30);
-			retry = arguments.get_int_data("retry", 3);
-			path = arguments.get_string_data("path");
+		connection_data(client::destination_container sender, client::destination_container target) {
+			address = target.address.host;
+			port_ = target.address.get_port_string("2003");
+			timeout = target.get_int_data("timeout", 30);
+			retry = target.get_int_data("retry", 3);
+			ppath = target.get_string_data("perf path");
+			spath = target.get_string_data("status path");
+			send_perf = target.get_bool_data("send perfdata");
+			send_status = target.get_bool_data("send status");
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
+			else 
+				sender_hostname = sender.get_host();
 		}
 
 		std::string to_string() const {
@@ -40,40 +48,43 @@ namespace graphite_client {
 			connection_data con(sender, target);
 
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
-			std::string path = con.path;
-			strEx::replace(path, "${hostname}", con.sender_hostname);
+			std::string ppath = con.ppath;
+			std::string spath = con.spath;
+			strEx::replace(ppath, "${hostname}", con.sender_hostname);
+			strEx::replace(spath, "${hostname}", con.sender_hostname);
 
 			std::list<g_data> list;
 
 			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
-				std::string tmp_path = path;
+				std::string tmp_path = ppath;
 				strEx::replace(tmp_path, "${check_alias}", p.alias());
 
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
-					BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
-						g_data d;
-						double value = 0.0;
-						d.path = tmp_path;
-						strEx::replace(d.path, "${perf_alias}", perf.alias());
-						if (perf.has_float_value()) {
-							if (perf.float_value().has_value())
-								value = perf.float_value().value();
-							else
-								NSC_LOG_ERROR("Unsopported performance data (no value)");
-						} else if (perf.has_int_value()) {
-							if (perf.int_value().has_value())
-								value = static_cast<double>(perf.int_value().value());
-							else
-								NSC_LOG_ERROR("Unsopported performance data (no value)");
-						} else {
-							NSC_LOG_ERROR("Unsopported performance data type: " + perf.alias());
-							continue;
+				if (con.send_perf) {
+					BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
+						BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
+							g_data d;
+							d.path = tmp_path;
+							strEx::replace(d.path, "${perf_alias}", perf.alias());
+							d.value = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
+							strEx::replace(d.path, " ", "_");
+							strEx::replace(d.path, "\\", "_");
+							list.push_back(d);
 						}
-						strEx::replace(d.path, " ", "_");
-						d.value = strEx::s::xtos(value);
-						list.push_back(d);
 					}
 				}
+				if (con.send_status) {
+					g_data d;
+					d.path = spath;
+					strEx::replace(d.path, "${check_alias}", p.alias());
+					strEx::replace(d.path, " ", "_");
+					d.value = strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
+					list.push_back(d);
+				}
+
+			}
+			if (list.empty()) {
+				nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), std::string("No performance data to send"));
+				return true;
 			}
 			send(response_message.add_payload(), con, list);
 			return true;

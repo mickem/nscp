@@ -119,7 +119,9 @@ namespace strEx {
 	inline unsigned stoui_as_time_sec(std::string time, unsigned int smallest_unit = 1) {
 		std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 		std::string::size_type pend = time.find_first_not_of("0123456789");
-		unsigned int value = boost::lexical_cast<unsigned int>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
+		unsigned int value = 0;
+		if (pend != std::string::npos && pend > 0)
+			value = boost::lexical_cast<unsigned int>(time.substr(0, pend).c_str());
 		if (p == std::string::npos)
 			return value * smallest_unit;
 		else if ((time[p] == 's') || (time[p] == 'S'))

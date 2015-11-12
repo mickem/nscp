@@ -25,6 +25,10 @@ namespace nscapi {
 				object = parent;
 		}
 
+		inline std::string make_obj_path(const std::string &base_path, const std::string &alias) {
+			return base_path + "/" + alias;
+		}
+
 		typedef boost::unordered_map<std::string, std::string> options_map;
 
 		struct object_instance_interface {
@@ -32,26 +36,27 @@ namespace nscapi {
 			typedef std::map<std::string, std::string> options_map;
 
 			std::string alias;
-			std::string base_path;
-		private:
-			std::string path;
-		public:
 			bool is_template;
+		private:
+			std::string base_path;
+			std::string path;
 			std::string parent;
-
-			std::string value;
 			options_map options;
 
-			object_instance_interface(std::string alias, std::string inPath)
+		public:
+
+			std::string value;
+
+			object_instance_interface(std::string alias, std::string base_path)
 				: alias(alias)
-				, base_path(inPath)
-				, path(inPath + "/" + alias)
+				, base_path(base_path)
+				, path(make_obj_path(base_path, alias))
 				, is_template(false)
 				, parent("default") {}
-			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string inPath)
+			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string base_path)
 				: alias(alias)
-				, base_path(inPath)
-				, path(inPath + "/" + alias)
+				, base_path(base_path)
+				, path(make_obj_path(base_path, alias))
 				, is_template(false)
 				, parent(other->alias) {
 				value = other->value;
@@ -106,6 +111,10 @@ namespace nscapi {
 				return path;
 			}
 
+			std::string get_base_path() const {
+				return base_path;
+			}
+
 			virtual std::string to_string() const {
 				std::stringstream ss;
 				ss << "{alias: " << alias
@@ -158,7 +167,7 @@ namespace nscapi {
 					return value;
 				return cit->second == "true";
 			}
-			std::string get_property_string(std::string key, std::string value) {
+			std::string get_property_string(std::string key, std::string value = "") {
 				options_map::const_iterator cit = options.find(key);
 				if (cit == options.end())
 					return value;
@@ -243,21 +252,28 @@ namespace nscapi {
 				if (previous) {
 					return previous;
 				}
-				object_instance object = factory->create(alias, path);
 
+				object_instance object;
 				if (proxy) {
-					std::list<std::string> keys = proxy->get_keys(object->get_path());
-					std::string parent_name = proxy->get_string(object->get_path(), "parent", "default");
+					std::list<std::string> keys = proxy->get_keys(make_obj_path(path, alias));
+					std::string parent_name = proxy->get_string(make_obj_path(path, alias), "parent", "default");
 					if (!parent_name.empty() && parent_name != alias) {
-						object_instance parent = add(proxy, parent_name, "", true);
+						object_instance parent;
+						if (has_object(parent_name))
+							parent = find_object(parent_name);
+						else
+							parent = add(proxy, parent_name, "", true);
 						if (parent) {
 							object = factory->clone(parent, alias, path);
 							object->is_template = false;
 						}
+					} else {
+						object = factory->create(alias, path);
 					}
 					object->value = value;
 					object->read(proxy, keys.empty(), false);
 				} else {
+					object = factory->create(alias, path);
 					object->value = value;
 				}
 				if (is_template || object->is_template) {

@@ -151,6 +151,7 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
 		destination_container d;
 		destination_container s;
+		s.set_address(default_sender);
 
 		// If we have a target, apply it
 		object_handler_type::object_instance op = targets.find_object(t);
@@ -304,6 +305,7 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
 		destination_container d;
 		destination_container s;
+		s.set_address(default_sender);
 
 		// If we have a target, apply it
 		object_handler_type::object_instance op = targets.find_object(t);
@@ -477,6 +479,7 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
 		destination_container d;
 		destination_container s;
+		s.set_address(default_sender);
 
 		// If we have a target, apply it
 		object_handler_type::object_instance op = targets.find_object(t);

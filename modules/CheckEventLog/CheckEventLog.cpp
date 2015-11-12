@@ -74,7 +74,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		NSC_LOG_ERROR_STD("Failed to create thread container");
 		return false;
 	}
-	thread_->filters_path_ = settings.alias().get_settings_path("real-time/filters");
+	thread_->set_path(settings.alias().get_settings_path("real-time/filters"));
 
 	settings.alias().add_path_to_settings()
 		("EVENT LOG SECTION", "Section for the EventLog Checker (CheckEventLog.dll).")
