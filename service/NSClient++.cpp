@@ -1186,6 +1186,11 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 
 	bool found = false;
 	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
+		if (cur_chan == "noop") {
+			found = true;
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			continue;
+		}
 		if (cur_chan == "log") {
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
