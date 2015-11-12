@@ -38,6 +38,9 @@ public:
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
 
+	// Metrics
+	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+
 	void add_schedule(std::string alias, std::string command);
 	void handle_schedule(schedules::schedule_object item);
 	void on_error(std::string error);
