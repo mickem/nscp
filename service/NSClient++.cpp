@@ -2201,16 +2201,22 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 struct metrics_fetcher {
 	Plugin::MetricsMessage result;
 	std::string buffer;
+	metrics_fetcher() {
+		result.add_payload();
+	}
 	void fetch(nsclient::plugin_type p) {
 		std::string buffer;
 		p->fetchMetrics(buffer);
 		Plugin::MetricsMessage payload;
 		payload.ParseFromString(buffer);
 		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
-			result.add_payload()->CopyFrom(r);
+			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
+				result.mutable_payload(0)->add_bundles()->CopyFrom(b);
+			}
 		}
 	}
 	void render() {
+		result.mutable_payload(0)->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		buffer = result.SerializeAsString();
 	}
 	void digest(nsclient::plugin_type p) {
