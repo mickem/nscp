@@ -101,7 +101,7 @@ using namespace boost::interprocess::ipcdetail;
 volatile int taskes = 0;
 volatile int submitted = 0;
 volatile int errors = 0;
-void atomic_inc32(&errors) {}
+void atomic_inc32(volatile int *i) {}
 #endif
 #include <nscapi/functions.hpp>
 void Scheduler::handle_schedule(schedules::schedule_object item) {
