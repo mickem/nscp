@@ -18,6 +18,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.title = ko.observable(entry['info']['title'])
 		self.desc = ko.observable(entry['info']['description'])
 		self.is_loaded = ko.observable(false)
+		self.is_busy = ko.observable(false)
 		self.showDetails = ko.observable(false);
 		self.is_enabled = ko.observable(false);
 		self.keys = ko.observableArray([]);
@@ -31,15 +32,19 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		
 		self.load = function() {
 			gs.busy('Loading', self.name())
+			self.is_busy(true);
 			server.json_get("/registry/control/module/load?name="+self.name(), function(data) {
-				self.is_loaded(true);
-				self.refresh_settings()
-				self.refresh_queries(false, true)
+				self.is_loaded(true)
+				self.refresh(function() {
+					self.is_busy(false);
+				})
 			})
 		}
 		self.unload = function() {
 			gs.busy('Unloading', self.name())
+			self.is_busy(true);
 			server.json_get("/registry/control/module/unload?name="+self.name(), function(data) {
+				self.is_busy(false);
 				self.is_loaded(false);
 				self.keys([])
 				self.queries([])
@@ -47,13 +52,25 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			})
 		}
 		
-		self.refresh = function() {
-			self.refresh_settings()
-			self.refresh_queries(false, true)
+		self.refresh = function(on_done) {
+			var count = 2;
+			self.refresh_settings(function() { 
+				count--;
+				if (count <=0 ) {
+					if (on_done)
+						on_done()
+				}
+			})
+			self.refresh_queries(function() { 
+				count--;
+				if (count <=0 ) {
+					if (on_done)
+						on_done()
+				}
+			}, true)
 		}
 		self.show = function() {
-			self.refresh_settings()
-			self.refresh_queries()
+			self.refresh()
 		}
 		self.showMore = function() {
 			self.showDetails(!self.showDetails());
@@ -70,22 +87,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		}
 		
 		self.update_enable = function(name, status) {
-			root={}
-			root['type'] = 'SettingsRequestMessage';
-			root['payload'] = [];
-			payload = {}
-			payload['plugin_id'] = 1234
-			payload['update'] = {}
-			payload['update']['node'] = {}
-			payload['update']['node']['path'] = '/modules'
-			payload['update']['node']['key'] = name
-			payload['update']['value'] = {}
-			payload['update']['value']['string_data'] = status
-			root['payload'].push(payload)
-			gs.busy('Saving', 'Refresing ' + name + '...')
-			server.json_post("/settings/query.json", JSON.stringify(root), function(data) {
-				gs.not_busy()
-			})
+			settings.save_key('/modules', name, status)
+			settings.save()
 		}
 		self.enable_module = function() {
 			self.update_enable(self.name(), 'enabled')
@@ -96,7 +99,11 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			self.refresh_settings()
 		}
 		self.refresh_settings = function(on_done) {
-			settings.find_templates(function (i) { console.log(i); console.log(i.plugin + "==" + self.name()); return i.plugin == self.name() }, function (tpls) { console.log(tpls); self.templates(tpls)})
+			settings.find_templates(function (i) { 
+				return i.plugin == self.name() 
+			}, function (tpls) { 
+				self.templates(tpls)
+			})
 			
 			if (!self.is_loaded() || self.keys.length > 0) {
 				if (on_done)

@@ -43,8 +43,12 @@
 					</li>
 					<li class="list-group-item">
 						<div class="pull-left">
-							<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded(), clickBubble: false"></i>
-							<i class="state-icon fa fa-2x fa-check-circle-o" data-bind="click: unload, visible: is_loaded(), clickBubble: false"></i>
+						
+						
+							<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded() && !is_busy(), clickBubble: false"></i>
+							<i class="state-icon fa fa-2x fa-check-circle-o" data-bind="click: unload, visible: is_loaded() && !is_busy(), clickBubble: false"></i>
+							<i class="state-icon fa fa-2x fa-spinner fa-spin" data-bind="visible: is_busy()"></i>
+						
 						</div>
 						<h4 class="list-group-item-heading">
 							<span data-bind="visible: is_loaded()">Module is loaded</span>

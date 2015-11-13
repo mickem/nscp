@@ -8,8 +8,9 @@
 <div class="list-group checked-list-box modules" data-bind="foreach: modules">
 		<a class="list-group-item" href="" data-bind="attr: { href: '#/modules/' + id, title: desc }">
 			<div class="pull-left">
-				<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded(), clickBubble: false"></i>
-				<i class="state-icon fa fa-2x fa-check-circle-o" data-bind="click: unload, visible: is_loaded(), clickBubble: false"></i>
+				<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded() && !is_busy(), clickBubble: false"></i>
+				<i class="state-icon fa fa-2x fa-check-circle-o" data-bind="click: unload, visible: is_loaded() && !is_busy(), clickBubble: false"></i>
+				<i class="state-icon fa fa-2x fa-spinner fa-spin" data-bind="visible: is_busy()"></i>
 			</div>
 			<span class="badge" style="background-color: #47A447;border-color: #398439;" data-bind="visible: is_enabled">enabled</span>
 			<div class="pull-left desc">
