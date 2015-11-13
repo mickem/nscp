@@ -289,9 +289,9 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.refresh_paths = function(handler, on_done) {
 			gs.busy('Refreshing', 'paths...')
 			server.json_get("/settings/inventory?path=/&recursive=true&paths=true", function(data) {
+				path_map = {}
+				paths = []
 				if (data['payload'][0]['inventory']) {
-					paths = []
-					path_map = {}
 					data['payload'][0]['inventory'].forEach(function(entry) {
 						var p = new PathEntry(entry)
 						if (handler)
@@ -299,16 +299,16 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 						paths.push(p);
 						path_map[p.path] = p
 					});
-					self.path_map = path_map;
-					self.paths(paths)
 				}
-				self.paths().forEach(function (e) {
-					if (e.parentPath in self.path_map) {
-						e.set_parent(self.path_map[e.parentPath])
+				paths.forEach(function (e) {
+					if (e.parentPath in path_map) {
+						e.set_parent(path_map[e.parentPath])
 					} else {
-						e.set_parent(self.addParentNode(e.parentPath))
+						e.set_parent(self.addParentNode(path_map, e.parentPath))
 					}
 				})
+				self.path_map = path_map;
+				self.paths(paths)
 				gs.not_busy();
 				self.refresh_keys(false, function (keys) {
 				if (on_done)
@@ -317,6 +317,11 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			})
 		}
 		self.refresh_keys = function(handler, on_done) {
+			self.lazy_refresh_paths(function() {
+				self.do_refresh_keys(handler, on_done)
+			})
+		}
+		self.do_refresh_keys = function(handler, on_done) {
 			gs.busy('Refreshing', 'keys...')
 			server.json_get("/settings/inventory?path=/&recursive=true&keys=true", function(data) {
 				if (data['payload'][0]['inventory']) {
@@ -324,8 +329,10 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 					var orphaned_keys = {}
 					
 					data['payload'][0]['inventory'].forEach(function(entry) {
-						self.path_map[entry['node']['path']].akeys = []
-						self.path_map[entry['node']['path']].keys = []
+						if (self.path_map[entry['node']['path']]) {
+							self.path_map[entry['node']['path']].akeys = []
+							self.path_map[entry['node']['path']].keys = []
+						}
 					})
 					data['payload'][0]['inventory'].forEach(function(entry) {
 						var p = new KeyEntry(entry)
@@ -375,14 +382,14 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 					on_done()
 			})
 		}
-		self.addParentNode = function(path) {
+		self.addParentNode = function(path_map, path) {
 			var p = new PathEntry(path)
 			p.path = path
-			self.path_map[p.path] = p
-			if (p.parentPath in self.path_map) {
-				p.set_parent(self.path_map[p.parentPath])
+			path_map[p.path] = p
+			if (p.parentPath in path_map) {
+				p.set_parent(path_map[p.parentPath])
 			} else {
-				p.set_parent(self.addParentNode(p.parentPath))
+				p.set_parent(self.addParentNode(path_map, p.parentPath))
 			}
 			return p
 		}
@@ -468,7 +475,6 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			if (self.path_map[nk.path]) {
 				self.path_map[nk.path].akeys.push(nk)
 			}
-			console.log(nk)
 			self.keys.push(nk)
 		}
 		self.add = function(path, key, value, on_done) {
