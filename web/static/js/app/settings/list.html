@@ -14,29 +14,29 @@
 
 			<ul class="nav nav-tabs">
 				<li class="active">
-					<a href="#module-desc" data-toggle="tab">
+					<a href="#module-desc" data-toggle="tab" title="General information and templates">
 						<span class="fa fa-home"></span> Info</a>
 				</li>
 				<!-- ko if: ckeys().length > 0 -->
 					<li>
-						<a href="#module-changed" data-toggle="tab">
+						<a href="#module-changed" data-toggle="tab" title="Keys which have changed values">
 							<span class="fa fa-check"></span> Changed</a>
 					</li>
 				<!-- /ko -->
 				<!-- ko if: keys().length > 0 -->
 					<li>
-						<a href="#module-basic" data-toggle="tab">
+						<a href="#module-basic" data-toggle="tab" title="Common keys which can be changed">
 							<span class="fa fa-pencil"></span> Basic</a>
 					</li>
 				<!-- /ko -->
 				<!-- ko if: akeys().length > 0 -->
 					<li>
-						<a href="#module-adv" data-toggle="tab">
+						<a href="#module-adv" data-toggle="tab" title="uncommon keys which are not changed quite as often">
 							<span class="fa fa-code"></span> Advanced</a>
 					</li>
 				<!-- /ko -->
 				<li>
-					<a href="#module-add" data-toggle="tab">
+					<a href="#module-add" data-toggle="tab" title="Add a new key">
 						<span class="fa fa-plus"></span> Add new</a>
 				</li>
 			</ul>
@@ -52,6 +52,15 @@
 								</p>
 								<p class="list-group-item-text">
 									<span data-bind="text: current().desc"></span>
+								</p>
+							</li>
+							<li class="list-group-item">
+								<h4 class="list-group-item-heading">Instructions</h4>
+								<p class="list-group-item-text">
+									Use the <span class="btn btn-xs btn-default"><span class="fa fa-check"></span> Changed</span> tab to see which keys you have changed under this section. Defenition of changed is keys which does not have the default value.
+									use the <span class="btn btn-xs btn-default"><span class="fa fa-pencil"></span> Basic</span> tab to edit the keys which are most frequently used.
+									Use the <span class="btn btn-xs btn-default"><span class="fa fa-code"></span> Advanced</span> tab to edit keys which are rarely used.
+									Use the <span class="btn btn-xs btn-default"><span class="fa fa-plus"></span> Add new</span> Tab to add new keys which are not listed.
 								</p>
 							</li>
 							<!-- ko foreach: tpls -->
