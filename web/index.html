@@ -60,22 +60,27 @@
 							</li>
 						</ul>
 						<ul class="nav navbar-nav navbar-right">
-							<!-- ko if: nscp_status.settings().has_changed -->
-								<li class="dropdown">
-									<a href="#" class="dropdown-toggle" data-toggle="dropdown">
-										<span class="label label-danger">
-											<span class="fa fa-warning label-danger"></span>
-										</span> Changes <b class="caret"></b>
-									</a>
-								<ul class="dropdown-menu">
+							<li class="dropdown">
+								<a href="#" class="dropdown-toggle" data-toggle="dropdown" data-bind="css: { 'label-danger': nscp_status.settings().has_changed() }">
+									<span class="fa fa-download"></span>
+									Changes <b class="caret"></b>
+								</a>
+							<ul class="dropdown-menu">
+								<li>
+									<a data-bind="click: settings.toggleSaveAlways">
+									<span class="fa fa-check-circle-o" data-bind="visible: settings.alwaysSave()"></span>
+									<span class="fa fa-circle-o" data-bind="visible: !settings.alwaysSave()"></span>
+									Always save</a>
+								</li>
+								<!-- ko if: nscp_status.settings().has_changed -->
 									<li>
 										<a data-bind="click: settings.saveStore"><span class="fa fa-download"></span> Save configuration</a>
 									</li>
 									<li>
 										<a data-bind="click: settings.loadStore"><span class="fa fa-upload"></span> Undo (reload configuration) </a>
 									</li>
-								</ul>
-							<!-- /ko -->
+								<!-- /ko -->
+							</ul>
 							<li class="dropdown">
 								<a href="#" class="dropdown-toggle" data-toggle="dropdown"><span class="glyphicon glyphicon-globe"></span> Help <b class="caret"></b></a>
 								<ul class="dropdown-menu">

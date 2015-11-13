@@ -420,6 +420,10 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			if (root['payload'].length > 0) {
 				gs.busy('Saving ', 'data...')
 				server.json_post("/settings/query.json", JSON.stringify(root), function(data) {
+					if (self.alwaysSave()) {
+						console.log("Saving to disk")
+						self.saveStore();
+					}
 					touched.forEach (function (k) {
 						k.presist_update()
 						self.touch(k.path, k.key, k.value())
@@ -512,6 +516,10 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 				gs.not_busy()
 				self.refresh()
 			})
+		}
+		self.alwaysSave = ko.observable(false);
+		self.toggleSaveAlways = function() {
+			self.alwaysSave(!self.alwaysSave())
 		}
 	};
 	
