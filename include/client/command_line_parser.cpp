@@ -139,6 +139,25 @@ std::string client::configuration::add_command(std::string name, std::string arg
 	return key;
 }
 
+client::destination_container client::configuration::get_target(const std::string name) const {
+	destination_container d;
+	object_handler_type::object_instance op = targets.find_object(name);
+	if (op)
+		d.apply(op);
+	else {
+		op = targets.find_object("default");
+		if (op)
+			d.apply(op);
+	}
+	return d;
+}
+
+client::destination_container client::configuration::get_sender() const {
+	destination_container s;
+	s.set_address(default_sender);
+	return s;
+}
+
 void client::configuration::do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response) {
 	Plugin::QueryResponseMessage local_response;
 
@@ -149,19 +168,9 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
-		destination_container d;
-		destination_container s;
-		s.set_address(default_sender);
+		destination_container d = get_target(t);
+		destination_container s = get_sender();
 
-		// If we have a target, apply it
-		object_handler_type::object_instance op = targets.find_object(t);
-		if (op)
-			d.apply(op);
-		else {
-			object_handler_type::object_instance op = targets.find_object("default");
-			if (op)
-				d.apply(op);
-		}
 		// Next apply the header object
 		d.apply(t, request.header());
 		s.apply(request.header().sender_id(), request.header());
@@ -303,19 +312,8 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
-		destination_container d;
-		destination_container s;
-		s.set_address(default_sender);
-
-		// If we have a target, apply it
-		object_handler_type::object_instance op = targets.find_object(t);
-		if (op)
-			d.apply(op);
-		else {
-			object_handler_type::object_instance op = targets.find_object("default");
-			if (op)
-				d.apply(op);
-		}
+		destination_container d = get_target(t);
+		destination_container s = get_sender();
 
 		// Next apply the header object
 		d.apply(t, request.header());
@@ -477,14 +475,8 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
-		destination_container d;
-		destination_container s;
-		s.set_address(default_sender);
-
-		// If we have a target, apply it
-		object_handler_type::object_instance op = targets.find_object(t);
-		if (op)
-			d.apply(op);
+		destination_container d = get_target(t);
+		destination_container s = get_sender();
 
 		// Next apply the header object
 		d.apply(t, request.header());
@@ -527,6 +519,25 @@ void client::configuration::i_do_submit(destination_container &s, destination_co
 		}
 	} catch (const std::exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), "Exception processing command line: " + utf8::utf8_from_native(e.what()));
+	}
+}
+
+void client::configuration::do_metrics(const Plugin::MetricsMessage &request) {
+	std::string target = "default";
+	if (request.header().has_recipient_id())
+		target = request.header().recipient_id();
+	else if (request.header().has_destination_id())
+		target = request.header().destination_id();
+
+	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+		destination_container d = get_target(t);
+		destination_container s = get_sender();
+
+		// Next apply the header object
+		d.apply(t, request.header());
+		s.apply(request.header().sender_id(), request.header());
+
+		handler->metrics(s, d, request);
 	}
 }
 

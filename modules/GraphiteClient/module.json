@@ -19,6 +19,8 @@
 		}
 	},
 
+	"metrics" : "consume",
+
 	"channels" : "raw",
 
 	"command line exec" : "raw",

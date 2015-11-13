@@ -458,9 +458,7 @@ int {{module.name}}Module::submitMetrics(const std::string &request) {
 	Plugin::MetricsMessage metrics_message;
 	metrics_message.ParseFromString(request);
 	try {
-		BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, metrics_message.payload()) {
-			impl_->submitMetrics(p);
-		}
+		impl_->submitMetrics(metrics_message);
 		return NSCAPI::api_return_codes::isSuccess;
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to submit metrics: ", e);

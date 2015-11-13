@@ -86,7 +86,12 @@ namespace graphite_client {
 				nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), std::string("No performance data to send"));
 				return true;
 			}
-			send(response_message.add_payload(), con, list);
+			boost::tuple<int, std::string> ret = send(con, list);
+			if (ret.get<0>())
+				nscapi::protobuf::functions::set_response_good(*response_message.add_payload(), ret.get<1>());
+			else
+				nscapi::protobuf::functions::set_response_bad(*response_message.add_payload(), ret.get<1>());
+
 			return true;
 		}
 
@@ -94,7 +99,39 @@ namespace graphite_client {
 			return false;
 		}
 
-		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<g_data> &data) {
+
+		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b) {
+			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+				push_metrics(list, b2);
+			}
+			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
+				graphite_client::g_data d;
+				const ::Plugin::Common_AnyDataType &value = v.value();
+				d.path = v.key();
+				if (value.has_int_data()) {
+					d.value = strEx::s::xtos(v.value().int_data());
+					list.push_back(d);
+				} else if (value.has_float_data()) {
+					d.value = strEx::s::xtos(v.value().int_data());
+					list.push_back(d);
+				}
+			}
+		}
+
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			std::list<graphite_client::g_data> list;
+			BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, request_message.payload()) {
+				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
+					push_metrics(list, b);
+				}
+			}
+			connection_data con(sender, target);
+			send(con, list);
+			return true;
+		}
+
+
+		boost::tuple<bool, std::string> send(connection_data con, const std::list<g_data> &data) {
 			try {
 				boost::asio::io_service io_service;
 				boost::asio::ip::tcp::resolver resolver(io_service);
@@ -120,13 +157,13 @@ namespace graphite_client {
 					std::string msg = d.path + " " + d.value + " " + boost::lexical_cast<std::string>(x) + "\n";
 					socket.send(boost::asio::buffer(msg));
 				}
-				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");
+				return boost::make_tuple(true, "Data presumably sent successfully");
 			} catch (const std::runtime_error &e) {
-				nscapi::protobuf::functions::set_response_bad(*payload, "Socket error: " + utf8::utf8_from_native(e.what()));
+				return boost::make_tuple(false, "Socket error: " + utf8::utf8_from_native(e.what()));
 			} catch (const std::exception &e) {
-				nscapi::protobuf::functions::set_response_bad(*payload, "Error: " + utf8::utf8_from_native(e.what()));
+				return boost::make_tuple(false, "Error: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
-				nscapi::protobuf::functions::set_response_bad(*payload, "Unknown error -- REPORT THIS!");
+				return boost::make_tuple(false, "Unknown error -- REPORT THIS!");
 			}
 		}
 	};

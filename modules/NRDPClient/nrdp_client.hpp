@@ -72,6 +72,10 @@ namespace nrdp_client {
 			return false;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
 			try {
 				NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());

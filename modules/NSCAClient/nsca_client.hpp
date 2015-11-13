@@ -122,6 +122,11 @@ namespace nsca_client {
 			return false;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
+
 		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
 			try {
 				socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));

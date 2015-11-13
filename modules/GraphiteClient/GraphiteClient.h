@@ -49,6 +49,8 @@ public:
 	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response);
 	void handleNotification(const std::string &channel, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message);
 
+	void submitMetrics(const Plugin::MetricsMessage &response);
+
 private:
 	void add_command(std::string key, std::string args);
 	void add_target(std::string key, std::string args);

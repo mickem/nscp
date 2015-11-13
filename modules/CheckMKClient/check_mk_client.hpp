@@ -66,6 +66,11 @@ namespace check_mk_client {
 			return false;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
+
 		NSCAPI::nagiosReturn parse_data(lua::script_information *information, lua::lua_traits::function_type c, const check_mk::packet &packet) {
 			lua::lua_wrapper instance(lua::lua_runtime::prep_function(information, c));
 			int args = 1;

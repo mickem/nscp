@@ -315,6 +315,7 @@ namespace client {
 		virtual bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) = 0;
 		virtual bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) = 0;
 		virtual bool exec(client::destination_container sender, client::destination_container target, const Plugin::ExecuteRequestMessage &request_message, Plugin::ExecuteResponseMessage &response_message) = 0;
+		virtual bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) = 0;
 	};
 	typedef boost::shared_ptr<handler_interface> handler_type;
 
@@ -351,6 +352,9 @@ namespace client {
 			default_sender = _sender;
 		}
 
+		destination_container get_target(const std::string name) const;
+		destination_container get_sender() const;
+
 		void add_target(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string value) {
 			targets.add(proxy, key, value);
 		}
@@ -364,6 +368,7 @@ namespace client {
 		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command);
 		void do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
+		void do_metrics(const Plugin::MetricsMessage &request);
 
 		typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)> client_desc_fun;
 		typedef boost::function<bool(client::destination_container &source, client::destination_container &destination)> client_pre_fun;

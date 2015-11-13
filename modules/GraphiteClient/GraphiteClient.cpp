@@ -187,3 +187,7 @@ bool GraphiteClient::commandLineExec(const int target_mode, const Plugin::Execut
 void GraphiteClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
 	client_.do_submit(request_message, *response_message);
 }
+
+void GraphiteClient::submitMetrics(const Plugin::MetricsMessage &response) {
+	client_.do_metrics(response);
+}

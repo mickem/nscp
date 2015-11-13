@@ -102,6 +102,11 @@ namespace collectd_client {
 			return false;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
+
 		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<collectd::packet> packets) {}
 	};
 }

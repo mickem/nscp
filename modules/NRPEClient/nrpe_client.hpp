@@ -156,6 +156,11 @@ namespace nrpe_client {
 			return true;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
+
 		//////////////////////////////////////////////////////////////////////////
 		// Protocol implementations
 		//

@@ -70,6 +70,11 @@ namespace smtp_client {
 			return false;
 		}
 
+		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
+			return false;
+		}
+
+
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const std::list<g_data> &data) {
 			try {
 				boost::asio::io_service io_service;
