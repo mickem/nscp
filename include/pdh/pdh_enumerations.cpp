@@ -51,6 +51,7 @@ namespace PDH {
 				HQUERY hQuery;
 				status = factory::get_impl()->PdhOpenQuery(NULL, NULL, &hQuery);
 				if (status.is_error()) {
+					error = status.get_message();
 					return ret;
 				}
 
@@ -58,6 +59,7 @@ namespace PDH {
 				PDH_HCOUNTER hCounter;
 				status = factory::get_impl()->PdhAddEnglishCounter(hQuery, wquery.c_str(), NULL, &hCounter);
 				if (status.is_error()) {
+					error = status.get_message();
 					return ret;
 				}
 
@@ -66,6 +68,7 @@ namespace PDH {
 
 				status = factory::get_impl()->PdhGetCounterInfo(hCounter, FALSE, &bufSize, tBuf2.get());
 				if (status.is_error()) {
+					error = status.get_message();
 					return ret;
 				}
 				std::wstring counterName = tBuf2.get()->szFullPath;

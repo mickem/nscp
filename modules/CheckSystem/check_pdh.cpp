@@ -47,17 +47,13 @@ namespace check_pdh {
 		if (!value.empty())
 			counter = value;
 
-		if (oneliner) {
+		if (oneliner)
 			return;
-		}
 
  		nscapi::settings_helper::settings_registry settings(proxy);
 		nscapi::settings_helper::path_extension root_path = settings.path(get_path());
 		if (is_sample)
 			root_path.set_sample();
-
-		if (oneliner)
-			return;
 
 		root_path.add_path()
 			("COUNTER", "Definition for counter: " + alias)
@@ -69,7 +65,7 @@ namespace check_pdh {
 			("counter", sh::string_key(&counter),
 				"COUNTER", "The counter to check")
 			("instances", sh::string_key(&instances),
-				"TODO", "TODO")
+				"Interpret instances", "IF we shoul interpret instance (default auto). Values: auto, true, false")
 			("buffer size", sh::string_key(&buffer_size),
 				"BUFFER SIZE", "Size of buffer (in seconds) larger buffer use more memory")
 			("type", sh::string_key(&type),
