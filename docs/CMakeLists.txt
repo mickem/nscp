@@ -15,7 +15,7 @@ ADD_CUSTOM_TARGET(generate_doc_sources
 		--log error 
 		--log oneline 
 		--define "\"${DEFINEARG}\""
-		-- --script scripts/python/docs.py --input docs --output ext/docs
+		-- execute --script scripts/python/docs.py --input docs --output ext/docs
 	WORKING_DIRECTORY ${BUILD_ROOT_FOLDER}
 		DEPENDS nscp ${ALL_MODULE_NAMES} copy_files
 	COMMENT "Generate RST documentation source")
