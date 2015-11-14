@@ -26,7 +26,7 @@ define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], fun
 				beforeSend: function (xhr) {
 					xhr.setRequestHeader('TOKEN', auth.get());
 				},
-				timeout: 3000
+				timeout: 10000
 			});
 		},
 
