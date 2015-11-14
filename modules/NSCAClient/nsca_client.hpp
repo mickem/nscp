@@ -130,7 +130,9 @@ namespace nsca_client {
 		void send(Plugin::SubmitResponseMessage::Response *payload, const connection_data con, const std::list<nsca::packet> packets) {
 			try {
 				socket_helpers::client::client<nsca::client::protocol<client_handler> > client(con, boost::make_shared<client_handler>(con));
-				NSC_DEBUG_MSG("Connecting to: " + con.to_string());
+				NSC_TRACE_ENABLED() {
+					NSC_TRACE_MSG("Connecting to: " + con.to_string());
+				}
 				client.connect();
 
 				BOOST_FOREACH(const nsca::packet &packet, packets) {
