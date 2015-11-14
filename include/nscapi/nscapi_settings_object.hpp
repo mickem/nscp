@@ -271,7 +271,7 @@ namespace nscapi {
 						object = factory->create(alias, path);
 					}
 					object->value = value;
-					object->read(proxy, keys.empty(), false);
+					object->read(proxy, keys.empty()&&alias != "default", false);
 				} else {
 					object = factory->create(alias, path);
 					object->value = value;
