@@ -55,8 +55,25 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"SCHEDULE", "For more configuration options add a dedicated section")
 		;
 
+	settings.alias().add_templates()
+		("schedules", "plus", "Add a simple schedule",
+			"Add a simple scheduled job for passive monitoring",
+			"{"
+			"\"fields\": [ "
+			" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This will identify the command\"} , "
+			" { \"id\": \"command\",	\"title\" : \"Command\",	\"type\" : \"data-choice\",	\"desc\" : \"The name of the command to execute\",\"exec\" : \"CheckExternalScripts list --json --query\" } , "
+			" { \"id\": \"args\",		\"title\" : \"Arguments\",	\"type\" : \"input\",		\"desc\" : \"Command line arguments for the command\" } , "
+			" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+			" ], "
+			"\"events\": { "
+			"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); var val = node.get_field('command').value(); if (node.get_field('args').value()) { val += ' ' + node.get_field('args').value(); }; f.value(val)})\""
+			"}"
+			"}")
+		;
 	settings.register_all();
 	settings.notify();
+
+	schedules_.ensure_default();
 
 	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
 		NSC_DEBUG_MSG("Adding scheduled item: " + o->to_string());
