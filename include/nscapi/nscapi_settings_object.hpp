@@ -250,7 +250,7 @@ namespace nscapi {
 			void ensure_default() {
 				if (has_object("default"))
 					return;
-				add(boost::shared_ptr<nscapi::settings_proxy>(), "default", "");
+				add(boost::shared_ptr<nscapi::settings_proxy>(), "default", "", true);
 			}
 
 			object_instance add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool is_template = false) {
