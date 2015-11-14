@@ -45,7 +45,7 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void submitMetrics(const Plugin::MetricsMessage::Response &response);
+	void submitMetrics(const Plugin::MetricsMessage &response);
 
 private:
 

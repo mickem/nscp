@@ -194,7 +194,7 @@ private:
 	std::string message_;
 };
 
-void CollectdClient::submitMetrics(const Plugin::MetricsMessage::Response &response) {
+void CollectdClient::submitMetrics(const Plugin::MetricsMessage &response) {
 	collectd::packet p;
 	p.add_host("my-machine");
 
@@ -237,7 +237,9 @@ void CollectdClient::submitMetrics(const Plugin::MetricsMessage::Response &respo
 		std::cerr << "Exception: " << e.what() << "\n";
 	}
 
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, response.bundles()) {
-		//build_metrics(metrics, b);
+	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
+		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+			//build_metrics(metrics, b);
+		}
 	}
 }

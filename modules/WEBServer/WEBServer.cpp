@@ -991,10 +991,12 @@ void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBu
 	}
 	metrics.insert(json_spirit::Object::value_type(b.key(), node));
 }
-void WEBServer::submitMetrics(const Plugin::MetricsMessage::Response &response) {
+void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
 	json_spirit::Object metrics;
-	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, response.bundles()) {
-		build_metrics(metrics, b);
+	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
+		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+			build_metrics(metrics, b);
+		}
 	}
 	metrics_store.set(json_spirit::write(metrics));
 }
