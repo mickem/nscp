@@ -190,6 +190,7 @@ void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	boost::uint64_t taskes__ = atomic_read32(&taskes);
 	boost::uint64_t submitted__ = atomic_read32(&submitted);
 	boost::uint64_t errors__ = atomic_read32(&errors);
+	boost::uint64_t threads = scheduler_.get_threads();
 
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	Plugin::Common::Metric *m = bundle->add_value();
@@ -201,12 +202,15 @@ void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	m = bundle->add_value();
 	m->set_key("errors");
 	m->mutable_value()->set_int_data(errors__);
+	m = bundle->add_value();
+	m->set_key("threads");
+	m->mutable_value()->set_int_data(threads);
 	bundle->set_key("scheduler");
 #else
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	Plugin::Common::Metric *m = bundle->add_value();
-	m->set_key("unavailable");
-	m->mutable_value()->set_string_data("true");
+	m->set_key("metrics.available");
+	m->mutable_value()->set_string_data("false");
 	m = bundle->add_value();
 #endif
 }
