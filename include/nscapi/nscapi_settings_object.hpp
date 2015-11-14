@@ -36,8 +36,8 @@ namespace nscapi {
 			typedef std::map<std::string, std::string> options_map;
 
 			std::string alias;
-			bool is_template;
 		private:
+			bool is_template_;
 			std::string base_path;
 			std::string path;
 			std::string parent;
@@ -51,13 +51,13 @@ namespace nscapi {
 				: alias(alias)
 				, base_path(base_path)
 				, path(make_obj_path(base_path, alias))
-				, is_template(false)
+				, is_template_(false)
 				, parent("default") {}
 			object_instance_interface(const boost::shared_ptr<object_instance_interface> other, std::string alias, std::string base_path)
 				: alias(alias)
 				, base_path(base_path)
 				, path(make_obj_path(base_path, alias))
-				, is_template(false)
+				, is_template_(false)
 				, parent(other->alias) {
 				value = other->value;
 				BOOST_FOREACH(const options_map::value_type &e, other->options) {
@@ -68,11 +68,17 @@ namespace nscapi {
 				: alias(other.alias)
 				, base_path(other.base_path)
 				, path(other.path)
-				, is_template(other.is_template)
+				, is_template_(other.is_template_)
 				, parent(other.parent)
 				, value(other.value)
 				, options(other.options) {}
 
+			bool is_template() const {
+				return is_template_;
+			}
+			void make_template(bool tpl) {
+				is_template_ = tpl;
+			}
 			void setup(std::string inAlias, std::string inPath) {
 				alias = inAlias;
 				path = inPath + "/" + inAlias;
@@ -85,7 +91,7 @@ namespace nscapi {
 				nscapi::settings_helper::settings_registry settings(proxy);
 				if (oneliner) {
 					parent = "default";
-					is_template = false;
+					make_template(false);
 					nscapi::settings_helper::path_extension root_path = settings.path(base_path);
 					root_path.add_key()
 						(alias, nscapi::settings_helper::string_key(&value),
@@ -97,7 +103,7 @@ namespace nscapi {
 						("parent", nscapi::settings_helper::string_key(&parent, "default"),
 							"PARENT", "The parent the target inherits from", true)
 
-						("is template", nscapi::settings_helper::bool_key(&is_template, false),
+						("is template", nscapi::settings_helper::bool_key(&is_template_, false),
 							"IS TEMPLATE", "Declare this object as a template (this means it will not be available as a separate object)", true)
 
 						("alias", nscapi::settings_helper::string_key(&alias),
@@ -119,7 +125,7 @@ namespace nscapi {
 				std::stringstream ss;
 				ss << "{alias: " << alias
 					<< ", path: " << path
-					<< ", is_tpl: " << (is_template ? "true" : "false")
+					<< ", is_tpl: " << (is_template_ ? "true" : "false")
 					<< ", parent: " << parent
 					<< ", value: " << value
 					<< ", options : { ";
@@ -265,7 +271,7 @@ namespace nscapi {
 							parent = add(proxy, parent_name, "", true);
 						if (parent) {
 							object = factory->clone(parent, alias, path);
-							object->is_template = false;
+							object->make_template(false);
 						}
 					} else {
 						object = factory->create(alias, path);
@@ -276,7 +282,7 @@ namespace nscapi {
 					object = factory->create(alias, path);
 					object->value = value;
 				}
-				if (is_template || object->is_template) {
+				if (is_template || object->is_template()) {
 					add_template(object);
 					if (alias != object->alias)
 						add_template(alias, object);
@@ -338,6 +344,7 @@ namespace nscapi {
 				objects[alias] = object;
 			}
 			void add_template(object_instance object) {
+				object->make_template(true);
 				templates[object->alias] = object;
 			}
 			void add_template(const std::string alias, object_instance object) {
