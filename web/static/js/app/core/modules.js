@@ -15,8 +15,8 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 			else
 				self.alias = self.id
 		}
-		self.title = ko.observable(entry['info']['title'])
-		self.desc = ko.observable(entry['info']['description'])
+		self.title = entry['info']['title']
+		self.desc = entry['info']['description']
 		self.is_loaded = ko.observable(false)
 		self.is_busy = ko.observable(false)
 		self.showDetails = ko.observable(false);

@@ -1,11 +1,14 @@
 
 <div class="row">
-	<ol class="breadcrumb pull-left" >
+	<ol class="breadcrumb pull-left">
 		<li><a href="#/"><i class="glyphicon glyphicon-home"></i></a></li>
 		<li><a href="" data-bind="click: refresh">Modules</a></li>
 	</ol>
+	<ol class="breadcrumb pull-left" style="padding-top: 0px;">
+		<li><input data-bind="value: currentFilter, valueUpdate: 'input'" id="filter" class="form-control" placeholder="Filter module list"/></li>
+	</ol>
 </div>
-<div class="list-group checked-list-box modules" data-bind="foreach: modules">
+<div class="list-group checked-list-box modules" data-bind="foreach: filterModules">
 		<a class="list-group-item" href="" data-bind="attr: { href: '#/modules/' + id, title: desc }">
 			<div class="pull-left">
 				<i class="state-icon fa fa-2x fa-circle-o" data-bind="click: load, visible: !is_loaded() && !is_busy(), clickBubble: false"></i>

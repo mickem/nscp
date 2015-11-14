@@ -44,7 +44,7 @@ define(['knockout', 'app/core/server', 'app/core/globalStatus', 'app/core/utils'
 		self.suggestion = Handlebars.compile('<p><strong>{{key}}</strong>: {{tip}}</p>')
 		self.resultLines = ko.observableArray([])
 		self.params = []
-		self.id = ids++
+		self.id = self.name
 		if (entry['parameters']['parameter']) {
 			entry['parameters']['parameter'].forEach(function(entry) {
 				entry.first_line = entry.short_description
