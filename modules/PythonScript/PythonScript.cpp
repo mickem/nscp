@@ -25,6 +25,9 @@
 #include <boost/python.hpp>
 #include <boost/program_options.hpp>
 
+#include <json_spirit.h>
+
+
 #include <strEx.h>
 #include <file_helpers.hpp>
 #include <nscapi/functions.hpp>
@@ -251,6 +254,22 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 				"SCRIPT", "For more configuration options add a dedicated section")
 			;
 
+		settings.alias().add_templates()
+			("scripts", "plus", "Add a simple script",
+				"Add binding for a simple script",
+				"{"
+				"\"fields\": [ "
+				" { \"id\": \"alias\",		\"title\" : \"Alias\",		\"type\" : \"input\",		\"desc\" : \"This has to be unique and if you load a script twice the script can use the alias to diferentiate between instances.\"} , "
+				" { \"id\": \"script\",		\"title\" : \"Script\",		\"type\" : \"data-choice\",	\"desc\" : \"The name of the script\",\"exec\" : \"PythonScript list --json\" } , "
+				" { \"id\": \"cmd\",		\"key\" : \"command\", \"title\" : \"A\",	\"type\" : \"hidden\",		\"desc\" : \"A\" } "
+				" ], "
+				"\"events\": { "
+				"\"onSave\": \"(function (node) { node.save_path = self.path; var f = node.get_field('cmd'); f.key = node.get_field('alias').value(); f.value(node.get_field('script').value()); })\""
+				"}"
+				"}")
+			;
+
+
 		settings.register_all();
 		settings.notify();
 
@@ -367,43 +386,126 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 		return true;
 	}
-	if (request.command() != "python-script" && request.command() != "python-run"
-		&& request.command() != "run" && request.command() != "execute" && request.command() != "") {
-		return false;
+	std::string command = request.command();
+	if (command == "ext-scr" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	try {
+		if (command == "add")
+			add_script(request, response);
+		else if (command == "list")
+			list(request, response);
+		else if (command == "help") {
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|list|install] --help");
+		} else
+			return false;
+		return true;
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
 	}
+	return false;
+}
+
+
+void PythonScript::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	bool json = false, query = false, lib = false;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("json", po::bool_switch(&json),
+			"Return the list in json format.")
+		("include-lib", po::bool_switch(&lib),
+			"Do not ignore any lib folders.")
+
+		;
 
 	try {
-		po::options_description desc = nscapi::program_options::create_desc(request);
-		std::string file;
-		desc.add_options()
-			("script", po::value<std::string>(&file), "The script to run")
-			("file", po::value<std::string>(&file), "The script to run")
-			;
-		boost::program_options::variables_map vm;
-		nscapi::program_options::unrecognized_map script_options;
-		if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
-			return true;
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
 
-		boost::optional<boost::filesystem::path> ofile = find_file(file);
-		if (!ofile) {
-			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
-			return true;
-		}
-		script_container sc(*ofile);
-		python_script script(get_id(), root_.string(), "", sc);
-		std::list<std::string> ops(script_options.begin(), script_options.end());
-		if (!script.callFunction("__main__", ops)) {
-			nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
-			return true;
-		}
-		nscapi::protobuf::functions::set_response_good(*response, "");
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
 	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute script.");
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
 	}
-	return true;
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+	std::string resp;
+	json_spirit::Array data;
+
+	boost::filesystem::path dir = get_core()->expand_path("${scripts}/python");
+	boost::filesystem::path rel = get_core()->expand_path("${scripts}/python");
+	boost::filesystem::recursive_directory_iterator iter(dir), eod;
+	BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+		std::string s = i.string();
+		if (boost::algorithm::starts_with(s, rel.string()))
+			s = s.substr(rel.string().size());
+		if (s.size() == 0)
+			continue;
+		if (s[0] == '\\' || s[0] == '/')
+			s = s.substr(1);
+		boost::filesystem::path clone = i.parent_path();
+		if (boost::filesystem::is_regular_file(i) 
+			&& !boost::algorithm::contains(clone.string(), "lib") 
+			&& boost::ends_with(s, "py")
+			&& !boost::ends_with(s, "__init__.py")) {
+			if (json) {
+				json_spirit::Value v = s;
+				data.push_back(v);
+			} else {
+				resp += s + "\n";
+			}
+
+		}
+	}
+	if (json)
+		resp = json_spirit::write(data, json_spirit::raw_utf8);
+
+	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
+void PythonScript::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	std::string file;
+	desc.add_options()
+		("script", po::value<std::string>(&file), "The script to run")
+		("file", po::value<std::string>(&file), "The script to run")
+		;
+	boost::program_options::variables_map vm;
+	nscapi::program_options::unrecognized_map script_options;
+	if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
+		return;
+
+	boost::optional<boost::filesystem::path> ofile = find_file(file);
+	if (!ofile) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
+		return;
+	}
+	script_container sc(*ofile);
+	python_script script(get_id(), root_.string(), "", sc);
+	std::list<std::string> ops(script_options.begin(), script_options.end());
+	if (!script.callFunction("__main__", ops)) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");
+		return;
+	}
+	nscapi::protobuf::functions::set_response_good(*response, "");
+}
+
 
 void PythonScript::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message) {
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
