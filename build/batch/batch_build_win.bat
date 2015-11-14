@@ -86,6 +86,8 @@ GOTO :EOF
 call :mk_dirs x64
 call :mk_dirs w32
 
+IF "%1"=="build" GOTO only_build
+
 IF "%1"=="same" GOTO no_bump
 call :bump_version x64 "Visual Studio 11 2012 Win64" || GOTO :error
 :no_bump
@@ -93,6 +95,7 @@ call :bump_version x64 "Visual Studio 11 2012 Win64" || GOTO :error
 call :configure x64 "Visual Studio 11 2012 Win64" || GOTO :error
 call :configure w32 "Visual Studio 11 2012" || GOTO :error
 
+:only_build
 call :build x64 x64 || GOTO :error
 call :build w32 Win32 || GOTO :error
 
