@@ -65,6 +65,7 @@ define(['knockout', 'jquery', 'app/core/authToken', 'app/core/server', 'app/core
 			self.has_issues(self.error_count() > 0)
 		}
 		self.set_error = function(text) {
+			self.warning('Error', text)
 			self.error_count(self.error_count()+1)
 			self.last_error(text)
 			self.has_issues(self.error_count() > 0)

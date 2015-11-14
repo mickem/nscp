@@ -11,17 +11,22 @@ define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], fun
 				type: 'GET',
 				dataType: 'json',
 				success: success,
+				cache: false,
 				error: function(xhr, error, status) {
 					if (xhr.status == 403) {
 						gs().is_loggedin(false);
 						auth.showLogin();
 					}
-					gs().set_error(xhr.responseText)
+					if (xhr.responseText)
+						gs().set_error(xhr.responseText)
+					else if (xhr.statusText)
+						gs().set_error(xhr.statusText)
 					gs().not_busy(false)
 				},
 				beforeSend: function (xhr) {
 					xhr.setRequestHeader('TOKEN', auth.get());
-				}
+				},
+				timeout: 3000
 			});
 		},
 
