@@ -394,12 +394,12 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	else if (command.empty() && target_mode == NSCAPI::target_module)
 		command = "help";
 	try {
-		if (command == "add")
-			add_script(request, response);
+		if (command == "execute" || command == "exec")
+			execute_script(request, response);
 		else if (command == "list")
 			list(request, response);
 		else if (command == "help") {
-			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|list|install] --help");
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [execute|list|install] --help");
 		} else
 			return false;
 		return true;
@@ -477,19 +477,39 @@ void PythonScript::list(const Plugin::ExecuteRequestMessage::Request &request, P
 
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
-void PythonScript::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::options_description desc = nscapi::program_options::create_desc(request);
+	po::variables_map vm;
+	nscapi::program_options::unrecognized_map script_options;
 	std::string file;
 	desc.add_options()
+		("help", "Show help.")
 		("script", po::value<std::string>(&file), "The script to run")
 		("file", po::value<std::string>(&file), "The script to run")
 		;
-	boost::program_options::variables_map vm;
-	nscapi::program_options::unrecognized_map script_options;
-	if (!nscapi::program_options::process_arguments_unrecognized(vm, script_options, desc, request, *response))
+
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.allow_unregistered().run();
+		po::store(parsed, vm);
+		po::notify(vm);
+		script_options = po::collect_unrecognized(parsed.options, po::include_positional);
+		if (!script_options.empty() && script_options[0] == "execute")
+			script_options.erase(script_options.begin());
+
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
 		return;
+	}
 
 	boost::optional<boost::filesystem::path> ofile = find_file(file);
 	if (!ofile) {
