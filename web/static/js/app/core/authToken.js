@@ -12,7 +12,10 @@ define([], function() {
 			self.page = page;
 		}
 		self.showLogin = function() {
-			self.old = self.page.getOld()
+			old = self.page.getOld()
+			if (old.name != 'login-page') {
+				self.old = self.page.getOld()
+			}
 			self.router = self.page
 			self.page.setRoute('login-page', 'index', 'app/misc/login');
 		}
