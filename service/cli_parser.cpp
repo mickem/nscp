@@ -473,7 +473,7 @@ struct client_arguments {
 				if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 					ret = 1;
 					resp.push_back("Command not found: " + command);
-					core_->simple_exec("help", arguments, resp);
+					core_->simple_exec(module + ".help", arguments, resp);
 				} else if (mode == client_arguments::combined) {
 					if (ret == NSCAPI::exec_return_codes::returnOK) {
 						core_->reload("instant,service");
