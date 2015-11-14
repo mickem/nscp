@@ -68,17 +68,27 @@ define(['jquery', 'knockout', 'text!app/index/dashboard.html',
 	
 	function DashboardViewmodel(params) {
 		var self = this;
-
-		self.tab = params.tab
-		if (!self.tab)
-			self.tab = "cpu"
-		if (self.tab.startsWith('disk')) {
-			self.diskIndex = self.tab.substr(4)
+		
+		if (params.tab && params.tab.startsWith('disk')) {
+			self.diskIndex = params.tab.substr(4)
 			self.tab = 'disk'
-		}
+			console.log(params.tab)
+			console.log(self.diskIndex)
+		} else if (params.tab)
+			self.tab = params.tab
 
 		self.cpu = metrics.cpu
+		if (self.cpu.data()) {
+			if (!self.tab)
+				self.tab = "cpu"
+		}
 		self.mem = metrics.mem
+		if (self.mem.data()) {
+			if (!self.tab)
+				self.tab = "mem"
+		}
+		if (!self.tab)
+			self.tab = "all"
 		self.disk = metrics.disk
 		self.diskGraphs = metrics.diskGraphs
 		self.count = metrics.count
@@ -93,14 +103,16 @@ define(['jquery', 'knockout', 'text!app/index/dashboard.html',
 
 		self.refreshChart = function () {
 			if (self.tab == 'cpu')
-				showGraph('#cpuChart', self.cpu.graph, "CPU", "76, 157, 203")
+				showGraph('#cpuChart', self.cpu.graph, "% CPU Utilization", "76, 157, 203")
 			else if (self.tab == 'mem')
 				showGraph('#memChart', self.mem.graph, "Memory", "149, 40, 180")
 			else if (self.tab == 'all')
 				;
 			else if (self.tab == 'disk') {
-				id = "TODO" // self.tab.split('-')[1]
-				showGraph('#diskChart', self.diskGraphs[metrics.diskIndex], "Disk " + id, "77, 166, 12")
+				if (self.diskIndex in self.disk()) {
+					id = self.disk()[self.diskIndex].id
+					showGraph('#diskChart', self.diskGraphs[id], "Disk " + id, "77, 166, 12")
+				}
 			} else {
 				console.log("Unknown chart: " + self.tab)
 			}

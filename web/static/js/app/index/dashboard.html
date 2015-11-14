@@ -1,12 +1,12 @@
 <div class="row">
 	<ul class="nav nav-pills nav-stacked col-md-2" role="tablist" aria-label="...">
-		<li role="presentation" data-bind="css: { active: tab == 'cpu'}">
+		<li role="presentation" data-bind="css: { active: tab == 'cpu'}, if: cpu.data()">
 			<a type="button" class="btn btn-default" href="#/metrics/cpu" role="tab">
 				<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-fire"></span> CPU</h4>
 				<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;" data-bind="text: cpu.load()"></p>
 			</a>
 		</li>
-		<li role="presentation" data-bind="css: { active: tab == 'mem'}">
+		<li role="presentation" data-bind="css: { active: tab == 'mem'}, if: mem.data()">
 			<a type="button" class="btn btn-default" href="#/metrics/mem" role="tab">
 				<h4 style="margin-top: 5px;margin-bottom: 5px;text-align:left;"><span class="fa fa-server"></span> Memory</h4>
 				<p style="margin-top: 0px;margin-bottom: 5px;text-align:left;">
@@ -35,7 +35,7 @@
 			<div>
 				<div id="cpuChart" style="width:100%;height:300px"></div>
 			</div>
-			<dash-widget-text params="icon: 'fa-area-chart', title: 'Load', value: cpu.load(), background: 'primary'"></dash-widget-text>
+			<dash-widget-text params="icon: 'fa-area-chart', title: 'Utilization', value: cpu.load(), background: 'primary'"></dash-widget-text>
 			<dash-widget-text params="icon: 'fa-cubes', title: 'Processes', value: cpu.procs()"></dash-widget-text>
 			<dash-widget-text params="icon: 'fa-code-fork', title: 'Threads', value: cpu.threads()"></dash-widget-text>
 			<dash-widget-text params="icon: 'fa-cogs', title: 'Handles', value: cpu.handles(), width: 4"></dash-widget-text>

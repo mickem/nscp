@@ -186,6 +186,9 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
+	if (!pdh_checker.counters_.has_object("disk_queue_length"))
+		add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
+
 	pdh_checker.counters_.add_samples(get_settings_proxy());
 
 	if (mode == NSCAPI::normalStart) {
