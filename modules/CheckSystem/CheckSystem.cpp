@@ -989,6 +989,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	bool vdm_scan = false;
 	bool unreadable_scan = true;
 	bool delta_scan = false;
+	bool total = false;
 
 	NSC_error err;
 	filter_type filter;
@@ -1000,6 +1001,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 		("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
 		("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
 		("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
+		("total", po::bool_switch(&total), "Include the total of all matching files")
 		;
 
 	if (!filter_helper.parse_options())
@@ -1020,6 +1022,7 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 			procs.insert(process);
 	}
 
+
 	std::vector<std::string> matched;
 	process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err) : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
 	BOOST_FOREACH(const process_helper::process_info &info, list) {
@@ -1035,10 +1038,19 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 	BOOST_FOREACH(const std::string &proc, matched) {
 		procs.erase(proc);
 	}
+
+	boost::shared_ptr<process_helper::process_info> total_obj;
+	if (total)
+		total_obj = process_helper::process_info::get_total();
+
 	BOOST_FOREACH(const std::string proc, procs) {
 		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
-		filter.match(record);
+		modern_filter::match_result ret = filter.match(record);
+		if (total_obj && ret.matched_filter)
+			total_obj->operator+=(*record);
 	}
+	if (total_obj)
+		filter.match(total_obj);
 	filter_helper.post_process(filter);
 }
 

@@ -303,6 +303,7 @@ namespace process_helper {
 			if (total > 0)
 				total_time = (kernel_time_raw + user_time_raw) * 100 / total;
 		}
+		static boost::shared_ptr<process_helper::process_info> get_total();
 	};
 
 	struct error_reporter {

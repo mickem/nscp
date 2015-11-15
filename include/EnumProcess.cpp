@@ -456,4 +456,9 @@ namespace process_helper {
 		}
 		return ret;
 	}
+
+	boost::shared_ptr<process_helper::process_info> process_info::get_total() {
+		return boost::shared_ptr<process_helper::process_info>(new process_info("total"));
+	}
+
 }
