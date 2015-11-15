@@ -5,6 +5,8 @@ plugin_id = 0
 world_status = 'safe'
 
 def get_help(arguments):
+    if arguments:
+        log("Wicked: we got some args")
     return (status.OK, 'Need help? Sorry, Im not help full my friend...')
 
 def check_world(arguments):
@@ -31,8 +33,8 @@ def save_world(arguments):
     conf.save()
     return (status.OK, 'The world is saved')
 
-def __main__():
-    get_help()
+def __main__(args):
+    get_help(args)
 
 def init(pid, plugin_alias, script_alias):
     global world_status, plugin_id
