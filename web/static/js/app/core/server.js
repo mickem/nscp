@@ -11,7 +11,6 @@ define(['jquery', 'require', 'app/core/authToken', 'app/core/globalStatus'], fun
 				type: 'GET',
 				dataType: 'json',
 				success: success,
-				cache: false,
 				error: function(xhr, error, status) {
 					if (xhr.status == 403) {
 						gs().is_loggedin(false);
