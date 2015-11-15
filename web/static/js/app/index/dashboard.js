@@ -98,7 +98,19 @@ define(['jquery', 'knockout', 'text!app/index/dashboard.html',
 		})
 		self.dispose = function() {
 			metrics.set_refresh_handler(false);
-		} 
+		}
+		self.currentFilter = ko.observable();
+		self.filterMetrics = ko.computed(function() {
+			if(!self.currentFilter()) {
+				return self.metricsList(); 
+			} else {
+				var key = self.currentFilter().toLowerCase()
+				return ko.utils.arrayFilter(self.metricsList(), function(m) {
+					return m.path.toLowerCase().indexOf(key) != -1;
+				});
+			}
+		});
+		
 
 
 		self.refreshChart = function () {

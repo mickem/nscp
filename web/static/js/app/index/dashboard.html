@@ -61,7 +61,10 @@
 			</div>
 		<!-- /ko -->
 		<div role="tabpanel" data-bind="if: tab == 'all'">
-			<h1>Metrics</h1>
+			<h1 class="pull-left">Metrics</h1>
+			<div class="pull-left" style="padding-top: 0px;">
+				<input data-bind="value: currentFilter, valueUpdate: 'input'" id="filter" class="form-control" placeholder="Filter metrics
+			</div>
 			<table class="table">
 				<thead>
 					<tr>
@@ -69,7 +72,7 @@
 						<th>Value</th>
 					</tr>
 				</thead>
-				<tbody data-bind="foreach: metricsList">
+				<tbody data-bind="foreach: filterMetrics">
 					<tr>
 						<td data-bind="text: path"></td>
 						<td data-bind="text: value"></td>

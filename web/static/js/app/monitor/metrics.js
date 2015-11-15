@@ -97,7 +97,6 @@ define(['knockout', 'app/core/utils', 'app/core/server', 'app/core/globalStatus'
 										hasChanged = true;
 									} else {
 										match.disk_queue_length(node[key])
-										console.log("Pushing data on: " + id)
 										self.diskGraphs[id].push([ new Date().getTime(), node[key] ])
 										if (self.diskGraphs[id].length > 120/5)
 											self.diskGraphs[id].shift()
