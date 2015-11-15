@@ -38,6 +38,12 @@ namespace graphite_client {
 		std::string value;
 	};
 
+	std::string fix_graphite_string(const std::string &s) {
+		std::string sc = s;
+		strEx::replace(sc, " ", "_");
+		strEx::replace(sc, "\\", "_");
+		return sc;
+	}
 	struct graphite_client_handler : public client::handler_interface {
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
@@ -66,8 +72,7 @@ namespace graphite_client {
 							d.path = tmp_path;
 							strEx::replace(d.path, "${perf_alias}", perf.alias());
 							d.value = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
-							strEx::replace(d.path, " ", "_");
-							strEx::replace(d.path, "\\", "_");
+							d.path = fix_graphite_string(d.path);
 							list.push_back(d);
 						}
 					}
@@ -100,14 +105,18 @@ namespace graphite_client {
 		}
 
 
-		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b) {
+		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b, std::string path) {
+			std::string mypath;
+			if (!path.empty())
+				mypath = path + ".";
+			mypath += b.key();
 			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
-				push_metrics(list, b2);
+				push_metrics(list, b2, mypath);
 			}
 			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
 				graphite_client::g_data d;
 				const ::Plugin::Common_AnyDataType &value = v.value();
-				d.path = v.key();
+				d.path = fix_graphite_string(mypath + "." + v.key());
 				if (value.has_int_data()) {
 					d.value = strEx::s::xtos(v.value().int_data());
 					list.push_back(d);
@@ -122,7 +131,7 @@ namespace graphite_client {
 			std::list<graphite_client::g_data> list;
 			BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, request_message.payload()) {
 				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
-					push_metrics(list, b);
+					push_metrics(list, b, "");
 				}
 			}
 			connection_data con(sender, target);
