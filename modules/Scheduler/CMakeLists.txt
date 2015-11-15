@@ -8,7 +8,9 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
-	simple_scheduler.cpp
+	${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
+	${NSCP_INCLUDEDIR}/has-threads.cpp
+	schedules_handler.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -18,8 +20,9 @@ ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
-		simple_scheduler.hpp
-		schedules.hpp
+		${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
+		schedules_handler.hpp
+		${NSCP_INCLUDEDIR}/has-threads.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

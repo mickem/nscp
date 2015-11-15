@@ -9,17 +9,35 @@
 #include <boost/thread.hpp>
 #include <boost/date_time/local_time/local_time.hpp>
 #include <boost/optional.hpp>
+#include <boost/unordered_map.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/function.hpp>
 
-#include <unicode_char.hpp>
+#include <has-threads.hpp>
 
-#include "schedules.hpp"
+namespace simple_scheduler {
 
-namespace scheduler {
-	class schedule_handler {
+	struct task {
+		int id;
+		std::string tag;
+		boost::posix_time::time_duration duration;
+
+		task() : duration(boost::posix_time::seconds(0)) {}
+		task(std::string tag, boost::posix_time::time_duration duration) : tag(tag), duration(duration) {}
+
+		std::string to_string() const {
+			std::stringstream ss;
+			ss << id << "[" << tag << "] = " << duration.total_seconds();
+			return ss.str();
+		}
+	};
+
+
+	class handler {
 	public:
-		virtual void handle_schedule(schedules::schedule_object item) = 0;
+		virtual bool handle_schedule(task item) = 0;
 		virtual void on_error(std::string error) = 0;
+		virtual void on_trace(std::string error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -71,61 +89,76 @@ namespace scheduler {
 		}
 	};
 
-	class simple_scheduler : public boost::noncopyable {
+	class scheduler : public boost::noncopyable {
 	private:
-		typedef std::map<int, schedules::schedule_handler::object_instance> target_list_type;
+		typedef boost::unordered_map<int, task> tasks_list_type;
+		typedef boost::optional<task> op_task_object;
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
 		// thread variables
+		int error_threshold_;
 		unsigned int schedule_id_;
 		volatile bool stop_requested_;
 		volatile bool running_;
+		volatile bool has_watchdog_;
 		std::size_t thread_count_;
-		schedule_handler* handler_;
-		int error_threshold_;
+		handler* handler_;
 
-		boost::thread_group threads_;
+		has_threads threads_;
 		boost::mutex mutex_;
-		target_list_type targets_;
+		tasks_list_type tasks_;
 		schedule_queue_type queue_;
 		boost::mutex idle_thread_mutex_;
 		boost::condition_variable idle_thread_cond_;
 	public:
 
-		simple_scheduler() : schedule_id_(0), stop_requested_(false), running_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
-		~simple_scheduler() {}
+		scheduler() : schedule_id_(0), stop_requested_(false), running_(false), has_watchdog_(false), thread_count_(10), handler_(NULL), error_threshold_(5) {}
+		~scheduler() {}
 
-		void set_handler(schedule_handler* handler) {
+		void set_handler(handler* handler) {
 			handler_ = handler;
 		}
 		void unset_handler() {
 			handler_ = NULL;
 		}
 
-		int add_task(schedules::schedule_handler::object_instance item);
+		boost::mutex& get_mutex() {
+			return mutex_;
+		}
+
+		int add_task(std::string tag, boost::posix_time::time_duration duration);
 		void remove_task(int id);
-		schedules::schedule_handler::object_instance get_task(int id);
+		op_task_object get_task(int id);
+		void clear_tasks();
 
 		void start();
 		void stop();
 
+
 		void set_threads(int threads) {
 			thread_count_ = threads;
-			start_thread();
+			start_threads();
 		}
 		int get_threads() const { return thread_count_; }
 
 	private:
-		void thread_proc(int id);
+
 		void watch_dog(int id);
+		void thread_proc(int id);
 
-		void reschedule(const schedules::schedule_handler::object_instance item);
-		void reschedule(const schedules::schedule_handler::object_instance item, boost::posix_time::ptime now);
-		void reschedule_wnext(int id, boost::posix_time::ptime next);
-		void start_thread();
 
-		void log_error(std::wstring err);
-		void log_error(std::string err);
+		void reschedule(const task &item);
+		void reschedule_at(const int id, boost::posix_time::ptime new_time);
+		void start_threads();
+
+		void log_error(std::string err) {
+			if (handler_)
+				handler_->on_error(err);
+		}
+		void log_trace(std::string err) {
+			if (handler_)
+				handler_->on_trace(err);
+		}
 
 		inline boost::posix_time::ptime now() {
 			return boost::get_system_time();

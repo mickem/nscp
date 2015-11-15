@@ -4,7 +4,8 @@
 		"description"	: "Use this to schedule check commands and jobs in conjunction with for instance passive monitoring through NSCA",
 		"name"			: "Scheduler",
 		"alias"			: "schedule",
-		"version"		: "auto"
+		"version"		: "auto",
+		"reload"		: true
 	},
 
 	"metrics" : "produce"

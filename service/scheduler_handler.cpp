@@ -12,12 +12,12 @@ namespace task_scheduler {
 		boost::mutex::scoped_lock l(tasks.get_mutex());
 		return metadata[id];
 	}
-	void scheduler::handle_plugin(const schedule_metadata &metadata) {
-		NSClientT::plugin_type plugin = mainClient->find_plugin(metadata.plugin_id);
+	void scheduler::handle_plugin(const schedule_metadata &data) {
+		NSClientT::plugin_type plugin = mainClient->find_plugin(data.plugin_id);
 		plugin->handle_schedule("");
 	}
-	void scheduler::handle_reload(const schedule_metadata &metadata) {
-		mainClient->do_reload(metadata.info);
+	void scheduler::handle_reload(const schedule_metadata &data) {
+		mainClient->do_reload(data.info);
 	}
 	void scheduler::handle_settings() {
 		settings_manager::get_core()->house_keeping();
@@ -52,7 +52,7 @@ namespace task_scheduler {
 		metadata[id] = data;
 	}
 
-	bool scheduler::handle_schedule(scheduled_task item) {
+	bool scheduler::handle_schedule(simple_scheduler::task item) {
 		schedule_metadata metadata = get(item.id);
 		if (metadata.source == schedule_metadata::MODULE) {
 			handle_plugin(metadata);

@@ -22,7 +22,7 @@ SET(service_SRCS
 	logger_impl.cpp
 	cli_parser.cpp
 	settings_client.cpp
-	task_scheduler.cpp
+	${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
 	scheduler_handler.cpp
 
 
@@ -53,7 +53,7 @@ IF(WIN32)
 		core_api.h
 		settings_client.hpp
 		cli_parser.hpp
-		task_scheduler.hpp
+		${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
 		scheduler_handler.hpp
 		
 		plugin_list.hpp

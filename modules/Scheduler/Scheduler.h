@@ -21,19 +21,23 @@
 #include <strEx.h>
 
 #include <nscapi/nscapi_plugin_impl.hpp>
-#include "simple_scheduler.hpp"
-#include "schedules.hpp"
+#include <scheduler/simple_scheduler.hpp>
+#include "schedules_handler.hpp"
 
-class Scheduler : public scheduler::schedule_handler, public nscapi::impl::simple_plugin {
+typedef schedules::schedule_handler::object_instance schedule_instance;
+class Scheduler : public schedules::task_handler, public nscapi::impl::simple_plugin {
 private:
-	scheduler::simple_scheduler scheduler_;
+
+	schedules::scheduler scheduler_;
 	schedules::schedule_handler schedules_;
 
 public:
 	Scheduler() {
 		scheduler_.set_handler(this);
 	}
-	virtual ~Scheduler() {}
+	virtual ~Scheduler() {
+		scheduler_.set_handler(NULL);
+	}
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
@@ -42,6 +46,8 @@ public:
 	void fetchMetrics(Plugin::MetricsMessage::Response *response);
 
 	void add_schedule(std::string alias, std::string command);
-	void handle_schedule(schedules::schedule_object item);
+	bool handle_schedule(schedules::target_object task);
+
 	void on_error(std::string error);
+	void on_trace(std::string error);
 };

@@ -1,6 +1,8 @@
 #pragma once
 
-#include "task_scheduler.hpp"
+#include <scheduler/simple_scheduler.hpp>
+
+
 
 namespace task_scheduler {
 	struct schedule_metadata {
@@ -16,10 +18,10 @@ namespace task_scheduler {
 		std::string schedule;
 	};
 
-	struct scheduler : public schedule_handler {
+	struct scheduler : public simple_scheduler::handler {
 		typedef boost::unordered_map<int, schedule_metadata> metadata_map;
 		metadata_map metadata;
-		simple_scheduler tasks;
+		simple_scheduler::scheduler tasks;
 
 		schedule_metadata get(int id);
 		void handle_plugin(const schedule_metadata &metadata);
@@ -32,7 +34,7 @@ namespace task_scheduler {
 
 		void add_task(const schedule_metadata::task_source source, const std::string interval, const std::string info = "");
 
-		virtual bool handle_schedule(scheduled_task item);
+		bool handle_schedule(simple_scheduler::task item);
 		virtual void on_error(std::string error);
 		virtual void on_trace(std::string error);
 	};

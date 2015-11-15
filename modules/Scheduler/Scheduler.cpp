@@ -35,6 +35,12 @@
 namespace sh = nscapi::settings_helper;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+	if (mode == NSCAPI::reloadStart) {
+		scheduler_.unset_handler();
+		scheduler_.clear();
+	}
+
+
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "scheduler");
 	schedules_.set_path(settings.alias().get_settings_path("schedules"));
@@ -45,7 +51,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		;
 
 	settings.alias().add_key_to_settings()
-		("threads", sh::int_fun_key<unsigned int>(boost::bind(&scheduler::simple_scheduler::set_threads, &scheduler_, _1), 5),
+		("threads", sh::int_fun_key<unsigned int>(boost::bind(&schedules::scheduler::set_threads, &scheduler_, _1), 5),
 			"THREAD COUNT", "Number of threads to use.")
 		;
 
@@ -80,9 +86,11 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		scheduler_.add_task(o);
 	}
 
-	NSC_DEBUG_MSG_STD("Thread count: " + strEx::s::xtos(scheduler_.get_threads()));
 	if (mode == NSCAPI::normalStart) {
 		scheduler_.set_handler(this);
+		scheduler_.start();
+	}
+	if (mode == NSCAPI::reloadStart) {
 		scheduler_.start();
 	}
 	return true;
@@ -108,6 +116,8 @@ bool Scheduler::unloadModule() {
 void Scheduler::on_error(std::string error) {
 	NSC_LOG_ERROR(error);
 }
+void Scheduler::on_trace(std::string error) {
+}
 
 #if BOOST_VERSION >= 105300
 volatile boost::uint32_t taskes = 0;
@@ -121,66 +131,69 @@ volatile int errors = 0;
 void atomic_inc32(volatile int *i) {}
 #endif
 #include <nscapi/functions.hpp>
-void Scheduler::handle_schedule(schedules::schedule_object item) {
+
+
+bool Scheduler::handle_schedule(schedules::target_object item) {
 	atomic_inc32(&taskes);
 	try {
 		std::string response;
 		nscapi::core_helper ch(get_core(), get_id());
-		if (!ch.simple_query(item.command.c_str(), item.arguments, response)) {
-			NSC_LOG_ERROR("Failed to execute: " + item.command);
-			if (item.channel.empty()) {
-				NSC_LOG_ERROR_WA("No channel specified for ", item.alias);
+		if (!ch.simple_query(item->command.c_str(), item->arguments, response)) {
+			NSC_LOG_ERROR("Failed to execute: " + item->command);
+			if (item->channel.empty()) {
+				NSC_LOG_ERROR_WA("No channel specified for ", item->alias);
 				atomic_inc32(&errors);
-				return;
+				return true;
 			}
-			nscapi::protobuf::functions::create_simple_submit_request(item.channel, item.command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item.command, "", response);
+			nscapi::protobuf::functions::create_simple_submit_request(item->channel, item->command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item->command, "", response);
 			std::string result;
-			get_core()->submit_message(item.channel, response, result);
-			return;
+			get_core()->submit_message(item->channel, response, result);
+			return true;
 		}
 		Plugin::QueryResponseMessage resp_msg;
 		resp_msg.ParseFromString(response);
 		Plugin::QueryResponseMessage resp_msg_send;
 		resp_msg_send.mutable_header()->CopyFrom(resp_msg.header());
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
-			if (nscapi::report::matches(item.report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result())))
+			if (nscapi::report::matches(item->report, nscapi::protobuf::functions::gbp_to_nagios_status(p.result())))
 				resp_msg_send.add_payload()->CopyFrom(p);
 		}
 		if (resp_msg_send.payload_size() > 0) {
-			if (item.channel.empty()) {
-				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item.alias) + " mssage will not be sent.");
+			if (item->channel.empty()) {
+				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item->alias) + " mssage will not be sent.");
 				atomic_inc32(&errors);
-				return;
+				return true;
 			}
-			nscapi::protobuf::functions::make_submit_from_query(response, item.channel, item.alias, item.target_id, item.source_id);
+			nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->alias, item->target_id, item->source_id);
 			std::string result;
 			atomic_inc32(&submitted);
-			if (!get_core()->submit_message(item.channel, response, result)) {
-				NSC_LOG_ERROR_STD("Failed to submit: " + item.alias);
+			if (!get_core()->submit_message(item->channel, response, result)) {
+				NSC_LOG_ERROR_STD("Failed to submit: " + item->alias);
 				atomic_inc32(&errors);
-				return;
+				return true;
 			}
 			std::string error;
 			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
-				NSC_LOG_ERROR_STD("Failed to submit " + item.alias + ": " + error);
+				NSC_LOG_ERROR_STD("Failed to submit " + item->alias + ": " + error);
 				atomic_inc32(&errors);
-				return;
+				return true;
 			}
 		} else {
-			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item.alias) + " so nothing is reported");
+			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item->alias) + " so nothing is reported");
 		}
+		return true;
 	} catch (nscapi::nscapi_exception &e) {
 		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
-		scheduler_.remove_task(item.id);
+		return false;
 	} catch (std::exception &e) {
 		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Exception: ", e);
-		scheduler_.remove_task(item.id);
+		return false;
 	} catch (...) {
 		atomic_inc32(&errors);
-		NSC_LOG_ERROR_EX(item.alias);
-		scheduler_.remove_task(item.id);
+		NSC_LOG_ERROR_EX(item->alias);
+		return false;
 	}
 }
 

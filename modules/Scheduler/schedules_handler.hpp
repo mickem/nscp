@@ -13,6 +13,9 @@
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
+
+#include <scheduler/simple_scheduler.hpp>
+
 namespace sh = nscapi::settings_helper;
 
 namespace schedules {
@@ -127,7 +130,63 @@ namespace schedules {
 		}
 	};
 
+
 	typedef boost::optional<schedule_object> optional_target_object;
+	typedef boost::shared_ptr<schedule_object> target_object;
 
 	typedef nscapi::settings_objects::object_handler<schedule_object> schedule_handler;
+
+	struct task_handler {
+		virtual bool handle_schedule(target_object task) = 0;
+		virtual void on_error(std::string error) = 0;
+		virtual void on_trace(std::string error) = 0;
+
+	};
+
+	struct scheduler : public simple_scheduler::handler {
+		typedef boost::unordered_map<int, target_object> metadata_map;
+		metadata_map metadata;
+		simple_scheduler::scheduler tasks;
+		task_handler *handler_;
+
+		target_object get(int id);
+
+		void start();
+		void stop();
+
+		void set_handler(task_handler* handler) {
+			handler_ = handler;
+		}
+		void unset_handler() {
+			handler_ = NULL;
+		}
+		void clear();
+
+		void set_threads(int count) {
+			tasks.set_threads(count);
+		}
+		int get_threads() const {
+			return tasks.get_threads();
+		}
+
+		void add_task(const target_object target);
+
+		bool handle_schedule(simple_scheduler::task item) {
+			if (handler_) {
+				if (!handler_->handle_schedule(get(item.id)))
+					tasks.remove_task(item.id);
+
+			}
+			return true;
+		}
+		void on_error(std::string error) {
+			if (handler_)
+				handler_->on_error(error);
+		}
+		void on_trace(std::string error) {
+			if (handler_)
+				handler_->on_error(error);
+		}
+	};
+
 }
