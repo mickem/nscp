@@ -72,6 +72,7 @@ cli_parser::cli_parser(NSClient* core)
 		("uninstall", "Uninstall service")
 		("start", "Start service")
 		("stop", "Stop service")
+		("restart", "Stop than start service")
 		("info", "Show information about service")
 		("run", "Run as a service")
 		("name", po::value<std::string>(), "Name of service")
@@ -373,6 +374,9 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 			} else if (vm.count("uninstall")) {
 				service_manager.uninstall();
 			} else if (vm.count("start")) {
+				service_manager.start();
+			} else if (vm.count("restart")) {
+				service_manager.stop();
 				service_manager.start();
 			} else if (vm.count("stop")) {
 				service_manager.stop();
