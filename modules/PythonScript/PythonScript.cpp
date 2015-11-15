@@ -499,7 +499,7 @@ void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &
 		po::store(parsed, vm);
 		po::notify(vm);
 		script_options = po::collect_unrecognized(parsed.options, po::include_positional);
-		if (!script_options.empty() && script_options[0] == "execute")
+		if (!script_options.empty() && (script_options[0] == "execute" || script_options[0] == "exec"))
 			script_options.erase(script_options.begin());
 
 	} catch (const std::exception &e) {
