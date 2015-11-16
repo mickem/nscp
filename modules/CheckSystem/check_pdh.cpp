@@ -88,6 +88,9 @@ namespace check_pdh {
 			;
 	}
 
+	void check::clear() {
+		counters_.clear();
+	}
 	void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 		try {
 			counters_.add(proxy, key, query, key == "default");
