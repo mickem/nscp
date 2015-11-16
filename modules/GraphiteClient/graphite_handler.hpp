@@ -35,21 +35,40 @@ namespace graphite_handler {
 			if (is_sample)
 				root_path.set_sample();
 
-			root_path.add_key()
+			if (is_default()) {
 
-				("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1)),
-					"PATH FOR METRICS", "Path mapping for metrics")
+				root_path.add_key()
 
-				("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1)),
-					"PATH FOR STATUS", "Path mapping for status")
+					("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
+						"PATH FOR METRICS", "Path mapping for metrics")
 
-				("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
-					"SEND PERF DATA", "Send performance data to this server")
+					("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1), "system.${hostname}.${check_alias}.status"),
+						"PATH FOR STATUS", "Path mapping for status")
 
-				("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1)),
-					"SEND STATUS", "Send status data to this server")
+					("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1), true),
+						"SEND PERF DATA", "Send performance data to this server")
 
-				;
+					("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1), true),
+						"SEND STATUS", "Send status data to this server")
+
+					;
+			} else {
+				root_path.add_key()
+
+					("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1)),
+						"PATH FOR METRICS", "Path mapping for metrics")
+
+					("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1)),
+						"PATH FOR STATUS", "Path mapping for status")
+
+					("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
+						"SEND PERF DATA", "Send performance data to this server")
+
+					("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1)),
+						"SEND STATUS", "Send status data to this server")
+
+					;
+			}
 			settings.register_all();
 			settings.notify();
 		}
