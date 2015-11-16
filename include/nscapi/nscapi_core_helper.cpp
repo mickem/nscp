@@ -61,18 +61,12 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 
 	request_message.SerializeToString(&request);
 
-	//nscapi::protobuf::functions::create_simple_submit_request(channel, command, code, message, perf, request);
-	NSCAPI::nagiosReturn ret = get_core()->submit_message(channel, request, buffer);
-	if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
-		response = "No handler for: " + channel;
-		return false;
-	}
-	if (buffer.size() == 0) {
-		response = "Missing response from submission";
+	if (!get_core()->submit_message(channel, request, buffer)) {
+		response = "Failed to submit message: " + channel;
 		return false;
 	}
 	nscapi::protobuf::functions::parse_simple_submit_response(buffer, response);
-	return ret == NSCAPI::cmd_return_codes::isSuccess;
+	return true;
 }
 
 /**

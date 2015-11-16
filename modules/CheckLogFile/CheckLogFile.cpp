@@ -40,7 +40,7 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias(alias, "logfile");
 
-	//thread_->filters_path_ = settings.alias().get_settings_path("real-time/checks");
+	thread_->filters_.set_path(settings.alias().get_settings_path("real-time/checks"));
 
 	settings.alias().add_path_to_settings()
 		("LOG FILE SECTION", "Section for log file checker")
