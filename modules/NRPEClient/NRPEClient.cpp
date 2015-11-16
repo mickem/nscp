@@ -161,11 +161,12 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure;
+	std::string allowed_hosts, cert, key, arguments = "false", chipers, insecure = "true";
 	unsigned int length = 1024;
 	const std::string path = "/settings/NRPE/server";
 	std::string verify = "peer-cert";
 	std::string sslops = "";
+	std::string port = "5666";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
@@ -177,6 +178,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	q.get(path, "allowed ciphers", "");
 	q.get(path, "verify mode", verify);
 	q.get(path, "ssl options", "");
+	q.get(path, "port", "5666");
 
 	get_core()->settings_query(q.request(), q.response());
 	if (!q.validate_response()) {
@@ -201,6 +203,8 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			verify = val.get_string();
 		else if (val.path == path && val.key && *val.key == "ssl options")
 			sslops = val.get_string();
+		else if (val.path == path && val.key && *val.key == "port")
+			port = val.get_string();
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
 		if (val.path == path && val.key && *val.key == "allow nasty characters") {
@@ -224,6 +228,9 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 
 		("allowed-hosts,h", po::value<std::string>(&allowed_hosts)->default_value(allowed_hosts),
 			"Set which hosts are allowed to connect")
+
+		("port", po::value<std::string>(&port)->default_value(port),
+			"Set the port NRPE listens on")
 
 		("certificate", po::value<std::string>(&cert)->default_value(cert),
 			"Length of payload (has to be same as on the server)")
@@ -259,9 +266,10 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 		}
 
 		nscapi::protobuf::functions::settings_query s(get_id());
-		result << "Enabling NRPE via SSL from: " << allowed_hosts << std::endl;
+		result << "Enabling NRPE via SSL from: " << allowed_hosts << " on port " << port << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
 		s.set(MAIN_MODULES_SECTION, "NRPEServer", "enabled");
+		s.set("/settings/NRPE/server", "port", port);
 		s.set("/settings/NRPE/server", "ssl", "true");
 		if (insecure == "true") {
 			result << "WARNING: NRPE is currently insecure." << std::endl;
