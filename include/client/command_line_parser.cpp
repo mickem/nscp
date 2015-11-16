@@ -469,9 +469,9 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 	Plugin::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
-	if (request.header().has_recipient_id())
+	if (request.header().has_recipient_id() && !request.header().recipient_id().empty())
 		target = request.header().recipient_id();
-	else if (request.header().has_destination_id())
+	else if (request.header().has_destination_id() && !request.header().destination_id().empty())
 		target = request.header().destination_id();
 
 	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
