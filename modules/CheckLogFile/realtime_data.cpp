@@ -73,10 +73,22 @@ void runtime_data::set_split(std::string line, std::string column) {
 		column_split = column;
 	strEx::replace(column_split, "\\t", "\t");
 	strEx::replace(column_split, "\\n", "\n");
+	std::size_t len = column_split.size();
+	if (len == 0)
+		column_split = " ";
+	if (len > 2 && column_split[0] == '\"' && column_split[len - 1] == '\"')
+		column_split = column_split.substr(1, len - 2);
+
+
 	if (line.empty())
 		line = "\n";
 	else
 		line_split = line;
 	strEx::replace(line_split, "\\t", "\t");
 	strEx::replace(line_split, "\\n", "\n");
+	len = line_split.size();
+	if (len == 0)
+		line_split = " ";
+	if (len > 2 && line_split[0] == '\"' && line_split[len - 1] == '\"')
+		line_split = line_split.substr(1, len - 2);
 }
