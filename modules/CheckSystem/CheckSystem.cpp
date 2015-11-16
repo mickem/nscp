@@ -173,7 +173,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			"\"fields\": [ "
 			" { \"id\": \"alias\",											\"title\" : \"Alias\",				\"type\" : \"input\",		\"desc\" : \"This will identify the counter when it is reported and checked\"} , "
 			" { \"id\": \"counter\",	\"key\" : \"counter\",				\"title\" : \"Counter\",			\"type\" : \"data-choice\",	\"desc\" : \"The name of the counter\",\"exec\" : \"CheckSystem pdh --list --json --all\" } , "
-			" { \"id\": \"cs\",			\"key\" : \"collection strategy\",	\"title\" : \"Collection Strategy\",\"type\" : \"choice\",		\"desc\" : \"How values are stored after collection\",\"data\" : [\"rrd\", \"value\"] } , "
+			" { \"id\": \"cs\",			\"key\" : \"collection strategy\",	\"title\" : \"Collection Strategy\",\"type\" : \"choice\",		\"desc\" : \"How values are stored after collection\",\"data\" : [\"rrd\", \"static\"] } , "
 			" { \"id\": \"instances\",	\"key\" : \"instances\",			\"title\" : \"Instances\",			\"type\" : \"bool\",		\"desc\" : \"If instances should be fetched. I.e. all CPUs not just the total. This requires you to place $INSTANCES$ in the counter name.\" } , "
 			" { \"id\": \"type\",		\"key\" : \"type\",					\"title\" : \"Value type\",			\"type\" : \"choice\",		\"desc\" : \"The type of values for this counter\",\"data\" : [\"large\", \"double\", \"long\"] } , "
 			" { \"id\": \"flags\",		\"key\" : \"flags\",				\"title\" : \"Flags\",				\"type\" : \"input\",		\"desc\" : \"Specify a coma separated list of flags to configure advanced options for this counter: nocap100, 1000, noscale\" } "
@@ -224,6 +224,7 @@ bool CheckSystem::unloadModule() {
 	if (!collector->stop()) {
 		NSC_LOG_ERROR("Could not exit the thread, memory leak and potential corruption may be the result...");
 	}
+	pdh_checker.clear();
 	return true;
 }
 
