@@ -42,6 +42,8 @@ namespace graphite_client {
 		std::string sc = s;
 		strEx::replace(sc, " ", "_");
 		strEx::replace(sc, "\\", "_");
+		strEx::replace(sc, "[", "_");
+		strEx::replace(sc, "]", "_");
 		return sc;
 	}
 	struct graphite_client_handler : public client::handler_interface {
