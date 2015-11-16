@@ -43,7 +43,7 @@ namespace client {
 
 		types type;
 		std::string separator;
-		payload_builder() : submit_payload(NULL), type(type_none), separator("|") {}
+		payload_builder() : submit_payload(NULL), exec_payload(NULL), query_payload(NULL), type(type_none), separator("|") {}
 
 		void set_type(types type_) {
 			type = type_;
