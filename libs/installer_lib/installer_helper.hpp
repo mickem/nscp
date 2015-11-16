@@ -95,7 +95,7 @@ public:
 		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_LOCAL);
 	}
 	void setFeatureAbsent(std::wstring feature) {
-		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_ABSENT);
+		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_REMOVED);
 	}
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
