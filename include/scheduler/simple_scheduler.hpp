@@ -133,6 +133,7 @@ namespace simple_scheduler {
 
 		void start();
 		void stop();
+		void prepare_shutdown();
 
 
 		void set_threads(int threads) {

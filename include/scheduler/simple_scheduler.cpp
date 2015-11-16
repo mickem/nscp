@@ -16,6 +16,14 @@ namespace simple_scheduler {
 		start_threads();
 		log_trace("Thread pool contains: " + strEx::s::xtos(threads_.threadCount()));
 	}
+
+	void scheduler::prepare_shutdown() {
+		log_trace("prepare to shutdown");
+		running_ = false;
+		stop_requested_ = true;
+		has_watchdog_ = false;
+		threads_.interruptThreads();
+	}
 	void scheduler::stop() {
 		log_trace("stopping all threads");
 		running_ = false;
@@ -131,11 +139,11 @@ namespace simple_scheduler {
 						if (handler_)
 							to_reschedule = handler_->handle_schedule(*item);
 						if (to_reschedule)
-							reschedule_at(item->id, now_time);
+							reschedule(*item);
 						else
 							log_trace("Abandoning: " + item->to_string());
 					} catch (...) {
-						log_error("UNKNOWN ERROR RUNING TASK: ");
+						log_error("UNKNOWN ERROR RUNING TASK: " + item->tag);
 						reschedule(*item);
 					}
 				} else {

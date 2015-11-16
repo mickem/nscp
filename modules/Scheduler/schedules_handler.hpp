@@ -157,6 +157,9 @@ namespace schedules {
 		void set_handler(task_handler* handler) {
 			handler_ = handler;
 		}
+		void prepare_shutdown() {
+			tasks.prepare_shutdown();
+		}
 		void unset_handler() {
 			handler_ = NULL;
 		}
