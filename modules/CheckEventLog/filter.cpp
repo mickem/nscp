@@ -82,7 +82,7 @@ namespace eventlog_filter {
 			throw nscp_exception("Failed to get system provider");
 		eventlog::evt_handle hMetadata = eventlog::EvtOpenPublisherMetadata(NULL, buffer.get()[eventlog::api::EvtSystemProviderName].StringVal, NULL, 0, 0);
 		if (!hMetadata)
-			throw nscp_exception("EvtOpenPublisherMetadata failed for '" + utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal) + "': " + error::lookup::last_error());
+			return "EvtOpenPublisherMetadata failed for '" + utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal) + "': " + error::lookup::last_error();
 
 		if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize)) {
 			DWORD status = GetLastError();
