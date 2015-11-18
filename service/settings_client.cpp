@@ -148,10 +148,22 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 	get_core()->get()->save();
 	return 0;
 }
+void list_settings_context_info(int padding, settings::instance_ptr instance) {
+	std::string pad = std::string(padding, ' ');
+	std::cout << pad << instance->get_info() << std::endl;
+	BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
+		list_settings_context_info(padding + 2, child);
+	}
+}
+
 int nsclient_core::settings_client::show(std::string path, std::string key) {
-	settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
-	if (val)
-		 std::cout << *val;
+	if (path.empty() && key.empty())
+		list_settings_context_info(2, settings_manager::get_settings());
+	else {
+		settings::settings_interface::op_string val = get_core()->get()->get_string(path, key);
+		if (val)
+			std::cout << *val;
+	}
 	return 0;
 }
 int nsclient_core::settings_client::list(std::string path) {
@@ -180,13 +192,6 @@ void nsclient_core::settings_client::debug_msg(std::string msg) {
 	nsclient::logging::logger::get_logger()->debug("client", __FILE__, __LINE__, msg.c_str());
 }
 
-void list_settings_context_info(int padding, settings::instance_ptr instance) {
-	std::string pad = std::string(padding, ' ');
-	std::cout << pad << instance->get_info() << std::endl;
-	BOOST_FOREACH(settings::instance_ptr child, instance->get_children()) {
-		list_settings_context_info(padding+2, child);
-	}
-}
 void nsclient_core::settings_client::list_settings_info() {
 	std::cout << "Current settings instance loaded: " << std::endl;
 	list_settings_context_info(2, settings_manager::get_settings());
