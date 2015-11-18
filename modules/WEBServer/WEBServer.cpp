@@ -921,7 +921,7 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 		nscapi::program_options::basic_command_line_parser cmd(request);
 		cmd.options(desc);
 
-		po::parsed_options parsed = cmd.run();
+		po::parsed_options parsed = cmd.allow_unregistered().run();
 		po::store(parsed, vm);
 		po::notify(vm);
 
