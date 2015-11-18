@@ -87,8 +87,8 @@ namespace nscapi {
 		NSCAPI::nagiosReturn exec_command(const char* target, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		bool exec_command(const std::string target, std::string request, std::string & result) const;
 
-		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len);
-		bool submit_message(std::string channel, std::string request, std::string &response);
+		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool submit_message(std::string channel, std::string request, std::string &response) const;
 		bool reload(std::string module) const;
 
 		NSCAPI::nagiosReturn json_to_protobuf(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;

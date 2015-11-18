@@ -29,10 +29,10 @@
 
 namespace nscapi {
 	class NSCAPI_EXPORT core_helper {
-		nscapi::core_wrapper *core_;
+		const nscapi::core_wrapper *core_;
 		int plugin_id_;
 	public:
-		core_helper(nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
+		core_helper(const nscapi::core_wrapper *core, int plugin_id) : core_(core), plugin_id_(plugin_id) {}
 		void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
 		void unregister_command(std::string command);
 		void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
@@ -47,6 +47,6 @@ namespace nscapi {
 		bool submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);
 
 	private:
-		nscapi::core_wrapper* get_core();
+		const nscapi::core_wrapper* get_core();
 	};
 }

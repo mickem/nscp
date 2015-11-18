@@ -115,7 +115,7 @@ void nscapi::core_wrapper::DestroyBuffer(char**buffer) const {
 	return fNSAPIDestroyBuffer(buffer);
 }
 
-bool nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) {
+bool nscapi::core_wrapper::submit_message(std::string channel, std::string request, std::string &response) const {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	char *buffer = NULL;
@@ -135,7 +135,7 @@ bool nscapi::core_wrapper::reload(std::string module) const {
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return NSCAPI::api_ok(fNSAPIReload(module.c_str()));
 }
-NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) {
+NSCAPI::nagiosReturn nscapi::core_wrapper::submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
 	if (!fNSAPINotify)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPINotify(channel, request, request_len, response, response_len);
