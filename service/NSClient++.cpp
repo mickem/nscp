@@ -1188,7 +1188,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
 		if (cur_chan == "noop") {
 			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", 0, "seems ok", response);
 			continue;
 		}
 		if (cur_chan == "log") {
@@ -1235,17 +1235,18 @@ NSClientT::plugin_type NSClientT::find_plugin(const unsigned int plugin_id) {
 	return plugin_type();
 }
 
-NSClientT::plugin_type NSClientT::find_plugin(const std::string key) {
+NSClientT::plugin_type NSClientT::find_plugin(const std::string key_ic) {
+	std::string key = boost::to_lower_copy(key_ic);
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
 		return plugin_type();
 	}
 	BOOST_FOREACH(plugin_type plugin, plugins_) {
-		std::string s = plugin->get_alias();
+		std::string s = boost::to_lower_copy(plugin->get_alias());
 		if (s == key)
 			return plugin;
-		s = plugin->getModule();
+		s = boost::to_lower_copy(plugin->getModule());
 		if (s == key)
 			return plugin;
 	}
