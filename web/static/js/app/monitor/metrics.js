@@ -58,14 +58,14 @@ define(['knockout', 'app/core/utils', 'app/core/server', 'app/core/globalStatus'
 				gs.add_refresh_handler('metrics', function() {
 					server.json_get("/metrics", function(data) {
 
+						self.metricsList(flatten_metrics("", data))
+						self.count(self.metricsList().length)
+
 						if (data['system'] && data['system']['cpu']) {
 							self.cpu.data(true);
 							var load = Math.round(data['system']['cpu']['total.total'])
 							var steps = 10
 							self.cpu.load(load + "%")
-							var x = flatten_metrics("", data)
-							self.metricsList(x)
-							self.count(x.length)
 							self.cpu.handles(data['system']['metrics']['procs.handles'])
 							self.cpu.threads(data['system']['metrics']['procs.threads'])
 							self.cpu.procs(data['system']['metrics']['procs.procs'])
