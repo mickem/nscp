@@ -6,7 +6,7 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
-static void create_registry_query(nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
+static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
 	Plugin::RegistryRequestMessage rrm;
 	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -221,6 +221,10 @@ namespace client {
 			create_registry_query(handler->get_core(), "", Plugin::Registry_ItemType_QUERY_ALIAS, response_message);
 			list = render_list(response_message, &render_query);
 			handler->output_message(list.empty() ? "Nothing found" : list);
+		} else if (command.size() >= 7 && command.substr(0, 7) == "metrics") {
+			BOOST_FOREACH(const metrics::metrics_store::values_map::value_type &v, metrics_store.get(command.substr(7))) {
+				handler->output_message(v.first + "=" + v.second);
+			}
 		} else if (command.size() > 4 && command.substr(0, 4) == "exec") {
 			try {
 				std::list<std::string> args;
@@ -260,4 +264,9 @@ namespace client {
 			}
 		}
 	}
+
+	void cli_client::push_metrics(const Plugin::MetricsMessage &response) {
+		metrics_store.set(response);
+	}
+
 }

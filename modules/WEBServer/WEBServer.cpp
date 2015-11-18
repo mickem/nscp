@@ -109,10 +109,10 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 }
 
 class cli_handler : public client::cli_handler {
-	nscapi::core_wrapper* core;
+	const nscapi::core_wrapper* core;
 	int plugin_id;
 public:
-	cli_handler(nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
+	cli_handler(const nscapi::core_wrapper* core, int plugin_id) : core(core), plugin_id(plugin_id) {}
 
 	void output_message(const std::string &msg) {
 		error_handler::log_entry e;
@@ -136,8 +136,21 @@ public:
 	}
 
 	virtual int get_plugin_id() const { return plugin_id; }
-	virtual nscapi::core_wrapper* get_core() const { return core; }
+	virtual const nscapi::core_wrapper* get_core() const { return core; }
 };
+
+boost::shared_ptr<client::cli_client> client_;
+bool has_client() {
+	if (client_)
+		return true;
+	return false;
+}
+boost::shared_ptr<client::cli_client> get_client(const nscapi::core_wrapper* core, unsigned int plugin_id) {
+	if (!client_)
+		client_ = boost::shared_ptr<client::cli_client>(new client::cli_client(client::cli_handler_ptr(new cli_handler(core, plugin_id))));
+	return client_;
+}
+
 
 class BaseController : public Mongoose::WebController {
 	const std::string password;
@@ -145,7 +158,6 @@ class BaseController : public Mongoose::WebController {
 	const unsigned int plugin_id;
 	std::string status;
 	boost::shared_mutex mutex_;
-	client::cli_client client_;
 
 public:
 
@@ -153,8 +165,7 @@ public:
 		: password(password)
 		, core(core)
 		, plugin_id(plugin_id)
-		, status("ok")
-		, client_(client::cli_handler_ptr(new cli_handler(core, plugin_id))) {}
+		, status("ok") {}
 
 	std::string get_status() {
 		boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
@@ -175,7 +186,7 @@ public:
 			return;
 		std::string command = request.get("command", "help");
 
-		client_.handle_command(command);
+		get_client(core, plugin_id)->handle_command(command);
 		response << "{\"status\" : \"ok\"}";
 	}
 	void registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -999,4 +1010,6 @@ void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
 		}
 	}
 	metrics_store.set(json_spirit::write(metrics));
+	get_client(get_core(), get_id())->push_metrics(response);
+
 }

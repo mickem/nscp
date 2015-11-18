@@ -10,6 +10,8 @@ SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp
 
+	${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
+
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -19,6 +21,8 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
 		${NSCP_INCLUDEDIR}/client/simple_client.hpp
+
+		${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

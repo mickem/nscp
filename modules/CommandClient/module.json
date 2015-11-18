@@ -6,6 +6,7 @@
 		"alias"			: "cli",
 		"version"		: "auto"
 	},
+	"metrics" : "consume",
 	"command line exec" : true,
 	"log messages" : true
 

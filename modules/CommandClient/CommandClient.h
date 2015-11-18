@@ -32,6 +32,6 @@ public:
 	bool unloadModule();
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void submitMetrics(const Plugin::MetricsMessage &response);
 
-private:
 };

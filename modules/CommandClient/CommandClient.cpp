@@ -133,3 +133,8 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 	}
 	nscapi::protobuf::functions::set_response_good(*response, "Done");
 }
+
+
+void CommandClient::submitMetrics(const Plugin::MetricsMessage &response) {
+	client->push_metrics(response);
+}

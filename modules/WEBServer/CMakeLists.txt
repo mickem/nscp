@@ -17,8 +17,11 @@ ENDIF(JSON_SPIRIT_FOUND)
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
+
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp
+
+	${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
@@ -35,8 +38,10 @@ SET(EXTRA_LIBS ${EXTRA_LIBS} ${MONGOOSE_LIBRARY})
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
-		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/client/simple_client.hpp
+		${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
+		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+
 		${NSCP_DEF_PLUGIN_HPP}
 	)
 ENDIF(WIN32)
