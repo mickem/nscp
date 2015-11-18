@@ -96,13 +96,33 @@ void CommandClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	log_data.add_message(message.level() == Plugin::LogEntry_Entry_Level_LOG_CRITICAL || message.level() == Plugin::LogEntry_Entry_Level_LOG_ERROR, entry);
 	*/
 }
+bool is_running = false;
+
+#ifdef WIN32
+BOOL WINAPI consoleHandler(DWORD signal) {
+
+	if (signal == CTRL_C_EVENT) {
+		is_running = false;
+		NSC_LOG_MESSAGE("Ctrl+c is not exit...");
+	}
+	return TRUE;
+}
+#endif
+
 
 bool CommandClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+
+#ifdef WIN32
+	if (!SetConsoleCtrlHandler(consoleHandler, TRUE)) {
+		NSC_LOG_MESSAGE("Could not set control handler");
+	}
+#endif
 	// 	if (core_->get_service_control().is_started())
 	// 		info(__LINE__, "Service seems to be started (Sockets and such will probably not work)...");
 
 	NSC_DEBUG_MSG("Enter command to execute, help for help or exit to exit...");
-	while (true) {
+	is_running = true;
+	while (is_running) {
 		std::string s;
 		std::getline(std::cin, s);
 		if (s == "exit") {
@@ -111,4 +131,5 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 		}
 		client->handle_command(s);
 	}
+	nscapi::protobuf::functions::set_response_good(*response, "Done");
 }
