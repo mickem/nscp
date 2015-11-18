@@ -6,8 +6,51 @@
 
 #include <nscapi/macros.hpp>
 
+#if BOOST_VERSION >= 105300
+#include <boost/interprocess/detail/atomic.hpp>
+#endif
+
+
 
 namespace simple_scheduler {
+
+
+#if BOOST_VERSION >= 105300
+	volatile boost::uint32_t metric_executed = 0;
+	volatile boost::uint32_t metric_compleated = 0;
+	volatile boost::uint32_t metric_errors = 0;
+	using namespace boost::interprocess::ipcdetail;
+#else
+	volatile int metric_executed = 0;
+	volatile int metric_compleated = 0;
+	volatile int metric_errors = 0;
+	void atomic_inc32(volatile int *i) {}
+#endif
+
+	bool scheduler::has_metrics() const {
+#if BOOST_VERSION >= 105300
+		return true;
+#else
+		return false;
+#endif
+
+	}
+
+	int scheduler::get_metric_executed() const {
+		return atomic_read32(&metric_executed);
+	}
+	int scheduler::get_metric_compleated() const {
+		return atomic_read32(&metric_compleated);
+	}
+	int scheduler::get_metric_errors() const {
+		return atomic_read32(&metric_errors);
+	}
+	std::size_t scheduler::get_metric_threads() const {
+		return thread_count_;
+	}
+	std::size_t scheduler::get_metric_ql() {
+		return queue_.size();
+	}
 
 
 	void scheduler::start() {
@@ -126,34 +169,44 @@ namespace simple_scheduler {
 					}
 					continue;
 				} catch (...) {
-					if (!queue_.push(*instance))
+					if (!queue_.push(*instance)) {
+						atomic_inc32(&metric_errors);
 						log_error("Failed to push item");
+					}
 					continue;
 				}
 
 				boost::posix_time::ptime now_time = now();
+				atomic_inc32(&metric_executed);
 				op_task_object item = get_task((*instance).schedule_id);
 				if (item) {
 					try {
 						bool to_reschedule = false;
 						if (handler_)
 							to_reschedule = handler_->handle_schedule(*item);
-						if (to_reschedule)
+						if (to_reschedule) {
 							reschedule(*item);
-						else
+							atomic_inc32(&metric_compleated);
+						} else {
+							atomic_inc32(&metric_errors);
 							log_trace("Abandoning: " + item->to_string());
+						}
 					} catch (...) {
+						atomic_inc32(&metric_errors);
 						log_error("UNKNOWN ERROR RUNING TASK: " + item->tag);
 						reschedule(*item);
 					}
 				} else {
+					atomic_inc32(&metric_errors);
 					log_error("Task not found: " + strEx::s::xtos(instance->schedule_id));
 				}
 			}
 		} catch (const boost::thread_interrupted &e) {
 		} catch (const std::exception &e) {
+			atomic_inc32(&metric_errors);
 			log_error("Exception in scheduler thread (thread will be killed): " + utf8::utf8_from_native(e.what()));
 		} catch (...) {
+			atomic_inc32(&metric_errors);
 			log_error("Exception in scheduler thread (thread will be killed)");
 		}
 		log_trace("Terminating thread: " + strEx::s::xtos(id));

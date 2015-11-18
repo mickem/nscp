@@ -154,6 +154,10 @@ namespace schedules {
 		void start();
 		void stop();
 
+		simple_scheduler::scheduler& get_scheduler() {
+			return tasks;
+		}
+
 		void set_handler(task_handler* handler) {
 			handler_ = handler;
 		}
@@ -167,9 +171,6 @@ namespace schedules {
 
 		void set_threads(int count) {
 			tasks.set_threads(count);
-		}
-		int get_threads() const {
-			return tasks.get_threads();
 		}
 
 		void add_task(const target_object target);

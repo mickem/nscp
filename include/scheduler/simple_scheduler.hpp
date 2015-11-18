@@ -70,6 +70,13 @@ namespace simple_scheduler {
 			return boost::optional<T>(queue_.top());
 		}
 
+		std::size_t size(unsigned int timeout = 5) {
+			boost::shared_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
+			if (!lock || queue_.empty())
+				return 0;
+			return queue_.size();
+		}
+
 		boost::optional<T> pop(unsigned int timeout = 5) {
 			boost::unique_lock<boost::shared_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(timeout));
 			if (!lock || queue_.empty())
@@ -125,6 +132,13 @@ namespace simple_scheduler {
 		boost::mutex& get_mutex() {
 			return mutex_;
 		}
+
+		int get_metric_executed() const;
+		int get_metric_compleated() const;
+		int get_metric_errors() const;
+		std::size_t get_metric_threads() const;
+		std::size_t get_metric_ql();
+		bool has_metrics() const;
 
 		int add_task(std::string tag, boost::posix_time::time_duration duration);
 		void remove_task(int id);

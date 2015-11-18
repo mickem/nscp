@@ -28,10 +28,6 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/macros.hpp>
 
-#if BOOST_VERSION >= 105300
-#include <boost/interprocess/detail/atomic.hpp>
-#endif
-
 namespace sh = nscapi::settings_helper;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
@@ -82,6 +78,10 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	schedules_.ensure_default();
 
 	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
+		if (o->duration.total_seconds() == 0) {
+			NSC_LOG_ERROR("WE cant add schedules with 0 duration");
+			continue;
+		}
 		NSC_DEBUG_MSG("Adding scheduled item: " + o->to_string());
 		scheduler_.add_task(o);
 	}
@@ -91,6 +91,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		scheduler_.start();
 	}
 	if (mode == NSCAPI::reloadStart) {
+		scheduler_.set_handler(this);
 		scheduler_.start();
 	}
 	return true;
@@ -120,22 +121,10 @@ void Scheduler::on_error(std::string error) {
 void Scheduler::on_trace(std::string error) {
 }
 
-#if BOOST_VERSION >= 105300
-volatile boost::uint32_t taskes = 0;
-volatile boost::uint32_t submitted = 0;
-volatile boost::uint32_t errors = 0;
-using namespace boost::interprocess::ipcdetail;
-#else
-volatile int taskes = 0;
-volatile int submitted = 0;
-volatile int errors = 0;
-void atomic_inc32(volatile int *i) {}
-#endif
 #include <nscapi/functions.hpp>
 
 
 bool Scheduler::handle_schedule(schedules::target_object item) {
-	atomic_inc32(&taskes);
 	try {
 		std::string response;
 		nscapi::core_helper ch(get_core(), get_id());
@@ -143,7 +132,6 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 			NSC_LOG_ERROR("Failed to execute: " + item->command);
 			if (item->channel.empty()) {
 				NSC_LOG_ERROR_WA("No channel specified for ", item->alias);
-				atomic_inc32(&errors);
 				return true;
 			}
 			nscapi::protobuf::functions::create_simple_submit_request(item->channel, item->command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item->command, "", response);
@@ -162,21 +150,17 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		if (resp_msg_send.payload_size() > 0) {
 			if (item->channel.empty()) {
 				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item->alias) + " mssage will not be sent.");
-				atomic_inc32(&errors);
 				return true;
 			}
 			nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->alias, item->target_id, item->source_id);
 			std::string result;
-			atomic_inc32(&submitted);
 			if (!get_core()->submit_message(item->channel, response, result)) {
 				NSC_LOG_ERROR_STD("Failed to submit: " + item->alias);
-				atomic_inc32(&errors);
 				return true;
 			}
 			std::string error;
 			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
 				NSC_LOG_ERROR_STD("Failed to submit " + item->alias + ": " + error);
-				atomic_inc32(&errors);
 				return true;
 			}
 		} else {
@@ -184,47 +168,45 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		}
 		return true;
 	} catch (nscapi::nscapi_exception &e) {
-		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
 		return false;
 	} catch (std::exception &e) {
-		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EXR("Exception: ", e);
 		return false;
 	} catch (...) {
-		atomic_inc32(&errors);
 		NSC_LOG_ERROR_EX(item->alias);
 		return false;
 	}
 }
 
 void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
-
-#if BOOST_VERSION >= 105300
-	boost::uint64_t taskes__ = atomic_read32(&taskes);
-	boost::uint64_t submitted__ = atomic_read32(&submitted);
-	boost::uint64_t errors__ = atomic_read32(&errors);
-	boost::uint64_t threads = scheduler_.get_threads();
-
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
-	Plugin::Common::Metric *m = bundle->add_value();
-	m->set_key("jobs");
-	m->mutable_value()->set_int_data(taskes__);
-	m = bundle->add_value();
-	m->set_key("submitted");
-	m->mutable_value()->set_int_data(submitted__);
-	m = bundle->add_value();
-	m->set_key("errors");
-	m->mutable_value()->set_int_data(errors__);
-	m = bundle->add_value();
-	m->set_key("threads");
-	m->mutable_value()->set_int_data(threads);
 	bundle->set_key("scheduler");
-#else
-	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
-	Plugin::Common::Metric *m = bundle->add_value();
-	m->set_key("metrics.available");
-	m->mutable_value()->set_string_data("false");
-	m = bundle->add_value();
-#endif
+	if (scheduler_.get_scheduler().has_metrics()) {
+		boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
+		boost::uint64_t submitted__ = scheduler_.get_scheduler().get_metric_compleated();
+		boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
+		boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
+		boost::uint64_t queue = scheduler_.get_scheduler().get_metric_ql();
+
+		Plugin::Common::Metric *m = bundle->add_value();
+		m->set_key("jobs");
+		m->mutable_value()->set_int_data(taskes__);
+		m = bundle->add_value();
+		m->set_key("submitted");
+		m->mutable_value()->set_int_data(submitted__);
+		m = bundle->add_value();
+		m->set_key("errors");
+		m->mutable_value()->set_int_data(errors__);
+		m = bundle->add_value();
+		m->set_key("threads");
+		m->mutable_value()->set_int_data(threads);
+		m = bundle->add_value();
+		m->set_key("queue");
+		m->mutable_value()->set_int_data(queue);
+	} else {
+		Plugin::Common::Metric *m = bundle->add_value();
+		m->set_key("metrics.available");
+		m->mutable_value()->set_string_data("false");
+	}
 }
