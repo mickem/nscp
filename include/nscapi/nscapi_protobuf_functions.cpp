@@ -970,6 +970,7 @@ namespace nscapi {
 			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
 				target->set_message(query_data_to_nagios_string(source));
 				target->set_command(source.command());
+				target->set_result(source.result());
 			}
 			void copy_response(const std::string command, ::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {
 				target->mutable_result()->set_message(source.message());
