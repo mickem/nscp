@@ -29,6 +29,10 @@ namespace task_scheduler {
 		void handle_settings();
 		void handle_metrics();
 
+		const simple_scheduler::scheduler& get_scheduler() {
+			return tasks;
+		}
+
 		void start();
 		void stop();
 

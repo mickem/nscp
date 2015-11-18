@@ -29,6 +29,8 @@
 #include <nsclient/logger.hpp>
 #include "scheduler_handler.hpp"
 
+#include <nscapi/nscapi_protobuf.hpp>
+
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
 
@@ -132,6 +134,9 @@ public:
 	void handle_session_change(unsigned long dwSessionId, bool logon);
 #endif
 
+
+	void ownMetricsFetcher(Plugin::MetricsMessage::Response *response);
+
 	// Member functions
 	boost::filesystem::path getBasePath();
 	boost::filesystem::path getTempPath();
@@ -195,6 +200,8 @@ public:
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
+
+
 
 public:
 	void preboot_load_all_plugin_files();

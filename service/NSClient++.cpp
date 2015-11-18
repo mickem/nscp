@@ -23,7 +23,6 @@
 #include <shellapi.h>
 #endif
 
-#include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <timer.hpp>
 #include <file_helpers.hpp>
@@ -2205,6 +2204,13 @@ struct metrics_fetcher {
 	metrics_fetcher() {
 		result.add_payload();
 	}
+
+	Plugin::MetricsMessage::Response* get_root() {
+		return result.mutable_payload(0);
+	}
+	void add_bundle(const Plugin::Common::MetricsBundle &b) {
+		get_root()->add_bundles()->CopyFrom(b);
+	}
 	void fetch(nsclient::plugin_type p) {
 		std::string buffer;
 		p->fetchMetrics(buffer);
@@ -2212,12 +2218,12 @@ struct metrics_fetcher {
 		payload.ParseFromString(buffer);
 		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
 			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
-				result.mutable_payload(0)->add_bundles()->CopyFrom(b);
+				add_bundle(b);
 			}
 		}
 	}
 	void render() {
-		result.mutable_payload(0)->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		get_root()->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		buffer = result.SerializeAsString();
 	}
 	void digest(nsclient::plugin_type p) {
@@ -2225,9 +2231,38 @@ struct metrics_fetcher {
 	}
 };
 
+void NSClientT::ownMetricsFetcher(Plugin::MetricsMessage::Response *response) {
+	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
+	bundle->set_key("workers");
+	if (scheduler_.get_scheduler().has_metrics()) {
+		boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
+		boost::uint64_t submitted__ = scheduler_.get_scheduler().get_metric_compleated();
+		boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
+		boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
+
+		Plugin::Common::Metric *m = bundle->add_value();
+		m->set_key("jobs");
+		m->mutable_value()->set_int_data(taskes__);
+		m = bundle->add_value();
+		m->set_key("submitted");
+		m->mutable_value()->set_int_data(submitted__);
+		m = bundle->add_value();
+		m->set_key("errors");
+		m->mutable_value()->set_int_data(errors__);
+		m = bundle->add_value();
+		m->set_key("threads");
+		m->mutable_value()->set_int_data(threads);
+	} else {
+		Plugin::Common::Metric *m = bundle->add_value();
+		m->set_key("metrics.available");
+		m->mutable_value()->set_string_data("false");
+	}
+}
 void NSClientT::process_metrics() {
 	metrics_fetcher f;
+
 	metricsFetchers.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
+	ownMetricsFetcher(f.get_root());
 	f.render();
 	metricsSubmitetrs.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
 }
