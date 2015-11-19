@@ -130,14 +130,15 @@ void load_counters(std::map<std::string, std::string> &counters, sh::settings_re
  * @return true
  */
 bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
+	if (mode == NSCAPI::normalStart) {
+		services_helper::init();
+		// 		load_counters(counters, settings);
+	}
 	collector.reset(new pdh_thread(get_core(), get_id()));
 	sh::settings_registry settings(get_settings_proxy());
 	settings.set_alias("system", alias, "windows");
 	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
-	// 	if (mode == NSCAPI::normalStart) {
-	// 		load_counters(counters, settings);
-	// 	}
 
 	collector->filters_path_ = settings.alias().get_settings_path("real-time/checks");
 
@@ -733,6 +734,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	std::string type;
 	std::string state;
 	std::string computer;
+	bool class_e = false, class_i = false, class_r = false, class_s = false, class_y = false, class_u = false;
 
 	filter_type filter;
 	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
@@ -743,10 +745,28 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly usefull in combination with service=*)")
 		("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
 		("state", po::value<std::string>(&state)->default_value("all"), "The types of services to enumerate available states are active, inactive or all")
+		("only-essential", po::bool_switch(&class_e), "Set filter to classification = 'essential'")
+		("only-ignored", po::bool_switch(&class_i), "Set filter to classification = 'ignored'")
+		("only-role", po::bool_switch(&class_r), "Set filter to classification = 'role'")
+		("only-supporting", po::bool_switch(&class_s), "Set filter to classification = 'supporting'")
+		("only-system", po::bool_switch(&class_y), "Set filter to classification = 'system'")
+		("only-user", po::bool_switch(&class_u), "Set filter to classification = 'user'")
 		;
 
 	if (!filter_helper.parse_options())
 		return;
+	if (class_e)
+		filter_helper.set_default_filter("classification = 'essential'");
+	if (class_i)
+		filter_helper.set_default_filter("classification = 'ignored'");
+	if (class_r)
+		filter_helper.set_default_filter("classification = 'role'");
+	if (class_s)
+		filter_helper.set_default_filter("classification = 'supporting'");
+	if (class_y)
+		filter_helper.set_default_filter("classification = 'system'");
+	if (class_u)
+		filter_helper.set_default_filter("classification = 'user'");
 
 	if (services.empty()) {
 		services.push_back("*");

@@ -224,6 +224,7 @@ namespace check_svc_filter {
 			("name", boost::bind(&filter_obj::get_name, _1), "Service name")
 			("desc", boost::bind(&filter_obj::get_desc, _1), "Service description")
 			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get legacy state (deprecated and only used by check_nt)")
+			("classification", boost::bind(&filter_obj::get_classification, _1), "Get classification")
 			;
 		registry_.add_int()
 			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
