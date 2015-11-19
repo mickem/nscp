@@ -75,6 +75,8 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("simple_cmdline", &script_wrapper::function_wrapper::register_simple_cmdline)
 		.def("subscription", &script_wrapper::function_wrapper::subscribe_function)
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
+		.def("submit_metrics", &script_wrapper::function_wrapper::register_submit_metrics)
+		.def("fetch_metrics", &script_wrapper::function_wrapper::register_fetch_metrics)
 		.def("query", &script_wrapper::function_wrapper::query)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
@@ -575,4 +577,25 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 		return nscapi::protobuf::functions::set_response_good(*response, "");
 	}
 	return nscapi::protobuf::functions::set_response_bad(*response, "Unable to process message: " + channel);
+
+
+}
+
+void PythonScript::submitMetrics(const Plugin::MetricsMessage &response) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_submit_metrics()) {
+		std::string buffer;
+		inst->submit_metrics(response.SerializeAsString());
+	}
+}
+void PythonScript::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_metrics_fetcher()) {
+		std::string buffer;
+		Plugin::MetricsMessage::Response r2;
+		inst->fetch_metrics(buffer);
+		r2.ParseFromString(buffer);
+		BOOST_FOREACH(const ::Plugin::Common_MetricsBundle &b, r2.bundles())
+			response->add_bundles()->CopyFrom(b);
+	}
 }

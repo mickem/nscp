@@ -269,6 +269,26 @@ tuple script_wrapper::function_wrapper::query(std::string request) {
 		return boost::python::make_tuple(false, std::wstring());
 	}
 }
+void script_wrapper::function_wrapper::register_submit_metrics(PyObject* callable) {
+	try {
+		boost::python::handle<> h(boost::python::borrowed(callable));
+		functions::get()->submit_metrics.push_back(h);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Query failed: ", e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Query failed");
+	}
+}
+void script_wrapper::function_wrapper::register_fetch_metrics(PyObject* callable) {
+	try {
+		boost::python::handle<> h(boost::python::borrowed(callable));
+		functions::get()->fetch_metrics.push_back(h);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Query failed: ", e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Query failed");
+	}
+}
 
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
 	try {
@@ -493,6 +513,120 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 		NSC_LOG_ERROR_EX(channel);
 		return NSCAPI::api_return_codes::hasFailed;
 	}
+}
+
+
+void build_metrics(boost::python::dict &metrics, const Plugin::Common::MetricsBundle &b, const std::string &path) {
+	std::string p = "";
+	if (!path.empty())
+		p += path + ".";
+	p += b.key();
+
+	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
+		build_metrics(metrics, b2, p);
+	}
+
+	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
+		if (v.value().has_int_data())
+			metrics[p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
+		else if (v.value().has_string_data())
+			metrics[p + "." + v.key()] = v.value().string_data();
+		else if (v.value().has_float_data())
+			metrics[p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
+	}
+}
+
+int script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
+
+	boost::python::dict metrics;
+	Plugin::MetricsMessage msg;
+	msg.ParseFromString(request);
+	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, msg.payload()) {
+		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
+			build_metrics(metrics, b, "");
+		}
+	}
+
+
+	try {
+		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
+			thread_locker locker;
+			try {
+				boost::python::call<object>(boost::python::object(v).ptr(), metrics, pystr(request));
+			} catch (error_already_set e) {
+				log_exception();
+				return NSCAPI::api_return_codes::hasFailed;
+			}
+		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Submission failed", e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Submission failed");
+	}
+}
+int script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
+	Plugin::MetricsMessage::Response payload;
+	Plugin::Common::MetricsBundle *bundle = payload.add_bundles();
+	bundle->set_key("");
+
+
+	try {
+		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->fetch_metrics) {
+			thread_locker locker;
+			try {
+				object ret = boost::python::call<object>(boost::python::object(v).ptr());
+				if (ret.is_none())
+					continue;
+				py::extract<py::dict> extracter(ret);
+				if (extracter.check()) {
+					py::dict dic = extracter;
+
+					py::list keys = dic.keys();
+
+					for (int i = 0; i < len(keys); ++i) {
+						object curArg = dic[keys[i]];
+						if (curArg) {
+							Plugin::Common::Metric *v = bundle->add_value();
+							v->set_key(py::extract<std::string>(keys[i]));
+
+							py::extract<std::string> strExtr(dic[keys[i]]);
+							if (strExtr.check()) {
+								v->mutable_value()->set_string_data(strExtr);
+								continue;
+							}
+							py::extract<int> intExtr(dic[keys[i]]);
+							if (intExtr.check()) {
+								v->mutable_value()->set_int_data(intExtr);
+								continue;
+							}
+							py::extract<double> dblExtr(dic[keys[i]]);
+							if (dblExtr.check()) {
+								v->mutable_value()->set_float_data(dblExtr);
+								continue;
+							}
+							v->mutable_value()->set_string_data("unknown type");
+						}
+					}
+				}
+			} catch (error_already_set e) {
+				log_exception();
+				return NSCAPI::api_return_codes::hasFailed;
+			}
+		}
+		payload.mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+		request = payload.SerializeAsString();
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Submission failed", e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Submission failed");
+	}
+}
+
+bool script_wrapper::function_wrapper::has_submit_metrics() {
+	return true;
+}
+bool script_wrapper::function_wrapper::has_metrics_fetcher() {
+	return true;
 }
 
 bool script_wrapper::function_wrapper::has_cmdline(const std::string command) {

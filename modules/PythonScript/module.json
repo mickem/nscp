@@ -18,5 +18,7 @@
 
 	"command line exec" : "true",
 
+	"metrics" : "both",
+
 	"channels" : true
 }

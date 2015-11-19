@@ -73,6 +73,7 @@ namespace script_wrapper {
 
 	struct functions {
 		typedef std::map<std::string, boost::python::handle<> > function_map_type;
+		typedef std::list<boost::python::handle<> > function_list_type;
 		function_map_type simple_functions;
 		function_map_type normal_functions;
 
@@ -81,6 +82,10 @@ namespace script_wrapper {
 
 		function_map_type simple_handler;
 		function_map_type normal_handler;
+
+
+		function_list_type submit_metrics;
+		function_list_type fetch_metrics;
 
 		static boost::shared_ptr<functions> instance;
 		static boost::shared_ptr<functions> get() {
@@ -140,6 +145,14 @@ namespace script_wrapper {
 		int handle_message(const std::string channel, const std::string &request, std::string &response) const;
 		bool has_message_handler(const std::string command);
 		bool has_simple_message_handler(const std::string command);
+
+		void register_submit_metrics(PyObject* callable);
+		void register_fetch_metrics(PyObject* callable);
+		int submit_metrics(const std::string &request) const;
+		int fetch_metrics(std::string &request) const;
+
+		bool has_submit_metrics();
+		bool has_metrics_fetcher();
 
 		std::string get_commands();
 		tuple query(std::string request);
