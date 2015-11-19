@@ -64,7 +64,7 @@ namespace parsers {
 
 			bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data) {
 				container_type item(new container);
-				item->alias = object->alias;
+				item->alias = object->get_alias();
 				item->data = source_data;
 				item->target = object->filter.target;
 				item->target_id = object->filter.target_id;
@@ -79,16 +79,16 @@ namespace parsers {
 				std::string message;
 
 				if (!item->filter.build_syntax(object->filter.syntax_top, object->filter.syntax_detail, object->filter.perf_data, object->filter.perf_config, object->filter.syntax_ok, object->filter.syntax_empty, message)) {
-					NSC_LOG_ERROR("Failed to build strings " + object->alias + ": " + message);
+					NSC_LOG_ERROR("Failed to build strings " + object->get_alias() + ": " + message);
 					return false;
 				}
 				if (!item->filter.build_engines(object->filter.debug, object->filter.filter_string, object->filter.filter_ok, object->filter.filter_warn, object->filter.filter_crit)) {
-					NSC_LOG_ERROR("Failed to build filters: " + object->alias);
+					NSC_LOG_ERROR("Failed to build filters: " + object->get_alias());
 					return false;
 				}
 
 				if (!item->filter.validate()) {
-					NSC_LOG_ERROR("Failed validate: " + object->alias);
+					NSC_LOG_ERROR("Failed validate: " + object->get_alias());
 					return false;
 				}
 				item->data.boot();

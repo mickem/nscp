@@ -32,20 +32,19 @@ namespace nscapi {
 		typedef boost::unordered_map<std::string, std::string> options_map;
 
 		struct object_instance_interface {
-			//typedef boost::unordered_map<std::string, std::string> options_map;
-			typedef std::map<std::string, std::string> options_map;
+			typedef boost::unordered_map<std::string, std::string> options_map;
 
-			std::string alias;
 		private:
-			bool is_template_;
+			std::string alias;
 			std::string base_path;
 			std::string path;
+			bool is_template_;
 			std::string parent;
+			std::string value;
 			options_map options;
 
 		public:
 
-			std::string value;
 
 			object_instance_interface(std::string alias, std::string base_path)
 				: alias(alias)
@@ -116,6 +115,12 @@ namespace nscapi {
 			std::string get_path() const {
 				return path;
 			}
+			std::string get_alias() const {
+				return alias;
+			}
+			void set_alias(const std::string &s) {
+				alias = s;
+			}
 
 			std::string get_base_path() const {
 				return base_path;
@@ -181,6 +186,9 @@ namespace nscapi {
 			}
 
 			std::string get_value() const { return value; }
+			void set_value(const std::string &new_value) {
+				value = new_value;
+			}
 		};
 
 		typedef boost::shared_ptr<object_instance_interface> object_instance;
@@ -276,15 +284,15 @@ namespace nscapi {
 					} else {
 						object = factory->create(alias, path);
 					}
-					object->value = value;
+					object->set_value(value);
 					object->read(proxy, keys.empty()&&alias != "default", false);
 				} else {
 					object = factory->create(alias, path);
-					object->value = value;
+					object->set_value(value);
 				}
 				if (is_template || object->is_template()) {
 					add_template(object);
-					if (alias != object->alias)
+					if (alias != object->get_alias())
 						add_template(alias, object);
 				} else
 					add_object(object);
@@ -338,14 +346,14 @@ namespace nscapi {
 			}
 
 			void add_object(object_instance object) {
-				objects[object->alias] = object;
+				objects[object->get_alias()] = object;
 			}
 			void add_object(const std::string alias, object_instance object) {
 				objects[alias] = object;
 			}
 			void add_template(object_instance object) {
 				object->make_template(true);
-				templates[object->alias] = object;
+				templates[object->get_alias()] = object;
 			}
 			void add_template(const std::string alias, object_instance object) {
 				templates[alias] = object;

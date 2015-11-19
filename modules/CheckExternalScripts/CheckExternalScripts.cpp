@@ -228,10 +228,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		nscapi::core_helper core(get_core(), get_id());
 		BOOST_FOREACH(const boost::shared_ptr<commands::command_object> &o, commands_.get_object_list()) {
-			core.register_alias(o->alias, "External script: " + o->command);
+			core.register_alias(o->get_alias(), "External script: " + o->command);
 		}
 		BOOST_FOREACH(const boost::shared_ptr<alias::command_object> &o, aliases_.get_object_list()) {
-			core.register_alias(o->alias, "Alias for: " + o->command);
+			core.register_alias(o->get_alias(), "Alias for: " + o->command);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR_EX("loading");
@@ -599,14 +599,14 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 		arg.domain = cd.domain;
 		arg.password = cd.password;
 	}
-	arg.alias = cd.alias;
+	arg.alias = cd.get_alias();
 	arg.ignore_perf = cd.ignore_perf;
 	arg.session = cd.session;
 	arg.display = cd.display;
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.alias + ") returned an invalid return code: " + strEx::s::xtos(result));
+		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.get_alias() + ") returned an invalid return code: " + strEx::s::xtos(result));
 		return;
 	}
 	std::string message, perf;
@@ -668,18 +668,18 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 			missing_args = true;
 	}
 	if (missing_args) {
-		NSC_DEBUG_MSG("Potential missing argument for: " + cd.alias);
+		NSC_DEBUG_MSG("Potential missing argument for: " + cd.get_alias());
 	}
 	std::string buffer;
 	nscapi::core_helper ch(get_core(), get_id());
 	if (!ch.simple_query(cd.command, args, buffer)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.alias);
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + cd.get_alias());
 		return;
 	}
 	Plugin::QueryResponseMessage tmp;
 	tmp.ParseFromString(buffer);
 	if (tmp.payload_size() != 1) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.alias);
+		nscapi::protobuf::functions::set_response_bad(*response, "Invalid response from command: " + cd.get_alias());
 		return;
 	}
 	response->CopyFrom(tmp.payload(0));

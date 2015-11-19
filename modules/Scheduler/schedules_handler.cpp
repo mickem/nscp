@@ -32,7 +32,7 @@ namespace schedules {
 	}
 
 	void scheduler::add_task(const target_object target) {
-		unsigned int id = tasks.add_task(target->alias, target->duration);
+		unsigned int id = tasks.add_task(target->get_alias(), target->duration);
 		{
 			boost::mutex::scoped_lock l(tasks.get_mutex());
 			metadata[id] = target;

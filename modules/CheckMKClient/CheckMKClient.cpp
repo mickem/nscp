@@ -173,6 +173,7 @@ void CheckMKClient::query_fallback(const Plugin::QueryRequestMessage &request_me
 bool CheckMKClient::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
 	if (target_mode == NSCAPI::target_module)
 		return client_.do_exec(request, response, "submit_");
+	return false;
 }
 
 void CheckMKClient::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {

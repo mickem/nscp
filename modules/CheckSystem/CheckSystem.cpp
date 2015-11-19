@@ -196,7 +196,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
-				counter.alias = object->alias;
+				counter.alias = object->get_alias();
 				counter.path = object->counter;
 
 				counter.set_strategy(object->collection_strategy);
@@ -207,7 +207,7 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 				collector->add_counter(counter);
 			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR("Failed to load: " + object->alias + ": " + e.reason());
+				NSC_LOG_ERROR("Failed to load: " + object->get_alias() + ": " + e.reason());
 			}
 		}
 		collector->start();

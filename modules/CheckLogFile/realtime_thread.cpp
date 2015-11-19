@@ -45,7 +45,7 @@ void real_time_thread::thread_proc() {
 				if (boost::filesystem::is_directory(path)) {
 					logs.push_back(path.string());
 				} else {
-					NSC_LOG_ERROR("Failed to find folder for " + object->alias + ": " + path.string());
+					NSC_LOG_ERROR("Failed to find folder for " + object->get_alias() + ": " + path.string());
 					continue;
 				}
 			}
@@ -53,7 +53,7 @@ void real_time_thread::thread_proc() {
 			if (boost::filesystem::is_regular(path)) {
 				logs.push_back(path.string());
 			} else {
-				NSC_LOG_ERROR("Failed to find folder for " + object->alias + ": " + path.string());
+				NSC_LOG_ERROR("Failed to find folder for " + object->get_alias() + ": " + path.string());
 				continue;
 			}
 #endif

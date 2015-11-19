@@ -59,7 +59,7 @@ namespace schedules {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << alias << "[" << id << "] = "
+			ss << get_alias() << "[" << id << "] = "
 				<< "{tpl: " << parent::to_string()
 				<< ", command: " << command
 				<< ", channel: " << channel
@@ -73,7 +73,7 @@ namespace schedules {
 		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
-			set_command(value);
+			set_command(get_value());
 			bool is_def = is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -84,7 +84,7 @@ namespace schedules {
 				return;
 
 			root_path.add_path()
-				("SCHEDULE DEFENITION", "Schedule definition for: " + alias)
+				("SCHEDULE DEFENITION", "Schedule definition for: " + get_alias())
 				;
 
 			root_path.add_key()

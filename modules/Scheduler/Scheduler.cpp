@@ -131,7 +131,7 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		if (!ch.simple_query(item->command.c_str(), item->arguments, response)) {
 			NSC_LOG_ERROR("Failed to execute: " + item->command);
 			if (item->channel.empty()) {
-				NSC_LOG_ERROR_WA("No channel specified for ", item->alias);
+				NSC_LOG_ERROR_WA("No channel specified for ", item->get_alias());
 				return true;
 			}
 			nscapi::protobuf::functions::create_simple_submit_request(item->channel, item->command, NSCAPI::query_return_codes::returnUNKNOWN, "Command was not found: " + item->command, "", response);
@@ -149,22 +149,22 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		}
 		if (resp_msg_send.payload_size() > 0) {
 			if (item->channel.empty()) {
-				NSC_LOG_ERROR_STD("No channel specified for " + utf8::cvt<std::string>(item->alias) + " mssage will not be sent.");
+				NSC_LOG_ERROR_STD("No channel specified for " + item->get_alias() + " mssage will not be sent.");
 				return true;
 			}
-			nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->alias, item->target_id, item->source_id);
+			nscapi::protobuf::functions::make_submit_from_query(response, item->channel, item->get_alias(), item->target_id, item->source_id);
 			std::string result;
 			if (!get_core()->submit_message(item->channel, response, result)) {
-				NSC_LOG_ERROR_STD("Failed to submit: " + item->alias);
+				NSC_LOG_ERROR_STD("Failed to submit: " + item->get_alias());
 				return true;
 			}
 			std::string error;
 			if (!nscapi::protobuf::functions::parse_simple_submit_response(result, error)) {
-				NSC_LOG_ERROR_STD("Failed to submit " + item->alias + ": " + error);
+				NSC_LOG_ERROR_STD("Failed to submit " + item->get_alias() + ": " + error);
 				return true;
 			}
 		} else {
-			NSC_DEBUG_MSG("Filter not matched for: " + utf8::cvt<std::string>(item->alias) + " so nothing is reported");
+			NSC_DEBUG_MSG("Filter not matched for: " + item->get_alias() + " so nothing is reported");
 		}
 		return true;
 	} catch (nscapi::nscapi_exception &e) {
@@ -174,7 +174,7 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 		NSC_LOG_ERROR_EXR("Exception: ", e);
 		return false;
 	} catch (...) {
-		NSC_LOG_ERROR_EX(item->alias);
+		NSC_LOG_ERROR_EX(item->get_alias());
 		return false;
 	}
 }

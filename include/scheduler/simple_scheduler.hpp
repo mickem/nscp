@@ -22,8 +22,8 @@ namespace simple_scheduler {
 		std::string tag;
 		boost::posix_time::time_duration duration;
 
-		task() : duration(boost::posix_time::seconds(0)) {}
-		task(std::string tag, boost::posix_time::time_duration duration) : tag(tag), duration(duration) {}
+		task() : id(0), duration(boost::posix_time::seconds(0)) {}
+		task(std::string tag, boost::posix_time::time_duration duration) : id(0), tag(tag), duration(duration) {}
 
 		std::string to_string() const {
 			std::stringstream ss;
@@ -103,13 +103,13 @@ namespace simple_scheduler {
 		typedef safe_schedule_queue<schedule_instance> schedule_queue_type;
 
 		// thread variables
-		int error_threshold_;
 		unsigned int schedule_id_;
 		volatile bool stop_requested_;
 		volatile bool running_;
 		volatile bool has_watchdog_;
 		std::size_t thread_count_;
 		handler* handler_;
+		int error_threshold_;
 
 		has_threads threads_;
 		boost::mutex mutex_;
@@ -162,7 +162,7 @@ namespace simple_scheduler {
 		void thread_proc(int id);
 
 
-		void reschedule(const task &item);
+		void reschedule(const task &item, boost::posix_time::ptime now_time);
 		void reschedule_at(const int id, boost::posix_time::ptime new_time);
 		void start_threads();
 

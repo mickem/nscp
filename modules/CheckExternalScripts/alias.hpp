@@ -40,7 +40,7 @@ namespace alias {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << alias << "[" << alias << "] = "
+			ss << get_alias() << "[" << get_alias() << "] = "
 				<< "{tpl: " << parent::to_string();
 			ss << ", command: " << command << ", arguments: ";
 			bool first = true;
@@ -57,9 +57,9 @@ namespace alias {
 
 		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
-			alias = boost::algorithm::to_lower_copy(alias);
+			set_alias(boost::algorithm::to_lower_copy(get_alias()));
 
-			set_command(value);
+			set_command(get_value());
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 			nscapi::settings_helper::path_extension root_path = settings.path(get_path());
@@ -70,7 +70,7 @@ namespace alias {
 				return;
 
 			root_path.add_path()
-				("ALIAS DEFENITION", "Alias definition for: " + alias)
+				("ALIAS DEFENITION", "Alias definition for: " + get_alias())
 				;
 
 			root_path.add_key()

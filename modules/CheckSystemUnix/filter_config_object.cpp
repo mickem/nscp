@@ -22,7 +22,7 @@ namespace sh = nscapi::settings_helper;
 namespace filters {
 	std::string filter_config_object::to_string() const {
 		std::stringstream ss;
-		ss << alias << "[" << alias << "] = "
+		ss << get_alias() << "[" << get_alias() << "] = "
 			<< "{tpl: " << parent::to_string() << ", filter: "  << filter.to_string() << "}";
 		return ss.str();
 	}
@@ -43,8 +43,8 @@ namespace filters {
 	}
 
 	void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
-		if (!value.empty())
-			filter.filter_string = value;
+		if (!get_value().empty())
+			filter.filter_string = get_value();
 		bool is_default = parent::is_default();
 
 		nscapi::settings_helper::settings_registry settings(proxy);
@@ -55,7 +55,7 @@ namespace filters {
 		//add_oneliner_hint(proxy, oneliner, is_sample);
 
 		root_path.add_path()
-			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + alias)
+			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 			;
 		root_path.add_key()
 			("check", sh::string_key(&check, "cpu"),

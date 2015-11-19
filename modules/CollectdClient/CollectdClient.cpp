@@ -161,13 +161,12 @@ const short multicast_port = 25826;
 const int max_message_count = 10;
 
 class sender {
-	std::string payload;
 public:
 	sender(boost::asio::io_service& io_service,
 		const boost::asio::ip::address& multicast_address, const std::string data)
-		: endpoint_(multicast_address, multicast_port),
-		socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string("192.168.0.201"), 25826)),
-		timer_(io_service)
+		: endpoint_(multicast_address, multicast_port)
+		, socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string("192.168.0.201"), 25826))
+		, timer_(io_service)
 		, payload(data) {
 		socket_.async_send_to(
 			boost::asio::buffer(payload), endpoint_,
@@ -190,6 +189,7 @@ private:
 	boost::asio::ip::udp::endpoint endpoint_;
 	boost::asio::ip::udp::socket socket_;
 	boost::asio::deadline_timer timer_;
+	std::string payload;
 	int message_count_;
 	std::string message_;
 };
@@ -224,7 +224,6 @@ void CollectdClient::submitMetrics(const Plugin::MetricsMessage &response) {
 		boost::asio::ip::udp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 		boost::asio::ip::udp::resolver::iterator end;
 
-		boost::system::error_code error = boost::asio::error::host_not_found;
 		while (endpoint_iterator != end) {
 			std::cout << endpoint_iterator->host_name() << std::endl;
 

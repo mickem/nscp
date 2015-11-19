@@ -48,7 +48,7 @@ namespace nscapi {
 
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 				//parent::read(proxy, oneliner, is_sample);
-				set_address(this->value);
+				set_address(this->get_value());
 				nscapi::settings_helper::settings_registry settings(proxy);
 
 				nscapi::settings_helper::path_extension root_path = settings.path(get_path());
@@ -57,7 +57,7 @@ namespace nscapi {
 
 				//target_object::options_type options;
 				root_path.add_path()
-					("TARGET", "Target definition for: " + this->alias)
+					("TARGET", "Target definition for: " + this->get_alias())
 					;
 
 				root_path.add_key()

@@ -84,7 +84,7 @@ namespace simple_scheduler {
 			item.id = ++schedule_id_;
 			tasks_[item.id] = item;
 		}
-		reschedule(item);
+		reschedule(item, now());
 		return item.id;
 	}
 	void scheduler::remove_task(int id) {
@@ -185,7 +185,7 @@ namespace simple_scheduler {
 						if (handler_)
 							to_reschedule = handler_->handle_schedule(*item);
 						if (to_reschedule) {
-							reschedule(*item);
+							reschedule(*item, now_time);
 							atomic_inc32(&metric_compleated);
 						} else {
 							atomic_inc32(&metric_errors);
@@ -194,7 +194,7 @@ namespace simple_scheduler {
 					} catch (...) {
 						atomic_inc32(&metric_errors);
 						log_error("UNKNOWN ERROR RUNING TASK: " + item->tag);
-						reschedule(*item);
+						reschedule(*item, now_time);
 					}
 				} else {
 					atomic_inc32(&metric_errors);
@@ -214,12 +214,12 @@ namespace simple_scheduler {
 
 
 
-	void scheduler::reschedule(const task &item) {
+	void scheduler::reschedule(const task &item, boost::posix_time::ptime now_time) {
 		if (item.duration.total_seconds() == 0) {
 			log_trace("Warning scheduling task now: " + item.to_string());
-			reschedule_at(item.id, now() + boost::posix_time::seconds(0));
+			reschedule_at(item.id, now_time + boost::posix_time::seconds(0));
 		} else
-			reschedule_at(item.id, now() + boost::posix_time::seconds(rand() % item.duration.total_seconds()));
+			reschedule_at(item.id, now_time + boost::posix_time::seconds(rand() % item.duration.total_seconds()));
 	}
 	void scheduler::reschedule_at(const int id, boost::posix_time::ptime new_time) {
 		schedule_instance instance;

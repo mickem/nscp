@@ -44,8 +44,8 @@ void foo() {
 namespace check_pdh {
 	void counter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 		parent::read(proxy, oneliner, is_sample);
-		if (!value.empty())
-			counter = value;
+		if (!get_value().empty())
+			counter = get_value();
 
 		if (oneliner)
 			return;
@@ -56,7 +56,7 @@ namespace check_pdh {
 			root_path.set_sample();
 
 		root_path.add_path()
-			("COUNTER", "Definition for counter: " + alias)
+			("COUNTER", "Definition for counter: " + get_alias())
 			;
 
 		root_path.add_key()

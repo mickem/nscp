@@ -396,7 +396,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	else if (command.empty() && target_mode == NSCAPI::target_module)
 		command = "help";
 	try {
-		if (command == "execute" || command == "exec")
+		if (command == "execute" || command == "exec" || command == "python-script")
 			execute_script(request, response);
 		else if (command == "list")
 			list(request, response);
@@ -501,7 +501,7 @@ void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &
 		po::store(parsed, vm);
 		po::notify(vm);
 		script_options = po::collect_unrecognized(parsed.options, po::include_positional);
-		if (!script_options.empty() && (script_options[0] == "execute" || script_options[0] == "exec"))
+		if (!script_options.empty() && (script_options[0] == "execute" || script_options[0] == "exec" || script_options[0] == "python-script"))
 			script_options.erase(script_options.begin());
 
 	} catch (const std::exception &e) {
