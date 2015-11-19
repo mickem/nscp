@@ -16,6 +16,7 @@ ELSE(JSON_SPIRIT_FOUND)
 ENDIF(JSON_SPIRIT_FOUND)
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
+
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -27,6 +28,9 @@ IF(WIN32)
 		commands.hpp
 		alias.hpp
 		${NSCP_INCLUDEDIR}/process/execute_process.hpp
+
+		${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.cpp
+		${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

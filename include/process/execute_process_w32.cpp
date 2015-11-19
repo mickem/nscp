@@ -9,7 +9,10 @@
 #include <strEx.h>
 #include <error.hpp>
 
+#include <iostream>
+
 #include <process/execute_process.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
 typedef hlp::buffer<char> buffer_type;
 
@@ -52,6 +55,8 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	si.hStdOutput = hChildOutW;
 	si.hStdError = hChildOutW;
 	si.wShowWindow = SW_HIDE;
+	if (args.display)
+		si.wShowWindow = SW_SHOW;
 
 	// CreateProcess doesn't work with a const command
 	TCHAR *cmd = new TCHAR[args.command.length() + 1];
@@ -61,7 +66,16 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	// Create the child process.
 	//HANDLE hWaitEvt = ::CreateEvent(NULL, TRUE, FALSE, NULL);
 	BOOL processOK = FALSE;
-	if (!args.user.empty()) {
+	if (!args.session.empty()) {
+		HANDLE pHandle;
+		if (!windows::winapi::WTSQueryUserToken(windows::winapi::WTSGetActiveConsoleSessionId(), &pHandle)) {
+			output = "Failed to WTSQueryUserToken: " + error::lookup::last_error();
+			return 0;
+		}
+
+		processOK = CreateProcessAsUser(pHandle, NULL, cmd, NULL, NULL, NULL, 0, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+		CloseHandle(pHandle);
+	} else if (!args.user.empty()) {
 		processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(), utf8::cvt<std::wstring>(args.password).c_str(),
 			LOGON_WITH_PROFILE, NULL, cmd, NULL, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
 	} else {

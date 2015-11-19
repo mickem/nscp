@@ -42,11 +42,13 @@ namespace process {
 
 	class exec_arguments {
 	public:
-		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding)
+		exec_arguments(std::string root_path_, std::string command_, unsigned int timeout_, const std::string &encoding, std::string session, bool display)
 			: root_path(root_path_)
 			, command(command_)
 			, timeout(timeout_)
 			, encoding(encoding)
+			, session(session)
+			, display(false)
 			, ignore_perf(false) {}
 
 		std::string alias;
@@ -57,6 +59,8 @@ namespace process {
 		std::string domain;
 		std::string password;
 		std::string encoding;
+		std::string session;
+		bool display;
 		bool ignore_perf;
 	};
 	int execute_process(process::exec_arguments args, std::string &output);

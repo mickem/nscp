@@ -23,6 +23,10 @@ namespace windows {
 		typedef BOOL(WINAPI *tIsWow64Process) (HANDLE ProcessHandle, PBOOL);
 		typedef DWORD(WINAPI *tGetProcessImageFileName)(HANDLE hProcess, LPWSTR lpImageFileName, DWORD nSize);
 		typedef LONG(NTAPI *tNtQuerySystemInformation)(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength);
+		typedef DWORD(WINAPI *tWTSGetActiveConsoleSessionId)();
+
+		typedef BOOL(*tWTSQueryUserToken)(ULONG   SessionId,PHANDLE phToken);
+
 
 		tEnumServicesStatusEx pEnumServicesStatusEx = NULL;
 		tQueryServiceConfig2 pQueryServiceConfig2 = NULL;
@@ -32,6 +36,33 @@ namespace windows {
 		tIsWow64Process pIsWow64Process = NULL;
 		tGetProcessImageFileName pGetProcessImageFileName = NULL;
 		tNtQuerySystemInformation pNtQuerySystemInformation = NULL;
+		tWTSQueryUserToken pWTSQueryUserToken = NULL;
+		tWTSGetActiveConsoleSessionId pWTSGetActiveConsoleSessionId = NULL;
+
+		BOOL WTSQueryUserToken(ULONG   SessionId, PHANDLE phToken) {
+			if (pWTSQueryUserToken == NULL) {
+				HMODULE hMod = ::LoadLibrary(_TEXT("Wtsapi32.dll"));
+				if (hMod == NULL)
+					throw nscp_exception("Failed to load: Wtsapi32: " + error::lookup::last_error());
+				pWTSQueryUserToken = reinterpret_cast<tWTSQueryUserToken>(GetProcAddress(hMod, "WTSQueryUserToken"));
+				if (pWTSQueryUserToken == NULL)
+					throw nscp_exception("Failed to load: WTSQueryUserToken: " + error::lookup::last_error());
+			}
+			return pWTSQueryUserToken(SessionId, phToken);
+		}
+
+		DWORD WTSGetActiveConsoleSessionId() {
+			if (pWTSGetActiveConsoleSessionId == NULL) {
+				HMODULE hMod = ::LoadLibrary(_TEXT("Kernel32.dll"));
+				if (hMod == NULL)
+					throw nscp_exception("Failed to load: Kernel32: " + error::lookup::last_error());
+				pWTSGetActiveConsoleSessionId = reinterpret_cast<tWTSGetActiveConsoleSessionId>(GetProcAddress(hMod, "WTSGetActiveConsoleSessionId"));
+				if (pWTSGetActiveConsoleSessionId == NULL)
+					throw nscp_exception("Failed to load: WTSGetActiveConsoleSessionId: " + error::lookup::last_error());
+			}
+			return pWTSGetActiveConsoleSessionId();
+		}
+
 
 		BOOL EnumServicesStatusEx(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName) {
 			if (pEnumServicesStatusEx == NULL) {

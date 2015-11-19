@@ -22,6 +22,7 @@ namespace commands {
 
 		command_object(std::string alias, std::string path)
 			: parent(alias, path)
+			, display(false)
 			, ignore_perf(false) {}
 
 		std::string encoding;
@@ -29,6 +30,8 @@ namespace commands {
 		std::string user;
 		std::string domain;
 		std::string password;
+		std::string session;
+		bool display;
 		bool ignore_perf;
 
 		std::string to_string() const {
@@ -38,7 +41,9 @@ namespace commands {
 			if (!user.empty()) {
 				ss << ", user: " << user
 					<< ", domain: " << domain
-					<< ", password: " << password;
+					<< ", password: " << password
+					<< ", session: " << session
+					<< ", display: " << display;
 			}
 			ss << "}";
 			return ss.str();
@@ -71,6 +76,12 @@ namespace commands {
 
 					("password", nscapi::settings_helper::string_key(&password),
 						"PASSWORD", "The user to run the command as", true)
+
+					("session", nscapi::settings_helper::string_key(&session),
+						"SESSION", "Session you want to invoke the client in either the number of current for the one with a UI", true)
+
+					("display", nscapi::settings_helper::bool_key(&display),
+						"DISPLAY", "Set to true if you want to display the resulting window or not", true)
 
 					("encoding", nscapi::settings_helper::string_key(&encoding),
 						"ENCODING", "The encoding to parse the command as", true)

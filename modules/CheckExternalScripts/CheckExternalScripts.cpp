@@ -593,7 +593,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	}
 	NSC_DEBUG_MSG("Command line: " + cmdline);
 
-	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding);
+	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display);
 	if (!cd.user.empty()) {
 		arg.user = cd.user;
 		arg.domain = cd.domain;
@@ -601,6 +601,8 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	}
 	arg.alias = cd.alias;
 	arg.ignore_perf = cd.ignore_perf;
+	arg.session = cd.session;
+	arg.display = cd.display;
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
