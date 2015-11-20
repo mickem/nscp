@@ -63,12 +63,12 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 		// 		("flags", boost::bind(&filter_obj::get_flags, _1), "TODO")
 		("max_run_time", boost::bind(&filter_obj::get_max_run_time, _1), "Retrieves the maximum length of time the task can run.")
 		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
-		("status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
+		("task_status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
 		("most_recent_run_time", type_date, boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
 		;
 
 	registry_.add_human_string()
-		("status", boost::bind(&filter_obj::get_status_s, _1), "")
+		("task_status", boost::bind(&filter_obj::get_status_s, _1), "")
 		("most_recent_run_time", boost::bind(&filter_obj::get_most_recent_run_time_s, _1), "")
 		;
 

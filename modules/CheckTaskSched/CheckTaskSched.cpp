@@ -109,12 +109,12 @@ void CheckTaskSched::CheckTaskSched_(Plugin::QueryRequestMessage::Request &reque
 	if (!filter.empty())
 		request.add_arguments("filter=" + filter);
 	if (!topSyntax.empty()) {
-		boost::replace_all(topSyntax, "%status%", "${status}");
+		boost::replace_all(topSyntax, "%status%", "${task_status}");
 		request.add_arguments("top-syntax=" + topSyntax);
 	}
 	if (!syntax.empty()) {
 		boost::replace_all(syntax, "%title%", "${title}");
-		boost::replace_all(syntax, "%status%", "${status}");
+		boost::replace_all(syntax, "%status%", "${task_status}");
 		boost::replace_all(syntax, "%exit_code%", "${exit_code}");
 		boost::replace_all(syntax, "%most_recent_run_time%", "${most_recent_run_time}");
 
@@ -137,7 +137,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 
 	filter_type filter;
 	filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "warning");
-	filter_helper.add_syntax("${problem_list}", filter.get_format_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found", "%(status): All tasks are ok");
+	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found", "%(status): All tasks are ok");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")
 		("user", po::value<std::string>(&user), "The user name that is used during the connection to the computer.")
