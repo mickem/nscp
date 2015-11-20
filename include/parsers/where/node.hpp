@@ -77,7 +77,7 @@ namespace parsers {
 		};
 
 		struct NSCAPI_EXPORT value_container {
-			boost::optional<int> i_value;
+			boost::optional<long long> i_value;
 			boost::optional<double> f_value;
 			boost::optional<std::string> s_value;
 			bool is_unsure;
