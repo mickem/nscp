@@ -10,13 +10,17 @@
 
 void runtime_data::touch(boost::posix_time::ptime now) {
 	BOOST_FOREACH(file_container &fc, files) {
-		fc.size = boost::filesystem::file_size(fc.file);
+		if (boost::filesystem::exists(fc.file)) {
+			fc.size = boost::filesystem::file_size(fc.file);
+		} else {
+			fc.size = 0;
+		}
 	}
 }
 
 bool runtime_data::has_changed(transient_data_type) const {
 	BOOST_FOREACH(const file_container &fc, files) {
-		if (fc.size != boost::filesystem::file_size(fc.file))
+		if (boost::filesystem::exists(fc.file) &&  fc.size != boost::filesystem::file_size(fc.file))
 			return true;
 	}
 	return false;
@@ -25,8 +29,13 @@ bool runtime_data::has_changed(transient_data_type) const {
 void runtime_data::add_file(const boost::filesystem::path &path) {
 	try {
 		file_container fc;
-		fc.file = path;
-		fc.size = boost::filesystem::file_size(fc.file);
+		if (boost::filesystem::exists(path)) {
+			fc.file = path;
+			fc.size = boost::filesystem::file_size(fc.file);
+		} else {
+			fc.file = path;
+			fc.size = 0;
+		}
 		files.push_back(fc);
 	} catch (std::exception &e) {
 		NSC_LOG_ERROR("Failed to add " + path.string() + ": " + utf8::utf8_from_native(e.what()));
