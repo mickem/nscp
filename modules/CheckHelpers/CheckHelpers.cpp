@@ -474,15 +474,11 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 
 void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	modern_filter::data_container data;
-	modern_filter::cli_helper<perf_filter::filter> filter_helper(request, response, data);
 
 	std::string command, mode, field, replace;
 	std::vector<std::string> arguments;
 	po::options_description desc = nscapi::program_options::create_desc(request);
-	perf_filter::filter filter;
-	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("%(status): %(message) %(list)", filter.get_format_syntax(), "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
-	filter_helper.get_desc().add_options()
+	desc.add_options()
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
 		("mode", po::value<std::string>(&mode), "Transformation mode (currently only supports extract)")
@@ -492,11 +488,8 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 
 	po::positional_options_description p;
 	p.add("arguments", -1);
-
-	if (!filter_helper.parse_options(p))
-		return;
-
-	if (!filter_helper.build_filter(filter))
+	po::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p))
 		return;
 
 	if (command.empty())
@@ -542,5 +535,4 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 	} else {
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid mode specified", *response);
 	}
-	filter_helper.post_process(filter);
 }
