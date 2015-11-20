@@ -15,8 +15,8 @@ namespace modern_filter {
 	struct data_container {
 		std::string filter_string, warn_string, crit_string, ok_string;
 		std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique;
-		bool debug;
-		data_container() : debug(false) {}
+		bool debug, escape_html;
+		data_container() : debug(false), escape_html(false) {}
 	};
 
 	struct perf_writer : public perf_writer_interface {
@@ -112,6 +112,8 @@ namespace modern_filter {
 					"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
 					"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
+				("escape-html", boost::program_options::bool_switch(&data.escape_html),
+					"Escape any < and > characters to prevent HTML encoding")
 				;
 		}
 
@@ -263,8 +265,12 @@ namespace modern_filter {
 			filter.match_post();
 			Plugin::QueryResponseMessage::Response::Line *line = response->add_lines();
 			modern_filter::perf_writer writer(*line);
-			line->set_message(filter.get_message());
-			//filter.end_match();
+			std::string msg = filter.get_message();
+			if (data.escape_html) {
+				boost::replace_all(msg, "<", "&lt;");
+				boost::replace_all(msg, ">", "&gt;");
+			}
+			line->set_message(msg);
 			filter.fetch_perf(&writer);
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
 				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));

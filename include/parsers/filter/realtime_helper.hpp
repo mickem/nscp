@@ -34,7 +34,8 @@ namespace parsers {
 				boost::optional<boost::posix_time::time_duration> max_age;
 				boost::posix_time::ptime next_ok_;
 				bool debug;
-				container() : debug(false) {}
+				bool escape_html;
+				container() : debug(false), escape_html(false) {}
 
 				void touch(const boost::posix_time::ptime &now) {
 					if (max_age)
@@ -74,6 +75,7 @@ namespace parsers {
 				item->severity = object->filter.severity;
 				item->max_age = object->filter.max_age;
 				item->debug = object->filter.debug;
+				item->escape_html = object->filter.escape_html;
 				if (!object->filter.command.empty())
 					item->command = object->filter.command;
 				std::string message;

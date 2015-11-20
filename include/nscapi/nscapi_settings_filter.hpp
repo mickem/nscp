@@ -15,6 +15,7 @@ namespace nscapi {
 	namespace settings_filters {
 		struct NSCAPI_EXPORT filter_object {
 			bool debug;
+			bool escape_html;
 
 			std::string syntax_top;
 			std::string syntax_detail;
@@ -36,6 +37,7 @@ namespace nscapi {
 
 			filter_object(std::string syntax_top, std::string syntax_detail, std::string target)
 				: debug(false)
+				, escape_html(false)
 				, syntax_top(syntax_top)
 				, syntax_detail(syntax_detail)
 				, target(target)

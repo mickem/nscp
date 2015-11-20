@@ -55,6 +55,9 @@ namespace nscapi {
 				("source id", nscapi::settings_helper::string_key(&source_id),
 					"SOURCE ID", "The name of the source system, will automatically use the remote system if a remote system is called. Almost most sending systems will replace this with current systems hostname if not present. So use this only if you need specific source systems for specific schedules and not calling remote systems.", true)
 
+				("escape html", nscapi::settings_helper::bool_key(&escape_html),
+					"ESCAPE HTML", "Escape HTML characters (< and >).", true)
+
 				;
 		}
 
