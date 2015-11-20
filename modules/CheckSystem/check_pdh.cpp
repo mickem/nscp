@@ -104,6 +104,7 @@ namespace check_pdh {
 		registry_.add_string()
 			("counter", boost::bind(&filter_obj::get_counter, _1), "The counter name")
 			("alias", boost::bind(&filter_obj::get_alias, _1), "The counter alias")
+			("time", boost::bind(&filter_obj::get_time, _1), "The time for rrd checks")
 			;
 		registry_.add_int()
 			("value", boost::bind(&filter_obj::get_value, _1), "The counter value")
@@ -125,13 +126,13 @@ namespace check_pdh {
 		modern_filter::data_container data;
 		modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
 		std::vector<std::string> counters;
+		std::vector<std::string> times;
 		bool expand_index = false;
 		bool reload = false;
 		bool check_average = false;
 		bool expand_instance = false;
 		std::string flags;
 		std::string type;
-		std::string time;
 
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
@@ -142,7 +143,7 @@ namespace check_pdh {
 			("instances", po::bool_switch(&expand_instance), "Expand wildcards and fetch all instances")
 			("reload", po::bool_switch(&reload), "Reload counters on errors (useful to check counters which are not added at boot)")
 			("averages", po::bool_switch(&check_average), "Check average values (ie. wait for 1 second to collecting two samples)")
-			("time", po::value<std::string>(&time), "Timeframe to use for named rrd counters")
+			("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
 			("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
 			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
 			;
@@ -162,6 +163,11 @@ namespace check_pdh {
 		if (filter_helper.empty()) {
 			filter.add_manual_perf("value");
 		}
+
+		if (times.empty())
+			times.push_back("");
+		else if (filter_helper.data.syntax_perf == "${alias}")
+			filter_helper.data.syntax_perf = "%(alias)_%(time)";
 
 		PDH::PDHQuery pdh;
 		std::list<PDH::pdh_instance> free_counters;
@@ -249,19 +255,21 @@ namespace check_pdh {
 			try {
 				typedef std::map<std::string,double> value_list_type;
 
-				value_list_type values;
-				if (time.empty()) {
-					values = collector->get_value(vc.second);
-				} else {
-					values = collector->get_average(vc.second, strEx::stoui_as_time(time)/1000);
-				}
-				if (values.empty())
-					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
-				BOOST_FOREACH(const value_list_type::value_type &v, values) {
-					boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, v.second));
-					modern_filter::match_result ret = filter.match(record);
-					if (ret.is_done) {
-						break;
+				BOOST_FOREACH(const std::string &time, times) {
+					value_list_type values;
+					if (time.empty()) {
+						values = collector->get_value(vc.second);
+					} else {
+						values = collector->get_average(vc.second, strEx::stoui_as_time(time) / 1000);
+					}
+					if (values.empty())
+						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
+					BOOST_FOREACH(const value_list_type::value_type &v, values) {
+						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second));
+						modern_filter::match_result ret = filter.match(record);
+						if (ret.is_done) {
+							break;
+						}
 					}
 				}
 			} catch (const PDH::pdh_exception &e) {
@@ -273,13 +281,13 @@ namespace check_pdh {
 			try {
 				if (expand_instance) {
 					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
-						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), child->get_int_value()));
+						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value()));
 						modern_filter::match_result ret = filter.match(record);
 						if (ret.is_done)
 							break;
 					}
 				} else {
-					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), instance->get_int_value()));
+					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value()));
 					modern_filter::match_result ret = filter.match(record);
 					if (ret.is_done)
 						break;
