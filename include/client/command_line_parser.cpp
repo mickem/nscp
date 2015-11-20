@@ -79,7 +79,7 @@ po::options_description add_query_options(client::destination_container &source,
 	desc.add_options()
 		("command,c", po::value<std::string >()->notifier(boost::bind(&client::payload_builder::set_command, &builder, _1)),
 			"The name of the command that the remote daemon should run")
-		("argument", po::value<std::vector<std::string> >()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)),
+		("argument,a", po::value<std::vector<std::string> >()->notifier(boost::bind(&client::payload_builder::set_arguments, &builder, _1)),
 			"Set command line arguments")
 		("separator", po::value<std::string>()->notifier(boost::bind(&client::payload_builder::set_separator, &builder, _1)),
 			"Separator to use for the batch command (default is |)")
@@ -257,7 +257,10 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				for (int i = 0; i < request.payload_size(); i++) {
 					::Plugin::QueryResponseMessage::Response resp;
 					// Apply any arguments from command line
-					if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp)) {
+					po::positional_options_description p;
+					p.add("argument", -1);
+
+					if (!nscapi::program_options::process_arguments_from_request(vm, desc, request.payload(i), resp, p)) {
 						response.add_payload()->CopyFrom(resp);
 						return;
 					}
