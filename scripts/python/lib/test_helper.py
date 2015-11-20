@@ -386,6 +386,9 @@ class TestManager:
 	def shutdown(self):
 		for suite in self.suites:
 			instance = suite.getInstance()
+			instance.uninstall()
+		for suite in self.suites:
+			instance = suite.getInstance()
 			instance.shutdown()
 			
 		
