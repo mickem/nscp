@@ -190,6 +190,7 @@ void python_script::_exec(const std::string &scriptfile) {
 			object main_module = import("__main__");
 			dict globalDict = extract<dict>(main_module.attr("__dict__"));
 			localDict = globalDict.copy();
+			localDict.setdefault("__file__", scriptfile);
 			//localDict.attr("plugin_id") = plugin_id;
 			//localDict.attr("plugin_alias") = alias;
 
