@@ -24,7 +24,7 @@ namespace simple_scheduler {
 	volatile int metric_executed = 0;
 	volatile int metric_compleated = 0;
 	volatile int metric_errors = 0;
-	void atomic_inc32(volatile int *i) {}
+	int atomic_inc32(volatile int *i) { return 0;  }
 #endif
 
 	bool scheduler::has_metrics() const {
