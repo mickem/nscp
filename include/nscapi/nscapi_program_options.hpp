@@ -547,7 +547,7 @@ namespace nscapi {
 
 				if (request.arguments_size() > 0) {
 					std::string a = request.arguments(0);
-					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
+					if (a.size() < 2 || (a[0] != '-'))
 						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
 				}
 
