@@ -581,6 +581,7 @@ IF(WIN32)
 #	add_nscp_py_test(eventlog test_eventlog)
 	add_nscp_py_test(w32_system test_w32_system)
 	add_nscp_py_test(w32_system test_w32_file)
+	add_nscp_py_test(w32_taskScheduler test_w32_schetask)
 ENDIF(WIN32)
 
 #############################################################################
