@@ -111,7 +111,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.clear();
 
 		if (wrappings_.find("ps1") == wrappings_.end()) {
-			wrappings_["ps1"] = "cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -";
+			wrappings_["ps1"] = "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-host \"Script not found\"; exit(3) }; scripts\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -";
 			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "", "", false);
 			settings.set_static_key(wrappings_path, "ps1", wrappings_["ps1"]);
 		}
