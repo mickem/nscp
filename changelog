@@ -1,3 +1,135 @@
+2015-11-20 Michael Medin
+ * Fixed #185 extract_perf should now work as expected
+ * Fixed #154 Added escape-html flag to all check commands and escape html option to all real time filters.
+ * Added support for -a to check_nrpe command (Fixed #158 )
+ * Fixed issue when parsing commandline with first otion as short
+ * Fixed #201 negative perf data in checks
+ * Renamed status to task_status as it clashes with regular status (Fixed #170)
+ * Fixed issue with atomic functions missing in older boost
+ * Added unit test for scheduled tasks
+ * Added __file__ in python script
+ * Fixed so uninstalled is called for unit tests
+ * Fixed #207 Return error when powershell script not found
+ * Fixed #206 Added support for checking multiple times with check_pdh and rrd buffers
+ * Fixed a build with older versions of boost issue.
+ * Fixed #198 CheckLogFIle not working if files does not exist on startup
+
+2015-11-19 Michael Medin
+ * Added metrics submission and fetching to python scripts
+ * Added ability to run visual processes in the UI session.
+   Two new keywords: display controls if the process is showed and session controls which process the session is run in.
+ * Added support for classifying service and filtering services based on classification
+
+2015-11-18 Michael Medin
+ * Added test client command metrics to display all metrics
+ * Fixed option bug in WEBServer command line
+ * Fixed metrics in WebUI
+ * Added metrics to internal scheduler
+ * Fixed missing result in some command line execs
+ * Fixed services showing twice in service list
+ * Added showing location using nscp settings --show
+ * Fixed pressing ctrl+c on command line
+
+2015-11-16 Michael Medin
+ * Fixed (back) formating in graphite
+ * Fixed broken metrics ui
+ * Fixed default values in graphite
+ * Fixed reload of counters
+ * Fixed collection stratgey value in web ui
+ * Fixed default syntax for eventlog as well as a possible API issue?
+ * Added support for space and strings in column split/line split
+ * Fixed CheckLogFIle realtime
+ * Fixed so clients cant override with no target
+ * Added post option to only post process build on cli
+ * Fixed support for old pelican
+ * added --port to nscp nrpe install
+ * Fixed regression issue in new harmonized scheduler
+ * Fixed segv in CLI builder
+
+2015-11-15 Michael Medin
+ * Fixed check_nrpe in installer
+ * Moved overiden key to the end in the installer
+ * harmonized schedulers
+ * Updated some installer files (web/docs)
+ * Added ugly but working filter list for metrics
+ * Fixed caching setting random keys in webui
+ * Added restart to nscp service
+ * Fixed sample python script cli
+ * Fixed exec alias in python script cli
+ * Fixed graphite paths for mestrics
+ * Added total to check_process
+
+2015-11-14 Michael Medin
+ * Added build commandline options
+ * Added build command option to build script (to skip configure)
+ * Fixed issue with missing command help being target all modules
+ * Fixed issue with default not beeing set as template
+ * Fixed issue with python scripts and script arguments
+ * Fixed some socket bugs in web ui
+ * Added filtering to query and module
+ * Added templates to PythonScript
+ * Fixed metrics (with new py)
+ * Fixed issue where default was not marked as template
+ * Tried to improve error handling for ajax requests
+ * Fixed logout/login issue in webui
+ * Fixed disk graphs in WebUI
+ * Added thread count to scheduler metrics
+ * Added template for schedules
+ * Fixed some PDH issues and improved error reporting
+ * Fixed missing default section in settings
+
+2015-11-13 Michael Medin
+ * Fixed some issues in setting dialog
+ * Added feedback to loading modules as well as proper save
+ * WebUI added help to settings dialog (about tabs)
+ * WEBUI: Changed to save menu is always shown and added auto save support
+ * Added metrics support to clients and added metrics sending to graphite client
+
+2015-11-12 Michael Medin
+ ! Release 0.5.0.9
+ * Merge branch 'master' of https://github.com/mickem/nscp
+ * bumped versions
+ * Merge branch 'master' of https://github.com/mickem/nscp
+ * bumped versions
+ * bumped version
+ * Fixed old boost compatibility in scheduler
+ * Added metrics to scheduler
+ * Fixed metrics fgetcher so multiple metrics bundles are in the same payload
+ * Improved error hadnling for channel failures
+ * Added noop as channel target to discard message
+ * Fixed memory and resource leaks #199
+
+2015-11-10 Michael Medin
+ * Fixed check_uptime parsing dates wrong
+ * removed reading one line schedules
+ * (re)added CONF_SET installer key
+ * Added error when there is no data to send in graphite sender
+ * Added (optional) sending status to graphite
+ * Fixed sending graphite data so it works :)
+ * Added flag to disable sending perf data to graphite
+ * Fixed missing return data in check_uptime
+ * Fixed issue with reading invalid config values
+ * Fixed inheritance and path issue with settings objects
+ * Fixed so source host names is set in NSCA and Graphite client
+ * Fixed potential issue with time expressions which are empty
+ * removed debug log about hung processes
+
+2015-11-08 Michael Medin
+ ! Release 0.5.0.6
+ * FIxed #176 (updated docs with str() instead of s())
+ * Added test case for upper/lowercase commands and alias
+ * Fixed #196 alias not working in 0.5.0
+ * Fixed #196 missing version
+ * Fixed #196 uppercase aliases not working
+
+2015-11-02 Michael Medin
+ * Set missing conf_can_change property
+ * removed unused property
+ * Moved feature selection to apply logic
+ * Fixed include issue for non op5 install
+ * swapped versions
+ * Added CA for managing MONITORING_TOOL to allow setting all properties from command line using a MONITORING_TOOL=op5 options
+
 2015-10-27 Michael Medin
  * Added support for setting arbitrary keys on command line
  * Fixed password command line for the web client (i.e. nscp web password)
