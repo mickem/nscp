@@ -1,3 +1,49 @@
+2015-11-22 Michael Medin
+ * Added post option to do only post install action on build
+ * Fixed installer upgrade issue when upgrading from build revisions #164
+ * Fixed #206 Added support for checking multiple times with check_pdh and rrd buffers
+ * Fixed drive letters with single character
+ * Fixed certificate creation in webserver (and removed dependency on applink)
+ * Fixed building on visual studio 2015
+ * Added showing location using nscp settings --show
+ * Fixed services showing twice in service list
+ * Added noop as channel target to discard message
+ * Fixed memory and resource leaks #199
+
+2015-11-09 Michael Medin
+ ! released 0.4.4.12
+ * Readded accidental removal of setting arbitrary keys in installer
+
+2015-11-02 Michael Medin
+ ! released 0.4.4.10
+ * Set missing conf_can_change property
+ * removed unused property
+ * Moved feature selection to apply logic
+ * Fixed include issue for non op5 install
+ * Added CA for managing MONITORING_TOOL to allow setting all properties from command line using a MONITORING_TOOL=op5 options
+
+2015-10-26 Michael Medin
+* added so typical wont select config type
+* Defaulted registry for op5
+
+2015-10-18 Michael Medin
+ * Added signing of exe/msi
+
+2015-10-16 Michael Medin
+ * Update op5.ini
+ * Fixed brakepad (using new bundled cmake code)
+ * Added support for uploading all resources to github (removed old scp upload)
+ * Swapped build folder
+ * Added support for wix 3.1
+ * Fixed postbuild script
+ * Fixed paths in for op5 scripts
+ * cleaned up the installer and fixed lots of bugs and issues with silent instal as well as options and such
+ * Fixed migrating over the same store wont update it
+ * Fixed issue with save updating "child keys" when reading included files.
+ * Fixed comments with \n in ini files
+ * Added op5 installer
+ * Fixed build with new boost
+
 2015-05-02 Michael Medin
  * Updated some libs to work on centos 6.x
 
