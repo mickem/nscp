@@ -581,7 +581,10 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 			find_all_volumes(ret, found_drives, helper);
 			find_all_drives(ret, found_drives, helper);
 		} else {
-			ret.push_back(drive_container(d, d, "", true));
+			if (d.length() == 1)
+				ret.push_back(drive_container(d + ":", d , "", true));
+			else
+				ret.push_back(drive_container(d, d, "", true));
 		}
 	}
 	return ret;
