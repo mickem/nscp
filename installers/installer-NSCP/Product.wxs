@@ -15,7 +15,8 @@
 
     <Upgrade Id="$(var.UpgradeCode)">
       <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
-      <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
+      <UpgradeVersion Property="SAMEVERSIONDETECTED" IncludeMinimum="yes" Minimum="$(var.Version.String)" IncludeMaximum="yes" Maximum="$(var.Version.String)" OnlyDetect="no"/>
+      <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="no"/>
     </Upgrade>
 
     <?if "$(var.arch)" = "x64"?>
