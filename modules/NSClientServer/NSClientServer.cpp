@@ -241,7 +241,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		split_to_list(args, cmd.second, "drive");
 		args.push_back("warn=free<0");
 		args.push_back("crit=free<0");
-		args.push_back("filter=none");
+		args.push_back("filter=type='fixed' and mounted = 1");
 		args.push_back("perf-config=used(unit:B)free(unit:B)");
 		break;
 	case REQ_CLIENTVERSION:
