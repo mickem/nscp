@@ -299,6 +299,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 
 	std::string response;
 	nscapi::core_helper ch(get_core(), get_id());
+	NSC_DEBUG_MSG("Real command: " + cmd.first + " " + strEx::s::joinEx(args, " "));
 	if (!ch.simple_query(cmd.first, args, response)) {
 		log_bad_command(cmd.first);
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");
@@ -319,14 +320,20 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	case REQ_UPTIME:
 	case REQ_COUNTER:
 		if (line.perf_size() < 1)
-			return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
+			return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
 		return check_nt::packet(extract_perf_value(line.perf(0)));
 
 	case REQ_MEMUSE:
+		if (line.perf_size() < 1)
+			return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
 		return check_nt::packet(extract_perf_total(line.perf(0)) + "&" + extract_perf_value(line.perf(0)));
 	case REQ_USEDDISKSPACE:
+		if (line.perf_size() < 1)
+			return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
 		return check_nt::packet(extract_perf_value(line.perf(0)) + "&" + extract_perf_total(line.perf(0)));
 	case REQ_FILEAGE:
+		if (line.perf_size() < 1)
+			return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
 		return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message());
 
 	case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
