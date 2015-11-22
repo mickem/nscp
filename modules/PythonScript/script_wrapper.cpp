@@ -536,7 +536,7 @@ void build_metrics(boost::python::dict &metrics, const Plugin::Common::MetricsBu
 	}
 }
 
-int script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
+void script_wrapper::function_wrapper::submit_metrics(const std::string &request) const {
 
 	boost::python::dict metrics;
 	Plugin::MetricsMessage msg;
@@ -555,7 +555,6 @@ int script_wrapper::function_wrapper::submit_metrics(const std::string &request)
 				boost::python::call<object>(boost::python::object(v).ptr(), metrics, pystr(request));
 			} catch (error_already_set e) {
 				log_exception();
-				return NSCAPI::api_return_codes::hasFailed;
 			}
 		}
 	} catch (const std::exception &e) {
@@ -564,7 +563,7 @@ int script_wrapper::function_wrapper::submit_metrics(const std::string &request)
 		NSC_LOG_ERROR_EX("Submission failed");
 	}
 }
-int script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
+void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const {
 	Plugin::MetricsMessage::Response payload;
 	Plugin::Common::MetricsBundle *bundle = payload.add_bundles();
 	bundle->set_key("");
@@ -610,7 +609,6 @@ int script_wrapper::function_wrapper::fetch_metrics(std::string &request) const 
 				}
 			} catch (error_already_set e) {
 				log_exception();
-				return NSCAPI::api_return_codes::hasFailed;
 			}
 		}
 		payload.mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);

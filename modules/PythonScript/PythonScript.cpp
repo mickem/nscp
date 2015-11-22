@@ -420,7 +420,7 @@ void PythonScript::list(const Plugin::ExecuteRequestMessage::Request &request, P
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	bool json = false, query = false, lib = false;
+	bool json = false, lib = false;
 
 	desc.add_options()
 		("help", "Show help.")

@@ -8,14 +8,14 @@ namespace qi = boost::spirit::qi;
 namespace ascii = boost::spirit::ascii;
 namespace phoenix = boost::phoenix;
 
-#if BOOST_VERSION > 105400
+#if BOOST_VERSION > 105500
 #define BOOST_SPIRIT_USE_PHOENIX_V3 1
 #endif
 
 namespace parsers {
 	namespace where {
 		struct build_function_convert {
-#if BOOST_VERSION > 105400
+#if BOOST_VERSION > 105500
 			template <typename A>
 			struct result { typedef node_type type; };
 #else

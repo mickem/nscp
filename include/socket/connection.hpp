@@ -166,8 +166,8 @@ namespace socket_helpers {
 				return boost::asio::buffer(buffers_.back());
 			}
 
-			boost::asio::io_service::strand strand_;
 			bool is_active_;
+			boost::asio::io_service::strand strand_;
 			boost::array<char, N> buffer_;
 			boost::asio::deadline_timer timer_;
 			std::list<typename protocol_type::outbound_buffer_type> buffers_;

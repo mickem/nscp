@@ -148,8 +148,8 @@ namespace script_wrapper {
 
 		void register_submit_metrics(PyObject* callable);
 		void register_fetch_metrics(PyObject* callable);
-		int submit_metrics(const std::string &request) const;
-		int fetch_metrics(std::string &request) const;
+		void submit_metrics(const std::string &request) const;
+		void fetch_metrics(std::string &request) const;
 
 		bool has_submit_metrics();
 		bool has_metrics_fetcher();

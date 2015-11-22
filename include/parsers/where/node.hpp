@@ -213,6 +213,8 @@ namespace parsers {
 				boost::optional<T> warn;
 				boost::optional<T> minimum;
 				boost::optional<T> maximum;
+
+				perf_value() : value(0.0) {}
 			};
 			std::string alias;
 			std::string unit;

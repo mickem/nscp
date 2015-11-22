@@ -1,0 +1,32 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "debian/jessie64"
+
+  config.vm.synced_folder "../files", "/etc/puppet/files"
+  config.vm.synced_folder "../../", "/source/nscp"
+
+  config.vm.provider :virtualbox do |vb|
+    # Don't boot with headless mode
+    vb.gui = false
+    vb.customize ["modifyvm", :id, "--memory", "1512"]
+  end
+
+  config.vm.provision "shell", inline: "sudo apt-get install puppet -y"
+
+  config.vm.provision :puppet do |puppet|
+    puppet.manifests_path = "../manifests"
+    puppet.manifest_file  = "base.pp"
+  end
+
+  config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
+  
+  config.vm.synced_folder "../../files", "/etc/puppet/files"
+  config.vm.synced_folder "../../../", "/source/nscp"
+
+  config.ssh.forward_agent = true
+  config.ssh.private_key_path = ['~/.vagrant.d/insecure_private_key', '~/.ssh/id_rsa']
+  config.ssh.insert_key = false
+
+end
