@@ -309,8 +309,8 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
 	}
 	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
-	if (!payload.lines_size() != 1) {
-		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
+	if (payload.lines_size() != 1) {
+		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + strEx::s::xtos(payload.lines_size()));
 	}
 	const ::Plugin::QueryResponseMessage::Response::Line &line = payload.lines(0);
 
