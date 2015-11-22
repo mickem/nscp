@@ -35,6 +35,10 @@ namespace parsers {
 				unit = context->get_performance_config_key(p, k, s, "unit", unit);
 				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
 				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (prefix == "none")
+					prefix = "";
+				if (suffix == "none")
+					suffix = "";
 				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
@@ -70,6 +74,10 @@ namespace parsers {
 				std::string s = boost::trim_copy(suffix);
 				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
 				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (prefix == "none")
+					prefix = "";
+				if (suffix == "none")
+					suffix = "";
 				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
@@ -115,6 +123,10 @@ namespace parsers {
 				unit = context->get_performance_config_key(p, k, s, "unit", unit);
 				prefix = context->get_performance_config_key(p, k, s, "prefix", prefix);
 				suffix = context->get_performance_config_key(p, k, s, "suffix", suffix);
+				if (prefix == "none")
+					prefix = "";
+				if (suffix == "none")
+					suffix = "";
 				if (context->get_performance_config_key(p, k, s, "ignored", "false") == "true")
 					ignored = true;
 				configured = true;
