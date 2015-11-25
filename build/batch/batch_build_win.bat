@@ -86,19 +86,21 @@ GOTO :EOF
 :mk_dirs x64
 :mk_dirs w32
 
-IF "%1"=="post" GOTO no_bump
+IF "%1"=="post" GOTO post_build
+IF "%1"=="build" GOTO only_build
+IF "%1"=="same" GOTO no_bump
 
-IF "%1"=="same" GOTO do_post
 call :bump_version x64 "Visual Studio 11 Win64" || GOTO :error
 :no_bump
 
 call :configure x64 "Visual Studio 11 Win64" || GOTO :error
 call :configure w32 "Visual Studio 11" || GOTO :error
 
+:only_build
 call :build x64 x64 || GOTO :error
 call :build w32 Win32 || GOTO :error
 
-:do_post
+:post_build
 call :post_build x64 || GOTO :error
 call :post_build w32 Win32 || GOTO :error
 

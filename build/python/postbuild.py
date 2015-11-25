@@ -142,5 +142,10 @@ def create_release():
 		print " + Uploading %s..."%fname
 		with open(f, "rb") as fd:
 			release.upload_asset('application/zip', fname, fd.read())
-
-create_release()
+for i in [1,2,3]:
+	try:
+		print "Pushing to github attempt %d/3"%i
+		create_release()
+		break
+	except github3.models.GitHubError:
+		pass
