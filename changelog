@@ -1,3 +1,6 @@
+2015-11-25 Michael Medin
+ * Fixed #199 yet memory leak this time in check_eventlog
+
 2015-11-22 Michael Medin
  * Added post option to do only post install action on build
  * Fixed installer upgrade issue when upgrading from build revisions #164
