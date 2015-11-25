@@ -289,17 +289,29 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 				eventlog::evt_handle handle(hEvents[i]);
 				try {
 					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, handle, hContext, truncate_message));
-					if (direction == direction_backwards && item->get_written() < stop_date)
+					if (direction == direction_backwards && item->get_written() < stop_date) {
+						for (; i < dwReturned; i++)
+							eventlog::EvtClose(hEvents[i]);
 						return;
-					if (direction == direction_forwards && item->get_written() > stop_date)
+					}
+					if (direction == direction_forwards && item->get_written() > stop_date) {
+						for (; i < dwReturned; i++)
+							eventlog::EvtClose(hEvents[i]);
 						return;
+					}
 					modern_filter::match_result ret = filter.match(item);
 					if (ret.is_done) {
+						for (; i < dwReturned; i++)
+							eventlog::EvtClose(hEvents[i]);
 						break;
 					}
 				} catch (const nscp_exception &e) {
+					for (; i < dwReturned; i++)
+						eventlog::EvtClose(hEvents[i]);
 					NSC_LOG_ERROR("Failed to describe event: " + e.reason());
 				} catch (...) {
+					for (; i < dwReturned; i++)
+						eventlog::EvtClose(hEvents[i]);
 					NSC_LOG_ERROR("Failed to describe event");
 				}
 			}

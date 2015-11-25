@@ -29,6 +29,10 @@
 
 namespace eventlog_filter {
 	struct filter_obj {
+
+		filter_obj() {}
+		virtual ~filter_obj() {}
+
 		virtual long long get_id() = 0;
 		virtual std::string get_source() = 0;
 		virtual std::string get_computer() = 0;
@@ -109,6 +113,7 @@ namespace eventlog_filter {
 		const int truncate_message;
 
 		new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message);
+		virtual ~new_filter_obj() {}
 
 		long long get_id() {
 			return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val;
