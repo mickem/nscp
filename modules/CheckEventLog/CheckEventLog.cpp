@@ -465,11 +465,21 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 }
 
 bool CheckEventLog::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &) {
-	if (request.command() == "insert-message" || request.command() == "insert") {
+	std::string command = request.command();
+	if (command == "eventlog" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	if (command == "insert-message" || command == "insert") {
 		insert_eventlog(request, response);
 		return true;
-	} else if (request.command() == "list-providers" || request.command() == "list") {
+	} else if (command == "list-providers" || command == "list") {
 		list_providers(request, response);
+		return true;
+	} else if (target_mode == NSCAPI::target_module) {
+		nscapi::protobuf::functions::set_response_good(*response, "Usage: nscp eventlog [list|insert] --help");
 		return true;
 	}
 	return false;
@@ -478,23 +488,46 @@ bool CheckEventLog::commandLineExec(const int target_mode, const Plugin::Execute
 void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	try {
 		namespace po = boost::program_options;
+		po::variables_map vm;
 		po::options_description desc("Allowed options");
+		bool help = false, channels = false, publishers = false, tasks = false, keywords = false, all = false;
+		std::string publisher;
 		desc.add_options()
-			("help,h", po::bool_switch(), "Show help screen")
+			("help,h", po::bool_switch(&help), "Show help screen")
+			("channels", po::bool_switch(&channels), "List channels (logs)")
+			("publishers", po::bool_switch(&publishers), "List publisher (sources)")
+			("tasks", po::bool_switch(&tasks), "List tasks")
+			("keywords", po::bool_switch(&keywords), "List keywords")
+			("publisher", po::value(&publisher), "Only list keywords and tasks for a given publisher")
+			("all", po::bool_switch(&all), "List everything")
 			;
 
-		boost::program_options::variables_map vm;
 
-		nscapi::program_options::process_arguments_from_request(vm, desc, request, *response);
-		{
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+		po::parsed_options parsed = cmd.allow_unregistered().run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (!channels && !publishers && !tasks && !keywords && !all)
+			help = true;
+		if (help) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return;
+		}
+
+		std::stringstream ss;
+
+		if (channels || all) {
+			if (all)
+				ss << "Channels:\n";
 			eventlog::evt_handle hProviders;
 			hlp::buffer<WCHAR, LPWSTR> buffer(1024);
 			DWORD dwBufferSize = 0;
 			DWORD status = ERROR_SUCCESS;
-
 			hProviders = eventlog::EvtOpenChannelEnum(NULL, 0);
 			if (!hProviders) {
-				NSC_LOG_ERROR("EvtOpenPublisherEnum failed: ", error::lookup::last_error());
+				NSC_LOG_ERROR("EvtOpenChannelEnum failed: ", error::lookup::last_error());
 				return;
 			}
 			while (true) {
@@ -509,9 +542,147 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 					} else if (status != ERROR_SUCCESS)
 						throw nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
 				}
-				wprintf(L"%s\n", buffer.get());
+				if (channels || all) {
+					ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+
+				} else {
+					eventlog::evt_handle hProvider;
+
+					hProvider = eventlog::EvtOpenPublisherMetadata(NULL, buffer.get(), NULL, 0, 0);
+					if (!hProvider) {
+						ss << "Failed to open provider: " << error::lookup::last_error() << "\n";
+						continue;
+					}
+
+					bool match = false;
+					if (tasks) {
+						eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisherMetadataTaskValue, eventlog::api::EvtPublisherMetadataTaskName);
+						if (tbl.size() > 0) {
+							ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+							match = true;
+							ss << "Tasks:\n";
+							BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+								ss << " * " << v.second << "\n";
+							}
+						}
+					}
+					if (keywords) {
+						eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName);
+						if (tbl.size() > 0) {
+							if (!match)
+								ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+							match = true;
+							ss << "Keywords:\n";
+							BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+								ss << " * " << v.second << "\n";
+							}
+						}
+					}
+				}
+			}
+
+		}
+
+		if (publishers || tasks || keywords || all) {
+			if (all)
+				ss << "\n\nPublisher:\n";
+			if (!publisher.empty()) {
+				eventlog::evt_handle hProvider;
+
+				hProvider = eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(publisher).c_str(), NULL, 0, 0);
+				if (!hProvider) {
+					ss << "Failed to open provider: " << error::lookup::last_error() << "\n";
+				}
+
+				bool match = false;
+				if (tasks) {
+					eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisherMetadataTaskValue, eventlog::api::EvtPublisherMetadataTaskName);
+					if (tbl.size() > 0) {
+						ss << publisher << "\n";
+						match = true;
+						ss << "Tasks:\n";
+						BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+							ss << " * " << v.second << " (" << v.first << ")\n";
+						}
+					}
+				}
+				if (keywords) {
+					eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName);
+					if (tbl.size() > 0) {
+						if (!match)
+							ss << publisher << "\n";
+						match = true;
+						ss << "Keywords:\n";
+						BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+							ss << " * " << v.second << " (" << v.first << ")\n";
+						}
+					}
+				}
+			} else {
+				eventlog::evt_handle hProviders;
+				hlp::buffer<WCHAR, LPWSTR> buffer(1024);
+				DWORD dwBufferSize = 0;
+				DWORD status = ERROR_SUCCESS;
+				hProviders = eventlog::EvtOpenPublisherEnum(NULL, 0);
+				if (!hProviders) {
+					NSC_LOG_ERROR("EvtOpenPublisherEnum failed: ", error::lookup::last_error());
+					return;
+				}
+				while (true) {
+					if (!eventlog::EvtNextPublisherId(hProviders, buffer.size(), buffer.get(), &dwBufferSize)) {
+						status = GetLastError();
+						if (ERROR_NO_MORE_ITEMS == status)
+							break;
+						else if (ERROR_INSUFFICIENT_BUFFER == status) {
+							buffer.resize(dwBufferSize);
+							if (!eventlog::EvtNextPublisherId(hProviders, buffer.size(), buffer.get(), &dwBufferSize))
+								throw nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
+						} else if (status != ERROR_SUCCESS)
+							throw nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
+					}
+					if (channels || all) {
+						ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+
+					} else {
+						eventlog::evt_handle hProvider;
+
+						hProvider = eventlog::EvtOpenPublisherMetadata(NULL, buffer.get(), NULL, 0, 0);
+						if (!hProvider) {
+							ss << "Failed to open provider: " << error::lookup::last_error() << "\n";
+							continue;
+						}
+
+						bool match = false;
+						if (tasks) {
+							eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisherMetadataTaskValue, eventlog::api::EvtPublisherMetadataTaskName);
+							if (tbl.size() > 0) {
+								ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+								match = true;
+								ss << "Tasks:\n";
+								BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+									ss << " * " << v.second << " (" << v.first << ")\n";
+								}
+							}
+						}
+						if (keywords) {
+							eventlog::eventlog_table tbl = eventlog::fetch_table(hProvider, eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName);
+							if (tbl.size() > 0) {
+								if (!match)
+									ss << utf8::cvt<std::string>(buffer.get()) << "\n";
+								match = true;
+								ss << "Keywords:\n";
+								BOOST_FOREACH(const eventlog::eventlog_table::value_type &v, tbl) {
+									ss << " * " << v.second << " (" << v.first << ")\n";
+								}
+							}
+						}
+					}
+				}
 			}
 		}
+
+		nscapi::protobuf::functions::set_response_good(*response, ss.str());
+
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
 		return nscapi::protobuf::functions::set_response_bad(*response, "Error");
