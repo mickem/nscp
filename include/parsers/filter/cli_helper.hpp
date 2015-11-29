@@ -83,6 +83,7 @@ namespace modern_filter {
 			boost::program_options::typed_value<std::string> *warn_op = boost::program_options::value<std::string>(&data.warn_string);
 			boost::program_options::typed_value<std::string> *crit_op = boost::program_options::value<std::string>(&data.crit_string);
 			boost::program_options::typed_value<std::string> *empty_state_op = boost::program_options::value<std::string>(&data.empty_state);
+			boost::program_options::typed_value<std::string> *perf_config_op = boost::program_options::value<std::string>(&data.perf_config);
 			if (!filter.empty())
 				filter_op->default_value(filter);
 			if (!warn.empty())
@@ -91,6 +92,8 @@ namespace modern_filter {
 				crit_op->default_value(crit);
 			if (!empty_state.empty())
 				empty_state_op->default_value(empty_state);
+			if (!data.perf_config.empty())
+				perf_config_op->default_value(data.perf_config);
 			desc.add_options()
 				("debug", boost::program_options::bool_switch(&data.debug),
 					"Show debugging information in the log")
@@ -110,7 +113,7 @@ namespace modern_filter {
 					(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
 				("empty-state", empty_state_op,
 					"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
-				("perf-config", boost::program_options::value<std::string>(&data.perf_config),
+				("perf-config", perf_config_op,
 					"Performance data generation configuration\nTODO: obj ( key: value; key: value) obj (key:valuer;key:value)")
 				("escape-html", boost::program_options::bool_switch(&data.escape_html),
 					"Escape any < and > characters to prevent HTML encoding")
@@ -226,6 +229,9 @@ namespace modern_filter {
 
 			filter.start_match();
 			return true;
+		}
+		void set_default_perf_config(const std::string conf) {
+			data.perf_config = conf;
 		}
 		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
 			std::string tk = "Top level syntax.\n"
