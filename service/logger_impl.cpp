@@ -101,7 +101,7 @@ std::pair<bool, std::string> render_console_message(const bool oneline, const st
 			}
 		}
 #ifdef WIN32
-		return std::make_pair(is_error, utf8::to_encoding(utf8::cvt<std::wstring>(ss.str()), "oem"));
+		return std::make_pair(is_error, utf8::to_encoding(ss.str(), ""));
 #else
 		return std::make_pair(is_error, ss.str());
 #endif
