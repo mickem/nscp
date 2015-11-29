@@ -3,9 +3,24 @@
 #include <handle.hpp>
 #include <Windows.h>
 
+#include <map>
+
 namespace eventlog {
+
+	/// severity levels
+#define WINEVENT_AUDIT_TYPE            0
+#define WINEVENT_CRITICAL_TYPE         1
+#define WINEVENT_ERROR_TYPE            2
+#define WINEVENT_WARNING_TYPE          3
+#define WINEVENT_INFORMATION_TYPE      4
+#define WINEVENT_VERBOSE_TYPE          5
+
+#define WINEVENT_AUDIT_FAILURE 0x10000000000000LL
+#define WINEVENT_AUDIT_SUCCESS 0x20000000000000LL
+
 	namespace api {
 		typedef HANDLE EVT_HANDLE, *PEVT_HANDLE;
+		typedef HANDLE EVT_OBJECT_ARRAY_PROPERTY_HANDLE;
 
 		typedef enum _EVT_VARIANT_TYPE {
 			EvtVarTypeNull = 0,
@@ -157,6 +172,49 @@ namespace eventlog {
 			EvtFormatMessageXml,
 		} EVT_FORMAT_MESSAGE_FLAGS;
 
+
+		typedef enum _EVT_PUBLISHER_METADATA_PROPERTY_ID {
+			EvtPublisherMetadataPublisherGuid = 0,      // EvtVarTypeGuid
+			EvtPublisherMetadataResourceFilePath,       // EvtVarTypeString
+			EvtPublisherMetadataParameterFilePath,      // EvtVarTypeString
+			EvtPublisherMetadataMessageFilePath,        // EvtVarTypeString
+			EvtPublisherMetadataHelpLink,               // EvtVarTypeString
+			EvtPublisherMetadataPublisherMessageID,     // EvtVarTypeUInt32
+
+			EvtPublisherMetadataChannelReferences,      // EvtVarTypeEvtHandle, ObjectArray
+			EvtPublisherMetadataChannelReferencePath,   // EvtVarTypeString
+			EvtPublisherMetadataChannelReferenceIndex,  // EvtVarTypeUInt32
+			EvtPublisherMetadataChannelReferenceID,     // EvtVarTypeUInt32
+			EvtPublisherMetadataChannelReferenceFlags,  // EvtVarTypeUInt32
+			EvtPublisherMetadataChannelReferenceMessageID, // EvtVarTypeUInt32
+
+			EvtPublisherMetadataLevels,                 // EvtVarTypeEvtHandle, ObjectArray
+			EvtPublisherMetadataLevelName,              // EvtVarTypeString
+			EvtPublisherMetadataLevelValue,             // EvtVarTypeUInt32
+			EvtPublisherMetadataLevelMessageID,         // EvtVarTypeUInt32
+
+			EvtPublisherMetadataTasks,                  // EvtVarTypeEvtHandle, ObjectArray
+			EvtPublisherMetadataTaskName,               // EvtVarTypeString
+			EvtPublisherMetadataTaskEventGuid,          // EvtVarTypeGuid
+			EvtPublisherMetadataTaskValue,              // EvtVarTypeUInt32
+			EvtPublisherMetadataTaskMessageID,          // EvtVarTypeUInt32
+
+			EvtPublisherMetadataOpcodes,                // EvtVarTypeEvtHandle, ObjectArray
+			EvtPublisherMetadataOpcodeName,             // EvtVarTypeString
+			EvtPublisherMetadataOpcodeValue,            // EvtVarTypeUInt32
+			EvtPublisherMetadataOpcodeMessageID,        // EvtVarTypeUInt32
+
+			EvtPublisherMetadataKeywords,               // EvtVarTypeEvtHandle, ObjectArray
+			EvtPublisherMetadataKeywordName,            // EvtVarTypeString
+			EvtPublisherMetadataKeywordValue,           // EvtVarTypeUInt64
+			EvtPublisherMetadataKeywordMessageID,       // EvtVarTypeUInt32
+
+
+			EvtPublisherMetadataPropertyIdEND
+
+		} EVT_PUBLISHER_METADATA_PROPERTY_ID;
+
+
 		typedef EVT_HANDLE(WINAPI *tEvtOpenPublisherEnum)(
 			EVT_HANDLE Session,
 			DWORD Flags
@@ -242,10 +300,35 @@ namespace eventlog {
 			_Out_ PDWORD BufferUsed
 			);
 
+		typedef BOOL(WINAPI *tEvtGetPublisherMetadataProperty)(
+			EVT_HANDLE PublisherMetadata,
+			EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId,
+			DWORD Flags,
+			DWORD PublisherMetadataPropertyBufferSize,
+			PEVT_VARIANT PublisherMetadataPropertyBuffer,
+			_Out_ PDWORD PublisherMetadataPropertyBufferUsed
+			);
+
+		typedef BOOL (WINAPI *tEvtGetObjectArrayProperty)(
+			EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray,
+			DWORD PropertyId,
+			DWORD ArrayIndex,
+			DWORD Flags,
+			DWORD PropertyValueBufferSize,
+			PEVT_VARIANT PropertyValueBuffer,
+			_Out_ PDWORD PropertyValueBufferUsed
+			);
+
+		typedef BOOL (*tEvtGetObjectArraySize)(
+			EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray,
+			_Out_ PDWORD ObjectArraySize
+			);
+
 		void load_procs();
 		bool supports_modern();
 	}
 	BOOL EvtFormatMessage(api::EVT_HANDLE PublisherMetadata, api::EVT_HANDLE Event, DWORD MessageId, DWORD ValueCount, api::PEVT_VARIANT Values, DWORD Flags, DWORD BufferSize, LPWSTR Buffer, PDWORD BufferUsed);
+	int EvtFormatMessage(api::EVT_HANDLE PublisherMetadata, api::EVT_HANDLE Event, DWORD MessageId, DWORD ValueCount, api::PEVT_VARIANT Values, DWORD Flags, std::string &str);
 	api::EVT_HANDLE EvtOpenPublisherMetadata(api::EVT_HANDLE Session, LPCWSTR PublisherId, LPCWSTR LogFilePath, LCID Locale, DWORD Flags);
 	api::EVT_HANDLE EvtCreateRenderContext(DWORD ValuePathsCount, LPCWSTR* ValuePaths, DWORD Flags);
 	BOOL EvtRender(api::EVT_HANDLE Context, api::EVT_HANDLE Fragment, DWORD Flags, DWORD BufferSize, PVOID Buffer, PDWORD BufferUsed, PDWORD PropertyCount);
@@ -257,6 +340,15 @@ namespace eventlog {
 	BOOL EvtNextPublisherId(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed);
 	api::EVT_HANDLE EvtOpenChannelEnum(api::EVT_HANDLE Session, DWORD Flags);
 	BOOL EvtNextChannelPath(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed);
+
+	BOOL EvtGetPublisherMetadataProperty(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD Flags, DWORD PublisherMetadataPropertyBufferSize, api::PEVT_VARIANT PublisherMetadataPropertyBuffer, PDWORD PublisherMetadataPropertyBufferUsed);
+	BOOL EvtGetObjectArrayProperty(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, DWORD PropertyId, DWORD ArrayIndex, DWORD Flags, DWORD PropertyValueBufferSize, api::PEVT_VARIANT PropertyValueBuffer, PDWORD PropertyValueBufferUsed);
+	BOOL EvtGetObjectArraySize(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, PDWORD ObjectArraySize);
+
+
+	typedef std::map<long long, std::string> eventlog_table;
+	eventlog_table fetch_table(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD KeyPropertyId, DWORD ValuePropertyId);
+
 
 	struct evt_closer {
 		static void close(api::EVT_HANDLE &handle) {
