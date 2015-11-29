@@ -3,6 +3,8 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 #include <parsers/where.hpp>
 
@@ -12,6 +14,75 @@
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
+typedef boost::optional<std::string> op_str;
+template<eventlog::api::EVT_PUBLISHER_METADATA_PROPERTY_ID T_object, DWORD T_id, DWORD T_desc>
+struct data_cache {
+	typedef std::map<std::string, eventlog::eventlog_table> task_table;
+	boost::shared_mutex mutex_;
+
+	task_table providers;
+
+	boost::optional<std::string> get_cached(std::string &provider, long long id) {
+		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+		if (!readLock.owns_lock()) {
+			return boost::optional<std::string>();
+		}
+		task_table::const_iterator pit = providers.find(provider);
+		if (pit == providers.end())
+			return boost::optional<std::string>();
+		eventlog::eventlog_table::const_iterator cit = pit->second.find(id);
+		if (cit == pit->second.end())
+			return boost::optional<std::string>();
+		return cit->second;
+	}
+	boost::optional<std::string> get(eventlog::evt_handle &hMetadata, std::string &provider, long long id) {
+		eventlog::eventlog_table table = eventlog::fetch_table(hMetadata, T_object, T_id, T_desc);
+		{
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+			if (writeLock.owns_lock()) {
+				providers[provider] = table;
+			}
+		}
+		eventlog::eventlog_table::const_iterator cit = table.find(id);
+		if (cit == table.end())
+			return boost::optional<std::string>();
+		return cit->second;
+	}
+	boost::optional<std::string> apply_cached(std::string &provider, long long mask) {
+		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+		if (!readLock.owns_lock()) {
+			return boost::optional<std::string>();
+		}
+		task_table::const_iterator pit = providers.find(provider);
+		if (pit == providers.end())
+			return boost::optional<std::string>();
+		return do_apply(pit->second, mask);
+	}
+	boost::optional<std::string> apply(eventlog::evt_handle &hMetadata, std::string &provider, long long mask) {
+		eventlog::eventlog_table table = eventlog::fetch_table(hMetadata, T_object, T_id, T_desc);
+		{
+			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+			if (writeLock.owns_lock()) {
+				providers[provider] = table;
+			}
+		}
+		return do_apply(table, mask);
+	}
+private:
+	std::string do_apply(const eventlog::eventlog_table &table, long long mask) {
+		std::string keys = "";
+		BOOST_FOREACH(const eventlog::eventlog_table::value_type &cit, table) {
+			if ((mask&cit.first) == cit.first)
+				strEx::append_list(keys, cit.second, ",");
+		}
+		return keys;
+	}
+
+};
+
+data_cache<eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisherMetadataTaskValue, eventlog::api::EvtPublisherMetadataTaskName> task_cache_;
+data_cache<eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName> keyword_cache_;
 
 namespace eventlog_filter {
 	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message)
@@ -37,17 +108,17 @@ namespace eventlog_filter {
 		return static_cast<long long>(strEx::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
 	}
 	std::string new_type_to_string(long long ival) {
-		//if (ival == 0)
-		//	return "audit";
-		//if (ival == 1)
-		//	return "critical";
+		if (ival == 1)
+			return "critical";
 		if (ival == 2)
 			return "error";
 		if (ival == 3)
 			return "warning";
-		//if (ival == 4)
-		return "information";
-		//return "unknown";
+		if (ival == 4)
+			return "information";
+		if (ival == 5)
+			return "verbose";
+		return "unknown";
 	}
 	std::string old_type_to_string(long long ival) {
 		if (ival == 0)
@@ -71,29 +142,60 @@ namespace eventlog_filter {
 	}
 
 	long long new_filter_obj::get_el_type() {
-		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type)
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type) {
+			NSC_DEBUG_MSG(" --> missing level: " + strEx::s::xtos(get_id()));
 			return 0;
+		}
 		return buffer.get()[eventlog::api::EvtSystemLevel].ByteVal;
 	}
-	std::string new_filter_obj::get_message() {
-		hlp::buffer<wchar_t, LPWSTR> message_buffer(4096);
-		DWORD dwBufferSize = 0;
-		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderName].Type)
-			throw nscp_exception("Failed to get system provider");
-		eventlog::evt_handle hMetadata = eventlog::EvtOpenPublisherMetadata(NULL, buffer.get()[eventlog::api::EvtSystemProviderName].StringVal, NULL, 0, 0);
-		if (!hMetadata)
-			return "EvtOpenPublisherMetadata failed for '" + utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal) + "': " + error::lookup::last_error();
+	std::string new_filter_obj::get_task() {
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type)
+			return "";
+		int id = buffer.get()[eventlog::api::EvtSystemTask].Int16Val;
+		op_str os = task_cache_.get_cached(get_source(), id);
+		if (os)
+			return *os;
+		os = task_cache_.get(get_provider_handle(), get_source(), id);
+		if (os)
+			return *os;
+		return "";
+	}
+	std::string new_filter_obj::get_keyword() {
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemKeywords].Type)
+			return "";
+		long long id = buffer.get()[eventlog::api::EvtSystemKeywords].Int64Val;
+		op_str os = keyword_cache_.apply_cached(get_source(), id);
+		if (os)
+			return *os;
+		os = keyword_cache_.apply(get_provider_handle(), get_source(), id);
+		if (os)
+			return *os;
+		return "";
+	}
 
-		if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize)) {
-			DWORD status = GetLastError();
-			if (status == ERROR_INSUFFICIENT_BUFFER) {
-				message_buffer.resize(dwBufferSize);
-				if (!eventlog::EvtFormatMessage(hMetadata, hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize))
-					throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error());
-			} else if (status != ERROR_EVT_MESSAGE_NOT_FOUND  && ERROR_EVT_MESSAGE_ID_NOT_FOUND != status)
-				throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+	eventlog::evt_handle& new_filter_obj::get_provider_handle() {
+		if (!hProviderMetadataHandle) {
+			std::string provider = get_source();
+			hProviderMetadataHandle = eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(provider).c_str(), NULL, 0, 0);
+			if (!hProviderMetadataHandle)
+				throw nscp_exception("EvtOpenPublisherMetadata failed for '" + provider + "': " + error::lookup::last_error());
 		}
-		std::string msg = utf8::cvt<std::string>(message_buffer.get_t<wchar_t*>());
+		return hProviderMetadataHandle;
+	}
+
+	std::string new_filter_obj::get_message() {
+		std::string msg;
+		int status = eventlog::EvtFormatMessage(get_provider_handle(), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
+		if (status != ERROR_SUCCESS) {
+			NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + strEx::s::xtos(get_id()) + ": " +  error::format::from_system(status));
+			if (status == ERROR_INVALID_PARAMETER)
+				return "";
+			else if (status == ERROR_EVT_MESSAGE_NOT_FOUND)
+				return "";
+			else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
+				return "";
+			throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+		}
 		boost::replace_all(msg, "\n", " ");
 		boost::replace_all(msg, "\r", " ");
 		boost::replace_all(msg, "\t", " ");
@@ -117,6 +219,11 @@ namespace eventlog_filter {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemComputer].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemComputer].StringVal);
+	}
+	std::string new_filter_obj::get_guid() {
+		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderGuid].Type)
+			return "";
+		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderGuid].StringVal);
 	}
 	long long new_filter_obj::get_category() {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type)
@@ -160,9 +267,6 @@ namespace eventlog_filter {
 		}
 	}
 	int convert_new_type(parsers::where::evaluation_context context, std::string str) {
-		// TODO: auditFailure
-		if (str == "audit")
-			return 0;
 		if (str == "critical")
 			return 1;
 		if (str == "error")
@@ -171,6 +275,8 @@ namespace eventlog_filter {
 			return 3;
 		if (str == "informational" || str == "info" || str == "information" || str == "success" || str == "auditSuccess")
 			return 4;
+		if (str == "debug" || str == "verbose")
+			return 5;
 		try {
 			return strEx::s::stox<int>(str);
 		} catch (const std::exception&) {
@@ -198,6 +304,10 @@ namespace eventlog_filter {
 			("computer", boost::bind(&filter_obj::get_computer, _1), "Which computer generated the message")
 			("log", boost::bind(&filter_obj::get_log, _1), "alias for file")
 			("file", boost::bind(&filter_obj::get_log, _1), "The logfile name")
+			("guid", boost::bind(&filter_obj::get_guid, _1), "The logfile name")
+			("provider", boost::bind(&filter_obj::get_source, _1), "Source system.")
+			("task", boost::bind(&filter_obj::get_task, _1), "The type of event (task)")
+			("keyword", boost::bind(&filter_obj::get_keyword, _1), "The keyword associated with this event")
 			;
 
 		registry_.add_int()

@@ -35,8 +35,11 @@ namespace eventlog_filter {
 
 		virtual long long get_id() = 0;
 		virtual std::string get_source() = 0;
+		virtual std::string get_guid() = 0;
 		virtual std::string get_computer() = 0;
 		virtual long long get_el_type() = 0;
+		virtual std::string get_task() = 0;
+		virtual std::string get_keyword() = 0;
 		virtual std::string get_el_type_s() = 0;
 		virtual long long get_severity() = 0;
 		virtual std::string get_message() = 0;
@@ -69,6 +72,12 @@ namespace eventlog_filter {
 		std::string get_computer() {
 			return utf8::cvt<std::string>(record.get_computer());
 		}
+		std::string get_task() {
+			return "";
+		}
+		std::string get_keyword() {
+			return "";
+		}
 		long long get_el_type() {
 			return record.eventType();
 		}
@@ -84,6 +93,9 @@ namespace eventlog_filter {
 		}
 		std::string get_log() {
 			return utf8::cvt<std::string>(record.get_log());
+		}
+		std::string get_guid() {
+			return "";
 		}
 		long long get_written() {
 			return record.written();
@@ -111,6 +123,7 @@ namespace eventlog_filter {
 		eventlog::evt_handle &hEvent;
 		hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer;
 		const int truncate_message;
+		eventlog::evt_handle hProviderMetadataHandle;
 
 		new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message);
 		virtual ~new_filter_obj() {}
@@ -119,8 +132,11 @@ namespace eventlog_filter {
 			return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val;
 		}
 		std::string get_source();
+		std::string get_guid();
 		std::string get_computer();
 		long long get_el_type();
+		std::string get_task();
+		std::string get_keyword();
 		std::string get_el_type_s();
 		long long get_severity() {
 			return 0;
@@ -145,6 +161,7 @@ namespace eventlog_filter {
 			return 0;
 		}
 		bool is_modern() { return true; }
+		eventlog::evt_handle& get_provider_handle();
 	};
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
