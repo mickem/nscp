@@ -1,4 +1,30 @@
+2015-11-29 Michael Medin
+ ! Release 0.5.0.17
+ * Improved eventlog error messages #177
+ * Fixed #209 Added CheckNet to installer
+ * Improved console interface for log messages
+ * Change the default eventlog command to set warnings for warning in eventlog and crit for errors (instead of using count)
+ * Added task, keywords GUID support for eventlog filters
+ Fixed #181 (use the task filter)
+ * Improved eventlog cli to support listing tasks and keywords
+ * Improved the low level eventlog API
+ * Fixed logging encoding on console
+ * Added support for setting default perf config
+
+2015-11-25 Michael Medin
+ * Fixed #199 yet memory leak this time in check_eventlog
+
+2015-11-22 Michael Medin
+ * bumed protobuf lib
+ * Fixed some jessie build issues (mainly boost 1.0.55 issues) as well as compiler warning essentially fixing #208
+ * Fixed #117 invalid perf syntax when specifying none
+ * Fixed some potential check_nt issues
+ * Fixed #202 check_nt not working in 0.5.x
+ * Fixed drive letters with single character
+ * Fixed #157 CDROM included in check_nt DISKUSAGE
+
 2015-11-20 Michael Medin
+ ! Release 0.5.0.16
  * Fixed #185 extract_perf should now work as expected
  * Fixed #154 Added escape-html flag to all check commands and escape html option to all real time filters.
  * Added support for -a to check_nrpe command (Fixed #158 )
