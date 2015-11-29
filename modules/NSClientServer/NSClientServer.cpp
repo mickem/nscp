@@ -306,9 +306,10 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	}
 
 	::Plugin::QueryResponseMessage message;
-	if (!message.ParseFromString(response) || message.payload_size() != 1) {
-		return check_nt::packet("ERROR: Invalid return from command: " + cmd.first);
-	}
+	if (!message.ParseFromString(response))
+		return check_nt::packet("ERROR: Failed to parse data from: " + cmd.first);
+	if (message.payload_size() != 1)
+		return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + strEx::s::xtos(message.payload_size()));
 	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
 	if (payload.lines_size() != 1) {
 		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + strEx::s::xtos(payload.lines_size()));
