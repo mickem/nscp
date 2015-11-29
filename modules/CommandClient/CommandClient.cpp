@@ -34,10 +34,19 @@ namespace sh = nscapi::settings_helper;
 using namespace std;
 
 void client_handler::output_message(const std::string &msg) {
-	if (msg.find("\n") == std::string::npos) {
-		NSC_LOG_MESSAGE(msg);
+	std::string msg_copy = msg;
+	std::size_t p = msg_copy.find_last_not_of(" \t\n\r");
+	if (p != std::string::npos) {
+		msg_copy = msg_copy.substr(0, p + 1);
+	}
+	if (msg_copy.find("\n") == std::string::npos) {
+		NSC_LOG_MESSAGE(msg_copy);
 	} else {
-		NSC_LOG_MESSAGE("Long message\n" + msg);
+#ifdef WIN32
+		NSC_LOG_MESSAGE(boost::replace_all_copy(msg_copy, "\r", "\t... \r"));
+#else
+		NSC_LOG_MESSAGE(boost::replace_all_copy(msg_copy, "\n", "\t... \n"));
+#endif
 	}
 }
 
@@ -129,7 +138,7 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 			nscapi::protobuf::functions::set_response_good(*response, "Done");
 			return true;
 		}
-		client->handle_command(s);
+		client->handle_command(utf8::utf8_from_native(s));
 	}
 	nscapi::protobuf::functions::set_response_good(*response, "Done");
 }
