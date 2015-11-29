@@ -194,6 +194,8 @@ namespace eventlog_filter {
 				return "";
 			else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
 				return "";
+			else if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
+				throw nscp_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
 			throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
 		}
 		boost::replace_all(msg, "\n", " ");
