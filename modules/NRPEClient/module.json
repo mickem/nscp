@@ -17,6 +17,10 @@
 			"description" : "Request remote information via NRPE.",
 			"mapping"	: false
 		},
+		"nrpe_query" : { 
+			"description" : "Request remote information via NRPE.",
+			"mapping"	: false
+		},
 		"exec_nrpe" : { 
 			"description" : "Execute remote script via NRPE. (Most likely you want nrpe_query).",
 			"mapping"	: false

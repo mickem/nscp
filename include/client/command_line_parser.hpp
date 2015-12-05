@@ -52,39 +52,48 @@ namespace client {
 		void set_separator(const std::string &value) {
 			separator = value;
 		}
+		bool is_query() const {
+			return type == type_query;
+		}
+		bool is_exec() const {
+			return type == type_exec;
+		}
+		bool is_submit() const {
+			return type == type_submit;
+		}
 
 		void set_result(const std::string &value) {
-			if (type == type_submit) {
+			if (is_submit()) {
 				get_submit_payload()->set_result(nscapi::protobuf::functions::parse_nagios(value));
-			} else if (type == type_exec) {
+			} else if (is_exec()) {
 				throw cli_exception("result not supported for exec");
 			} else {
 				throw cli_exception("result not supported for query");
 			}
 		}
 		void set_message(const std::string &value) {
-			if (type == type_submit) {
+			if (is_submit()) {
 				Plugin::QueryResponseMessage::Response::Line *l = get_submit_payload()->add_lines();
 				l->set_message(value);
-			} else if (type == type_exec) {
+			} else if (is_exec()) {
 				throw cli_exception("message not supported for exec");
 			} else {
 				throw cli_exception("message not supported for query");
 			}
 		}
 		void set_command(const std::string value) {
-			if (type == type_submit) {
+			if (is_submit()) {
 				get_submit_payload()->set_command(value);
-			} else if (type == type_exec) {
+			} else if (is_exec()) {
 				get_exec_payload()->set_command(value);
 			} else {
 				get_query_payload()->set_command(value);
 			}
 		}
 		void set_arguments(const std::vector<std::string> &value) {
-			if (type == type_submit) {
+			if (is_submit()) {
 				throw cli_exception("arguments not supported for submit");
-			} else if (type == type_exec) {
+			} else if (is_exec()) {
 				BOOST_FOREACH(const std::string &a, value)
 					get_exec_payload()->add_arguments(a);
 			} else {
@@ -93,7 +102,7 @@ namespace client {
 			}
 		}
 		void set_batch(const std::vector<std::string> &data) {
-			if (type == type_submit) {
+			if (is_submit()) {
 				BOOST_FOREACH(const std::string &e, data) {
 					submit_payload = submit_message.add_payload();
 					std::vector<std::string> line;

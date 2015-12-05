@@ -236,7 +236,11 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 		} else {
 			po::options_description desc = create_descriptor(command, s, d);
 			payload_builder builder;
+			std::string x = command.substr(command.size() - 6, 6);
 			if (command.substr(0, 6) == "check_") {
+				builder.set_type(payload_builder::type_query);
+				desc.add(add_query_options(s, d, builder));
+			} else if (command.substr(command.size()-6, 6) == "_query") {
 				builder.set_type(payload_builder::type_query);
 				desc.add(add_query_options(s, d, builder));
 			} else if (command.substr(0, 5) == "exec_") {
@@ -271,7 +275,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 					return;
 			}
 
-			if (command.substr(0, 6) == "check_") {
+			if (builder.is_query()) {
 				Plugin::QueryResponseMessage local_response;
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
@@ -279,7 +283,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response d, local_response.payload()) {
 					response.add_payload()->CopyFrom(d);
 				}
-			} else if (command.substr(0, 5) == "exec_") {
+			} else if (builder.is_exec()) {
 				Plugin::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
@@ -288,7 +292,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
 				}
 				// TODO: Convert reply to native reply
-			} else if (command.substr(0, 7) == "submit_") {
+			} else if (builder.is_submit()) {
 				Plugin::SubmitResponseMessage local_response;
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
