@@ -508,6 +508,11 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
 				NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
 			}
 		}
+		if (arg.find("%ARG") != std::string::npos) {
+			if (!allowArgs_) {
+				NSC_DEBUG_MSG_STD("Detected a %ARG??% expression with allowed arguments flag set to false (perhaps this is not the intent)");
+			}
+		}
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {
@@ -577,11 +582,14 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				return;
 			}
 			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i++) + "$", str);
+			strEx::replace(cmdline, "%ARG" + strEx::s::xtos(i++) + "%", str);
 			strEx::append_list(all, str, " ");
 			strEx::append_list(allesc, "\"" + str + "\"", " ");
 		}
 		strEx::replace(cmdline, "$ARGS$", all);
+		strEx::replace(cmdline, "%ARGS%", all);
 		strEx::replace(cmdline, "$ARGS\"$", allesc);
+		strEx::replace(cmdline, "%ARGS\"%", allesc);
 	} else if (args.size() > 0) {
 		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");
@@ -589,6 +597,9 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	}
 
 	if (cmdline.find("$ARG") != std::string::npos) {
+		NSC_DEBUG_MSG_STD("Possible missing argument in: " + cmdline);
+	}
+	if (cmdline.find("%ARG") != std::string::npos) {
 		NSC_DEBUG_MSG_STD("Possible missing argument in: " + cmdline);
 	}
 	NSC_DEBUG_MSG("Command line: " + cmdline);
@@ -652,6 +663,10 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 						ss << "$ARG" << strEx::s::xtos(i++) << "$,false,," << arg << "\n";
 						found = true;
 					}
+					if (arg.find("%ARG" + strEx::s::xtos(i++) + "%") != std::string::npos) {
+						ss << "%ARG" << strEx::s::xtos(i++) << "%,false,," << arg << "\n";
+						found = true;
+					}
 				}
 			}
 			nscapi::protobuf::functions::set_response_good(*response, ss.str());
@@ -663,8 +678,11 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 		int i = 1;
 		BOOST_FOREACH(const std::string &str, src_args) {
 			strEx::replace(arg, "$ARG" + strEx::s::xtos(i++) + "$", str);
+			strEx::replace(arg, "%ARG" + strEx::s::xtos(i++) + "%", str);
 		}
 		if (arg.find("$ARG") != std::string::npos)
+			missing_args = true;
+		if (arg.find("%ARG") != std::string::npos)
 			missing_args = true;
 	}
 	if (missing_args) {
