@@ -152,63 +152,63 @@ namespace PDH {
 
 		virtual pdh_error PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex, LPTSTR szNameBuffer, LPDWORD pcchNameBufferSize) {
 			if (pPdhLookupPerfNameByIndex == NULL)
-				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
+				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex");
 			return PDH::pdh_error(pPdhLookupPerfNameByIndex(szMachineName, dwNameIndex, szNameBuffer, pcchNameBufferSize));
 		}
 
 		virtual pdh_error PdhExpandCounterPath(LPCTSTR szWildCardPath, LPTSTR mszExpandedPathList, LPDWORD pcchPathListLength) {
 			if (pPdhExpandCounterPath == NULL)
-				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex :(");
+				throw pdh_exception("Failed to initialize PdhLookupPerfNameByIndex");
 			return PDH::pdh_error(pPdhExpandCounterPath(szWildCardPath, mszExpandedPathList, pcchPathListLength));
 		}
 		virtual pdh_error PdhGetCounterInfo(PDH::PDH_HCOUNTER hCounter, BOOLEAN bRetrieveExplainText, LPDWORD pdwBufferSize, PDH_COUNTER_INFO *lpBuffer) {
 			if (pPdhGetCounterInfo == NULL)
-				throw pdh_exception("Failed to initialize PdhGetCounterInfo :(");
+				throw pdh_exception("Failed to initialize PdhGetCounterInfo");
 			return PDH::pdh_error(pPdhGetCounterInfo(hCounter, bRetrieveExplainText, pdwBufferSize, lpBuffer));
 		}
 		virtual pdh_error PdhAddCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
 			if (pPdhAddCounter == NULL)
-				throw pdh_exception("Failed to initialize PdhAddCounter :(");
+				throw pdh_exception("Failed to initialize PdhAddCounter");
 			return PDH::pdh_error(pPdhAddCounter(hQuery, szFullCounterPath, dwUserData, phCounter));
 		}
 		virtual pdh_error PdhAddEnglishCounter(PDH::PDH_HQUERY hQuery, LPCWSTR szFullCounterPath, DWORD_PTR dwUserData, PDH::PDH_HCOUNTER * phCounter) {
 			if (pPdhAddEnglishCounter == NULL)
-				throw pdh_exception("PdhAddEnglishCounter is only avalible on Vista and later you need to use localized counters.");
+				throw pdh_exception("PdhAddEnglishCounter is only available on Vista and later you need to use localized counters.");
 			return pdh_error(pPdhAddEnglishCounter(hQuery, szFullCounterPath, dwUserData, phCounter));
 		}
 		virtual pdh_error PdhRemoveCounter(PDH::PDH_HCOUNTER hCounter) {
 			if (pPdhRemoveCounter == NULL)
-				throw pdh_exception("Failed to initialize PdhRemoveCounter :(");
+				throw pdh_exception("Failed to initialize PdhRemoveCounter");
 			return PDH::pdh_error(pPdhRemoveCounter(hCounter));
 		}
 		virtual pdh_error PdhGetRawCounterValue(PDH::PDH_HCOUNTER hCounter, LPDWORD dwFormat, PPDH_RAW_COUNTER  pValue) {
 			if (pPdhGetRawCounterValue == NULL)
-				throw pdh_exception("Failed to initialize PdhGetRawCounterValue :(");
+				throw pdh_exception("Failed to initialize PdhGetRawCounterValue");
 			return PDH::pdh_error(pPdhGetRawCounterValue(hCounter, dwFormat, pValue));
 		}
 		virtual pdh_error PdhGetFormattedCounterValue(PDH_HCOUNTER hCounter, DWORD dwFormat, LPDWORD lpdwType, PPDH_FMT_COUNTERVALUE pValue) {
 			if (pPdhGetFormattedCounterValue == NULL)
-				throw pdh_exception("Failed to initialize PdhGetFormattedCounterValue :(");
+				throw pdh_exception("Failed to initialize PdhGetFormattedCounterValue");
 			return PDH::pdh_error(pPdhGetFormattedCounterValue(hCounter, dwFormat, lpdwType, pValue));
 		}
 		virtual pdh_error PdhOpenQuery(LPCWSTR szDataSource, DWORD_PTR dwUserData, PDH::PDH_HQUERY * phQuery) {
 			if (pPdhOpenQuery == NULL)
-				throw pdh_exception("Failed to initialize PdhOpenQuery :(");
+				throw pdh_exception("Failed to initialize PdhOpenQuery");
 			return PDH::pdh_error(pPdhOpenQuery(szDataSource, dwUserData, phQuery));
 		}
 		virtual pdh_error PdhCloseQuery(PDH_HQUERY hQuery) {
 			if (pPdhCloseQuery == NULL)
-				throw pdh_exception("Failed to initialize PdhCloseQuery :(");
+				throw pdh_exception("Failed to initialize PdhCloseQuery");
 			return PDH::pdh_error(pPdhCloseQuery(hQuery));
 		}
 		virtual pdh_error PdhCollectQueryData(PDH_HQUERY hQuery) {
 			if (pPdhCollectQueryData == NULL)
-				throw pdh_exception("Failed to initialize PdhCollectQueryData :(");
+				throw pdh_exception("Failed to initialize PdhCollectQueryData");
 			return PDH::pdh_error(pPdhCollectQueryData(hQuery));
 		}
 		virtual pdh_error PdhValidatePath(LPCWSTR szFullPathBuffer, bool force_reload) {
 			if (pPdhValidatePath == NULL)
-				throw pdh_exception("Failed to initialize PdhValidatePath :(");
+				throw pdh_exception("Failed to initialize PdhValidatePath");
 			PDH::pdh_error status = PDH::pdh_error(pPdhValidatePath(szFullPathBuffer));
 			if (status.is_error() && force_reload) {
 				reload();
@@ -218,17 +218,17 @@ namespace PDH {
 		}
 		virtual pdh_error PdhEnumObjects(LPCWSTR szDataSource, LPCWSTR szMachineName, LPWSTR mszObjectList, LPDWORD pcchBufferSize, DWORD dwDetailLevel, BOOL bRefresh) {
 			if (pPdhEnumObjects == NULL)
-				throw pdh_exception("Failed to initialize PdhEnumObjects :(");
+				throw pdh_exception("Failed to initialize PdhEnumObjects");
 			return PDH::pdh_error(pPdhEnumObjects(szDataSource, szMachineName, mszObjectList, pcchBufferSize, dwDetailLevel, bRefresh));
 		}
 		virtual pdh_error PdhEnumObjectItems(LPCWSTR szDataSource, LPCWSTR szMachineName, LPCWSTR szObjectName, LPWSTR mszCounterList, LPDWORD pcchCounterListLength, LPWSTR mszInstanceList, LPDWORD pcchInstanceListLength, DWORD dwDetailLevel, DWORD dwFlags) {
 			if (pPdhEnumObjectItems == NULL)
-				throw pdh_exception("Failed to initialize PdhEnumObjectItems :(");
+				throw pdh_exception("Failed to initialize PdhEnumObjectItems");
 			return PDH::pdh_error(pPdhEnumObjectItems(szDataSource, szMachineName, szObjectName, mszCounterList, pcchCounterListLength, mszInstanceList, pcchInstanceListLength, dwDetailLevel, dwFlags));
 		}
 		virtual pdh_error PdhExpandWildCardPath(LPCTSTR szDataSource, LPCTSTR szWildCardPath, LPWSTR  mszExpandedPathList, LPDWORD pcchPathListLength, DWORD dwFlags) {
 			if (pPdhExpandWildCardPath == NULL)
-				throw pdh_exception("Failed to initialize PdhExpandWildCardPath :(");
+				throw pdh_exception("Failed to initialize PdhExpandWildCardPath");
 			return PDH::pdh_error(pPdhExpandWildCardPath(szDataSource, szWildCardPath, mszExpandedPathList, pcchPathListLength, dwFlags));
 		}
 	};
