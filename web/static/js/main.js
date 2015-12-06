@@ -160,7 +160,7 @@ define(['knockout', 'bootstrap', 'app/core/globalStatus', 'sammy', 'app/core/aut
 		tab: ko.observable(),
 		data: ko.observable(),
 		nscp_status: gs,
-		settings, settings,
+		settings: settings,
 		setRoute: function(name, tab, data) {
 			//console.log(name)
 			//console.log(tab)
