@@ -1427,6 +1427,9 @@ bool NSClientT::service_controller::is_started() {
 #ifndef CSIDL_COMMON_APPDATA
 #define CSIDL_COMMON_APPDATA 0x0023
 #endif
+#ifndef CSIDL_APPDATA
+#define CSIDL_APPDATA 0x001a
+#endif
 typedef BOOL(WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
 
 __inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
@@ -1475,6 +1478,12 @@ std::string NSClientT::getFolder(std::string key) {
 	else if (key == "common-appdata") {
 		wchar_t buf[MAX_PATH + 1];
 		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
+			default_value = utf8::cvt<std::string>(buf);
+		else
+			default_value = getBasePath().string();
+	} else if (key == "appdata") {
+		wchar_t buf[MAX_PATH + 1];
+		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
 			default_value = utf8::cvt<std::string>(buf);
 		else
 			default_value = getBasePath().string();
