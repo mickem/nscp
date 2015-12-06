@@ -1,3 +1,16 @@
+2015-12-06 Michael Medin
+ * updated docs
+ * Fixed 220: WebPage not loading in IE
+
+2015-12-05 Michael Medin
+ * Fixed #221 typo in error message (pdh)
+ * Added documentation about filter expressions (#212)
+ * updated docs (added info about settings)
+ * Added appdata path keyword
+ * Added -noprofile to powershell script wrapper (#207)
+ * #207 Added support for %ARGS% as well as $ARGS$
+ * Added support for nrpe_query
+
 2015-11-29 Michael Medin
  ! Release 0.5.0.17
  * Improved eventlog error messages #177
