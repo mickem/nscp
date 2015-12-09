@@ -254,15 +254,15 @@ namespace format {
 	inline T decode_byte_units(const T value, const std::string &unit) {
 		if (unit.size() == 0)
 			return value;
-		if (unit[0] == 'B')
+		if (unit[0] == 'B' || unit[0] == 'b')
 			return value;
-		else if (unit[0] == 'K')
+		else if (unit[0] == 'K' || unit[0] == 'k')
 			return value * 1024;
-		else if (unit[0] == 'M')
+		else if (unit[0] == 'M' || unit[0] == 'm')
 			return value * 1024 * 1024;
-		else if (unit[0] == 'G')
+		else if (unit[0] == 'G' || unit[0] == 'g')
 			return value * 1024 * 1024 * 1024;
-		else if (unit[0] == 'T')
+		else if (unit[0] == 'T' || unit[0] == 't')
 			return value * 1024 * 1024 * 1024 * 1024;
 		else
 			return value;
