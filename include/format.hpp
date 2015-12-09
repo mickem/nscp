@@ -250,8 +250,8 @@ namespace format {
 			ss << static_cast<unsigned int>(time);
 		return ss.str();
 	}
-
-	inline long long decode_byte_units(const long long value, const std::string &unit) {
+	template<class T>
+	inline T decode_byte_units(const T value, const std::string &unit) {
 		if (unit.size() == 0)
 			return value;
 		if (unit[0] == 'B')

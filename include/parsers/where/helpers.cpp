@@ -176,22 +176,24 @@ namespace parsers {
 				return op == op_ge || op == op_gt;
 			}
 
-			boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit) {
+			read_arg_type read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit) {
 				std::list<parsers::where::node_type> list = subject->get_list_value(context);
 				if (list.empty())
 					list.push_back(subject);
-				long long value = 0;
+				long long value_int = 0;
+				double value_float = 0.0;
 				std::string unit = default_unit;
 				std::list<parsers::where::node_type>::const_iterator cit;
 				if (list.size() > 0) {
 					cit = list.begin();
-					value = (*cit)->get_int_value(context);
+					value_int = (*cit)->get_int_value(context);
+					value_float = (*cit)->get_float_value(context);
 				}
 				if (list.size() > 1) {
 					++cit;
 					unit = (*cit)->get_value(context, type_string).get_string(unit);
 				}
-				return boost::make_tuple(value, unit);
+				return boost::make_tuple(value_int, value_float, unit);
 			}
 		}
 	}

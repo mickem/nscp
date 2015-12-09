@@ -15,9 +15,9 @@ using namespace parsers::where;
 
 namespace check_cpu_filter {
 	parsers::where::node_type calculate_load(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-		long long number = value.get<0>();
-		std::string unit = value.get<1>();
+		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+		double number = value.get<1>();
+		std::string unit = value.get<2>();
 
 		if (unit != "%")
 			context->error("Invalid unit: " + unit);
@@ -46,12 +46,12 @@ namespace check_cpu_filter {
 
 namespace check_mem_filter {
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-		long long number = value.get<0>();
-		std::string unit = value.get<1>();
+		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+		double number = value.get<1>();
+		std::string unit = value.get<2>();
 
 		if (unit == "%") {
-			number = (object->get_total()*(number)) / 100;
+			number = (static_cast<double>(object->get_total())*number) / 100.0;
 		} else {
 			number = format::decode_byte_units(number, unit);
 		}
@@ -96,12 +96,12 @@ namespace check_mem_filter {
 
 namespace check_page_filter {
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-		long long number = value.get<0>();
-		std::string unit = value.get<1>();
+		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+		double number = value.get<1>();
+		std::string unit = value.get<2>();
 
 		if (unit == "%") {
-			number = (object->get_total()*(number)) / 100;
+			number = (static_cast<double>(object->get_total())*number) / 100.0;
 		} else {
 			number = format::decode_byte_units(number, unit);
 		}
@@ -254,8 +254,8 @@ namespace check_svc_filter {
 
 namespace check_uptime_filter {
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "d");
-		std::string expr = strEx::s::xtos(value.get<0>()) + value.get<1>();
+		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
+		std::string expr = strEx::s::xtos(value.get<0>()) + value.get<2>();
 		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(expr));
 	}
 

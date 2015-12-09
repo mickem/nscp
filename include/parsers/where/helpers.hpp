@@ -23,7 +23,8 @@ namespace parsers {
 			NSCAPI_EXPORT bool is_upper(operators op);
 			NSCAPI_EXPORT bool is_lower(operators op);
 
-			NSCAPI_EXPORT boost::tuple<long long, std::string> read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit);
+			typedef boost::tuple<long long, double, std::string> read_arg_type;
+			NSCAPI_EXPORT read_arg_type read_arguments(parsers::where::evaluation_context context, parsers::where::node_type subject, std::string default_unit);
 		}
 	}
 }

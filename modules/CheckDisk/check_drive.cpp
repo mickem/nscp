@@ -186,12 +186,12 @@ struct filter_obj {
 };
 
 parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-	long long number = value.get<0>();
-	std::string unit = value.get<1>();
+	parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+	double number = value.get<1>();
+	std::string unit = value.get<2>();
 
 	if (unit == "%") {
-		number = (object->get_drive_size(context)*(number)) / 100;
+		number = (static_cast<double>(object->get_drive_size(context))*number) / 100.0;
 	} else {
 		number = format::decode_byte_units(number, unit);
 	}
@@ -199,12 +199,12 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
 }
 
 parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-	boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-	long long number = value.get<0>();
-	std::string unit = value.get<1>();
+	parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+	double number = value.get<1>();
+	std::string unit = value.get<2>();
 
 	if (unit == "%") {
-		number = (object->get_user_free(context)*number) / 100;
+		number = (static_cast<double>(object->get_user_free(context))*number) / 100.0;
 	} else {
 		number = format::decode_byte_units(number, unit);
 	}

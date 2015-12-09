@@ -14,7 +14,7 @@ namespace phoenix = boost::phoenix;
 
 namespace parsers {
 	namespace where {
-		struct build_function_convert {
+		struct build_function_convert_int {
 #if BOOST_VERSION > 105500
 			template <typename A>
 			struct result { typedef node_type type; };
@@ -30,6 +30,22 @@ namespace parsers {
 				return factory::create_conversion(args);
 			}
 		};
+		struct build_function_convert_float {
+#if BOOST_VERSION > 105500
+			template <typename A>
+			struct result { typedef node_type type; };
+#else
+			template <typename A, typename B>
+			struct result { typedef node_type type; };
+#endif
+			node_type operator()(const double value, const char unit) const {
+				list_node_type args = factory::create_list();
+				std::string unit_s(1, unit);
+				args->push_back(factory::create_float(value));
+				args->push_back(factory::create_string(unit_s));
+				return factory::create_conversion(args);
+			}
+		};
 
 		///////////////////////////////////////////////////////////////////////////
 		//  Our calculator grammar
@@ -37,11 +53,13 @@ namespace parsers {
 		where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
 			using qi::_val;
 			using qi::int_;
+			using qi::double_;
 			using qi::_1;
 			using qi::_2;
 			using qi::_3;
 
-			boost::phoenix::function<build_function_convert> build_ic;
+			boost::phoenix::function<build_function_convert_int> build_ic_int;
+			boost::phoenix::function<build_function_convert_float> build_ic_float;
 
 			expression
 				= and_expr[_val = _1]
@@ -79,9 +97,12 @@ namespace parsers {
 				| variable_name[_val = phoenix::bind(&factory::create_variable, obj_factory, _1)]
 				| string_literal[_val = phoenix::bind(&factory::create_string, _1)]
 				| qi::lexeme[
-					(int_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic(_1, _2)]
+					(int_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_int(_1, _2)]
 				]
-				| number[_val = phoenix::bind(&factory::create_int, _1)]
+				| qi::lexeme[
+					(double_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_float(_1, _2)]
+				]
+						| number[_val = phoenix::bind(&factory::create_int, _1)]
 						;
 
 					list_expr
@@ -125,6 +146,7 @@ namespace parsers {
 
 					number
 						= int_[_val = _1]
+						| double_[_val = _1]
 						;
 					variable_name
 						= qi::lexeme[
