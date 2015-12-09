@@ -581,10 +581,11 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
 			}
-			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i++) + "$", str);
-			strEx::replace(cmdline, "%ARG" + strEx::s::xtos(i++) + "%", str);
+			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i) + "$", str);
+			strEx::replace(cmdline, "%ARG" + strEx::s::xtos(i) + "%", str);
 			strEx::append_list(all, str, " ");
 			strEx::append_list(allesc, "\"" + str + "\"", " ");
+			i++;
 		}
 		strEx::replace(cmdline, "$ARGS$", all);
 		strEx::replace(cmdline, "%ARGS%", all);
