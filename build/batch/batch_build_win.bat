@@ -90,7 +90,6 @@ IF "%1"=="post" GOTO post_build
 IF "%1"=="build" GOTO only_build
 IF "%1"=="same" GOTO no_bump
 
-call :bump_version x64 "Visual Studio 11 2012 Win64" || GOTO :error
 :no_bump
 
 call :configure x64 "Visual Studio 11 2012 Win64" || GOTO :error

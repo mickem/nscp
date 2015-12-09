@@ -48,6 +48,12 @@
 				"perl Configure VC-WIN64A", 
 				"ms\\do_win64a"
 			],
+			"patch-dynamic": [
+				"python.exe {{source.folder}}/build/python/openssl_xp_patch.py ms\\ntdll.mak"
+			],
+			"patch-static": [
+				"python.exe {{source.folder}}/build/python/openssl_xp_patch.py ms\\nt.mak"
+			],
 			"build-dynamic": [
 				"nmake -f ms\\ntdll.mak"
 			],
@@ -55,7 +61,7 @@
 				"nmake -f ms\\nt.mak"
 			]
 		},
-		"build": ["fetch", "pre", "build"]
+		"build": ["fetch", "pre", "patch", "build"]
 	},
 	"protobuf": {
 		"source": {
