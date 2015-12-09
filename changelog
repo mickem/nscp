@@ -1,3 +1,8 @@
+2015-12-09 Michael Medin
+ * Fixed XP support
+ * Fixed missing redist DLLs in zip file
+ * Fixed check_nrpe name in installer
+
 2015-11-25 Michael Medin
  * Fixed #199 yet memory leak this time in check_eventlog
 
