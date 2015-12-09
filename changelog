@@ -1,3 +1,13 @@
+2015-12-09 Michael Medin
+ * Fixed #223 broken %ARGS% with the $ARGS$ fix
+ * Implemented #150 use_certificate_chain_file
+ * Added support for both g and G in size filters
+ * Added support for parsing floating point numbers in size units (i.e. "warn=free > 2.5G")
+ * Added so github upload is retried
+ * Fixed check_nrpe name in installer
+ * Fixed missing redist DLLs in zip file
+ * Added XP targeting to fetch deps builds
+
 2015-12-06 Michael Medin
  * updated docs
  * Fixed 220: WebPage not loading in IE
