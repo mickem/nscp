@@ -86,9 +86,12 @@ class source_helper:
         return self.hash
 
     def fetch(self):
-        print '   + Fetching: %s'%self.url
-        print '     Into: %s'%self.file
-        urllib.urlretrieve(self.url, self.file)
+        if self.is_cached():
+            print '   + Using cached: %s'%self.file
+        else:
+            print '   + Fetching: %s'%self.url
+            print '     Into: %s'%self.file
+            urllib.urlretrieve(self.url, self.file)
         
     def validate(self):
         if self.has_hash():
@@ -209,10 +212,10 @@ def write_config(config, target):
 
 boost_versions = {
     '2005': "msvc-8.0",
-    '2012': "msvc-11.0",
-    '2013': "msvc-12.0",
-    '2014': "msvc-13.0",
-    '2015': "msvc-14.0"
+    '2012': "msvc-11.0_xp",
+    '2013': "msvc-12.0_xp",
+    '2014': "msvc-13.0_xp",
+    '2015': "msvc-14.0_xp"
 }
 cmake_generator = { 
     '2005': "Visual Studio 8 2005", 
@@ -228,7 +231,7 @@ parser.add_option("-t", "--target", help="Which target architecture to build (wi
 parser.add_option("-c", "--cmake-config", default="copy-target", help="Folder to place cmake configuration file in")
 parser.add_option("-s", "--source", help="Location of the nscp source folder")
 parser.add_option("-y", "--dyn", action="store_true", help="Use dynamic link")
-parser.add_option("--msver", default='2015', help="Which version of visual studio you have")
+parser.add_option("--msver", default='2012', help="Which version of visual studio you have")
 
 (options, args) = parser.parse_args()
 
