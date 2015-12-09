@@ -58,7 +58,10 @@
           <Component Id="Helpers" Guid="AEBD660B-C62A-4af6-9A61-693D319BC224" Win64="$(var.Win64)">
             <File Id="ErrorReporter" Name="reporter.exe" DiskId="1" Source="$(var.Source)/reporter.exe" Vital="yes" />
           </Component>
-          
+          <Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
+            <File Id="CheckNRPEExe" Name="check_nrpe.exe" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
+          </Component>
+
           <Component Id="NSClientConfig" Guid="7B3CFBD8-47F8-4CCD-8D20-34B279070B5E" Win64="$(var.Win64)">
             <File Id="NSClientINI" Name="nsclient.ini" DiskId="1" Source="$(var.Path.ini)/nsclient.dist" Vital="no" PatchIgnore="yes"/>
             <RemoveFile Id="PurgeConfigFiles" Name="*.ini" On="uninstall" />
@@ -96,9 +99,6 @@
             <Component Id="NRPEServer" Guid="E00E8CFD-ADA6-47bd-84F0-DD00F07AD326" Win64="$(var.Win64)">
               <File Id="NRPEServerDLL" Name="NRPEServer.dll" DiskId="1" Source="$(var.Source)/modules/NRPEServer.dll" Vital="no" />
               <File Id="NRPEClientDLL" Name="NRPEClient.dll" DiskId="1" Source="$(var.Source)/modules/NRPEClient.dll" Vital="no" />
-            </Component>
-            <Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
-              <File Id="CheckNRPEExe" Name="check_nrpe.dll" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
             </Component>
 
             <Component Id="NSCServer" Guid="64CEEE94-4E45-48ca-B120-81DA3F3E081A" Win64="$(var.Win64)">
