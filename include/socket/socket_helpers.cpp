@@ -182,7 +182,7 @@ void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* 
 void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asio::ssl::context &context, std::list<std::string> &errors) const {
 	boost::system::error_code er;
 	if (!certificate.empty() && certificate != "none") {
-		context.use_certificate_file(certificate, get_certificate_format(), er);
+		context.use_certificate_chain_file(certificate, get_certificate_format(), er);
 		if (er)
 			errors.push_back("Failed to load certificate " + certificate + ": " + utf8::utf8_from_native(er.message()));
 		if (!certificate_key.empty() && certificate_key != "none") {
