@@ -73,9 +73,6 @@
             <RemoveFile Id="PurgeConfigFilesUser" Name="*.ini" On="uninstall" />
             <Condition>USER_WRITABLE_CONFIG</Condition>
           </Component>
-          <Component Id="CheckNRPE" Guid="798DE5B5-C876-436F-86A5-03CD93CDD5FB" Win64="$(var.Win64)">
-            <File Id="CheckNRPEExe" Name="check_nrpe.exe" DiskId="1" Source="$(var.Source)/check_nrpe.exe" Vital="no" />
-          </Component>
 
           <Component Id="RandomFiles" Guid="E23865C3-C11F-4d11-BE63-C670D60B0CD0" Win64="$(var.Win64)">
             <File Id="Changelog" Name="changelog.txt" DiskId="1" Source="$(var.Source)/changelog" Vital="no" />
