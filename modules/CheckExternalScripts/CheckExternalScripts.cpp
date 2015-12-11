@@ -678,8 +678,9 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	BOOST_FOREACH(std::string &arg, args) {
 		int i = 1;
 		BOOST_FOREACH(const std::string &str, src_args) {
-			strEx::replace(arg, "$ARG" + strEx::s::xtos(i++) + "$", str);
-			strEx::replace(arg, "%ARG" + strEx::s::xtos(i++) + "%", str);
+			strEx::replace(arg, "$ARG" + strEx::s::xtos(i) + "$", str);
+			strEx::replace(arg, "%ARG" + strEx::s::xtos(i) + "%", str);
+			i++;
 		}
 		if (arg.find("$ARG") != std::string::npos)
 			missing_args = true;
