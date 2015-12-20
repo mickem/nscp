@@ -104,7 +104,6 @@ namespace settings {
 		std::string context_;
 		net::url url_;
 
-		//SettingsInterfaceImpl() : core_(NULL) {}
 		settings_interface_impl(settings_core *core, std::string context) : core_(core), context_(context), url_(net::parse(context_)) {}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -116,7 +115,9 @@ namespace settings {
 			MUTEX_GUARD();
 			{
 				settings_cache_.clear();
+				settings_delete_cache_.clear();
 				path_cache_.clear();
+				settings_delete_path_cache_.clear();
 				key_cache_.clear();
 				children_.clear();
 			}
@@ -170,6 +171,85 @@ namespace settings {
 			return children_;
 		}
 
+		template<class T>
+		typename T::op_type getter(std::string path, std::string key) {
+			MUTEX_GUARD();
+			settings_core::key_path_type lookup(path, key);
+			cache_type::const_iterator cit = settings_cache_.find(lookup);
+			if (cit != settings_cache_.end())
+				return T::get_value((*cit).second);
+			typename T::op_type val = T::get_real(this, lookup);
+			if (!val) {
+				instance_raw_ptr child = find_child_unsafe(lookup);
+				if (child) {
+					return T::get_from_child(child, lookup);
+				}
+			}
+			if (val)
+				settings_cache_[lookup] = conainer(*val, false);
+			return val;
+		}
+
+		template<class T>
+		void setter(std::string path, std::string key, typename T::type value) {
+			MUTEX_GUARD();
+			cache_type::const_iterator cit = settings_cache_.find(cache_key_type(path, key));
+			if (cit != settings_cache_.end()) {
+				if (!T::has_changed(cit->second, value))
+					return;
+			}
+
+			settings_core::key_path_type lookup(path, key);
+			T::op_type current = T::get_real(this, lookup);
+			if (!current) {
+				instance_raw_ptr child = find_child_unsafe(lookup);
+				if (child) {
+					T::set_in_child(child, lookup, value);
+					return;
+				}
+			}
+
+			bool unchanged = (current && *current == value) || (!current && T::is_default(value));
+			settings_cache_[cache_key_type(path, key)] = conainer(value, !unchanged);
+			path_cache_.insert(path);
+			core_->register_path(99, path, "in flight", "TODO", true, false);
+
+			if (unchanged)
+				return;
+			add_key_unsafe(path, key);
+		}
+
+		instance_raw_ptr find_child_unsafe(settings_core::key_path_type key) {
+			BOOST_FOREACH(instance_raw_ptr child, children_) {
+				if (child->has_key(key.first, key.second))
+					return child;
+			}
+			return instance_raw_ptr();
+		}
+
+		struct StringHandler {
+			typedef std::string type;
+			typedef boost::optional<type> op_type;
+			static type get_value(const conainer &c) {
+				return c.get_string();
+			}
+			static op_type get_real(settings_interface_impl *ptr, settings_core::key_path_type &lookup) {
+				return ptr->get_real_string(lookup);
+			}
+			static op_type get_from_child(instance_raw_ptr child, settings_core::key_path_type &lookup) {
+				return child->get_string(lookup.first, lookup.second);
+			}
+			static bool has_changed(const conainer &c, type val) {
+				return c.get_string() != val;
+			}
+			static void set_in_child(instance_raw_ptr child, settings_core::key_path_type &lookup, type value) {
+				child->set_string(lookup.first, lookup.second, value);
+			}
+			static bool is_default(const type &value) {
+				return value.empty();
+			}
+		};
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
 		///
@@ -179,26 +259,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual op_string get_string(std::string path, std::string key) {
-			MUTEX_GUARD();
-			settings_core::key_path_type lookup(path, key);
-			cache_type::const_iterator cit = settings_cache_.find(lookup);
-			if (cit == settings_cache_.end()) {
-				op_string val = get_real_string(lookup);
-				if (!val)
-					val = get_string_from_child_unsafe(lookup);
-				if (val)
-					settings_cache_[lookup] = conainer(*val, false);
-				return val;
-			}
-			return (*cit).second.get_string();
-		}
-		op_string get_string_from_child_unsafe(settings_core::key_path_type key) {
-			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				op_string val = (*it)->get_string(key.first, key.second);
-				if (val)
-					return val;
-			}
-			return op_string();
+			return getter<StringHandler>(path, key);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist the default value will be returned
@@ -224,32 +285,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_string(std::string path, std::string key, std::string value) {
-			{
-				MUTEX_GUARD();
-				cache_type::const_iterator cit = settings_cache_.find(cache_key_type(path, key));
-				if (cit != settings_cache_.end()) {
-					if (cit->second.get_string() == value)
-						return;
-				}
-
-				settings_core::key_path_type lookup(path, key);
-				op_string current = get_real_string(lookup);
-				if (!current)
-					current = get_string_from_child_unsafe(lookup);
-				if (current) {
-					std::string valx = *current;
-				}
-
-				bool unchanged = (current && *current == value) || (!current && value.empty());
-				settings_cache_[cache_key_type(path, key)] = conainer(value, !unchanged);
-				path_cache_.insert(path);
-				core_->register_path(99, path, "in flight", "TODO", true, false);
-
-				if (unchanged)
-					return;
-			}
-			get_core()->set_dirty(true);
-			add_key(path, key);
+			setter<StringHandler>(path, key, value);
 		}
 
 		virtual void remove_key(std::string path, std::string key) {
@@ -273,12 +309,17 @@ namespace settings {
 		}
 
 		virtual void add_path(std::string path) {
-			MUTEX_GUARD();
-			path_cache_.insert(path);
+			{
+				MUTEX_GUARD();
+				path_cache_.insert(path);
+			}
 			get_core()->set_dirty(true);
 		}
 		virtual void add_key(std::string path, std::string key) {
 			MUTEX_GUARD();
+			add_key_unsafe(path, key);
+		}
+		void add_key_unsafe(std::string path, std::string key) {
 			key_cache_type::iterator it = key_cache_.find(path);
 			if (it == key_cache_.end()) {
 				std::set<std::string> s;
@@ -292,6 +333,29 @@ namespace settings {
 			get_core()->set_dirty(true);
 		}
 
+		struct IntHandler {
+			typedef int type;
+			typedef boost::optional<type> op_type;
+			static type get_value(const conainer &c) {
+				return c.get_int();
+			}
+			static op_type get_real(settings_interface_impl *ptr, settings_core::key_path_type &lookup) {
+				return ptr->get_real_int(lookup);
+			}
+			static op_type get_from_child(instance_raw_ptr child, settings_core::key_path_type &lookup) {
+				return child->get_int(lookup.first, lookup.second);
+			}
+			static bool has_changed(const conainer &c, type val) {
+				return c.get_int() != val;
+			}
+			static void set_in_child(instance_raw_ptr child, settings_core::key_path_type &lookup, type value) {
+				child->set_int(lookup.first, lookup.second, value);
+			}
+			static bool is_default(const type &value) {
+				return value == 0;
+			}
+		};
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist exception will be thrown
 		///
@@ -301,27 +365,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual op_int get_int(std::string path, std::string key) {
-			MUTEX_GUARD();
-			settings_core::key_path_type lookup(path, key);
-			cache_type::const_iterator cit = settings_cache_.find(lookup);
-			if (cit == settings_cache_.end()) {
-				op_int val = get_real_int(lookup);
-				if (!val)
-					val = get_int_from_child_unsafe(path, key);
-				if (!val)
-					return val;
-				settings_cache_[lookup] = conainer(*val, false);
-				return val;
-			}
-			return op_int((*cit).second.get_int());
-		}
-		op_int get_int_from_child_unsafe(std::string path, std::string key) {
-			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				op_int val = (*it)->get_int(path, key);
-				if (val)
-					return val;
-			}
-			return op_int();
+			return getter<IntHandler>(path, key);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get an integer value if it does not exist the default value will be returned
@@ -347,12 +391,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_int(std::string path, std::string key, int value) {
-			{
-				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path, key)] = conainer(value, true);
-				path_cache_.insert(path);
-			}
-			add_key(path, key);
+			setter<IntHandler>(path, key, value);
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -371,6 +410,29 @@ namespace settings {
 			return it->second.type;
 		}
 
+		struct BoolHandler {
+			typedef bool type;
+			typedef boost::optional<type> op_type;
+			static type get_value(const conainer &c) {
+				return c.get_bool();
+			}
+			static op_type get_real(settings_interface_impl *ptr, settings_core::key_path_type &lookup) {
+				return ptr->get_real_bool(lookup);
+			}
+			static op_type get_from_child(instance_raw_ptr child, settings_core::key_path_type &lookup) {
+				return child->get_bool(lookup.first, lookup.second);
+			}
+			static bool has_changed(const conainer &c, type val) {
+				return c.get_bool() != val;
+			}
+			static void set_in_child(instance_raw_ptr child, settings_core::key_path_type &lookup, type value) {
+				child->set_bool(lookup.first, lookup.second, value);
+			}
+			static bool is_default(const type &value) {
+				return value == false;
+			}
+		};
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist exception will be thrown
 		///
@@ -380,27 +442,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual op_bool get_bool(std::string path, std::string key) {
-			MUTEX_GUARD();
-			settings_core::key_path_type lookup(path, key);
-			cache_type::const_iterator cit = settings_cache_.find(lookup);
-			if (cit == settings_cache_.end()) {
-				op_bool val = get_real_bool(lookup);
-				if (!val)
-					val = get_bool_from_child_unsafe(path, key);
-				if (!val)
-					return val;
-				settings_cache_[lookup] = conainer(*val, false);
-				return val;
-			}
-			return (*cit).second.get_bool();
-		}
-		op_bool get_bool_from_child_unsafe(std::string path, std::string key) {
-			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				op_bool val = (*it)->get_bool(path, key);
-				if (val)
-					return val;
-			}
-			return op_bool();
+			return getter<BoolHandler>(path, key);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a boolean value if it does not exist the default value will be returned
@@ -426,13 +468,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_bool(std::string path, std::string key, bool value) {
-			{
-				MUTEX_GUARD();
-				settings_cache_[cache_key_type(path, key)] = conainer(value, true);
-				path_cache_.insert(path);
-			}
-			add_key(path, key);
-			get_core()->set_dirty(true);
+			setter<BoolHandler>(path, key, value);
 		}
 
 		// Meta Functions
@@ -449,7 +485,10 @@ namespace settings {
 			string_list ret;
 			get_cached_sections_unsafe(path, ret);
 			get_real_sections(path, ret);
-			get_section_from_child_unsafe(path, ret);
+			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+				string_list itm = c->get_sections(path);
+				ret.insert(ret.end(), itm.begin(), itm.end());
+			}
 			ret.sort();
 			ret.unique();
 			return ret;
@@ -479,12 +518,6 @@ namespace settings {
 				}
 			}
 		}
-		void get_section_from_child_unsafe(std::string path, string_list &list) {
-			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				string_list itm = (*it)->get_sections(path);
-				list.insert(list.end(), itm.begin(), itm.end());
-			}
-		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get all keys for a path.
 		///
@@ -497,7 +530,10 @@ namespace settings {
 			string_list ret;
 			get_cached_keys_unsafe(path, ret);
 			get_real_keys(path, ret);
-			get_keys_from_child_unsafe(path, ret);
+			BOOST_FOREACH(const instance_raw_ptr &c, children_) {
+				string_list itm = c->get_keys(path);
+				ret.insert(ret.end(), itm.begin(), itm.end());
+			}
 			ret.sort();
 			ret.unique();
 			return ret;
@@ -508,13 +544,6 @@ namespace settings {
 				BOOST_FOREACH(std::string s, (*it).second) {
 					list.push_back(s);
 				}
-			}
-		}
-		void get_keys_from_child_unsafe(std::string path, string_list &list) {
-			for (parent_list_type::iterator it = children_.begin(); it != children_.end(); ++it) {
-				std::string str = (*it)->get_context();
-				string_list itm = (*it)->get_keys(path);
-				list.insert(list.end(), itm.begin(), itm.end());
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -665,6 +694,9 @@ namespace settings {
 			for (cache_type::const_iterator cit = settings_cache_.begin(); cit != settings_cache_.end(); ++cit) {
 				set_real_value((*cit).first, (*cit).second);
 				sections.insert((*cit).first.first);
+			}
+			BOOST_FOREACH(instance_raw_ptr &child, children_) {
+				child->save();
 			}
 			get_core()->set_dirty(false);
 		}
