@@ -218,27 +218,34 @@ namespace format {
 #define MINUTE	(60 * 1000)
 #define SEC		(1000)
 	inline std::string itos_as_time(unsigned long long time) {
+		unsigned long long rest = time;
 		std::stringstream ss;
 		if (time > WEEK) {
-			unsigned int w = static_cast<unsigned int>(time / WEEK);
-			unsigned int d = static_cast<unsigned int>((time - (w*WEEK)) / DAY);
-			unsigned int h = static_cast<unsigned int>((time - (w*WEEK) - (d*DAY)) / HOUR);
-			unsigned int m = static_cast<unsigned int>((time - (w*WEEK) - (d*DAY) - (h*HOUR)) / MINUTE);
+			unsigned int w = static_cast<unsigned int>(rest / WEEK);
+			rest -= (static_cast<unsigned long long>(w)*WEEK);
+			unsigned int d = static_cast<unsigned int>(rest / DAY);
+			rest -= (static_cast<unsigned long long>(d)*DAY);
+			unsigned int h = static_cast<unsigned int>(rest / HOUR);
+			rest -= (static_cast<unsigned long long>(h)*HOUR);
+			unsigned int m = static_cast<unsigned int>(rest / MINUTE);
 			ss << w;
 			ss << "w " << d << "d ";
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
 		} else if (time > DAY) {
-			unsigned int d = static_cast<unsigned int>((time) / DAY);
-			unsigned int h = static_cast<unsigned int>((time - (d*DAY)) / HOUR);
-			unsigned int m = static_cast<unsigned int>((time - (d*DAY) - (h*HOUR)) / MINUTE);
+			unsigned int d = static_cast<unsigned int>(rest / DAY);
+			rest -= (static_cast<unsigned long long>(d)*DAY);
+			unsigned int h = static_cast<unsigned int>(rest / HOUR);
+			rest -= (static_cast<unsigned long long>(h)*HOUR);
+			unsigned int m = static_cast<unsigned int>(rest / MINUTE);
 			ss << d;
 			ss << "d ";
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
 		} else if (time > HOUR) {
-			unsigned int h = static_cast<unsigned int>((time) / HOUR);
-			unsigned int m = static_cast<unsigned int>((time - (h*HOUR)) / MINUTE);
+			unsigned int h = static_cast<unsigned int>(rest / HOUR);
+			rest -= (static_cast<unsigned long long>(h)*HOUR);
+			unsigned int m = static_cast<unsigned int>(rest / MINUTE);
 			ss << std::setfill('0') << std::setw(2);
 			ss << h << ":" << m;
 		} else if (time > MINUTE) {
