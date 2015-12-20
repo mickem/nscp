@@ -200,7 +200,7 @@ namespace settings {
 			}
 
 			settings_core::key_path_type lookup(path, key);
-			T::op_type current = T::get_real(this, lookup);
+			typename T::op_type current = T::get_real(this, lookup);
 			if (!current) {
 				instance_raw_ptr child = find_child_unsafe(lookup);
 				if (child) {

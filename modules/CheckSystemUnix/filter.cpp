@@ -32,9 +32,9 @@ namespace check_cpu_filter {
 namespace check_mem_filter {
 
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		boost::tuple<long long, std::string> value = parsers::where::helpers::read_arguments(context, subject, "%");
-		long long number = value.get<0>();
-		std::string unit = value.get<1>();
+		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
+		long long number = value.get<1>();
+		std::string unit = value.get<2>();
 
 		if (unit == "%") {
 			number = (object->get_total()*(number))/100;
