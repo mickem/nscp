@@ -227,6 +227,7 @@ namespace socket_helpers {
 
 		bool get_reuse() const { return reuse; }
 		std::string get_port() const { return port_; }
+		unsigned short get_int_port() const { return strEx::s::stox<unsigned short>(port_); }
 		std::string get_address() const { return address; }
 		std::string get_endpoint_string() const {
 			return address + ":" + get_port();
@@ -246,7 +247,7 @@ namespace socket_helpers {
 
 		struct timed_writer : public boost::enable_shared_from_this<timed_writer> {
 			boost::asio::io_service &io_service;
-			boost::posix_time::time_duration duration;
+			//boost::posix_time::time_duration duration;
 			boost::asio::deadline_timer timer;
 
 			boost::optional<boost::system::error_code> timer_result;

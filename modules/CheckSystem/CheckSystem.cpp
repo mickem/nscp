@@ -1198,6 +1198,7 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 			add_metric(section, v.first + ".idle", v.second.idle);
 			add_metric(section, v.first + ".total", v.second.total);
 			add_metric(section, v.first + ".kernel", v.second.kernel);
+			add_metric(section, v.first + ".user", v.second.total- v.second.kernel);
 		}
 	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");

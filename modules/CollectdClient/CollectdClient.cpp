@@ -28,8 +28,11 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+#include <parsers/expression/expression.hpp>
+
 
 #include <boost/make_shared.hpp>
+#include <boost/regex.hpp>
 
 #include "collectd_client.hpp"
 #include "collectd_handler.hpp"
@@ -49,7 +52,7 @@ CollectdClient::~CollectdClient() {}
 bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
-		settings.set_alias("NSCA", alias, "client");
+		settings.set_alias("collectd", alias, "client");
 		std::string target_path = settings.alias().get_settings_path("targets");
 
 		client_.set_path(target_path);
@@ -120,6 +123,7 @@ bool CollectdClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			strEx::replace(hostname_, "${host_lc}", dn.first);
 			strEx::replace(hostname_, "${domain_lc}", dn.second);
 		}
+		client_.set_sender(hostname_);
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
@@ -157,88 +161,8 @@ bool CollectdClient::unloadModule() {
 	return true;
 }
 
-const short multicast_port = 25826;
-const int max_message_count = 10;
 
-class sender {
-public:
-	sender(boost::asio::io_service& io_service,
-		const boost::asio::ip::address& multicast_address, const std::string data)
-		: endpoint_(multicast_address, multicast_port)
-		, socket_(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string("192.168.0.201"), 25826))
-		, timer_(io_service)
-		, payload(data) {
-		socket_.async_send_to(
-			boost::asio::buffer(payload), endpoint_,
-			boost::bind(&sender::handle_send_to, this,
-				boost::asio::placeholders::error));
-	}
-
-	void handle_send_to(const boost::system::error_code& error) {}
-
-	void handle_timeout(const boost::system::error_code& error) {
-		if (!error) {
-			socket_.async_send_to(
-				boost::asio::buffer(message_), endpoint_,
-				boost::bind(&sender::handle_send_to, this,
-					boost::asio::placeholders::error));
-		}
-	}
-
-private:
-	boost::asio::ip::udp::endpoint endpoint_;
-	boost::asio::ip::udp::socket socket_;
-	boost::asio::deadline_timer timer_;
-	std::string payload;
-	int message_count_;
-	std::string message_;
-};
 
 void CollectdClient::submitMetrics(const Plugin::MetricsMessage &response) {
-	collectd::packet p;
-	p.add_host("my-machine");
-
-	boost::posix_time::ptime const time_epoch(boost::gregorian::date(1970, 1, 1));
-
-	unsigned long long ms = (boost::posix_time::microsec_clock::local_time() - time_epoch).total_seconds();
-	std::cout << "microseconds: " << ms << "\n";
-	std::cout << "microseconds: " << (ms << 30) << "\n";
-
-	p.add_time_hr(ms << 30);
-	p.add_interval_hr(300 << 30);
-	p.add_plugin("memory");
-	//p.add_plugin_instance("pool_nonpaged");
-	p.add_type("memory");
-	p.add_type_instance("pool_nonpaged");
-
-	collectd::collectd_value_list values;
-	values.push_back(collectd::collectd_value::mk_gague(18137714688));
-
-	p.add_value(values);
-
-	try {
-		boost::asio::io_service io_service;
-
-		boost::asio::ip::udp::resolver resolver(io_service);
-		boost::asio::ip::udp::resolver::query query("239.192.74.66", "25826", boost::asio::ip::resolver_query_base::numeric_service);
-		boost::asio::ip::udp::resolver::iterator endpoint_iterator = resolver.resolve(query);
-		boost::asio::ip::udp::resolver::iterator end;
-
-		while (endpoint_iterator != end) {
-			std::cout << endpoint_iterator->host_name() << std::endl;
-
-			endpoint_iterator++;
-		}
-
-		sender s(io_service, boost::asio::ip::address::from_string("239.192.74.66"), p.get_buffer());
-		io_service.run();
-	} catch (std::exception& e) {
-		std::cerr << "Exception: " << e.what() << "\n";
-	}
-
-	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
-		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
-			//build_metrics(metrics, b);
-		}
-	}
+	client_.do_metrics(response);
 }

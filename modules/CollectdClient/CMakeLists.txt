@@ -38,8 +38,10 @@ add_library(${TARGET} MODULE ${SRCS})
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_REGEX_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
+	expression_parser
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
 SOURCE_GROUP("Client" REGULAR_EXPRESSION .*include/collectd/.*)

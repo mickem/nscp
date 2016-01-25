@@ -21,26 +21,26 @@
 #pragma once
 #include <string>
 #include <sstream>
-// #include <iomanip>
-// #include <utility>
 #include <list>
-// #include <functional>
-// #include <time.h>
-// #include <algorithm>
-// #include <locale>
-// #include <iostream>
 #include <boost/tokenizer.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/tuple/tuple.hpp>
 
 
 namespace strEx {
 	namespace s {
-		template<class T>
-		inline std::list<T> splitEx(const T str, const T key) {
-			std::list<T> ret;
-			typename T::size_type pos = 0, lpos = 0;
-			while ((pos = str.find(key, pos)) !=  T::npos) {
+		inline boost::tuple<std::string, std::string> split2(const std::string str, const std::string key) {
+			std::string::size_type pos = str.find(key);
+			if (pos == std::string::npos) {
+				return boost::make_tuple(str, "");
+			}
+			return boost::make_tuple(str.substr(0, pos), str.substr(pos+1));
+		}
+		inline std::list<std::string> splitEx(const std::string str, const std::string key) {
+			std::list<std::string> ret;
+			std::string::size_type pos = 0, lpos = 0;
+			while ((pos = str.find(key, pos)) != std::string::npos) {
 				ret.push_back(str.substr(lpos, pos-lpos));
 				lpos = ++pos;
 			}
@@ -73,6 +73,14 @@ namespace strEx {
 		template<class T>
 		inline T stox(std::string s) {
 			return boost::lexical_cast<T>(s.c_str());
+		}
+		template<class T>
+		inline T stox(std::string s, T def) {
+			try {
+				return boost::lexical_cast<T>(s.c_str());
+			} catch (...) {
+				return def;
+			}
 		}
 
 		template<typename T>

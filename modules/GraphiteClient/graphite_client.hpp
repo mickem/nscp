@@ -123,7 +123,7 @@ namespace graphite_client {
 					d.value = strEx::s::xtos(v.value().int_data());
 					list.push_back(d);
 				} else if (value.has_float_data()) {
-					d.value = strEx::s::xtos(v.value().int_data());
+					d.value = strEx::s::xtos(v.value().float_data());
 					list.push_back(d);
 				}
 			}
