@@ -20,17 +20,17 @@
 ; Script to check external scripts and/or internal aliases.
 ;CheckExternalScripts.dll
 ;
-; NSCA Agent if you enable this NSClient++ will talk to NSCA hosts repeatedly (so dont enable unless you want to use NSCA)
+; NSCA Agent if you enable this NSClient++ will talk to NSCA hosts repeatedly (so don't enable unless you want to use NSCA)
 ;NSCAAgent.dll
 ;
-; LUA script module used to write your own "check deamon".
+; LUA script module used to write your own "check daemon".
 ;LUAScript.dll
 ;
 ; RemoteConfiguration IS AN EXTREM EARLY IDEA SO DONT USE FOR PRODUCTION ENVIROMNEMTS!
 ;RemoteConfiguration.dll
 ; Check other hosts through NRPE extreme beta and probably a bit dangerous! :)
 ;NRPEClient.dll
-; Extreamly early beta of a task-schedule checker
+; Extremely early beta of a task-schedule checker
 ;CheckTaskSched.dll
 
 
@@ -43,12 +43,12 @@
 ;obfuscated_password=Jw0KAUUdXlAAUwASDAAB
 ;
 ;# PASSWORD
-;  This is the password (-s) that is required to access NSClient remotely. If you leave this blank everyone will be able to access the daemon remotly.
+;  This is the password (-s) that is required to access NSClient remotely. If you leave this blank everyone will be able to access the daemon remotely.
 ;password=secret-password
 ;
 ;# ALLOWED HOST ADDRESSES
 ;  This is a comma-delimited list of IP address of hosts that are allowed to talk to the all daemons.
-;  If leave this blank anyone can access the deamon remotly (NSClient still requires a valid password).
+;  If leave this blank anyone can access the daemon remotely (NSClient still requires a valid password).
 ;  The syntax is host or ip/mask so 192.168.0.0/24 will allow anyone on that subnet access
 ;allowed_hosts=127.0.0.1/32
 ;
@@ -58,8 +58,8 @@
 use_file=1
 ;
 ; # USE SHARED MEMORY CHANNELS
-;  This is the "new" way for using the system tray based on an IPC framework on top shared memmory channels and events.
-;  It is brand new and (probably has bugs) so dont enable this unless for testing!
+;  This is the "new" way for using the system tray based on an IPC framework on top shared memory channels and events.
+;  It is brand new and (probably has bugs) so don't enable this unless for testing!
 ;  If set to 1 shared channels will be created and system tray icons created and such and such...
 ;shared_session=0
 
@@ -86,7 +86,7 @@ use_file=1
 
 [NSClient]
 ;# ALLOWED HOST ADDRESSES
-;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient deamon.
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NSClient daemon.
 ;  If you leave this blank the global version will be used instead.
 ;allowed_hosts=
 ;
@@ -95,12 +95,12 @@ use_file=1
 ;port=12489
 ;
 ;# BIND TO ADDRESS
-;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
-;  Leaving this blank will bind to all avalible IP adresses.
+;  Allows you to bind server to a specific local address. This has to be a dotted ip address not a hostname.
+;  Leaving this blank will bind to all available IP addresses.
 ;bind_to_address=
 ;
 ;# SOCKET TIMEOUT
-;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;  Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 ;socket_timeout=30
 
 [NRPE]
@@ -125,12 +125,12 @@ use_file=1
 ;use_ssl=1
 ;
 ;# BIND TO ADDRESS
-;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
-;  Leaving this blank will bind to all avalible IP adresses.
+;  Allows you to bind server to a specific local address. This has to be a dotted ip address not a hostname.
+;  Leaving this blank will bind to all available IP addresses.
 ; bind_to_address=
 ;
 ;# ALLOWED HOST ADDRESSES
-;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE deamon.
+;  This is a comma-delimited list of IP address of hosts that are allowed to talk to NRPE daemon.
 ;  If you leave this blank the global version will be used instead.
 ;allowed_hosts=
 ;
@@ -140,7 +140,7 @@ use_file=1
 ;script_dir=scripts\
 ;
 ;# SOCKET TIMEOUT
-;  Timeout when reading packets on incoming sockets. If the data has not arrived withint this time we will bail out.
+;  Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 ;socket_timeout=30
 
 [Check System]
@@ -210,7 +210,7 @@ check_ok=CheckOK Everything is fine!
 
 ; [includes]
 ;# The order when used is "reversed" thus the last included file will be "first"
-;# Included files can include other files (be carefull only do basic recursive checking)
+;# Included files can include other files (be careful only do basic recursive checking)
 ;
 ; myotherfile.ini
 ; real.ini
@@ -248,7 +248,7 @@ check_ok=CheckOK Everything is fine!
 ;password=
 ;
 ;# BIND TO ADDRESS
-;  Allows you to bind server to a specific local address. This has to be a dotted ip adress not a hostname.
+;  Allows you to bind server to a specific local address. This has to be a dotted ip address not a hostname.
 ;  Leaving this blank will bind to "one" local interface.
 ; -- not supported as of now -- 
 ;bind_to_address=
@@ -258,16 +258,16 @@ check_ok=CheckOK Everything is fine!
 ;hostname=
 ;
 ;# NAGIOS SERVER ADDRESS
-;  The address to the nagios server to submit results to.
+;  The address to the Nagios server to submit results to.
 ;nsca_host=192.168.0.1
 ;
 ;# NAGIOS SERVER PORT
-;  The port to the nagios server to submit results to.
+;  The port to the Nagios server to submit results to.
 ;nsca_port=5667
 ;
 
 ;# CHECK COMMAND LIST
-;  The checks to run everytime we submit results back to nagios
+;  The checks to run every time we submit results back to Nagios
 ;  Any command(alias/key) starting with a host_ is sent as HOST_COMMAND others are sent as SERVICE_COMMANDS
 ;  where the alias/key is used as service name.
 ;

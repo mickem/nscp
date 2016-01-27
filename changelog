@@ -80,11 +80,11 @@
  * Fixed pressing ctrl+c on command line
 
 2015-11-16 Michael Medin
- * Fixed (back) formating in graphite
+ * Fixed (back) formatting in graphite
  * Fixed broken metrics ui
  * Fixed default values in graphite
  * Fixed reload of counters
- * Fixed collection stratgey value in web ui
+ * Fixed collection strategy value in web ui
  * Fixed default syntax for eventlog as well as a possible API issue?
  * Added support for space and strings in column split/line split
  * Fixed CheckLogFIle realtime
@@ -105,7 +105,7 @@
  * Added restart to nscp service
  * Fixed sample python script cli
  * Fixed exec alias in python script cli
- * Fixed graphite paths for mestrics
+ * Fixed graphite paths for metrics
  * Added total to check_process
 
 2015-11-14 Michael Medin
