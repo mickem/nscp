@@ -240,6 +240,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 	return true;
 }
 bool CheckExternalScripts::unloadModule() {
+	process::kill_all();
 	return true;
 }
 

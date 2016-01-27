@@ -46,6 +46,10 @@ void my_system_sighandler(int sig) {
 	printf("\n\n\nTIMEOUT TIMEOUT TIMEOUT\n\n\n");
 }
 
+void process::kill_all() {
+	// TODO: Fixme
+}
+
 
 int process::execute_process(process::exec_arguments args, std::string &output) {
 	NSCAPI::nagiosReturn result;

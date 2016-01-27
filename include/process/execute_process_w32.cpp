@@ -14,6 +14,8 @@
 #include <process/execute_process.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
 
+#include <boost/thread.hpp>
+
 typedef hlp::buffer<char> buffer_type;
 
 static std::string readFromFile(buffer_type &buffer, HANDLE hFile) {
@@ -30,6 +32,31 @@ static std::string readFromFile(buffer_type &buffer, HANDLE hFile) {
 	return str;
 }
 
+
+boost::timed_mutex mutex_;
+std::list<HANDLE> pids_;
+
+void process::kill_all() {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock())
+		return;
+	BOOST_FOREACH(const HANDLE &h, pids_) {
+		TerminateProcess(h, 5);
+	}
+}
+
+void register_proc(HANDLE hProcess) {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+	if (!lock.owns_lock())
+		return;
+	pids_.push_back(hProcess);
+}
+void remove_proc(HANDLE hProcess) {
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
+	if (!lock.owns_lock())
+		return;
+	pids_.remove_if([hProcess](HANDLE hOther) { return hOther == hProcess; });
+}
 int process::execute_process(process::exec_arguments args, std::string &output) {
 	NSCAPI::nagiosReturn result;
 	PROCESS_INFORMATION pi;
@@ -84,6 +111,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 
 	delete[] cmd;
 	if (processOK) {
+		register_proc(pi.hProcess);
 		DWORD dwAvail = 0;
 		std::string str;
 		//HANDLE handles[2];
@@ -110,6 +138,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 			str += readFromFile(buffer, hChildOutR);
 		output = utf8::cvt<std::string>(utf8::from_encoding(str, args.encoding));
 
+		remove_proc(pi.hProcess);
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
 			output = "Command " + args.alias + " didn't terminate within the timeout period " + strEx::s::xtos(args.timeout) + "s";

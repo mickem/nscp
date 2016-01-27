@@ -63,5 +63,6 @@ namespace process {
 		bool display;
 		bool ignore_perf;
 	};
+	void kill_all();
 	int execute_process(process::exec_arguments args, std::string &output);
 }
