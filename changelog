@@ -1,3 +1,10 @@
+2016-02-09 Michael Medin
+* Added network metrics
+* #229 Improved error handling for service errors
+* #238 Added killer so processes are killed when NSClient++ exits
+* Added the collectd client
+* Fixed sample python script
+
 2015-12-09 Michael Medin
  * Fixed #223 broken %ARGS% with the $ARGS$ fix
  * Implemented #150 use_certificate_chain_file
