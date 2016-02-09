@@ -35,6 +35,8 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/pdh/pdh_resolver.cpp
 	${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
 
+	${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
+
 	${NSCP_INCLUDEDIR}/EnumProcess.cpp
 	${NSCP_INCLUDEDIR}/EnumNtSrv.cpp
 	${NSCP_INCLUDEDIR}/sysinfo.cpp
@@ -69,6 +71,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/pdh/pdh_resolver.hpp
 		${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
 
+		${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
+
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}
 
@@ -90,6 +94,7 @@ target_link_libraries(${TARGET}
 	expression_parser
 	winsys_info
 	psapi
+	Wbemuuid.lib
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
 SOURCE_GROUP("pdh" REGULAR_EXPRESSION .*include/pdh/.*)

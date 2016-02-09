@@ -39,6 +39,8 @@
 
 #include <pdh/pdh_enumerations.hpp>
 
+#include <wmi/wmi_query.hpp>
+
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -1235,4 +1237,32 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
+
+
+	try {
+
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("network");
+
+		std::string q = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
+
+		wmi_impl::query wmiQuery(q, "root\\cimv2", "", "");
+		std::list<std::string> cols = wmiQuery.get_columns();
+
+		wmi_impl::row_enumerator row = wmiQuery.execute();
+		while (row.has_next()) {
+			wmi_impl::row r = row.get_next();
+			std::string name = r.get_string("Name");
+			BOOST_FOREACH(const std::string &s, cols) {
+				if (s == "Name")
+					continue;
+				add_metric(section, name + "." + s, r.get_int(s));
+			}
+		}
+	} catch (const wmi_impl::wmi_exception &e) {
+		NSC_LOG_ERROR("ERROR: " + e.reason());
+	}
+
+
+
 }
