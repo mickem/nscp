@@ -344,8 +344,12 @@ namespace services_helper {
 		DWORD count = 0;
 		DWORD handle = 0;
 		BOOL bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, NULL, 0, &bytesNeeded, &count, &handle, NULL);
-		if (bRet || GetLastError() != ERROR_MORE_DATA)
-			throw nscp_exception("Failed to enumerate services");
+		if (bRet != 0) {
+			int err = GetLastError();
+			if (err != ERROR_MORE_DATA) {
+				throw nscp_exception("Failed to enumerate service status: " + error::format::from_system(err));
+			}
+		}
 
 		hlp::buffer<BYTE, ENUM_SERVICE_STATUS_PROCESS*> buf(bytesNeeded + 10);
 		bRet = windows::winapi::EnumServicesStatusEx(sc, SC_ENUM_PROCESS_INFO, dwServiceType, dwServiceState, buf, bytesNeeded, &bytesNeeded, &count, &handle, NULL);
