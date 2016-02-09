@@ -1163,6 +1163,74 @@ public:
 		add_metric(b, key, d);
 	}
 };
+struct network_interface {
+	std::string name;
+	std::string NetConnectionID;
+	std::string MACAddress;
+	std::string NetConnectionStatus;
+	std::string NetEnabled;
+	std::string Speed;
+	bool has_nif, has_prd;
+	long long BytesReceivedPersec;
+	long long BytesSentPersec;
+	long long BytesTotalPersec;
+
+	network_interface() : has_nif(false), has_prd(false) {}
+
+	static std::string nif_query;
+	static std::string prd_query;
+
+	void read_wna(wmi_impl::row r) {
+		name = parse_nif_name(r.get_string("Name"));
+		NetConnectionID = r.get_string("NetConnectionID");
+		MACAddress = r.get_string("MACAddress");
+		NetConnectionStatus = r.get_string("NetConnectionStatus");
+		NetEnabled = r.get_int("NetEnabled")==0?"true":"false";
+		Speed = r.get_string("Speed");
+		has_nif = true;
+	}
+
+	void read_prd(wmi_impl::row r) {
+		BytesReceivedPersec = r.get_int("BytesReceivedPersec");
+		BytesSentPersec = r.get_int("BytesSentPersec");
+		BytesTotalPersec = r.get_int("BytesTotalPersec");
+		has_prd = true;
+	}
+
+	static std::string parse_nif_name(std::string name) {
+		return name;
+	}
+
+	static std::string parse_prd_name(std::string name) {
+		boost::replace_all(name, "[", "(");
+		boost::replace_all(name, "]", ")");
+		boost::replace_all(name, "#", "_");
+		boost::replace_all(name, "/", "_");
+		boost::replace_all(name, "\\", "_");
+		return name;
+	}
+	bool is_compleate() const { return has_nif;  }
+
+	void build(Plugin::Common::MetricsBundle *section) const {
+		add_metric(section, name + ".NetConnectionID", NetConnectionID);
+		add_metric(section, name + ".MACAddress", MACAddress);
+		add_metric(section, name + ".NetConnectionStatus", NetConnectionStatus);
+		add_metric(section, name + ".NetEnabled", NetEnabled);
+		add_metric(section, name + ".Speed", Speed);
+		if (has_prd) {
+			add_metric(section, name + ".BytesReceivedPersec", BytesReceivedPersec);
+			add_metric(section, name + ".BytesSentPersec", BytesSentPersec);
+			add_metric(section, name + ".BytesTotalPersec", BytesTotalPersec);
+		}
+	}
+
+};
+
+std::string network_interface::nif_query = "select NetConnectionID, MACAddress, Name, NetConnectionStatus, NetEnabled, Speed from Win32_NetworkAdapter where PhysicalAdapter=True and MACAddress <> null";
+std::string network_interface::prd_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
+
+typedef std::map<std::string, network_interface> netmap_type;
+
 void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("system");
@@ -1239,25 +1307,40 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	}
 
 
+	netmap_type netmap;
 	try {
-
 		Plugin::Common::MetricsBundle *section = bundle->add_children();
 		section->set_key("network");
 
-		std::string q = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
-
-		wmi_impl::query wmiQuery(q, "root\\cimv2", "", "");
-		std::list<std::string> cols = wmiQuery.get_columns();
-
+		wmi_impl::query wmiQuery1(network_interface::nif_query, "root\\cimv2", "", "");
+		wmi_impl::row_enumerator row1 = wmiQuery1.execute();
+		while (row1.has_next()) {
+			network_interface nif;
+			nif.read_wna(row1.get_next());
+			netmap[nif.name] = nif;
+		}
+		std::string keys;
+		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+			strEx::append_list(keys, v.first);
+		
+		}
+			
+		wmi_impl::query wmiQuery(network_interface::prd_query, "root\\cimv2", "", "");
 		wmi_impl::row_enumerator row = wmiQuery.execute();
 		while (row.has_next()) {
 			wmi_impl::row r = row.get_next();
-			std::string name = r.get_string("Name");
-			BOOST_FOREACH(const std::string &s, cols) {
-				if (s == "Name")
-					continue;
-				add_metric(section, name + "." + s, r.get_int(s));
+			std::string name = network_interface::parse_prd_name(r.get_string("Name"));
+			netmap_type::iterator it = netmap.find(name);
+			if (it == netmap.end()) {
+				NSC_DEBUG_MSG("Ignoring: " + name + "(" + keys + ")");
+				continue;
 			}
+			it->second.read_prd(r);
+		}
+		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+			if (!v.second.is_compleate())
+				continue;
+			v.second.build(section);
 		}
 	} catch (const wmi_impl::wmi_exception &e) {
 		NSC_LOG_ERROR("ERROR: " + e.reason());
