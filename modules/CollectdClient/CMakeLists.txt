@@ -24,7 +24,6 @@ IF(WIN32)
 		collectd_handler.hpp
 
 		${NSCP_INCLUDEDIR}/collectd/collectd_packet.hpp
-		${NSCP_INCLUDEDIR}/collectd/client/collectd_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
 

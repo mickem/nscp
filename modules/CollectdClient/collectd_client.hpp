@@ -1,7 +1,6 @@
 #pragma once
 
 #include <collectd/collectd_packet.hpp>
-#include <collectd/client/collectd_client_protocol.hpp>
 
 namespace collectd_client {
 
@@ -227,8 +226,17 @@ namespace collectd_client {
 					boost::asio::ip::udp::resolver::query query(boost::asio::ip::host_name(), "");
 					boost::asio::ip::udp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 					boost::asio::ip::udp::resolver::iterator end;
+					bool is_multicast = false;
+					if (target_address.is_v4()) {
+						is_multicast = target_address.to_v4().is_multicast();
+					}
+#if BOOST_VERSION >= 105300
+					else if (target_address.is_v6()) {
+						is_multicast = target_address.to_v6().is_multicast();
+					}
+#endif
 
-					if (target_address.is_multicast()) {
+					if (is_multicast) {
 						while (endpoint_iterator != end) {
 							std::string ss = endpoint_iterator->endpoint().address().to_string();
 							if (target_address.is_v4() && endpoint_iterator->endpoint().address().is_v4()) {
