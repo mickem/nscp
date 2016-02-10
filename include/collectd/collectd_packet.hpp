@@ -12,7 +12,7 @@
 namespace collectd {
 	class data {
 	public:
-		typedef struct string_part : public boost::noncopyable {
+		struct string_part : public boost::noncopyable {
 			int16_t   type;
 			int16_t   length;
 			char      data[];
@@ -21,17 +21,17 @@ namespace collectd {
 				return &data[0];
 			}
 		};
-		typedef struct int64_part : public boost::noncopyable {
+		struct int64_part : public boost::noncopyable {
 			int16_t   type;
 			int16_t   length;
 			int64_t data;
 		};
-		typedef struct value_part : public boost::noncopyable {
+		struct value_part : public boost::noncopyable {
 			int16_t   type;
 			int16_t   length;
 			int16_t   count;
 		};
-		typedef struct derive_value_part : public boost::noncopyable {
+		struct derive_value_part : public boost::noncopyable {
 			int8_t   type;
 			int64_t   value;
 		};
@@ -125,6 +125,7 @@ namespace collectd {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
 			BOOST_FOREACH(const double &v, value_data) {
+				v;
 				append_value_type(value_type);
 			}
 			BOOST_FOREACH(const double &v, value_data) {
@@ -140,6 +141,7 @@ namespace collectd {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
 			BOOST_FOREACH(const long long &v, value_data) {
+				v;
 				append_value_type(value_type);
 			}
 			BOOST_FOREACH(const long long &v, value_data) {

@@ -1332,7 +1332,6 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 			std::string name = network_interface::parse_prd_name(r.get_string("Name"));
 			netmap_type::iterator it = netmap.find(name);
 			if (it == netmap.end()) {
-				NSC_DEBUG_MSG("Ignoring: " + name + "(" + keys + ")");
 				continue;
 			}
 			it->second.read_prd(r);

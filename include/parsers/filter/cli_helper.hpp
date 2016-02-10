@@ -144,8 +144,13 @@ namespace modern_filter {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
 				return false;
-			if (show_all)
-				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
+			if (show_all) {
+				if (data.syntax_top.find("${problem_list}") != std::string::npos)
+					boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
+				else
+					data.syntax_top = "${detail_list}";
+
+			}
 			if (boost::contains(data.syntax_top, "detail_list")
 				|| boost::contains(data.syntax_top, "(list)")
 				|| boost::contains(data.syntax_top, "{list}")

@@ -5,7 +5,6 @@
 
 #include <collectd/collectd_packet.hpp>
 
-#include <collectd/client/collectd_client_protocol.hpp>
 #include <socket/client.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>

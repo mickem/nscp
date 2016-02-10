@@ -93,12 +93,13 @@ namespace process_helper {
 
 	BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
 		enum_data *data = reinterpret_cast<enum_data*>(lParam);
-		DWORD pid;
-		GetWindowThreadProcessId(hwnd, &pid);
+		if (!IsWindowVisible(hwnd))
+			return TRUE;
 		if (GetWindow(hwnd, GW_OWNER) != NULL)
 			return TRUE;
-		PDWORD result;
-		if (!SendMessageTimeout(hwnd, WM_NULL, 0, 0, SMTO_ABORTIFHUNG, 500, reinterpret_cast<PDWORD_PTR>(&result))) {
+		if (IsHungAppWindow(hwnd)) {
+			DWORD pid = 0;
+			GetWindowThreadProcessId(hwnd, &pid);
 			data->crashed_pids.push_back(pid);
 		}
 		return TRUE;
