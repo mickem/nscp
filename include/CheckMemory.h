@@ -121,6 +121,7 @@ public:
 		}
 		return ret;
 	}
+	std::string to_string() const { return "mem"; }
 private:
 	int method_;
 	HMODULE hKernel32;

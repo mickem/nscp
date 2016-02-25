@@ -168,6 +168,8 @@ public:
 
 	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
+	std::string to_string() const { return "pdh";  }
+
 private:
 	filters::filter_config_handler filters_;
 

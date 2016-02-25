@@ -147,7 +147,7 @@ namespace parsers {
 						}
 					}
 					if (!has_matched)
-						NSC_DEBUG_MSG("No filters matched an event");
+						NSC_DEBUG_MSG("No filters matched: " + data->to_string());
 					do_process_no_items(current_time);
 				} catch (...) {
 					NSC_DEBUG_MSG("Realtime processing faillure");
