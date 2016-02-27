@@ -40,6 +40,7 @@ namespace logfile_filter {
 			return line;
 		}
 		node_type get_column_fun(parsers::where::value_type target_type, parsers::where::evaluation_context context, const node_type subject);
+		std::string to_string() const { return filename; }
 	};
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;

@@ -223,7 +223,7 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 				is_scanning = false;
 				break;
 			}
-			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(record, truncate_message)));
+			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(logfile, pevlr, ltime, truncate_message)));
 			if (ret.is_done) {
 				break;
 			}

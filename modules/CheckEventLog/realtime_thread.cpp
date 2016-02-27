@@ -46,11 +46,14 @@ void real_time_thread::thread_proc() {
 	eventlog_list evlog_list;
 
 	BOOST_FOREACH(const std::string &l, logs) {
-		eventlog_type el = eventlog_type(new eventlog_wrapper(l));
-		if (!el->seek_end()) {
-			NSC_LOG_ERROR_WA("Failed to find the end of eventlog: ", l);
-		} else {
-			evlog_list.push_back(el);
+		try {
+			if (eventlog::api::supports_modern()) {
+				evlog_list.push_back(eventlog_type(new eventlog_wrapper_new(l)));
+			} else {
+				evlog_list.push_back(eventlog_type(new eventlog_wrapper_old(l)));
+			}
+		} catch (const nscp_exception &e) {
+			NSC_LOG_ERROR("Failed to read eventlog " + l + ": " + e.reason());
 		}
 	}
 
@@ -67,6 +70,7 @@ void real_time_thread::thread_proc() {
 
 	unsigned int errors = 0;
 	while (true) {
+		bool has_errors = false;
 		filter_helper::op_duration dur = helper.find_minimum_timeout();
 
 		_time64(&ltime);
@@ -86,32 +90,30 @@ void real_time_thread::thread_proc() {
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
 			int index = dwWaitReason - WAIT_OBJECT_0 - 1;
-			eventlog_type el = evlog_list[index];
-			NSC_DEBUG_MSG_STD("Reading eventlog messages...");
-			DWORD status = el->read_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ);
-			if (status != ERROR_SUCCESS  && status != ERROR_HANDLE_EOF) {
-				NSC_LOG_MESSAGE("Assuming eventlog reset (re-reading from start)");
-				el->un_notify(handles[index + 1]);
-				el->reopen();
-				el->notify(handles[index + 1]);
-				el->seek_start();
-			}
+			try {
+				eventlog_type el = evlog_list[index];
+				NSC_DEBUG_MSG_STD("Detected action on: " + el->get_name());
 
-			_time64(&ltime);
-
-			EVENTLOGRECORD *pevlr = el->read_record_with_buffer();
-			while (pevlr != NULL) {
-				NSC_DEBUG_MSG_STD("Processing: " + strEx::s::xtos(pevlr));
-				EventLogRecord elr(el->get_name(), pevlr, ltime);
-				helper.process_items(elr);
-				pevlr = el->read_record_with_buffer();
+				for (boost::shared_ptr<eventlog_filter::filter_obj> item = el->read_record(handles[index + 1]);
+					item; item = el->read_record(handles[index + 1])) {
+					helper.process_items(item);
+				}
+				el->reset_event(handles[index + 1]);
+			} catch (const nscp_exception &e) {
+				NSC_LOG_ERROR("Failed to process eventlog: " + e.reason());
+				has_errors = true;
+			} catch (...) {
+				NSC_LOG_ERROR("Failed to process eventlog: UNKNOWN EXCEPTION");
+				has_errors = true;
 			}
 		} else {
 			NSC_LOG_ERROR("Error failed to wait for eventlog message: " + error::lookup::last_error());
-			if (errors++ > 10) {
-				NSC_LOG_ERROR("To many errors giving up");
-				delete[] handles;
-				return;
+			has_errors = true;
+		}
+		if (has_errors) {
+			if (errors++ > 100) {
+				NSC_LOG_ERROR("To many errors in eventlog loop giving up");
+				break;
 			}
 		}
 	}

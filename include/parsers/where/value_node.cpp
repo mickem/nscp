@@ -41,6 +41,9 @@ namespace parsers {
 			if (type == type_int) {
 				return value_container::create_int(value_, is_unsure_);
 			}
+			if (type == type_string) {
+				return value_container::create_string(strEx::s::xtos(value_), is_unsure_);
+			}
 			errors->error("Failed to convert int to ?: " + value_);
 			return value_container::create_nil();
 		}

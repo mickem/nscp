@@ -98,11 +98,12 @@ namespace eventlog_filter {
 				buffer.resize(dwBufferSize);
 				if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount))
 					throw nscp_exception("EvtRender failed: " + error::lookup::last_error());
-			}
+			} else 
+				throw nscp_exception("EvtRender failed: " + error::lookup::last_error(status));
 		}
 	}
 
-	long long new_filter_obj::get_written() {
+	long long new_filter_obj::get_written() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTimeCreated].Type)
 			return 0;
 		return static_cast<long long>(strEx::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
@@ -134,14 +135,14 @@ namespace eventlog_filter {
 		return "unknown";
 	}
 
-	std::string new_filter_obj::get_el_type_s() {
+	std::string new_filter_obj::get_el_type_s() const {
 		return new_type_to_string(get_el_type());
 	}
-	std::string old_filter_obj::get_el_type_s() {
+	std::string old_filter_obj::get_el_type_s() const {
 		return old_type_to_string(get_el_type());
 	}
 
-	long long new_filter_obj::get_el_type() {
+	long long new_filter_obj::get_el_type() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type) {
 			NSC_DEBUG_MSG(" --> missing level: " + strEx::s::xtos(get_id()));
 			return 0;
@@ -207,27 +208,27 @@ namespace eventlog_filter {
 		return msg;
 	}
 
-	std::string new_filter_obj::get_source() {
+	std::string new_filter_obj::get_source() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderName].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal);
 	}
-	std::string new_filter_obj::get_log() {
+	std::string new_filter_obj::get_log() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemChannel].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemChannel].StringVal);
 	}
-	std::string new_filter_obj::get_computer() {
+	std::string new_filter_obj::get_computer() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemComputer].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemComputer].StringVal);
 	}
-	std::string new_filter_obj::get_guid() {
+	std::string new_filter_obj::get_guid() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderGuid].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderGuid].StringVal);
 	}
-	long long new_filter_obj::get_category() {
+	long long new_filter_obj::get_category() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type)
 			return 0;
 		return buffer.get()[eventlog::api::EvtSystemTask].UInt16Val;

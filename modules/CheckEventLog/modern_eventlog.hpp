@@ -106,6 +106,18 @@ namespace eventlog {
 			DWORD Type;
 		} EVT_VARIANT, *PEVT_VARIANT;
 
+		typedef enum _EVT_SUBSCRIBE_FLAGS {
+			EvtSubscribeToFutureEvents = 1,
+			EvtSubscribeStartAtOldestRecord = 2,
+			EvtSubscribeStartAfterBookmark = 3,
+			EvtSubscribeOriginMask = 3,
+
+			EvtSubscribeTolerateQueryErrors = 0x1000,
+
+			EvtSubscribeStrict = 0x10000,
+
+		} EVT_SUBSCRIBE_FLAGS;
+
 		typedef enum _EVT_QUERY_FLAGS {
 			EvtQueryChannelPath = 0x1,
 			EvtQueryFilePath = 0x2,
@@ -324,6 +336,28 @@ namespace eventlog {
 			_Out_ PDWORD ObjectArraySize
 			);
 
+		typedef enum _EVT_SUBSCRIBE_NOTIFY_ACTION {
+			EvtSubscribeActionError = 0,
+			EvtSubscribeActionDeliver
+
+		} EVT_SUBSCRIBE_NOTIFY_ACTION;
+
+		typedef DWORD(WINAPI *EVT_SUBSCRIBE_CALLBACK)(
+			EVT_SUBSCRIBE_NOTIFY_ACTION Action,
+			PVOID UserContext,
+			EVT_HANDLE Event);
+
+		typedef EVT_HANDLE (WINAPI *tEvtSubscribe)(
+			EVT_HANDLE Session,
+			HANDLE SignalEvent,
+			LPCWSTR ChannelPath,
+			LPCWSTR Query,
+			EVT_HANDLE Bookmark,
+			PVOID context,
+			EVT_SUBSCRIBE_CALLBACK Callback,
+			DWORD Flags
+			);
+
 		void load_procs();
 		bool supports_modern();
 	}
@@ -344,6 +378,8 @@ namespace eventlog {
 	BOOL EvtGetPublisherMetadataProperty(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD Flags, DWORD PublisherMetadataPropertyBufferSize, api::PEVT_VARIANT PublisherMetadataPropertyBuffer, PDWORD PublisherMetadataPropertyBufferUsed);
 	BOOL EvtGetObjectArrayProperty(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, DWORD PropertyId, DWORD ArrayIndex, DWORD Flags, DWORD PropertyValueBufferSize, api::PEVT_VARIANT PropertyValueBuffer, PDWORD PropertyValueBufferUsed);
 	BOOL EvtGetObjectArraySize(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, PDWORD ObjectArraySize);
+
+	api::EVT_HANDLE EvtSubscribe(api::EVT_HANDLE Session, HANDLE SignalEvent, LPCWSTR ChannelPath, LPCWSTR Query, api::EVT_HANDLE Bookmark, PVOID context, api::EVT_SUBSCRIBE_CALLBACK Callback, DWORD Flags);
 
 
 	typedef std::map<long long, std::string> eventlog_table;

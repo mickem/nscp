@@ -329,7 +329,8 @@ namespace parsers {
 					value_container lhs = left->get_value(errors, type_int);
 					long long val = lhs.get_int();
 					BOOST_FOREACH(node_type itm, right->get_list_value(errors)) {
-						if (itm->get_int_value(errors) == val)
+						long long cmp = itm->get_int_value(errors);
+						if (cmp == val)
 							return value_container::create_int(true, lhs.is_unsure);
 					}
 					return value_container::create_int(false, lhs.is_unsure);
