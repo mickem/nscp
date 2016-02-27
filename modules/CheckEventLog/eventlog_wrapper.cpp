@@ -3,110 +3,6 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-eventlog_wrapper::eventlog_wrapper(const std::string &s_name) : hLog(NULL), pBuffer(NULL), bufferSize(0), lastReadSize(0) {
-	name = find_eventlog_name(s_name);
-	open();
-}
-eventlog_wrapper::~eventlog_wrapper() {
-	if (isOpen())
-		close();
-	delete[] pBuffer;
-	bufferSize = 0;
-	lastReadSize = 0;
-}
-void eventlog_wrapper::open() {
-	hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
-	if (hLog == INVALID_HANDLE_VALUE) {
-		NSC_LOG_ERROR("Failed to open eventlog: " + error::lookup::last_error());
-	}
-}
-
-void eventlog_wrapper::reopen() {
-	if (isOpen())
-		close();
-	open();
-}
-
-void eventlog_wrapper::close() {
-	if (!CloseEventLog(hLog)) {
-		NSC_LOG_ERROR("Failed to close eventlog: " + error::lookup::last_error());
-	}
-}
-
-bool eventlog_wrapper::get_last_record_number(DWORD* pdwRecordNumber) {
-	DWORD OldestRecordNumber = 0;
-	DWORD NumberOfRecords = 0;
-
-	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
-		return false;
-
-	if (!GetNumberOfEventLogRecords(hLog, &NumberOfRecords))
-		return false;
-
-	*pdwRecordNumber = OldestRecordNumber + NumberOfRecords - 1;
-	return true;
-}
-
-bool eventlog_wrapper::get_first_record_number(DWORD* pdwRecordNumber) {
-	DWORD OldestRecordNumber = 0;
-
-	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
-		return false;
-
-	*pdwRecordNumber = OldestRecordNumber;
-	return true;
-}
-
-bool eventlog_wrapper::notify(HANDLE &handle) {
-	handle = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (!handle) {
-		return false;
-	}
-	return NotifyChangeEventLog(hLog, handle) == TRUE;
-}
-
-bool eventlog_wrapper::un_notify(HANDLE &handle) {
-	return CloseHandle(handle);
-}
-
-bool eventlog_wrapper::re_notify(HANDLE &handle) {
-	if (!handle) {
-		return false;
-	}
-	return NotifyChangeEventLog(hLog, handle) == TRUE;
-}
-
-bool eventlog_wrapper::seek_end() {
-	DWORD dwLastRecordNumber = 0;
-
-	if (!get_last_record_number(&dwLastRecordNumber))
-		return false;
-
-	if (read_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
-		return false;
-	return true;
-}
-
-bool eventlog_wrapper::seek_start() {
-	DWORD dwLastRecordNumber = 0;
-
-	if (!get_first_record_number(&dwLastRecordNumber))
-		return false;
-
-	if (read_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
-		return false;
-	return true;
-}
-
-void eventlog_wrapper::resize_buffer(DWORD size) {
-	if (size <= bufferSize)
-		return;
-	PBYTE tmp = pBuffer;
-	pBuffer = new BYTE[size];
-	bufferSize = size;
-	delete tmp;
-}
-
 std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 	try {
 		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
@@ -129,34 +25,221 @@ std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 		return name;
 	}
 }
-EVENTLOGRECORD* eventlog_wrapper::read_record_with_buffer() {
-	if (nextBufferPosition >= lastReadSize) {
-		if (read_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
-			return NULL;
-	}
-	if (nextBufferPosition >= lastReadSize)
-		return NULL;
-	EVENTLOGRECORD *pevlr = reinterpret_cast<EVENTLOGRECORD*>(&pBuffer[nextBufferPosition]);
-	nextBufferPosition += pevlr->Length;
-	return pevlr;
+
+//////////////////////////////////////////////////////////////////////////
+// NEW API impl
+
+
+eventlog_wrapper_new::eventlog_wrapper_new(const std::string &s_name) {
+	name = eventlog_wrapper::find_eventlog_name(s_name);
+	open();
+}
+eventlog_wrapper_new::~eventlog_wrapper_new() {
+	if (isOpen())
+		close();
 }
 
-DWORD eventlog_wrapper::read_record(DWORD dwRecordNumber, DWORD dwFlags) {
-	resize_buffer(sizeof(EVENTLOGRECORD));
+void eventlog_wrapper_new::open() {
+	hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
+	if (!hContext)
+		throw nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
+}
+	
+void eventlog_wrapper_new::reopen() {
+	if (hContext)
+		close();
+	open();
+}
+
+void eventlog_wrapper_new::close() {
+	hContext.close();
+}
+
+
+bool eventlog_wrapper_new::notify(HANDLE &handle) {
+	handle = CreateEvent(NULL, TRUE, TRUE, NULL);
+	if (handle == NULL) {
+		NSC_LOG_ERROR_STD("Failed to create event: " + utf8::cvt<std::string>(error::lookup::last_error()));
+		return false;
+	}
+
+	hLog = eventlog::EvtSubscribe(NULL, handle, utf8::cvt<std::wstring>(name).c_str(), NULL, NULL, NULL, NULL, eventlog::api::EvtSubscribeToFutureEvents);
+	if (!hLog) {
+		NSC_LOG_ERROR_STD("Failed to subscribe: " + utf8::cvt<std::string>(error::lookup::last_error()));
+		return false;
+	}
+	return true;
+}
+
+bool eventlog_wrapper_new::un_notify(HANDLE &handle) {
+	hLog.close();
+	if (!CloseHandle(handle)) {
+		return false;
+	}
+	return true;
+}
+
+void eventlog_wrapper_new::reset_event(HANDLE &handle) {
+	ResetEvent(handle);
+}
+
+
+eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &handle) {
+	eventlog::api::EVT_HANDLE hEvents[1];
+	DWORD dwReturned = 0;
+	if (!eventlog::EvtNext(hLog, 1, hEvents, 100, 0, &dwReturned)) {
+		DWORD status = GetLastError();
+		if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT)
+			return eventlog_filter::filter::object_type();
+		else if (status != ERROR_SUCCESS)
+			return eventlog_filter::filter::object_type();
+	}
+	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(name, eventlog::evt_handle(hEvents[0]), hContext, 512));
+}
+
+//////////////////////////////////////////////////////////////////////////
+// OLD API impl
+
+eventlog_wrapper_old::eventlog_wrapper_old(const std::string &s_name) : hLog(NULL), buffer(1024*10), lastReadSize(0), nextBufferPosition(0) {
+	name = eventlog_wrapper::find_eventlog_name(s_name);
+	open();
+}
+eventlog_wrapper_old::~eventlog_wrapper_old() {
+	if (isOpen())
+		close();
+	lastReadSize = 0;
+	nextBufferPosition = 0;
+}
+void eventlog_wrapper_old::open() {
+	hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
+	if (hLog == INVALID_HANDLE_VALUE) {
+		throw nscp_exception("Failed to open eventlog: " + error::lookup::last_error());
+	}
+	seek_end();
+}
+
+void eventlog_wrapper_old::reopen() {
+	if (isOpen())
+		close();
+	open();
+}
+
+void eventlog_wrapper_old::close() {
+	if (!CloseEventLog(hLog)) {
+		NSC_LOG_ERROR("Failed to close eventlog: " + error::lookup::last_error());
+	}
+}
+
+bool eventlog_wrapper_old::get_last_record_number(DWORD* pdwRecordNumber) {
+	DWORD OldestRecordNumber = 0;
+	DWORD NumberOfRecords = 0;
+
+	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
+		return false;
+
+	if (!GetNumberOfEventLogRecords(hLog, &NumberOfRecords))
+		return false;
+
+	*pdwRecordNumber = OldestRecordNumber + NumberOfRecords - 1;
+	return true;
+}
+
+bool eventlog_wrapper_old::get_first_record_number(DWORD* pdwRecordNumber) {
+	DWORD OldestRecordNumber = 0;
+
+	if (!GetOldestEventLogRecord(hLog, &OldestRecordNumber))
+		return false;
+
+	*pdwRecordNumber = OldestRecordNumber;
+	return true;
+}
+
+bool eventlog_wrapper_old::notify(HANDLE &handle) {
+	handle = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (!handle) {
+		return false;
+	}
+	return NotifyChangeEventLog(hLog, handle) == TRUE;
+}
+
+bool eventlog_wrapper_old::un_notify(HANDLE &handle) {
+	return CloseHandle(handle);
+}
+
+void eventlog_wrapper_old::reset_event(HANDLE &handle) {
+}
+
+bool eventlog_wrapper_old::seek_end() {
+	DWORD dwLastRecordNumber = 0;
+
+	if (!get_last_record_number(&dwLastRecordNumber))
+		return false;
+
+	if (do_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
+		return false;
+	return true;
+}
+
+bool eventlog_wrapper_old::seek_start() {
+	DWORD dwLastRecordNumber = 0;
+
+	if (!get_first_record_number(&dwLastRecordNumber))
+		return false;
+
+	if (do_record(dwLastRecordNumber, EVENTLOG_SEEK_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
+		return false;
+	return true;
+}
+
+void eventlog_wrapper_old::resize_buffer(DWORD size) {
+	if (size <= buffer.size())
+		return;
+	buffer.resize(size);
+}
+
+eventlog_filter::filter::object_type eventlog_wrapper_old::read_record(HANDLE &handle) {
+	DWORD status = do_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ);
+	if (status != ERROR_SUCCESS  && status != ERROR_HANDLE_EOF) {
+		NSC_LOG_MESSAGE("Assuming eventlog reset (re-reading from start)");
+		un_notify(handle);
+		reopen();
+		notify(handle);
+		seek_start();
+	}
+
+	__time64_t ltime;
+	_time64(&ltime);
+
+
+	if (nextBufferPosition >= lastReadSize) {
+		if (do_record(0, EVENTLOG_SEQUENTIAL_READ | EVENTLOG_FORWARDS_READ) != ERROR_SUCCESS)
+			return eventlog_filter::filter::object_type();
+	}
+	if (nextBufferPosition >= lastReadSize)
+		return eventlog_filter::filter::object_type();
+	EVENTLOGRECORD *pevlr = buffer.get(nextBufferPosition);
+	if (pevlr == NULL)
+		return eventlog_filter::filter::object_type();
+	nextBufferPosition += pevlr->Length;
+	return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(get_name(), pevlr, ltime, 512));
+}
+
+
+DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
 	DWORD status = ERROR_SUCCESS;
-	DWORD dwBytesToRead = bufferSize;
+	DWORD dwBytesToRead = buffer.size() - 10;
 	lastReadSize = 0;
 	nextBufferPosition = 0;
 	DWORD dwMinimumBytesToRead = 0;
 
-	if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, pBuffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
+	if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, (LPBYTE)buffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
 		status = GetLastError();
 		if (ERROR_INSUFFICIENT_BUFFER == status) {
 			status = ERROR_SUCCESS;
-			resize_buffer(dwMinimumBytesToRead);
-			dwBytesToRead = bufferSize;
+			buffer.resize(dwMinimumBytesToRead+20);
+			dwBytesToRead = buffer.size() - 10;
 
-			if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, pBuffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
+			if (!ReadEventLog(hLog, dwFlags, dwRecordNumber, (LPBYTE)buffer, dwBytesToRead, &lastReadSize, &dwMinimumBytesToRead)) {
 				status = GetLastError();
 				NSC_LOG_ERROR_STD("Failed to read eventlog message: " + utf8::cvt<std::string>(error::lookup::last_error(status)));
 				return status;
@@ -171,6 +254,9 @@ DWORD eventlog_wrapper::read_record(DWORD dwRecordNumber, DWORD dwFlags) {
 	return status;
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+//
 event_source::event_source(const std::wstring &name) : hLog(NULL) {
 	open(_T(""), name);
 }

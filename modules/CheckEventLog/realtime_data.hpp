@@ -7,7 +7,7 @@
 
 struct runtime_data {
 	typedef eventlog_filter::filter filter_type;
-	typedef EventLogRecord& transient_data_type;
+	typedef eventlog_filter::filter::object_type transient_data_type;
 
 	std::list<std::string> files;
 

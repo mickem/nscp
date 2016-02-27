@@ -3,13 +3,17 @@
 #include "simple_registry.hpp"
 #include <boost/tuple/tuple.hpp>
 #include <wstring.hpp>
+#include <boost/noncopyable.hpp>
 
-class EventLogRecord {
+class EventLogRecord : boost::noncopyable {
 	const EVENTLOGRECORD *pevlr_;
 	__int64 currentTime_;
 	std::string file_;
 public:
-	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {}
+	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
+		if (pevlr == NULL)
+			throw nscp_exception("Invalid eventlog record");
+	}
 	inline __int64 timeGenerated() const {
 		return (currentTime_ - pevlr_->TimeGenerated) * 1000;
 	}

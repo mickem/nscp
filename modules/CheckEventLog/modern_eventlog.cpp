@@ -15,6 +15,7 @@ namespace eventlog {
 		tEvtGetPublisherMetadataProperty pEvtGetPublisherMetadataProperty = NULL;
 		tEvtGetObjectArrayProperty pEvtGetObjectArrayProperty = NULL;
 		tEvtGetObjectArraySize pEvtGetObjectArraySize = NULL;
+		tEvtSubscribe pEvtSubscribe = NULL;
 		tEvtQuery pEvtQuery = NULL;
 		tEvtNext pEvtNext = NULL;
 		tEvtSeek pEvtSeek = NULL;
@@ -40,6 +41,7 @@ namespace eventlog {
 			pEvtGetPublisherMetadataProperty = reinterpret_cast<api::tEvtGetPublisherMetadataProperty>(GetProcAddress(hModule, "EvtGetPublisherMetadataProperty"));
 			pEvtGetObjectArrayProperty = reinterpret_cast<api::tEvtGetObjectArrayProperty>(GetProcAddress(hModule, "EvtGetObjectArrayProperty"));
 			pEvtGetObjectArraySize = reinterpret_cast<api::tEvtGetObjectArraySize>(GetProcAddress(hModule, "EvtGetObjectArraySize"));
+			pEvtSubscribe = reinterpret_cast<api::tEvtSubscribe>(GetProcAddress(hModule, "EvtSubscribe"));
 		}
 		bool supports_modern() {
 			return pEvtQuery != NULL;
@@ -140,8 +142,15 @@ namespace eventlog {
 		if (!api::pEvtGetObjectArraySize)
 			throw nscp_exception("Failed to load: EvtGetObjectArraySize");
 		return api::pEvtGetObjectArraySize(ObjectArray, ObjectArraySize);
+	}
+
+	api::EVT_HANDLE EvtSubscribe(api::EVT_HANDLE Session, HANDLE SignalEvent, LPCWSTR ChannelPath, LPCWSTR Query, api::EVT_HANDLE Bookmark, PVOID context, api::EVT_SUBSCRIBE_CALLBACK Callback, DWORD Flags) {
+		if (!api::pEvtSubscribe)
+			throw nscp_exception("Failed to load: EvtSubscribe");
+		return api::pEvtSubscribe(Session, SignalEvent, ChannelPath, Query, Bookmark, context, Callback, Flags);
 
 	}
+
 
 	long long get_int(const eventlog::api::PEVT_VARIANT &var) {
 		using namespace eventlog::api;

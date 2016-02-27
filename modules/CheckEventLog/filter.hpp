@@ -28,7 +28,7 @@
 #include "modern_eventlog.hpp"
 
 namespace eventlog_filter {
-	struct filter_obj {
+	struct filter_obj : boost::noncopyable {
 
 		filter_obj() {}
 		virtual ~filter_obj() {}
@@ -59,10 +59,12 @@ namespace eventlog_filter {
 	};
 
 	struct old_filter_obj : filter_obj {
-		const EventLogRecord &record;
+		EventLogRecord record;
 		const int truncate_message;
 
-		old_filter_obj(const EventLogRecord &record, const int truncate_message) : record(record), truncate_message(truncate_message) {}
+		old_filter_obj(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime, const int truncate_message)
+			: record(file, pevlr, currentTime)
+			, truncate_message(truncate_message) {}
 
 		long long get_id() const {
 			return record.eventID();
@@ -118,7 +120,9 @@ namespace eventlog_filter {
 		}
 		bool is_modern() const { return false; }
 		
-		virtual std::string to_string() const { return "TODO";  }
+		virtual std::string to_string() const { 
+			return get_log() + ":" + strEx::s::xtos(get_id()) + "=" + get_el_type_s();
+		}
 
 	};
 
