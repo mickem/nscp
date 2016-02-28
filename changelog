@@ -1,3 +1,16 @@
+2016-02-27 Michael Medin
+ * #204 Added support for modern API to real time eventlogs
+ * Improved error log in real time threads
+ * #204 Fixed int to string conversion filter issue
+ * Added to_string methd for realtime data (to make errors better)
+
+2016-02-09 Michael Medin
+ * Added network metrics
+ * #229 Improved error handling for service errors
+ * #238 Added killer so processes are killed when NSClient++ exits
+ * Added the collectd client
+ * Fixed sample python script
+
 2015-12-09 Michael Medin
  * Fixed #223 broken %ARGS% with the $ARGS$ fix
  * Implemented #150 use_certificate_chain_file
