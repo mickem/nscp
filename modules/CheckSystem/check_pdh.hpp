@@ -45,9 +45,9 @@ namespace check_pdh {
 		std::string alias;
 		std::string counter;
 		std::string time;
-		unsigned long long value;
+		long long value;
 
-		filter_obj(std::string alias, std::string counter, std::string time, unsigned long long value) : alias(alias), counter(counter), time(time), value(value) {}
+		filter_obj(std::string alias, std::string counter, std::string time, long long value) : alias(alias), counter(counter), time(time), value(value) {}
 
 		long long get_value() const {
 			return value;
