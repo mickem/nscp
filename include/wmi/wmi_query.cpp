@@ -163,10 +163,13 @@ namespace wmi_impl {
 		HRESULT hr = row_obj->Get(bCol, 0, &vValue, 0, 0);
 		if (FAILED(hr))
 			throw wmi_exception("Failed to get value for " + col + ": ", hr);
-		hr = vValue.ChangeType(VT_INT);
-		if (FAILED(hr))
-			throw wmi_exception("Failed to convert " + col + " to number: ", hr);
-		return vValue.intVal;
+		hr = vValue.ChangeType(VT_I8);
+		if (SUCCEEDED(hr))
+			return vValue.llVal;
+		hr = vValue.ChangeType(VT_UI8);
+		if (SUCCEEDED(hr))
+			return vValue.ullVal;
+		throw wmi_exception("Failed to convert " + col + " to number: ", hr);
 	}
 
 	bool row_enumerator::has_next() {
