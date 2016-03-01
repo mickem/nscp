@@ -204,13 +204,13 @@ std::string render_table(const std::vector<std::size_t> &widths, const row_type 
 	}
 	ss << line << "\n";
 	if (headers.size() != widths.size())
-		throw wmi_impl::wmi_exception("Invalid header size");
+		throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid header size");
 	for (int i = 0; i < count; ++i)
 		ss << " " << pad(headers[i], widths[i]) << " ";
 	ss << "\n" << line << "\n";
 	BOOST_FOREACH(const row_type &row, rows) {
 		if (row.size() != widths.size())
-			throw wmi_impl::wmi_exception("Invalid row size");
+			throw wmi_impl::wmi_exception(E_INVALIDARG, "Invalid row size");
 		for (int i = 0; i < count; ++i)
 			ss << " " << pad(row[i], widths[i]) << " ";
 		ss << "\n";

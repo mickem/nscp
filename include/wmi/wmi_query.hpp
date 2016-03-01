@@ -63,17 +63,15 @@ namespace wmi_impl {
 				return _T("");
 			}
 		}
-		static std::string getComError(std::wstring inDesc = _T(""));
+		static std::string getComError();
 	};
 
 	class wmi_exception : public std::exception {
 		std::string message_;
+		HRESULT code;
 	public:
-		wmi_exception(std::string str, HRESULT code) {
+		wmi_exception(HRESULT code, std::string str) : code(code) {
 			message_ = str + ":" + error::format::from_system(code);
-		}
-		wmi_exception(std::string str) {
-			message_ = str;
 		}
 		~wmi_exception() throw() {}
 		const char* what() const throw() {
@@ -83,6 +81,7 @@ namespace wmi_impl {
 		std::string reason() const throw() {
 			return message_;
 		}
+		HRESULT get_code() const { return code; }
 	};
 
 	struct row {

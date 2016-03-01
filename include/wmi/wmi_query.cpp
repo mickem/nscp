@@ -85,7 +85,7 @@ namespace wmi_impl {
 		HRESULT hr = CoSetProxyBlanket(pProxy, RPC_C_AUTHN_DEFAULT, RPC_C_AUTHZ_DEFAULT, COLE_DEFAULT_PRINCIPAL, RPC_C_AUTHN_LEVEL_DEFAULT,
 			RPC_C_IMP_LEVEL_IMPERSONATE, &auth.auth_identity, EOAC_NONE);
 		if (FAILED(hr))
-			throw wmi_exception("CoSetProxyBlanket failed: " + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "CoSetProxyBlanket failed: " + ComError::getComError());
 	}
 
 	CComPtr<IWbemServices>& wmi_service::get() {
@@ -93,7 +93,7 @@ namespace wmi_impl {
 			CComPtr<IWbemLocator> locator;
 			HRESULT hr = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER, IID_IWbemLocator, reinterpret_cast<void**>(&locator));
 			if (FAILED(hr))
-				throw wmi_exception("CoCreateInstance for CLSID_WbemAdministrativeLocator failed!", hr);
+				throw wmi_exception(hr, "CoCreateInstance for CLSID_WbemAdministrativeLocator failed!");
 
 			CComBSTR strNamespace(utf8::cvt<std::wstring>(ns).c_str());
 			CComBSTR strUser(utf8::cvt<std::wstring>(username).c_str());
@@ -102,7 +102,7 @@ namespace wmi_impl {
 			// @todo: WBEM_FLAG_CONNECT_USE_MAX_WAIT
 			hr = locator->ConnectServer(strNamespace, username.empty() ? NULL : strUser, password.empty() ? NULL : strPassword, NULL, NULL, 0, NULL, &service);
 			if (FAILED(hr))
-				throw wmi_exception("ConnectServer failed: namespace=" + ns + ", user=" + username, hr);
+				throw wmi_exception(hr, "ConnectServer failed: namespace=" + ns + ", user=" + username);
 
 			set_proxy_blanket(service, username, password);
 			is_initialized = true;
@@ -115,7 +115,7 @@ namespace wmi_impl {
 		CComVariant vValue;
 		HRESULT hr = row_obj->Get(bCol, 0, &vValue, 0, 0);
 		if (FAILED(hr))
-			throw wmi_exception("Failed to get value for " + col + ": ", hr);
+			throw wmi_exception(hr, "Failed to get value for " + col);
 		if (vValue.vt == VT_NULL)
 			return "<NULL>";
 
@@ -135,7 +135,7 @@ namespace wmi_impl {
 		}
 		hr = vValue.ChangeType(VT_BSTR);
 		if (FAILED(hr))
-			throw wmi_exception("Failed to convert " + col + " to string: ", hr);
+			throw wmi_exception(hr, "Failed to convert " + col + " to string");
 		std::wstring wstr = vValue.bstrVal;
 		return utf8::cvt<std::string>(wstr);
 	}
@@ -162,14 +162,14 @@ namespace wmi_impl {
 		CComVariant vValue;
 		HRESULT hr = row_obj->Get(bCol, 0, &vValue, 0, 0);
 		if (FAILED(hr))
-			throw wmi_exception("Failed to get value for " + col + ": ", hr);
+			throw wmi_exception(hr, "Failed to get value for " + col);
 		hr = vValue.ChangeType(VT_I8);
 		if (SUCCEEDED(hr))
 			return vValue.llVal;
 		hr = vValue.ChangeType(VT_UI8);
 		if (SUCCEEDED(hr))
 			return vValue.ullVal;
-		throw wmi_exception("Failed to convert " + col + " to number: ", hr);
+		throw wmi_exception(hr, "Failed to convert " + col + " to number");
 	}
 
 	bool row_enumerator::has_next() {
@@ -178,7 +178,7 @@ namespace wmi_impl {
 			row_instance.row_obj.Release();
 		HRESULT hr = enumerator_obj->Next(WBEM_INFINITE, 1L, &row_instance.row_obj, &retcnt);
 		if (FAILED(hr))
-			throw wmi_exception("Enumeration failed: " + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "Enumeration failed: " + ComError::getComError());
 		return hr == WBEM_S_NO_ERROR;
 	}
 
@@ -193,14 +193,14 @@ namespace wmi_impl {
 		CComPtr<IWbemClassObject> row;
 		HRESULT hr = enumerator_obj->Next(WBEM_INFINITE, 1L, &row, &retcnt);
 		if (FAILED(hr) || !row)
-			throw wmi_exception("Failed to enumerate columns: " + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "Failed to enumerate columns: " + ComError::getComError());
 		if (retcnt == 0)
-			throw wmi_exception("We got no results");
+			throw wmi_exception(ERROR_SUCCESS, "We got no results");
 
 		SAFEARRAY* pstrNames;
 		hr = row->GetNames(NULL, WBEM_FLAG_ALWAYS | WBEM_FLAG_NONSYSTEM_ONLY, NULL, &pstrNames);
 		if (FAILED(hr))
-			throw wmi_exception("Failed to fetch columns:" + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "Failed to fetch columns:" + ComError::getComError());
 
 		long begin, end;
 		CComSafeArray<BSTR> arr = pstrNames;
@@ -220,7 +220,7 @@ namespace wmi_impl {
 
 		HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
 		if (FAILED(hr))
-			throw wmi_exception("ExecQuery of '" + wql_query + "' failed: " + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "ExecQuery of '" + wql_query + "' failed: " + utf8::cvt<std::string>(ComError::getWMIError(hr)) + ", " + ComError::getComError());
 		return ret;
 	}
 
@@ -230,7 +230,7 @@ namespace wmi_impl {
 		CComPtr<IEnumWbemClassObject> enumerator;
 		HRESULT hr = instance.get()->CreateClassEnum(strSuperClass, WBEM_FLAG_DEEP | WBEM_FLAG_USE_AMENDED_QUALIFIERS | WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
 		if (FAILED(hr))
-			throw wmi_exception("CreateInstanceEnum failed: " + ComError::getComError(ComError::getWMIError(hr)) + ")");
+			throw wmi_exception(hr, "CreateInstanceEnum failed: " + ComError::getComError() + ")");
 		return ret;
 	}
 
@@ -240,7 +240,7 @@ namespace wmi_impl {
 		CComPtr<IEnumWbemClassObject> enumerator;
 		HRESULT hr = instance.get()->CreateInstanceEnum(strSuperClass, WBEM_FLAG_SHALLOW | WBEM_FLAG_USE_AMENDED_QUALIFIERS | WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY, NULL, &ret.enumerator_obj);
 		if (FAILED(hr))
-			throw wmi_exception("CreateInstanceEnum failed: " + ComError::getComError(ComError::getWMIError(hr)) + ")");
+			throw wmi_exception(hr, "CreateInstanceEnum failed: " + ComError::getComError());
 		return ret;
 	}
 
@@ -253,12 +253,12 @@ namespace wmi_impl {
 		header_enumerator enumerator;
 		HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_PROTOTYPE, NULL, &enumerator.enumerator_obj);
 		if (FAILED(hr))
-			throw wmi_exception("Failed to execute query: " + ComError::getComError(ComError::getWMIError(hr)));
+			throw wmi_exception(hr, "Failed to execute query: " + ComError::getComError());
 		columns = enumerator.get();
 		return columns;
 	}
 
-	std::string ComError::getComError(std::wstring inDesc /*= _T("")*/) {
+	std::string ComError::getComError() {
 		return error::com::get();
 	}
 }
