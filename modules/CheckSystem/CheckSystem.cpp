@@ -1231,6 +1231,8 @@ std::string network_interface::prd_query = "select Name, BytesReceivedPersec, By
 
 typedef std::map<std::string, network_interface> netmap_type;
 
+bool fetch_network = true;
+
 void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("system");
@@ -1306,43 +1308,48 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
 
+	if (fetch_network) {
+		netmap_type netmap;
+		try {
+			Plugin::Common::MetricsBundle *section = bundle->add_children();
+			section->set_key("network");
 
-	netmap_type netmap;
-	try {
-		Plugin::Common::MetricsBundle *section = bundle->add_children();
-		section->set_key("network");
-
-		wmi_impl::query wmiQuery1(network_interface::nif_query, "root\\cimv2", "", "");
-		wmi_impl::row_enumerator row1 = wmiQuery1.execute();
-		while (row1.has_next()) {
-			network_interface nif;
-			nif.read_wna(row1.get_next());
-			netmap[nif.name] = nif;
-		}
-		std::string keys;
-		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
-			strEx::append_list(keys, v.first);
-		
-		}
-			
-		wmi_impl::query wmiQuery(network_interface::prd_query, "root\\cimv2", "", "");
-		wmi_impl::row_enumerator row = wmiQuery.execute();
-		while (row.has_next()) {
-			wmi_impl::row r = row.get_next();
-			std::string name = network_interface::parse_prd_name(r.get_string("Name"));
-			netmap_type::iterator it = netmap.find(name);
-			if (it == netmap.end()) {
-				continue;
+			wmi_impl::query wmiQuery1(network_interface::nif_query, "root\\cimv2", "", "");
+			wmi_impl::row_enumerator row1 = wmiQuery1.execute();
+			while (row1.has_next()) {
+				network_interface nif;
+				nif.read_wna(row1.get_next());
+				netmap[nif.name] = nif;
 			}
-			it->second.read_prd(r);
+			std::string keys;
+			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+				strEx::append_list(keys, v.first);
+
+			}
+
+			wmi_impl::query wmiQuery(network_interface::prd_query, "root\\cimv2", "", "");
+			wmi_impl::row_enumerator row = wmiQuery.execute();
+			while (row.has_next()) {
+				wmi_impl::row r = row.get_next();
+				std::string name = network_interface::parse_prd_name(r.get_string("Name"));
+				netmap_type::iterator it = netmap.find(name);
+				if (it == netmap.end()) {
+					continue;
+				}
+				it->second.read_prd(r);
+			}
+			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
+				if (!v.second.is_compleate())
+					continue;
+				v.second.build(section);
+			}
+		} catch (const wmi_impl::wmi_exception &e) {
+			if (e.get_code() == WBEM_E_INVALID_QUERY) {
+				NSC_LOG_MESSAGE("Failed to fetch network metrics, disabling...");
+				fetch_network = false;
+			}
+			NSC_LOG_ERROR("ERROR: " + e.reason());
 		}
-		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
-			if (!v.second.is_compleate())
-				continue;
-			v.second.build(section);
-		}
-	} catch (const wmi_impl::wmi_exception &e) {
-		NSC_LOG_ERROR("ERROR: " + e.reason());
 	}
 
 
