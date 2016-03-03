@@ -94,7 +94,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
 		else if (status != ERROR_SUCCESS)
 			return eventlog_filter::filter::object_type();
 	}
-	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(name, eventlog::evt_handle(hEvents[0]), hContext, 512));
+	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(name, hEvents[0], hContext, 512));
 }
 
 //////////////////////////////////////////////////////////////////////////

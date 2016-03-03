@@ -290,9 +290,8 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 					throw nscp_exception("EvtNext failed: " + error::lookup::last_error(status));
 			}
 			for (DWORD i = 0; i < dwReturned; i++) {
-				eventlog::evt_handle handle(hEvents[i]);
 				try {
-					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, handle, hContext, truncate_message));
+					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, hEvents[i], hContext, truncate_message));
 					if (direction == direction_backwards && item->get_written() < stop_date) {
 						for (; i < dwReturned; i++)
 							eventlog::EvtClose(hEvents[i]);

@@ -127,13 +127,13 @@ namespace eventlog_filter {
 	};
 
 	struct new_filter_obj : filter_obj {
-		const std::string &logfile;
-		eventlog::evt_handle &hEvent;
+		const std::string logfile;
+		eventlog::evt_handle hEvent;
 		hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer;
 		const int truncate_message;
 		eventlog::evt_handle hProviderMetadataHandle;
 
-		new_filter_obj(const std::string &logfile, eventlog::evt_handle &hEvent, eventlog::evt_handle &hContext, const int truncate_message);
+		new_filter_obj(const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message);
 		virtual ~new_filter_obj() {}
 
 		long long get_id() const {
