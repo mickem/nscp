@@ -4,7 +4,6 @@ import zipfile
 import fnmatch
 import shutil
 
-
 execfile("config.py")
 
 sys.path.append(BUILD_PYTHON_FOLDER)
@@ -147,5 +146,5 @@ for i in [1,2,3]:
 		print "Pushing to github attempt %d/3"%i
 		create_release()
 		break
-	except github3.models.GitHubError:
+	except Exception, e:
 		pass
