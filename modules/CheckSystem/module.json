@@ -25,6 +25,7 @@
 							},
 		"check_os_version"	: "Check the version of the underlaying OS.",
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
+		"check_network"		: "Check network interface status." ,
 		
 		"checkServiceState"	: "Legacy version of check_service",
 		"checkCpu"			: "Legacy version of check_cpu",

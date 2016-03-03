@@ -64,6 +64,7 @@ public:
 	void check_pagefile(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void add_counter(std::string key, std::string query);
 	void check_os_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 
 	// Metrics
 	void fetchMetrics(Plugin::MetricsMessage::Response *response);

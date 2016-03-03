@@ -37,6 +37,66 @@ struct NSC_error_pdh : public process_helper::error_reporter {
 	void report_debug(std::string error) {}
 };
 
+spi_container pdh_thread::fetch_spi(error_list &errors) {
+	spi_container ret;
+	try {
+		hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> buffer = windows::system_info::get_system_process_information();
+		windows::winapi::SYSTEM_PROCESS_INFORMATION* b = buffer.get();
+		while (b != NULL) {
+			ret.handles += b->HandleCount;
+			ret.threads += b->NumberOfThreads;
+			ret.procs++;
+
+			if (b->NextEntryOffset == NULL)
+				return ret;
+			b = (windows::winapi::SYSTEM_PROCESS_INFORMATION*)((PCHAR)b + b->NextEntryOffset);
+		}
+	} catch (...) {
+		errors.push_back("Failed to get metrics");
+	}
+	return ret;
+}
+
+bool first = true;
+
+void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
+	boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!writeLock.owns_lock()) {
+		errors.push_back("Failed to get mutex for writing");
+		return;
+	}
+	try {
+		cpu.push(load);
+		if (pdh != NULL)
+			pdh->gatherData();
+
+		BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
+			if (e.second->has_instances()) {
+				BOOST_FOREACH(const PDH::pdh_instance i, e.second->get_instances()) {
+					metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
+				}
+			} else {
+				metrics["pdh." + e.first] = e.second->get_int_value();
+			}
+		}
+
+		metrics["procs.handles"] = handles.handles;
+		metrics["procs.threads"] = handles.threads;
+		metrics["procs.procs"] = handles.procs;
+	} catch (const PDH::pdh_exception &e) {
+		if (first) {
+			// If this is the first run an error will be thrown since the data is not yet available
+			// This is "ok" but perhaps another solution would be better, but this works :)
+			first = false;
+		} else {
+			errors.push_back("Failed to query performance counters: " + e.reason());
+		}
+	} catch (...) {
+		errors.push_back("Failed to query performance counters: ");
+	}
+}
+
+
 /**
 * Thread that collects the data every "CHECK_INTERVAL" seconds.
 *
@@ -150,85 +210,38 @@ void pdh_thread::thread_proc() {
 
 	int min_threshold = 10;
 	DWORD waitStatus = 0;
-	bool first = true;
 	int i = 0;
 
-	if (check_pdh)
-		NSC_DEBUG_MSG("Checking pdh data");
+	if (!check_pdh)
+		NSC_LOG_MESSAGE("Not checking PDH data");
 
 	mutex_.unlock();
 
 	do {
 		std::list<std::string>	errors;
 		{
-			long long handlesTmp = 0;
-			long long procTmp = 0;
-			long long threadTmp = 0;
 
-			try {
-				hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> buffer = windows::system_info::get_system_process_information();
-				windows::winapi::SYSTEM_PROCESS_INFORMATION* b = buffer.get();
-				while (b != NULL) {
-					handlesTmp += b->HandleCount;
-					threadTmp += b->NumberOfThreads;
-					procTmp++;
-
-					if (b->NextEntryOffset == NULL)
-						b = NULL;
-					else
-						b = (windows::winapi::SYSTEM_PROCESS_INFORMATION*)((PCHAR)b + b->NextEntryOffset);
-				}
-			} catch (...) {
-				errors.push_back("Failed to get metrics");
-			}
+			spi_container handles = fetch_spi(errors);
 			windows::system_info::cpu_load load;
 			try {
 				load = windows::system_info::get_cpu_load();
 			} catch (...) {
 				errors.push_back("Failed to get cpu load");
 			}
-			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-			if (!writeLock.owns_lock()) {
-				errors.push_back("Failed to get mutex for writing");
-			} else {
-				try {
-					cpu.push(load);
-					if (check_pdh)
-						pdh.gatherData();
-
-					BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
-						if (e.second->has_instances()) {
-							BOOST_FOREACH(const PDH::pdh_instance i, e.second->get_instances()) {
-								metrics["pdh." + e.first + "." + i->get_name()] = i->get_int_value();
-							}
-						} else {
-							metrics["pdh." + e.first] = e.second->get_int_value();
-						}
-					}
-
-					metrics["procs.handles"] = handlesTmp;
-					metrics["procs.threads"] = threadTmp;
-					metrics["procs.procs"] = procTmp;
-				} catch (const PDH::pdh_exception &e) {
-					if (first) {
-						// If this is the first run an error will be thrown since the data is not yet available
-						// This is "ok" but perhaps another solution would be better, but this works :)
-						first = false;
-					} else {
-						errors.push_back("Failed to query performance counters: " + e.reason());
-					}
-				} catch (...) {
-					errors.push_back("Failed to query performance counters: ");
-				}
-			}
+			write_metrics(handles, load, check_pdh?&pdh:NULL, errors);
 		}
-		if (has_realtime) {
-			if (i++ > min_threshold) {
-				cpu_helper.process_items(this);
-				mem_helper.process_items(&memchecker);
-				i = 0;
-			}
+		try {
+			if (i == 0)
+				network.fetch();
+		} catch (...) {
+			errors.push_back("Failed to get network metrics");
 		}
+		if (has_realtime && i == 0) {
+			cpu_helper.process_items(this);
+			mem_helper.process_items(&memchecker);
+		}
+		if (i++ > min_threshold)
+			i = 0;
 		BOOST_FOREACH(const std::string &s, errors) {
 			NSC_LOG_ERROR(s);
 		}
@@ -323,13 +336,17 @@ std::map<std::string, double> pdh_thread::get_average(std::string counter, long 
 	return ret;
 }
 
+network_check::nics_type pdh_thread::get_network() {
+	return network.get();
+}
+
 std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load(long seconds) {
 	std::map<std::string, windows::system_info::load_entry> ret;
 	windows::system_info::cpu_load load;
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) {
-			NSC_LOG_ERROR("Failed to get Mutex for: cput");
+			NSC_LOG_ERROR("Failed to get Mutex for: cpu");
 			return ret;
 		}
 		load = cpu.get_average(seconds);

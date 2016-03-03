@@ -22,6 +22,7 @@ SET(SRCS ${SRCS}
 	${NSCP_FILTER_CPP}
 
 	pdh_thread.cpp
+	check_network.cpp
 	check_pdh.cpp
 	filter_config_object.cpp
 	realtime_data.cpp
@@ -34,6 +35,8 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/pdh/pdh_query.cpp
 	${NSCP_INCLUDEDIR}/pdh/pdh_resolver.cpp
 	${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
+
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
 
 	${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
 
@@ -61,6 +64,7 @@ IF(WIN32)
 		check_pdh.hpp
 		filter_config_object.hpp
 		realtime_data.hpp
+		check_network.hpp
 
 		${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
 		${NSCP_INCLUDEDIR}/pdh/pdh_collectors.hpp
@@ -72,6 +76,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.hpp
 
 		${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
+
+		${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 		${NSCP_FILTER_HPP}

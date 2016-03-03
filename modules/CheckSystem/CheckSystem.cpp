@@ -39,11 +39,11 @@
 
 #include <pdh/pdh_enumerations.hpp>
 
-#include <wmi/wmi_query.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_metrics_helper.hpp>
 
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
@@ -668,6 +668,12 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	filter_helper.post_process(filter);
 }
 
+
+
+void CheckSystem::check_network(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	network_check::check::check_network(request, response, collector->get_network());
+}
+
 void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
@@ -1125,26 +1131,6 @@ void CheckSystem::add_counter(std::string key, std::string query) {
 	pdh_checker.add_counter(get_settings_proxy(), key, query);
 }
 
-void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, long long value) {
-	Plugin::Common::Metric *m = b->add_value();
-	m->set_key(key);
-	m->mutable_value()->set_int_data(value);
-}
-void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, unsigned long long value) {
-	Plugin::Common::Metric *m = b->add_value();
-	m->set_key(key);
-	m->mutable_value()->set_int_data(value);
-}
-void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, std::string value) {
-	Plugin::Common::Metric *m = b->add_value();
-	m->set_key(key);
-	m->mutable_value()->set_string_data(value);
-}
-void add_metric(Plugin::Common::MetricsBundle *b, const std::string &key, double value) {
-	Plugin::Common::Metric *m = b->add_value();
-	m->set_key(key);
-	m->mutable_value()->set_float_data(value);
-}
 
 class add_visitor : public boost::static_visitor<> {
 	Plugin::Common::MetricsBundle *b;
@@ -1153,87 +1139,23 @@ class add_visitor : public boost::static_visitor<> {
 public:
 	add_visitor(Plugin::Common::MetricsBundle *b, const std::string &key) : b(b), key(key) {}
 	void operator()(const long long &i) const {
+		using namespace nscapi::metrics;
 		add_metric(b, key, i);
 	}
 
 	void operator()(const std::string & s) const {
+		using namespace nscapi::metrics;
 		add_metric(b, key, s);
 	}
 	void operator()(const double & d) const {
+		using namespace nscapi::metrics;
 		add_metric(b, key, d);
 	}
 };
-struct network_interface {
-	std::string name;
-	std::string NetConnectionID;
-	std::string MACAddress;
-	std::string NetConnectionStatus;
-	std::string NetEnabled;
-	std::string Speed;
-	bool has_nif, has_prd;
-	long long BytesReceivedPersec;
-	long long BytesSentPersec;
-	long long BytesTotalPersec;
-
-	network_interface() : has_nif(false), has_prd(false) {}
-
-	static std::string nif_query;
-	static std::string prd_query;
-
-	void read_wna(wmi_impl::row r) {
-		name = parse_nif_name(r.get_string("Name"));
-		NetConnectionID = r.get_string("NetConnectionID");
-		MACAddress = r.get_string("MACAddress");
-		NetConnectionStatus = r.get_string("NetConnectionStatus");
-		NetEnabled = r.get_int("NetEnabled")==0?"true":"false";
-		Speed = r.get_string("Speed");
-		has_nif = true;
-	}
-
-	void read_prd(wmi_impl::row r) {
-		BytesReceivedPersec = r.get_int("BytesReceivedPersec");
-		BytesSentPersec = r.get_int("BytesSentPersec");
-		BytesTotalPersec = r.get_int("BytesTotalPersec");
-		has_prd = true;
-	}
-
-	static std::string parse_nif_name(std::string name) {
-		return name;
-	}
-
-	static std::string parse_prd_name(std::string name) {
-		boost::replace_all(name, "[", "(");
-		boost::replace_all(name, "]", ")");
-		boost::replace_all(name, "#", "_");
-		boost::replace_all(name, "/", "_");
-		boost::replace_all(name, "\\", "_");
-		return name;
-	}
-	bool is_compleate() const { return has_nif;  }
-
-	void build(Plugin::Common::MetricsBundle *section) const {
-		add_metric(section, name + ".NetConnectionID", NetConnectionID);
-		add_metric(section, name + ".MACAddress", MACAddress);
-		add_metric(section, name + ".NetConnectionStatus", NetConnectionStatus);
-		add_metric(section, name + ".NetEnabled", NetEnabled);
-		add_metric(section, name + ".Speed", Speed);
-		if (has_prd) {
-			add_metric(section, name + ".BytesReceivedPersec", BytesReceivedPersec);
-			add_metric(section, name + ".BytesSentPersec", BytesSentPersec);
-			add_metric(section, name + ".BytesTotalPersec", BytesTotalPersec);
-		}
-	}
-
-};
-
-std::string network_interface::nif_query = "select NetConnectionID, MACAddress, Name, NetConnectionStatus, NetEnabled, Speed from Win32_NetworkAdapter where PhysicalAdapter=True and MACAddress <> null";
-std::string network_interface::prd_query = "select Name, BytesReceivedPersec, BytesSentPersec, BytesTotalPersec from Win32_PerfRawData_Tcpip_NetworkInterface";
-
-typedef std::map<std::string, network_interface> netmap_type;
-
-bool fetch_network = true;
-
 void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
+
+	using namespace nscapi::metrics;
+
 	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
 	bundle->set_key("system");
 	try {
@@ -1308,50 +1230,15 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}
 
-	if (fetch_network) {
-		netmap_type netmap;
-		try {
-			Plugin::Common::MetricsBundle *section = bundle->add_children();
-			section->set_key("network");
+	std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(5);
 
-			wmi_impl::query wmiQuery1(network_interface::nif_query, "root\\cimv2", "", "");
-			wmi_impl::row_enumerator row1 = wmiQuery1.execute();
-			while (row1.has_next()) {
-				network_interface nif;
-				nif.read_wna(row1.get_next());
-				netmap[nif.name] = nif;
-			}
-			std::string keys;
-			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
-				strEx::append_list(keys, v.first);
-
-			}
-
-			wmi_impl::query wmiQuery(network_interface::prd_query, "root\\cimv2", "", "");
-			wmi_impl::row_enumerator row = wmiQuery.execute();
-			while (row.has_next()) {
-				wmi_impl::row r = row.get_next();
-				std::string name = network_interface::parse_prd_name(r.get_string("Name"));
-				netmap_type::iterator it = netmap.find(name);
-				if (it == netmap.end()) {
-					continue;
-				}
-				it->second.read_prd(r);
-			}
-			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
-				if (!v.second.is_compleate())
-					continue;
-				v.second.build(section);
-			}
-		} catch (const wmi_impl::wmi_exception &e) {
-			if (e.get_code() == WBEM_E_INVALID_QUERY) {
-				NSC_LOG_MESSAGE("Failed to fetch network metrics, disabling...");
-				fetch_network = false;
-			}
-			NSC_LOG_ERROR("ERROR: " + e.reason());
+	auto net = collector->get_network();
+	if (!net.empty()) {
+		Plugin::Common::MetricsBundle *section = bundle->add_children();
+		section->set_key("network");
+		BOOST_FOREACH(const network_check::nics_type::value_type &v, net) {
+			v.build_metrics(section);
 		}
+
 	}
-
-
-
 }
