@@ -1,3 +1,9 @@
+2016-03-03 Michael Medin
+ * First draft of check_network (not yet finished)
+ * #204 Fixed message rendering for eventlog messages
+ * Stopped fetching network metrics if fetching them failes on Older windows like 2003 where it is not available
+ * improved error handling for wmi queries
+
 2016-02-27 Michael Medin
  * #204 Added support for modern API to real time eventlogs
  * Improved error log in real time threads
