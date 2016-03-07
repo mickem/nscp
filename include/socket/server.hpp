@@ -255,7 +255,7 @@ namespace socket_helpers {
 								)
 							);
 				} catch (const std::exception &e) {
-					logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + e.what());
+					logger_->log_error(__FILE__, __LINE__, std::string("Failed to create new connection: ") + utf8::utf8_from_native(e.what()));
 				} catch (...) {
 					logger_->log_error(__FILE__, __LINE__, "Failed to create new connection: UNKNOWN");
 				}
