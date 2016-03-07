@@ -42,7 +42,7 @@ void client::options_reader_interface::add_ssl_options(boost::program_options::o
 		("allowed-ciphers", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "allowed ciphers", _1)),
 			"Client certificate format")
 
-		("ssl,n", po::value<bool>()->zero_tokens()->notifier(boost::bind(&client::destination_container::set_bool_data, &data, "ssl", _1)),
+		("ssl,n", po::value<bool>()->implicit_value(true)->notifier(boost::bind(&client::destination_container::set_bool_data, &data, "ssl", _1)),
 			"Initial an ssl handshake with the server.")
 		;
 }
