@@ -1,3 +1,3 @@
 version=0.5.0
-build=26
-date=2016-03-07
+build=27
+date=2016-03-09
