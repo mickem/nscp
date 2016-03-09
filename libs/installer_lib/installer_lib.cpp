@@ -189,7 +189,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(_T("GENERATE_SAMPLE_CONFIG"), _T(""));
 			h.setProperty(_T("CONFIGURATION_TYPE"), _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++"));
 			h.setFeatureLocal(_T("OP5Montoring"));
-		} else {
+		} else if (tool == _T("GENERIC")) {
 			h.setProperty(_T("NSCLIENT_PWD"), genpwd(16));
 			h.setProperty(_T("NSCLIENT_PWD_OLD"), _T(""));
 			h.setProperty(_T("CONF_CHECKS_OLD"), _T(""));
@@ -392,23 +392,13 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			}
 		}
 
-		std::wstring confSet = h.getPropery(_T("CONF_SET"));
-		h.logMessage(_T("Adding conf: ") + confSet);
-		if (!confSet.empty()) {
-			std::vector<std::wstring> lst;
-			boost::split(lst, confSet, boost::is_any_of(_T(";")));
-			for (int i = 0; i + 2 < lst.size(); i += 3) {
-				h.logMessage(_T(" + : ") + lst[i] + _T(" ") + lst[i + 1] + _T("=") + lst[i + 2]);
-				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
-			}
-		}
-
 		std::wstring modpath = _T(MAIN_MODULES_SECTION);
 		write_changed_key(h, data, _T("CONF_NRPE"), modpath, _T("NRPEServer"));
 		write_changed_key(h, data, _T("CONF_SCHEDULER"), modpath, _T("Scheduler"));
 		write_changed_key(h, data, _T("CONF_NSCA"), modpath, _T("NSCAClient"));
 		write_changed_key(h, data, _T("CONF_NSCLIENT"), modpath, _T("NSClientServer"));
 		write_changed_key(h, data, _T("CONF_WMI"), modpath, _T("CheckWMI"));
+		write_changed_key(h, data, _T("CONF_WEB"), modpath, _T("WEBSErver"));
 
 		if (h.propertyNotOld(_T("CONF_CHECKS"))) {
 			std::wstring modval = h.getPropery(_T("CONF_CHECKS"));
@@ -440,6 +430,17 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		std::wstring defpath = _T("/settings/default");
 		write_changed_key(h, data, _T("ALLOWED_HOSTS"), defpath, _T("allowed hosts"));
 		write_changed_key(h, data, _T("NSCLIENT_PWD"), defpath, _T("password"));
+
+		std::wstring confSet = h.getPropery(_T("CONF_SET"));
+		h.logMessage(_T("Adding conf: ") + confSet);
+		if (!confSet.empty()) {
+			std::vector<std::wstring> lst;
+			boost::split(lst, confSet, boost::is_any_of(_T(";")));
+			for (int i = 0; i + 2 < lst.size(); i += 3) {
+				h.logMessage(_T(" + : ") + lst[i] + _T(" ") + lst[i + 1] + _T("=") + lst[i + 2]);
+				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
+			}
+		}
 
 		if (data.has_data()) {
 			h.logMessage(_T("Scheduling (ExecWriteConfig): ") + data.to_string());

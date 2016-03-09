@@ -1,3 +1,14 @@
+2016-03-09 Michael Medin
+ * #250 #248 possible fix for crash in check_pdh on w32 computers.
+ * Improved error log in real time threads
+ * Fixed issue with hung detection
+ * #229 Improved error handling for service errors
+ * Fixed so tests end up in the correct folder
+ * Added testcase for #228
+ * Fixed check_uptime parsing dates wrong
+ * Fixed issue with reading invalid config values
+ * moved overiden key to the end in the installer
+
 2015-12-09 Michael Medin
  * Fixed XP support
  * Fixed missing redist DLLs in zip file

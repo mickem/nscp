@@ -128,3 +128,12 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
 	EXPECT_EQ(strEx::s::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775808");
 #endif
 }
+
+
+TEST(format, itos_as_time) {
+	EXPECT_EQ(format::itos_as_time(12345), "12s");
+	EXPECT_EQ(format::itos_as_time(1234512), "0:20");
+	EXPECT_EQ(format::itos_as_time(123451234), "1d 10:17");
+	EXPECT_EQ(format::itos_as_time(1234512345), "2w 0d 06:55");
+	EXPECT_EQ(format::itos_as_time(12345123456), "20w 2d 21:12");
+}
