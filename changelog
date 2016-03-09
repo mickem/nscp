@@ -1,3 +1,13 @@
+2016-03-09 Michael Medin
+ * Improved logging on network metrics (Possibly fixed 260 )
+ * Fixed error reporting encoding
+ 
+2016-03-07 Michael Medin
+ * Fixed some error message localization issues
+ * #258 Fixed issue with check_nrpe and ssl=false option
+ * Fixed #259 parsing extra space on command line
+ * Fixed some issues with the postbuild python script
+
 2016-03-03 Michael Medin
  * First draft of check_network (not yet finished)
  * #204 Fixed message rendering for eventlog messages
