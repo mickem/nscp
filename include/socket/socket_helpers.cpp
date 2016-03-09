@@ -165,7 +165,7 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 					}
 				}
 			} catch (const std::exception &e) {
-				errors.push_back("Failed to parse host " + record + ": " + e.what());
+				errors.push_back("Failed to parse host " + record + ": " + utf8::utf8_from_native(e.what()));
 			}
 		}
 	}
