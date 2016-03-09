@@ -115,8 +115,8 @@ namespace network_check {
 			}
 		} catch (const wmi_impl::wmi_exception &e) {
 			if (e.get_code() == WBEM_E_INVALID_QUERY) {
-				throw nscp_exception("Failed to fetch network metrics, disabling...");
 				fetch_network_ = false;
+				throw nscp_exception("Failed to fetch network metrics, disabling...");
 			}
 			throw nscp_exception("Failed to fetch network metrics: " + e.reason());
 		}
