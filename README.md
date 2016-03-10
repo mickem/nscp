@@ -1,6 +1,6 @@
 NSClient++
 ==========
-Stable 0.4.3: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=0.4.3)](https://travis-ci.org/mickem/nscp)
+Stable 0.4.4: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=0.4.4)](https://travis-ci.org/mickem/nscp)
 
 Master: [![Build Status](https://travis-ci.org/mickem/nscp.png?branch=master)](https://travis-ci.org/mickem/nscp)
 
