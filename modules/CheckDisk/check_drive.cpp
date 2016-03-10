@@ -51,14 +51,18 @@ std::string type_to_string(const int type) {
 struct drive_container {
 	std::string id;
 	std::string letter;
+	std::string letter_only;
 	std::string name;
 	bool is_mounted;
 	drive_container() : is_mounted(false) {}
-	drive_container(std::string id, std::string letter, std::string name, bool is_mounted) : id(id), letter(letter), name(name), is_mounted(is_mounted) {}
-	drive_container(const drive_container &other) : id(other.id), letter(other.letter), name(other.name), is_mounted(other.is_mounted) {}
+	drive_container(std::string id, std::string letter, std::string name, bool is_mounted) : id(id), letter(letter), name(name), is_mounted(is_mounted) {
+		letter_only = letter.substr(0, 1);
+	}
+	drive_container(const drive_container &other) : id(other.id), letter(other.letter), letter_only(other.letter_only), name(other.name), is_mounted(other.is_mounted) {}
 	drive_container& operator=(const drive_container &other) {
 		id = other.id;
 		letter = other.letter;
+		letter_only = other.letter_only;
 		name = other.name;
 		is_mounted = other.is_mounted;
 		return *this;
@@ -635,13 +639,25 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			drives.erase(it);
 		}
 	}
+	std::list<std::string> buffer;
+	BOOST_FOREACH(std::string e, excludes) {
+		if (e.size() == 1) {
+			buffer.push_back(boost::algorithm::to_upper_copy(e));
+		}
+		if (e.size() == 2 && e[1] == ':') {
+			buffer.push_back(boost::algorithm::to_upper_copy(e.substr(0, 1)));
+		}
+	}
+	if (!buffer.empty())
+		excludes.insert(excludes.end(), buffer.begin(), buffer.end());
 	boost::shared_ptr<filter_obj> total_obj(new filter_obj(drive_container("total", "total", "total", true)));
 	if (total)
 		total_obj->make_total();
 
 	BOOST_FOREACH(const drive_container &drive, find_drives(drives)) {
 		if (std::find(excludes.begin(), excludes.end(), drive.letter) != excludes.end()
-			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end())
+			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end()
+			|| std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
 			continue;
 		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
 		filter.match(obj);
