@@ -15,7 +15,7 @@ namespace phoenix = boost::phoenix;
 namespace parsers {
 	namespace where {
 
-		struct build_function_convert_int {
+		struct build_function_convert {
 #if BOOST_VERSION > 105500
 			template <typename A>
 			struct result { typedef node_type type; };
