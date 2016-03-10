@@ -48,9 +48,11 @@ com_helper::initialize_com com_helper_;
 #endif
 
 #ifdef USE_BREAKPAD
+#ifdef WIN32
 #include <breakpad/exception_handler_win32.hpp>
 // Used for breakpad crash handling
 static ExceptionManager *g_exception_manager = NULL;
+#endif
 #endif
 
 NSClient *mainClient = NULL;	// Global core instance.
@@ -316,7 +318,7 @@ bool NSClientT::boot_init(const bool override_log) {
 		nsclient::logging::logger::set_log_level(log_level);
 
 #ifdef USE_BREAKPAD
-
+#ifdef WIN32
 	if (!g_exception_manager) {
 		g_exception_manager = new ExceptionManager(false);
 
@@ -344,8 +346,7 @@ bool NSClientT::boot_init(const bool override_log) {
 			g_exception_manager->StartMonitoring();
 		}
 	}
-#else
-	//	LOG_ERROR_CORE("Warning Not compiled with google breakpad support!");
+#endif
 #endif
 
 	if (enable_shared_session_) {
