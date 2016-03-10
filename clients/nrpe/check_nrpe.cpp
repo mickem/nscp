@@ -21,18 +21,22 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; i++) {
 		request->add_arguments(argv[i]);
 	}
-
+	int response_return_code;
+	response_return_code = 0;
 	check_nrpe client;
 	client.query(request_message, response_message);
 	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &response, response_message.payload()) {
 		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response.lines()) {
 			std::cout << line.message();
+			if(response.result() > response_return_code){
+				response_return_code = response.result();
+			}
 			std::string tmp = nscapi::protobuf::functions::build_performance_data(line);
 			if (!tmp.empty())
 				std::cout << '|' << tmp;
 		}
 	}
-	return 99; //response.result();
+	return response_return_code;
 }
 
 #ifdef WIN32
