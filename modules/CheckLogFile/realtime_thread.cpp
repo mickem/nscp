@@ -129,7 +129,8 @@ void real_time_thread::thread_proc() {
 			NSC_LOG_ERROR("Strange, please report this...");
 		}
 #endif
-		helper.process_items(0);
+		helper.process_items(boost::shared_ptr<runtime_data::transient_data_impl>());
+
 	}
 
 #ifdef WIN32
