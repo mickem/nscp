@@ -6,6 +6,7 @@
 #include <types.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_helper.hpp>
 
 std::string gLog = "";
 
@@ -24,7 +25,9 @@ int main(int argc, char* argv[]) {
 
 	check_nrpe client;
 	client.query(request_message, response_message);
+	NSCAPI::nagiosReturn ret = NSCAPI::query_return_codes::returnOK;
 	BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &response, response_message.payload()) {
+		ret = nscapi::plugin_helper::maxState(ret, nscapi::protobuf::functions::gbp_to_nagios_status(response.result()));
 		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response.lines()) {
 			std::cout << line.message();
 			std::string tmp = nscapi::protobuf::functions::build_performance_data(line);
@@ -32,7 +35,7 @@ int main(int argc, char* argv[]) {
 				std::cout << '|' << tmp;
 		}
 	}
-	return 99; //response.result();
+	return ret;
 }
 
 #ifdef WIN32
