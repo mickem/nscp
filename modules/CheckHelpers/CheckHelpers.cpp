@@ -117,7 +117,7 @@ void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const
 	std::vector<std::string> arguments(args.begin() + 1, args.end());
 	Plugin::QueryResponseMessage::Response local_response;
 	if (!simple_query(command, arguments, &local_response))
-		return;
+		status = ::Plugin::Common_ResultCode_UNKNOWN;
 	response->CopyFrom(local_response);
 	response->set_result(status);
 }
