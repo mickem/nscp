@@ -401,6 +401,7 @@ void CheckEventLog::CheckEventLog_(Plugin::QueryRequestMessage::Request &request
 		boost::replace_all(syntax, "%generated%", "${generated}");
 		boost::replace_all(syntax, "%severity%", "${severity}");
 	}
+	boost::replace_all(syntax, "%count%", "${count}");
 	boost::replace_all(syntax, "%level%", "${level}");
 	boost::replace_all(syntax, "%log%", "${file}");
 	boost::replace_all(syntax, "%file%", "${file}");
