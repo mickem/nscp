@@ -224,6 +224,43 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 	}
 }
 
+
+void CheckHelpers::check_and_forward(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+	po::options_description desc = nscapi::program_options::create_desc(request);
+	std::vector<std::string> arguments;
+	std::string target;
+	std::string command;
+	desc.add_options()
+		("target", po::value<std::string>(&target), "Commands to run (can be used multiple times)")
+		("command", po::value<std::string>(&command), "Commands to run (can be used multiple times)")
+		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
+		;
+	po::variables_map vm;
+	std::vector<std::string> args;
+
+	po::positional_options_description p;
+	p.add("arguments", -1);
+
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p))
+		return;
+	if (command.size() == 0)
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
+
+
+	std::string local_response;
+	nscapi::core_helper ch(get_core(), get_id());
+	if (ch.simple_query(command, arguments, local_response) != NSCAPI::api_return_codes::isSuccess) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
+		return;
+	}
+
+	std::string submit_response;
+	if (!get_core()->submit_message(target, local_response, submit_response)) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to submit to: " + target);
+	}
+	nscapi::protobuf::functions::set_response_good(*response, "Message submitted: " + target);
+}
+
 struct worker_object {
 	void proc(nscapi::core_wrapper *core, int plugin_id, std::string command, std::vector<std::string> arguments) {
 		nscapi::core_helper ch(core, plugin_id);

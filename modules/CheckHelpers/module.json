@@ -55,6 +55,9 @@
 		"check_timeout" : { 
 			"alias"		: "timeout",
 			"description" : "Run a check and timeout after a given amount of time if the check has not returned."
+		},
+		"check_and_forward" : { 
+			"description" : "Run a check and forward the result as a passive check."
 		}
 	}
 }
