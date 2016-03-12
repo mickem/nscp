@@ -262,11 +262,11 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 	if (!hResults) {
 		status = GetLastError();
 		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
-			throw nscp_exception("Channel not found: " + error::lookup::last_error(status));
+			throw nscp_exception("Channel " + logfile + " not found: " + error::lookup::last_error(status));
 		else if (status == ERROR_EVT_INVALID_QUERY)
-			throw nscp_exception("Invalid query: " + error::lookup::last_error(status));
+			throw nscp_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
 		else if (status != ERROR_SUCCESS)
-			throw nscp_exception("EvtQuery failed: " + error::lookup::last_error(status));
+			throw nscp_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
 	}
 
 	eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
