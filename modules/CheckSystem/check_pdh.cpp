@@ -167,7 +167,7 @@ namespace check_pdh {
 					}
 					PDH::pdh_object obj;
 					if (expand_instance)
-						obj.set_instances("*");
+						obj.set_instances("true");
 					obj.set_flags(flags);
 					obj.set_counter(counter);
 					obj.set_alias(counter);
