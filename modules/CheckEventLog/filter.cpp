@@ -185,27 +185,31 @@ namespace eventlog_filter {
 	}
 
 	std::string new_filter_obj::get_message() {
-		std::string msg;
-		int status = eventlog::EvtFormatMessage(get_provider_handle(), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
-		if (status != ERROR_SUCCESS) {
-			NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + strEx::s::xtos(get_id()) + ": " +  error::format::from_system(status));
-			if (status == ERROR_INVALID_PARAMETER)
-				return "";
-			else if (status == ERROR_EVT_MESSAGE_NOT_FOUND)
-				return "";
-			else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
-				return "";
-			else if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
-				throw nscp_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
-			throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+		try {
+			std::string msg;
+			int status = eventlog::EvtFormatMessage(get_provider_handle(), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
+			if (status != ERROR_SUCCESS) {
+				NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + strEx::s::xtos(get_id()) + ": " + error::format::from_system(status));
+				if (status == ERROR_INVALID_PARAMETER)
+					return "";
+				else if (status == ERROR_EVT_MESSAGE_NOT_FOUND)
+					return "";
+				else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
+					return "";
+				else if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
+					throw nscp_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
+				throw nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+			}
+			boost::replace_all(msg, "\n", " ");
+			boost::replace_all(msg, "\r", " ");
+			boost::replace_all(msg, "\t", " ");
+			boost::replace_all(msg, "  ", " ");
+			if (truncate_message > 0 && msg.length() > truncate_message)
+				msg = msg.substr(0, truncate_message);
+			return msg;
+		} catch (const nscp_exception &e) {
+			return e.reason();
 		}
-		boost::replace_all(msg, "\n", " ");
-		boost::replace_all(msg, "\r", " ");
-		boost::replace_all(msg, "\t", " ");
-		boost::replace_all(msg, "  ", " ");
-		if (truncate_message > 0 && msg.length() > truncate_message)
-			msg = msg.substr(0, truncate_message);
-		return msg;
 	}
 
 	std::string new_filter_obj::get_source() const {
