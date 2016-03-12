@@ -1,3 +1,18 @@
+2016-03-12 Michael Medin
+ * Added new command check_and_forward to forward check results as passive data
+   check_and_forward command=check_cpu target=NSCA
+ * Added support for %count% in legacy checkEventLog
+ * Improved errors in check_eventlog
+ * Fixed indexes expansion for check_pdh
+ * Breaking change: Eventlog rendering failures are now returned as messages instead of nsclient++ log messages
+ * Fixed missing error for check_always_ok when command failed
+ * Fixed #261 Invalid return from check_nrpe
+ * Update README.md
+ * Fixed realtime log file using wrong data
+ * Removed tools from non w32 builds (as the only tool is the crash uploader which is windows only)
+ * Removed breakpad for non windows builds (as it currently only works on windows)
+ * Added support for check_drivesize exclude=c and exclude=d: to make backwards compatiblity better
+
 2016-03-09 Michael Medin
  * Improved logging on network metrics (Possibly fixed 260 )
  * Fixed error reporting encoding
