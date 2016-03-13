@@ -82,8 +82,24 @@ void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, 
 		NSC_DEBUG_MSG("Failed to create mordern finder using old method: " + error::com::get(hr));
 		return find_old(filter);
 	}
-	taskSched->Connect(_variant_t(utf8::cvt<std::wstring>(computer).c_str()), _variant_t(utf8::cvt<std::wstring>(user).c_str()),
-		_variant_t(utf8::cvt<std::wstring>(domain).c_str()), _variant_t(utf8::cvt<std::wstring>(password).c_str()));
+	_variant_t vComputer;
+	if (!computer.empty())
+		vComputer = utf8::cvt<std::wstring>(computer).c_str();
+	_variant_t vUser;
+	if (!user.empty())
+		vUser = utf8::cvt<std::wstring>(user).c_str();
+	_variant_t vDomain;
+	if (!domain.empty())
+		vDomain = utf8::cvt<std::wstring>(domain).c_str();
+	_variant_t vPassword;
+	if (password.empty())
+		vPassword = utf8::cvt<std::wstring>(password).c_str();
+	hr = taskSched->Connect(vComputer, vUser, vDomain, vPassword);
+	
+	if (FAILED(hr)) {
+		NSC_DEBUG_MSG("Failed to connect to: computer: '" + computer + "', domain: '" + domain + "', user: '" + user + "', password: '" + std::string(password.size(), '*') + "': " + strEx::s::xtos(hr));
+		throw nscp_exception("Failed to connect to task service on " + computer + ": " + error::com::get(hr));
+	}
 	do_get(taskSched, filter, folder, recursive);
 }
 
@@ -91,24 +107,24 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 	CComPtr<ITaskFolder> pRootFolder;
 	HRESULT hr = taskSched->GetFolder(_bstr_t(utf8::cvt<std::wstring>(folder).c_str()), &pRootFolder);
 	if (FAILED(hr)) {
-		throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get(hr));
+		throw nscp_exception("Failed to get root folder " + folder + ": " + error::com::get(hr));
 	}
 
 	if (recursive) {
 		CComPtr<ITaskFolderCollection> folders;
 		if (FAILED(pRootFolder->GetFolders(0, &folders)))
-			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get(hr));
+			throw nscp_exception("Failed to get folders below " + folder + ": " + error::com::get(hr));
 		LONG count = 0;
 		if (FAILED(folders->get_Count(&count)))
-			throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get(hr));
+			throw nscp_exception("Failed to get count of folders below " + folder + ": " + error::com::get(hr));
 		std::vector<std::string> sub_folders;
 		for (LONG i = 0; i < count; ++i) {
 			CComPtr<ITaskFolder> inst;
 			if (FAILED(folders->get_Item(_variant_t(i + 1), &inst)))
-				throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get(hr));
+				throw nscp_exception("Failed to get folder item " + strEx::s::xtos(i) + ": " + error::com::get(hr));
 			BSTR str;
 			if (FAILED(inst->get_Path(&str)))
-				throw nscp_exception("Failed to get folder " + folder + ": " + error::com::get(hr));
+				throw nscp_exception("Failed to get path for " + strEx::s::xtos(i) + ": " + error::com::get(hr));
 			_bstr_t sstr(str, FALSE);
 			sub_folders.push_back(utf8::cvt<std::string>(std::wstring(sstr)));
 		}
