@@ -30,8 +30,17 @@ def find_by_pattern(path, pattern):
 				matches.append(os.path.join(root, filename))
 	return matches
 	
-target_name = 'NSCP-%s-%s-symbols.zip'%(vstring, VERSION_ARCH)
+target_docs = 'NSCP-%s-%s-docs.zip'%(vstring, VERSION_ARCH)
+print "Gathering docs into %s"%target_docs
+docs_folder_root = os.path.join(BUILD_TARGET_EXE_PATH, DOCS_FOLDER)
+matches = find_by_pattern(docs_folder_root, '*.*')
+zip = zipfile.ZipFile(target_docs, 'w', zipfile.ZIP_DEFLATED)
+for f in matches:
+	name = os.path.relpath(f, docs_folder_root)
+	zip.write(f, name)
+zip.close()
 
+target_name = 'NSCP-%s-%s-symbols.zip'%(vstring, VERSION_ARCH)
 if BREAKPAD_FOUND == "TRUE":
 	print "Gathering symbols into %s"%target_name
 	matches = find_by_pattern(BUILD_TARGET_EXE_PATH, '*.pdb')
@@ -120,7 +129,7 @@ def create_release():
 	if not release:
 		print "Creating release v%s..."%vstring
 		release = repository.create_release('%s'%vstring, 'master', name, 'PLEASE UPDATE!', True)
-	files = [ 'nscp-%s-%s.zip'%(vstring, VERSION_ARCH) ]
+	files = [ 'nscp-%s-%s.zip'%(vstring, VERSION_ARCH), target_docs ]
 	if BREAKPAD_FOUND == "TRUE":
 		files.append(target_name)
 

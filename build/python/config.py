@@ -12,6 +12,6 @@ TARGET_SITE = "${TARGET_SITE}"
 CMAKE_SOURCE_DIR  = "${CMAKE_CURRENT_SOURCE_DIR}"
 SCP_BINARY = 'c:\Progra~2\PuTTY\pscp.exe' # ${PSCP_EXE}
 CREDENTIALS_FILE = "${BUILD_TARGET_EXE_PATH}/../credentials.txt"
-
+DOCS_FOLDER = "ext/docs/html"
 #if CMAKE_CL_64 != "0": # Due to bug in x64 dump_symbols (or possible windows API)
 #	BREAKPAD_FOUND = "FALSE"
