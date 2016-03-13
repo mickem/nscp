@@ -133,18 +133,19 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string computer, user, domain, password, folder;
-	bool recursive;
+	bool recursive = true, old = false;
 
 	filter_type filter;
 	filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "warning");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_format_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found", "%(status): All tasks are ok");
 	filter_helper.get_desc().add_options()
+		("force-old", po::bool_switch(&old), "The name of the computer that you want to connect to.")
 		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")
 		("user", po::value<std::string>(&user), "The user name that is used during the connection to the computer.")
 		("domain", po::value<std::string>(&domain), "The domain of the user specified in the user parameter.")
 		("password", po::value<std::string>(&password), "The password that is used to connect to the computer. If the user name and password are not specified, then the current token is used.")
 		("folder", po::value<std::string>(&folder), "The folder in which the tasks to check reside.")
-		("recursive", po::value<bool>(&recursive), "Recurse subfolder (defaults to true).")
+		("recursive", po::value<bool>(&recursive), "Recurse sub folder (defaults to true).")
 		;
 
 	if (!filter_helper.parse_options())
@@ -155,7 +156,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 
 	try {
 		TaskSched query;
-		query.findAll(filter, computer, user, domain, password, folder, recursive);
+		query.findAll(filter, computer, user, domain, password, folder, recursive, old);
 		filter_helper.post_process(filter);
 	} catch (const nscp_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to fetch tasks: " + e.reason());

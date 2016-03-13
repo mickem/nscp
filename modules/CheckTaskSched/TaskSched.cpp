@@ -75,7 +75,10 @@ void find_old(tasksched_filter::filter &filter) {
 
 void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive);
 
-void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive) {
+void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive, bool old) {
+	if (old) {
+		return find_old(filter);
+	}
 	CComPtr<ITaskService> taskSched;
 	HRESULT hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
