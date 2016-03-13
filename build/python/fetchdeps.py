@@ -225,7 +225,7 @@ sources['lua'] = source('lua-5.1.5.tar.gz', 'http://www.lua.org/ftp/lua-5.1.5.ta
 
 sources['boost'] = source('boost_1_56_0.zip', 'http://sourceforge.net/projects/boost/files/boost/1.56.0/boost_1_56_0.zip/download', '15b9719a92cd2a80170d54cfb9c3990a56193c56')
 
-sources['openssl'] = source('openssl-1.0.1j.tar.gz', 'https://www.openssl.org/source/openssl-1.0.1j.tar.gz', 'cff86857507624f0ad42d922bb6f77c4f1c2b819')
+sources['openssl'] = source('openssl-1.0.2c.tar.gz', 'https://www.openssl.org/source/openssl-1.0.2c.tar.gz', '6e4a5e91159eb32383296c7c83ac0e59b83a0a44')
 
 #sources['protobuf'] = source('protobuf-2.4.1.tar.gz', 'http://protobuf.googlecode.com/files/protobuf-2.4.1.tar.gz', 'efc84249525007b1e3105084ea27e3273f7cbfb0')
 sources['protobuf'] = source('protobuf-2.6.1.tar.gz', 'https://github.com/google/protobuf/releases/download/v2.6.1/protobuf-2.6.1.tar.gz', '375765455ad49e45e4e10364f91aaf2831d3e905')
