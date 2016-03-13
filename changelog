@@ -1,4 +1,10 @@
 2016-03-12 Michael Medin
+ * Fix for #215 added new option to check_tasksched to force using the old api
+check_tasksched force-old
+ * #215 Improved error reporting in check_taskshed
+ * #215 Fixed COM errors when com error is not set (so real error is returned not (error not set)
+
+2016-03-12 Michael Medin
  * Added new command check_and_forward to forward check results as passive data
    check_and_forward command=check_cpu target=NSCA
  * Added support for %count% in legacy checkEventLog
