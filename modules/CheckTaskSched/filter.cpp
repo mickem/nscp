@@ -82,24 +82,27 @@ namespace tasksched_filter {
 	CComPtr<IRegistrationInfo> new_filter_obj::get_reginfo() {
 		if (reginfo)
 			return reginfo;
-		if (!SUCCEEDED(get_def()->get_RegistrationInfo(&reginfo)))
-			throw nscp_exception("Failed to get IRegistrationInfo: " + error::com::get());
+		HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
+		if (!SUCCEEDED(hr))
+			throw nscp_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
 		return reginfo;
 	}
 
 	CComPtr<ITaskDefinition> new_filter_obj::get_def() {
 		if (def)
 			return def;
-		if (!SUCCEEDED(task->get_Definition(&def)))
-			throw nscp_exception("Failed to get ITaskDefinition: " + error::com::get());
+		HRESULT hr = task->get_Definition(&def);
+		if (!SUCCEEDED(hr))
+			throw nscp_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
 		return def;
 	}
 
 	CComPtr<ITaskSettings> new_filter_obj::get_settings() {
 		if (settings)
 			return settings;
-		if (!SUCCEEDED(get_def()->get_Settings(&settings)))
-			throw nscp_exception("Failed to get ITaskSettings: " + error::com::get());
+		HRESULT hr = get_def()->get_Settings(&settings);
+		if (!SUCCEEDED(hr))
+			throw nscp_exception("Failed to get ITaskSettings: " + error::com::get(hr));
 		return settings;
 	}
 

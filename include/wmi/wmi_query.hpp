@@ -63,7 +63,7 @@ namespace wmi_impl {
 				return _T("");
 			}
 		}
-		static std::string getComError();
+		static std::string getComError(HRESULT hr);
 	};
 
 	class wmi_exception : public std::exception {
