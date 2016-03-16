@@ -21,7 +21,7 @@
 		"check_process"		: "Check state/metrics of one or more of the processes running on the computer.",
 		"check_memory"		: "Check free/used memory on the system.",
 		"check_pdh" 		: {	"alias" : [ "check_counter" ],
-								"desc"	: "Check the value of a performance (PDH) counter."
+								"desc"	: "Check the value of a performance (PDH) counter on the local or remote system.\\nThe counters can also be added and polled periodcally to get average values. Performance Log Users group membership is required to check performance counters."
 							},
 		"check_os_version"	: "Check the version of the underlaying OS.",
 		"check_pagefile"	: "Check the size of the system pagefile(s).",
