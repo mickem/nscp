@@ -77,15 +77,9 @@ namespace file_filter {
 		}
 
 #ifdef WIN32
-		static filter_obj get(unsigned long long now, const WIN32_FILE_ATTRIBUTE_DATA info, boost::filesystem::path path, std::string filename);
-		static filter_obj get(unsigned long long now, const BY_HANDLE_FILE_INFORMATION info, boost::filesystem::path path, std::string filename);
 		static boost::shared_ptr<filter_obj> get(unsigned long long now, const WIN32_FIND_DATA info, boost::filesystem::path path);
 #endif
 		static boost::shared_ptr<file_filter::filter_obj> get_total(unsigned long long now);
-		static filter_obj get(unsigned long long now, boost::filesystem::path path, std::string filename);
-		static filter_obj get(unsigned long long now, std::string file);
-		static filter_obj get(std::string file);
-
 		std::string get_filename() { return filename; }
 		std::string get_path(parsers::where::evaluation_context) { return path.string(); }
 
