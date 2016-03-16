@@ -46,6 +46,7 @@ namespace socket_helpers {
 			}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() = 0;
+			virtual bool is_open() const = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			// High level connection start/stop
@@ -61,11 +62,11 @@ namespace socket_helpers {
 			void cancel_socket() {
 				trace("cancel_socket()");
 				boost::system::error_code ignored_ec;
-				if (get_socket().is_open()) {
+				if (is_open()) {
 					try {
 						trace("socket.shutdown()");
 						get_socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
-						if (get_socket().is_open())
+						if (is_open())
 							get_socket().close(ignored_ec);
 					} catch (...) {}
 				}
@@ -115,6 +116,11 @@ namespace socket_helpers {
 							start_read_request();
 					} else if (protocol_->has_data()) {
 						trace("s - has_data() == true");
+						if (!is_open()) {
+							protocol_->log_error(__FILE__, __LINE__, "Socket was unexpectedly closed trying to send data (possibly check your timeout settings)");
+							on_done(false);
+							return;
+						}
 						//std::vector<boost::asio::const_buffer> buffers;
 						//buffers.push_back();
 						if (is_active_)
@@ -188,6 +194,9 @@ namespace socket_helpers {
 				, socket_(io_service) {}
 			virtual ~tcp_connection() {}
 
+			virtual bool is_open() const {
+				return socket_.is_open();
+			}
 			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return socket_;
 			}
@@ -217,6 +226,10 @@ namespace socket_helpers {
 				: connection<protocol_type, N>(io_service, protocol)
 				, ssl_socket_(io_service, context) {}
 			virtual ~ssl_connection() {}
+
+			virtual bool is_open() const {
+				return ssl_socket_.next_layer().is_open();
+			}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() {
 				return ssl_socket_.next_layer();
