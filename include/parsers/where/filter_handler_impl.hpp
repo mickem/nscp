@@ -37,7 +37,7 @@ namespace parsers {
 			filter_variable(std::string name, value_type type, std::string description) : name(name), type(type), description(description), add_default_perf(true) {}
 		};
 		template<class T>
-		struct filter_converter : public parsers::where::binary_function_impl{
+		struct filter_converter : public parsers::where::binary_function_impl {
 			value_type type;
 			typedef boost::function<node_type(T, evaluation_context, node_type)> converter_fun_type;
 			converter_fun_type function;
@@ -613,13 +613,23 @@ namespace parsers {
 
 		template<class T>
 		node_type filter_converter<T>::evaluate(value_type, evaluation_context context, const node_type subject) const {
-			typedef filter_handler_impl<T>* native_context_type;
-			native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
-			if (!native_context->has_object()) {
-				context->error("No object attached");
+			try {
+				typedef filter_handler_impl<T>* native_context_type;
+				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
+				if (!native_context->has_object()) {
+					context->error("No object attached");
+					return parsers::where::factory::create_false();
+				}
+				if (!function) {
+					context->error("No function attached");
+					return parsers::where::factory::create_false();
+				}
+				T obj = native_context->get_object();
+				return function(obj, context, subject);
+			} catch (const std::exception &e) {
+				context->error("Failed to evaluate function");
 				return parsers::where::factory::create_false();
 			}
-			return function(native_context->get_object(), context, subject);
 		}
 	}
 }
