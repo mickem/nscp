@@ -8,6 +8,8 @@
 #include "filter.hpp"
 
 namespace file_finder {
+	bool is_directory(unsigned long dwAttr);
+
 	struct scanner_context {
 		bool debug;
 		std::string pattern;

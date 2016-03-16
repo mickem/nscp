@@ -15,9 +15,50 @@
 using namespace boost::assign;
 using namespace parsers::where;
 
+const int file_type_file = 1;
+const int file_type_dir = 2;
+const int file_type_error = -1;
 //////////////////////////////////////////////////////////////////////////
 
+int convert_new_type(parsers::where::evaluation_context context, std::string str) {
+	if (str == "critical")
+		return 1;
+	if (str == "error")
+		return 2;
+	if (str == "warning" || str == "warn")
+		return 3;
+	if (str == "informational" || str == "info" || str == "information" || str == "success" || str == "auditSuccess")
+		return 4;
+	if (str == "debug" || str == "verbose")
+		return 5;
+	try {
+		return strEx::s::stox<int>(str);
+	} catch (const std::exception&) {
+		context->error("Failed to convert: " + str);
+		return 2;
+	}
+}
+
+
+parsers::where::node_type fun_convert_type(boost::shared_ptr<file_filter::filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
+	try {
+		std::string key = subject->get_string_value(context);
+		if (key == "file")
+			return parsers::where::factory::create_int(file_type_file);
+		if (key == "dir")
+			return parsers::where::factory::create_int(file_type_dir);
+		context->error("Failed to convert: " + key + " not file or dir");
+		return parsers::where::factory::create_int(file_type_error);
+	} catch (const std::exception &e) {
+		context->error("Failed to convert type expression: " + utf8::utf8_from_native(e.what()));
+	}
+	return parsers::where::factory::create_int(-1);
+}
+
 file_filter::filter_obj_handler::filter_obj_handler() {
+
+	const parsers::where::value_type type_custom_type = parsers::where::type_custom_int_2;
+
 	registry_.add_string()
 		("path", &filter_obj::get_path, "Path of file")
 		("version", boost::bind(&filter_obj::get_version, _1), "Windows exe/dll file version")
@@ -40,14 +81,21 @@ file_filter::filter_obj_handler::filter_obj_handler() {
 		("written", type_date, boost::bind(&filter_obj::get_write, _1), "When file was last written to")
 		("write", type_date, boost::bind(&filter_obj::get_write, _1), "Alias for written")
 		("age", type_int, boost::bind(&filter_obj::get_age, _1), "Seconds since file was last written")
+		("type", type_custom_type, boost::bind(&filter_obj::get_type, _1), "Type of item (file or dir)")
 		("total", type_bool, boost::bind(&filter_obj::is_total, _1),
 			"True if this is the total object").no_perf();
 	;
+
+	registry_.add_converter()
+		(type_custom_type, &fun_convert_type)
+		;
+
 
 	registry_.add_human_string()
 		("access", boost::bind(&filter_obj::get_access_su, _1), "")
 		("creation", boost::bind(&filter_obj::get_creation_su, _1), "")
 		("written", boost::bind(&filter_obj::get_written_su, _1), "")
+		("type", boost::bind(&filter_obj::get_type_su, _1), "")
 		;
 }
 
@@ -59,9 +107,9 @@ boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get(unsigned
 		(info.ftCreationTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftCreationTime.dwLowDateTime,
 		(info.ftLastAccessTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastAccessTime.dwLowDateTime,
 		(info.ftLastWriteTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.ftLastWriteTime.dwLowDateTime,
-		(info.nFileSizeHigh * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.nFileSizeLow
+		(info.nFileSizeHigh * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)info.nFileSizeLow,
+		info.dwFileAttributes
 		));
-	//attributes = info.dwFileAttributes;
 };
 #endif
 boost::shared_ptr<file_filter::filter_obj> file_filter::filter_obj::get_total(unsigned long long now) {
@@ -102,6 +150,14 @@ std::string file_filter::filter_obj::get_version() {
 		strEx::s::xtos(dwSecondRight) + "." +
 		strEx::s::xtos(dwRightMost));
 	return *cached_version;
+}
+
+unsigned long long file_filter::filter_obj::get_type() {
+	return file_finder::is_directory(attributes)? file_type_dir: file_type_file;
+}
+
+std::string file_filter::filter_obj::get_type_su() {
+	return file_finder::is_directory(attributes) ? "dir" : "file";
 }
 
 unsigned long file_filter::filter_obj::get_line_count() {

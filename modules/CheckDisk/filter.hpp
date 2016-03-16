@@ -131,6 +131,8 @@ namespace file_filter {
 		std::string get_written_sl() {
 			return format::format_filetime(to_local_time(ullLastWriteTime));
 		}
+		unsigned long long get_type();
+		std::string get_type_su();
 
 		unsigned long long get_size() { return ullSize; }
 		//		std::string render(std::string syntax, std::string datesyntax);

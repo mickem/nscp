@@ -1,7 +1,8 @@
 #include "file_finder.hpp"
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
+
+#include "filter.hpp"
 
 #ifndef INVALID_FILE_ATTRIBUTES
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
@@ -9,7 +10,7 @@
 #ifndef FILE_ATTRIBUTE_DIRECTORY
 #define FILE_ATTRIBUTE_DIRECTORY 0x00000010
 #endif
-bool is_directory(unsigned long dwAttr) {
+bool file_finder::is_directory(unsigned long dwAttr) {
 	if (dwAttr == INVALID_FILE_ATTRIBUTES) {
 		return false;
 	} else if ((dwAttr&FILE_ATTRIBUTE_DIRECTORY) == FILE_ATTRIBUTE_DIRECTORY) {
