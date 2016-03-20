@@ -708,7 +708,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	double magic;
 
 	filter_type filter;
-	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_options("used > 80%", "used > 90%", "mounted = 1", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status} ${problem_list}", filter.get_filter_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives),
@@ -716,7 +716,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
 			"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
-			"Show only mounted rives i.e. drives which have a mount point.")
+			"DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
 		("total", po::bool_switch(&total), "Include the total of all matching drives")
@@ -727,7 +727,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		return;
 
 	if (only_mounted) {
-		if (!filter_helper.data.filter_string.empty())
+		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
 			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add mounted = 1 to your filter.");
 		filter_helper.data.filter_string = "mounted = 1";
 	}
