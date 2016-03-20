@@ -714,7 +714,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		("drive", po::value<std::vector<std::string>>(&drives),
 			"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
-			"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
+			"DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
 			"DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
@@ -730,6 +730,11 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
 			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add mounted = 1 to your filter.");
 		filter_helper.data.filter_string = "mounted = 1";
+	}
+	if (ignore_unreadable) {
+		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
+			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add readable = 0 to your filter.");
+		filter_helper.data.filter_string = "mounted = 1 and readable = 1";
 	}
 
 	if (!filter_helper.build_filter(filter))
