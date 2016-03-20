@@ -48,6 +48,7 @@ public:
 	bool unloadModule();
 
 	void check_nscp(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	void check_nscp_version(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 
 	std::size_t get_errors(std::string &last_error);
