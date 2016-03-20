@@ -1,6 +1,14 @@
-2016-03-12 Michael Medin
+2016-03-20 Michael Medin
+ * Added new command check_nscp_version to CheckNSCP module Fixed #217
+ * Added ignore-unreadable which was apparently removed at some point, new behavior as it uses the drive flags to determine status
+ * Changed so default check only checks mounted drives
+ * Possible fix for #265 Added drive flags to filter and distinguish between drive characteristics
+   New flags for filters and syntax are: hotplug, removable, readable, writable and erasable
+ * Improved filter documentation
+
+2016-03-16 Michael Medin
  * Fix for #215 added new option to check_tasksched to force using the old api
-check_tasksched force-old
+   check_tasksched force-old
  * #215 Improved error reporting in check_taskshed
  * #215 Fixed COM errors when com error is not set (so real error is returned not (error not set)
 
