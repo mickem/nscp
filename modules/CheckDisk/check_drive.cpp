@@ -54,20 +54,39 @@ struct drive_container {
 	std::string letter_only;
 	std::string name;
 	bool is_mounted;
-	drive_container() : is_mounted(false) {}
-	drive_container(std::string id, std::string letter, std::string name, bool is_mounted) : id(id), letter(letter), name(name), is_mounted(is_mounted) {
+	typedef enum drive_flags {
+		df_none = 0,
+		df_removable = 0x1,
+		df_hotplug = 0x2,
+		df_mounted = 0x4,
+		df_readable = 0x8,
+		df_writable = 0x16,
+		df_erasable = 0x32
+
+	};
+
+	drive_flags flags;
+private:
+	drive_container() : is_mounted(false), flags(df_none) {}
+public:
+	drive_container(std::string id, std::string letter, std::string name, bool is_mounted, drive_flags flags) : id(id), letter(letter), name(name), is_mounted(is_mounted), flags(flags) {
 		letter_only = letter.substr(0, 1);
 	}
-	drive_container(const drive_container &other) : id(other.id), letter(other.letter), letter_only(other.letter_only), name(other.name), is_mounted(other.is_mounted) {}
+	drive_container(const drive_container &other) : id(other.id), letter(other.letter), letter_only(other.letter_only), name(other.name), is_mounted(other.is_mounted), flags(other.flags) {}
 	drive_container& operator=(const drive_container &other) {
 		id = other.id;
 		letter = other.letter;
 		letter_only = other.letter_only;
 		name = other.name;
 		is_mounted = other.is_mounted;
+		flags = other.flags;
 		return *this;
 	}
 };
+
+inline drive_container::drive_flags operator|=(drive_container::drive_flags &a, const drive_container::drive_flags b) {
+	return a=static_cast<drive_container::drive_flags>(static_cast<int>(a) | static_cast<int>(b));
+}
 
 struct filter_obj {
 	drive_container drive;
@@ -79,7 +98,6 @@ struct filter_obj {
 	bool has_type;
 	bool unreadable;
 
-	filter_obj() : drive_type(0), user_free(0), total_free(0), drive_size(0), has_size(false), has_type(false), unreadable(false) {}
 	filter_obj(const drive_container drive)
 		: drive(drive)
 		, drive_type(0)
@@ -95,6 +113,22 @@ struct filter_obj {
 	std::string get_id(parsers::where::evaluation_context) const { return drive.id; }
 	std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.id : drive.letter; }
 	std::string get_drive_or_name(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.name : drive.letter; }
+	std::string get_flags(parsers::where::evaluation_context) const { 
+		std::string ret;
+		if ((drive.flags & drive_container::df_mounted) == drive_container::df_mounted)
+			strEx::append_list(ret, "mounted");
+		if ((drive.flags & drive_container::df_hotplug) == drive_container::df_hotplug)
+			strEx::append_list(ret, "hotplug");
+		if ((drive.flags & drive_container::df_removable) == drive_container::df_removable)
+			strEx::append_list(ret, "removable");
+		if ((drive.flags & drive_container::df_readable) == drive_container::df_readable)
+			strEx::append_list(ret, "readable");
+		if ((drive.flags & drive_container::df_writable) == drive_container::df_writable)
+			strEx::append_list(ret, "writable");
+		if ((drive.flags & drive_container::df_erasable) == drive_container::df_erasable)
+			strEx::append_list(ret, "erasable");
+		return ret;
+	}
 
 	long long get_user_free(parsers::where::evaluation_context context) { get_size(context); return user_free; }
 	long long get_total_free(parsers::where::evaluation_context context) { get_size(context); return total_free; }
@@ -128,6 +162,25 @@ struct filter_obj {
 
 	std::string get_type_as_string(parsers::where::evaluation_context context) {
 		return type_to_string(get_type(context));
+	}
+
+	long long get_removable(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_removable) == drive_container::df_removable;
+	}
+	long long get_hotplug(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_hotplug) == drive_container::df_hotplug;
+	}
+	long long get_mounted(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_mounted) == drive_container::df_mounted;
+	}
+	long long get_readable(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_readable) == drive_container::df_readable;
+	}
+	long long get_writable(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_writable) == drive_container::df_writable;
+	}
+	long long get_erasable(parsers::where::evaluation_context context) const {
+		return (drive.flags & drive_container::df_erasable) == drive_container::df_erasable;
 	}
 
 	std::wstring get_volume_or_letter_w() {
@@ -260,6 +313,7 @@ struct filter_obj_handler : public native_context {
 			("name", &filter_obj::get_name, "Descriptive name of drive")
 			("id", &filter_obj::get_id, "Drive or id of drive")
 			("drive", &filter_obj::get_drive, "Technical name of drive")
+			("flags", &filter_obj::get_flags, "String representation of flags")
 			("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
 			("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
 			;
@@ -291,6 +345,12 @@ struct filter_obj_handler : public native_context {
 			("total_used_pct", &filter_obj::get_total_used_pct, "% used space")
 			("user_used_pct", type_custom_user_used, &filter_obj::get_user_used_pct, "% used space available to user")
 			("mounted", parsers::where::type_int, &filter_obj::get_is_mounted, "Check if a drive is mounted")
+			("removable", &filter_obj::get_removable, "1 (true) if drive is removable")
+			("hotplug", &filter_obj::get_hotplug, "1 (true) if drive is hotplugable")
+//			("mounted", &filter_obj::get_mounted, "1 (true) if drive is mounted")
+			("readable", &filter_obj::get_readable, "1 (true) if drive is readable")
+			("writable", &filter_obj::get_writable, "1 (true) if drive is writable")
+			("erasable", &filter_obj::get_erasable, "1 (true) if drive is erasable")
 			;
 
 		registry_.add_human_string()
@@ -315,10 +375,6 @@ struct filter_obj_handler : public native_context {
 };
 
 typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter_type;
-
-boost::shared_ptr<filter_obj> get_details(const drive_container &drive, bool ignore_errors) {
-	return boost::make_shared<filter_obj>(drive);
-}
 
 class volume_helper {
 	typedef HANDLE(WINAPI *typeFindFirstVolumeW)(__out_ecount(cchBufferLength) LPWSTR lpszVolumeName, __in DWORD cchBufferLength);
@@ -419,10 +475,57 @@ public:
 		}
 	}
 
-	bool getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs) {
+	bool getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs, drive_container::drive_flags &flags) {
 		hlp::tchar_buffer volumeName(1024);
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
+		std::wstring vfile = volume;
+		if (vfile[vfile.size() - 1] == '\\')
+			vfile = vfile.substr(0, vfile.size() - 1);
+
+		HANDLE hDevice = CreateFile(vfile.c_str(), 0, 0, 0, OPEN_EXISTING, FILE_FLAG_NO_BUFFERING, 0);
+		if (hDevice != INVALID_HANDLE_VALUE) {
+
+			DWORD ReturnedSize;
+			STORAGE_HOTPLUG_INFO Info = { 0 };
+
+			if (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_HOTPLUG_INFO, 0, 0, &Info, sizeof(Info), &ReturnedSize, NULL)) {
+				if (Info.MediaRemovable)
+					flags |= drive_container::df_removable;
+				if (Info.DeviceHotplug)
+					flags |= drive_container::df_hotplug;
+			}
+
+			hlp::buffer<TCHAR, GET_MEDIA_TYPES*> mediaType(2048);
+			while (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES_EX, 0, 0, mediaType.get(), mediaType.size(), &ReturnedSize, NULL) == FALSE && GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+				mediaType.resize(mediaType.size() * 2);
+			}
+
+			if (mediaType.get()->MediaInfoCount > 0) {
+				DWORD Characteristics = 0;
+				// Supports: Disk, CD, DVD
+				if (mediaType.get()->DeviceType == FILE_DEVICE_DISK || mediaType.get()->DeviceType == FILE_DEVICE_CD_ROM || mediaType.get()->DeviceType == FILE_DEVICE_DVD) {
+					if (Info.MediaRemovable) {
+						Characteristics = mediaType.get()->MediaInfo[0].DeviceSpecific.RemovableDiskInfo.MediaCharacteristics;
+					} else {
+						Characteristics = mediaType.get()->MediaInfo[0].DeviceSpecific.DiskInfo.MediaCharacteristics;
+					}
+
+					if (Characteristics & MEDIA_CURRENTLY_MOUNTED)
+						flags |= drive_container::df_mounted;
+					if (Characteristics & (MEDIA_READ_ONLY | MEDIA_READ_WRITE))
+						flags |= drive_container::df_readable;
+					if (((Characteristics & MEDIA_READ_WRITE) != 0 || (Characteristics & MEDIA_WRITE_ONCE) != 0) && (Characteristics & MEDIA_WRITE_PROTECTED) == 0 && (Characteristics & MEDIA_READ_ONLY) == 0)
+						flags |= drive_container::df_writable;
+					if (Characteristics & MEDIA_ERASEABLE)
+						flags |= drive_container::df_erasable;
+				}
+			}
+			CloseHandle(hDevice);
+		}
+
+
+
 
 		if (!GetVolumeInformation(volume.c_str(), volumeName.get(), volumeName.size(),
 			NULL, &maximumComponentLength, &fileSystemFlags, fileSysName.get(), static_cast<DWORD>(fileSysName.size()))) {
@@ -505,26 +608,21 @@ public:
 		BOOL bFlag = TRUE;
 		while (bFlag) {
 			std::wstring name, fs;
-			bool is_valid = getVolumeInformation(volume, name, fs);
+			drive_container::drive_flags flags = drive_container::df_none;
+			bool is_valid = getVolumeInformation(volume, name, fs, flags);
 
 			bool found_mp = false;
 			std::string title = utf8::cvt<std::string>(name);
 			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, flags));
 				found_mp = true;
 			}
 			if (!found_mp && is_valid)
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false, flags));
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		FindVolumeClose(hVol);
 		return ret;
-	}
-
-	std::wstring get_title(std::wstring volume) {
-		std::wstring title, fs;
-		getVolumeInformation(volume, title, fs);
-		return title;
 	}
 };
 
@@ -549,7 +647,18 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
 	}
 }
 
-void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper helper) {
+drive_container get_dc_from_string(std::wstring folder, volume_helper &helper) {
+	std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(folder);
+	std::string title = "";
+	drive_container::drive_flags flags = drive_container::df_none;
+	if (!volume.empty()) {
+		std::wstring wtitle, wfs;
+		helper.getVolumeInformation(volume, wtitle, wfs, flags);
+		title = utf8::cvt<std::string>(wtitle);
+	}
+	return drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(folder), title, true, flags);
+}
+void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper &helper) {
 	DWORD bufSize = GetLogicalDriveStrings(0, NULL) + 5;
 	hlp::tchar_buffer buffer(bufSize);
 
@@ -560,11 +669,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 				break;
 			std::string drive = utf8::cvt<std::string>(drv);
 			if (std::find(exclude_drives.begin(), exclude_drives.end(), drive) == exclude_drives.end()) {
-				std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(drv);
-				std::string title = "";
-				if (!volume.empty())
-					title = utf8::cvt<std::string>(helper.get_title(volume));
-				add_missing(drives, exclude_drives, drive_container(utf8::cvt<std::string>(volume), drive, title, true));
+				add_missing(drives, exclude_drives, get_dc_from_string(drv, helper));
 			}
 			i += drv.size()+1;
 		}
@@ -585,10 +690,10 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 			find_all_volumes(ret, found_drives, helper);
 			find_all_drives(ret, found_drives, helper);
 		} else {
+			std::wstring drive = utf8::cvt<std::wstring>(d);
 			if (d.length() == 1)
-				ret.push_back(drive_container(d + ":", d , "", true));
-			else
-				ret.push_back(drive_container(d, d, "", true));
+				drive = drive + _T(":");
+			ret.push_back(get_dc_from_string(drive, helper));
 		}
 	}
 	return ret;
@@ -603,15 +708,15 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	double magic;
 
 	filter_type filter;
-	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status} ${problem_list}", filter.get_format_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
+	filter_helper.add_options("used > 80%", "used > 90%", "mounted = 1", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_syntax("${status} ${problem_list}", filter.get_filter_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives),
 			"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")
 		("ignore-unreadable", po::bool_switch(&ignore_unreadable)->implicit_value(true),
-			"Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
+			"DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.\nFor instance Microsoft Office creates a drive which cannot be read by normal users.")
 		("mounted", po::bool_switch(&only_mounted)->implicit_value(true),
-			"Show only mounted rives i.e. drives which have a mount point.")
+			"DEPRECATED (this is now default) Show only mounted rives i.e. drives which have a mount point.")
 		("magic", po::value<double>(&magic), "Magic number for use with scaling drive sizes.")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of drives not to check")
 		("total", po::bool_switch(&total), "Include the total of all matching drives")
@@ -622,9 +727,14 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		return;
 
 	if (only_mounted) {
-		if (!filter_helper.data.filter_string.empty())
+		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
 			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add mounted = 1 to your filter.");
 		filter_helper.data.filter_string = "mounted = 1";
+	}
+	if (ignore_unreadable) {
+		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
+			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add readable = 0 to your filter.");
+		filter_helper.data.filter_string = "mounted = 1 and readable = 1";
 	}
 
 	if (!filter_helper.build_filter(filter))
@@ -650,7 +760,8 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	}
 	if (!buffer.empty())
 		excludes.insert(excludes.end(), buffer.begin(), buffer.end());
-	boost::shared_ptr<filter_obj> total_obj(new filter_obj(drive_container("total", "total", "total", true)));
+	drive_container total_dc("total", "total", "total", true, drive_container::df_none);
+	boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
 	if (total)
 		total_obj->make_total();
 
@@ -659,7 +770,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 			|| std::find(excludes.begin(), excludes.end(), drive.name) != excludes.end()
 			|| std::find(excludes.begin(), excludes.end(), drive.letter_only) != excludes.end())
 			continue;
-		boost::shared_ptr<filter_obj> obj = get_details(drive, ignore_unreadable);
+		boost::shared_ptr<filter_obj> obj(new filter_obj(drive));
 		filter.match(obj);
 		if (filter.has_errors())
 			return nscapi::protobuf::functions::set_response_bad(*response, "Filter processing failed: " + filter.get_errors());

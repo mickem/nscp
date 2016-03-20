@@ -143,7 +143,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${list}", filter.get_format_syntax(), "%(line)", "", "", "");
+	filter_helper.add_syntax("${list}", filter.get_filter_syntax(), "%(line)", "", "", "");
 	filter_helper.get_desc().add_options()
 		("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
 		("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")

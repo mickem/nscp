@@ -406,37 +406,21 @@ namespace parsers {
 			long long get_count_total() {
 				return count_total;
 			}
-			std::string get_format_syntax() const {
-				return
-					"${count}\tNumber of items matching the filter\n"
-					"${total}\t Total number of items\n"
-					"${ok_count}\t Number of items matched the ok criteria\n"
-					"${warn_count}\t Number of items matched the warning criteria\n"
-					"${crit_count}\t Number of items matched the critical criteria\n"
-					"${problem_count}\t Number of items matched either warning or critical criteria\n"
-					"${list}\t A list of all items which matched the filter\n"
-					"${ok_list}\t A list of all items which matched the ok criteria\n"
-					"${warn_list}\t A list of all items which matched the warning criteria\n"
-					"${crit_list}\t A list of all items which matched the critical criteria\n"
-					"${problem_list}\t A list of all items which matched either the critical or the warning criteria\n"
-					"${detail_list}\t A special list with critical, then warning and fainally ok\n"
-					"${status}\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
-			}
 			std::string get_filter_syntax() const {
 				return
-					"count\tNumber of items matching the filter\n"
-					"total\t Total number of items\n"
-					"ok_count\t Number of items matched the ok criteria\n"
-					"warn_count\t Number of items matched the warning criteria\n"
-					"crit_count\t Number of items matched the critical criteria\n"
-					"problem_count\t Number of items matched either warning or critical criteria\n"
-					"list\t A list of all items which matched the filter\n"
-					"ok_list\t A list of all items which matched the ok criteria\n"
-					"warn_list\t A list of all items which matched the warning criteria\n"
-					"crit_list\t A list of all items which matched the critical criteria\n"
-					"problem_list\t A list of all items which matched either the critical or the warning criteria\n"
-					"detail_list\t A special list with critical, then warning and fainally ok\n"
-					"status\t The returned status (OK/WARN/CRIT/UNKNOWN)\n";
+					"count\tNumber of items matching the filter. Common option for all checks.\n"
+					"total\t Total number of items. Common option for all checks.\n"
+					"ok_count\t Number of items matched the ok criteria. Common option for all checks.\n"
+					"warn_count\t Number of items matched the warning criteria. Common option for all checks.\n"
+					"crit_count\t Number of items matched the critical criteria. Common option for all checks.\n"
+					"problem_count\t Number of items matched either warning or critical criteria. Common option for all checks.\n"
+					"list\t A list of all items which matched the filter. Common option for all checks.\n"
+					"ok_list\t A list of all items which matched the ok criteria. Common option for all checks.\n"
+					"warn_list\t A list of all items which matched the warning criteria. Common option for all checks.\n"
+					"crit_list\t A list of all items which matched the critical criteria. Common option for all checks.\n"
+					"problem_list\t A list of all items which matched either the critical or the warning criteria. Common option for all checks.\n"
+					"detail_list\t A special list with critical, then warning and finally ok. Common option for all checks.\n"
+					"status\t The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.\n";
 			}
 
 			bool has_variable(const std::string &name) {
@@ -458,13 +442,6 @@ namespace parsers {
 
 			registry_type registry_;
 
-			std::string get_format_syntax() const {
-				std::stringstream ss;
-				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {
-					ss << "%(" << var.first << ")\t" << var.second->description << "\n";
-				}
-				return ss.str();
-			}
 			std::string get_filter_syntax() const {
 				std::stringstream ss;
 				BOOST_FOREACH(const typename registry_type::variable_type::value_type &var, registry_.variables) {

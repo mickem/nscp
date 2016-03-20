@@ -14,6 +14,9 @@
 	"commands" : {
 		"check_nscp" : { 
 			"description" : "Check the internal healt of NSClient++."
+			},
+		"check_nscp_version" : { 
+			"description" : "Check the version of NSClient++ which is used."
 			}
 	},
 

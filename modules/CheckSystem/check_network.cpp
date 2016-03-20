@@ -177,7 +177,7 @@ namespace network_check {
 
 			filter_type filter;
 			filter_helper.add_options("total > 10000", "total > 100000", "", filter.get_filter_syntax(), "critical");
-			filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${name} >${sent} <${received} bps", "${name}", "", "%(status): Network interfaces seem ok.");
+			filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${name} >${sent} <${received} bps", "${name}", "", "%(status): Network interfaces seem ok.");
 
 			if (!filter_helper.parse_options())
 				return;
