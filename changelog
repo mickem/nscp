@@ -7,6 +7,15 @@
  * Improved filter documentation
 
 2016-03-16 Michael Medin
+ * Updated docs
+ * Improved error handling in filter framework    
+ * Fixed invalid module description    
+ * Improved connection errors when socket has been closed on remote side #255    
+ * Fixed sample timeout script (check_60s.bat)    
+ * Fixed #231 added filter on folder and file:
+   check_files path=c:/source/py "filter=type = 'file'" show-all "detail-syntax=%(path)/%(file): %(type)"
+ 
+2016-03-12 Michael Medin
  * Fix for #215 added new option to check_tasksched to force using the old api
    check_tasksched force-old
  * #215 Improved error reporting in check_taskshed
