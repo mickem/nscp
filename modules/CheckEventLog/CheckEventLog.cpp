@@ -427,8 +427,8 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	filter_type filter;
 	filter_helper.set_default_perf_config("level(ignored:true)");
 	filter_helper.add_options("level = 'warning' or problem_count > 0", "level in ('error', 'critical')", "level in ('warning', 'error', 'critical')", filter.get_filter_syntax(), "ok");
-	filter_helper.add_index(filter.get_format_syntax(), "");
-	filter_helper.add_syntax("${status}: ${count} message(s) ${problem_list}", filter.get_format_syntax(), "${file} ${source} (${message})", "${file}_${source}", "%(status): No entries found", "%(status): Event log seems fine");
+	filter_helper.add_index(filter.get_filter_syntax(), "");
+	filter_helper.add_syntax("${status}: ${count} message(s) ${problem_list}", filter.get_filter_syntax(), "${file} ${source} (${message})", "${file}_${source}", "%(status): No entries found", "%(status): Event log seems fine");
 	filter_helper.get_desc().add_options()
 		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
 			"In other words if one file contains an error the entire check will result in error.")

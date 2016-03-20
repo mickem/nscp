@@ -212,9 +212,6 @@ namespace modern_filter {
 		std::string get_filter_syntax() const {
 			return context->get_filter_syntax() + summary.get_filter_syntax();
 		}
-		std::string get_format_syntax() const {
-			return context->get_format_syntax() + summary.get_format_syntax();
-		}
 		bool build_index(const std::string &unqie, std::string &gerror) {
 			std::string lerror;
 			if (!renderer_unqiue.parse(context, unqie, lerror)) {

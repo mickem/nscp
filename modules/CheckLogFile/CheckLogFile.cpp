@@ -88,7 +88,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax());
-	filter_helper.add_syntax("${count}/${total} (${problem_list})", filter.get_format_syntax(), "${column1}", "${column1}", "%(status): Nothing found", "");
+	filter_helper.add_syntax("${count}/${total} (${problem_list})", filter.get_filter_syntax(), "${column1}", "${column1}", "%(status): Nothing found", "");
 	filter_helper.get_desc().add_options()
 		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),

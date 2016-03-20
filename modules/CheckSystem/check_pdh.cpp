@@ -117,7 +117,7 @@ namespace check_pdh {
 
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-		filter_helper.add_syntax("${status}: ${list}", filter.get_format_syntax(), "${alias} = ${value}", "${alias}", "", "");
+		filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${alias} = ${value}", "${alias}", "", "");
 		filter_helper.get_desc().add_options()
 			("counter", po::value<std::vector<std::string>>(&counters), "Performance counter to check")
 			("expand-index", po::bool_switch(&expand_index), "Expand indexes in counter strings")
