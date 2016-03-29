@@ -32,6 +32,9 @@ namespace tasksched_filter {
 				date_ = date;
 				never_ = false;
 			}
+			bool has_run() const {
+				return !never_;
+			}
 			operator unsigned long long() {
 				if (never_ || date_ == 0)
 					return 0;
@@ -171,6 +174,7 @@ namespace tasksched_filter {
 		virtual std::string get_status_s() = 0;
 		virtual long long get_most_recent_run_time() = 0;
 		virtual std::string get_most_recent_run_time_s() = 0;
+		virtual bool get_has_run() = 0;
 	};
 
 	struct old_filter_obj : public filter_obj {
@@ -241,6 +245,10 @@ namespace tasksched_filter {
 		std::string get_most_recent_run_time_s() {
 			return format::format_date(get_most_recent_run_time());
 		}
+		bool get_has_run() {
+			return most_recent_run_time(task, title).has_run();
+		}
+
 	};
 
 	struct new_filter_obj : public filter_obj {
@@ -317,6 +325,9 @@ namespace tasksched_filter {
 		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
 		std::string get_most_recent_run_time_s() {
 			return format::format_date(get_most_recent_run_time());
+		}
+		bool get_has_run() {
+			return most_recent_run_time(task, get_title()).has_run();
 		}
 
 		long long convert_runtime(std::string &) {

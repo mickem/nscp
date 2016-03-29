@@ -65,6 +65,7 @@ tasksched_filter::filter_obj_handler::filter_obj_handler() {
 		("priority", boost::bind(&filter_obj::get_priority, _1), "Retrieves the priority for the task.")
 		("task_status", type_custom_state, boost::bind(&filter_obj::get_status, _1), "Retrieves the status of the work item.")
 		("most_recent_run_time", type_date, boost::bind(&filter_obj::get_most_recent_run_time, _1), "Retrieves the most recent time the work item began running.")
+		("has_run", type_bool, boost::bind(&filter_obj::get_has_run, _1), "True if the task has ever executed.")
 		;
 
 	registry_.add_human_string()
