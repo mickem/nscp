@@ -398,9 +398,17 @@ namespace parsers {
 						if (type == type_size) {
 							return factory::create_int(parse_size(v->get_int_value(errors), u->get_string_value(errors)));
 						}
-						errors->error("m:Failed to handle type: " + helpers::type_to_string(type) + " " + v->to_string() + ", " + u->to_string());
+						errors->error("could not convert to " + helpers::type_to_string(type) + " from " + v->to_string() + ", " + u->to_string());
 						return factory::create_false();
 					} else {
+						if (helpers::type_is_int(type)) {
+							if (v->is_float())
+								return factory::create_int(v->get_float_value(errors));
+						}
+						if (helpers::type_is_float(type)) {
+							if (v->is_int())
+								return factory::create_float(v->get_int_value(errors));
+						}
 						return v;
 					}
 				}

@@ -42,10 +42,10 @@ namespace parsers {
 
 			qi::rule<iterator_type, node_type(), ascii::space_type>  expression, and_expr, not_expr, cond_expr, identifier_expr, identifier, list_expr;
 			qi::rule<iterator_type, std::string(), ascii::space_type> string_literal, variable_name, string_literal_ex;
-			qi::rule<iterator_type, long long(), ascii::space_type> number;
 			qi::rule<iterator_type, operators(), ascii::space_type> op, bitop;
 			qi::rule<iterator_type, list_helper<std::string>(), ascii::space_type> string_list;
-			qi::rule<iterator_type, list_helper<long long>(), ascii::space_type> number_list;
+			qi::rule<iterator_type, list_helper<long long>(), ascii::space_type> int_list;
+			qi::rule<iterator_type, list_helper<double>(), ascii::space_type> float_list;
 		};
 	}
 }

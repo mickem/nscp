@@ -25,12 +25,16 @@ namespace parsers {
 			std::string name;
 			value_type type;
 			std::string description;
-			typedef boost::shared_ptr<parsers::where::int_performance_generator_interface<T> > perf_generator_type;
+			typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, long long> > int_perf_generator_type;
+			typedef boost::shared_ptr<parsers::where::number_performance_generator_interface<T, double> > float_perf_generator_type;
 			typedef boost::function<std::string(T, evaluation_context)> str_fun_type;
 			typedef boost::function<long long(T, evaluation_context)> int_fun_type;
+			typedef boost::function<double(T, evaluation_context)> float_fun_type;
 			str_fun_type s_function;
 			int_fun_type i_function;
-			std::list<perf_generator_type> perf;
+			float_fun_type f_function;
+			std::list<int_perf_generator_type> int_perf;
+			std::list<float_perf_generator_type> float_perf;
 			bool add_default_perf;
 			void set_no_perf() { add_default_perf = false; }
 
@@ -52,13 +56,14 @@ namespace parsers {
 			std::string description;
 			typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> generic_fun_type;
 			generic_fun_type function;
+
 			value_type type;
 			filter_function(std::string name) : name(name) {}
 		};
 
 		template<class T>
 		struct registry_adders_variables_int {
-			typedef typename filter_variable<T>::perf_generator_type perf_generator_type;
+			typedef typename filter_variable<T>::int_perf_generator_type perf_generator_type;
 
 			registry_adders_variables_int(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
 
@@ -69,27 +74,27 @@ namespace parsers {
 				add_variables(var);
 				return *this;
 			}
-			registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type fun, typename filter_variable<T>::str_fun_type s_fun, std::string description) {
+			registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun, typename filter_variable<T>::str_fun_type s_fun, std::string description) {
 				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
-				var->i_function = fun;
+				var->i_function = i_fun;
 				var->s_function = s_fun;
 				add_variables(var);
 				return *this;
 			}
-			registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type fun, std::string description) {
+			registry_adders_variables_int& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
 				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
-				var->i_function = fun;
+				var->i_function = i_fun;
 				add_variables(var);
 				return *this;
 			}
-			registry_adders_variables_int& operator()(std::string key, typename filter_variable<T>::int_fun_type fun, std::string description) {
+			registry_adders_variables_int& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun, std::string description) {
 				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_int, description));
-				var->i_function = fun;
+				var->i_function = i_fun;
 				add_variables(var);
 				return *this;
 			}
 			registry_adders_variables_int& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(perf_generator_type(new parsers::where::simple_int_performance_generator<T>(unit, prefix, suffix)));
+				get_last()->int_perf.push_back(perf_generator_type(new parsers::where::simple_number_performance_generator<T, long long>(unit, prefix, suffix)));
 				return *this;
 			}
 			registry_adders_variables_int& no_perf() {
@@ -98,21 +103,91 @@ namespace parsers {
 			}
 			typedef boost::function<long long(T, evaluation_context)> maxfun_type;
 			registry_adders_variables_int& add_percentage(maxfun_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(perf_generator_type(new parsers::where::percentage_int_performance_generator<T>(maxfun, prefix, suffix)));
+				get_last()->int_perf.push_back(perf_generator_type(new parsers::where::percentage_int_performance_generator<T>(maxfun, prefix, suffix)));
 				return *this;
 			}
 
 			typedef boost::function<long long(T, evaluation_context)> scale_type;
 			registry_adders_variables_int& add_scaled_byte(std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(prefix, suffix)));
+				get_last()->int_perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(prefix, suffix)));
 				return *this;
 			}
 			registry_adders_variables_int& add_scaled_byte(scale_type minfun, scale_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(minfun, maxfun, prefix, suffix)));
+				get_last()->int_perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(minfun, maxfun, prefix, suffix)));
 				return *this;
 			}
 			registry_adders_variables_int& add_scaled_byte(scale_type maxfun, std::string prefix = "", std::string suffix = "") {
-				get_last()->perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(maxfun, prefix, suffix)));
+				get_last()->int_perf.push_back(perf_generator_type(new parsers::where::scaled_byte_int_performance_generator<T>(maxfun, prefix, suffix)));
+				return *this;
+			}
+
+		private:
+			boost::shared_ptr<filter_variable<T> > get_last();
+			void add_variables(boost::shared_ptr<filter_variable<T> > d);
+			function_registry<T>* owner;
+			bool human;
+		};
+
+		template<class T>
+		struct registry_adders_variables_float {
+			typedef typename filter_variable<T>::float_perf_generator_type perf_generator_type;
+
+			registry_adders_variables_float(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
+
+			registry_adders_variables_float& operator()(std::string key, value_type type, typename filter_variable<T>::float_fun_type  f_fun, std::string description) {
+				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
+				var->f_function = f_fun;
+				add_variables(var);
+				return *this;
+			}
+			registry_adders_variables_float& operator()(std::string key, typename filter_variable<T>::float_fun_type  f_fun, std::string description) {
+				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_float, description));
+				var->f_function = f_fun;
+				add_variables(var);
+				return *this;
+			}
+			registry_adders_variables_float& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
+				get_last()->float_perf.push_back(perf_generator_type(new parsers::where::simple_number_performance_generator<T, double>(unit, prefix, suffix)));
+				return *this;
+			}
+			registry_adders_variables_float& no_perf() {
+				get_last()->set_no_perf();
+				return *this;
+			}
+
+		private:
+			boost::shared_ptr<filter_variable<T> > get_last();
+			void add_variables(boost::shared_ptr<filter_variable<T> > d);
+			function_registry<T>* owner;
+			bool human;
+		};
+
+		template<class T>
+		struct registry_adders_variables_number {
+			typedef typename filter_variable<T>::float_perf_generator_type perf_generator_type;
+
+			registry_adders_variables_number(function_registry<T>* owner_, bool human = false) : owner(owner_), human(human) {}
+
+			registry_adders_variables_number& operator()(std::string key, value_type type, typename filter_variable<T>::int_fun_type i_fun, typename filter_variable<T>::float_fun_type f_fun, std::string description) {
+				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type, description));
+				var->i_function = i_fun;
+				var->f_function = f_fun;
+				add_variables(var);
+				return *this;
+			}
+			registry_adders_variables_number& operator()(std::string key, typename filter_variable<T>::int_fun_type i_fun, typename filter_variable<T>::float_fun_type f_fun, std::string description) {
+				boost::shared_ptr<filter_variable<T> > var(new filter_variable<T>(key, type_float, description));
+				var->i_function = i_fun;
+				var->f_function = f_fun;
+				add_variables(var);
+				return *this;
+			}
+			registry_adders_variables_number& add_perf(std::string unit = "", std::string prefix = "", std::string suffix = "") {
+				get_last()->float_perf.push_back(perf_generator_type(new parsers::where::simple_number_performance_generator<T, double>(unit, prefix, suffix)));
+				return *this;
+			}
+			registry_adders_variables_number& no_perf() {
+				get_last()->set_no_perf();
 				return *this;
 			}
 
@@ -203,6 +278,12 @@ namespace parsers {
 			registry_adders_variables_int<T> add_int() {
 				return registry_adders_variables_int<T>(this);
 			}
+			registry_adders_variables_number<T> add_number() {
+				return registry_adders_variables_number<T>(this);
+			}
+			registry_adders_variables_float<T> add_float() {
+				return registry_adders_variables_float<T>(this);
+			}
 			registry_adders_variables_string<T> add_string() {
 				return registry_adders_variables_string<T>(this);
 			}
@@ -279,6 +360,14 @@ namespace parsers {
 
 		template<class T>
 		void registry_adders_variables_int<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
+			owner->add(d, human);
+		}
+		template<class T>
+		void registry_adders_variables_float<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
+			owner->add(d, human);
+		}
+		template<class T>
+		void registry_adders_variables_number<T>::add_variables(boost::shared_ptr<filter_variable<T> > d) {
 			owner->add(d, human);
 		}
 		template<class T>
@@ -437,6 +526,7 @@ namespace parsers {
 			typedef TObject object_type;
 			typedef boost::function<std::string(object_type, evaluation_context)> bound_string_type;
 			typedef boost::function<long long(object_type, evaluation_context)> bound_int_type;
+			typedef boost::function<double(object_type, evaluation_context)> bound_float_type;
 			typedef boost::function<node_type(const value_type, evaluation_context, const node_type)> bound_function_type;
 			typedef function_registry<object_type> registry_type;
 
@@ -469,13 +559,22 @@ namespace parsers {
 					boost::shared_ptr<filter_variable<object_type> > var = registry_.get_variable(name, human_readable);
 					if (var) {
 						if (var->i_function) {
-							if (var->perf.empty() && var->add_default_perf) {
-								typename filter_variable<object_type>::perf_generator_type gen(new parsers::where::simple_int_performance_generator<object_type>("", "", "_" + var->name));
-								var->perf.push_back(gen);
+							if (var->int_perf.empty() && var->add_default_perf) {
+								typename filter_variable<object_type>::int_perf_generator_type gen(new parsers::where::simple_number_performance_generator<object_type, long long>("", "", "_" + var->name));
+								var->int_perf.push_back(gen);
 							}
 							if (var->s_function)
-								return node_type(new dual_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->s_function, var->perf));
-							return node_type(new int_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->perf));
+								return node_type(new dual_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->s_function, var->int_perf));
+							if (var->f_function)
+								return node_type(new dual_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->f_function, var->int_perf));
+							return node_type(new int_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->int_perf));
+						}
+						if (var->f_function) {
+							if (var->float_perf.empty() && var->add_default_perf) {
+								typename filter_variable<object_type>::float_perf_generator_type gen(new parsers::where::simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
+								var->float_perf.push_back(gen);
+							}
+							return node_type(new float_variable_node<filter_handler_impl>(name, var->type, var->f_function, var->float_perf));
 						}
 						if (var->s_function)
 							return node_type(new str_variable_node<filter_handler_impl>(name, var->type, var->s_function));
@@ -519,31 +618,31 @@ namespace parsers {
 			typedef boost::unordered_map<std::string, perf_object_options_type> perf_options_type;
 			perf_options_type perf_options;
 
-			virtual bool has_performance_config_for_object(const std::string object) const {
-				return perf_options.find(object) != perf_options.end();
+			virtual bool has_performance_config_for_object(const std::string obj) const {
+				return perf_options.find(obj) != perf_options.end();
 			}
-			virtual std::string get_performance_config_key(const std::string prefix, const std::string object, const std::string suffix, const std::string key, const std::string v) const {
+			virtual std::string get_performance_config_key(const std::string prefix, const std::string obj, const std::string suffix, const std::string key, const std::string v) const {
 				std::string value = v;
 				bool has_p = !prefix.empty();
 				bool has_s = !suffix.empty();
-				if (has_p&&has_s&&get_performance_config_value(prefix + "." + object + "." + suffix, key, value))
+				if (has_p&&has_s&&get_performance_config_value(prefix + "." + obj + "." + suffix, key, value))
 					return value;
-				if (has_p&&get_performance_config_value(prefix + "." + object, key, value))
+				if (has_p&&get_performance_config_value(prefix + "." + obj, key, value))
 					return value;
-				if (has_s&&get_performance_config_value(object + "." + suffix, key, value))
+				if (has_s&&get_performance_config_value(obj + "." + suffix, key, value))
 					return value;
 				if (has_p&&get_performance_config_value(prefix, key, value))
 					return value;
 				if (has_s&&get_performance_config_value(suffix, key, value))
 					return value;
-				if (get_performance_config_value(object, key, value))
+				if (get_performance_config_value(obj, key, value))
 					return value;
 				if (get_performance_config_value("*", key, value))
 					return value;
 				return value;
 			}
-			virtual bool get_performance_config_value(const std::string object, const std::string key, std::string &value) const {
-				perf_options_type::const_iterator cit = perf_options.find(object);
+			virtual bool get_performance_config_value(const std::string obj, const std::string key, std::string &value) const {
+				perf_options_type::const_iterator cit = perf_options.find(obj);
 				if (cit == perf_options.end())
 					return false;
 				perf_object_options_type::const_iterator cit2 = cit->second.find(key);

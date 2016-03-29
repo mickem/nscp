@@ -59,6 +59,12 @@ namespace parsers {
 			value_container get_value(evaluation_context context, value_type type) const;
 			std::string to_string() const;
 			value_type infer_type(object_converter converter, value_type vt) {
+				if (helpers::type_is_int(vt))
+					return type_int;
+				if (helpers::type_is_float(vt)) {
+					set_type(vt);
+					return vt;
+				}
 				return type_int;
 			}
 			value_type infer_type(object_converter converter) {
@@ -71,6 +77,13 @@ namespace parsers {
 			value_container get_value(evaluation_context context, value_type type) const;
 			std::string to_string() const;
 			value_type infer_type(object_converter converter, value_type vt) {
+				if (helpers::type_is_float(vt)) {
+					return type_float;
+				}
+				if (helpers::type_is_int(vt)) {
+					set_type(vt);
+					return vt;
+				}
 				return type_float;
 			}
 			value_type infer_type(object_converter converter) {

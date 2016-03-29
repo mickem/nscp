@@ -80,6 +80,8 @@ namespace modern_filter {
 					ret += e.origin.name;
 				else if (e.node->is_int())
 					ret += strEx::s::xtos(e.node->get_int_value(context));
+				else if (e.node->is_float())
+					ret += strEx::s::xtos(e.node->get_float_value(context));
 				else
 					ret += e.node->get_string_value(context);
 			}

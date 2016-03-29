@@ -47,6 +47,14 @@ namespace parsers {
 			}
 		};
 
+		template <typename T>
+		struct strict_real_policies : qi::real_policies<T> {
+			static bool const expect_dot = true;
+		};
+
+		qi::real_parser<double, strict_real_policies<double> > real;
+
+
 		///////////////////////////////////////////////////////////////////////////
 		//  Our calculator grammar
 		///////////////////////////////////////////////////////////////////////////
@@ -97,73 +105,76 @@ namespace parsers {
 				| variable_name[_val = phoenix::bind(&factory::create_variable, obj_factory, _1)]
 				| string_literal[_val = phoenix::bind(&factory::create_string, _1)]
 				| qi::lexeme[
-					(int_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_int(_1, _2)]
+					(real >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_float(_1, _2)]
 				]
 				| qi::lexeme[
-					(double_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_float(_1, _2)]
+					(int_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_int(_1, _2)]
 				]
-						| number[_val = phoenix::bind(&factory::create_int, _1)]
-						;
+				| real[_val = phoenix::bind(&factory::create_float, _1)]
+				| int_[_val = phoenix::bind(&factory::create_int, _1)]
+				;
 
-					list_expr
-						= string_list[_val = phoenix::bind(&list_helper<std::string>::make_node, _1)]
-						| number_list[_val = phoenix::bind(&list_helper<long long>::make_node, _1)]
-						;
+			list_expr
+				= string_list[_val = phoenix::bind(&list_helper<std::string>::make_node, _1)]
+				| float_list[_val = phoenix::bind(&list_helper<double>::make_node, _1)]
+				| int_list[_val = phoenix::bind(&list_helper<long long>::make_node, _1)]
+				;
 
-					string_list
-						= string_literal[_val = _1]
-						>> *(',' >> string_literal)[_val += _1]
-						| variable_name[_val = _1]
-						>> *(',' >> variable_name)[_val += _1]
-						;
+			string_list
+				= string_literal[_val = _1]
+				>> *(',' >> string_literal)[_val += _1]
+				| variable_name[_val = _1]
+				>> *(',' >> variable_name)[_val += _1]
+				;
 
-					number_list
-						= number[_val = _1]
-						>> *(',' >> number)[_val += _1]
-						;
+			float_list
+				= real[_val = _1]
+				>> *(',' >> double_)[_val += _1]
+				;
 
-					op = qi::lit("<=")[_val = op_le]
-						| qi::lit("<")[_val = op_lt]
-						| qi::lit("=")[_val = op_eq]
-						| qi::lit("!=")[_val = op_ne]
-						| qi::lit(">=")[_val = op_ge]
-						| qi::lit(">")[_val = op_gt]
-						| ascii::no_case[qi::lit("le")][_val = op_le]
-						| ascii::no_case[qi::lit("lt")][_val = op_lt]
-						| ascii::no_case[qi::lit("eq")][_val = op_eq]
-						| ascii::no_case[qi::lit("ne")][_val = op_ne]
-						| ascii::no_case[qi::lit("ge")][_val = op_ge]
-						| ascii::no_case[qi::lit("gt")][_val = op_gt]
-						| ascii::no_case[qi::lit("like")][_val = op_like]
-						| ascii::no_case[qi::lit("regexp")][_val = op_regexp]
-						| ascii::no_case[qi::lit("not like")][_val = op_not_like]
-						| ascii::no_case[qi::lit("not regexp")][_val = op_not_regexp]
-						;
+			int_list
+				= int_[_val = _1]
+				>> *(',' >> int_)[_val += _1]
+				;
 
-					bitop = qi::lit("&")[_val = op_binand]
-						| qi::lit("|")[_val = op_binor]
-						;
+			op = qi::lit("<=")[_val = op_le]
+				| qi::lit("<")[_val = op_lt]
+				| qi::lit("=")[_val = op_eq]
+				| qi::lit("!=")[_val = op_ne]
+				| qi::lit(">=")[_val = op_ge]
+				| qi::lit(">")[_val = op_gt]
+				| ascii::no_case[qi::lit("le")][_val = op_le]
+				| ascii::no_case[qi::lit("lt")][_val = op_lt]
+				| ascii::no_case[qi::lit("eq")][_val = op_eq]
+				| ascii::no_case[qi::lit("ne")][_val = op_ne]
+				| ascii::no_case[qi::lit("ge")][_val = op_ge]
+				| ascii::no_case[qi::lit("gt")][_val = op_gt]
+				| ascii::no_case[qi::lit("like")][_val = op_like]
+				| ascii::no_case[qi::lit("regexp")][_val = op_regexp]
+				| ascii::no_case[qi::lit("not like")][_val = op_not_like]
+				| ascii::no_case[qi::lit("not regexp")][_val = op_not_regexp]
+				;
 
-					number
-						= int_[_val = _1]
-						| double_[_val = _1]
-						;
-					variable_name
-						= qi::lexeme[
-							(ascii::alpha)[_val += _1]
-								>> *(ascii::alnum | ascii::char_('_'))[_val += _1]
-						]
-						;
-							string_literal
-								= qi::lexeme['\''
-								>> +(ascii::char_ - '\'')[_val += _1]
-								>> '\'']
-								;
-							string_literal_ex
-								= qi::lexeme['('
-								>> +(ascii::char_ - ')')[_val += _1]
-								>> ')']
-								;
+			bitop = qi::lit("&")[_val = op_binand]
+				| qi::lit("|")[_val = op_binor]
+				;
+
+			variable_name
+				= qi::lexeme[
+					(ascii::alpha)[_val += _1]
+						>> *(ascii::alnum | ascii::char_('_'))[_val += _1]
+				]
+				;
+			string_literal
+				= qi::lexeme['\''
+				>> +(ascii::char_ - '\'')[_val += _1]
+				>> '\'']
+				;
+			string_literal_ex
+				= qi::lexeme['('
+				>> +(ascii::char_ - ')')[_val += _1]
+				>> ')']
+				;
 
 							// 					qi::on_error<qi::fail>( expression , std::wcout
 							// 						<< phoenix::val(_T("Error! Expecting "))

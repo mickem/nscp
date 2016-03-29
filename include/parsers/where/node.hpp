@@ -218,9 +218,18 @@ namespace parsers {
 			};
 			std::string alias;
 			std::string unit;
-			boost::optional<perf_value<long long> > value_int;
-			boost::optional<perf_value<double> > value_double;
-			boost::optional<perf_value<std::string> > value_string;
+			boost::optional<perf_value<long long> > int_value;
+			boost::optional<perf_value<double> > float_value;
+			boost::optional<perf_value<std::string> > string_value;
+			void set(boost::optional<perf_value<long long> > v) {
+				int_value = v;
+			}
+			void set(boost::optional<perf_value<double> > v) {
+				float_value = v;
+			}
+			void set(boost::optional<perf_value<std::string> > v) {
+				string_value = v;
+			}
 		};
 		typedef std::list<performance_data> perf_list_type;
 

@@ -9,7 +9,7 @@ namespace parsers {
 			return "{" + helpers::type_to_string(get_type()) + "}" + name + "(" + subject->to_string() + ")";
 		}
 
-		value_container unary_fun::get_value(evaluation_context errors, int type) const {
+		value_container unary_fun::get_value(evaluation_context errors, value_type type) const {
 			return evaluate(errors)->get_value(errors, type);
 		}
 		std::list<node_type> unary_fun::get_list_value(evaluation_context errors) const {

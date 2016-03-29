@@ -25,8 +25,8 @@ namespace modern_filter {
 		virtual void write(const parsers::where::performance_data &data) {
 			::Plugin::Common::PerformanceData* perf = line.add_perf();
 			perf->set_alias(data.alias);
-			if (data.value_int) {
-				const parsers::where::performance_data::perf_value<long long> &value = *data.value_int;
+			if (data.int_value) {
+				const parsers::where::performance_data::perf_value<long long> &value = *data.int_value;
 				Plugin::Common::PerformanceData::IntValue* perfData = perf->mutable_int_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);
@@ -39,8 +39,8 @@ namespace modern_filter {
 					perfData->set_minimum(*value.minimum);
 				if (value.maximum)
 					perfData->set_maximum(*value.maximum);
-			} else if (data.value_double) {
-				const parsers::where::performance_data::perf_value<double> &value = *data.value_double;
+			} else if (data.float_value) {
+				const parsers::where::performance_data::perf_value<double> &value = *data.float_value;
 				Plugin::Common::PerformanceData::FloatValue* perfData = perf->mutable_float_value();
 				if (!data.unit.empty())
 					perfData->set_unit(data.unit);
@@ -53,6 +53,10 @@ namespace modern_filter {
 					perfData->set_minimum(*value.minimum);
 				if (value.maximum)
 					perfData->set_maximum(*value.maximum);
+			} else if (data.string_value) {
+				const parsers::where::performance_data::perf_value<std::string> &value = *data.string_value;
+				Plugin::Common::PerformanceData::StringValue* perfData = perf->mutable_string_value();
+				perfData->set_value(value.value);
 			}
 		}
 	};

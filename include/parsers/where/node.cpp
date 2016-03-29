@@ -170,6 +170,13 @@ namespace parsers {
 			}
 			return node;
 		}
+		node_type factory::create_list(const std::list<double> &other) {
+			boost::shared_ptr<list_node_interface> node(new list_node);
+			BOOST_FOREACH(const double &v, other) {
+				node->push_back(create_float(v));
+			}
+			return node;
+		}
 		// 		list_node_type create_fun(const unary_fun &other) {
 		// 			return boost::make_shared<unary_fun>();
 		// 		}
