@@ -45,12 +45,16 @@ namespace check_pdh {
 		std::string alias;
 		std::string counter;
 		std::string time;
-		long long value;
+		long long value_i;
+		double value_f;
 
-		filter_obj(std::string alias, std::string counter, std::string time, long long value) : alias(alias), counter(counter), time(time), value(value) {}
+		filter_obj(std::string alias, std::string counter, std::string time, long long value_i, double value_f) : alias(alias), counter(counter), time(time), value_i(value_i), value_f(value_f) {}
 
-		long long get_value() const {
-			return value;
+		long long get_value_i() const {
+			return value_i;
+		}
+		double get_value_f() const {
+			return value_f;
 		}
 		std::string get_counter() const {
 			return counter;

@@ -84,9 +84,17 @@ namespace check_pdh {
 			("alias", boost::bind(&filter_obj::get_alias, _1), "The counter alias")
 			("time", boost::bind(&filter_obj::get_time, _1), "The time for rrd checks")
 			;
-		registry_.add_int()
-			("value", boost::bind(&filter_obj::get_value, _1), "The counter value")
+
+		registry_.add_number()
+			("value", parsers::where::type_float, boost::bind(&filter_obj::get_value_i, _1), boost::bind(&filter_obj::get_value_f, _1), "The counter value (either float or int)")
 			;
+		registry_.add_int()
+			("value_i", boost::bind(&filter_obj::get_value_i, _1), "The counter value (force int value)")
+			;
+		registry_.add_float()
+			("value_f", boost::bind(&filter_obj::get_value_f, _1), "The counter value (force float value)")
+			;
+
 	}
 
 	void check::clear() {
@@ -246,7 +254,7 @@ namespace check_pdh {
 					if (values.empty())
 						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");
 					BOOST_FOREACH(const value_list_type::value_type &v, values) {
-						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second));
+						boost::shared_ptr<filter_obj> record(new filter_obj(vc.first, v.first, time, v.second, v.second));
 						modern_filter::match_result ret = filter.match(record);
 						if (ret.is_done) {
 							break;
@@ -262,13 +270,13 @@ namespace check_pdh {
 			try {
 				if (expand_instance) {
 					BOOST_FOREACH(const PDH::pdh_instance &child, instance->get_instances()) {
-						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value()));
+						boost::shared_ptr<filter_obj> record(new filter_obj(child->get_name(), child->get_counter(), "", child->get_int_value(), child->get_float_value()));
 						modern_filter::match_result ret = filter.match(record);
 						if (ret.is_done)
 							break;
 					}
 				} else {
-					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value()));
+					boost::shared_ptr<filter_obj> record(new filter_obj(instance->get_name(), instance->get_counter(), "", instance->get_int_value(), instance->get_float_value()));
 					modern_filter::match_result ret = filter.match(record);
 					if (ret.is_done)
 						break;

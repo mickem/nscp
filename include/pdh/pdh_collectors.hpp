@@ -76,6 +76,13 @@ namespace PDH {
 				}
 				return sum;
 			}
+			virtual double get_float_value() {
+				double sum = 0;
+				BOOST_FOREACH(pdh_instance o, children_) {
+					sum += o->get_float_value();
+				}
+				return sum;
+			}
 			virtual void collect(const PDH_FMT_COUNTERVALUE &value) {}
 		};
 
@@ -161,6 +168,12 @@ namespace PDH {
 					throw PDH::pdh_exception(get_name(), "Could not get mutex");
 				return value;
 			}
+			virtual double get_float_value() {
+				boost::shared_lock<boost::shared_mutex> lock(mutex_);
+				if (!lock.owns_lock())
+					throw PDH::pdh_exception(get_name(), "Could not get mutex");
+				return value;
+			}
 			virtual void update(T newValue) {
 				boost::shared_lock<boost::shared_mutex> lock(mutex_);
 				if (!lock.owns_lock())
@@ -206,6 +219,12 @@ namespace PDH {
 				return values.back();
 			}
 			virtual long long get_int_value() {
+				boost::shared_lock<boost::shared_mutex> lock(mutex_);
+				if (!lock.owns_lock())
+					throw PDH::pdh_exception(get_name(), "Could not get mutex");
+				return values.back();
+			}
+			virtual double get_float_value() {
 				boost::shared_lock<boost::shared_mutex> lock(mutex_);
 				if (!lock.owns_lock())
 					throw PDH::pdh_exception(get_name(), "Could not get mutex");

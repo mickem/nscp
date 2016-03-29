@@ -171,6 +171,7 @@ namespace PDH {
 		virtual double get_average(long seconds) = 0;
 		virtual double get_value() = 0;
 		virtual long long get_int_value() = 0;
+		virtual double get_float_value() = 0;
 		virtual std::string get_name() const = 0;
 		virtual std::string get_counter() const = 0;
 
