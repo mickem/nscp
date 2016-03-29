@@ -1,3 +1,11 @@
+2016-03-29 Michael Medin
+ * Fixed #274 Added has_run to check_taskshed
+ * Changed so "post filters" will set warn/crit list
+ * Fixed #272 Added float support to check_pdh
+ * Improved float handling in filters (i.e. 0.1 will become float, 1.0 = 1 will be casted to float)
+ * Fixed compiler warnings
+ * updated docs
+
 2016-03-20 Michael Medin
  * Added new command check_nscp_version to CheckNSCP module Fixed #217
  * Added ignore-unreadable which was apparently removed at some point, new behavior as it uses the drive flags to determine status
