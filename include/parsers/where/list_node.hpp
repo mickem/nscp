@@ -18,7 +18,7 @@ namespace parsers {
 			}
 
 			std::string to_string() const;
-			value_container get_value(evaluation_context context, int type) const;
+			value_container get_value(evaluation_context context, value_type type) const;
 			std::list<node_type> get_list_value(evaluation_context errors) const {
 				return value_;
 			}

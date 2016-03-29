@@ -317,7 +317,7 @@ namespace parsers {
 
 			virtual std::string to_string() const = 0;
 
-			virtual value_container get_value(evaluation_context errors, int type) const = 0;
+			virtual value_container get_value(evaluation_context errors, value_type type) const = 0;
 			virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;
 
 			virtual bool can_evaluate() const = 0;
@@ -343,6 +343,7 @@ namespace parsers {
 			static NSCAPI_EXPORT node_type create_list(const std::list<std::string> &other);
 			static NSCAPI_EXPORT list_node_type create_list();
 			static NSCAPI_EXPORT node_type create_list(const std::list<long long> &other);
+			static NSCAPI_EXPORT node_type create_list(const std::list<double> &other);
 			static NSCAPI_EXPORT node_type create_bin_op(const operators &op, node_type lhs, node_type rhs);
 			static NSCAPI_EXPORT node_type create_un_op(const operators op, node_type node);
 			static NSCAPI_EXPORT node_type create_conversion(node_type node);

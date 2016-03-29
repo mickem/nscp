@@ -8,7 +8,7 @@ namespace parsers {
 			return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) ";
 		}
 
-		value_container unary_op::get_value(evaluation_context errors, int type) const {
+		value_container unary_op::get_value(evaluation_context errors, value_type type) const {
 			return evaluate(errors)->get_value(errors, type);
 		}
 		std::list<node_type> unary_op::get_list_value(evaluation_context errors) const {

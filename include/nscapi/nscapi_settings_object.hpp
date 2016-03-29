@@ -197,7 +197,7 @@ namespace nscapi {
 		struct object_factory_interface {
 			typedef boost::shared_ptr<T> object_instance;
 			virtual object_instance create(std::string alias, std::string path) = 0;
-			virtual object_instance clone(object_instance parent, std::string alias, std::string path) = 0;
+			virtual object_instance clone(object_instance parent, const std::string alias, const std::string path) = 0;
 		};
 
 		template<class T>

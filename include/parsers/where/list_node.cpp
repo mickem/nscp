@@ -14,7 +14,7 @@ namespace parsers {
 			return ret;
 		}
 
-		value_container list_node::get_value(evaluation_context errors, int type) const {
+		value_container list_node::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_int) {
 				errors->error("Cant get number from a list");
 				return value_container::create_nil();

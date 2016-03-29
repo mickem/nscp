@@ -4,7 +4,7 @@
 
 namespace parsers {
 	namespace where {
-		value_container string_value::get_value(evaluation_context errors, int type) const {
+		value_container string_value::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_float) {
 				try {
 					return value_container::create_float(strEx::s::stox<double>(value_), is_unsure_);
@@ -34,7 +34,7 @@ namespace parsers {
 			collector.set_candidate_value(shared_from_this());
 			return false;
 		}
-		value_container int_value::get_value(evaluation_context errors, int type) const {
+		value_container int_value::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_float) {
 				return value_container::create_float(value_, is_unsure_);
 			}
@@ -54,7 +54,7 @@ namespace parsers {
 			collector.set_candidate_value(shared_from_this());
 			return false;
 		}
-		value_container float_value::get_value(evaluation_context errors, int type) const {
+		value_container float_value::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_float) {
 				return value_container::create_float(value_, is_unsure_);
 			}

@@ -21,7 +21,7 @@ namespace parsers {
 			return left->bind(errors) && right->bind(errors);
 		}
 
-		value_container binary_op::get_value(evaluation_context errors, int type) const {
+		value_container binary_op::get_value(evaluation_context errors, value_type type) const {
 			return evaluate(errors)->get_value(errors, type);
 		}
 		std::list<node_type> binary_op::get_list_value(evaluation_context errors) const {
