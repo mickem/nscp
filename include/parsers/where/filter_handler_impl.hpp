@@ -403,6 +403,14 @@ namespace parsers {
 
 			generic_summary() : count_match(0), count_ok(0), count_warn(0), count_crit(0), count_total(0), returnCode(NSCAPI::query_return_codes::returnOK) {}
 
+			void move_hits_crit() {
+				list_crit = list_match;
+				list_problem = list_match;
+			}
+			void move_hits_warn() {
+				list_warn = list_match;
+				list_problem = list_match;
+			}
 			void reset() {
 				count_match = count_ok = count_warn = count_crit = count_total = 0;
 				list_match = list_ok = list_warn = list_crit = "";

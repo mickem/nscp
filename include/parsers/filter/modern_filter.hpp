@@ -441,9 +441,11 @@ namespace modern_filter {
 			}
 			if (engine_crit && !engine_crit->require_object(context) && engine_crit->match(context, true)) {
 				nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
+				summary.move_hits_crit();
 				matched = true;
 			} else if (engine_warn && !engine_warn->require_object(context) && engine_warn->match(context, true)) {
 				nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
+				summary.move_hits_warn();
 				matched = true;
 			} else if (engine_ok && !engine_ok->require_object(context) && engine_ok->match(context, true)) {
 				// TODO: Unsure of this, should this not re-set matched?
