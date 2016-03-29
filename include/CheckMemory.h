@@ -20,6 +20,10 @@
 ***************************************************************************/
 #pragma once
 
+#include <windows.h>
+#include <error.hpp>
+
+
 typedef BOOL (WINAPI *PFGlobalMemoryStatusEx)(LPMEMORYSTATUSEX lpBuffer);
 typedef BOOL (WINAPI *PFGlobalMemoryStatus)(LPMEMORYSTATUS lpBuffer);
 

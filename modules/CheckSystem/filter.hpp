@@ -57,51 +57,6 @@ namespace check_cpu_filter {
 	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
 }
 
-namespace check_mem_filter {
-	struct filter_obj {
-		std::string type;
-		unsigned long long used;
-		unsigned long long total;
-
-		filter_obj(std::string type, unsigned long long used, unsigned long long total) : type(type), used(used), total(total) {}
-
-		long long get_total() const {
-			return total;
-		}
-		long long get_used() const {
-			return used;
-		}
-		long long get_free() const {
-			return total - used;
-		}
-		long long get_used_pct() const {
-			return total == 0 ? 0 : get_used() * 100 / total;
-		}
-		long long get_free_pct() const {
-			return total == 0 ? 0 : get_free() * 100 / total;
-		}
-		std::string get_type() const {
-			return type;
-		}
-
-		std::string get_total_human() const {
-			return format::format_byte_units(get_total());
-		}
-		std::string get_used_human() const {
-			return format::format_byte_units(get_used());
-		}
-		std::string get_free_human() const {
-			return format::format_byte_units(get_free());
-		}
-	};
-
-	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;
-	struct filter_obj_handler : public native_context {
-		filter_obj_handler();
-	};
-	typedef modern_filter::modern_filters<filter_obj, filter_obj_handler> filter;
-}
-
 namespace check_page_filter {
 	struct filter_obj {
 		const windows::system_info::pagefile_info &info;

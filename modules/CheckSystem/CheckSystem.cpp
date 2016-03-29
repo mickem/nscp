@@ -48,6 +48,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
 
+#include "check_memory.hpp"
 
 #include <json_spirit.h>
 
@@ -881,55 +882,7 @@ void CheckSystem::checkMem(Plugin::QueryRequestMessage::Request &request, Plugin
  * @return The status of the command
  */
 void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	typedef check_mem_filter::filter filter_type;
-	modern_filter::data_container data;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-	std::vector<std::string> types;
-
-	filter_type filter;
-	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${type} = ${used}", "${type}", "", "");
-	filter_helper.get_desc().add_options()
-		("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
-		;
-
-	if (!filter_helper.parse_options())
-		return;
-
-	if (types.empty()) {
-		types.push_back("committed");
-		types.push_back("physical");
-	}
-
-	if (!filter_helper.build_filter(filter))
-		return;
-
-	CheckMemory::memData mem_data;
-	try {
-		mem_data = memoryChecker.getMemoryStatus();
-	} catch (CheckMemoryException e) {
-		return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
-	}
-
-	BOOST_FOREACH(const std::string &type, types) {
-		unsigned long long used(0), total(0);
-		if (type == "committed") {
-			used = mem_data.commited.total - mem_data.commited.avail;
-			total = mem_data.commited.total;
-		} else if (type == "physical") {
-			used = mem_data.phys.total - mem_data.phys.avail;
-			total = mem_data.phys.total;
-		} else if (type == "virtual") {
-			used = mem_data.virt.total - mem_data.virt.avail;
-			total = mem_data.virt.total;
-		} else {
-			return nscapi::protobuf::functions::set_response_bad(*response, "Invalid type: " + type);
-		}
-		boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
-		filter.match(record);
-	}
-
-	filter_helper.post_process(filter);
+	memory_checks::memory::check(request, response);
 }
 
 class NSC_error : public process_helper::error_reporter {

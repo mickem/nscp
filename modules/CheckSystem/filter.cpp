@@ -44,55 +44,6 @@ namespace check_cpu_filter {
 	}
 }
 
-namespace check_mem_filter {
-	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "%");
-		double number = value.get<1>();
-		std::string unit = value.get<2>();
-
-		if (unit == "%") {
-			number = (static_cast<double>(object->get_total())*number) / 100.0;
-		} else {
-			number = format::decode_byte_units(number, unit);
-		}
-		return parsers::where::factory::create_int(number);
-	}
-
-	long long get_zero() {
-		return 0;
-	}
-
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_used = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_free = parsers::where::type_custom_int_2;
-
-		registry_.add_string()
-			("type", boost::bind(&filter_obj::get_type, _1), "The type of memory to check")
-			;
-		registry_.add_int()
-			("size", boost::bind(&filter_obj::get_total, _1), "Total size of memory")
-			("free", type_custom_free, boost::bind(&filter_obj::get_free, _1), "Free memory in bytes (g,m,k,b) or percentages %")
-			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
-
-			("used", type_custom_used, boost::bind(&filter_obj::get_used, _1), "Used memory in bytes (g,m,k,b) or percentages %")
-			.add_scaled_byte(boost::bind(&get_zero), boost::bind(&filter_obj::get_total, _1))
-			.add_percentage(boost::bind(&filter_obj::get_total, _1), "", " %")
-			("free_pct", boost::bind(&filter_obj::get_free_pct, _1), "% free memory")
-			("used_pct", boost::bind(&filter_obj::get_used_pct, _1), "% used memory")
-			;
-		registry_.add_human_string()
-			("size", boost::bind(&filter_obj::get_total_human, _1), "")
-			("free", boost::bind(&filter_obj::get_free_human, _1), "")
-			("used", boost::bind(&filter_obj::get_used_human, _1), "")
-			;
-
-		registry_.add_converter()
-			(type_custom_free, &calculate_free)
-			(type_custom_used, &calculate_free)
-			;
-	}
-}
 
 namespace check_page_filter {
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {

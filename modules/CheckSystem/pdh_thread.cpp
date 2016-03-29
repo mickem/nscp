@@ -24,9 +24,9 @@
 #include <nscapi/macros.hpp>
 #include <parsers/filter/realtime_helper.hpp>
 #include "realtime_data.hpp"
+#include "check_memory.hpp"
 
 typedef parsers::where::realtime_filter_helper<check_cpu_filter::runtime_data, filters::filter_config_object> cpu_filter_helper;
-typedef parsers::where::realtime_filter_helper<check_mem_filter::runtime_data, filters::filter_config_object> mem_filter_helper;
 
 struct NSC_error_pdh : public process_helper::error_reporter {
 	std::list<std::string> l;
@@ -112,6 +112,9 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 *
 */
 void pdh_thread::thread_proc() {
+
+	memory_checks::realtime::helper memory_helper(core, plugin_id);
+
 	if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
 		PDH::factory::set_native();
 	} else if (subsystem == "thread-safe") {
@@ -145,7 +148,6 @@ void pdh_thread::thread_proc() {
 	}
 
 	PDH::PDHQuery pdh;
-	CheckMemory memchecker;
 
 	bool check_pdh = !counters_.empty();
 
@@ -188,14 +190,9 @@ void pdh_thread::thread_proc() {
 
 	bool has_realtime = !filters_.empty();
 	cpu_filter_helper cpu_helper(core, plugin_id);
-	mem_filter_helper mem_helper(core, plugin_id);
 	BOOST_FOREACH(boost::shared_ptr<filters::filter_config_object> object, filters_.get_object_list()) {
 		if (object->check == "memory") {
-			check_mem_filter::runtime_data data;
-			BOOST_FOREACH(const std::string &d, object->data) {
-				data.add(d);
-			}
-			mem_helper.add_item(object, data);
+			memory_helper.add_obj(object);
 		} else {
 			check_cpu_filter::runtime_data data;
 			BOOST_FOREACH(const std::string &d, object->data) {
@@ -206,7 +203,7 @@ void pdh_thread::thread_proc() {
 	}
 
 	cpu_helper.touch_all();
-	mem_helper.touch_all();
+	memory_helper.boot();
 
 	int min_threshold = 10;
 	DWORD waitStatus = 0;
@@ -242,7 +239,7 @@ void pdh_thread::thread_proc() {
 		}
 		if (has_realtime && i == 0) {
 			cpu_helper.process_items(this);
-			mem_helper.process_items(&memchecker);
+			memory_helper.check();
 		}
 		if (i++ > min_threshold)
 			i = 0;

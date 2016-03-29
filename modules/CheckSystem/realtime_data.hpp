@@ -25,18 +25,3 @@ namespace check_cpu_filter {
 		void add(const std::string &time);
 	};
 }
-
-namespace check_mem_filter {
-	struct runtime_data {
-		typedef check_mem_filter::filter filter_type;
-		typedef CheckMemory* transient_data_type;
-
-		std::list<std::string> checks;
-
-		void boot() {}
-		void touch(boost::posix_time::ptime now) {}
-		bool has_changed(transient_data_type) const { return true; }
-		bool process_item(filter_type &filter, transient_data_type);
-		void add(const std::string &data);
-	};
-}
