@@ -728,13 +728,15 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	if (only_mounted) {
 		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
-			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add mounted = 1 to your filter.");
-		filter_helper.data.filter_string = "mounted = 1";
+			filter_helper.data.filter_string = "( " + filter_helper.data.filter_string + " ) and mounted = 1";
+		else
+			filter_helper.data.filter_string = "mounted = 1";
 	}
 	if (ignore_unreadable) {
 		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
-			return nscapi::protobuf::functions::set_response_bad(*response, "Manually add readable = 0 to your filter.");
-		filter_helper.data.filter_string = "mounted = 1 and readable = 1";
+			filter_helper.data.filter_string = "( " + filter_helper.data.filter_string + " ) and mounted = 1 and readable = 1";
+		else
+			filter_helper.data.filter_string = "mounted = 1 and readable = 1";
 	}
 
 	if (!filter_helper.build_filter(filter))
