@@ -91,9 +91,9 @@ namespace parsers {
 				performance_data data;
 				performance_data::perf_value<double> double_data;
 				if (maximum > 0) {
-					double_data.value = static_cast<double>(current_value * 100 / maximum);
-					double_data.warn = static_cast<double>(warn * 100 / maximum);
-					double_data.crit = static_cast<double>(crit * 100 / maximum);
+					double_data.value = round(static_cast<double>(current_value * 100) / maximum);
+					double_data.warn = round(static_cast<double>(warn * 100) / maximum);
+					double_data.crit = round(static_cast<double>(crit * 100) / maximum);
 					double_data.maximum = 100;
 					double_data.minimum = 0;
 					data.set(double_data);
