@@ -749,7 +749,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_filter_syntax(), "${name}=${state} (${start_type})", "${name}", "%(status): No services found", "%(status): All %(count) service(s) are ok.");
 	filter_helper.get_desc().add_options()
-		("computer", po::value<std::string>(&computer), "THe name of the remote computer to check")
+		("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
 		("exclude", po::value<std::vector<std::string>>(&excludes), "A list of services to ignore (mainly usefull in combination with service=*)")
 		("type", po::value<std::string>(&type)->default_value("service"), "The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process")
@@ -779,6 +779,9 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 
 	if (services.empty()) {
 		services.push_back("*");
+	} else {
+		if (filter_helper.data.perf_config.empty())
+			filter_helper.data.perf_config = "extra(state)";
 	}
 	if (!filter_helper.build_filter(filter))
 		return;
