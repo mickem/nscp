@@ -21,5 +21,5 @@ namespace file_finder {
 		void report_warning(const std::string msg);
 	};
 
-	void recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj, bool recursive = false, int current_level = 0);
+	void recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj, bool total_all, bool recursive = false, int current_level = 0);
 }

@@ -193,7 +193,7 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 	bool ignoreError = false;
 	file_finder::scanner_context context;
 	context.max_depth = -1;
-	bool total = false;
+	std::string total;
 
 	file_filter::filter filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
@@ -205,7 +205,7 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 		("paths", po::value<std::string>(&files_string), "A comma separated list of paths to scan")
 		("pattern", po::value<std::string>(&context.pattern)->default_value("*.*"), "The pattern of files to search for (works like a filter but is faster and can be combined with a filter).")
 		("max-depth", po::value<int>(&context.max_depth), "Maximum depth to recurse")
-		("total", po::bool_switch(&total), "Include the total of all matching files")
+		("total", po::value(&total)->implicit_value("filter"), "Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter")
 		;
 
 	context.now = parsers::where::constants::get_now();
@@ -223,11 +223,11 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 		return;
 
 	boost::shared_ptr<file_filter::filter_obj> total_obj;
-	if (total)
+	if (!total.empty())
 		total_obj = file_filter::filter_obj::get_total(context.now);
 
 	BOOST_FOREACH(const std::string &path, file_list) {
-		file_finder::recursive_scan(filter, context, path, total_obj);
+		file_finder::recursive_scan(filter, context, path, total_obj, total == "all");
 	}
 	if (total_obj) {
 		filter.match(total_obj);
