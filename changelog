@@ -1,3 +1,11 @@
+2016-03-30 Michael Medin
+ * Fixed compatibility issue when using both MaxWarn and MinWarn
+ * Fixed #132 round issue with performance data and %
+ * Fixed #140 check_ping syntax string
+ * Fixed #210 added total=all to have total object match all items regardless of if they match the filter or not.
+ * Fixed #130 missing perf data on check_service (intentionally no perf for "all services" as that is a long list)
+ * Fixed #268 ignore-unreadable and filter generating error
+
 2016-03-29 Michael Medin
  * Fixed #274 Added has_run to check_taskshed
  * Changed so "post filters" will set warn/crit list
