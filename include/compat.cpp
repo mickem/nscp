@@ -44,14 +44,19 @@ namespace compat {
 	void do_matchFirstNumeric(const boost::program_options::variables_map &vm, const std::string key, std::string &target, const std::string var, const std::string bound, const std::string op) {
 		if (vm.count(key)) {
 			std::vector<std::string> bounds = vm[key].as<std::vector<std::string> >();
-			if (bounds.size() > 1 || !target.empty())
+			if (bounds.size() > 1)
 				NSC_DEBUG_MSG("Multiple boundries of the same kind is not supported");
 			if (bounds.size() > 0) {
+				std::string expr = "";
 				std::string value = bounds.front();
 				if (value.size() > 3 && value[2] == ':')
-					target = var + "=" + bound + " " + value.substr(0, 2) + " " + value.substr(3);
+					expr = bound + " " + value.substr(0, 2) + " " + value.substr(3);
 				else
-					target = var + "=" + bound + op + bounds.front();
+					expr = bound + op + bounds.front();
+				if (target.empty())
+					target = var + "=" + expr;
+				else
+					target = var + "=( " + target.substr(var.length()+1) + " ) or ( " + expr + " )";
 			}
 		}
 	}
