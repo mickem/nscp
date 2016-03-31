@@ -84,6 +84,9 @@ namespace parsers {
 					ignored = true;
 				configured = true;
 			}
+			double round(double number) {
+				return number < 0.0 ? ceil(number - 0.5) : floor(number + 0.5);
+			}
 			virtual void eval(perf_list_type &list, evaluation_context context, std::string alias, long long current_value, long long warn, long long crit, TContext object) {
 				if (ignored)
 					return;
