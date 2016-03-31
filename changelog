@@ -1,4 +1,8 @@
 2016-03-30 Michael Medin
+ ! 0.5.0 RC1
+ * Updated docs
+
+2016-03-30 Michael Medin
  * Fixed compatibility issue when using both MaxWarn and MinWarn
  * Fixed #132 round issue with performance data and %
  * Fixed #140 check_ping syntax string
