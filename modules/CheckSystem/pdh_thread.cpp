@@ -360,9 +360,9 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
 }
 
 pdh_thread::metrics_hash pdh_thread::get_metrics() {
-	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(1));
 	if (!readLock.owns_lock()) {
-		NSC_LOG_ERROR("Failed to get Mutex for: cput");
+		NSC_LOG_ERROR("Failed to get Mutex for: metrics");
 		return metrics_hash();
 	}
 	return metrics_hash(metrics);
