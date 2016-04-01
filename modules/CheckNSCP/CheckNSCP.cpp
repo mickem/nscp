@@ -107,17 +107,17 @@ std::size_t CheckNSCP::get_errors(std::string &last_error) {
 
 struct nscp_version {
 	int release;
-	int major;
-	int minor;
+	int major_version;
+	int minor_version;
 	int build;
 	std::string date;
 
-	nscp_version() : release(0), major(0), minor(0), build(0) {}
-	nscp_version(const nscp_version &other) : release(other.release), major(other.major), minor(other.minor), build(other.build), date(other.date) {}
+	nscp_version() : release(0), major_version(0), minor_version(0), build(0) {}
+	nscp_version(const nscp_version &other) : release(other.release), major_version(other.major_version), minor_version(other.minor_version), build(other.build), date(other.date) {}
 	nscp_version& operator= (const nscp_version &other) {
 		release = other.release;
-		major = other.major;
-		minor = other.minor;
+		major_version = other.major_version;
+		minor_version = other.minor_version;
 		build = other.build;
 		date = other.date;
 		return *this;
@@ -129,14 +129,14 @@ struct nscp_version {
 		if (vl.size() != 4)
 			throw nscp_exception("Failed to parse version: " + v);
 		release = strEx::s::stox<int>(vl.front()); vl.pop_front();
-		major = strEx::s::stox<int>(vl.front()); vl.pop_front();
-		minor = strEx::s::stox<int>(vl.front()); vl.pop_front();
+		major_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
+		minor_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
 		build = strEx::s::stox<int>(vl.front());
 	}
 	std::string to_string() const {
 		return strEx::s::xtos(release) + "."
-			+ strEx::s::xtos(major) + "."
-			+ strEx::s::xtos(minor) + "."
+			+ strEx::s::xtos(major_version) + "."
+			+ strEx::s::xtos(minor_version) + "."
 			+ strEx::s::xtos(build);
 	}
 };
@@ -150,10 +150,10 @@ namespace check_nscp_version {
 		filter_obj(nscp_version version) : version(version) {}
 
 		long long get_major(parsers::where::evaluation_context context) const {
-			return version.major;
+			return version.major_version;
 		}
 		long long get_minor(parsers::where::evaluation_context context) const {
-			return version.minor;
+			return version.minor_version;
 		}
 		long long get_build(parsers::where::evaluation_context context) const {
 			return version.build;
