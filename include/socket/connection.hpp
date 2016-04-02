@@ -46,7 +46,7 @@ namespace socket_helpers {
 			}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() = 0;
-			virtual bool is_open() const = 0;
+			virtual bool is_open() = 0;
 
 			//////////////////////////////////////////////////////////////////////////
 			// High level connection start/stop
@@ -194,7 +194,7 @@ namespace socket_helpers {
 				, socket_(io_service) {}
 			virtual ~tcp_connection() {}
 
-			virtual bool is_open() const {
+			virtual bool is_open() {
 				return socket_.is_open();
 			}
 			virtual boost::asio::ip::tcp::socket& get_socket() {
@@ -227,8 +227,8 @@ namespace socket_helpers {
 				, ssl_socket_(io_service, context) {}
 			virtual ~ssl_connection() {}
 
-			virtual bool is_open() const {
-				return ssl_socket_.next_layer().is_open();
+			virtual bool is_open() {
+				return get_socket().is_open();
 			}
 
 			virtual boost::asio::ip::tcp::socket& get_socket() {

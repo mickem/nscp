@@ -5,6 +5,7 @@
 #include <types.hpp>
 #include <swap_bytes.hpp>
 #include <unicode_char.hpp>
+#include <stdint.h>
 
 #include <map>
 #include <list>
