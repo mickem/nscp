@@ -566,7 +566,13 @@ namespace parsers {
 				if (registry_.has_variable(name)) {
 					boost::shared_ptr<filter_variable<object_type> > var = registry_.get_variable(name, human_readable);
 					if (var) {
-						if (var->i_function) {
+						if (var->f_function) {
+							if (var->float_perf.empty() && var->add_default_perf) {
+								typename filter_variable<object_type>::float_perf_generator_type gen(new parsers::where::simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
+								var->float_perf.push_back(gen);
+							}
+							return node_type(new float_variable_node<filter_handler_impl>(name, var->type, var->f_function, var->float_perf));
+						} else if (var->i_function) {
 							if (var->int_perf.empty() && var->add_default_perf) {
 								typename filter_variable<object_type>::int_perf_generator_type gen(new parsers::where::simple_number_performance_generator<object_type, long long>("", "", "_" + var->name));
 								var->int_perf.push_back(gen);
@@ -576,15 +582,7 @@ namespace parsers {
 							if (var->f_function)
 								return node_type(new dual_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->f_function, var->int_perf));
 							return node_type(new int_variable_node<filter_handler_impl>(name, var->type, var->i_function, var->int_perf));
-						}
-						if (var->f_function) {
-							if (var->float_perf.empty() && var->add_default_perf) {
-								typename filter_variable<object_type>::float_perf_generator_type gen(new parsers::where::simple_number_performance_generator<object_type, double>("", "", "_" + var->name));
-								var->float_perf.push_back(gen);
-							}
-							return node_type(new float_variable_node<filter_handler_impl>(name, var->type, var->f_function, var->float_perf));
-						}
-						if (var->s_function)
+						} else if (var->s_function)
 							return node_type(new str_variable_node<filter_handler_impl>(name, var->type, var->s_function));
 					}
 				} else if (parsers::where::evaluation_context_impl<TObject>::get_summary()->has_variable(name)) {
