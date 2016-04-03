@@ -574,8 +574,10 @@ void script_wrapper::function_wrapper::fetch_metrics(std::string &request) const
 			thread_locker locker;
 			try {
 				object ret = boost::python::call<object>(boost::python::object(v).ptr());
+#if BOOST_VERSION > 104200
 				if (ret.is_none())
 					continue;
+#endif
 				py::extract<py::dict> extracter(ret);
 				if (extracter.check()) {
 					py::dict dic = extracter;
