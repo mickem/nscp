@@ -6,7 +6,7 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-  config.vm.box = "relativkreativ/centos-7-minimal"
+  config.vm.box = "puppetlabs/centos-6.6-64-puppet"
 
   config.vm.provider :virtualbox do |vb|
     vb.gui = false
@@ -19,8 +19,12 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.provision "shell", inline: "sudo yum groupinstall -y 'Development Tools'"
   config.vm.provision "shell", inline: "sudo yum install -y epel-release"
   config.vm.provision "shell", inline: "sudo yum install --enablerepo=epel -y gtest-devel python-argparse.noarch"
-  config.vm.provision "shell", inline: "sudo yum install -y python-sphinx"
+  #config.vm.provision "shell", inline: "sudo yum install -y python-sphinx"
   config.vm.provision "shell", inline: "sudo yum install -y protobuf-devel protobuf-compiler protobuf-python cryptopp-devel python-jinja2"
+  # Fix for broken protobuf in <7 of redhat
+  config.vm.provision "shell", inline: "sudo mkdir /usr/lib/python2.6/site-packages/google/protobuf/compiler || true"
+  config.vm.provision "shell", inline: "sudo cp /etc/puppet/files/plugin_pb2.py /usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py"
+  config.vm.provision "shell", inline: "if [ ! -f /usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py ] ; then touch /usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py ; fi"
   
   # Provision build script
   config.vm.provision "shell", inline: "cp /etc/puppet/files/build.sh /home/vagrant/build.sh"
