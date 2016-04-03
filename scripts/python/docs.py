@@ -169,13 +169,13 @@ Arguments
 
 {{path.info.description|block_pad(4, '| ')}}
 
-{% set table = [] -%}
+{% set tbl = [] -%}
 {% set pkey = path.key|rst_link('confpath') -%}
 {% for k,key in path.keys|dictsort  -%}
     {% set kkey = k|rst_link('confkey') -%}
-    {% do table.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+    {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
 {%- endfor %}
-{{table|rst_csvtable('Key', 'Default Value', 'Description')|block_pad(4)}}
+{{tbl|rst_csvtable('Key', 'Default Value', 'Description')|block_pad(4)}}
 
     **Sample**::
 
