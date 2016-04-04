@@ -155,8 +155,16 @@ namespace settings_manager {
 		BOOST_FOREACH(std::string k, order) {
 			if (context_exists(k)) {
 				get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
-				set_instance(k);
-				return;
+				try {
+					set_instance(k);
+					return;
+				} catch (const settings::settings_exception &e) {
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+				} catch (const std::exception &e) {
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+				} catch (...) {
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to activate: " + key);
+				}
 			}
 		}
 		if (!key.empty()) {
@@ -228,8 +236,11 @@ namespace settings_manager {
 			get_core()->set_base(provider->expand_path("${base-path}"));
 			get_core()->boot(context);
 			get_core()->set_ready();
-		} catch (settings::settings_exception e) {
+		} catch (const settings::settings_exception &e) {
 			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			return false;
+		} catch (const std::exception &e) {
+			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 			return false;
 		} catch (...) {
 			nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
