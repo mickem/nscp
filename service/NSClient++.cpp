@@ -1467,7 +1467,7 @@ std::string NSClientT::getFolder(std::string key) {
 	} else if (key == CACHE_FOLDER_KEY) {
 		default_value = DEFAULT_CACHE_PATH;
 	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
-		default_value = CRASH_ARCHIVE_FOLDER;
+		default_value = "${shared-path}/crash-dumps";
 	} else if (key == "base-path") {
 		default_value = getBasePath().string();
 	} else if (key == "temp") {

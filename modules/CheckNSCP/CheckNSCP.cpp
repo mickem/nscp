@@ -51,7 +51,7 @@ bool CheckNSCP::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	std::string path;
 	sh::settings_registry settings(get_settings_proxy());
-	crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER_KEY);
+	crashFolder = get_core()->expand_path(CRASH_ARCHIVE_FOLDER);
 	NSC_DEBUG_MSG_STD("Crash folder is: " + crashFolder.string());
 	return true;
 }

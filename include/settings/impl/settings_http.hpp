@@ -36,7 +36,7 @@ namespace settings {
 	public:
 		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
 			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
-			boost::filesystem::path path = core->expand_path(CACHE_FOLDER_KEY);
+			boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path))
 					throw new settings_exception("Cache path not found: " + path.string());
@@ -63,7 +63,7 @@ namespace settings {
 		}
 
 		boost::filesystem::path resolve_cache_file(const net::url &url) const {
-			boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER_KEY);
+			boost::filesystem::path local_file = get_core()->expand_path(CACHE_FOLDER);
 			boost::filesystem::path remote_file_name = url.path;
 			local_file /= remote_file_name.filename();
 			return local_file;
