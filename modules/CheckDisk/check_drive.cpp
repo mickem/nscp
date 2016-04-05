@@ -533,7 +533,7 @@ public:
 			if (dwErr == ERROR_PATH_NOT_FOUND)
 				return false;
 			if (dwErr != ERROR_NOT_READY)
-				NSC_LOG_ERROR("Failed to get volume information " + utf8::cvt<std::string>(volume) + ": " + error::lookup::last_error());
+				name = _T("Failed to get volume information ") + volume + _T(": ") + utf8::cvt<std::wstring>(error::lookup::last_error());
 		} else {
 			name = volumeName.get();
 			fs = fileSysName.get();
