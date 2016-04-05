@@ -1,10 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
-VAGRANTFILE_API_VERSION = "2"
-
-Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+Vagrant.configure(2) do |config|
 
   config.vm.box = "relativkreativ/centos-7-minimal"
 
@@ -14,7 +11,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   end
 
   # Install dependencies
-  config.vm.provision "shell", inline: "sudo yum update -y epel-release"
   config.vm.provision "shell", inline: "sudo yum install -y cmake python-devel openssl-devel boost-devel lua-devel redhat-lsb"
   config.vm.provision "shell", inline: "sudo yum groupinstall -y 'Development Tools'"
   config.vm.provision "shell", inline: "sudo yum install -y epel-release"

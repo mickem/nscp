@@ -6,27 +6,36 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
-	config.vm.box = "centos64_32"
-	config.vm.box_url = "http://developer.nrel.gov/downloads/vagrant-boxes/CentOS-6.4-i386-v20131103.box"
-	config.vm.hostname = "centos64x64.build.nscp.org"
+  config.vm.box = "boxcutter/centos64-i386"
 
-	config.vm.provider :virtualbox do |vb|
-		vb.gui = false
-		vb.customize ["modifyvm", :id, "--memory", "1024"]
-	end
-	config.vm.provision "shell", inline: "mkdir -p /etc/puppet/modules;
-				if [ ! -d /etc/puppet/modules/epel/ ]; then puppet module install stahnma-epel; fi;
-				"
+  config.vm.provider :virtualbox do |vb|
+    vb.gui = false
+    vb.customize ["modifyvm", :id, "--memory", "2048"]
+  end
 
-	config.vm.provision :puppet do |puppet|
-		puppet.manifests_path = "../../redhat/manifests"
-		puppet.manifest_file  = "base.pp"
-	end
+  # Install dependencies
+  config.vm.provision "shell", inline: "sudo yum update -y epel-release"
+  config.vm.provision "shell", inline: "sudo yum install -y cmake python-devel openssl-devel boost-devel lua-devel redhat-lsb"
+  config.vm.provision "shell", inline: "sudo yum groupinstall -y 'Development Tools'"
+  config.vm.provision "shell", inline: "sudo yum install -y epel-release"
+  config.vm.provision "shell", inline: "sudo yum install --enablerepo=epel -y gtest-devel python-argparse.noarch"
+  #config.vm.provision "shell", inline: "sudo yum install -y python-sphinx"
+  config.vm.provision "shell", inline: "sudo yum install -y protobuf-devel protobuf-compiler protobuf-python cryptopp-devel python-jinja2"
+  # Fix for broken protobuf in <7 of redhat
+  config.vm.provision "shell", inline: "sudo mkdir /usr/lib/python2.6/site-packages/google/protobuf/compiler || true"
+  config.vm.provision "shell", inline: "sudo cp /etc/puppet/files/plugin_pb2.py /usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py"
+  config.vm.provision "shell", inline: "if [ ! -f /usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py ] ; then touch /usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py ; fi"
+  
+  # Provision build script
+  config.vm.provision "shell", inline: "cp /etc/puppet/files/build.sh /home/vagrant/build.sh"
+  config.vm.provision "shell", inline: "chmod 755 /home/vagrant/build.sh"
+  # Build NSClient++
+  config.vm.provision "shell", inline: "su - vagrant -c './build.sh -DBoost_NO_BOOST_CMAKE=ON'"
 
-	config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
-
-	config.vm.synced_folder "../../files", "/etc/puppet/files"
-	config.vm.synced_folder "../../../", "/source/nscp"
-	config.ssh.forward_agent = true
+  config.vm.synced_folder "../../files", "/etc/puppet/files"
+  config.vm.synced_folder "../../../", "/source/nscp"
+  config.ssh.forward_agent = true
+  config.ssh.private_key_path = ['~/.vagrant.d/insecure_private_key', '~/.ssh/id_rsa']
+  config.ssh.insert_key = false
   
 end
