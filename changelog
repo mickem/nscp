@@ -1,3 +1,13 @@
+2016-04-05 Michael Medin
+ * Fixed vagrant builds
+ * Changed so volume name errors ends up as volume names instead of in the log #230
+ * Improved #275 so next settings system is tried if the first one failes
+ * Fixed settings key issue
+ * Fixed various build issues
+ * Fixed #272 floating point performance data
+ * Fixed get_filter_syntax change for CheckUnixSystem module
+  Fixed bizarre gnu c++ issue with major() expanding to gnu_dev_major
+
 2016-03-30 Michael Medin
  ! 0.5.0 RC1
  * Updated docs
