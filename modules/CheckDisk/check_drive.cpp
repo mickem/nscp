@@ -216,7 +216,7 @@ struct filter_obj {
 				drive_size = 0;
 				return;
 			}
-			context->error("Failed to get size for: " + drive.name + error::lookup::last_error(err));
+			context->error("Failed to get size for " + utf8::cvt<std::string>(drv) + ": " + error::lookup::last_error(err));
 			unreadable = err == ERROR_ACCESS_DENIED;
 			has_size = true;
 			return;
