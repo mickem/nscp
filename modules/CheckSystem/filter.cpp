@@ -97,8 +97,6 @@ namespace check_page_filter {
 
 namespace check_svc_filter {
 	bool check_state_is_perfect(DWORD state, DWORD start_type, bool trigger) {
-		if (trigger)
-			return true;
 		if (start_type == SERVICE_BOOT_START)
 			return state == SERVICE_RUNNING;
 		if (start_type == SERVICE_SYSTEM_START)
@@ -113,8 +111,6 @@ namespace check_svc_filter {
 	}
 
 	bool check_state_is_ok(DWORD state, DWORD start_type, bool delayed, bool trigger) {
-		if (trigger)
-			return true;
 		if (
 			(state == SERVICE_START_PENDING) &&
 			(start_type == SERVICE_BOOT_START || start_type == SERVICE_SYSTEM_START || start_type == SERVICE_AUTO_START)
