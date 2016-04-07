@@ -103,7 +103,7 @@ namespace modern_filter {
 				("debug", boost::program_options::bool_switch(&data.debug),
 					"Show debugging information in the log")
 				("show-all", boost::program_options::bool_switch(&show_all),
-					"Show debugging information in the log")
+					"Show details for all matches regardless of status (normally details are only showed for warnings and criticals).")
 				("filter", filter_op,
 					(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\n") + fsyntax).c_str())
 				("warning", warn_op,
