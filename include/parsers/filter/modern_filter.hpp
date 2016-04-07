@@ -211,8 +211,8 @@ namespace modern_filter {
 			context->set_summary(&summary);
 		}
 
-		std::string get_filter_syntax() const {
-			return context->get_filter_syntax() + summary.get_filter_syntax();
+		boost::tuple<std::string, std::string> get_filter_syntax() const {
+			return boost::make_tuple(summary.get_filter_syntax(), context->get_filter_syntax());
 		}
 		bool build_index(const std::string &unqie, std::string &gerror) {
 			std::string lerror;

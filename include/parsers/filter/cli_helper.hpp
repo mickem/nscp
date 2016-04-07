@@ -81,7 +81,8 @@ namespace modern_filter {
 		boost::program_options::options_description& get_desc() {
 			return desc;
 		}
-		void add_options(std::string warn, std::string crit, std::string filter, std::string filter_syntax, std::string empty_state = "ignored") {
+		void add_options(std::string warn, std::string crit, std::string filter, const boost::tuple<std::string,std::string> &filter_syntax, std::string empty_state = "ignored") {
+			std::string fsyntax = "Available options : \n\nKey\tValue\n" + filter_syntax.get<0>() + filter_syntax.get<1>() + "\n\n";
 			nscapi::program_options::add_help(desc);
 			boost::program_options::typed_value<std::string> *filter_op = boost::program_options::value<std::string>(&data.filter_string);
 			boost::program_options::typed_value<std::string> *warn_op = boost::program_options::value<std::string>(&data.warn_string);
@@ -104,17 +105,17 @@ namespace modern_filter {
 				("show-all", boost::program_options::bool_switch(&show_all),
 					"Show debugging information in the log")
 				("filter", filter_op,
-					(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\n") + fsyntax).c_str())
 				("warning", warn_op,
-					(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + fsyntax).c_str())
 				("warn", boost::program_options::value<std::string>(),
 					"Short alias for warning")
 				("critical", crit_op,
-					(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + fsyntax).c_str())
 				("crit", boost::program_options::value<std::string>(),
 					"Short alias for critical.")
 				("ok", boost::program_options::value<std::string>(&data.ok_string),
-					(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\nAvailable options: \n\nKey\tValue\n") + filter_syntax + "\n\n").c_str())
+					(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\n") + fsyntax).c_str())
 				("empty-state", empty_state_op,
 					"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", perf_config_op,
@@ -242,22 +243,22 @@ namespace modern_filter {
 		void set_default_perf_config(const std::string conf) {
 			data.perf_config = conf;
 		}
-		void add_syntax(const std::string &default_top_syntax, const std::string &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
+		void add_syntax(const std::string &default_top_syntax, const boost::tuple<std::string, std::string> &syntax, const std::string &default_detail_syntax, const std::string &default_perf_syntax, const std::string &default_empty_syntax, const std::string &default_ok_syntax) {
 			std::string tk = "Top level syntax.\n"
-				"Used to format the message to return can include text as well as special keywords wich will include information from the checks.\n"
+				"Used to format the message to return can include text as well as special keywords which will include information from the checks.\n"
 				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).\n"
-				"The avalible keywords are: \n\nKey\tValue\n" + syntax + "\n";
+				"The available keywords are: \n\nKey\tValue\n" + syntax.get<0>() + "\n";
 			std::string dk = "Detail level syntax.\n"
 				"Used to format each resulting item in the message.\n"
 				"%(list) will be replaced with all the items formated by this syntax string in the top-syntax.\n"
 				"To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).\n"
-				"The avalible keywords are: \n\nKey\tValue\n" + syntax + "\n";
+				"The available keywords are: \n\nKey\tValue\n" + syntax.get<1>() + "\n";
 			std::string pk = "Performance alias syntax.\n"
 				"This is the syntax for the base names of the performance data.\n"
-				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
+				"Possible values are: \n\nKey\tValue\n" + syntax.get<1>() + "\n";
 			std::string ek = "Empty syntax.\n"
 				"DEPRECATED! This is the syntax for when nothing matches the filter.\n"
-				"Possible values are: \n\nKey\tValue\n" + syntax + "\n";
+				"Possible values are: \n\nKey\tValue\n" + syntax.get<0>() + "\n";
 			std::string ok = "ok syntax.\n"
 				"DEPRECATED! This is the syntax for when an ok result is returned.\n"
 				"This value will not be used if your syntax contains %(list) or %(count).";
