@@ -272,9 +272,9 @@ namespace modern_filter {
 				;
 		}
 
-		void add_index(const std::string &syntax, const std::string &default_unique_syntax) {
+		void add_index(const boost::tuple<std::string, std::string> &syntax, const std::string &default_unique_syntax) {
 			std::string tk = "Unique syntax.\n"
-				"Used to filter unique items (counted will still increase but messages will not repeaters: \n\nKey\tValue\n" + syntax + "\n";
+				"Used to filter unique items (counted will still increase but messages will not repeaters: \n\nKey\tValue\n" + syntax.get<1>() + "\n";
 
 			desc.add_options()
 				("unique-index", boost::program_options::value<std::string>(&data.syntax_unique)->default_value(default_unique_syntax), tk.c_str())
