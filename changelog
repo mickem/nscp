@@ -1,3 +1,8 @@
+2016-04-07 Michael Medin
+ * Breaking change: check_service: removed trigger detection from default service state Fixes #249
+   I think this causes more confusion then good so foe people who want this please do it manually instead... i.e. add "and is_trigger = 0"
+ * check_drivesize: Improved errors for drive size failures (#276)
+
 2016-04-05 Michael Medin
  * Fixed vagrant builds
  * Changed so volume name errors ends up as volume names instead of in the log #230
