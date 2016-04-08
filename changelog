@@ -1,3 +1,6 @@
+2016-04-08 Michael Medin
+ * all commands: Fixed #280 parsing filters with large numbers
+
 2016-04-07 Michael Medin
  * All checks: Fixed #278 description fr show-all
  * All checks: Fixed #279 top syntax and filter description in the help
