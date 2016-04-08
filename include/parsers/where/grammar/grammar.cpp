@@ -60,7 +60,7 @@ namespace parsers {
 		///////////////////////////////////////////////////////////////////////////
 		where_grammar::where_grammar(object_factory obj_factory) : where_grammar::base_type(expression, "where") {
 			using qi::_val;
-			using qi::int_;
+			using qi::long_long;
 			using qi::double_;
 			using qi::_1;
 			using qi::_2;
@@ -108,10 +108,10 @@ namespace parsers {
 					(real >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_float(_1, _2)]
 				]
 				| qi::lexeme[
-					(int_ >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_int(_1, _2)]
+					(long_long >> (ascii::alpha | ascii::char_('%')))[_val = build_ic_int(_1, _2)]
 				]
 				| real[_val = phoenix::bind(&factory::create_float, _1)]
-				| int_[_val = phoenix::bind(&factory::create_int, _1)]
+				| long_long[_val = phoenix::bind(&factory::create_int, _1)]
 				;
 
 			list_expr
@@ -133,8 +133,8 @@ namespace parsers {
 				;
 
 			int_list
-				= int_[_val = _1]
-				>> *(',' >> int_)[_val += _1]
+				= long_long[_val = _1]
+				>> *(',' >> long_long)[_val += _1]
 				;
 
 			op = qi::lit("<=")[_val = op_le]

@@ -79,7 +79,7 @@ namespace modern_filter {
 				if (!e.origin.is_variable)
 					ret += e.origin.name;
 				else if (e.node->is_int())
-					ret += strEx::s::xtos(e.node->get_int_value(context));
+					ret += strEx::s::xtos_non_sci(e.node->get_int_value(context));
 				else if (e.node->is_float())
 					ret += strEx::s::xtos(e.node->get_float_value(context));
 				else
