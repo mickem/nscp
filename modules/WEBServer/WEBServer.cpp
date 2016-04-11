@@ -85,7 +85,22 @@ public:
 
 token_store tokens;
 
+socket_helpers::allowed_hosts_manager allowed_hosts;
+
+
 bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, std::string gpassword, bool respond = true) {
+	std::list<std::string> errors;
+	if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
+		BOOST_FOREACH(const std::string &e, errors) {
+			NSC_LOG_ERROR(e);
+		}
+		NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
+		response.setCode(HTTP_FORBIDDEN);
+		response << "403 Your not allowed";
+		return false;
+	}
+
+
 	std::string token = request.readHeader("TOKEN");
 	if (token.empty())
 		token = request.get("__TOKEN", "");
@@ -306,7 +321,7 @@ public:
 		core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
 		response << json_response;
 	}
-	void settings_query(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+	void settings_query_json(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
 			return;
 		std::string request_pb, response_pb, response_json;
@@ -317,6 +332,30 @@ public:
 		core->settings_query(request_pb, response_pb);
 		core->protobuf_to_json("SettingsResponseMessage", response_pb, response_json);
 		response << response_json;
+	}
+	void settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		std::string response_pb;
+		if (!core->settings_query(request.getData(), response_pb))
+			return;
+		response << response_pb;
+	}
+	void run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		std::string response_pb;
+		if (!core->query(request.getData(), response_pb))
+			return;
+		response << response_pb;
+	}
+	void run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+		if (!is_loggedin(request, response, password))
+			return;
+		std::string response_pb;
+		if (!core->exec_command("*", request.getData(), response_pb))
+			return;
+		response << response_pb;
 	}
 	void settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
@@ -334,6 +373,18 @@ public:
 	}
 
 	void auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
+
+		std::list<std::string> errors;
+		if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
+			BOOST_FOREACH(const std::string &e, errors) {
+				NSC_LOG_ERROR(e);
+			}
+			NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
+			response.setCode(HTTP_FORBIDDEN);
+			response << "403 Your not allowed";
+			return;
+		}
+
 		if (password.empty() || password != request.get("password")) {
 			response.setCode(HTTP_FORBIDDEN);
 			response << "403 Invalid password";
@@ -413,7 +464,9 @@ public:
 		addRoute("GET", "/registry/inventory", BaseController, registry_inventory);
 		addRoute("GET", "/registry/inventory/modules", BaseController, registry_inventory_modules);
 		addRoute("GET", "/settings/inventory", BaseController, settings_inventory);
-		addRoute("POST", "/settings/query.json", BaseController, settings_query);
+		addRoute("POST", "/settings/query.json", BaseController, settings_query_json);
+		addRoute("POST", "/query.json", BaseController, run_query_pb);
+		addRoute("POST", "/settings/query.pb", BaseController, settings_query_pb);
 		addRoute("GET", "/settings/status", BaseController, settings_status);
 		addRoute("GET", "/log/status", BaseController, log_status);
 		addRoute("GET", "/log/reset", BaseController, log_reset);
@@ -653,10 +706,17 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
+		("allowed hosts", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &allowed_hosts, _1), "127.0.0.1"),
+			"ALLOWED HOSTS", "A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+
+		("cache allowed hosts", nscapi::settings_helper::bool_key(&allowed_hosts.cached, true),
+			"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
+
 		("password", sh::string_key(&password),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
+
 
 	settings.register_all();
 	settings.notify();
@@ -664,6 +724,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors;
+
+
+		allowed_hosts.refresh(errors);
+		NSC_LOG_ERROR_LISTS(errors);
+		NSC_DEBUG_MSG_STD("Allowed hosts definition: " + allowed_hosts.to_string());
+
+
 		socket_helpers::validate_certificate(certificate, errors);
 		NSC_LOG_ERROR_LISTS(errors);
 		std::string path = get_core()->expand_path("${web-path}");
@@ -682,7 +749,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new StaticController(path));
 
 		server->setOption("extra_mime_types", ".css=text/css,.js=application/javascript");
-		server->start();
+		try {
+			server->start();
+		} catch (const std::exception &e) {
+			NSC_LOG_ERROR("Failed to start server: " + utf8::utf8_from_native(e.what()));
+			return true;
+		} catch (const std::string &e) {
+			NSC_LOG_ERROR("Failed to start server: " + e);
+			return true;
+		}
 		NSC_DEBUG_MSG("Loading webserver on port: " + port);
 		if (password.empty()) {
 			NSC_LOG_ERROR("No password set please run nscp web --help");
