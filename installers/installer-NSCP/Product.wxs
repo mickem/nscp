@@ -4,18 +4,20 @@
   <?include setup.wxs ?>
 
   <?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
+  <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision)$(var.Version.BuildPad)" ?>
+  
   <?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
 
   <?include config.wxs ?>
 
-  <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.String)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
+  <Product Id="*" Name="$(var.App.Title) ($(var.arch))" Language="1033" Version="$(var.Version.Tag)" Manufacturer="MySolutions NORDIC" UpgradeCode="$(var.UpgradeCode)">
 
     <Package InstallerVersion="405" Id="*" Description="A simple windows monitor agent for (amongst others) Nagios."
 						 Comments="This will appear in the file summary stream." Compressed="yes" Languages="1033" Platform="$(var.Plattform)" />
 
     <Upgrade Id="$(var.UpgradeCode)">
-      <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.String)"/>
-      <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.String)" OnlyDetect="yes"/>
+      <UpgradeVersion Property="OLDERVERSIONBEINGUPGRADED" IncludeMinimum="yes" Minimum="0.3.0.0" IncludeMaximum="no" Maximum="$(var.Version.Tag)"/>
+      <UpgradeVersion Property="NEWERVERSIONDETECTED" IncludeMinimum="no" Minimum="$(var.Version.Tag)" OnlyDetect="yes"/>
     </Upgrade>
 
     <?if "$(var.arch)" = "x64"?>
