@@ -66,21 +66,28 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	DWORD dwstate = 0, dwexitcode;
 	// Set up members of SECURITY_ATTRIBUTES structure.
 	sec.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sec.bInheritHandle = TRUE;
+	sec.bInheritHandle = FALSE;
 	sec.lpSecurityDescriptor = NULL;
 
 	// Create Pipes
-	CreatePipe(&hChildInR, &hChildInW, &sec, 0);
-	CreatePipe(&hChildOutR, &hChildOutW, &sec, 0);
+	if (!args.fork) {
+		sec.bInheritHandle = TRUE;
+		CreatePipe(&hChildInR, &hChildInW, &sec, 0);
+		CreatePipe(&hChildOutR, &hChildOutW, &sec, 0);
+	}
 
 	// Set up members of STARTUPINFO structure.
 
 	ZeroMemory(&si, sizeof(STARTUPINFOW));
 	si.cb = sizeof(STARTUPINFOW);
-	si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-	si.hStdInput = hChildInR;
-	si.hStdOutput = hChildOutW;
-	si.hStdError = hChildOutW;
+	if (args.fork) {
+		si.dwFlags = STARTF_USESHOWWINDOW;
+	} else {
+		si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+		si.hStdInput = hChildInR;
+		si.hStdOutput = hChildOutW;
+		si.hStdError = hChildOutW;
+	}
 	si.wShowWindow = SW_HIDE;
 	if (args.display)
 		si.wShowWindow = SW_SHOW;
@@ -106,17 +113,18 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 		processOK = CreateProcessWithLogonW(utf8::cvt<std::wstring>(args.user).c_str(), utf8::cvt<std::wstring>(args.domain).c_str(), utf8::cvt<std::wstring>(args.password).c_str(),
 			LOGON_WITH_PROFILE, NULL, cmd, NULL, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
 	} else {
-		processOK = CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
+		processOK = CreateProcess(NULL, cmd, NULL, NULL, args.fork?FALSE:TRUE, 0, NULL, utf8::cvt<std::wstring>(args.root_path).c_str(), &si, &pi);
 	}
 
 	delete[] cmd;
 	if (processOK) {
+		if (args.fork) {
+			output = "Command started successfully";
+			return NSCAPI::query_return_codes::returnOK;
+		}
 		register_proc(pi.hProcess);
 		DWORD dwAvail = 0;
 		std::string str;
-		//HANDLE handles[2];
-		//handles[0] = pi.hProcess;
-		//handles[1] = hWaitEvt;
 		buffer_type buffer(BUFF_SIZE);
 		for (unsigned int i = 0; i < args.timeout * 10; i++) {
 			if (!::PeekNamedPipe(hChildOutR, NULL, 0, NULL, &dwAvail, NULL))
@@ -162,12 +170,14 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 			output = "Failed to execute " + args.alias + ": " + error::lookup::last_error(error);
 		}
 		result = NSCAPI::query_return_codes::returnUNKNOWN;
-		CloseHandle(hChildInR);
-		CloseHandle(hChildInW);
-		CloseHandle(hChildOutW);
-		CloseHandle(pi.hThread);
-		CloseHandle(pi.hProcess);
-		CloseHandle(hChildOutR);
+		if (!args.fork) {
+			CloseHandle(hChildInR);
+			CloseHandle(hChildInW);
+			CloseHandle(hChildOutW);
+			CloseHandle(pi.hThread);
+			CloseHandle(pi.hProcess);
+			CloseHandle(hChildOutR);
+		}
 	}
 	return result;
 }

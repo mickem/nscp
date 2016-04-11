@@ -23,7 +23,9 @@ namespace commands {
 		command_object(std::string alias, std::string path)
 			: parent(alias, path)
 			, display(false)
-			, ignore_perf(false) {}
+			, ignore_perf(false)
+			, no_fork(true)
+		{}
 
 		std::string encoding;
 		std::string command;
@@ -33,6 +35,7 @@ namespace commands {
 		std::string session;
 		bool display;
 		bool ignore_perf;
+		bool no_fork;
 
 		std::string to_string() const {
 			std::stringstream ss;
@@ -43,7 +46,8 @@ namespace commands {
 					<< ", domain: " << domain
 					<< ", password: " << password
 					<< ", session: " << session
-					<< ", display: " << display;
+					<< ", display: " << display
+					<< ", no_fork: " << no_fork;
 			}
 			ss << "}";
 			return ss.str();
@@ -88,6 +92,9 @@ namespace commands {
 
 					("ignore perfdata", nscapi::settings_helper::bool_key(&ignore_perf),
 						"IGNORE PERF DATA", "Do not parse performance data from the output", false)
+
+					("capture output", nscapi::settings_helper::bool_key(&no_fork),
+						"CAPTURE OUTPUT", "This should be set to false if you want to run commands which never terminates (i.e. relinquish control from NSClient++). The effect of this is that the command output will not be captured. The main use is to protect from socket reuse issues", true)
 
 					;
 

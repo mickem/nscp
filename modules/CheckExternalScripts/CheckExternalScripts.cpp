@@ -606,7 +606,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	}
 	NSC_DEBUG_MSG("Command line: " + cmdline);
 
-	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display);
+	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork);
 	if (!cd.user.empty()) {
 		arg.user = cd.user;
 		arg.domain = cd.domain;
