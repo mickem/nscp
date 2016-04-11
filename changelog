@@ -1,3 +1,10 @@
+2016-04-11 Michael Medin
+ * scripts: Added option capture output to external script to disable output capture and handled inheritance (Fixes #232)
+ * WEBServer: Added support for allowed hosts to WEBServer
+ * WEBServer: Updated mongoose Fixing: Busy wait when socket failes
+ * all commands: Fixed #280 parsing filters with large numbers
+ * updated docs
+
 2016-04-08 Michael Medin
  * all commands: Fixed #280 parsing filters with large numbers
 
