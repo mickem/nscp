@@ -1,3 +1,8 @@
+2016-04-14 Michael Medin
+ * NSCPClient: Added preliminary REST client
+ * Scheduler: added preliminary support for cron statements: schedule = 47 * * * *
+ * installer: Fixed installer version to prevent duplicate installs on upgrade Fixed "267
+
 2016-04-11 Michael Medin
  * scripts: Added option capture output to external script to disable output capture and handled inheritance (Fixes #232)
  * WEBServer: Added support for allowed hosts to WEBServer
