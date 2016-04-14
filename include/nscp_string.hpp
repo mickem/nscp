@@ -49,6 +49,18 @@ namespace strEx {
 			return ret;
 		}
 		template<class T>
+		T split(const std::string str, const std::string key) {
+			T ret;
+			std::string::size_type pos = 0, lpos = 0;
+			while ((pos = str.find(key, pos)) != std::string::npos) {
+				ret.push_back(str.substr(lpos, pos - lpos));
+				lpos = ++pos;
+			}
+			if (lpos < str.size())
+				ret.push_back(str.substr(lpos));
+			return ret;
+		}
+		template<class T>
 		std::string joinEx(const T &lst, const std::string key) {
 			std::string ret;
 			BOOST_FOREACH(const std::string &s, lst) {

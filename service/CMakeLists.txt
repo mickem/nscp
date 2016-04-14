@@ -135,6 +135,8 @@ IF(GTEST_FOUND)
 	SET(TEST_SRCS
 		various_test.cpp
 		performance_data_test.cpp
+		cron_test.cpp
+		../include/parsers/cron/cron_parser.hpp
 		
 		../include/nscapi/nscapi_protobuf_functions.cpp
 		../include/nscapi/nscapi_protobuf_functions.hpp
@@ -146,6 +148,7 @@ IF(GTEST_FOUND)
 		${GTEST_GTEST_MAIN_LIBRARY}
 		${NSCP_DEF_PLUGIN_LIB}
 		${EXTRA_LIBS}
+		${Boost_DATE_TIME_LIBRARY}
 		settings_manager
 	)
 	IF (MSVC11)

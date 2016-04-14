@@ -88,6 +88,16 @@ namespace simple_scheduler {
 		reschedule(item, now());
 		return item.id;
 	}
+	int scheduler::add_task(std::string tag, cron_parser::schedule schedule) {
+		task item(tag, schedule);
+		{
+			boost::mutex::scoped_lock l(mutex_);
+			item.id = ++schedule_id_;
+			tasks_[item.id] = item;
+		}
+		reschedule(item, now());
+		return item.id;
+	}
 	void scheduler::remove_task(int id) {
 		boost::mutex::scoped_lock l(mutex_);
 		tasks_list_type::iterator it = tasks_.find(id);
@@ -216,11 +226,11 @@ namespace simple_scheduler {
 
 
 	void scheduler::reschedule(const task &item, boost::posix_time::ptime now_time) {
-		if (item.duration.total_seconds() == 0) {
-			log_trace("Warning scheduling task now: " + item.to_string());
-			reschedule_at(item.id, now_time + boost::posix_time::seconds(0));
-		} else
-			reschedule_at(item.id, now_time + boost::posix_time::seconds(rand() % item.duration.total_seconds()));
+		if (item.is_disabled()) {
+			log_error("Found disabled task: " + item.to_string());
+		} else {
+			reschedule_at(item.id, item.get_next(now_time));
+		}
 	}
 	void scheduler::reschedule_at(const int id, boost::posix_time::ptime new_time) {
 		schedule_instance instance;
@@ -251,7 +261,4 @@ namespace simple_scheduler {
 			threads_.createThread(f);
 		}
 	}
-
-
-
 }
