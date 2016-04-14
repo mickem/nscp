@@ -15,20 +15,42 @@
 
 #include <has-threads.hpp>
 
+#include <parsers/cron/cron_parser.hpp>
+
 namespace simple_scheduler {
 
 	struct task {
 		int id;
 		std::string tag;
+	private:
 		boost::posix_time::time_duration duration;
+		cron_parser::schedule schedule;
+		bool has_duration;
+		bool has_schedule;
 
-		task() : id(0), duration(boost::posix_time::seconds(0)) {}
-		task(std::string tag, boost::posix_time::time_duration duration) : id(0), tag(tag), duration(duration) {}
+	public:
+		task() : id(0), duration(boost::posix_time::seconds(0)), has_duration(false), has_schedule(false){}
+		task(std::string tag, boost::posix_time::time_duration duration) : id(0), tag(tag), duration(duration), has_duration(true), has_schedule(false){}
+		task(std::string tag, cron_parser::schedule schedule) : id(0), tag(tag), schedule(schedule), has_duration(false), has_schedule(true) {}
 
+		bool is_disabled() const {
+			return !has_duration && !has_schedule;
+		}
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << id << "[" << tag << "] = " << duration.total_seconds();
+			ss << id << "[" << tag << "] = ";
+			if (has_duration)
+				ss << duration.total_seconds();
+			else if (has_schedule)
+				ss << schedule.to_string();
+			else
+				ss << "disabled";
 			return ss.str();
+		}
+		boost::posix_time::ptime get_next(boost::posix_time::ptime now_time) const {
+			if (has_duration)
+				return now_time + boost::posix_time::seconds(rand() % duration.total_seconds());
+			return schedule.find_next(now_time);
 		}
 	};
 
@@ -141,6 +163,7 @@ namespace simple_scheduler {
 		bool has_metrics() const;
 
 		int add_task(std::string tag, boost::posix_time::time_duration duration);
+		int add_task(std::string tag, cron_parser::schedule schedule);
 		void remove_task(int id);
 		op_task_object get_task(int id);
 		void clear_tasks();

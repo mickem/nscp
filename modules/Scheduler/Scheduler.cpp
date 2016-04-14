@@ -78,8 +78,16 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	schedules_.ensure_default();
 
 	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
-		if (o->duration.total_seconds() == 0) {
-			NSC_LOG_ERROR("WE cant add schedules with 0 duration");
+		if (o->duration && (*o->duration).total_seconds() == 0) {
+			NSC_LOG_ERROR("WE cant add schedules with 0 duration: " + o->to_string());
+			continue;
+		}
+		if (o->duration && o->schedule) {
+			NSC_LOG_ERROR("WE cant add schedules with both duration and schedule: " + o->to_string());
+			continue;
+		}
+		if (!o->duration && !o->schedule) {
+			NSC_LOG_ERROR("WE need wither duration or schedule: " + o->to_string());
 			continue;
 		}
 		NSC_DEBUG_MSG("Adding scheduled item: " + o->to_string());

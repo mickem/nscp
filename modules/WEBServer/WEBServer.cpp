@@ -337,16 +337,22 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		std::string response_pb;
-		if (!core->settings_query(request.getData(), response_pb))
+		if (!core->settings_query(request.getData(), response_pb)) {
+			response.setCode(HTTP_SERVER_ERROR);
+			response << "500 QUery failed";
 			return;
+		}
 		response << response_pb;
 	}
 	void run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 		if (!is_loggedin(request, response, password))
 			return;
 		std::string response_pb;
-		if (!core->query(request.getData(), response_pb))
+		if (!core->query(request.getData(), response_pb)) {
+			response.setCode(HTTP_SERVER_ERROR);
+			response << "500 QUery failed";
 			return;
+		}
 		response << response_pb;
 	}
 	void run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -465,7 +471,7 @@ public:
 		addRoute("GET", "/registry/inventory/modules", BaseController, registry_inventory_modules);
 		addRoute("GET", "/settings/inventory", BaseController, settings_inventory);
 		addRoute("POST", "/settings/query.json", BaseController, settings_query_json);
-		addRoute("POST", "/query.json", BaseController, run_query_pb);
+		addRoute("POST", "/query.pb", BaseController, run_query_pb);
 		addRoute("POST", "/settings/query.pb", BaseController, settings_query_pb);
 		addRoute("GET", "/settings/status", BaseController, settings_status);
 		addRoute("GET", "/log/status", BaseController, log_status);

@@ -13,6 +13,7 @@
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
+#include <parsers/cron/cron_parser.hpp>
 
 #include <scheduler/simple_scheduler.hpp>
 
@@ -28,6 +29,7 @@ namespace schedules {
 			, source_id(other.source_id)
 			, target_id(other.target_id)
 			, duration(other.duration)
+			, schedule(other.schedule)
 			, channel(other.channel)
 			, report(other.report)
 			, command(other.command)
@@ -36,7 +38,8 @@ namespace schedules {
 		// Schedule keys
 		std::string source_id;
 		std::string target_id;
-		boost::posix_time::time_duration duration;
+		boost::optional<boost::posix_time::time_duration> duration;
+		boost::optional<std::string> schedule;
 		std::string  channel;
 		unsigned int report;
 		std::string command;
@@ -51,6 +54,9 @@ namespace schedules {
 		void set_duration(std::string str) {
 			duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(str, 1));
 		}
+		void set_schedule(std::string str) {
+			schedule = str;
+		}
 		void set_command(std::string str) {
 			if (!str.empty()) {
 				strEx::parse_command(str, command, arguments);
@@ -64,9 +70,12 @@ namespace schedules {
 				<< ", command: " << command
 				<< ", channel: " << channel
 				<< ", source_id: " << source_id
-				<< ", target_id: " << target_id
-				<< ", duration: " << duration.total_seconds()
-				<< "}";
+				<< ", target_id: " << target_id;
+			if (duration)
+				ss << ", duration: " << (*duration).total_seconds() << "s";
+			if (schedule)
+				ss << ", schedule: " << *schedule;
+			ss << "}";
 			return ss.str();
 		}
 
@@ -104,8 +113,11 @@ namespace schedules {
 					("channel", sh::string_key(&channel, "NSCA"),
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
-					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1), "5m"),
+					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1)),
 						"SCHEDULE INTERAVAL", "Time in seconds between each check")
+
+					("schedule", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_schedule, this, _1)),
+						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
 					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1), "all"),
 						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)")
@@ -118,6 +130,9 @@ namespace schedules {
 
 					("interval", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_duration, this, _1)),
 						"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
+
+					("schedule", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_schedule, this, _1)),
+						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
 
 					("report", sh::string_fun_key<std::string>(boost::bind(&schedule_object::set_report, this, _1)),
 						"REPORT MODE", "What to report to the server (any of the following: all, critical, warning, unknown, ok)", true)
@@ -189,7 +204,7 @@ namespace schedules {
 		}
 		void on_trace(std::string error) {
 			if (handler_)
-				handler_->on_error(error);
+				handler_->on_trace(error);
 		}
 	};
 
