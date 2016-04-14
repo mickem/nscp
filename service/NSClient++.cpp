@@ -911,7 +911,7 @@ NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &res
 			payload->set_command(missing_commands);
 			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
 			response = response_message.SerializeAsString();
-			return NSCAPI::cmd_return_codes::hasFailed;
+			return NSCAPI::cmd_return_codes::isSuccess;
 		}
 
 		BOOST_FOREACH(command_chunk_type::value_type &v, command_chunks) {

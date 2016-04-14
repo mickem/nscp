@@ -129,6 +129,12 @@ namespace http {
 				verb = "POST";
 				payload = data;
 			}
+			void add_post_payload(const std::string &payload_data) {
+				add_header("Content-Length", strEx::s::xtos(payload_data.size()));
+				add_header("Content-Type", "application/x-www-form-urlencoded");
+				verb = "POST";
+				payload = payload_data;
+			}
 		};
 
 		void connect(std::string server, std::string port) {
@@ -175,8 +181,6 @@ namespace http {
 
 			if (response.version.substr(0, 5) != "HTTP/")
 				throw socket_helpers::socket_exception("Invalid response: " + response.version);
-			if (response.code != 200)
-				throw socket_helpers::socket_exception("Response returned with status code " + strEx::s::xtos(response.code));
 
 			try {
 				boost::asio::read_until(socket, response_buffer, "\r\n\r\n");
@@ -199,6 +203,10 @@ namespace http {
 			if (error != boost::asio::error::eof)
 				throw boost::system::system_error(error);
 			response.payload = os.str();
+
+			if (response.code != 200)
+				throw socket_helpers::socket_exception(strEx::s::xtos(response.code) + ": " + response.payload);
+
 			return response;
 		}
 
