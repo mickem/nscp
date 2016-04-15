@@ -98,6 +98,17 @@ Sample keys:
 {%- endif %}
 {%- endif %}
 
+{% if module.sample %}
+Samples
+-------
+{%if module.namespace %}
+.. include:: ../../samples/{{module.sample}}
+
+{% else %}
+.. include:: ../samples/{{module.sample}}
+
+{% endif %}
+{%- endif %}
 {% if module.queries -%}
 
 Queries
@@ -642,6 +653,15 @@ class DocumentationHelper(object):
 			hash = root.get_hash()
 			minfo.key = module
 			minfo.queries = {}
+			sfile = '%s%s_samples.inc'%(sample_base_path, module)
+			if os.path.exists(sfile):
+				print "---->%s" %sfile
+				minfo.sample = os.path.basename(sfile)
+			sfile = '%s%s_samples.rst'%(sample_base_path, module)
+			if os.path.exists(sfile):
+				print "---->%s" %sfile
+				minfo.sample = os.path.basename(sfile)
+
 			for (c,cinfo) in sorted(root.commands.iteritems()):
 				if module in cinfo.info.plugin:
 					more_info = self.fetch_command(c,cinfo)
