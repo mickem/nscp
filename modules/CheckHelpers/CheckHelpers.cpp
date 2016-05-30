@@ -105,6 +105,23 @@ bool CheckHelpers::simple_query(const std::string &command, const std::vector<st
 	return true;
 }
 
+bool CheckHelpers::simple_query(const std::string &command, const std::list<std::string> &arguments, Plugin::QueryResponseMessage::Response *response) {
+	std::string local_response_buffer;
+	nscapi::core_helper ch(get_core(), get_id());
+	if (ch.simple_query(command, arguments, local_response_buffer) != NSCAPI::api_return_codes::isSuccess) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute: " + command);
+		return false;
+	}
+	Plugin::QueryResponseMessage local_response;
+	local_response.ParseFromString(local_response_buffer);
+	if (local_response.payload_size() != 1) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Invalid payload size: " + command);
+		return false;
+	}
+	response->CopyFrom(local_response.payload(0));
+	return true;
+}
+
 void CheckHelpers::check_change_status(::Plugin::Common_ResultCode status, const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	po::variables_map vm;
@@ -193,13 +210,15 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 		return;
 	if (arguments.size() == 0)
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
-	BOOST_FOREACH(std::string arg, arguments) {
-		std::list<std::string> tmp = strEx::s::splitEx(arg, std::string(" "));
-		if (tmp.empty()) {
+	response->set_result(Plugin::Common_ResultCode_OK);
+	BOOST_FOREACH(std::string command_line, arguments) {
+		std::list<std::string> args;
+		strEx::s::parse_command(command_line, args);
+
+		if (args.size() == 0) {
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 		}
-		std::string command = tmp.front();
-		std::vector<std::string> args(++(tmp.begin()), tmp.end());
+		std::string command = args.front(); args.pop_front();
 		Plugin::QueryResponseMessage::Response local_response;
 		if (!simple_query(command, args, &local_response))
 			return nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute command: " + command);
