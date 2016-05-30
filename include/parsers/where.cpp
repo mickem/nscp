@@ -25,7 +25,7 @@ namespace parsers {
 
 			where_grammar::iterator_type iter = expr.begin();
 			where_grammar::iterator_type end = expr.end();
-			if (phrase_parse(iter, end, calc, ascii::space, resulting_tree)) {
+			if (phrase_parse(iter, end, calc, charset::space, resulting_tree)) {
 				rest = std::string(iter, end);
 				return rest.empty();
 			}
