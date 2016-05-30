@@ -19,7 +19,7 @@ namespace nscp_handler {
 
 		nrpe_target_object(std::string alias, std::string path) : parent(alias, path) {
 			set_property_int("timeout", 30);
-			set_property_string("certificate", "${certificate-path}/certificate.pem");
+			set_property_string("certificate", "");
 			set_property_string("certificate key", "");
 			set_property_string("certificate format", "PEM");
 			set_property_string("allowed ciphers", "ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH");

@@ -3,18 +3,20 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <client/command_line_parser.hpp>
 #include <socket/client.hpp>
-#include <http/client.hpp>
+#include <socket/clients/http/http_client_protocol.hpp>
+#include <format.hpp>
 
 namespace nscp_client {
 	struct connection_data : public socket_helpers::connection_info {
 		std::string password;
+		std::string path;
 		boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
 		connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler) : handler(handler) {
 			address = target.address.host;
 			port_ = target.address.get_port_string("8443");
 
-			ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
+			ssl.certificate = ""; // target.get_string_data("certificate", "${certificate-path}/certificate.pem");
 			ssl.certificate_key = target.get_string_data("certificate key");
 			ssl.certificate_key_format = target.get_string_data("certificate format", "PEM");
 			ssl.ca_path = target.get_string_data("ca");
@@ -29,16 +31,18 @@ namespace nscp_client {
 			timeout = target.timeout;
 			retry = target.retry;
 			password = target.get_string_data("password", "");
+			path = target.get_string_data("path", "/query.pb");
 
 			if (target.has_data("no ssl"))
 				ssl.enabled = !target.get_bool_data("no ssl");
-			if (target.has_data("use ssl"))
-				ssl.enabled = target.get_bool_data("use ssl");
+			if (target.has_data("ssl"))
+				ssl.enabled = target.get_bool_data("ssl");
 		}
 
 		std::string to_string() const {
 			std::stringstream ss;
 			ss << "host: " << get_endpoint_string();
+			ss << ", path: " << path;
 			ss << ", password: " << password;
 			ss << ", ssl: " << ssl.to_string();
 			return ss.str();
@@ -61,9 +65,10 @@ namespace nscp_client {
 		}
 	};
 
+	template<class THandler=client_handler>
 	struct nscp_client_handler : public client::handler_interface {
-		boost::shared_ptr<client_handler> handler_;
-		nscp_client_handler() : handler_(boost::make_shared<client_handler>()) {}
+		boost::shared_ptr<THandler> handler_;
+		nscp_client_handler() : handler_(boost::make_shared<THandler>()) {}
 
 		std::string get_command(std::string alias, std::string command = "") {
 			if (!alias.empty())
@@ -82,8 +87,6 @@ namespace nscp_client {
 			BOOST_FOREACH(const std::string &e, con.validate()) {
 				handler_->log_error(__FILE__, __LINE__, e);
 			}
-
-
 			boost::tuple<bool, std::string> ret = send(con, request_message.SerializeAsString());
 			if (ret.get<0>()) {
 				response_message.ParseFromString(ret.get<1>());
@@ -141,22 +144,14 @@ namespace nscp_client {
 
 		boost::tuple<bool, std::string> send(nscp_client::connection_data con, const std::string data) {
 			try {
-
-				http::client c;
-				http::client::request_type request;
-				request.add_default_headers();
-				request.add_header("password", con.password);
-				request.add_post_payload(data);
-				//NSC_DEBUG_MSG_STD(nrdp_data.render_request());
-
-				NSC_DEBUG_MSG_STD(data);
-				http::client::response_type response = c.execute(con.get_address(), con.get_port(), "/query.pb", request);
-
 #ifndef USE_SSL
 				if (con.ssl.enabled)
 					return boost::make_tuple(false, "SSL support not available (compiled without USE_SSL)");
 #endif
-				return boost::make_tuple(true, response.payload);
+				http::packet packet("POST", con.path, data);
+				socket_helpers::client::client<http::client::protocol> client(con, handler_);
+				http::packet response = client.process_request(packet);
+				return boost::make_tuple(true, response.get_payload());
 			} catch (std::runtime_error &e) {
 				return boost::make_tuple(false, "Socket error: " + utf8::utf8_from_native(e.what()));
 			} catch (std::exception &e) {

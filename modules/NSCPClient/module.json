@@ -13,23 +13,23 @@
 
 	"commands" : {
 		"fallback" : "raw",
-		"check_nscp" : { 
+		"check_remote_nscp" : { 
 			"description" : "Request remote information via NSCP.",
 			"mapping"	: false
 		},
-		"nscp_query" : { 
+		"remote_nscp_query" : { 
 			"description" : "Request remote information via NSCP.",
 			"mapping"	: false
 		},
-		"exec_nscp" : { 
+		"exec_remote_nscp" : { 
 			"description" : "Execute remote script via NSCP.",
 			"mapping"	: false
 		},
-		"submit_nscp" : { 
+		"submit_remote_nscp" : { 
 			"description" : "Submit information to remote host via NSCP.",
 			"mapping"	: false
 		},
-		"nscp_forward" : { 
+		"remote_nscpforward" : { 
 			"description" : "Forward the request as-is to remote host via NSCP.",
 			"mapping"	: false
 		}
