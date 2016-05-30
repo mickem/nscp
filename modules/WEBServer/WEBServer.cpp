@@ -24,6 +24,7 @@
 #include <strEx.h>
 #include <time.h>
 #include <timer.hpp>
+#include <format.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/thread/shared_mutex.hpp>
@@ -105,8 +106,8 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 	if (token.empty())
 		token = request.get("__TOKEN", "");
 	bool auth = false;
+	std::string password = request.readHeader("password");
 	if (token.empty()) {
-		std::string password = request.readHeader("password");
 		if (password.empty())
 			password = request.get("password", "");
 		auth = !password.empty() && password == gpassword;
@@ -114,6 +115,7 @@ bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response,
 		auth = tokens.validate(token);
 	}
 	if (!auth) {
+		NSC_LOG_ERROR("Invalid password/token from: " + request.getRemoteIp() + ": " + password);
 		if (respond) {
 			response.setCode(HTTP_FORBIDDEN);
 			response << "403 Please login first";
@@ -338,6 +340,7 @@ public:
 			return;
 		std::string response_pb;
 		if (!core->settings_query(request.getData(), response_pb)) {
+			NSC_LOG_ERROR("Failed to execute query");
 			response.setCode(HTTP_SERVER_ERROR);
 			response << "500 QUery failed";
 			return;
@@ -348,6 +351,7 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		std::string response_pb;
+		NSC_LOG_ERROR(format::format_buffer(request.getData()));
 		if (!core->query(request.getData(), response_pb)) {
 			response.setCode(HTTP_SERVER_ERROR);
 			response << "500 QUery failed";
@@ -956,19 +960,27 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		}
 		std::stringstream result;
 
+		bool https = false;
 		nscapi::protobuf::functions::settings_query s(get_id());
 		result << "Enabling WEB from (currently not supported): " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
 		s.set("/modules", "WEBServer", "enabled");
 		if (port.find('s') != std::string::npos) {
+			https = true;
 			result << "HTTP(s) is enabled using " << get_core()->expand_path(cert);
 			if (!key.empty())
 				result << " and " << get_core()->expand_path(key);
 			result << "." << std::endl;
 		}
+		if (!https) {
+			cert = "";
+			key = "";
+		}
 		s.set(path, "certificate", cert);
 		s.set(path, "certificate key", key);
-		result << "Point your browser to: " << boost::replace_all_copy(port, "s", "") << std::endl;
+		if (https)
+			result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
+		result << "Point your browser to http://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
 		s.set(path, "port", port);
 		s.save();
 		get_core()->settings_query(s.request(), s.response());

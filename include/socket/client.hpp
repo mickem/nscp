@@ -341,6 +341,8 @@ namespace socket_helpers {
 			}
 
 			typename protocol_type::response_type process_request(typename protocol_type::request_type &packet) {
+				if (!connection_)
+					connect();
 				boost::optional<typename protocol_type::response_type> response = connection_->process_request(packet);
 				if (!response) {
 					for (int i = 0; i < info_.retry; i++) {

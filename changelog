@@ -1,3 +1,9 @@
+2016-05-30 Michael Medin
+* filters: Fixed #292 Unicode support for filters
+* NSCA: Fixed #300 alias not used when sending NSCP results
+* check_nscp: Added SSl support and general fixes to check_nscp (check_remote_nscp)
+* CheckHelpers: Fixed 301: check_multi does not parse qouted commands properly (possibly breaking change)
+
 2016-04-14 Michael Medin
  * NSCPClient: Added preliminary REST client
  * Scheduler: added preliminary support for cron statements: schedule = 47 * * * *

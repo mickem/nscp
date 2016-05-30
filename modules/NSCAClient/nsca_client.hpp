@@ -110,7 +110,10 @@ namespace nsca_client {
 				nsca::packet packet(sender.get_host(), len, 0);
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
 				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
-				packet.service = payload.command();
+				if (!payload.alias().empty())
+					packet.service = payload.alias();
+				else
+					packet.service = payload.command();
 				list.push_back(packet);
 			}
 
