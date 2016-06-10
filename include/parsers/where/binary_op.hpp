@@ -11,6 +11,7 @@ namespace parsers {
 			//virtual void force_type(value_type newtype) = 0;
 
 			virtual std::string to_string() const;
+			virtual std::string to_string(evaluation_context errors) const;
 
 			virtual value_container get_value(evaluation_context contxt, value_type type) const;
 			virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const;

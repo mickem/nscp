@@ -22,6 +22,7 @@ namespace parsers {
 			boost::optional<TObject> object;
 			boost::optional<summary_type> summary;
 			errors_type errors_;
+			errors_type warnings_;
 			errors_type debugs_;
 			TObject get_object() {
 				return *object;
@@ -40,13 +41,13 @@ namespace parsers {
 				return static_cast<bool>(object);
 			}
 			bool has_summary() {
-				return static_cast<bool>(object);
+				return static_cast<bool>(summary);
 			}
 			void remove_object() {
 				object.reset();
 			}
 			void remove_summary() {
-				object.reset();
+				summary.reset();
 			}
 			void set_object(TObject  o) {
 				object = o;
@@ -58,12 +59,24 @@ namespace parsers {
 			virtual bool has_error() const {
 				return !errors_.empty();
 			}
+			virtual bool has_warn() const {
+				return !warnings_.empty();
+			}
 			virtual bool has_debug() const {
 				return !debugs_.empty();
 			}
 			virtual std::string get_error() const {
 				std::string ret;
 				BOOST_FOREACH(const std::string &m, errors_) {
+					if (!ret.empty())
+						ret += ", ";
+					ret += m;
+				}
+				return ret;
+			}
+			virtual std::string get_warn() const {
+				std::string ret;
+				BOOST_FOREACH(const std::string &m, warnings_) {
 					if (!ret.empty())
 						ret += ", ";
 					ret += m;
@@ -79,14 +92,16 @@ namespace parsers {
 				}
 				return ret;
 			}
-			virtual void clear_errors() {
+			virtual void clear() {
 				errors_.clear();
-			}
-			virtual void clear_debug() {
+				warnings_.clear();
 				debugs_.clear();
 			}
 			virtual void error(const std::string msg) {
 				errors_.push_back(msg);
+			}
+			virtual void warn(const std::string msg) {
+				warnings_.push_back(msg);
 			}
 		};
 	}

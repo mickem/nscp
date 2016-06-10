@@ -45,7 +45,8 @@ namespace parsers {
 		struct string_value : public node_value_impl<std::string>, boost::enable_shared_from_this<string_value> {
 			string_value(const std::string &value, bool is_unsure = false) : node_value_impl<std::string>(value, type_string, is_unsure) {}
 			value_container get_value(evaluation_context context, value_type type) const;
-			std::string to_string() const;
+			virtual std::string to_string() const;
+			virtual std::string to_string(evaluation_context errors) const;
 			value_type infer_type(object_converter, value_type) {
 				return type_string;
 			}
@@ -57,7 +58,8 @@ namespace parsers {
 		struct int_value : public node_value_impl<long long>, boost::enable_shared_from_this<int_value> {
 			int_value(const long long &value, bool is_unsure = false) : node_value_impl<long long>(value, type_int, is_unsure) {}
 			value_container get_value(evaluation_context context, value_type type) const;
-			std::string to_string() const;
+			virtual std::string to_string() const;
+			virtual std::string to_string(evaluation_context errors) const;
 			value_type infer_type(object_converter converter, value_type vt) {
 				if (helpers::type_is_int(vt))
 					return type_int;
@@ -75,7 +77,8 @@ namespace parsers {
 		struct float_value : public node_value_impl<double>, boost::enable_shared_from_this<float_value> {
 			float_value(const double &value, bool is_unsure = false) : node_value_impl<double>(value, type_float, is_unsure) {}
 			value_container get_value(evaluation_context context, value_type type) const;
-			std::string to_string() const;
+			virtual std::string to_string() const;
+			virtual std::string to_string(evaluation_context errors) const;
 			value_type infer_type(object_converter converter, value_type vt) {
 				if (helpers::type_is_float(vt)) {
 					return type_float;

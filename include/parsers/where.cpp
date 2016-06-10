@@ -98,5 +98,8 @@ namespace parsers {
 		std::string parser::result_as_tree() const {
 			return resulting_tree->to_string();
 		}
+		std::string parser::result_as_tree(evaluation_context context) const {
+			return resulting_tree->to_string(context);
+		}
 	}
 }

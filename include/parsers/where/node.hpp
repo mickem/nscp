@@ -192,13 +192,15 @@ namespace parsers {
 			virtual bool has_error() const = 0;
 			virtual std::string get_error() const = 0;
 			virtual void error(const std::string) = 0;
-			virtual void clear_errors() = 0;
+			virtual bool has_warn() const = 0;
+			virtual std::string get_warn() const = 0;
+			virtual void warn(const std::string) = 0;
+			virtual void clear() = 0;
 
 			virtual void enable_debug(bool enable_debug) = 0;
 			virtual bool has_debug() const = 0;
 			virtual std::string get_debug() const = 0;
 			virtual void debug(const std::string) = 0;
-			virtual void clear_debug() = 0;
 		};
 		typedef boost::shared_ptr<evaluation_context_interface> evaluation_context;
 
@@ -325,6 +327,7 @@ namespace parsers {
 			virtual value_type infer_type(object_converter converter, value_type suggestion) = 0;
 
 			virtual std::string to_string() const = 0;
+			virtual std::string to_string(evaluation_context errors) const = 0;
 
 			virtual value_container get_value(evaluation_context errors, value_type type) const = 0;
 			virtual std::list<boost::shared_ptr<any_node> > get_list_value(evaluation_context errors) const = 0;

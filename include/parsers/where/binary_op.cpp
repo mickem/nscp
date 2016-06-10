@@ -46,6 +46,11 @@ namespace parsers {
 			ss << "(" << helpers::type_to_string(get_type()) + "){" << left->to_string() << " " << helpers::operator_to_string(op) << " " << right->to_string() << "}";
 			return ss.str();
 		}
+		std::string binary_op::to_string(evaluation_context errors) const {
+			std::stringstream ss;
+			ss << left->to_string(errors) << " " << helpers::operator_to_string(op) << " " << right->to_string(errors);
+			return ss.str();
+		}
 
 		bool binary_op::find_performance_data(evaluation_context context, performance_collector &collector) {
 			if (op == op_nin || op == op_in)

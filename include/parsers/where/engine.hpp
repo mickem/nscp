@@ -25,6 +25,7 @@ namespace parsers {
 			typedef parsers::where::performance_collector::boundries_type boundries_type;
 			parsers::where::performance_collector boundries;
 			error_handler error;
+			boost::optional<bool> requires_object;
 
 			engine(std::string filter, error_handler error);
 
@@ -34,11 +35,9 @@ namespace parsers {
 
 			bool validate(object_factory context);
 
-			bool require_object(execution_context_type context) const {
-				return ast_parser.require_object(context);
-			}
+			bool require_object(execution_context_type context);
 
-			bool match(execution_context_type context, bool accept_unsure);
+			bool match(execution_context_type context);
 
 			std::string get_subject() { return filter_string; }
 		};

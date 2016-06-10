@@ -8,6 +8,14 @@ namespace parsers {
 			return boundries.get_candidates();
 		}
 
+		bool engine::require_object(execution_context_type context) {
+			if (requires_object)
+				return *requires_object;
+			requires_object = ast_parser.require_object(context);
+			return *requires_object;
+		}
+
+
 		void engine::enabled_performance_collection() {
 			perf_collection = true;
 		}
@@ -53,14 +61,21 @@ namespace parsers {
 			return true;
 		}
 
-		bool engine::match(execution_context_type context, bool accept_unsure) {
+		bool engine::match(execution_context_type context) {
 			value_container v = ast_parser.evaluate(context);
 			if (context->has_error()) {
-				error->log_error("Error: " + context->get_error());
+				error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
 			}
-			context->clear_errors();
-			if (!accept_unsure && v.is_unsure)
-				return false;
+			if (context->has_warn()) {
+				error->log_warning(context->get_warn() + ": " + ast_parser.result_as_tree(context));
+			}
+			if (context->has_debug()) {
+				error->log_debug(context->get_debug() + ": " + ast_parser.result_as_tree(context));
+			}
+			context->clear();
+			if (v.is_unsure) {
+				error->log_warning("Ignoring unsure result: " + ast_parser.result_as_tree(context));
+			}
 			return v.is_true();
 		}
 	}

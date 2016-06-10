@@ -17,6 +17,7 @@ namespace parsers {
 			unary_fun(std::string name, node_type const subject) : name(name), subject(subject) {}
 
 			virtual std::string to_string() const;
+			virtual std::string to_string(evaluation_context errors) const;
 
 			virtual value_container get_value(evaluation_context context, value_type type) const;
 			virtual std::list<node_type> get_list_value(evaluation_context errors) const;

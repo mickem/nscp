@@ -30,6 +30,9 @@ namespace parsers {
 		std::string string_value::to_string() const {
 			return "(s){" + value_ + "}";
 		}
+		std::string string_value::to_string(evaluation_context context) const {
+			return value_;
+		}
 		bool string_value::find_performance_data(evaluation_context context, performance_collector &collector) {
 			collector.set_candidate_value(shared_from_this());
 			return false;
@@ -50,6 +53,9 @@ namespace parsers {
 		std::string int_value::to_string() const {
 			return "(i){" + strEx::s::xtos(value_) + "}";
 		}
+		std::string int_value::to_string(evaluation_context context) const {
+			return strEx::s::xtos(value_);
+		}
 		bool int_value::find_performance_data(evaluation_context context, performance_collector &collector) {
 			collector.set_candidate_value(shared_from_this());
 			return false;
@@ -66,6 +72,9 @@ namespace parsers {
 		}
 		std::string float_value::to_string() const {
 			return "(f){" + strEx::s::xtos(value_) + "}";
+		}
+		std::string float_value::to_string(evaluation_context context) const {
+			return strEx::s::xtos(value_);
 		}
 		bool float_value::find_performance_data(evaluation_context context, performance_collector &collector) {
 			collector.set_candidate_value(shared_from_this());

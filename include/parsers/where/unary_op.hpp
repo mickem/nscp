@@ -7,6 +7,7 @@ namespace parsers {
 		struct unary_op : public any_node {
 			unary_op(operators op, node_type const subject) : op(op), subject(subject) {}
 
+			virtual std::string to_string(evaluation_context errors) const;
 			virtual std::string to_string() const;
 
 			virtual value_container get_value(evaluation_context context, value_type type) const;

@@ -77,28 +77,52 @@ namespace parsers {
 				virtual value_container do_eval_string(value_type type, evaluation_context errors, const value_container left, const value_container right) const = 0;
 			};
 
-			struct simple_int_binary_operator_impl : public binary_operator_impl {
-				node_type evaluate(evaluation_context errors, const node_type left, const node_type right) const {
-					value_type ltype = left->get_type();
-					value_type rtype = right->get_type();
+			struct eval_helper {
+				evaluation_context errors;
+				const node_type left;
+				const node_type right;
+				const value_type ltype;
+				const value_type rtype;
+				boost::optional<value_container> lhs;
+				boost::optional<value_container> rhs;
+				boost::optional<value_container> result_;
 
-					if (helpers::type_is_int(ltype) && helpers::type_is_int(rtype)) {
-						value_container lhs = left->get_value(errors, type_int);
-						value_container rhs = right->get_value(errors, type_int);
-						if (!lhs.is(type_int) || !rhs.is(type_int)) {
-							errors->error("invalid type");
-							return factory::create_false();
-						}
-						return factory::create_num(eval(lhs, rhs));
+				eval_helper(evaluation_context errors, const node_type left, const node_type right)
+					: left(left)
+					, right(right)
+					, errors(errors) 
+					, ltype(left->get_type())
+					, rtype(right->get_type())
+				{}
+				value_container get_lhs() {
+					if (lhs)
+						return *lhs;
+					lhs.reset(left->get_value(errors, type_int));
+					return *lhs;
+				}
+				value_container get_rhs() {
+					if (rhs)
+						return *rhs;
+					rhs.reset(right->get_value(errors, type_int));
+					return *rhs;
+				}
+			};
+			struct simple_int_binary_operator_impl : public binary_operator_impl {
+
+				node_type evaluate(evaluation_context errors_, const node_type left_, const node_type right_) const {
+					eval_helper helper(errors_, left_, right_);
+
+					if (helpers::type_is_int(helper.ltype) && helpers::type_is_int(helper.rtype)) {
+						return factory::create_num(eval_int(helper));
 					}
-					if ((ltype != rtype) && (rtype != type_tbd)) {
-						errors->error("Invalid types (not same) for binary operator");
+					if ((helper.ltype != helper.rtype) && (helper.rtype != type_tbd)) {
+						helper.errors->error("Incompatible types in binary operator");
 						return factory::create_false();
 					}
-					errors->error("missing impl for simple bool binary operator");
+					helper.errors->error("Invalid types in binary operator");
 					return factory::create_false();
 				}
-				virtual value_container eval(const value_container left, const value_container right) const = 0;
+				virtual value_container eval_int(eval_helper &helper) const = 0;
 			};
 
 			struct operator_eq : public even_simpler_bool_binary_operator_impl {
@@ -171,13 +195,25 @@ namespace parsers {
 			};
 
 			struct operator_and : public simple_int_binary_operator_impl {
-				value_container eval(const value_container lhs, const value_container rhs) const {
-					return value_container::create_int(lhs.get_int() && rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
+				value_container eval_int(eval_helper &helper) const {
+					long long lhsi = helper.get_lhs().get_int();
+					if (!lhsi && !helper.get_lhs().is_unsure)
+						return value_container::create_bool(false, false);
+					long long rhsi = helper.get_rhs().get_int();
+					if (!rhsi && !helper.get_rhs().is_unsure)
+						return value_container::create_bool(false, false);
+					return value_container::create_int(lhsi && rhsi, helper.get_lhs().is_unsure | helper.get_rhs().is_unsure);
 				}
 			};
 			struct operator_or : public simple_int_binary_operator_impl {
-				value_container eval(const value_container lhs, const value_container rhs) const {
-					return value_container::create_int(lhs.get_int() || rhs.get_int(), lhs.is_unsure | rhs.is_unsure);
+				value_container eval_int(eval_helper &helper) const {
+					long long lhsi = helper.get_lhs().get_int();
+					if (lhsi && !helper.get_lhs().is_unsure)
+						return value_container::create_bool(true, false);
+					long long rhsi = helper.get_rhs().get_int();
+					if (rhsi && !helper.get_rhs().is_unsure)
+						return value_container::create_bool(true, false);
+					return value_container::create_int(lhsi || rhsi, helper.get_lhs().is_unsure | helper.get_rhs().is_unsure);
 				}
 			};
 

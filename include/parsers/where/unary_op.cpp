@@ -7,6 +7,9 @@ namespace parsers {
 		std::string unary_op::to_string() const {
 			return helpers::operator_to_string(op) + " ( " + subject->to_string() + " ) ";
 		}
+		std::string unary_op::to_string(evaluation_context errors) const {
+			return helpers::operator_to_string(op) + " ( " + subject->to_string(errors) + " ) ";
+		}
 
 		value_container unary_op::get_value(evaluation_context errors, value_type type) const {
 			return evaluate(errors)->get_value(errors, type);

@@ -13,6 +13,15 @@ namespace parsers {
 			}
 			return ret;
 		}
+		std::string list_node::to_string(evaluation_context errors) const {
+			std::string ret;
+			BOOST_FOREACH(const node_type n, value_) {
+				if (!ret.empty())
+					ret += ", ";
+				ret += n->to_string(errors);
+			}
+			return ret;
+		}
 
 		value_container list_node::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_int) {

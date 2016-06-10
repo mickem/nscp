@@ -21,7 +21,6 @@ namespace parsers {
 }
 
 struct perf_writer_interface {
-	//virtual void write(::Plugin::QueryResponseMessage::Response::Line *line, const parsers::where::performance_data &data) = 0;
 	virtual void write(const parsers::where::performance_data &value) = 0;
 };
 
@@ -359,7 +358,7 @@ namespace modern_filter {
 			// done should be set if we want to bail out after the first hit!
 			// I.e. mode==first (mode==all)
 			summary.count();
-			if (!engine_filter || engine_filter->match(context, false)) {
+			if (!engine_filter || engine_filter->match(context)) {
 				matched_filter = true;
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
@@ -380,7 +379,7 @@ namespace modern_filter {
 					summary.matched_unique();
 				else
 					summary.matched(current);
-				if (engine_crit && engine_crit->match(context, false)) {
+				if (engine_crit && engine_crit->require_object(context) && engine_crit->match(context)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Crit match: " + current);
 					if (second_unique_match)
@@ -389,7 +388,7 @@ namespace modern_filter {
 						summary.matched_crit(current);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 					matched_bound = true;
-				} else if (engine_warn && engine_warn->match(context, false)) {
+				} else if (engine_warn && engine_warn->require_object(context) && engine_warn->match(context)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Warn match: " + current);
 					if (second_unique_match)
@@ -398,7 +397,7 @@ namespace modern_filter {
 						summary.matched_warn(current);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 					matched_bound = true;
-				} else if (engine_ok && engine_ok->match(context, false)) {
+				} else if (engine_ok && engine_ok->require_object(context) && engine_ok->match(context)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Ok match: " + current);
 					// TODO: Unsure of this, should this not re-set matched?
@@ -422,12 +421,6 @@ namespace modern_filter {
 			} else if (error_handler && error_handler->is_debug()) {
 				error_handler->log_debug("Filter did not match: " + renderer_detail.render(context));
 			}
-			if (error_handler && error_handler->is_debug()) {
-				if (context->has_debug()) {
-					error_handler->log_debug(context->get_debug());
-					context->clear_debug();
-				}
-			}
 			return match_result(matched_filter, matched_bound);
 		}
 
@@ -439,15 +432,15 @@ namespace modern_filter {
 				if (perf.size() > 0)
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 			}
-			if (engine_crit && !engine_crit->require_object(context) && engine_crit->match(context, true)) {
+			if (engine_crit && !engine_crit->require_object(context) && engine_crit->match(context)) {
 				nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 				summary.move_hits_crit();
 				matched = true;
-			} else if (engine_warn && !engine_warn->require_object(context) && engine_warn->match(context, true)) {
+			} else if (engine_warn && !engine_warn->require_object(context) && engine_warn->match(context)) {
 				nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 				summary.move_hits_warn();
 				matched = true;
-			} else if (engine_ok && !engine_ok->require_object(context) && engine_ok->match(context, true)) {
+			} else if (engine_ok && !engine_ok->require_object(context) && engine_ok->match(context)) {
 				// TODO: Unsure of this, should this not re-set matched?
 				// What is matched for?
 				matched = true;
@@ -455,7 +448,7 @@ namespace modern_filter {
 				error_handler->log_debug("Crit/warn/ok did not match: <END>");
 				if (context->has_debug()) {
 					error_handler->log_debug(context->get_debug());
-					context->clear_debug();
+					context->clear();
 				}
 			}
 			return matched;

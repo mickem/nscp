@@ -8,6 +8,11 @@ namespace parsers {
 		std::string unary_fun::to_string() const {
 			return "{" + helpers::type_to_string(get_type()) + "}" + name + "(" + subject->to_string() + ")";
 		}
+		std::string unary_fun::to_string(evaluation_context errors) const {
+			if (function)
+				return name + "(" + function->evaluate(type_string, errors, subject)->to_string(errors) + ")";
+			return name + "(" + subject->to_string(errors) + ")";
+		}
 
 		value_container unary_fun::get_value(evaluation_context errors, value_type type) const {
 			return evaluate(errors)->get_value(errors, type);
