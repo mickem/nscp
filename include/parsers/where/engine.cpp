@@ -1,26 +1,10 @@
 #include <parsers/where/engine.hpp>
+#include <boost/foreach.hpp>
 
 namespace parsers {
 	namespace where {
-		engine::engine(std::string filter, error_handler error) : filter_string(filter), error(error) {}
 
-		engine::boundries_type engine::fetch_performance_data() {
-			return boundries.get_candidates();
-		}
-
-		bool engine::require_object(execution_context_type context) {
-			if (requires_object)
-				return *requires_object;
-			requires_object = ast_parser.require_object(context);
-			return *requires_object;
-		}
-
-
-		void engine::enabled_performance_collection() {
-			perf_collection = true;
-		}
-
-		bool engine::validate(object_factory context) {
+		bool engine_filter::validate(error_handler error, object_factory context, bool perf_collection, parsers::where::performance_collector &boundries) {
 			if (error->is_debug())
 				error->log_debug("Parsing: " + filter_string);
 
@@ -61,7 +45,18 @@ namespace parsers {
 			return true;
 		}
 
-		bool engine::match(execution_context_type context) {
+		bool engine_filter::require_object(execution_context_type context) {
+			if (requires_object)
+				return *requires_object;
+			requires_object = ast_parser.require_object(context);
+			return *requires_object;
+		}
+
+		bool engine_filter::match(error_handler error, execution_context_type context, bool expect_object) {
+			if (expect_object && !require_object(context))
+				return false;
+			if (!expect_object && require_object(context))
+				return false;
 			value_container v = ast_parser.evaluate(context);
 			if (context->has_error()) {
 				error->log_error(context->get_error() + ": " + ast_parser.result_as_tree(context));
@@ -77,6 +72,37 @@ namespace parsers {
 				error->log_warning("Ignoring unsure result: " + ast_parser.result_as_tree(context));
 			}
 			return v.is_true();
+		}
+
+
+
+
+		engine::engine(std::string filter, error_handler error) : error(error) {
+			filters_.push_back(engine_filter(filter));
+		}
+
+		engine::boundries_type engine::fetch_performance_data() {
+			return boundries.get_candidates();
+		}
+
+		void engine::enabled_performance_collection() {
+			perf_collection = true;
+		}
+
+		bool engine::validate(object_factory context) {
+			BOOST_FOREACH(engine_filter &f, filters_) {
+				if (!f.validate(error, context, perf_collection, boundries))
+					return false;
+			}
+			return true;
+		}
+
+		bool engine::match(execution_context_type context, bool expect_object) {
+			BOOST_FOREACH(engine_filter &f, filters_) {
+				if (f.match(error, context, expect_object))
+					return true;
+			}
+			return false;
 		}
 	}
 }

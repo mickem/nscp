@@ -358,7 +358,7 @@ namespace modern_filter {
 			// done should be set if we want to bail out after the first hit!
 			// I.e. mode==first (mode==all)
 			summary.count();
-			if (!engine_filter || engine_filter->match(context)) {
+			if (!engine_filter || engine_filter->match(context, true)) {
 				matched_filter = true;
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
@@ -379,7 +379,7 @@ namespace modern_filter {
 					summary.matched_unique();
 				else
 					summary.matched(current);
-				if (engine_crit && engine_crit->require_object(context) && engine_crit->match(context)) {
+				if (engine_crit && engine_crit->match(context, true)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Crit match: " + current);
 					if (second_unique_match)
@@ -388,7 +388,7 @@ namespace modern_filter {
 						summary.matched_crit(current);
 					nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 					matched_bound = true;
-				} else if (engine_warn && engine_warn->require_object(context) && engine_warn->match(context)) {
+				} else if (engine_warn && engine_warn->match(context, true)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Warn match: " + current);
 					if (second_unique_match)
@@ -397,7 +397,7 @@ namespace modern_filter {
 						summary.matched_warn(current);
 					nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 					matched_bound = true;
-				} else if (engine_ok && engine_ok->require_object(context) && engine_ok->match(context)) {
+				} else if (engine_ok && engine_ok->match(context, true)) {
 					if (error_handler && error_handler->is_debug())
 						error_handler->log_debug("Ok match: " + current);
 					// TODO: Unsure of this, should this not re-set matched?
@@ -432,15 +432,15 @@ namespace modern_filter {
 				if (perf.size() > 0)
 					performance_instance_data.insert(performance_instance_data.end(), perf.begin(), perf.end());
 			}
-			if (engine_crit && !engine_crit->require_object(context) && engine_crit->match(context)) {
+			if (engine_crit && engine_crit->match(context, false)) {
 				nscapi::plugin_helper::escalteReturnCodeToCRIT(summary.returnCode);
 				summary.move_hits_crit();
 				matched = true;
-			} else if (engine_warn && !engine_warn->require_object(context) && engine_warn->match(context)) {
+			} else if (engine_warn && engine_warn->match(context, false)) {
 				nscapi::plugin_helper::escalteReturnCodeToWARN(summary.returnCode);
 				summary.move_hits_warn();
 				matched = true;
-			} else if (engine_ok && !engine_ok->require_object(context) && engine_ok->match(context)) {
+			} else if (engine_ok && engine_ok->match(context, false)) {
 				// TODO: Unsure of this, should this not re-set matched?
 				// What is matched for?
 				matched = true;

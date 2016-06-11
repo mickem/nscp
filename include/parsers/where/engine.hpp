@@ -15,12 +15,30 @@ namespace parsers {
 			virtual void set_debug(bool debug) = 0;
 		};
 
+		struct NSCAPI_EXPORT engine_filter {
+			typedef boost::shared_ptr<error_handler_interface> error_handler;
+			typedef parsers::where::evaluation_context execution_context_type;
+			parsers::where::parser ast_parser;
+			std::string filter_string;
+			boost::optional<bool> requires_object;
+
+			engine_filter(const std::string filter_string) : filter_string(filter_string) {}
+
+			bool validate(error_handler error, object_factory context, bool perf_collection, parsers::where::performance_collector &boundries);
+
+			bool require_object(execution_context_type context);
+
+			bool match(error_handler error, execution_context_type context, bool expect_object);
+
+		};
+
 		struct NSCAPI_EXPORT engine {
 			typedef boost::shared_ptr<error_handler_interface> error_handler;
 			typedef parsers::where::evaluation_context execution_context_type;
 
-			parsers::where::parser ast_parser;
-			std::string filter_string;
+			std::list<engine_filter> filters_;
+			//parsers::where::parser ast_parser;
+			//std::string filter_string;
 			bool perf_collection;
 			typedef parsers::where::performance_collector::boundries_type boundries_type;
 			parsers::where::performance_collector boundries;
@@ -35,11 +53,9 @@ namespace parsers {
 
 			bool validate(object_factory context);
 
-			bool require_object(execution_context_type context);
+			bool match(execution_context_type context, bool expect_object);
 
-			bool match(execution_context_type context);
-
-			std::string get_subject() { return filter_string; }
+			std::string get_subject() { return "TODO"; }
 		};
 	}
 }
