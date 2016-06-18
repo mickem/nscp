@@ -765,17 +765,17 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 	if (!filter_helper.parse_options())
 		return;
 	if (class_e)
-		filter_helper.set_default_filter("classification = 'essential'");
+		filter_helper.append_all_filters("and", "classification = 'essential'");
 	if (class_i)
-		filter_helper.set_default_filter("classification = 'ignored'");
+		filter_helper.append_all_filters("and", "classification = 'ignored'");
 	if (class_r)
-		filter_helper.set_default_filter("classification = 'role'");
+		filter_helper.append_all_filters("and", "classification = 'role'");
 	if (class_s)
-		filter_helper.set_default_filter("classification = 'supporting'");
+		filter_helper.append_all_filters("and", "classification = 'supporting'");
 	if (class_y)
-		filter_helper.set_default_filter("classification = 'system'");
+		filter_helper.append_all_filters("and", "classification = 'system'");
 	if (class_u)
-		filter_helper.set_default_filter("classification = 'user'");
+		filter_helper.append_all_filters("and", "classification = 'user'");
 
 	if (services.empty()) {
 		services.push_back("*");
@@ -978,7 +978,11 @@ void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &requ
 
 	NSC_error err;
 	filter_type filter;
-	filter_helper.add_options("state not in ('started')", "state = 'stopped' or count = 0", "state != 'unreadable'", filter.get_filter_syntax(), "unknown");
+	filter_helper.add_filter_option("state != 'unreadable'");
+	filter_helper.add_warn_option("state not in ('started')");
+	filter_helper.add_crit_option("state = 'stopped'", "count = 0");
+
+	filter_helper.add_options(filter.get_filter_syntax(), "unknown");
 	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_filter_syntax(), "${exe}=${state}", "${exe}", "%(status): No processes found", "%(status): all processes are ok.");
 	filter_helper.get_desc().add_options()
 		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")

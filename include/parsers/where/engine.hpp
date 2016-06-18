@@ -4,6 +4,8 @@
 #include <parsers/where.hpp>
 #include <parsers/where/dll_defines.hpp>
 
+#include <vector>
+
 namespace parsers {
 	namespace where {
 		class NSCAPI_EXPORT error_handler_interface {
@@ -45,7 +47,7 @@ namespace parsers {
 			error_handler error;
 			boost::optional<bool> requires_object;
 
-			engine(std::string filter, error_handler error);
+			engine(std::vector<std::string> filter, error_handler error);
 
 			boundries_type fetch_performance_data();
 

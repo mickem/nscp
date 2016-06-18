@@ -875,12 +875,12 @@ namespace parsers {
 			virtual bool require_object(evaluation_context context) const {
 				return false;
 			}
-			value_container get_value(evaluation_context context, value_type type) const {
-				if (type == type_int || type == type_float) {
+			value_container get_value(evaluation_context context, value_type tpe) const {
+				if (tpe == type_int || tpe == type_float) {
 					context->error("Function not numeric: " + name_);
 					return value_container::create_nil();
 				}
-				if (type == type_string) {
+				if (tpe == type_string) {
 					native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 					if (native_context != NULL && fun)
 						return value_container::create_string(fun(native_context->get_summary()));

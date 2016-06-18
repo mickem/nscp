@@ -727,16 +727,10 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		return;
 
 	if (only_mounted) {
-		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
-			filter_helper.data.filter_string = "( " + filter_helper.data.filter_string + " ) and mounted = 1";
-		else
-			filter_helper.data.filter_string = "mounted = 1";
+		filter_helper.append_all_filters("and", "mounted = 1");
 	}
 	if (ignore_unreadable) {
-		if (!filter_helper.data.filter_string.empty() && filter_helper.data.filter_string != "mounted = 1")
-			filter_helper.data.filter_string = "( " + filter_helper.data.filter_string + " ) and mounted = 1 and readable = 1";
-		else
-			filter_helper.data.filter_string = "mounted = 1 and readable = 1";
+		filter_helper.append_all_filters("and", "mounted = 1 and readable = 1");
 	}
 
 	if (!filter_helper.build_filter(filter))

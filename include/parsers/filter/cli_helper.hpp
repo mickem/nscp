@@ -13,7 +13,7 @@
 
 namespace modern_filter {
 	struct data_container {
-		std::string filter_string, warn_string, crit_string, ok_string;
+		std::vector<std::string> filter_string, warn_string, crit_string, ok_string;
 		std::string syntax_empty, syntax_ok, syntax_top, syntax_detail, syntax_perf, perf_config, empty_state, syntax_unique;
 		bool debug, escape_html;
 		data_container() : debug(false), escape_html(false) {}
@@ -68,6 +68,7 @@ namespace modern_filter {
 		const Plugin::QueryRequestMessage::Request &request;
 		Plugin::QueryResponseMessage::Response *response;
 		bool show_all;
+		std::string syntax_description;
 
 		cli_helper(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, data_container &data)
 			: data(data)
@@ -81,20 +82,105 @@ namespace modern_filter {
 		boost::program_options::options_description& get_desc() {
 			return desc;
 		}
-		void add_options(std::string warn, std::string crit, std::string filter, const boost::tuple<std::string,std::string> &filter_syntax, std::string empty_state = "ignored") {
-			std::string fsyntax = "Available options : \n\nKey\tValue\n" + filter_syntax.get<0>() + filter_syntax.get<1>() + "\n\n";
-			nscapi::program_options::add_help(desc);
-			boost::program_options::typed_value<std::string> *filter_op = boost::program_options::value<std::string>(&data.filter_string);
-			boost::program_options::typed_value<std::string> *warn_op = boost::program_options::value<std::string>(&data.warn_string);
-			boost::program_options::typed_value<std::string> *crit_op = boost::program_options::value<std::string>(&data.crit_string);
+
+		void set_filter_syntax(const boost::tuple<std::string, std::string> &filter_syntax) {
+			syntax_description = "Available options : \n\nKey\tValue\n" + filter_syntax.get<0>() + filter_syntax.get<1>() + "\n\n";
+
+		}
+		void add_filter_option(const std::string filter) {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *filter_op = boost::program_options::value<std::vector<std::string> >(&data.filter_string);
+			if (!filter.empty()) {
+				std::vector<std::string> def;
+				def.push_back(filter);
+				filter_op->default_value(def, filter);
+			}
+
+			desc.add_options()
+				("filter", filter_op,
+				(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.\n") + syntax_description).c_str())
+				;
+		}
+		void add_warn_option(const std::string warn) {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *warn_op = boost::program_options::value<std::vector<std::string> >(&data.warn_string);
+			if (!warn.empty()) {
+				std::vector<std::string> def;
+				def.push_back(warn);
+				warn_op->default_value(def, warn);
+			}
+
+			desc.add_options()
+				("warning", warn_op,
+				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + syntax_description).c_str())
+				("warn", boost::program_options::value<std::vector<std::string>>(),
+				"Short alias for warning")
+				;
+		}
+		void add_warn_option(const std::string warn1, const std::string warn2) {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *warn_op = boost::program_options::value<std::vector<std::string> >(&data.warn_string);
+			std::vector<std::string> def;
+			def.push_back(warn1);
+			def.push_back(warn2);
+			warn_op->default_value(def, warn1 + ", " + warn2);
+
+			desc.add_options()
+				("warning", warn_op,
+				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + syntax_description).c_str())
+					("warn", boost::program_options::value<std::vector<std::string>>(),
+						"Short alias for warning")
+				;
+		}
+		void add_crit_option(const std::string crit) {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *crit_op = boost::program_options::value<std::vector<std::string> >(&data.crit_string);
+			if (!crit.empty()) {
+				std::vector<std::string> def;
+				def.push_back(crit);
+				crit_op->default_value(def, crit);
+			}
+
+			desc.add_options()
+				("critical", crit_op,
+				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + syntax_description).c_str())
+				("crit", boost::program_options::value<std::vector<std::string>>(),
+					"Short alias for critical.")
+				;
+		}
+		void add_crit_option(const std::string crit1, const std::string crit2) {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *crit_op = boost::program_options::value<std::vector<std::string> >(&data.crit_string);
+			std::vector<std::string> def;
+			def.push_back(crit1);
+			def.push_back(crit2);
+			crit_op->default_value(def, crit1 + ", " + crit2);
+
+			desc.add_options()
+				("critical", crit_op,
+				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + syntax_description).c_str())
+					("crit", boost::program_options::value<std::vector<std::string>>(),
+						"Short alias for critical.")
+				;
+		}
+		void add_ok_option(const std::string ok = "") {
+			typedef boost::program_options::typed_value<std::vector<std::string> > filter_op_type;
+			filter_op_type *ok_op = boost::program_options::value<std::vector<std::string> >(&data.ok_string);
+			if (!ok.empty()) {
+				std::vector<std::string> def;
+				def.push_back(ok);
+				ok_op->default_value(def, ok);
+			}
+
+			desc.add_options()
+				("ok", ok_op,
+				(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\n") + syntax_description).c_str())
+				;
+		}
+		void add_misc_options(std::string empty_state = "ignored") {
 			boost::program_options::typed_value<std::string> *empty_state_op = boost::program_options::value<std::string>(&data.empty_state);
 			boost::program_options::typed_value<std::string> *perf_config_op = boost::program_options::value<std::string>(&data.perf_config);
-			if (!filter.empty())
-				filter_op->default_value(filter);
-			if (!warn.empty())
-				warn_op->default_value(warn);
-			if (!crit.empty())
-				crit_op->default_value(crit);
+
 			if (!empty_state.empty())
 				empty_state_op->default_value(empty_state);
 			if (!data.perf_config.empty())
@@ -104,18 +190,6 @@ namespace modern_filter {
 					"Show debugging information in the log")
 				("show-all", boost::program_options::bool_switch(&show_all),
 					"Show details for all matches regardless of status (normally details are only showed for warnings and criticals).")
-				("filter", filter_op,
-					(std::string("Filter which marks interesting items.\nInteresting items are items which will be included in the check.\nThey do not denote warning or critical state but they are checked use this to filter out unwanted items.\n") + fsyntax).c_str())
-				("warning", warn_op,
-					(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + fsyntax).c_str())
-				("warn", boost::program_options::value<std::string>(),
-					"Short alias for warning")
-				("critical", crit_op,
-					(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + fsyntax).c_str())
-				("crit", boost::program_options::value<std::string>(),
-					"Short alias for critical.")
-				("ok", boost::program_options::value<std::string>(&data.ok_string),
-					(std::string("Filter which marks items which generates an ok state.\nIf anything matches this any previous state for this item will be reset to ok.\n") + fsyntax).c_str())
 				("empty-state", empty_state_op,
 					"Return status to use when nothing matched filter.\nIf no filter is specified this will never happen unless the file is empty.")
 				("perf-config", perf_config_op,
@@ -123,38 +197,28 @@ namespace modern_filter {
 				("escape-html", boost::program_options::bool_switch(&data.escape_html),
 					"Escape any < and > characters to prevent HTML encoding")
 				;
+			nscapi::program_options::add_help(desc);
+		}
+		void add_options(std::string warn, std::string crit, std::string filter, const boost::tuple<std::string,std::string> &filter_syntax, std::string empty_state = "ignored") {
+			set_filter_syntax(filter_syntax);
+			add_filter_option(filter);
+			add_warn_option(warn);
+			add_crit_option(crit);
+			add_ok_option();
+			add_misc_options(empty_state);
+		}
+		void add_options(const boost::tuple<std::string, std::string> &filter_syntax, std::string empty_state = "ignored") {
+			set_filter_syntax(filter_syntax);
+			add_ok_option();
+			add_misc_options(empty_state);
 		}
 
-		bool parse_options(boost::program_options::positional_options_description p) {
-			boost::program_options::variables_map vm;
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p))
-				return false;
-
-			if (show_all)
-				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
-			if (boost::contains(data.syntax_top, "detail_list")
-				|| boost::contains(data.syntax_top, "(list)")
-				|| boost::contains(data.syntax_top, "{list}")
-				|| boost::contains(data.syntax_top, "match_list")
-				|| boost::contains(data.syntax_top, "lines")
-				)
-				data.syntax_ok = "";
-			if (vm.count("warn"))
-				data.warn_string = vm["warn"].as<std::string>();
-			if (vm.count("crit"))
-				data.crit_string = vm["crit"].as<std::string>();
-			return true;
-		}
-		bool parse_options() {
-			boost::program_options::variables_map vm;
-			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
-				return false;
+		void parse_options_post(boost::program_options::variables_map &vm) {
 			if (show_all) {
 				if (data.syntax_top.find("${problem_list}") != std::string::npos)
 					boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
 				else
 					data.syntax_top = "${detail_list}";
-
 			}
 			if (boost::contains(data.syntax_top, "detail_list")
 				|| boost::contains(data.syntax_top, "(list)")
@@ -164,43 +228,43 @@ namespace modern_filter {
 				)
 				data.syntax_ok = "";
 			if (vm.count("warn"))
-				data.warn_string = vm["warn"].as<std::string>();
+				data.warn_string = vm["warn"].as<std::vector<std::string>>();
 			if (vm.count("crit"))
-				data.crit_string = vm["crit"].as<std::string>();
+				data.crit_string = vm["crit"].as<std::vector<std::string>>();
+		}
+
+		bool parse_options(boost::program_options::positional_options_description p) {
+			boost::program_options::variables_map vm;
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, p))
+				return false;
+			parse_options_post(vm);
+			return true;
+		}
+		bool parse_options() {
+			boost::program_options::variables_map vm;
+			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
+				return false;
+			parse_options_post(vm);
 			return true;
 		}
 		bool parse_options(std::vector<std::string> &extra) {
 			boost::program_options::variables_map vm;
 			if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response, true, extra))
 				return false;
-			if (show_all)
-				boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
-			if (boost::contains(data.syntax_top, "detail_list")
-				|| boost::contains(data.syntax_top, "(list)")
-				|| boost::contains(data.syntax_top, "{list}")
-				|| boost::contains(data.syntax_top, "match_list")
-				|| boost::contains(data.syntax_top, "lines")
-				)
-				data.syntax_ok = "";
-			if (vm.count("warn"))
-				data.warn_string = vm["warn"].as<std::string>();
-			if (vm.count("crit"))
-				data.crit_string = vm["crit"].as<std::string>();
+			parse_options_post(vm);
 			return true;
 		}
 
 		bool empty() const {
 			return data.warn_string.empty() && data.crit_string.empty();
 		}
-		void set_default(const std::string warn, const std::string crit) {
-			if (data.warn_string.empty())
-				data.warn_string = warn;
-			if (data.crit_string.empty())
-				data.crit_string = crit;
-		}
-		void set_default_filter(const std::string filter) {
-			if (data.filter_string.empty())
-				data.filter_string = filter;
+		void append_all_filters(const std::string verb, const std::string filter) {
+			if (data.filter_string.empty()) {
+				data.filter_string.push_back(filter);
+			}
+			BOOST_FOREACH(std::string &f, data.filter_string) {
+				f = "(" + f + ")" + verb + " " + filter;
+			}
 		}
 		void set_default_index(const std::string filter) {
 			if (data.syntax_unique.empty())
@@ -208,14 +272,10 @@ namespace modern_filter {
 		}
 		bool build_filter(T &filter) {
 			std::string tmp_msg;
-			if (data.filter_string == "none")
-				data.filter_string = "";
-			if (data.ok_string == "none")
-				data.ok_string = "";
-			if (data.warn_string == "none")
-				data.warn_string = "";
-			if (data.crit_string == "none")
-				data.crit_string = "";
+			data.filter_string.erase(std::remove(data.filter_string.begin(), data.filter_string.end(), "none"), data.filter_string.end());
+			data.ok_string.erase(std::remove(data.ok_string.begin(), data.ok_string.end(), "none"), data.ok_string.end());
+			data.warn_string.erase(std::remove(data.warn_string.begin(), data.warn_string.end(), "none"), data.warn_string.end());
+			data.crit_string.erase(std::remove(data.crit_string.begin(), data.crit_string.end(), "none"), data.crit_string.end());
 
 			if (!filter.build_syntax(data.syntax_top, data.syntax_detail, data.syntax_perf, data.perf_config, data.syntax_ok, data.syntax_empty, tmp_msg)) {
 				nscapi::protobuf::functions::set_response_bad(*response, tmp_msg);

@@ -77,8 +77,10 @@ namespace parsers {
 
 
 
-		engine::engine(std::string filter, error_handler error) : error(error) {
-			filters_.push_back(engine_filter(filter));
+		engine::engine(std::vector<std::string> filter, error_handler error) : error(error) {
+			BOOST_FOREACH(const std::string &s, filter) {
+				filters_.push_back(engine_filter(s));
+			}
 		}
 
 		engine::boundries_type engine::fetch_performance_data() {
