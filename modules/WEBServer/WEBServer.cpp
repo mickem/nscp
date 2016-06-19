@@ -919,13 +919,13 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		return true;
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
-		if (val.path == "/settings/default" && val.key && *val.key == "allowed hosts")
+		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
-		else if (val.path == path && val.key && *val.key == "certificate")
+		else if (val.matches(path, "certificate"))
 			cert = val.get_string();
-		else if (val.path == path && val.key && *val.key == "certificate key")
+		else if (val.matches(path, "certificate key"))
 			key = val.get_string();
-		else if (val.path == path && val.key && *val.key == "port")
+		else if (val.matches(path, "port"))
 			port = val.get_string();
 	}
 

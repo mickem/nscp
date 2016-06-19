@@ -829,6 +829,18 @@ namespace nscapi {
 				delete pimpl;
 			}
 
+
+			bool settings_query::key_values::matches(const char* path, const char* key) const {
+				if (!pimpl->key)
+					return false;
+				return pimpl->path == path && *pimpl->key == key;
+			}
+			bool settings_query::key_values::matches(const std::string &path, const std::string &key) const {
+				if (!pimpl->key)
+					return false;
+				return pimpl->path == path && *pimpl->key == key;
+			}
+
 			std::string settings_query::key_values::get_string() const {
 				if (pimpl->str_value)
 					return *pimpl->str_value;

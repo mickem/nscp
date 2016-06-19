@@ -448,9 +448,9 @@ void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Reques
 		return;
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
-		if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
+		if (val.matches(path, "allow arguments") && val.get_bool())
 			arguments = "true";
-		else if (val.path == path && val.key && *val.key == "allow nasty characters" && val.get_bool())
+		else if (val.matches(path, "allow nasty characters") && val.get_bool())
 			arguments = "safe";
 	}
 	desc.add_options()

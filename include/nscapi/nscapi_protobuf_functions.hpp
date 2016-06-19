@@ -51,6 +51,8 @@ namespace nscapi {
 					key_values(std::string path, std::string key, long long int_value);
 					key_values(std::string path, std::string key, bool bool_value);
 					~key_values();
+					bool matches(const char* path, const char* key) const;
+					bool matches(const std::string &path, const std::string &key) const;
 					std::string get_string() const;
 					bool get_bool() const;
 					long long get_int() const;

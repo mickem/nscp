@@ -187,27 +187,27 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
-		if (val.path == "/settings/default" && val.key && *val.key == "allowed hosts")
+		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
-		else if (val.path == path && val.key && *val.key == "certificate")
+		else if (val.matches(path, "certificate"))
 			cert = val.get_string();
-		else if (val.path == path && val.key && *val.key == "certificate key")
+		else if (val.matches(path, "certificate key"))
 			key = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allowed ciphers")
+		else if (val.matches(path, "allowed ciphers"))
 			chipers = val.get_string();
-		else if (val.path == path && val.key && *val.key == "insecure")
+		else if (val.matches(path, "insecure"))
 			insecure = val.get_string();
-		else if (val.path == path && val.key && *val.key == "allow arguments" && val.get_bool())
+		else if (val.matches(path, "allow arguments") && val.get_bool())
 			arguments = "safe";
-		else if (val.path == path && val.key && *val.key == "verify")
+		else if (val.matches(path, "verify"))
 			verify = val.get_string();
-		else if (val.path == path && val.key && *val.key == "ssl options")
+		else if (val.matches(path, "ssl options"))
 			sslops = val.get_string();
-		else if (val.path == path && val.key && *val.key == "port")
+		else if (val.matches(path, "port"))
 			port = val.get_string();
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
-		if (val.path == path && val.key && *val.key == "allow nasty characters") {
+		if (val.matches(path, "allow nasty characters")) {
 			if (arguments == "safe" && val.get_bool())
 				arguments = "all";
 		}
@@ -340,9 +340,9 @@ bool NRPEClient::make_cert(const Plugin::ExecuteRequestMessage::Request &request
 	}
 	std::list<pf::settings_query::key_values> values = q.get_query_key_response();
 	BOOST_FOREACH(const pf::settings_query::key_values &val, values) {
-		if (val.path == path && val.key && *val.key == "certificate")
+		if (val.matches(path, "certificate"))
 			cert = val.get_string();
-		else if (val.path == path && val.key && *val.key == "certificate key")
+		else if (val.matches(path, "certificate key"))
 			key = val.get_string();
 	}
 
