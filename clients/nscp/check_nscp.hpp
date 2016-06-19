@@ -10,8 +10,6 @@
 #include <nscapi/macros.hpp>
 #include <socket/client.hpp>
 
-#include <nscp/packet.hpp>
-#include <nscp/client/nscp_client_protocol.hpp>
 
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
