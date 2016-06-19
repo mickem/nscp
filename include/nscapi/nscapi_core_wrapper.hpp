@@ -27,9 +27,10 @@
 #include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
+	class core_wrapper_impl;
 	class NSCAPI_EXPORT core_wrapper {
 	private:
-		std::string alias;	// This is actually the wrong value if multiple modules are loaded!
+		core_wrapper_impl* pimpl;
 		nscapi::core_api::lpNSAPIGetApplicationName fNSAPIGetApplicationName;
 		nscapi::core_api::lpNSAPIGetApplicationVersionStr fNSAPIGetApplicationVersionStr;
 		nscapi::core_api::lpNSAPIMessage fNSAPIMessage;
@@ -49,23 +50,8 @@ namespace nscapi {
 
 	public:
 
-		core_wrapper()
-			: fNSAPIGetApplicationName(NULL)
-			, fNSAPIGetApplicationVersionStr(NULL)
-			, fNSAPIMessage(NULL)
-			, fNSAPISimpleMessage(NULL)
-			, fNSAPIInject(NULL)
-			, fNSAPIExecCommand(NULL)
-			, fNSAPIDestroyBuffer(NULL)
-			, fNSAPINotify(NULL)
-			, fNSAPIReload(NULL)
-			, fNSAPICheckLogMessages(NULL)
-			, fNSAPISettingsQuery(NULL)
-			, fNSAPIExpandPath(NULL)
-			, fNSAPIGetLoglevel(NULL)
-			, fNSAPIRegistryQuery(NULL)
-			, fNSCAPIJson2Protobuf(NULL)
-			, fNSCAPIProtobuf2Json(NULL) {}
+		core_wrapper();
+		~core_wrapper();
 
 		std::string expand_path(std::string value);
 

@@ -796,53 +796,89 @@ namespace nscapi {
 		}
 
 		namespace functions {
+
+			struct settings_query_data {
+				::Plugin::SettingsRequestMessage request_message;
+				::Plugin::SettingsResponseMessage response_message;
+				std::string response_buffer;
+				int plugin_id;
+				
+				settings_query_data(int plugin_id) : plugin_id(plugin_id) {}
+			};
+
+			struct  settings_query_key_values_data {
+				std::string path;
+				boost::optional<std::string> key;
+				boost::optional<std::string> str_value;
+				boost::optional<long long> int_value;
+				boost::optional<bool> bool_value;
+
+				settings_query_key_values_data(std::string path) : path(path) {}
+				settings_query_key_values_data(std::string path, std::string key, std::string str_value) : path(path), key(key), str_value(str_value) {}
+				settings_query_key_values_data(std::string path, std::string key, long long int_value) : path(path), key(key), int_value(int_value) {}
+				settings_query_key_values_data(std::string path, std::string key, bool bool_value) : path(path), key(key), bool_value(bool_value) {}
+
+
+			};
+
+			settings_query::key_values::key_values(std::string path) : pimpl(new settings_query_key_values_data(path)) {}
+			settings_query::key_values::key_values(std::string path, std::string key, std::string str_value) : pimpl(new settings_query_key_values_data(path, key, str_value)) {}
+			settings_query::key_values::key_values(std::string path, std::string key, long long int_value) : pimpl(new settings_query_key_values_data(path, key, int_value)) {}
+			settings_query::key_values::key_values(std::string path, std::string key, bool bool_value) : pimpl(new settings_query_key_values_data(path, key, bool_value)) {}
+			settings_query::key_values::~key_values() {
+				delete pimpl;
+			}
+
 			std::string settings_query::key_values::get_string() const {
-				if (str_value)
-					return *str_value;
-				if (int_value)
-					return strEx::s::xtos(*int_value);
-				if (bool_value)
-					return *bool_value ? "true" : "false";
+				if (pimpl->str_value)
+					return *pimpl->str_value;
+				if (pimpl->int_value)
+					return strEx::s::xtos(*pimpl->int_value);
+				if (pimpl->bool_value)
+					return *pimpl->bool_value ? "true" : "false";
 				return "";
 			}
 
 			long long settings_query::key_values::get_int() const {
-				if (str_value)
-					return strEx::s::stox<long long>(*str_value);
-				if (int_value)
-					return *int_value;
-				if (bool_value)
-					return *bool_value ? 1 : 0;
+				if (pimpl->str_value)
+					return strEx::s::stox<long long>(*pimpl->str_value);
+				if (pimpl->int_value)
+					return *pimpl->int_value;
+				if (pimpl->bool_value)
+					return *pimpl->bool_value ? 1 : 0;
 				return 0;
 			}
 
 			bool settings_query::key_values::get_bool() const {
-				if (str_value) {
-					std::string s = *str_value;
+				if (pimpl->str_value) {
+					std::string s = *pimpl->str_value;
 					std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 					return s == "true" || s == "1";
 				}
-				if (int_value)
-					return *int_value == 1;
-				if (bool_value)
-					return *bool_value;
+				if (pimpl->int_value)
+					return *pimpl->int_value == 1;
+				if (pimpl->bool_value)
+					return *pimpl->bool_value;
 				return "";
 			}
 
-			settings_query::settings_query(int plugin_id) : plugin_id(plugin_id) {
-				create_simple_header(request_message.mutable_header());
+			settings_query::settings_query(int plugin_id) : pimpl(new settings_query_data(plugin_id)) {
+				create_simple_header(pimpl->request_message.mutable_header());
+			}
+			settings_query::~settings_query() {
+				delete pimpl;
 			}
 
 			void settings_query::set(const std::string path, const std::string key, const std::string value) {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_update()->mutable_node()->set_path(path);
 				r->mutable_update()->mutable_node()->set_key(key);
 				r->mutable_update()->mutable_value()->set_string_data(value);
 			}
 			void settings_query::get(const std::string path, const std::string key, const std::string def) {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
@@ -850,8 +886,8 @@ namespace nscapi {
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const char* def) {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
@@ -859,8 +895,8 @@ namespace nscapi {
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const long long def) {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_INT);
@@ -868,8 +904,8 @@ namespace nscapi {
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const bool def) {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
 				r->mutable_query()->set_type(::Plugin::Common_DataType_BOOL);
@@ -878,44 +914,44 @@ namespace nscapi {
 			}
 
 			void settings_query::save() {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_control()->set_command(Plugin::Settings_Command_SAVE);
 			}
 			void settings_query::load() {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_control()->set_command(Plugin::Settings_Command_LOAD);
 			}
 			void settings_query::reload() {
-				::Plugin::SettingsRequestMessage::Request *r = request_message.add_payload();
-				r->set_plugin_id(plugin_id);
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_control()->set_command(Plugin::Settings_Command_RELOAD);
 			}
 			const std::string settings_query::request() const {
-				return request_message.SerializeAsString();
+				return pimpl->request_message.SerializeAsString();
 			}
 
 			bool settings_query::validate_response() {
-				response_message.ParsePartialFromString(response_buffer);
+				pimpl->response_message.ParsePartialFromString(pimpl->response_buffer);
 				bool ret = true;
-				for (int i = 0; i < response_message.payload_size(); ++i) {
-					if (response_message.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+				for (int i = 0; i < pimpl->response_message.payload_size(); ++i) {
+					if (pimpl->response_message.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 						ret = false;
 				}
 				return ret;
 			}
 			std::string settings_query::get_response_error() const {
 				std::string ret;
-				for (int i = 0; i < response_message.payload_size(); ++i) {
-					ret += response_message.payload(i).result().message();
+				for (int i = 0; i < pimpl->response_message.payload_size(); ++i) {
+					ret += pimpl->response_message.payload(i).result().message();
 				}
 				return ret;
 			}
 			std::list<settings_query::key_values> settings_query::get_query_key_response() const {
 				std::list<key_values> ret;
-				for (int i = 0; i < response_message.payload_size(); ++i) {
-					::Plugin::SettingsResponseMessage::Response pl = response_message.payload(i);
+				for (int i = 0; i < pimpl->response_message.payload_size(); ++i) {
+					::Plugin::SettingsResponseMessage::Response pl = pimpl->response_message.payload(i);
 					if (pl.has_query()) {
 						::Plugin::SettingsResponseMessage::Response::Query q = pl.query();
 						if (q.node().has_key() && q.has_value()) {
@@ -933,17 +969,10 @@ namespace nscapi {
 				return ret;
 			}
 
-			/*
-			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::QueryResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::SubmitResponseMessage::Response source);
-			NSCAPI_EXPORT void copy_response(::Plugin::SubmitResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source);
-*/
+			std::string& settings_query::response() { 
+				return pimpl->response_buffer; 
+			}
+
 
 			void copy_response(const std::string command, ::Plugin::QueryResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {
 				::Plugin::QueryResponseMessage::Response::Line* line = target->add_lines();

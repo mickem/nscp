@@ -30,6 +30,39 @@
 #define CORE_LOG_ERROR_WA(msg, wa) if (should_log(NSCAPI::log_level::error)) { log(NSCAPI::log_level::error, __FILE__, __LINE__, msg + utf8::cvt<std::string>(wa)); }
 
 #define LEGACY_BUFFER_LENGTH 4096
+
+namespace nscapi {
+	class core_wrapper_impl {
+	public:
+		std::string alias;	// This is actually the wrong value if multiple modules are loaded!
+	};
+}
+
+
+nscapi::core_wrapper::core_wrapper()
+	: pimpl(new core_wrapper_impl())
+	, fNSAPIGetApplicationName(NULL)
+	, fNSAPIGetApplicationVersionStr(NULL)
+	, fNSAPIMessage(NULL)
+	, fNSAPISimpleMessage(NULL)
+	, fNSAPIInject(NULL)
+	, fNSAPIExecCommand(NULL)
+	, fNSAPIDestroyBuffer(NULL)
+	, fNSAPINotify(NULL)
+	, fNSAPIReload(NULL)
+	, fNSAPICheckLogMessages(NULL)
+	, fNSAPISettingsQuery(NULL)
+	, fNSAPIExpandPath(NULL)
+	, fNSAPIGetLoglevel(NULL)
+	, fNSAPIRegistryQuery(NULL)
+	, fNSCAPIJson2Protobuf(NULL)
+	, fNSCAPIProtobuf2Json(NULL) 
+{}
+nscapi::core_wrapper::~core_wrapper() {
+	delete pimpl;
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // Callbacks into the core
 //////////////////////////////////////////////////////////////////////////
@@ -59,7 +92,7 @@ void nscapi::core_wrapper::log(std::string message) const {
 		return;
 	}
 	try {
-		return fNSAPIMessage(message.c_str(), message.size());
+		return fNSAPIMessage(message.c_str(), static_cast<unsigned int>(message.size()));
 	} catch (...) {
 	}
 }
@@ -80,7 +113,7 @@ void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, i
 		return;
 	}
 	try {
-		return fNSAPISimpleMessage(alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
+		return fNSAPISimpleMessage(pimpl->alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
 	} catch (...) {
 	}
 }
@@ -304,7 +337,7 @@ std::string nscapi::core_wrapper::getApplicationVersionString() {
 }
 
 void nscapi::core_wrapper::set_alias(const std::string default_alias_, const std::string alias_) {
-	alias = default_alias_;
+	pimpl->alias = default_alias_;
 }
 
 /**

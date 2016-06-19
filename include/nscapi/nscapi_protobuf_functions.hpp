@@ -38,28 +38,25 @@ namespace nscapi {
 			//			typedef nscapi::protobuf::types::destination_container destination_container;
 			typedef nscapi::protobuf::types::decoded_simple_command_data decoded_simple_command_data;
 
+			struct settings_query_data;
+			struct settings_query_key_values_data;
 			class NSCAPI_EXPORT settings_query {
-				::Plugin::SettingsRequestMessage request_message;
-				::Plugin::SettingsResponseMessage response_message;
-				std::string response_buffer;
-				int plugin_id;
+				settings_query_data *pimpl;
 
 			public:
 				struct NSCAPI_EXPORT key_values {
-					std::string path;
-					boost::optional<std::string> key;
-					boost::optional<std::string> str_value;
-					boost::optional<long long> int_value;
-					boost::optional<bool> bool_value;
-					key_values(std::string path) : path(path) {}
-					key_values(std::string path, std::string key, std::string str_value) : path(path), key(key), str_value(str_value) {}
-					key_values(std::string path, std::string key, long long int_value) : path(path), key(key), int_value(int_value) {}
-					key_values(std::string path, std::string key, bool bool_value) : path(path), key(key), bool_value(bool_value) {}
+					settings_query_key_values_data *pimpl;
+					key_values(std::string path);
+					key_values(std::string path, std::string key, std::string str_value);
+					key_values(std::string path, std::string key, long long int_value);
+					key_values(std::string path, std::string key, bool bool_value);
+					~key_values();
 					std::string get_string() const;
 					bool get_bool() const;
 					long long get_int() const;
 				};
 				settings_query(int plugin_id);
+				~settings_query();
 
 				void get(const std::string path, const std::string key, const std::string def);
 				void get(const std::string path, const std::string key, const char* def);
@@ -68,7 +65,7 @@ namespace nscapi {
 
 				void set(const std::string path, const std::string key, std::string value);
 				const std::string request() const;
-				std::string& response() { return response_buffer; }
+				std::string& response();
 				bool validate_response();
 				std::list<key_values> get_query_key_response() const;
 				std::string get_response_error() const;
