@@ -113,7 +113,7 @@ namespace modern_filter {
 			desc.add_options()
 				("warning", warn_op,
 				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + syntax_description).c_str())
-				("warn", boost::program_options::value<std::vector<std::string>>(),
+				("warn", boost::program_options::value<std::vector<std::string> >(),
 				"Short alias for warning")
 				;
 		}
@@ -128,7 +128,7 @@ namespace modern_filter {
 			desc.add_options()
 				("warning", warn_op,
 				(std::string("Filter which marks items which generates a warning state.\nIf anything matches this filter the return status will be escalated to warning.\n") + syntax_description).c_str())
-					("warn", boost::program_options::value<std::vector<std::string>>(),
+					("warn", boost::program_options::value<std::vector<std::string> >(),
 						"Short alias for warning")
 				;
 		}
@@ -144,7 +144,7 @@ namespace modern_filter {
 			desc.add_options()
 				("critical", crit_op,
 				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + syntax_description).c_str())
-				("crit", boost::program_options::value<std::vector<std::string>>(),
+				("crit", boost::program_options::value<std::vector<std::string> >(),
 					"Short alias for critical.")
 				;
 		}
@@ -159,7 +159,7 @@ namespace modern_filter {
 			desc.add_options()
 				("critical", crit_op,
 				(std::string("Filter which marks items which generates a critical state.\nIf anything matches this filter the return status will be escalated to critical.\n") + syntax_description).c_str())
-					("crit", boost::program_options::value<std::vector<std::string>>(),
+					("crit", boost::program_options::value<std::vector<std::string> >(),
 						"Short alias for critical.")
 				;
 		}
@@ -228,9 +228,9 @@ namespace modern_filter {
 				)
 				data.syntax_ok = "";
 			if (vm.count("warn"))
-				data.warn_string = vm["warn"].as<std::vector<std::string>>();
+				data.warn_string = vm["warn"].as<std::vector<std::string> >();
 			if (vm.count("crit"))
-				data.crit_string = vm["crit"].as<std::vector<std::string>>();
+				data.crit_string = vm["crit"].as<std::vector<std::string> >();
 		}
 
 		bool parse_options(boost::program_options::positional_options_description p) {
