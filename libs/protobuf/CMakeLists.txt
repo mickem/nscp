@@ -1,22 +1,18 @@
 cmake_minimum_required(VERSION 2.6)
 
 WRAP_PROTO(PROTO_PLUGIN_SRC plugin.proto)
-WRAP_PROTO(PROTO_IPC_SRC ipc.proto)
 
 SET(TARGET nscp_protobuf)
 
 
 SET(SRCS
 	${PROTO_PLUGIN_SRC_C}
-	${PROTO_IPC_SRC_C}
 )
 IF(WIN32)
 	SET(SRCS
 		${SRCS}
 		plugin.proto
-		ipc.proto
 		${PROTO_PLUGIN_SRC_H}
-		${PROTO_IPC_SRC_H}
 	)
 ENDIF(WIN32)
 NSCP_MAKE_LIBRARY(${TARGET} "${SRCS}")
