@@ -4,6 +4,7 @@
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <parsers/operators.hpp>
 #include <parsers/helpers.hpp>
@@ -233,8 +234,8 @@ namespace parsers {
 						errors->error("invalid type");
 						return value_container::create_nil();
 					}
-					std::string s1 = lhs.get_string();
-					std::string s2 = rhs.get_string();
+					std::string s1 = boost::algorithm::to_lower_copy(lhs.get_string());
+					std::string s2 = boost::algorithm::to_lower_copy(rhs.get_string());
 					if (s1.size() == 0 && s2.size() == 0)
 						return value_container::create_int(1, lhs.is_unsure || rhs.is_unsure);
 					if (s1.size() == 0 || s2.size() == 0)
@@ -320,8 +321,8 @@ namespace parsers {
 						errors->error("invalid type");
 						return value_container::create_nil();
 					}
-					std::string s1 = lhs.get_string();
-					std::string s2 = rhs.get_string();
+					std::string s1 = boost::algorithm::to_lower_copy(lhs.get_string());
+					std::string s2 = boost::algorithm::to_lower_copy(rhs.get_string());
 					if (s1.size() == 0 && s2.size() == 0)
 						return value_container::create_int(0, lhs.is_unsure || rhs.is_unsure);
 					if (s1.size() == 0 || s2.size() == 0)
