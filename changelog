@@ -1,8 +1,17 @@
 2016-05-30 Michael Medin
-* filters: Fixed #292 Unicode support for filters
-* NSCA: Fixed #300 alias not used when sending NSCP results
-* check_nscp: Added SSl support and general fixes to check_nscp (check_remote_nscp)
-* CheckHelpers: Fixed 301: check_multi does not parse qouted commands properly (possibly breaking change)
+ * Fixed scheduler reload not resetting old schedules
+ * Change so scheduler logs actual file sinstead of wrapper.
+ * removed now defunct old icp protocol
+ * Added matches to settings api wrapper
+ * removed some compiler warning from protobuf
+ * Fixed som linux compiler issues
+ * Pimplified some common classes
+
+2016-05-30 Michael Medin
+ * filters: Fixed #292 Unicode support for filters
+ * NSCA: Fixed #300 alias not used when sending NSCP results
+ * check_nscp: Added SSl support and general fixes to check_nscp (check_remote_nscp)
+ * CheckHelpers: Fixed 301: check_multi does not parse qouted commands properly (possibly breaking change)
 
 2016-04-14 Michael Medin
  * NSCPClient: Added preliminary REST client
