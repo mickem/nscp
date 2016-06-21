@@ -32,8 +32,10 @@ namespace sh = nscapi::settings_helper;
 
 bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::reloadStart) {
+		scheduler_.prepare_shutdown();
 		scheduler_.unset_handler();
-		scheduler_.clear();
+		scheduler_.stop();
+		schedules_.clear();
 	}
 
 
