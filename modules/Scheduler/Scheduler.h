@@ -48,6 +48,6 @@ public:
 	void add_schedule(std::string alias, std::string command);
 	bool handle_schedule(schedules::target_object task);
 
-	void on_error(std::string error);
-	void on_trace(std::string error);
+	void on_error(const char* file, int line, std::string error);
+	void on_trace(const char* file, int line, std::string error);
 };

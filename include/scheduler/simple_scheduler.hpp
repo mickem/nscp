@@ -58,8 +58,8 @@ namespace simple_scheduler {
 	class handler {
 	public:
 		virtual bool handle_schedule(task item) = 0;
-		virtual void on_error(std::string error) = 0;
-		virtual void on_trace(std::string error) = 0;
+		virtual void on_error(const char* file, int line, std::string error) = 0;
+		virtual void on_trace(const char* file, int line, std::string error) = 0;
 	};
 	struct schedule_instance {
 		boost::posix_time::ptime time;
@@ -189,13 +189,13 @@ namespace simple_scheduler {
 		void reschedule_at(const int id, boost::posix_time::ptime new_time);
 		void start_threads();
 
-		void log_error(std::string err) {
+		void log_error(const char* file, int line, std::string err) {
 			if (handler_)
-				handler_->on_error(err);
+				handler_->on_error(file, line, err);
 		}
-		void log_trace(std::string err) {
+		void log_trace(const char* file, int line, std::string err) {
 			if (handler_)
-				handler_->on_trace(err);
+				handler_->on_trace(file, line, err);
 		}
 
 		inline boost::posix_time::ptime now() {

@@ -67,14 +67,15 @@ namespace task_scheduler {
 			handle_reload(metadata);
 			return false;
 		} else {
-			on_error("Unknown source");
+			on_error(__FILE__, __LINE__, "Unknown source");
 			return false;
 		}
 	}
-	void scheduler::on_error(std::string error) {
-		nsclient::logging::logger::get_logger()->error("core::scheduler", __FILE__, __LINE__, error);
+
+	void scheduler::on_error(const char* file, int line, std::string error) {
+		nsclient::logging::logger::get_logger()->error("core::scheduler", file, line, error);
 	}
-	void scheduler::on_trace(std::string error) {
-		nsclient::logging::logger::get_logger()->trace("core::scheduler", __FILE__, __LINE__, error);
+	void scheduler::on_trace(const char* file, int line, std::string error) {
+		nsclient::logging::logger::get_logger()->trace("core::scheduler", file, line, error);
 	}
 }

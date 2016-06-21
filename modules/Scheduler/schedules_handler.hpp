@@ -153,8 +153,8 @@ namespace schedules {
 
 	struct task_handler {
 		virtual bool handle_schedule(target_object task) = 0;
-		virtual void on_error(std::string error) = 0;
-		virtual void on_trace(std::string error) = 0;
+		virtual void on_error(const char* file, int line, std::string error) = 0;
+		virtual void on_trace(const char* file, int line, std::string error) = 0;
 
 	};
 
@@ -198,13 +198,13 @@ namespace schedules {
 			}
 			return true;
 		}
-		void on_error(std::string error) {
+		void on_error(const char* file, int line, std::string error) {
 			if (handler_)
-				handler_->on_error(error);
+				handler_->on_error(file, line, error);
 		}
-		void on_trace(std::string error) {
+		void on_trace(const char* file, int line, std::string error) {
 			if (handler_)
-				handler_->on_trace(error);
+				handler_->on_trace(file, line, error);
 		}
 	};
 

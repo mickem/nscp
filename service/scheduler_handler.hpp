@@ -39,7 +39,7 @@ namespace task_scheduler {
 		void add_task(const schedule_metadata::task_source source, const std::string interval, const std::string info = "");
 
 		bool handle_schedule(simple_scheduler::task item);
-		virtual void on_error(std::string error);
-		virtual void on_trace(std::string error);
+		virtual void on_error(const char* file, int line, std::string error);
+		virtual void on_trace(const char* file, int line, std::string error);
 	};
 }

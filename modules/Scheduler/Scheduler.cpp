@@ -123,10 +123,11 @@ bool Scheduler::unloadModule() {
 	return true;
 }
 
-void Scheduler::on_error(std::string error) {
-	NSC_LOG_ERROR(error);
+void Scheduler::on_error(const char* file, int line, std::string msg) {
+	GET_CORE()->log(NSCAPI::log_level::error, file, line, msg);
 }
-void Scheduler::on_trace(std::string error) {
+void Scheduler::on_trace(const char* file, int line, std::string msg) {
+	GET_CORE()->log(NSCAPI::log_level::trace, file, line, msg);
 }
 
 #include <nscapi/functions.hpp>
