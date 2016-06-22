@@ -1072,6 +1072,8 @@ void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Pl
 			if (pos != std::string::npos) {
 				request.add_arguments("counter:" + s.substr(8));
 			}
+		} else if ((s.size() > 6) && (s.substr(0, 5) == "type=")) {
+			request.add_arguments(s);
 		}
 	}
 
