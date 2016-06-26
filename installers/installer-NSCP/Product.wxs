@@ -161,10 +161,6 @@
             <File Id="DOTNET_CORE" Name="NSCP.Core.dll" DiskId="1" Source="$(var.Source)/NSCP.Core.dll" Vital="yes" />
             <File Id="DOTNET_NSPB" Name="NSCP.Protobuf.dll" DiskId="1" Source="$(var.Source)/NSCP.Protobuf.dll" Vital="yes" />
           </Component>
-          <Component Id="LuaLibs" Guid="9607DD1C-5794-4246-8A96-CD6E091C653F" Win64="$(var.Win64)">
-            <File Id="nscp_lua_pb.dll" Name="nscp_lua_pb.dll" DiskId="1" Source="$(var.Source)/nscp_lua_pb.dll" Vital="no" />
-            <File Id="lua.dll" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
-          </Component>
         </Directory>
       </Directory>
 
