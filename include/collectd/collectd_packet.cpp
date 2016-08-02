@@ -61,7 +61,7 @@ void collectd::collectd_builder::add_variable(std::string key, std::string value
 	boost::smatch what;
 	BOOST_FOREACH(const metrics_map::value_type &e, metrics) {
 		if (boost::regex_match(e.first, what, re, boost::match_extra)) {
-			for (int i = 1; i < what.size(); ++i) {
+			for (std::size_t i = 1; i < what.size(); ++i) {
 				variables.insert(std::make_pair(key, what.str(i)));
 			}
 		}

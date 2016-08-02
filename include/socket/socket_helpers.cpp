@@ -174,8 +174,6 @@ void socket_helpers::allowed_hosts_manager::refresh(std::list<std::string> &erro
 void socket_helpers::io::set_result(boost::optional<boost::system::error_code>* a, boost::system::error_code b) {
 	if (!b) {
 		a->reset(b);
-		// 	} else {
-		// 		std::cout << "timer aborted incorrectly: " << b.message() << std::endl;
 	}
 }
 #ifdef USE_SSL

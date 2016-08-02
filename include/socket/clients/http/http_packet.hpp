@@ -117,7 +117,6 @@ namespace http {
 		}
 		std::string get_payload() const {
 			std::stringstream ss;
-			const char* crlf = "\r\n";
 			if (!payload_.empty())
 				ss << payload_;
 			return ss.str();

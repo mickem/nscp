@@ -141,6 +141,7 @@ bool CommandClient::commandLineExec(const int target_mode, const Plugin::Execute
 		client->handle_command(utf8::utf8_from_native(s));
 	}
 	nscapi::protobuf::functions::set_response_good(*response, "Done");
+	return true;
 }
 
 

@@ -125,8 +125,7 @@ namespace collectd {
 		void append_values(int base_type, int value_type, const std::list<double> &value_data) {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
-			BOOST_FOREACH(const double &v, value_data) {
-				v;
+			for (std::size_t i = 0;  i < value_data.size(); i++) {
 				append_value_type(value_type);
 			}
 			BOOST_FOREACH(const double &v, value_data) {
@@ -141,8 +140,7 @@ namespace collectd {
 		void append_values(int base_type, int value_type, const std::list<long long> &value_data) {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
-			BOOST_FOREACH(const long long &v, value_data) {
-				v;
+			for (std::size_t i = 0; i < value_data.size(); i++) {
 				append_value_type(value_type);
 			}
 			BOOST_FOREACH(const long long &v, value_data) {

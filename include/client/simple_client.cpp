@@ -238,7 +238,7 @@ namespace client {
 				std::string cmd = args.front(); args.pop_front();
 				std::list<std::string> result;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
-				NSCAPI::nagiosReturn ret = helper.exec_simple_command(target, cmd, args, result);
+				helper.exec_simple_command(target, cmd, args, result);
 				BOOST_FOREACH(const std::string &s, result)
 					handler->output_message(s);
 			} catch (const std::exception &e) {
