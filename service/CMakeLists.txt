@@ -141,7 +141,7 @@ IF(GTEST_FOUND)
 		../include/nscapi/nscapi_protobuf_functions.cpp
 		../include/nscapi/nscapi_protobuf_functions.hpp
 	)
-	NSCP_MAKE_EXE_BIN(${TARGET}_test "${TEST_SRCS}")
+	NSCP_MAKE_EXE_TEST(${TARGET}_test "${TEST_SRCS}")
 	ADD_TEST(${TARGET}_test ${TARGET}_test)
 	TARGET_LINK_LIBRARIES(${TARGET}_test
 		${GTEST_GTEST_LIBRARY}
