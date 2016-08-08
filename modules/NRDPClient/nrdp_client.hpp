@@ -47,9 +47,12 @@ namespace nrdp_client {
 
 		bool submit(client::destination_container sender, client::destination_container target, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage &response_message) {
 			const ::Plugin::Common_Header& request_header = request_message.header();
-			connection_data con(sender, target);
-
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
+			connection_data con(target, sender);
+
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("Target configuration: " + target.to_string());
+			}
 
 			nrdp::data nrdp_data;
 
@@ -60,9 +63,9 @@ namespace nrdp_client {
 					alias = p.command();
 				int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
 				if (alias == "host_check")
-					nrdp_data.add_host(con.sender_hostname, result, msg);
+					nrdp_data.add_host(sender.get_host(), result, msg);
 				else
-					nrdp_data.add_service(con.sender_hostname, alias, result, msg);
+					nrdp_data.add_service(sender.get_host(), alias, result, msg);
 			}
 			send(response_message.add_payload(), con, nrdp_data);
 			return true;
@@ -78,7 +81,9 @@ namespace nrdp_client {
 
 		void send(Plugin::SubmitResponseMessage::Response *payload, connection_data con, const nrdp::data &nrdp_data) {
 			try {
-				NSC_DEBUG_MSG_STD("Connection details: " + con.to_string());
+				NSC_TRACE_ENABLED() {
+					NSC_TRACE_MSG("Connecting tuo: " + con.to_string());
+				}
 				http::client c;
 				http::client::request_type request;
 				request.add_default_headers();
@@ -87,10 +92,13 @@ namespace nrdp_client {
 				post["XMLDATA"] = nrdp_data.render_request();
 				post["cmd"] = "submitcheck";
 				request.add_post_payload(post);
-				NSC_DEBUG_MSG_STD(nrdp_data.render_request());
-				NSC_DEBUG_MSG_STD(request.payload);
+				NSC_TRACE_ENABLED() {
+					NSC_TRACE_MSG("Sending: " + nrdp_data.render_request());
+				}
 				http::client::response_type response = c.execute(con.get_address(), con.get_port(), "/nrdp/server/", request);
-				NSC_DEBUG_MSG_STD(response.payload);
+				NSC_TRACE_ENABLED() {
+					NSC_TRACE_MSG("Happily ignoring: " + response.payload);
+				}
 				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");
 			} catch (const std::runtime_error &e) {
 				nscapi::protobuf::functions::set_response_bad(*payload, "Socket error: " + utf8::utf8_from_native(e.what()));
