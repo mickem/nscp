@@ -44,7 +44,7 @@ case "$1" in
 		stop
 		;;
 	status)
-		status $NAME
+		status -p $PIDFILE $NAME
 		;;
 	restart)
 		stop
