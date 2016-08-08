@@ -108,12 +108,16 @@ namespace nsca_client {
 			std::list<nsca::packet> list;
 			BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &payload, request_message.payload()) {
 				nsca::packet packet(sender.get_host(), len, 0);
+				std::string alias = payload.alias();
+				if (alias.empty())
+					alias = payload.command();
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
 				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
-				if (!payload.alias().empty())
+				if (alias != "host_check")
 					packet.service = payload.alias();
-				else
-					packet.service = payload.command();
+				NSC_TRACE_ENABLED() {
+					NSC_TRACE_MSG("Scheduling packet: " + packet.to_string());
+				}
 				list.push_back(packet);
 			}
 
