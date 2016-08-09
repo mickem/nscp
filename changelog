@@ -1,3 +1,19 @@
+2016-08-38 Michael Medin
+ * Fixed #315 Fixed invalid host_check for NSCA
+ * Fixed #285 missing hostname for NRDP
+ * Fixed linux packages
+ * Fixed duplicate lua.dll libs
+ * pdh: Fixed #296 and #310 compatibility issue with checkCounter and type=double
+ * Fixed #288 lua dlls missing in installer
+ * Fixed #297 like not ignoring case when comparing strings in filters
+ * Fixed scheduler reload not resetting old schedules
+ * Change so scheduler logs actual file sinstead of wrapper.
+ * removed now defunct old icp protocol
+ * Added matches to settings api wrapper
+ * Added multiple filter/warn/crit expressions to allow using count separate from items thresholds
+ * Moved filter object handling inside filter engine
+ * Partial fix for #294: count not working properly when used together with a regular check
+
 2016-05-30 Michael Medin
  * Fixed scheduler reload not resetting old schedules
  * Change so scheduler logs actual file sinstead of wrapper.
