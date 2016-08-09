@@ -623,57 +623,16 @@ SET(CPACK_PACKAGE_VERSION_PATCH "${VERSION_MINOR}")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "nscp-folder")
 set(CPACK_RPM_PACKAGE_DESCRIPTION "NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Naemon/Nagios/Icinga, but nothing in the daemon is Naemon/Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.")
 
-IF(1)
+IF(WIN32)
 	SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
-	set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-x${VERSION_ARCH}")
+	set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}")
+	SET(CPACK_GENERATOR ZIP)
+ELSE()
+	SET(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
+	set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-${VERSION_ARCH}")
 	SET(CPACK_GENERATOR ZIP)
 	set(CPACK_SOURCE_GENERATOR "TGZ")
 	set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY TRUE)
-ELSE()
-	#execute_process(COMMAND lsb_release -sc OUTPUT_VARIABLE RELEASE OUTPUT_STRIP_TRAILING_WHITESPACE)
-	IF(DISTRIBUTION STREQUAL "Fedora" OR DISTRIBUTION STREQUAL "CentOS")
-		#
-		# Need to patch cmake /usr/share/cmake/Modules/CPackRPM.cmake with the following
-		#    COMMAND "${RPMBUILD_EXECUTABLE}" -bb
-		#        --define "_topdir ${CPACK_RPM_DIRECTORY}"
-		#        --buildroot "${CPACK_RPM_DIRECTORY}/${CPACK_PACKAGE_FILE_NAME}${CPACK_RPM_PACKAGE_COMPONENT_PART_PATH}"
-		#        "${CPACK_RPM_BINARY_SPECFILE}"
-		#
-		set(CPACK_RPM_USER_BINARY_SPECFILE "${CMAKE_CURRENT_SOURCE_DIR}/nscp.spec.in")
-	
-		set(CPACK_GENERATOR "RPM")
-		SET(CPACK_RPM_PACKAGE_DEBUG 1)
-		set(CPACK_PACKAGE_RELEASE 1)
-		set(CPACK_RPM_PACKAGE_GROUP "System Environment/Daemons")
-		set(CPACK_RPM_PACKAGE_LICENSE "GPLv2")		
-		set(CPACK_RPM_PACKAGE_URL "http://www.nsclient.org")
-		set(CPACK_PACKAGING_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
-		set(CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST
-			/usr
-			/usr/
-			/usr/bin
-			/usr/lib
-			/usr/sbin
-			/usr/share
-		)
-		set(CPACK_RPM_PACKAGE_REQUIRES "boost-filesystem boost-program-options boost-thread protobuf")
-		set(CPACK_PACKAGE_FILE_NAME "NSCP-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${LINUXDIST}.${CMAKE_SYSTEM_PROCESSOR}")
-		
-		configure_file("${CMAKE_CURRENT_SOURCE_DIR}/build/sh/copy_package.sh.in" "${CMAKE_CURRENT_BINARY_DIR}/copy_package.sh" @ONLY IMMEDIATE)
-		
-	ELSEIF(DISTRIBUTION STREQUAL "Ubuntu")
-		set(CPACK_GENERATOR "DEB")	
-		set(CPACK_DEBIAN_PACKAGE_NAME        ${CPACK_PACKAGE_NAME})
-		#set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE amd64)
-		set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libboost-filesystem1.54.0, libboost-date-time1.54.0, libboost-program-options1.54.0, libboost-python1.54.0, libboost-regex1.54.0, libboost-system1.54.0, libboost-thread1.54.0, python, libssl1.0.0, python-protobuf, libprotobuf8, libcrypto++9")
-		set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "http://www.nsclient.org")
-		set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Michael Medin")
-		set(CPACK_DEBIAN_PACKAGE_PRIORITY    "optional")
-		set(CPACK_DEBIAN_PACKAGE_SECTION     "net")
-		set(CPACK_PACKAGE_FILE_NAME ${CPACK_PACKAGE_NAME}_${CPACK_PACKAGE_VERSION}-${RELEASE}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE})
-		set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/prerm;" )
-		#set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postinst;${CMAKE_CURRENT_SOURCE_DIR}/files/deb/postrm;" )
-	ENDIF()
 ENDIF()
 
 include(CPack)
