@@ -156,4 +156,5 @@ for i in [1,2,3]:
 		create_release()
 		break
 	except Exception, e:
+		print "Failed to puload: %s" %e
 		pass
