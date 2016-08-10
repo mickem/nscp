@@ -129,9 +129,9 @@ void NSCAServer::handle(nsca::packet p) {
 	if (pos != std::string::npos) {
 		std::string msg = p.result.substr(0, pos);
 		std::string perf = p.result.substr(++pos);
-		helper.submit_simple_message(channel_, "", "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
+		helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, perf, response);
 	} else {
 		std::string empty, msg = p.result;
-		helper.submit_simple_message(channel_, "", "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
+		helper.submit_simple_message(channel_, p.host, "", p.service, nscapi::plugin_helper::int2nagios(p.code), msg, empty, response);
 	}
 }

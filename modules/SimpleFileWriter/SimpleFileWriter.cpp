@@ -58,11 +58,11 @@ struct simple_string_functor {
 struct header_host_functor {
 	std::string operator() (const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
-		for (int i = 0; i < hdr.hosts_size(); i++) {
-			if (hdr.hosts(i).id() == sender)
-				return hdr.hosts(i).host();
+		BOOST_FOREACH(const Plugin::Common::Host &h, hdr.hosts()) {
+			if (h.id() == sender)
+				return h.host();
 		}
-		return "";
+		return sender;
 	}
 };
 struct payload_command_functor {
