@@ -93,6 +93,11 @@ struct payload_result_functor {
 		return nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
+struct payload_result_nr_functor {
+	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+		return strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
+	}
+};
 struct payload_alias_or_command_functor {
 	std::string operator() (const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		if (payload.has_alias())
@@ -120,7 +125,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		settings.alias().add_key_to_settings()
 			("syntax", sh::string_key(&primary_key, "${alias-or-command} ${result} ${message}"),
 				"MESSAGE SYNTAX", "The syntax of the message to write to the line.\nCan be any arbitrary string as well as include any of the following special keywords:"
-				"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).")
+				"${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number).")
 
 			("file", sh::path_key(&filename_, "output.txt"),
 				"FILE TO WRITE TO", "The filename to write output to.")
@@ -158,6 +163,8 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				index_lookup_.push_back(payload_message_functor());
 			} else if (e.name == "result") {
 				index_lookup_.push_back(payload_result_functor());
+			} else if (e.name == "result_number") {
+				index_lookup_.push_back(payload_result_nr_functor());
 			} else {
 				NSC_LOG_ERROR_STD("Invalid index: " + e.name);
 			}
