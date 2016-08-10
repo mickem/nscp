@@ -114,7 +114,7 @@ namespace nsca_client {
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
 				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
 				if (alias != "host_check")
-					packet.service = payload.alias();
+					packet.service = alias;
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Scheduling packet: " + packet.to_string());
 				}
