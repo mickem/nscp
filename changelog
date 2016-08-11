@@ -1,4 +1,13 @@
-2016-08-38 Michael Medin
+2016-08-11 Michael Medin
+ * SimpleFileWriter #316 added two new syntax strings to differentiate between host and service checks*
+ * SimpleFileWriter #316 added new keywords to syntax for epoch and time
+
+2016-08-10 Michael Medin
+ * SimpleFileWriter: Fixed #316 missing host name
+ * SimpleFileWriter: Added support for status as number #316
+ * Fixed accidental bug in previous commit (nsca service was missing)
+
+2016-08-08 Michael Medin
  * Fixed #315 Fixed invalid host_check for NSCA
  * Fixed #285 missing hostname for NRDP
  * Fixed linux packages
