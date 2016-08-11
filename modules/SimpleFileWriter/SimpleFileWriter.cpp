@@ -238,12 +238,12 @@ void build_syntax(parsers::simple_expression &parser, std::string &syntax, Simpl
 void SimpleFileWriter::handleNotification(const std::string &, const Plugin::QueryResponseMessage::Response &request, Plugin::SubmitResponseMessage::Response *response, const Plugin::SubmitRequestMessage &request_message) {
 	std::string key;
 
-	if (request.has_alias() || request.has_command()) {
+	if ((request.has_alias() && !request.alias().empty()) || (request.has_command() && !request.command().empty()) ) {
 		BOOST_FOREACH(index_lookup_function &f, syntax_service_lookup_) {
 			key += f(time_format_, request.command(), request_message.header(), request);
 		}
 	} else {
-		BOOST_FOREACH(index_lookup_function &f, syntax_service_lookup_) {
+		BOOST_FOREACH(index_lookup_function &f, syntax_host_lookup_) {
 			key += f(time_format_, request.command(), request_message.header(), request);
 		}
 	}
