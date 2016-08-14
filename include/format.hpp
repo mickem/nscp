@@ -143,19 +143,11 @@ namespace format {
 		return ss.str();
 	}
 	inline std::string format_date(boost::posix_time::ptime date, std::string format = "%Y-%m-%d %H:%M:%S") {
-		std::locale locale_local("");
-
-		boost::gregorian::date_facet *date_output = new boost::gregorian::date_facet();
-		std::locale locale_adjusted(locale_local, date_output);
-
+		std::locale locale_local(std::cout.getloc(), new boost::posix_time::time_facet(format.c_str()));
 		std::stringstream date_ss;
-		date_ss.imbue(locale_adjusted);
-
-		date_output->format(format.c_str());
+		date_ss.imbue(locale_local);
 		date_ss << date;
-
-		std::string ss = date_ss.str();
-		return ss;
+		return date_ss.str();
 	}
 	inline std::string format_date(std::time_t time, std::string format = "%Y-%m-%d %H:%M:%S") {
 		return format_date(boost::posix_time::from_time_t(time), format);

@@ -134,3 +134,9 @@ TEST(format, itos_as_time) {
 	EXPECT_EQ(format::itos_as_time(1234512345), "2w 0d 06:55");
 	EXPECT_EQ(format::itos_as_time(12345123456), "20w 2d 21:12");
 }
+
+
+TEST(format, format_date) {
+	boost::posix_time::ptime time(boost::gregorian::date(2002, 3, 4), boost::posix_time::time_duration(5, 6, 7));
+	EXPECT_EQ(format::format_date(time), "2002-03-04 05:06:07");
+}
