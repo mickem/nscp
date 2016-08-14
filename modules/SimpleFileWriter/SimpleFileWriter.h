@@ -23,15 +23,19 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 
+struct config_object {
+	std::string time_format;
+};
+
 class SimpleFileWriter : public nscapi::impl::simple_plugin {
 public:
-	typedef boost::function<std::string(const std::string time_format, const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload)> index_lookup_function;
+	typedef boost::function<std::string(const config_object &config, const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &payload)> index_lookup_function;
 	typedef std::list<index_lookup_function> index_lookup_type;
 private:
 	index_lookup_type syntax_service_lookup_, syntax_host_lookup_;
 	std::string filename_;
 	boost::shared_mutex cache_mutex_;
-	std::string time_format_;
+	config_object config_;
 
 public:
 	SimpleFileWriter() {}

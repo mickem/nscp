@@ -54,12 +54,12 @@ struct simple_string_functor {
 		value = other.value;
 		return *this;
 	}
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return value;
 	}
 };
 struct header_host_functor {
-	std::string operator() (const std::string, const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string channel, const Plugin::Common::Header &hdr, const Plugin::QueryResponseMessage::Response &) {
 		std::string sender = hdr.sender_id();
 		BOOST_FOREACH(const Plugin::Common::Host &h, hdr.hosts()) {
 			if (h.id() == sender)
@@ -69,22 +69,22 @@ struct header_host_functor {
 	}
 };
 struct payload_command_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.command();
 	}
 };
 struct channel_functor {
-	std::string operator() (const std::string, const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
+	std::string operator() (const config_object&, const std::string channel, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &) {
 		return channel;
 	}
 };
 struct payload_alias_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return payload.alias();
 	}
 };
 struct payload_message_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		std::string ret;
 		BOOST_FOREACH(Plugin::QueryResponseMessage::Response::Line l, payload.lines())
 			ret += l.message();
@@ -92,17 +92,17 @@ struct payload_message_functor {
 	}
 };
 struct payload_result_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return nscapi::plugin_helper::translateReturn(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
 struct payload_result_nr_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		return strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(payload.result()));
 	}
 };
 struct payload_alias_or_command_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		if (payload.has_alias())
 			return payload.alias();
 		return payload.command();
@@ -110,7 +110,7 @@ struct payload_alias_or_command_functor {
 };
 
 struct epoch_functor {
-	std::string operator() (const std::string, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 		boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 		boost::posix_time::time_duration diff = now - time_t_epoch;
@@ -119,9 +119,9 @@ struct epoch_functor {
 };
 
 struct time_functor {
-	std::string operator() (const std::string time_format, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
+	std::string operator() (const config_object& config, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		std::stringstream ss;
-		boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(time_format.c_str());
+		boost::posix_time::time_facet *facet = new boost::posix_time::time_facet(config.time_format.c_str());
 		ss.imbue(std::locale(std::cout.getloc(), facet));
 		ss << boost::posix_time::second_clock::local_time();
 		return ss.str();
@@ -165,7 +165,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			("channel", sh::string_key(&channel, "FILE"),
 				"CHANNEL", "The channel to listen to.")
 
-			("time-syntax", sh::string_key(&time_format_, "%Y-%m-%d %H:%M:%S"),
+			("time-syntax", sh::string_key(&config_.time_format, "%Y-%m-%d %H:%M:%S"),
 				"TIME SYNTAX", "The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.")
 
 			;
@@ -240,11 +240,11 @@ void SimpleFileWriter::handleNotification(const std::string &, const Plugin::Que
 
 	if ((request.has_alias() && !request.alias().empty()) || (request.has_command() && !request.command().empty()) ) {
 		BOOST_FOREACH(index_lookup_function &f, syntax_service_lookup_) {
-			key += f(time_format_, request.command(), request_message.header(), request);
+			key += f(config_, request.command(), request_message.header(), request);
 		}
 	} else {
 		BOOST_FOREACH(index_lookup_function &f, syntax_host_lookup_) {
-			key += f(time_format_, request.command(), request_message.header(), request);
+			key += f(config_, request.command(), request_message.header(), request);
 		}
 	}
 	std::string data = request.SerializeAsString();
