@@ -112,7 +112,7 @@ struct payload_alias_or_command_functor {
 struct epoch_functor {
 	std::string operator() (const config_object&, const std::string, const Plugin::Common::Header &, const Plugin::QueryResponseMessage::Response &payload) {
 		boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
-		boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+		boost::posix_time::ptime now = boost::posix_time::second_clock::universal_time();
 		boost::posix_time::time_duration diff = now - time_t_epoch;
 		return strEx::s::xtos(diff.total_seconds());
 	}
