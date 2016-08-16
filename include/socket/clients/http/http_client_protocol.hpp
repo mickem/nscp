@@ -1,6 +1,7 @@
 #pragma once
 
 #include <socket/clients/http/http_packet.hpp>
+#include <boost/asio.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include <socket/socket_helpers.hpp>

@@ -10,216 +10,220 @@
 
 #include <strEx.h>
 #include <socket/socket_helpers.hpp>
+#include <socket/clients/http/http_packet.hpp>
 
 using boost::asio::ip::tcp;
 
 namespace http {
-	class client {
-		boost::asio::io_service io_service;
-		tcp::socket socket;
 
-		static std::string charToHex(char c) {
-			std::string result;
-			char first, second;
+	struct generic_socket {
 
-			first = (c & 0xF0) / 16;
-			first += first > 9 ? 'A' - 10 : '0';
-			second = c & 0x0F;
-			second += second > 9 ? 'A' - 10 : '0';
+		virtual ~generic_socket() {}
+		virtual void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) = 0;
+		virtual void write(boost::asio::streambuf &buffer) = 0;
+		virtual void read_until(boost::asio::streambuf &buffer, std::string until) = 0;
+		virtual bool is_open() const = 0;
+		virtual std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) = 0;
 
-			result.append(1, first);
-			result.append(1, second);
+	};
 
-			return result;
+	struct tcp_socket : public generic_socket {
+
+		tcp::socket socket_;
+
+		tcp_socket(boost::asio::io_service &io_service)
+			: socket_(io_service)
+		{}
+		virtual ~tcp_socket() {
+			try {
+				socket_.close();
+			} catch (...) {
+
+			}
 		}
 
-		static std::string uri_encode(const std::string& src) {
-			std::string result;
-			std::string::const_iterator iter;
 
-			for (iter = src.begin(); iter != src.end(); ++iter) {
-				switch (*iter) {
-				case ' ':
-					result.append(1, '+');
-					break;
-					// alnum
-				case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G':
-				case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N':
-				case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U':
-				case 'V': case 'W': case 'X': case 'Y': case 'Z':
-				case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
-				case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
-				case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
-				case 'v': case 'w': case 'x': case 'y': case 'z':
-				case '0': case '1': case '2': case '3': case '4': case '5': case '6':
-				case '7': case '8': case '9':
-					// mark
-				case '-': case '_': case '.': case '!': case '~': case '*': case '\'':
-				case '(': case ')':
-					result.append(1, *iter);
-					break;
-					// escape
-				default:
-					result.append(1, '%');
-					result.append(charToHex(*iter));
-					break;
-				}
+		void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) {
+			socket_.close();
+			socket_.connect(*endpoint_iterator, error);
+		}
+		void write(boost::asio::streambuf &buffer) {
+			boost::asio::write(socket_, buffer);
+		}
+		void read_until(boost::asio::streambuf &buffer, std::string until) {
+			boost::asio::read_until(socket_, buffer, until);
+		}
+		bool is_open() const {
+			return socket_.is_open();
+		}
+		std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
+			return boost::asio::read(socket_, buffer, boost::asio::transfer_at_least(1), error);
+		}
+
+	};
+
+#ifdef USE_SSL
+
+	struct ssl_socket : public generic_socket {
+
+		boost::asio::ssl::context context_;
+		boost::asio::ssl::stream<tcp::socket> ssl_socket_;
+
+		ssl_socket(boost::asio::io_service &io_service)
+			: context_(io_service, boost::asio::ssl::context::tlsv12_client)
+			, ssl_socket_(io_service, context_)
+			{
+			context_.set_verify_mode(boost::asio::ssl::context::verify_none);
+		}
+
+		virtual ~ssl_socket() {
+			ssl_socket_.lowest_layer().close();
+		}
+
+
+		void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) {
+			ssl_socket_.lowest_layer().close();
+			ssl_socket_.lowest_layer().connect(*endpoint_iterator, error);
+
+			if (error) {
+				return;
 			}
 
-			return result;
+			ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
+			if (error) {
+				return;
+			}
 		}
+		void write(boost::asio::streambuf &buffer) {
+			boost::asio::write(ssl_socket_, buffer);
+		}
+		void read_until(boost::asio::streambuf &buffer, std::string until) {
+			boost::asio::read_until(ssl_socket_, buffer, until);
+		}
+		bool is_open() const {
+			return ssl_socket_.lowest_layer().is_open();
+		}
+		std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
+			return boost::asio::read(ssl_socket_, buffer, error);
+		}
+	};
+#endif
 
+	class simple_client {
+
+		typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
+
+		boost::asio::io_service io_service_;
+		boost::scoped_ptr<generic_socket> socket_;
 	public:
-		client()
-			: io_service()
-			, socket(io_service) {}
-
-		void connect() {
+		simple_client(std::string protocol)
+			: io_service_()
+		{
+#ifdef USE_SSL
+			if (protocol == "https")
+				socket_.reset(new ssl_socket(io_service_));
+			else
+#endif
+				socket_.reset(new tcp_socket(io_service_));
 		}
-		struct response_type {
-			unsigned int code;
-			std::list<std::string> headers;
-			std::string payload;
-			std::string version;
-			std::string message;
 
-			void add_header(const std::string &header) {
-				headers.push_back(header);
-			}
-		};
-		struct request_type {
-			typedef std::map<std::string, std::string> post_map_type;
-			std::string verb;
-			std::list<std::string> headers;
-			std::string payload;
-			void add_default_headers() {
-				add_header("Accept:", "*/*");
-				add_header("Connection:", "close");
-			}
-			void add_header(std::string key, std::string value) {
-				headers.push_back(key + ": " + value);
-			}
-			void add_header(std::string value) {
-				headers.push_back(value);
-			}
-			void build_request(std::string verb, std::string server, std::string path, std::ostream &os) const {
-				const char* crlf = "\r\n";
-				os << verb << " " << path << " HTTP/1.0" << crlf;
-				os << "Host: " << server << crlf;
-				BOOST_FOREACH(const std::string &s, headers) {
-					os << s << crlf;
-				}
-				os << crlf;
-				if (!payload.empty())
-					os << payload;
-				os << crlf;
-				os << crlf;
-			}
-			void add_post_payload(const post_map_type &payload_map) {
-				std::string data;
-				BOOST_FOREACH(const post_map_type::value_type &v, payload_map) {
-					if (!data.empty())
-						data += "&";
-					data += uri_encode(v.first);
-					data += "=";
-					data += uri_encode(v.second);
-				}
-				add_header("Content-Length", strEx::s::xtos(data.size()));
-				add_header("Content-Type", "application/x-www-form-urlencoded");
-				verb = "POST";
-				payload = data;
-			}
-			void add_post_payload(const std::string &payload_data) {
-				add_header("Content-Length", strEx::s::xtos(payload_data.size()));
-				add_header("Content-Type", "application/x-www-form-urlencoded");
-				verb = "POST";
-				payload = payload_data;
-			}
-		};
+		~simple_client() {
+			socket_.reset();
 
-		void connect(std::string server, std::string port) {
-			tcp::resolver resolver(io_service);
+		}
+
+		void connect(std::string protocol, std::string server, std::string port) {
+			tcp::resolver resolver(io_service_);
 			tcp::resolver::query query(server, port);
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;
 
 			boost::system::error_code error = boost::asio::error::host_not_found;
 			while (error && endpoint_iterator != end) {
-				socket.close();
-				socket.connect(*endpoint_iterator++, error);
+				socket_->connect(endpoint_iterator++, error);
 			}
-			if (error)
-				throw boost::system::system_error(error);
+			if (error) {
+				throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " +error.message());
+			}
+
 		}
-		void send_request(std::string server, std::string path, request_type &request) {
+
+		void send_request(const http::packet &request) {
 			boost::asio::streambuf requestbuf;
 			std::ostream request_stream(&requestbuf);
-			request.build_request(request.verb, server, path, request_stream);
-			boost::asio::write(socket, requestbuf);
+			request.build_request(request_stream);
+			socket_->write(requestbuf);
 		}
-		boost::tuple<std::string, unsigned int, std::string> read_result(boost::asio::streambuf &response) {
+		http::response read_result(boost::asio::streambuf &response_buffer) {
+			;
+
 			std::string http_version, status_message;
 			unsigned int status_code;
-			boost::asio::read_until(socket, response, "\r\n");
+			socket_->read_until(response_buffer, "\r\n");
 
-			std::istream response_stream(&response);
+			std::istream response_stream(&response_buffer);
 			if (!response_stream)
 				throw socket_helpers::socket_exception("Invalid response");
 			response_stream >> http_version;
 			response_stream >> status_code;
 			std::getline(response_stream, status_message);
-			return boost::make_tuple(http_version, status_code, status_message);
-		}
 
-		response_type execute(std::string server, std::string port, std::string path, request_type &request) {
-			response_type response;
-			connect(server, port);
-			send_request(server, path, request);
 
-			boost::asio::streambuf response_buffer;
-			boost::tie(response.version, response.code, response.message) = read_result(response_buffer);
+			http::response ret(http_version, status_code, status_message);
 
-			if (response.version.substr(0, 5) != "HTTP/")
-				throw socket_helpers::socket_exception("Invalid response: " + response.version);
+			if (ret.http_version_.substr(0, 5) != "HTTP/")
+				throw socket_helpers::socket_exception("Invalid response: " + ret.http_version_);
 
 			try {
-				boost::asio::read_until(socket, response_buffer, "\r\n\r\n");
+				socket_->read_until(response_buffer, "\r\n\r\n");
 			} catch (const std::exception &e) {
 				throw socket_helpers::socket_exception(std::string("Failed to read header: ") + e.what());
 			}
 
-			std::istream response_stream(&response_buffer);
 			std::string header;
 			while (std::getline(response_stream, header) && header != "\r")
-				response.add_header(header);
+				ret.add_header(header);
+			return ret;
 
+		}
+
+		http::response execute(std::string protocol, std::string server, std::string port, const http::packet &request) {
+			connect(protocol, server, port);
+			send_request(request);
+
+			boost::asio::streambuf response_buffer;
+			http::response response = read_result(response_buffer);
+
+			if (!response.is_2xx()) {
+				throw socket_helpers::socket_exception("Failed to fetch config: " + strEx::s::xtos(response.status_code_) + ": " + response.payload_);
+			}
 			std::ostringstream os;
 			if (response_buffer.size() > 0)
 				os << &response_buffer;
 
 			boost::system::error_code error;
-			while (boost::asio::read(socket, response_buffer, boost::asio::transfer_at_least(1), error))
-				os << &response_buffer;
-			if (error != boost::asio::error::eof)
-				throw boost::system::system_error(error);
-			response.payload = os.str();
-
-			if (response.code != 200)
-				throw socket_helpers::socket_exception(strEx::s::xtos(response.code) + ": " + response.payload);
+			if (socket_->is_open()) {
+				while (std::size_t s = socket_->read_some(response_buffer, error)) {
+					os << &response_buffer;
+				}
+			}
+			response.payload_ = os.str();
 
 			return response;
 		}
 
-		static bool download(std::string protocol, std::string server, std::string path, std::ostream &os, std::string &error_msg) {
+		static bool download(std::string protocol, std::string server, std::string port, std::string path, std::ostream &os, std::string &error_msg) {
 			try {
-				request_type rq;
-				rq.verb = "GET";
+				http::packet rq("GET", server, path);
 				rq.add_default_headers();
-				client c;
-				response_type rs = c.execute(server, protocol, path, rq);
-				os << rs.payload;
+				simple_client c(protocol);
+				http::response rs = c.execute(protocol, server, port, rq);
+				os << rs.payload_;
 				return true;
-			} catch (std::exception& e) {
+			} catch (const socket_helpers::socket_exception& e) {
+				error_msg = e.reason();
+				return false;
+			} catch (const std::exception& e) {
 				error_msg = std::string("Exception: ") + utf8::utf8_from_native(e.what());
 				return false;
 			}

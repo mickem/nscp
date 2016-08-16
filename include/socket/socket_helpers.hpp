@@ -36,6 +36,7 @@ namespace socket_helpers {
 		///
 		/// @author mickem
 		const char* what() const throw() { return error.c_str(); }
+		const std::string reason() const { return error; }
 	};
 
 	struct allowed_hosts_manager {

@@ -13,6 +13,10 @@
 #include <files.h>
 #endif
 
+
+#include <socket/client.hpp>
+#include <socket/clients/http/http_client_protocol.hpp>
+
 #include <http/client.hpp>
 #include <net/net.hpp>
 #include <file_helpers.hpp>
@@ -35,7 +39,7 @@ namespace settings {
 
 	public:
 		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
-			remote_url = net::parse(utf8::cvt<std::string>(context), 80);
+			remote_url = net::parse(utf8::cvt<std::string>(context));
 			boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path))
@@ -69,24 +73,44 @@ namespace settings {
 			return local_file;
 		}
 
+
+		virtual void log_debug(std::string file, int line, std::string msg) const {}
+
+		virtual void log_error(std::string file, int line, std::string msg) const {}
+			virtual std::string expand_path(std::string path) {
+				return path;
+			}
+
 		bool cache_remote_file(const net::url &url, const boost::filesystem::path &local_file) {
 			boost::filesystem::path tmp_file = local_file.string() + ".tmp";
 			std::ofstream os(tmp_file.string().c_str());
 			std::string error;
-			if (!http::client::download(url.protocol, url.host, url.path, os, error)) {
+
+			try {
+				http::packet packet("GET", url.get_host(), url.path);
+
+				std::string def_port = url.protocol == "https"?"443":"80";
+
+				if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, os, error)) {
+					os.close();
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
+					return false;
+				}
 				os.close();
-				throw new settings_exception("Failed to download " + tmp_file.string() + ": " + error);
-			}
-			os.close();
-			if (!boost::filesystem::is_regular_file(tmp_file)) {
-				throw new settings_exception("Failed to find cached settings: " + tmp_file.string());
+				if (!boost::filesystem::is_regular_file(tmp_file)) {
+					get_logger()->error("settings", __FILE__, __LINE__, "Failed to find cached settings: " + tmp_file.string());
+					return false;
+				}
+			} catch (const socket_helpers::socket_exception &e) {
+				get_logger()->error("settings", __FILE__, __LINE__, "Failed to update settings file: " + e.reason());
+				return false;
 			}
 			if (boost::filesystem::is_regular_file(local_file)) {
 				std::string old_hash = hash_file(local_file);
 				std::string new_hash = hash_file(tmp_file);
 				if (old_hash.empty() || old_hash != new_hash) {
 					if (old_hash.empty()) {
-						get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detech changes");
+						get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detect changes (assuming always changed)");
 					}
 					get_logger()->debug("settings", __FILE__, __LINE__, "File has changed: " + local_file.string());
 					boost::filesystem::rename(tmp_file, local_file);

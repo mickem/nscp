@@ -87,7 +87,7 @@ namespace settings_manager {
 			return settings::instance_raw_ptr(new settings::INISettings(this, key));
 		if (url.protocol == "dummy")
 			return settings::instance_raw_ptr(new settings::settings_dummy(this, key));
-		if (url.protocol == "http")
+		if (url.protocol == "http" || url.protocol == "https")
 			return settings::instance_raw_ptr(new settings::settings_http(this, key));
 
 		if (settings::INISettings::context_exists(this, key))

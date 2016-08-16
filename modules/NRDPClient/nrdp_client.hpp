@@ -84,10 +84,9 @@ namespace nrdp_client {
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Connecting tuo: " + con.to_string());
 				}
-				http::client c;
-				http::client::request_type request;
-				request.add_default_headers();
-				http::client::request_type::post_map_type post;
+				http::simple_client c("http");
+				http::packet request("POST", con.get_address(), "/nrdp/server/");
+				http::packet::post_map_type post;
 				post["token"] = con.token;
 				post["XMLDATA"] = nrdp_data.render_request();
 				post["cmd"] = "submitcheck";
@@ -95,9 +94,9 @@ namespace nrdp_client {
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Sending: " + nrdp_data.render_request());
 				}
-				http::client::response_type response = c.execute(con.get_address(), con.get_port(), "/nrdp/server/", request);
+				http::response response = c.execute("http", con.get_address(), con.get_port(), request);
 				NSC_TRACE_ENABLED() {
-					NSC_TRACE_MSG("Happily ignoring: " + response.payload);
+					NSC_TRACE_MSG("Happily ignoring: " + response.payload_);
 				}
 				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");
 			} catch (const std::runtime_error &e) {
