@@ -1,3 +1,7 @@
+2016-08-16 Michael Medin
+ * Added initial support for https to settings and NRDP (no certificate validation yet and similar things)
+ * check_uptime (and others) fixed date format
+
 2016-08-11 Michael Medin
  * SimpleFileWriter #316 added two new syntax strings to differentiate between host and service checks*
  * SimpleFileWriter #316 added new keywords to syntax for epoch and time
