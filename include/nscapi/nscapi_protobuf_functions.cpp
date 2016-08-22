@@ -826,6 +826,16 @@ namespace nscapi {
 				settings_query_key_values_data(std::string path, std::string key, std::string str_value) : path(path), key(key), str_value(str_value) {}
 				settings_query_key_values_data(std::string path, std::string key, long long int_value) : path(path), key(key), int_value(int_value) {}
 				settings_query_key_values_data(std::string path, std::string key, bool bool_value) : path(path), key(key), bool_value(bool_value) {}
+				settings_query_key_values_data(const settings_query_key_values_data& other) : path(other.path), key(other.key), str_value(other.str_value), int_value(other.int_value), bool_value(other.bool_value) {}
+
+				settings_query_key_values_data& operator=(const settings_query_key_values_data& other) {
+					path = other.path;
+					key = other.key;
+					str_value = other.str_value;
+					int_value = other.int_value;
+					bool_value = other.bool_value;
+					return *this;
+				}
 
 
 			};
@@ -834,6 +844,14 @@ namespace nscapi {
 			settings_query::key_values::key_values(std::string path, std::string key, std::string str_value) : pimpl(new settings_query_key_values_data(path, key, str_value)) {}
 			settings_query::key_values::key_values(std::string path, std::string key, long long int_value) : pimpl(new settings_query_key_values_data(path, key, int_value)) {}
 			settings_query::key_values::key_values(std::string path, std::string key, bool bool_value) : pimpl(new settings_query_key_values_data(path, key, bool_value)) {}
+
+			settings_query::key_values::key_values(const key_values &other)
+				: pimpl(new settings_query_key_values_data(*other.pimpl)) {}
+			settings_query::key_values& settings_query::key_values::operator= (const key_values &other) {
+				pimpl->operator=(*other.pimpl);
+				return *this;
+			}
+
 			settings_query::key_values::~key_values() {
 				delete pimpl;
 			}
@@ -845,7 +863,7 @@ namespace nscapi {
 				return pimpl->path == path && *pimpl->key == key;
 			}
 			bool settings_query::key_values::matches(const std::string &path, const std::string &key) const {
-				if (!pimpl->key)
+				if (!pimpl || !pimpl->key)
 					return false;
 				return pimpl->path == path && *pimpl->key == key;
 			}
