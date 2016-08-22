@@ -252,8 +252,13 @@ namespace wmi_impl {
 
 		header_enumerator enumerator;
 		HRESULT hr = instance.get()->ExecQuery(strQL, strQuery, WBEM_FLAG_PROTOTYPE, NULL, &enumerator.enumerator_obj);
-		if (FAILED(hr))
-			throw wmi_exception(hr, "Failed to execute query: " + ComError::getComError(hr));
+		if (FAILED(hr)) {
+			std::string prefix = "Failed to execute query: ";
+			if (hr == WBEM_E_INVALID_QUERY) {
+				prefix = "Invalid query " + wql_query;
+			}
+			throw wmi_exception(hr, prefix + ComError::getComError(hr));
+		}
 		columns = enumerator.get();
 		return columns;
 	}
