@@ -17,9 +17,10 @@ using boost::asio::ip::tcp;
 namespace http {
 
 	struct generic_socket {
+		typedef boost::asio::ip::basic_endpoint<boost::asio::ip::tcp> tcp_iterator;
 
 		virtual ~generic_socket() {}
-		virtual void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) = 0;
+		virtual void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) = 0;
 		virtual void write(boost::asio::streambuf &buffer) = 0;
 		virtual void read_until(boost::asio::streambuf &buffer, std::string until) = 0;
 		virtual bool is_open() const = 0;
@@ -43,9 +44,9 @@ namespace http {
 		}
 
 
-		void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) {
+		void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) {
 			socket_.close();
-			socket_.connect(*endpoint_iterator, error);
+			socket_.connect(endpoint_iterator, error);
 		}
 		void write(boost::asio::streambuf &buffer) {
 			boost::asio::write(socket_, buffer);
@@ -70,7 +71,7 @@ namespace http {
 		boost::asio::ssl::stream<tcp::socket> ssl_socket_;
 
 		ssl_socket(boost::asio::io_service &io_service)
-			: context_(io_service, boost::asio::ssl::context::tlsv12_client)
+			: context_(io_service, boost::asio::ssl::context::tlsv1)
 			, ssl_socket_(io_service, context_)
 			{
 			context_.set_verify_mode(boost::asio::ssl::context::verify_none);
@@ -81,9 +82,9 @@ namespace http {
 		}
 
 
-		void connect(tcp::resolver::iterator &endpoint_iterator, boost::system::error_code &error) {
+		void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) {
 			ssl_socket_.lowest_layer().close();
-			ssl_socket_.lowest_layer().connect(*endpoint_iterator, error);
+			ssl_socket_.lowest_layer().connect(endpoint_iterator, error);
 
 			if (error) {
 				return;
@@ -140,7 +141,8 @@ namespace http {
 
 			boost::system::error_code error = boost::asio::error::host_not_found;
 			while (error && endpoint_iterator != end) {
-				socket_->connect(endpoint_iterator++, error);
+				socket_->connect(*endpoint_iterator, error);
+				endpoint_iterator++;
 			}
 			if (error) {
 				throw socket_helpers::socket_exception("Failed to connect to " + server + ":" + port + ": " +error.message());
