@@ -113,6 +113,7 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		throw nscp_exception("Failed to get root folder " + folder + ": " + error::com::get(hr));
 	}
 
+	std::vector<std::string> sub_folders;
 	if (recursive) {
 		CComPtr<ITaskFolderCollection> folders;
 		if (FAILED(pRootFolder->GetFolders(0, &folders)))
@@ -120,7 +121,6 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		LONG count = 0;
 		if (FAILED(folders->get_Count(&count)))
 			throw nscp_exception("Failed to get count of folders below " + folder + ": " + error::com::get(hr));
-		std::vector<std::string> sub_folders;
 		for (LONG i = 0; i < count; ++i) {
 			CComPtr<ITaskFolder> inst;
 			if (FAILED(folders->get_Item(_variant_t(i + 1), &inst)))
@@ -145,12 +145,6 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		throw nscp_exception("Failed to get count: " + error::com::get(hr));
 	}
 
-	if (numTasks == 0) {
-		return;
-	}
-
-	TASK_STATE taskState;
-
 	for (LONG i = 0; i < numTasks; i++) {
 		CComPtr<IRegisteredTask> pRegisteredTask = NULL;
 		hr = pTaskCollection->get_Item(_variant_t(i + 1), &pRegisteredTask);
@@ -161,5 +155,9 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 				break;
 			}
 		}
+	}
+
+	BOOST_FOREACH(const std::string f, sub_folders) {
+		do_get(taskSched, filter, f, recursive);
 	}
 }
