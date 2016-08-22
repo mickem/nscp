@@ -2,14 +2,14 @@
 BuildRoot:	@CMAKE_CURRENT_BINARY_DIR@/_CPack_Packages/Linux/RPM/@CPACK_PACKAGE_FILE_NAME@
 Summary:	Simple yet powerful and secure monitoring daemon originally built for Nagios/Icinga
 Name:		nscp
-Version:	0.5.0.51
+Version:	@VERSION_SERIES@.@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_BUILD@
 Release:	1%{?dist}
 License:	GPLv2
 Group:		System Environment/Daemons
 Vendor:		"MySolutions NORDIC"
 #Prefix:	@CPACK_PACKAGING_INSTALL_PREFIX@
 URL:		https://nsclient.org
-Source0:	nscp-0.5.0.51-Source.tar.gz
+Source0:	nscp-@VERSION_SERIES@.@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_BUILD@-Source.tar.gz
 #Source0:	https://github.com/mickem/nscp/tree/master/releases/%{version}.tar.gz
 Packager:	Michael Medin <michael@medin.name>
 Requires:	boost-filesystem boost-program-options boost-thread protobuf
@@ -27,7 +27,7 @@ BUildRequires:  cryptopp-devel
 NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Naemon/Nagios/Icinga, but nothing in the daemon is Naemon/Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.
 
 %prep
-%setup -q -n nscp-0.5.0.51-Source
+%setup -q -n nscp-@VERSION_SERIES@.@VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_BUILD@-Source
 
 %build
 %cmake .
