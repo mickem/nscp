@@ -419,8 +419,17 @@ namespace nscapi {
 			}
 
 			Plugin::QueryResponseMessage::Response payload = message.payload().Get(0);
-			msg = payload.lines(0).message();
-			perf = build_performance_data(payload.lines(0));
+			BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, payload.lines()) {
+				msg += l.message();
+				std::string tmpPerf = build_performance_data(l);
+				if (!tmpPerf.empty()) {
+					if (perf.empty()) {
+						perf = tmpPerf;
+					} else {
+						perf += " " + tmpPerf;
+					}
+				}
+			}
 			return gbp_to_nagios_status(payload.result());
 		}
 
