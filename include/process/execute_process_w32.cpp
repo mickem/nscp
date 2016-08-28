@@ -159,6 +159,9 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 				result = dwexitcode;
 			}
 		}
+		if(dwexitcode == STILL_ACTIVE){
+			TerminateProcess(pi.hProcess, 5);
+		}
 		CloseHandle(pi.hThread);
 		CloseHandle(pi.hProcess);
 		CloseHandle(hChildOutR);
