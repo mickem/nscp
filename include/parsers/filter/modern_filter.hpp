@@ -275,11 +275,13 @@ namespace modern_filter {
 			return true;
 		}
 
-		bool validate() {
+		bool validate(std::string &error) {
 			if (engine_filter && !engine_filter->validate(context)) {
+				error = "Filter expression is not valid";
 				return false;
 			}
 			if (engine_warn && !engine_warn->validate(context)) {
+				error = "Warning expression is not valid";
 				return false;
 			}
 			if (engine_warn) {
@@ -288,6 +290,7 @@ namespace modern_filter {
 				}
 			}
 			if (engine_crit && !engine_crit->validate(context)) {
+				error = "Critical expression is not valid";
 				return false;
 			}
 			if (engine_crit) {
@@ -296,6 +299,7 @@ namespace modern_filter {
 				}
 			}
 			if (engine_ok && !engine_ok->validate(context)) {
+				error = "Ok expression is not valid";
 				return false;
 			}
 			BOOST_FOREACH(const std::string &p, perf_config.get_extra_perf()) {

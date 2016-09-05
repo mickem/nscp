@@ -89,8 +89,9 @@ namespace parsers {
 					return false;
 				}
 
-				if (!item->filter.validate()) {
-					NSC_LOG_ERROR("Failed validate: " + object->get_alias());
+				std::string error;
+				if (!item->filter.validate(error)) {
+					NSC_LOG_ERROR("Failed to validate filter for " + object->get_alias() + ": " + error);
 					return false;
 				}
 				item->data.boot();

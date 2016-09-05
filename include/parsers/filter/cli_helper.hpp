@@ -292,8 +292,9 @@ namespace modern_filter {
 				return false;
 			}
 
-			if (!filter.validate()) {
-				nscapi::protobuf::functions::set_response_bad(*response, "Failed to validate filter see log for details");
+			std::string error;
+			if (!filter.validate(error)) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Failed to validate filter see log for details: " + error);
 				return false;
 			}
 
