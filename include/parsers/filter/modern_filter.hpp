@@ -251,10 +251,18 @@ namespace modern_filter {
 			return true;
 		}
 		bool build_engines(const bool debug, const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit) {
-			std::vector<std::string> filter_; filter_.push_back(filter);
-			std::vector<std::string> ok_; ok_.push_back(ok);
-			std::vector<std::string> warn_; warn_.push_back(warn);
-			std::vector<std::string> crit_; crit_.push_back(crit);
+			std::vector<std::string> filter_; 
+			if (!filter.empty())
+				filter_.push_back(filter);
+			std::vector<std::string> ok_; 
+			if (!ok.empty())
+				ok_.push_back(ok);
+			std::vector<std::string> warn_; 
+			if (!warn.empty())
+				warn_.push_back(warn);
+			std::vector<std::string> crit_;
+			if (!crit.empty())
+				crit_.push_back(crit);
 			return build_engines(debug, filter_, ok_, warn_, crit_);
 		}
 		bool build_engines(const bool debug, const std::vector<std::string> &filter, const std::vector<std::string> &ok, const std::vector<std::string> &warn, const std::vector<std::string> &crit) {
