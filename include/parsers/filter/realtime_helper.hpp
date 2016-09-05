@@ -138,17 +138,25 @@ namespace parsers {
 				try {
 					boost::posix_time::ptime current_time = boost::posix_time::second_clock::local_time();
 					bool has_matched = false;
+					bool has_changed = false;
 					// Process all items matching this event
+					if (items.size() == 0) {
+						NSC_DEBUG_MSG("No filters to check for: " + data->to_string());
+					}
 					BOOST_FOREACH(container_type item, items) {
 						if (item->data.has_changed(data)) {
+							has_changed = true;
 							if (process_item(item, data)) {
 								has_matched = true;
 								item->touch(current_time);
 							}
 						}
 					}
-					if (!has_matched)
+					if (!has_changed) {
+						NSC_DEBUG_MSG("No filters changes detected: " + data->to_string());
+					} else if (!has_matched) {
 						NSC_DEBUG_MSG("No filters matched: " + data->to_string());
+					}
 					do_process_no_items(current_time);
 				} catch (const nscp_exception &e) {
 					NSC_DEBUG_MSG("Realtime processing faillure: " + e.reason());
