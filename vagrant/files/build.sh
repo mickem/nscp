@@ -25,12 +25,12 @@ fi;
 #if [ "$DIST" == "CentOS" ] ; then DIST=Fedora ; fi
 
 if [ -d /home/vagrant/rpmbuild/RPMS/x86_64 ] ; then
-  zip -j /source/nscp/packages/NSCP-${VERSION}-${OSVERSION}-x86_64.zip /home/vagrant/rpmbuild/RPMS/x86_64/* -x *debuginfo*
-  cp /home/vagrant/rpmbuild/RPMS/x86_64/*debuginfo* /source/nscp/packages
+  zip -j /source/nscp/packages/NSCP-${VERSION}-${OSVERSION}-x86_64.zip /home/vagrant/rpmbuild/RPMS/x86_64/*${VERSION}* -x *debuginfo*
+  cp /home/vagrant/rpmbuild/RPMS/x86_64/*debuginfo*${VERSION}* /source/nscp/packages
 fi;
 if [ -d /home/vagrant/rpmbuild/RPMS/i386 ] ; then
   zip -j /source/nscp/packages/NSCP-${VERSION}-${OSVERSION}-i386.zip /home/vagrant/rpmbuild/RPMS/i386/* -x *debuginfo*
-  cp /home/vagrant/rpmbuild/RPMS/i386/*debuginfo* /source/nscp/packages
+  cp /home/vagrant/rpmbuild/RPMS/i386/*debuginfo*${VERSION}* /source/nscp/packages
 fi;
 # ctest --output-on-failure || exit 1
 # make package || exit 1
