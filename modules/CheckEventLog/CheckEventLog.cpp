@@ -214,7 +214,7 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 
 		EVENTLOGRECORD *pevlr = buffer.get();
 		while (dwRead > 0) {
-			EventLogRecord record(logfile, pevlr, ltime);
+			EventLogRecord record(logfile, pevlr);
 			if (direction == direction_backwards && record.written() < stop_date) {
 				is_scanning = false;
 				break;
@@ -223,7 +223,7 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 				is_scanning = false;
 				break;
 			}
-			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(logfile, pevlr, ltime, truncate_message)));
+			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(ltime, logfile, pevlr, truncate_message)));
 			if (ret.is_done) {
 				break;
 			}
@@ -291,7 +291,7 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 			}
 			for (DWORD i = 0; i < dwReturned; i++) {
 				try {
-					filter_type::object_type item(new eventlog_filter::new_filter_obj(logfile, hEvents[i], hContext, truncate_message));
+					filter_type::object_type item(new eventlog_filter::new_filter_obj(ltime, logfile, hEvents[i], hContext, truncate_message));
 					if (direction == direction_backwards && item->get_written() < stop_date) {
 						for (; i < dwReturned; i++)
 							eventlog::EvtClose(hEvents[i]);
@@ -438,7 +438,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		("file", po::value<std::vector<std::string> >(&file_list), "File to read (can be specified multiple times to check multiple files.\nNotice that specifying multiple files will create an aggregate set you will not check each file individually."
 			"In other words if one file contains an error the entire check will result in error.")
 		("log", po::value<std::vector<std::string>>(&file_list), "Same as file")
-		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nThis is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
+		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nA negative value scans backward (historical events) and a positive value scans forwards (future events). This is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
 		("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
 		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
 		;

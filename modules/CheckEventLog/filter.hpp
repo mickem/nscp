@@ -30,7 +30,9 @@
 namespace eventlog_filter {
 	struct filter_obj : boost::noncopyable {
 
-		filter_obj() {}
+		unsigned long long now_;
+
+		filter_obj(unsigned long long now) : now_(now) {}
 		virtual ~filter_obj() {}
 
 		virtual long long get_id() const = 0;
@@ -53,7 +55,8 @@ namespace eventlog_filter {
 		virtual long long get_generated() const = 0;
 		virtual bool is_modern() const = 0;
 		virtual std::string get_written_s() const {
-			return format::itos_as_time(get_written());
+			unsigned long long time = get_written();
+			return format::itos_as_time((now_-time)*1000);
 		}
 		virtual std::string to_string() const = 0;
 	};
@@ -62,8 +65,9 @@ namespace eventlog_filter {
 		EventLogRecord record;
 		const int truncate_message;
 
-		old_filter_obj(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime, const int truncate_message)
-			: record(file, pevlr, currentTime)
+		old_filter_obj(unsigned long long now, std::string file, const EVENTLOGRECORD *pevlr, const int truncate_message)
+			: filter_obj(now)
+			, record(file, pevlr)
 			, truncate_message(truncate_message) {}
 
 		long long get_id() const {
@@ -133,7 +137,7 @@ namespace eventlog_filter {
 		const int truncate_message;
 		eventlog::evt_handle hProviderMetadataHandle;
 
-		new_filter_obj(const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message);
+		new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message);
 		virtual ~new_filter_obj() {}
 
 		long long get_id() const {

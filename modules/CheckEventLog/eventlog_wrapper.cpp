@@ -85,6 +85,10 @@ void eventlog_wrapper_new::reset_event(HANDLE &handle) {
 
 
 eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &handle) {
+
+	__time64_t ltime;
+	_time64(&ltime);
+
 	eventlog::api::EVT_HANDLE hEvents[1];
 	DWORD dwReturned = 0;
 	if (!eventlog::EvtNext(hLog, 1, hEvents, 100, 0, &dwReturned)) {
@@ -94,7 +98,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
 		else if (status != ERROR_SUCCESS)
 			return eventlog_filter::filter::object_type();
 	}
-	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(name, hEvents[0], hContext, 512));
+	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(ltime, name, hEvents[0], hContext, 512));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -221,7 +225,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_old::read_record(HANDLE &h
 	if (pevlr == NULL)
 		return eventlog_filter::filter::object_type();
 	nextBufferPosition += pevlr->Length;
-	return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(get_name(), pevlr, ltime, 512));
+	return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(ltime, get_name(), pevlr, 512));
 }
 
 

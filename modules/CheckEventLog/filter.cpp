@@ -85,8 +85,9 @@ data_cache<eventlog::api::EvtPublisherMetadataTasks, eventlog::api::EvtPublisher
 data_cache<eventlog::api::EvtPublisherMetadataKeywords, eventlog::api::EvtPublisherMetadataKeywordValue, eventlog::api::EvtPublisherMetadataKeywordName> keyword_cache_;
 
 namespace eventlog_filter {
-	new_filter_obj::new_filter_obj(const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message)
-		: logfile(logfile)
+	new_filter_obj::new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message)
+		: filter_obj(now)
+		, logfile(logfile)
 		, hEvent(hEvent)
 		, buffer(4096)
 		, truncate_message(truncate_message) {

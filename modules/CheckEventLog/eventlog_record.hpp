@@ -7,23 +7,16 @@
 
 class EventLogRecord : boost::noncopyable {
 	const EVENTLOGRECORD *pevlr_;
-	__int64 currentTime_;
 	std::string file_;
 public:
-	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr, __int64 currentTime) : file_(file), pevlr_(pevlr), currentTime_(currentTime) {
+	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr) : file_(file), pevlr_(pevlr) {
 		if (pevlr == NULL)
 			throw nscp_exception("Invalid eventlog record");
 	}
-	inline __int64 timeGenerated() const {
-		return (currentTime_ - pevlr_->TimeGenerated) * 1000;
-	}
-	inline __int64 timeWritten() const {
-		return (currentTime_ - pevlr_->TimeWritten) * 1000;
-	}
-	inline __int64 generated() const {
+	inline unsigned long long generated() const {
 		return pevlr_->TimeGenerated;
 	}
-	inline __int64 written() const {
+	inline unsigned long long written() const {
 		return pevlr_->TimeWritten;
 	}
 	inline WORD category() const {
