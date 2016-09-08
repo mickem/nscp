@@ -1,3 +1,13 @@
+2016-09-08 Michael Medin
+ * Fixed copying of file in centos build
+ * check_eventlog: Fixed time/date rendering
+ * Fixed missing return
+
+2016-09-05 Michael Medin
+ * filters: fixed issue when no filter is specified in realtime checks
+ * real time filters: Added more debug messages when no filters match (to better show why)
+ * filters: Improved error handler when filters fail
+
 2016-08-23 Michael Medin
 * Linux: Fixed specfile version numbers
 * TaskScheduler: Fixed folder support in tash scheduler
