@@ -262,6 +262,7 @@ namespace http {
 			status_code_ = other.status_code_;
 			status_message_ = other.status_message_;
 			payload_ = other.payload_;
+			return *this;
 		}
 
 		void add_header(std::string key, std::string value) {
