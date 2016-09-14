@@ -10,12 +10,23 @@
 namespace nrdp_client {
 	struct connection_data : public socket_helpers::connection_info {
 		std::string token;
+		std::string protocol;
+		std::string path;
 
 		std::string sender_hostname;
 
 		connection_data(client::destination_container arguments, client::destination_container sender) {
 			address = arguments.address.host;
-			port_ = arguments.address.get_port_string("80");
+			protocol = arguments.address.protocol;
+			path = arguments.address.path;
+			if (path.empty())
+				path = "/nrdp/server/";
+			if (protocol == "https")
+				port_ = arguments.address.get_port_string("443");
+			else {
+				protocol == "http";
+				port_ = arguments.address.get_port_string("80");
+			}
 			timeout = arguments.get_int_data("timeout", 30);
 			token = arguments.get_string_data("token");
 			retry = arguments.get_int_data("retry", 3);
@@ -26,8 +37,10 @@ namespace nrdp_client {
 
 		std::string to_string() const {
 			std::stringstream ss;
-			ss << "host: " << get_endpoint_string();
+			ss << "protocol: " << protocol;
+			ss << ", host: " << get_endpoint_string();
 			ss << ", port: " << port_;
+			ss << ", path: " << path;
 			ss << ", timeout: " << timeout;
 			ss << ", token: " << token;
 			ss << ", sender: " << sender_hostname;
@@ -84,8 +97,8 @@ namespace nrdp_client {
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Connecting tuo: " + con.to_string());
 				}
-				http::simple_client c("http");
-				http::packet request("POST", con.get_address(), "/nrdp/server/");
+				http::simple_client c(con.protocol);
+				http::packet request("POST", con.get_address(), con.path);
 				http::packet::post_map_type post;
 				post["token"] = con.token;
 				post["XMLDATA"] = nrdp_data.render_request();

@@ -61,10 +61,10 @@ namespace nrdp_handler {
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &data) {
 			desc.add_options()
 
-				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+				("key", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
 					"The security token")
 
-				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+				("password", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
 					"The security token")
 
 				("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
@@ -73,7 +73,7 @@ namespace nrdp_handler {
 				("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
 					"Source/sender host name (default is auto which means use the name of the actual host)")
 
-				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, data, "token", _1)),
+				("token", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &data, "token", _1)),
 					"The security token")
 
 				;
