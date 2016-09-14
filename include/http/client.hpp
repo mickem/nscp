@@ -124,6 +124,10 @@ namespace http {
 			if (protocol == "https")
 				socket_.reset(new ssl_socket(io_service_));
 			else
+#else
+			if (protocol == "https")
+				throw socket_helpers::socket_exception("SSL not supported");
+			else
 #endif
 				socket_.reset(new tcp_socket(io_service_));
 		}
