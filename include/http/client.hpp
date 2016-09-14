@@ -201,7 +201,7 @@ namespace http {
 			http::response response = read_result(response_buffer);
 
 			if (!response.is_2xx()) {
-				throw socket_helpers::socket_exception("Failed to fetch config: " + strEx::s::xtos(response.status_code_) + ": " + response.payload_);
+				throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + protocol + "://" + server + ":" + strEx::s::xtos(port) +  " " + strEx::s::xtos(response.status_code_) + ": " + response.payload_);
 			}
 			std::ostringstream os;
 			if (response_buffer.size() > 0)
