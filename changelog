@@ -1,3 +1,8 @@
+2016-09-14 Michael Medin
+ * NRDPClient: Fixed #286 (for real this time), NRDP not working over https
+ * http client: changed error to reflect whats wrong (not config error)
+ * http client: added error if not compiled with ssl
+
 2016-09-08 Michael Medin
  * Fixed copying of file in centos build
  * check_eventlog: Fixed time/date rendering
