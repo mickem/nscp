@@ -65,16 +65,16 @@ namespace settings_client {
 		}
 
 		virtual void err(const char* file, int line, std::string message) {
-			nsclient::logging::logger::get_logger()->error("settings",file, line, message);
+			get_core()->get_logger()->error("settings",file, line, message);
 		}
 		virtual void warn(const char* file, int line, std::string message) {
-			nsclient::logging::logger::get_logger()->warning("settings",file, line, message);
+			get_core()->get_logger()->warning("settings",file, line, message);
 		}
 		virtual void info(const char* file, int line, std::string message)  {
-			nsclient::logging::logger::get_logger()->info("settings",file, line, message);
+			get_core()->get_logger()->info("settings",file, line, message);
 		}
 		virtual void debug(const char* file, int line, std::string message)  {
-			nsclient::logging::logger::get_logger()->debug("settings",file, line, message);
+			get_core()->get_logger()->debug("settings",file, line, message);
 		}
 	};
 }

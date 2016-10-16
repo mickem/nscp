@@ -22,7 +22,7 @@
 
 #include <NSCAPI.h>
 #include <dll/dll.hpp>
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 /**
  * @ingroup NSClient++
@@ -98,7 +98,7 @@ public:
  * @bug
  *
  */
-class NSCPlugin : public boost::noncopyable, public nsclient::logging::raw_subscriber {
+class NSCPlugin : public boost::noncopyable, public nsclient::logging::logging_subscriber {
 private:
 	//bool bLoaded_;			// Status of plug in
 	::dll::dll_impl module_;
@@ -235,7 +235,7 @@ public:
 	static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
 
 public:
-	void on_raw_log_message(std::string &payload) {
+	void on_log_message(std::string &payload) {
 		handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size()));
 	}
 

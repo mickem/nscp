@@ -30,7 +30,7 @@
 #include <boost/regex.hpp>
 #include <strEx.h>
 #include <settings/settings_core.hpp>
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 namespace settings {
 	class settings_handler_impl : public settings_core {
@@ -48,12 +48,13 @@ namespace settings {
 		boost::shared_mutex registry_mutex_;
 		reg_paths_type registred_paths_;
 		tpl_desc_type registered_tpls_;
+		nsclient::logging::logger_instance logger_;
 		bool ready_flag;
 		bool dirty_flag;
 		bool reload_flag;
 
 	public:
-		settings_handler_impl() : ready_flag(false), dirty_flag(false), reload_flag(false) {}
+		settings_handler_impl(nsclient::logging::logger_instance logger) : logger_(logger), ready_flag(false), dirty_flag(false), reload_flag(false) {}
 		~settings_handler_impl() {
 			destroy_all_instances();
 		}
@@ -93,8 +94,8 @@ namespace settings {
 		/// @return the logger to use
 		///
 		/// @author mickem
-		nsclient::logging::logger_interface* get_logger() {
-			return nsclient::logging::logger::get_logger();
+		nsclient::logging::logger_instance get_logger() const {
+			return logger_;
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -306,7 +307,6 @@ namespace settings {
 			instance_ = create_instance(key);
 			if (!instance_)
 				throw settings_exception("set_instance Failed to create instance for: " + key);
-			instance_->set_core(this);
 		}
 
 	private:

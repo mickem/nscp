@@ -26,7 +26,7 @@
 #include "commands.hpp"
 #include "channels.hpp"
 #include "routers.hpp"
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 #include "scheduler_handler.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>
@@ -98,13 +98,14 @@ private:
 	std::string context_;
 
 	bool enable_shared_session_;
+	unsigned int next_plugin_id_;
+	std::string service_name_;
+	nsclient::logging::logger_instance log_instance_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
 	nsclient::routers routers_;
 	nsclient::simple_plugins_list metricsFetchers;
 	nsclient::simple_plugins_list metricsSubmitetrs;
-	unsigned int next_plugin_id_;
-	std::string service_name_;
 
 	task_scheduler::scheduler scheduler_;
 
@@ -140,6 +141,10 @@ public:
 	// Member functions
 	boost::filesystem::path getBasePath();
 	boost::filesystem::path getTempPath();
+
+	nsclient::logging::logger_instance get_logger() {
+		return log_instance_;
+	}
 
 	NSCAPI::errorReturn reroute(std::string &channel, std::string &buffer);
 	NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);

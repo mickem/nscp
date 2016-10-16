@@ -23,7 +23,7 @@
 #ifdef _WIN32
 #include <ServiceCmd.h>
 #endif
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 #ifdef HAVE_JSON_SPIRIT
 //#define JSON_SPIRIT_VALUE_ENABLED
@@ -43,12 +43,7 @@
 #define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
 
 NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer, unsigned int bufLen) {
-	try {
-		return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
-	} catch (...) {
-		LOG_ERROR_STD("Failed to getString: " + utf8::cvt<std::string>(key));
-		return NSCAPI::api_return_codes::hasFailed;
-	}
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 }
 
 NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen) {
@@ -58,11 +53,25 @@ NSCAPI::errorReturn NSAPIGetApplicationVersionStr(char *buffer, unsigned int buf
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, utf8::cvt<std::string>(CURRENT_SERVICE_VERSION), NSCAPI::api_return_codes::isSuccess);
 }
 void NSAPISimpleMessage(const char* module, int loglevel, const char* file, int line, const char* message) {
-	nsclient::logging::logger::get_logger()->log(module, loglevel, file, line, message);
+	if (loglevel == NSCAPI::log_level::critical) {
+		mainClient->get_logger()->critical(module, file, line, message);
+	} else if (loglevel == NSCAPI::log_level::error) {
+		mainClient->get_logger()->error(module, file, line, message);
+	} else if (loglevel == NSCAPI::log_level::warning) {
+		mainClient->get_logger()->warning(module, file, line, message);
+	} else if (loglevel == NSCAPI::log_level::info) {
+		mainClient->get_logger()->info(module, file, line, message);
+	} else if (loglevel == NSCAPI::log_level::debug) {
+		mainClient->get_logger()->debug(module, file, line, message);
+	} else if (loglevel == NSCAPI::log_level::trace) {
+		mainClient->get_logger()->trace(module, file, line, message);
+	} else {
+		mainClient->get_logger()->critical(module, file, line, "Invalid log level for: " + std::string(message));
+	}
 }
 void NSAPIMessage(const char* data, unsigned int count) {
 	std::string message(data, count);
-	nsclient::logging::logger::get_logger()->raw(message);
+	mainClient->get_logger()->raw(message);
 }
 void NSAPIStopServer(void) {
 	mainClient->get_service_control().stop();
@@ -93,8 +102,23 @@ NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_bu
 	return ret;
 }
 
-NSCAPI::boolReturn NSAPICheckLogMessages(int messageType) {
-	return nsclient::logging::logger::get_logger()->should_log(messageType);
+NSCAPI::boolReturn NSAPICheckLogMessages(int loglevel) {
+	if (loglevel == NSCAPI::log_level::critical) {
+		return mainClient->get_logger()->should_critical();
+	} else if (loglevel == NSCAPI::log_level::error) {
+		return mainClient->get_logger()->should_error();
+	} else if (loglevel == NSCAPI::log_level::warning) {
+		return mainClient->get_logger()->should_warning();
+	} else if (loglevel == NSCAPI::log_level::info) {
+		return mainClient->get_logger()->should_info();
+	} else if (loglevel == NSCAPI::log_level::debug) {
+		return mainClient->get_logger()->should_debug();
+	} else if (loglevel == NSCAPI::log_level::trace) {
+		return mainClient->get_logger()->should_trace();
+	} else {
+		return true;
+	}
+
 }
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
@@ -112,15 +136,7 @@ wchar_t* copyString(const std::wstring &str) {
 }
 
 NSCAPI::errorReturn NSAPIReload(const char *module) {
-	try {
-		return mainClient->reload(module);
-	} catch (const std::exception &e) {
-		LOG_ERROR_STD("Reload failed: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::api_return_codes::hasFailed;
-	} catch (...) {
-		LOG_ERROR_STD("Reload failed");
-		return NSCAPI::api_return_codes::hasFailed;
-	}
+	return mainClient->reload(module);
 }
 
 nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
@@ -156,7 +172,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIProtobuf2Json);
-	LOG_ERROR_STD("Function not found: " + buffer);
+	mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
 	return NULL;
 }
 
@@ -178,7 +194,20 @@ void NSAPIDestroyBuffer(char**buffer) {
 }
 
 NSCAPI::log_level::level NSAPIGetLoglevel() {
-	return nsclient::logging::logger::get_logger()->get_log_level();
+	std::string log = mainClient->get_logger()->get_log_level();
+	if (log == "critical")
+		return NSCAPI::log_level::critical;
+	if (log == "error")
+		return NSCAPI::log_level::error;
+	if (log == "warning")
+		return NSCAPI::log_level::warning;
+	if (log == "info")
+		return NSCAPI::log_level::info;
+	if (log == "debug")
+		return NSCAPI::log_level::debug;
+	if (log == "trace")
+		return NSCAPI::log_level::trace;
+	return NSCAPI::log_level::unknown;
 }
 
 #ifdef HAVE_JSON_SPIRIT
@@ -197,7 +226,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 		}
 		std::string response;
 		if (object_type.empty()) {
-			LOG_ERROR_STD("Missing type or payload.");
+			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Missing type or payload.");
 			return NSCAPI::api_return_codes::hasFailed;
 		} else if (object_type == "SettingsRequestMessage") {
 			Plugin::SettingsRequestMessage request_message;
@@ -208,7 +237,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			json_pb::Plugin::RegistryRequestMessage::to_pb(&request_message, o);
 			response = request_message.SerializeAsString();
 		} else {
-			LOG_ERROR_STD("Missing type or payload.");
+			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Missing type or payload.");
 			return NSCAPI::api_return_codes::hasFailed;
 		}
 		*response_buffer_len = static_cast<unsigned int>(response.size());
@@ -219,7 +248,7 @@ NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int
 			memcpy(*response_buffer, response.c_str(), *response_buffer_len);
 		}
 	} catch (const json_spirit::ParseError &e) {
-		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
+		mainClient->get_logger()->error("api", __FILE__, __LINE__, "Failed to parse JSON: " + e.reason_);
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;
@@ -246,7 +275,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			message.ParseFromString(request);
 			root = json_pb::Plugin::ExecuteResponseMessage::to_json(message);
 		} else {
-			LOG_ERROR_STD("Invalid type: " + obj);
+			mainClient->get_logger()->error("api", __FILE__, __LINE__, "Invalid type: " + obj);
 			return NSCAPI::api_return_codes::hasFailed;
 		}
 		std::string response = json_spirit::write(root);
@@ -258,18 +287,18 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 			memcpy(*response_buffer, response.c_str(), *response_buffer_len);
 		}
 	} catch (const json_spirit::ParseError &e) {
-		LOG_ERROR_STD("Failed to parse JSON: " + e.reason_);
+		mainClient->get_logger()->error("api", __FILE__, __LINE__, "Failed to parse JSON: " + e.reason_);
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;
 }
 #else
 NSCAPI::errorReturn NSCAPIJson2protobuf(const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
-	LOG_ERROR_STD("Not compiled with jason spirit so json not supported");
+	mainClient->get_logger()->error("api", __FILE__, __LINE__, "Not compiled with jason spirit so json not supported");
 	return NSCAPI::hasFailed;
 }
 NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
-	LOG_ERROR_STD("Not compiled with jason spirit so json not supported");
+	mainClient->get_logger()->error("api", __FILE__, __LINE__, "Not compiled with jason spirit so json not supported");
 	return NSCAPI::hasFailed;
 }
 #endif

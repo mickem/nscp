@@ -55,20 +55,9 @@ static ExceptionManager *g_exception_manager = NULL;
 #endif
 #endif
 
-NSClient *mainClient = NULL;	// Global core instance.
+#include "logger/nsclient_logger.hpp"
 
-#define LOG_CRITICAL_CORE(msg) { nsclient::logging::logger::get_logger()->fatal("core", __FILE__, __LINE__, msg);}
-#define LOG_CRITICAL_CORE_STD(msg) LOG_CRITICAL_CORE(std::string(msg))
-#define LOG_ERROR_CORE(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg);}
-#define LOG_ERROR_CORE_STD(msg) LOG_ERROR_CORE(std::string(msg))
-#define LOG_INFO_CORE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg);}
-#define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::string(msg))
-#define LOG_DEBUG_CORE(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg);}
-#define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
-#define IS_LOG_DEBUG_CORE(msg) { if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug))
-#define LOG_TRACE_CORE(msg) { nsclient::logging::logger::get_logger()->trace("core", __FILE__, __LINE__, msg);}
-#define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
-#define IS_LOG_TRACE_CORE(msg) if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::trace))
+NSClient *mainClient = NULL;	// Global core instance.
 
 /**
  * Application startup point
@@ -123,16 +112,49 @@ bool contains_plugin(NSClientT::plugin_alias_list_type &ret, std::string alias, 
 	return false;
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////
+// Service functions
+
+struct nscp_settings_provider : public settings_manager::provider_interface {
+
+	nsclient::logging::logger_instance log_instance_;
+	nscp_settings_provider(nsclient::logging::logger_instance log_instance) : log_instance_(log_instance) {}
+
+	virtual std::string expand_path(std::string file) {
+		return mainClient->expand_path(file);
+	}
+	std::string get_data(std::string key) {
+		// TODO
+		return "";
+	}
+	nsclient::logging::logger_instance get_logger() const {
+		return log_instance_;
+	}
+};
+
+nscp_settings_provider *provider_ = NULL;
+
 NSClientT::NSClientT()
 	: enable_shared_session_(false)
 	, next_plugin_id_(0)
-	, service_name_(DEFAULT_SERVICE_NAME) {
-	nsclient::logging::logger::startup();
+	, service_name_(DEFAULT_SERVICE_NAME)
+	, log_instance_(new nsclient::logging::impl::nsclient_logger())
+	, commands_(log_instance_)
+	, channels_(log_instance_)
+	, routers_(log_instance_)
+	, metricsFetchers(log_instance_)
+	, metricsSubmitetrs(log_instance_)
+{
+	provider_ = new nscp_settings_provider(log_instance_);
+	log_instance_->startup();
 }
 
 NSClientT::~NSClientT() {
 	try {
-		nsclient::logging::logger::destroy();
+		delete provider_;
+		log_instance_->destroy();
 	} catch (...) {
 		std::cerr << "UNknown exception raised: When destroying logger" << std::endl;
 	}
@@ -222,21 +244,6 @@ void NSClientT::preboot_load_all_plugin_files() {
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Service functions
-
-struct nscp_settings_provider : public settings_manager::provider_interface {
-	virtual std::string expand_path(std::string file) {
-		return mainClient->expand_path(file);
-	}
-	std::string get_data(std::string key) {
-		// TODO
-		return "";
-	}
-};
-
-nscp_settings_provider provider;
-
 namespace sh = nscapi::settings_helper;
 
 /**
@@ -253,11 +260,11 @@ bool NSClientT::boot_init(const bool override_log) {
 
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " Loading settings and logger...");
 
-	if (!settings_manager::init_settings(&provider, context_)) {
+	if (!settings_manager::init_settings(provider_, context_)) {
 		return false;
 	}
 
-	nsclient::logging::logger::configure();
+	log_instance_->configure();
 
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(SERVICE_NAME) + " booting...");
 	LOG_DEBUG_CORE("Booted settings subsystem...");
@@ -314,8 +321,9 @@ bool NSClientT::boot_init(const bool override_log) {
 	} catch (settings::settings_exception e) {
 		LOG_ERROR_CORE_STD("Could not find settings: " + e.reason());
 	}
-	if (!override_log)
-		nsclient::logging::logger::set_log_level(log_level);
+	if (!override_log) {
+		log_instance_->set_log_level(log_level);
+	}
 
 #ifdef USE_BREAKPAD
 #ifdef WIN32
@@ -595,7 +603,7 @@ bool NSClientT::stop_exit_pre() {
 }
 bool NSClientT::stop_exit_post() {
 	try {
-		nsclient::logging::logger::shutdown();
+		log_instance_->shutdown();
 		google::protobuf::ShutdownProtobufLibrary();
 	} catch (...) {
 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
@@ -623,7 +631,7 @@ void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon
  * Unload all plug-ins (in reversed order)
  */
 void NSClientT::unloadPlugins() {
-	nsclient::logging::logger::clear_subscribers();
+	log_instance_->clear_subscribers();
 	{
 		boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 		if (!readLock.owns_lock()) {
@@ -813,8 +821,9 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			metricsFetchers.add_plugin(plugin);
 		if (plugin->hasMetricsSubmitter())
 			metricsSubmitetrs.add_plugin(plugin);
-		if (plugin->hasMessageHandler())
-			nsclient::logging::logger::subscribe_raw(plugin);
+		if (plugin->hasMessageHandler()) {
+			log_instance_->add_subscriber(plugin);
+		}
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
 		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);

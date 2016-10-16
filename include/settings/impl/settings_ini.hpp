@@ -124,7 +124,7 @@ namespace settings {
 			} catch (settings_exception e) {
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), L"; Undocumented key");
 			} catch (...) {
-				nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
+				get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}
 		}
 
@@ -139,7 +139,7 @@ namespace settings {
 			} catch (settings_exception e) {
 				ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, L"; Undocumented section");
 			} catch (...) {
-				nsclient::logging::logger::get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing section: " + path);
+				get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing section: " + path);
 			}
 		}
 
@@ -261,7 +261,7 @@ namespace settings {
 			}
 			std::string f = utf8::cvt<std::string>(get_file_name().string());
 			ini.SetUnicode();
-			nsclient::logging::logger::get_logger()->debug("settings", __FILE__, __LINE__, "Loading: " + get_file_name().string());
+			get_logger()->debug("settings", __FILE__, __LINE__, "Loading: " + get_file_name().string());
 			SI_Error rc = ini.LoadFile(f.c_str());
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to load file");
@@ -307,7 +307,7 @@ namespace settings {
 							if (boost::filesystem::exists(tmp)) {
 								filename_ = tmp;
 							} else {
-								nsclient::logging::logger::get_logger()->debug("settings", __FILE__, __LINE__, "Configuration file not found: " + filename_);
+								get_logger()->debug("settings", __FILE__, __LINE__, "Configuration file not found: " + filename_);
 							}
 						}
 					}

@@ -32,7 +32,7 @@
 #include <strEx.h>
 #include <settings/settings_core.hpp>
 #include <net/net.hpp>
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 #define MUTEX_GUARD() \
 	boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
@@ -140,8 +140,8 @@ namespace settings {
 				throw settings_exception("FATAL ERROR: Settings subsystem not initialized");
 			return core_;
 		}
-		nsclient::logging::logger_interface* get_logger() const {
-			return nsclient::logging::logger::get_logger();
+		nsclient::logging::logger_instance get_logger() const {
+			return core_->get_logger();
 		}
 
 		instance_raw_ptr add_child(std::string context) {

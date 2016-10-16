@@ -6,7 +6,7 @@
 #include <map>
 #include <settings/settings_core.hpp>
 #include <simpleini/SimpleIni.h>
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 #include <strEx.h>
 
@@ -14,10 +14,6 @@ namespace settings {
 	class OLDSettings : public settings::settings_interface_impl {
 		std::string filename_;
 		typedef std::pair<std::wstring, std::wstring> section_key_type;
-
-		inline nsclient::logging::logger_interface* get_logger() const {
-			return nsclient::logging::logger::get_logger();
-		}
 
 		class settings_map : boost::noncopyable {
 		public:
@@ -29,17 +25,14 @@ namespace settings {
 
 			path_map sections_;
 			key_map keys_;
+			nsclient::logging::logger_instance logger_;
 
-			settings_map() {}
-
-			inline nsclient::logging::logger_interface* get_logger() const {
-				return nsclient::logging::logger::get_logger();
-			}
+			settings_map(nsclient::logging::logger_instance logger) : logger_(logger) {}
 
 			void read_map_file(std::string file) {
 				std::ifstream in(file.c_str());
 				if (!in) {
-					get_logger()->error("settings", __FILE__, __LINE__, "Failed to read MAP file: " + utf8::cvt<std::string>(file));
+					logger_->error("settings", __FILE__, __LINE__, "Failed to read MAP file: " + utf8::cvt<std::string>(file));
 					return;
 				}
 				in.exceptions(std::ifstream::eofbit | std::ifstream::failbit | std::ifstream::badbit);
@@ -72,7 +65,7 @@ namespace settings {
 				line = line.substr(pos);
 				pos = line.find('=');
 				if (pos == -1) {
-					get_logger()->error("settings", __FILE__, __LINE__, "Invalid syntax: " + utf8::cvt<std::string>(line));
+					logger_->error("settings", __FILE__, __LINE__, "Invalid syntax: " + utf8::cvt<std::string>(line));
 					return;
 				}
 				std::pair<std::wstring, std::wstring> old_key = split_key(line.substr(0, pos));
@@ -155,7 +148,7 @@ namespace settings {
 
 	public:
 
-		OLDSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
+		OLDSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), map(core->get_logger()) {
 			get_logger()->debug("settings", __FILE__, __LINE__, "Loading OLD: " + context);
 			std::string mapfile = core->get_boot_string("settings", "old_settings_map_file", "old-settings.map");
 			std::string file = core->find_file("${exe-path}/" + mapfile, mapfile);

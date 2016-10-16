@@ -1,6 +1,6 @@
 #include "scheduler_handler.hpp"
 
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 #include "../libs/settings_manager/settings_manager_impl.h"
 
 #include "NSClient++.h"
@@ -73,9 +73,9 @@ namespace task_scheduler {
 	}
 
 	void scheduler::on_error(const char* file, int line, std::string error) {
-		nsclient::logging::logger::get_logger()->error("core::scheduler", file, line, error);
+		mainClient->get_logger()->error("core::scheduler", file, line, error);
 	}
 	void scheduler::on_trace(const char* file, int line, std::string error) {
-		nsclient::logging::logger::get_logger()->trace("core::scheduler", file, line, error);
+		mainClient->get_logger()->trace("core::scheduler", file, line, error);
 	}
 }

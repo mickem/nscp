@@ -3,25 +3,14 @@
 #include "settings_client.hpp"
 #include "service_manager.hpp"
 #include <config.h>
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 #include <pid_file.hpp>
 
 #include <settings/settings_core.hpp>
 #include "../libs/settings_manager/settings_manager_impl.h"
 
+#define LOG_MODULE "client"
 namespace po = boost::program_options;
-nsclient::logging::logger_interface* get_logger() {
-	return nsclient::logging::logger::get_logger();
-}
-void log_error(unsigned int line, const std::string &message) {
-	get_logger()->error("client", __FILE__, line, message);
-}
-void info(unsigned int line, const std::string &message) {
-	get_logger()->info("client", __FILE__, line, message);
-}
-void info(unsigned int line, const std::string &message, const std::string &utf) {
-	get_logger()->info("client", __FILE__, line, message + utf8::cvt<std::string>(utf));
-}
 
 cli_parser::cli_parser(NSClient* core)
 	: core_(core)
@@ -103,7 +92,7 @@ cli_parser::cli_parser(NSClient* core)
 
 void cli_parser::init_logger() {
 	BOOST_FOREACH(const std::string &level, log_level) {
-		nsclient::logging::logger::set_log_level(level);
+		core_->get_logger()->set_log_level(level);
 	}
 }
 
@@ -114,9 +103,9 @@ bool cli_parser::process_common_options(std::string context, po::options_descrip
 	if (no_stderr)
 		log_level.push_back("no-std-err");
 	init_logger();
-	if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
+	if (core_->get_logger()->should_debug()) {
 		BOOST_FOREACH(const std::string & a, unknown_options) {
-			get_logger()->info("client", __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra options: " + utf8::cvt<std::string>(a));
 		}
 	}
 
@@ -346,11 +335,11 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 		if (vm.count("description")) {
 			desc = vm["description"].as<std::string>();
 		} else {
-			info(__LINE__, "TODO retrieve name from service here");
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "TODO retrieve name from service here");
 		}
-		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-			info(__LINE__, "Service name: ", name);
-			info(__LINE__, "Service description: ", desc);
+		if (core_->get_logger()->should_debug()) {
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Service name: " + name);
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Service description: " + desc);
 		}
 		if (vm.count("run")) {
 			try {
@@ -362,9 +351,9 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 					pid.create();
 				core_->start_and_wait(name);
 			} catch (const std::exception &e) {
-				log_error(__LINE__, "Failed to start: " + utf8::utf8_from_native(e.what()));
+				core_->get_logger()->error(LOG_MODULE, __FILE__, __LINE__, "Failed to start: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
-				log_error(__LINE__, "Unknown exception in service");
+				core_->get_logger()->error(LOG_MODULE, __FILE__, __LINE__, "Unknown exception in service");
 			}
 		} else {
 			nsclient::client::service_manager service_manager(name);
@@ -413,20 +402,20 @@ struct client_arguments {
 	bool load_all;
 	client_arguments() : mode(none), boot(false), load_all(false) {}
 
-	void debug() {
-		if (nsclient::logging::logger::get_logger()->should_log(NSCAPI::log_level::debug)) {
-			info(__LINE__, "Module: " + module);
-			info(__LINE__, "Command: " + command);
-			info(__LINE__, "Extra Query: " + combined_query);
-			info(__LINE__, "Mode: " + strEx::s::xtos(mode));
-			info(__LINE__, "Boot: " + strEx::s::xtos(boot));
-			info(__LINE__, "Load All: " + strEx::s::xtos(load_all));
+	void debug(NSClient* core_) {
+		if (core_->get_logger()->should_debug()) {
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Module: " + module);
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Command: " + command);
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra Query: " + combined_query);
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Mode: " + strEx::s::xtos(mode));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Boot: " + strEx::s::xtos(boot));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Load All: " + strEx::s::xtos(load_all));
 			if (!module.empty() && boot)
-				info(__LINE__, "Warning module and boot specified only THAT module will be loaded");
+				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Warning module and boot specified only THAT module will be loaded");
 			std::string args;
 			BOOST_FOREACH(std::string s, arguments)
 				strEx::append_list(args, s, ", ");
-			info(__LINE__, "Arguments: " + args);
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Arguments: " + args);
 		}
 	}
 
@@ -434,7 +423,7 @@ struct client_arguments {
 		try {
 			if (module == "CommandClient")
 				boot = true;
-			debug();
+			debug(core_);
 
 			core_->boot_init(true);
 			BOOST_FOREACH(const std::string &s, defines) {
@@ -528,7 +517,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		po::notify(vm);
 
 		if (module_ == "CommandClient" &&  vm.count("log") == 0) {
-			nsclient::logging::logger::set_log_level("debug");
+			core_->get_logger()->set_log_level("debug");
 		}
 
 		if (process_common_options("client", all))

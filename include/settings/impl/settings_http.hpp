@@ -33,9 +33,6 @@ namespace settings {
 		boost::filesystem::path local_file;
 		net::url remote_url;
 
-		inline nsclient::logging::logger_interface* get_logger() const {
-			return nsclient::logging::logger::get_logger();
-		}
 
 	public:
 		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {

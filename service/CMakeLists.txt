@@ -19,7 +19,14 @@ SET(service_SRCS
 	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
-	logger_impl.cpp
+
+	#logger
+	logger/nsclient_logger.cpp
+	logger/simple_console_logger.cpp
+	logger/simple_file_logger.cpp
+	logger/threaded_logger.cpp
+	
+	
 	cli_parser.cpp
 	settings_client.cpp
 	${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
@@ -32,7 +39,12 @@ SET(service_SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
-	${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.cpp
+
+	# Logger
+	${NSCP_INCLUDEDIR}/nsclient/logger/log_level.cpp
+	${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.cpp
+	${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.cpp
+	${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.cpp
 
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
 	${NSCP_INCLUDEDIR}/b64/b64.c
@@ -60,7 +72,14 @@ IF(WIN32)
 		commands.hpp
 		channels.hpp
 		routers.hpp
-		logger_impl.hpp
+		
+		
+		# logger
+		logger/nsclient_logger.hpp
+		logger/simple_console_logger.hpp
+		logger/simple_file_logger.hpp
+		logger/threaded_logger.hpp
+
 		service_manager.hpp
 
 		${NSCP_INCLUDEDIR}/charEx.h
@@ -74,8 +93,14 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/service/system_service.hpp
 		${NSCP_INCLUDEDIR}/service/win32_service.hpp
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.hpp
-		${NSCP_INCLUDEDIR}/nsclient/base_logger_impl.hpp
-		${NSCP_INCLUDEDIR}/nsclient/logger.hpp
+		
+		# Logger
+		${NSCP_INCLUDEDIR}/nsclient/logger/base_logger_impl.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger/log_driver_interface.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger/log_level.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger/logger.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger/logger_helper.hpp
+		${NSCP_INCLUDEDIR}/nsclient/logger/log_message_factory.hpp
 
 		${NSCP_INCLUDEDIR}/pid_file.hpp
 		${NSCP_INCLUDEDIR}/has-threads.hpp
@@ -122,7 +147,8 @@ TARGET_LINK_LIBRARIES(${TARGET}
 
 SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
 SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
-SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
+#SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
+SOURCE_GROUP("Log" REGULAR_EXPRESSION .*/logger/.*)
 
 ADD_CUSTOM_TARGET(${TARGET}_full_config
 	COMMAND ${CMAKE_BINARY_DIR}/${TARGET} settings --settings ini://nsclient-full.ini --add-defaults --load-all --generate

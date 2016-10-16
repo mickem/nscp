@@ -7,7 +7,7 @@
 #include <boost/function.hpp>
 
 #include "NSCPlugin.h"
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 
 namespace nsclient {
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
@@ -29,8 +29,9 @@ namespace nsclient {
 		typedef std::list<plugin_type> simple_plugin_list_type;
 		simple_plugin_list_type plugins_;
 		boost::shared_mutex mutex_;
+		nsclient::logging::logger_instance logger_;
 
-		simple_plugins_list() {}
+		simple_plugins_list(nsclient::logging::logger_instance logger) : logger_(logger) {}
 
 		bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
 			if (!lock.owns_lock()) {
@@ -115,10 +116,10 @@ namespace nsclient {
 		}
 
 		void log_error(const char *file, int line, std::string error) {
-			nsclient::logging::logger::get_logger()->error("plugin", file, line, error);
+			logger_->error("plugin", file, line, error);
 		}
 		void log_error(const char *file, int line, std::string error, std::string key) {
-			nsclient::logging::logger::get_logger()->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
+			logger_->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
 		}
 	};
 
@@ -126,8 +127,9 @@ namespace nsclient {
 	struct plugins_list : boost::noncopyable, public parent {
 		plugin_list_type plugins_;
 		boost::shared_mutex mutex_;
+		nsclient::logging::logger_instance logger_;
 
-		plugins_list() {}
+		plugins_list(nsclient::logging::logger_instance logger) : parent(), logger_(logger) {}
 
 		bool has_valid_lock_log(boost::unique_lock<boost::shared_mutex> &lock, std::string key) {
 			if (!lock.owns_lock()) {
@@ -205,12 +207,11 @@ namespace nsclient {
 			return boost::algorithm::to_lower_copy(key);
 		}
 		void log_error(const char *file, int line, std::string error) {
-			nsclient::logging::logger::get_logger()->error("plugin", file, line, error);
+			logger_->error("plugin", file, line, error);
 		}
 		void log_error(const char *file, int line, std::string error, std::string key) {
-			nsclient::logging::logger::get_logger()->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
+			logger_->error("plugin", file, line, error + " for " + utf8::cvt<std::string>(key));
 		}
-
 		inline bool have_plugin(unsigned long plugin_id) {
 			return !(plugins_.find(plugin_id) == plugins_.end());
 		}
@@ -256,12 +257,12 @@ namespace nsclient {
 	struct plugins_list_with_listener : plugins_list<plugins_list_listeners_impl> {
 		typedef plugins_list<plugins_list_listeners_impl> parent_type;
 
-		plugins_list_with_listener() : parent_type() {}
+		plugins_list_with_listener(nsclient::logging::logger_instance logger) : parent_type(logger) {}
 
 		void register_listener(unsigned long plugin_id, std::string channel) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
+				parent_type::log_error(__FILE__, __LINE__, "Failed to get mutex: ", channel);
 				return;
 			}
 			std::string lc = make_key(channel);

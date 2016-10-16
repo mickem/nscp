@@ -30,6 +30,8 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 
+#include <nsclient/logger/logger.hpp>
+
 #include <strEx.h>
 #include <utf8.hpp>
 
@@ -311,6 +313,9 @@ namespace settings {
 		virtual bool is_dirty() = 0;
 		virtual void set_reload(bool flag = true) = 0;
 		virtual bool needs_reload() = 0;
+
+		virtual nsclient::logging::logger_instance get_logger() const = 0;
+
 	};
 
 	class settings_interface {
@@ -321,14 +326,6 @@ namespace settings {
 		typedef boost::optional<bool> op_bool;
 
 		virtual void ensure_exists() = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Set the core module to use
-		///
-		/// @param core The core to use
-		///
-		/// @author mickem
-		virtual void set_core(settings_core *core) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Empty all cached settings values and force a reload.
@@ -483,14 +480,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual std::string get_context() = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Set the context.
-		/// The context is an identifier for the settings store for INI/XML it is the filename.
-		///
-		/// @param context the new context
-		///
-		/// @author mickem
-		virtual void set_context(std::string context) = 0;
 
 		// Save/Load Functions
 		//////////////////////////////////////////////////////////////////////////

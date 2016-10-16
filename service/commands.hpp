@@ -4,7 +4,7 @@
 #include <boost/thread.hpp>
 
 #include "NSCPlugin.h"
-#include <nsclient/logger.hpp>
+#include <nsclient/logger/logger.hpp>
 #include <strEx.h>
 
 namespace nsclient {
@@ -38,10 +38,11 @@ namespace nsclient {
 		command_list_type commands_;
 		command_list_type aliases_;
 		boost::shared_mutex mutex_;
+		nsclient::logging::logger_instance logger_;
 
 	public:
 
-		commands() {}
+		commands(nsclient::logging::logger_instance logger): logger_(logger) {}
 
 		void add_plugin(plugin_type plugin) {
 			if (!plugin || !plugin->hasCommandHandler()) {
@@ -268,13 +269,13 @@ namespace nsclient {
 			return boost::algorithm::to_lower_copy(key);
 		}
 		void log_error(const char* file, int line, std::string error) {
-			nsclient::logging::logger::get_logger()->error("core", file, line, error);
+			logger_->error("core", file, line, error);
 		}
 		void log_error(const char* file, int line, std::string error, std::string command) {
-			nsclient::logging::logger::get_logger()->error("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->error("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
 		}
 		void log_info(const char* file, int line, std::string error, std::string command) {
-			nsclient::logging::logger::get_logger()->info("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->info("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

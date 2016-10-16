@@ -12,8 +12,9 @@
 #include "installer_helper.hpp"
 #include <Sddl.h>
 #include "../settings_manager/settings_manager_impl.h"
-#include <nsclient/logger.hpp>
-#include <nsclient/base_logger_impl.hpp>
+#include <nsclient/logger/logger.hpp>
+#include <nsclient/logger/logger_helper.hpp>
+#include <nsclient/logger/base_logger_impl.hpp>
 #include <wstring.hpp>
 #include <settings/config.hpp>
 
@@ -35,17 +36,12 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 
 }
 
-std::string nsclient::logging::logger_helper::create(const std::string&, NSCAPI::log_level::level level, const char*, const int, const std::string &message) {
-	if (level < NSCAPI::log_level::info)
-		return "E" + message;
-	return "I" + message;
-}
 
-
-class msi_logger : public nsclient::logging::logging_interface_impl {
-public:
+class msi_logger : public nsclient::logging::logger_impl {
 	std::wstring error;
 	std::list<std::wstring> log_;
+
+public:
 	msi_logger()  {}
 
 
@@ -71,37 +67,64 @@ public:
 	boolean has_errors() {
 		return !error.empty();
 	}
+	std::list<std::wstring> get_errors() {
+		return log_;
+	}
+
+
+
+	void nsclient::logging::logger::add_subscriber(nsclient::logging::logging_subscriber_instance) {}
+	void nsclient::logging::logger::clear_subscribers(void) {}
+	void nsclient::logging::logger::destroy(void) {
+
+	}
+	void nsclient::logging::logger::configure(void) {
+
+	}
+	void nsclient::logging::logger::set_backend(std::string) {
+
+	}
+
 };
 
 
-static msi_logger *impl = NULL;
-
-msi_logger* get_impl() {
-	if (impl == NULL)
-		impl = new msi_logger();
-	return impl;
+void nsclient::logging::log_message_factory::log_fatal(std::string message) {
+	std::cout << message << "\n";
 }
 
-
-nsclient::logging::logger_interface* nsclient::logging::logger::get_logger() {
-	return get_impl();
+std::string nsclient::logging::log_message_factory::create_critical(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "critical: " + message;
+}
+std::string nsclient::logging::log_message_factory::create_error(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "error: " + message;
+}
+std::string nsclient::logging::log_message_factory::create_warning(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "warning: " + message;
+}
+std::string nsclient::logging::log_message_factory::create_info(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "info: " + message;
+}
+std::string nsclient::logging::log_message_factory::create_debug(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "debug: " + message;
+}
+std::string nsclient::logging::log_message_factory::create_trace(const std::string &module, const char* file, const int line, const std::string &message) {
+	return "trace: " + message;
 }
 
-void nsclient::logging::logger::subscribe_raw(raw_subscriber_type subscriber) {}
-void nsclient::logging::logger::clear_subscribers() {}
-bool nsclient::logging::logger::startup() { return true; }
-bool nsclient::logging::logger::shutdown() { return true; }
-void nsclient::logging::logger::configure() {}
-
-void nsclient::logging::logger::set_log_level(NSCAPI::log_level::level) {}
-void nsclient::logging::logger::set_log_level(std::string level) {}
 struct installer_settings_provider : public settings_manager::provider_interface {
 
 	msi_helper *h;
 	std::string basepath;
 	std::string old_settings_map;
+	boost::shared_ptr<msi_logger> logger;
 
-	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) : h(h), basepath(utf8::cvt<std::string>(basepath)), old_settings_map(utf8::cvt<std::string>(old_settings_map)) {}
+
+	installer_settings_provider(msi_helper *h, std::wstring basepath, std::wstring old_settings_map) 
+		: h(h)
+		, basepath(utf8::cvt<std::string>(basepath))
+		, old_settings_map(utf8::cvt<std::string>(old_settings_map))
+		, logger(new msi_logger())
+	{}
 	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), basepath(utf8::cvt<std::string>(basepath)) {}
 
 	virtual std::string expand_path(std::string file) {
@@ -115,6 +138,21 @@ struct installer_settings_provider : public settings_manager::provider_interface
 			return old_settings_map;
 		}
 		return "";
+	}
+
+	std::wstring get_error() {
+		return logger->get_error();
+	}
+	boolean has_errors() {
+		return logger->has_errors();
+	}
+	std::list<std::wstring> get_errors() {
+		return logger->get_errors();
+	}
+
+
+	nsclient::logging::logger_instance get_logger() const {
+		return logger;
 	}
 };
 
@@ -253,14 +291,14 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_settings(&provider, "")) {
 			h.logMessage(_T("Settings context had fatal errors"));
-			h.setProperty(_T("CONF_OLD_ERROR"), get_impl()->get_error());
+			h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
 			h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
 			h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
 			h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
 		}
-		if (get_impl()->has_errors()) {
+		if (provider.has_errors()) {
 			h.logMessage(_T("Settings context reported errors (debug log end)"));
-			BOOST_FOREACH(std::wstring l, get_impl()->log_) {
+			BOOST_FOREACH(std::wstring l, provider.get_errors()) {
 				h.logMessage(l);
 			}
 			h.logMessage(_T("Settings context reported errors (debug log end)"));
@@ -268,7 +306,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 				h.logMessage(_T("boot.conf was NOT found (so no new configuration)"));
 				if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
 					h.logMessage("Old configuration found: " DEFAULT_CONF_OLD_LOCATION);
-					h.setProperty(_T("CONF_OLD_ERROR"), std::wstring(_T("Old configuration (")) + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + _T(") was found but we got errors accessing it: ") + get_impl()->get_error());
+					h.setProperty(_T("CONF_OLD_ERROR"), std::wstring(_T("Old configuration (")) + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + _T(") was found but we got errors accessing it: ") + provider.get_error());
 					h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
 					h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
 					h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
@@ -282,7 +320,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 				}
 			} else {
 				h.logMessage(_T("boot.conf was found but we got errors booting it..."));
-				h.setProperty(_T("CONF_OLD_ERROR"), get_impl()->get_error());
+				h.setProperty(_T("CONF_OLD_ERROR"), provider.get_error());
 				h.setProperty(_T("CONF_CAN_CHANGE"), _T("0"));
 				h.setProperty(_T("CONF_OLD_FOUND"), _T("0"));
 				h.setProperty(_T("CONF_HAS_ERRORS"), _T("1"));
@@ -504,7 +542,7 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 
 		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_settings(&provider, context)) {
-			h.errorMessage(_T("Failed to boot settings: ") + get_impl()->get_error());
+			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
 			return ERROR_INSTALL_FAILURE;
 		}
 		if (boost::filesystem::exists(path))

@@ -792,6 +792,10 @@ namespace nscapi {
 				paths_.clear();
 			}
 
+			std::string expand_path(std::string path) {
+				return core_->expand_path(path);
+			}
+
 			void notify() {
 				BOOST_FOREACH(key_list::value_type v, keys_) {
 					try {

@@ -182,10 +182,10 @@ int nsclient_core::settings_client::validate() {
 }
 
 void nsclient_core::settings_client::error_msg(std::string msg) {
-	nsclient::logging::logger::get_logger()->error("client", __FILE__, __LINE__, msg.c_str());
+	core_->get_logger()->error("client", __FILE__, __LINE__, msg.c_str());
 }
 void nsclient_core::settings_client::debug_msg(std::string msg) {
-	nsclient::logging::logger::get_logger()->debug("client", __FILE__, __LINE__, msg.c_str());
+	core_->get_logger()->debug("client", __FILE__, __LINE__, msg.c_str());
 }
 
 void nsclient_core::settings_client::list_settings_info() {

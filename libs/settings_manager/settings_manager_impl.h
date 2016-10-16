@@ -10,6 +10,7 @@ namespace settings_manager {
 	struct provider_interface {
 		virtual std::string expand_path(std::string file) = 0;
 		virtual std::string get_data(std::string key) = 0;
+		virtual nsclient::logging::logger_instance get_logger() const = 0;
 	};
 
 	class NSCSettingsImpl : public settings::settings_handler_impl {
@@ -17,7 +18,7 @@ namespace settings_manager {
 		boost::filesystem::path boot_;
 		provider_interface *provider_;
 	public:
-		NSCSettingsImpl(provider_interface *provider) : provider_(provider) {}
+		NSCSettingsImpl(provider_interface *provider) : settings::settings_handler_impl(provider->get_logger()), provider_(provider) {}
 		virtual ~NSCSettingsImpl() {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string form the boot file.
