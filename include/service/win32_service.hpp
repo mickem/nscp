@@ -212,7 +212,6 @@ namespace service_helper_impl {
 		}
 		static void handle_error(const int line, const char* file, std::string message) {
 			OutputDebugString(utf8::cvt<std::wstring>(message).c_str());
-			nsclient::logging::logger::get_logger()->error("service", file, line, message);
 		}
 
 		bool StartServiceCtrlDispatcher() {
