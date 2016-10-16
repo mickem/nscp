@@ -709,27 +709,36 @@ bool NSClientT::do_reload(const std::string module) {
 }
 
 NSCAPI::errorReturn NSClientT::reload(const std::string module) {
-	std::string task = module;
-	bool delayed = false;
-	if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
-		task = module.substr(8);
-		delayed = true;
-	} else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
-		task = module.substr(6);
-		delayed = true;
-	} else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
-		task = module.substr(8);
-		delayed = false;
-	} else if (module == "service") {
-		delayed = false;
-	}
-	if (delayed) {
-		LOG_TRACE_CORE("Delayed reload");
-		scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
-		return NSCAPI::api_return_codes::isSuccess;
-	} else {
-		LOG_TRACE_CORE("Instant reload");
-		return do_reload(task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
+	try {
+		std::string task = module;
+		bool delayed = false;
+		if (module.size() > 8 && module.substr(0, 8) == "delayed,") {
+			task = module.substr(8);
+			delayed = true;
+		} else if (module.size() > 6 && module.substr(0, 6) == "delay,") {
+			task = module.substr(6);
+			delayed = true;
+		} else if (module.size() > 6 && module.substr(0, 8) == "instant,") {
+			task = module.substr(8);
+			delayed = false;
+		} else if (module == "service") {
+			delayed = false;
+		}
+		if (delayed) {
+			LOG_TRACE_CORE("Delayed reload");
+			scheduler_.add_task(task_scheduler::schedule_metadata::RELOAD, "", task);
+			return NSCAPI::api_return_codes::isSuccess;
+		} else {
+			LOG_TRACE_CORE("Instant reload");
+			return do_reload(task) ? NSCAPI::api_return_codes::isSuccess : NSCAPI::api_return_codes::hasFailed;
+		}
+
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE("Reload failed: " + utf8::utf8_from_native(e.what()));
+		return NSCAPI::api_return_codes::hasFailed;
+	} catch (...) {
+		LOG_ERROR_CORE("Reload failed");
+		return NSCAPI::api_return_codes::hasFailed;
 	}
 }
 
@@ -1520,19 +1529,24 @@ std::string NSClientT::getFolder(std::string key) {
 }
 
 std::string NSClientT::expand_path(std::string file) {
-	if (file.empty())
-		return file;
-	parsers::simple_expression::result_type expr;
-	parsers::simple_expression::parse(file, expr);
+	try {
+		if (file.empty())
+			return file;
+		parsers::simple_expression::result_type expr;
+		parsers::simple_expression::parse(file, expr);
 
-	std::string ret;
-	BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
-		if (!e.is_variable)
-			ret += e.name;
-		else
-			ret += expand_path(getFolder(e.name));
+		std::string ret;
+		BOOST_FOREACH(const parsers::simple_expression::entry &e, expr) {
+			if (!e.is_variable)
+				ret += e.name;
+			else
+				ret += expand_path(getFolder(e.name));
+		}
+		return ret;
+	} catch (...) {
+		LOG_ERROR_CORE("Failed to expand path: " + utf8::cvt<std::string>(file));
+		return "";
 	}
-	return ret;
 }
 
 typedef std::map<unsigned int, std::string> modules_type;
