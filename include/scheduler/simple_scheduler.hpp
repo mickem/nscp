@@ -48,8 +48,11 @@ namespace simple_scheduler {
 			return ss.str();
 		}
 		boost::posix_time::ptime get_next(boost::posix_time::ptime now_time) const {
-			if (has_duration)
+			if (has_duration && duration.total_seconds() > 0) {
 				return now_time + boost::posix_time::seconds(rand() % duration.total_seconds());
+			} else if (has_duration) {
+				return now_time;
+			}
 			return schedule.find_next(now_time);
 		}
 	};
