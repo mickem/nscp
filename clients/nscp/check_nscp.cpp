@@ -162,7 +162,7 @@ struct stdout_client_handler : public socket_helpers::client::client_handler {
 			std::string key = file.substr(pstart + 1, pend - 2);
 
 			std::string tmp = file;
-			strEx::replace(file, "${" + key + "}", getFolder(key));
+			strEx::s::replace(file, "${" + key + "}", getFolder(key));
 			if (file == tmp)
 				pos = file.find_first_of('$', pos + 1);
 			else

@@ -315,8 +315,8 @@ namespace nscapi {
 					ret = arg.substr(0, arg.size()-1);
 				if (arg[arg.size()-1] == ']')
 					ret = arg.substr(0, arg.size()-2);
-				strEx::replace(ret, "arg (=", "");
-				strEx::replace(ret, "[=arg(=", "");
+				strEx::s::replace(ret, "arg (=", "");
+				strEx::s::replace(ret, "[=arg(=", "");
 				if (ret == "arg")
 					return "";
 				return ret;
@@ -407,9 +407,9 @@ namespace nscapi {
 		}
 		static std::string make_csv(const std::string s) {
 			std::string ret = s;
-			strEx::replace(ret, "\n", "\\n");
+			strEx::s::replace(ret, "\n", "\\n");
 			if (ret.find(',') != std::string::npos || ret.find('\"') != std::string::npos) {
-				strEx::replace(ret, "\"", "\\\"");
+				strEx::s::replace(ret, "\"", "\\\"");
 				return "\"" + ret + "\"";
 			}
 			return ret;

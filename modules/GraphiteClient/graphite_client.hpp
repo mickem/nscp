@@ -40,10 +40,10 @@ namespace graphite_client {
 
 	std::string fix_graphite_string(const std::string &s) {
 		std::string sc = s;
-		strEx::replace(sc, " ", "_");
-		strEx::replace(sc, "\\", "_");
-		strEx::replace(sc, "[", "_");
-		strEx::replace(sc, "]", "_");
+		strEx::s::replace(sc, " ", "_");
+		strEx::s::replace(sc, "\\", "_");
+		strEx::s::replace(sc, "[", "_");
+		strEx::s::replace(sc, "]", "_");
 		return sc;
 	}
 	struct graphite_client_handler : public client::handler_interface {
@@ -58,21 +58,21 @@ namespace graphite_client {
 			nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_header);
 			std::string ppath = con.ppath;
 			std::string spath = con.spath;
-			strEx::replace(ppath, "${hostname}", con.sender_hostname);
-			strEx::replace(spath, "${hostname}", con.sender_hostname);
+			strEx::s::replace(ppath, "${hostname}", con.sender_hostname);
+			strEx::s::replace(spath, "${hostname}", con.sender_hostname);
 
 			std::list<g_data> list;
 
 			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
 				std::string tmp_path = ppath;
-				strEx::replace(tmp_path, "${check_alias}", p.alias());
+				strEx::s::replace(tmp_path, "${check_alias}", p.alias());
 
 				if (con.send_perf) {
 					BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response::Line &l, p.lines()) {
 						BOOST_FOREACH(const ::Plugin::Common_PerformanceData &perf, l.perf()) {
 							g_data d;
 							d.path = tmp_path;
-							strEx::replace(d.path, "${perf_alias}", perf.alias());
+							strEx::s::replace(d.path, "${perf_alias}", perf.alias());
 							d.value = nscapi::protobuf::functions::extract_perf_value_as_string(perf);
 							d.path = fix_graphite_string(d.path);
 							list.push_back(d);
@@ -82,8 +82,8 @@ namespace graphite_client {
 				if (con.send_status) {
 					g_data d;
 					d.path = spath;
-					strEx::replace(d.path, "${check_alias}", p.alias());
-					strEx::replace(d.path, " ", "_");
+					strEx::s::replace(d.path, "${check_alias}", p.alias());
+					strEx::s::replace(d.path, " ", "_");
 					d.value = strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
 					list.push_back(d);
 				}

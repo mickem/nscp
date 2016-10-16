@@ -157,7 +157,7 @@ namespace PDH {
 		if (object.has_instances()) {
 			std::string path = object.path;
 
-			strEx::replace(path, "$INSTANCE$", "*");
+			strEx::s::replace(path, "$INSTANCE$", "*");
 			std::string alias = object.alias;
 			std::string err;
 			std::list<pdh_object> sub_counters;

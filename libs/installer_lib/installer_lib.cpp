@@ -105,9 +105,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), basepath(utf8::cvt<std::string>(basepath)) {}
 
 	virtual std::string expand_path(std::string file) {
-		strEx::replace(file, "${base-path}", basepath);
-		strEx::replace(file, "${exe-path}", basepath);
-		strEx::replace(file, "${shared-path}", basepath);
+		strEx::s::replace(file, "${base-path}", basepath);
+		strEx::s::replace(file, "${exe-path}", basepath);
+		strEx::s::replace(file, "${shared-path}", basepath);
 		return file;
 	}
 	std::string get_data(std::string key) {

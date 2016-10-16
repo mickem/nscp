@@ -73,7 +73,7 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 		std::size_t pos = counter.find("($INSTANCE$)");
 		if (pos != std::string::npos) {
 			std::string c = counter;
-			strEx::replace(c, "$INSTANCE$", "*");
+			strEx::s::replace(c, "$INSTANCE$", "*");
 			std::string err;
 			bool status = true;
 			BOOST_FOREACH(std::string s, PDH::Enumerations::expand_wild_card_path(c, err)) {

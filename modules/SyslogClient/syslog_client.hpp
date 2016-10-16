@@ -119,8 +119,8 @@ namespace syslog_client {
 				std::string tag = con.tag_syntax;
 				std::string message = con.message_syntax;
 				std::string nagios_msg = nscapi::protobuf::functions::query_data_to_nagios_string(p);
-				strEx::replace(message, "%message%", nagios_msg);
-				strEx::replace(tag, "%message%", nagios_msg);
+				strEx::s::replace(message, "%message%", nagios_msg);
+				strEx::s::replace(tag, "%message%", nagios_msg);
 
 				std::string severity = con.severity;
 				if (p.result() == ::Plugin::Common_ResultCode_OK)

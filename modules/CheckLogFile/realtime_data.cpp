@@ -80,8 +80,8 @@ void runtime_data::set_split(std::string line, std::string column) {
 		column_split = "\t";
 	else
 		column_split = column;
-	strEx::replace(column_split, "\\t", "\t");
-	strEx::replace(column_split, "\\n", "\n");
+	strEx::s::replace(column_split, "\\t", "\t");
+	strEx::s::replace(column_split, "\\n", "\n");
 	std::size_t len = column_split.size();
 	if (len == 0)
 		column_split = " ";
@@ -93,8 +93,8 @@ void runtime_data::set_split(std::string line, std::string column) {
 		line = "\n";
 	else
 		line_split = line;
-	strEx::replace(line_split, "\\t", "\t");
-	strEx::replace(line_split, "\\n", "\n");
+	strEx::s::replace(line_split, "\\t", "\t");
+	strEx::s::replace(line_split, "\\n", "\n");
 	len = line_split.size();
 	if (len == 0)
 		line_split = " ";

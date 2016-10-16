@@ -117,10 +117,10 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 	if (file_list.empty())
 		return nscapi::protobuf::functions::set_response_bad(*response, "Need to specify at least one file: file=foo.txt");
 
-	strEx::replace(column_split, "\\t", "\t");
-	strEx::replace(column_split, "\\n", "\n");
-	strEx::replace(line_split, "\\t", "\t");
-	strEx::replace(line_split, "\\n", "\n");
+	strEx::s::replace(column_split, "\\t", "\t");
+	strEx::s::replace(column_split, "\\n", "\n");
+	strEx::s::replace(line_split, "\\t", "\t");
+	strEx::s::replace(line_split, "\\n", "\n");
 
 	if (!filter_helper.build_filter(filter))
 		return;

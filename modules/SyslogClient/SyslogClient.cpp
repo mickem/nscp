@@ -117,16 +117,16 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
-			strEx::replace(hostname_, "${host}", dn.first);
-			strEx::replace(hostname_, "${domain}", dn.second);
+			strEx::s::replace(hostname_, "${host}", dn.first);
+			strEx::s::replace(hostname_, "${domain}", dn.second);
 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-			strEx::replace(hostname_, "${host_uc}", dn.first);
-			strEx::replace(hostname_, "${domain_uc}", dn.second);
+			strEx::s::replace(hostname_, "${host_uc}", dn.first);
+			strEx::s::replace(hostname_, "${domain_uc}", dn.second);
 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-			strEx::replace(hostname_, "${host_lc}", dn.first);
-			strEx::replace(hostname_, "${domain_lc}", dn.second);
+			strEx::s::replace(hostname_, "${host_lc}", dn.first);
+			strEx::s::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);

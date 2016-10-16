@@ -117,7 +117,7 @@ namespace settings {
 					comment += desc.title + " - ";
 				if (!desc.description.empty())
 					comment += desc.description;
-				strEx::replace(comment, "\n", " ");
+				strEx::s::replace(comment, "\n", " ");
 
 				ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(comment).c_str());

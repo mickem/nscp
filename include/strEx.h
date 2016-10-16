@@ -63,17 +63,7 @@ namespace strEx {
 				pos = string.find(replace, pos + 1);
 		}
 	}
-	inline void replace(std::string &string, const std::string replace, const std::string with) {
-		std::string::size_type pos = string.find(replace);
-		std::string::size_type len = replace.length();
-		while (pos != std::string::npos) {
-			string = string.substr(0, pos) + with + string.substr(pos + len);
-			if (with.find(replace) != std::string::npos) // If the replace containes the key look after the replace!
-				pos = string.find(replace, pos + with.length());
-			else
-				pos = string.find(replace, pos + 1);
-		}
-	}
+
 	inline std::string itos_non_sci(double i) {
 		std::stringstream ss;
 		if (i < 10)
@@ -209,9 +199,9 @@ namespace strEx {
 
 #define MK_FORMAT_FTD(min, key, val) \
 	if (mtm->tm_year > min) \
-	strEx::replace(format, key, strEx::s::xtos(val));  \
+	strEx::s::replace(format, key, strEx::s::xtos(val));  \
 	else  \
-	strEx::replace(format, key, "0");
+	strEx::s::replace(format, key, "0");
 #ifdef WIN32
 	inline std::string format_time_delta(struct tm *mtm, std::string format = "%Y years %m months %d days %H hours %M minutes") {
 		// "Date: %Y-%m-%d %H:%M:%S"

@@ -540,8 +540,8 @@ std::string CheckExternalScripts::generate_wrapped_command(std::string command) 
 	if (tpl.empty()) {
 		NSC_LOG_ERROR("Failed to find wrapping for type: " + type);
 	} else {
-		strEx::replace(tpl, "%SCRIPT%", tok.first);
-		strEx::replace(tpl, "%ARGS%", tok.second);
+		strEx::s::replace(tpl, "%SCRIPT%", tok.first);
+		strEx::s::replace(tpl, "%ARGS%", tok.second);
 		return tpl;
 	}
 	return "";
@@ -582,16 +582,16 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
 			}
-			strEx::replace(cmdline, "$ARG" + strEx::s::xtos(i) + "$", str);
-			strEx::replace(cmdline, "%ARG" + strEx::s::xtos(i) + "%", str);
+			strEx::s::replace(cmdline, "$ARG" + strEx::s::xtos(i) + "$", str);
+			strEx::s::replace(cmdline, "%ARG" + strEx::s::xtos(i) + "%", str);
 			strEx::append_list(all, str, " ");
 			strEx::append_list(allesc, "\"" + str + "\"", " ");
 			i++;
 		}
-		strEx::replace(cmdline, "$ARGS$", all);
-		strEx::replace(cmdline, "%ARGS%", all);
-		strEx::replace(cmdline, "$ARGS\"$", allesc);
-		strEx::replace(cmdline, "%ARGS\"%", allesc);
+		strEx::s::replace(cmdline, "$ARGS$", all);
+		strEx::s::replace(cmdline, "%ARGS%", all);
+		strEx::s::replace(cmdline, "$ARGS\"$", allesc);
+		strEx::s::replace(cmdline, "%ARGS\"%", allesc);
 	} else if (args.size() > 0) {
 		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");
@@ -679,8 +679,8 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	BOOST_FOREACH(std::string &arg, args) {
 		int i = 1;
 		BOOST_FOREACH(const std::string &str, src_args) {
-			strEx::replace(arg, "$ARG" + strEx::s::xtos(i) + "$", str);
-			strEx::replace(arg, "%ARG" + strEx::s::xtos(i) + "%", str);
+			strEx::s::replace(arg, "$ARG" + strEx::s::xtos(i) + "$", str);
+			strEx::s::replace(arg, "%ARG" + strEx::s::xtos(i) + "%", str);
 			i++;
 		}
 		if (arg.find("$ARG") != std::string::npos)

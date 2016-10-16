@@ -29,7 +29,7 @@ namespace nscapi {
 			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
 			if (pend != std::string::npos)
 				s = s.substr(0, pend);
-			strEx::replace(s, ",", ".");
+			strEx::s::replace(s, ",", ".");
 			if (s.empty()) {
 				return 0.0;
 			}
