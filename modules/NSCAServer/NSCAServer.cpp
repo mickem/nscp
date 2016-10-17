@@ -15,8 +15,6 @@
  */
 #include "NSCAServer.h"
 
-#include "handler_impl.hpp"
-
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

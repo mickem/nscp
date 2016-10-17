@@ -8,7 +8,6 @@ CREATE_MODULE(SRCS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
-	"handler_impl.cpp"
 	${NSCP_INCLUDEDIR}/nsca/nsca_packet.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/utils.cpp
@@ -26,7 +25,6 @@ ENDIF(OPENSSL_FOUND)
 IF(WIN32)
 	SET(SRCS ${SRCS}
 		"${TARGET}.h"
-		"handler_impl.hpp"
 		${NSCP_INCLUDEDIR}/nsca/server/protocol.hpp
 		${NSCP_INCLUDEDIR}/nsca/server/handler.hpp
 		${NSCP_INCLUDEDIR}/nsca/server/parser.hpp

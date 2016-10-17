@@ -18,7 +18,6 @@
 #include <strEx.h>
 #include <time.h>
 #include <common.hpp>
-#include "handler_impl.hpp"
 
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
