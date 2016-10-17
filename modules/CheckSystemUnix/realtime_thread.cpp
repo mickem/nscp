@@ -1,21 +1,18 @@
-//////////////////////////////////////////////////////////////////////////
-// PDH Collector 
-// 
-// Functions from this file collects data from the PDH subsystem and stores 
-// it for later use
-// *NOTICE* that this is done in a separate thread so threading issues has 
-// to be handled. I handle threading issues in the CounterListener's get/
-// set accessors.
-//
-// Copyright (c) 2004 MySolutions NORDIC (http://www.medin.nu)
-//
-// Date: 2004-03-13
-// Author: Michael Medin - <michael@medin.name>
-//
-// This software is provided "AS IS", without a warranty of any kind.
-// You are free to use/modify this code but leave this header intact.
-//
-//////////////////////////////////////////////////////////////////////////
+/*
+ * Copyright 2004-2016 The NSClient++ Authors - https://nsclient.org
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "realtime_thread.hpp"
 #include "settings.hpp"
