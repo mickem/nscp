@@ -270,17 +270,6 @@ namespace settings {
 		virtual std::string find_file(std::string file, std::string fallback) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
-		/// Get a string form the boot file.
-		///
-		/// @param section section to read a value from.
-		/// @param key the key to read.
-		/// @param def a default value.
-		/// @return the value of the key or the default value.
-		///
-		/// @author mickem
-		virtual std::string get_boot_string(std::string section, std::string key, std::string def) = 0;
-
-		//////////////////////////////////////////////////////////////////////////
 		/// Create an instance of a given type.
 		/// Used internally to create instances of various settings types.
 		///

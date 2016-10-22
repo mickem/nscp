@@ -166,17 +166,12 @@ namespace settings {
 
 		OLDSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), map(core->get_logger()) {
 			get_logger()->debug("settings", __FILE__, __LINE__, "Loading OLD: " + context);
-			std::string mapfile = core->get_boot_string("settings", "old_settings_map_file", "old-settings.map");
+			std::string mapfile = "old-settings.map";
 			std::string file = core->find_file("${exe-path}/" + mapfile, mapfile);
 			bool readmap = false;
 			if (boost::filesystem::exists(file)) {
 				readmap = true;
 				map.read_map_file(file);
-			}
-			std::string mapdata = core->get_boot_string("settings", "old_settings_map_data", "");
-			if (!mapdata.empty()) {
-				readmap = true;
-				map.read_map_data(mapdata);
 			}
 			if (!readmap) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Failed to read map file: " + mapfile);

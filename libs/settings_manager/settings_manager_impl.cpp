@@ -12,6 +12,8 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
+#include <utf8.hpp>
+
 static settings_manager::NSCSettingsImpl* settings_impl = NULL;
 
 namespace settings_manager {
@@ -136,9 +138,11 @@ namespace settings_manager {
 		}
 		boot_ = provider_->expand_path(BOOT_CONF_LOCATION);
 		if (boost::filesystem::is_regular_file(boot_)) {
+			CSimpleIni boot_conf;
+			boot_conf.LoadFile(boot_.string().c_str());
 			get_logger()->debug("settings", __FILE__, __LINE__, "Boot.ini found in: " + boot_.string());
 			for (int i = 0; i < 20; i++) {
-				std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
+				std::string v = utf8::cvt<std::string>(boot_conf.GetValue(L"settings", utf8::cvt<std::wstring>(strEx::s::xtos(i)).c_str(), L""));
 				if (!v.empty())
 					order.push_back(expand_context(v));
 			}
@@ -175,33 +179,29 @@ namespace settings_manager {
 
 		get_logger()->debug("settings", __FILE__, __LINE__, "No valid settings found (tried): " + boot_order);
 
-		std::string tgt = get_boot_string("main", "write", "");
-		if (!tgt.empty()) {
-			get_logger()->debug("settings", __FILE__, __LINE__, "Creating new settings file: " + tgt);
-			set_instance(tgt);
-			return;
-		}
 		get_logger()->info("settings", __FILE__, __LINE__, "Creating new settings file: " DEFAULT_CONF_INI_LOCATION);
 		set_instance(DEFAULT_CONF_INI_LOCATION);
 	}
 
 	void NSCSettingsImpl::set_primary(std::string key) {
 		std::list<std::string> order;
+		CSimpleIni boot_conf;
+		boot_conf.LoadFile(boot_.string().c_str());
 		for (int i = 0; i < 20; i++) {
-			std::string v = get_boot_string("settings", strEx::s::xtos(i), "");
+			std::string v = utf8::cvt<std::string>(boot_conf.GetValue(L"settings", utf8::cvt<std::wstring>(strEx::s::xtos(i)).c_str(), L""));
 			if (!v.empty()) {
 				order.push_back(expand_context(v));
-				set_boot_string("settings", strEx::s::xtos(i), "");
+				boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(strEx::s::xtos(i)).c_str(), L"");
 			}
 		}
 		order.remove(key);
 		order.push_front(key);
 		int i = 1;
 		BOOST_FOREACH(const std::string &k, order) {
-			set_boot_string("settings", strEx::s::xtos(i++), k);
+			boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(strEx::s::xtos(i++)).c_str(), utf8::cvt<std::wstring>(k).c_str());
 		}
+		boot_conf.SaveFile(boot_.string().c_str());
 		get_core()->create_instance(key)->ensure_exists();
-		set_boot_string("main", "write", key);
 		boot(key);
 	}
 
