@@ -27,6 +27,10 @@ SET(service_SRCS
 	logger/threaded_logger.cpp
 	
 	
+	settings_query_handler.cpp
+	registry_query_handler.cpp
+	plugin_cache.cpp
+	
 	cli_parser.cpp
 	settings_client.cpp
 	${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.cpp
@@ -79,6 +83,11 @@ IF(WIN32)
 		logger/simple_console_logger.hpp
 		logger/simple_file_logger.hpp
 		logger/threaded_logger.hpp
+
+
+		settings_query_handler.hpp
+		registry_query_handler.hpp
+		plugin_cache.hpp
 
 		service_manager.hpp
 

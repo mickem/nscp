@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "nsclient_core_interface.hpp"
+
 #include <service/system_service.hpp>
 
 #include "NSCPlugin.h"
@@ -24,6 +26,7 @@
 #include "routers.hpp"
 #include <nsclient/logger/logger.hpp>
 #include "scheduler_handler.hpp"
+#include "plugin_cache.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>
 
@@ -55,34 +58,12 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
  * @bug
  *
  */
-class NSClientT {
-	struct plugin_cache_item {
-		std::string name;
-		std::string title;
-		std::string desc;
-	};
-	typedef std::list<plugin_cache_item> plugin_cache_list;
+
+
+class NSClientT : public nsclient::core::core_interface {
 public:
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
-	struct plugin_info_type {
-		std::wstring dll;
-		std::wstring name;
-		std::wstring version;
-		std::wstring description;
-	};
-	typedef std::list<plugin_info_type> plugin_info_list;
 private:
-
-	plugin_cache_list  plugin_cache_;
-
-	class NSException {
-		std::wstring what_;
-	public:
-		NSException(std::wstring what) : what_(what) {}
-		std::wstring what() {
-			return what_;
-		}
-	};
 
 	typedef std::vector<plugin_type> pluginList;
 	pluginList plugins_;
@@ -102,6 +83,7 @@ private:
 	nsclient::routers routers_;
 	nsclient::simple_plugins_list metricsFetchers;
 	nsclient::simple_plugins_list metricsSubmitetrs;
+	nsclient::core::plugin_cache plugin_cache_;
 
 	task_scheduler::scheduler scheduler_;
 
@@ -144,8 +126,8 @@ public:
 
 	NSCAPI::errorReturn reroute(std::string &channel, std::string &buffer);
 	NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn injectRAW(std::string &request, std::string &response);
-	NSCAPI::nagiosReturn inject(std::string command, std::string arguments, std::string &msg, std::string & perf);
+	NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
+	::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
 	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
 	int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
 	int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
@@ -157,6 +139,25 @@ public:
 
 	NSCAPI::errorReturn reload(const std::string module);
 	bool do_reload(const std::string module);
+
+
+	void register_command_alias(unsigned long id, std::string cmd, std::string desc) {
+		commands_.register_alias(id, cmd, desc);
+	}
+	nsclient::core::plugin_cache* get_plugin_cache() {
+		return &plugin_cache_;
+	}
+
+	nsclient::commands* get_commands() {
+		return &commands_;
+	}
+	nsclient::channels* get_channels() {
+		return &channels_;
+	}
+	nsclient::routers* get_routers() {
+		return &routers_;
+	}
+
 
 	struct service_controller {
 		std::string service;
@@ -189,7 +190,9 @@ public:
 	void listPlugins();
 	plugin_type find_plugin(const unsigned int plugin_id);
 	plugin_type find_plugin(const std::string plugin_id);
-	plugin_info_list get_all_plugins();
+	void remove_plugin(const std::string name);
+	void load_plugin(const boost::filesystem::path &file, std::string alias);
+	unsigned int add_plugin(unsigned int plugin_id);
 	std::string get_plugin_module_name(unsigned int plugin_id);
 	plugin_alias_list_type find_all_plugins(bool active);
 	std::list<std::string> list_commands();
@@ -211,4 +214,3 @@ private:
 	plugin_type addPlugin(boost::filesystem::path file, std::string alias);
 };
 
-extern NSClient *mainClient;	// Global core instance forward declaration.

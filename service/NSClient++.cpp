@@ -41,8 +41,6 @@
 
 #include <config.h>
 
-#include <json_spirit.h>
-
 #ifdef WIN32
 #include <ServiceCmd.h>
 #include <com_helpers.hpp>
@@ -58,6 +56,8 @@ static ExceptionManager *g_exception_manager = NULL;
 #endif
 
 #include "logger/nsclient_logger.hpp"
+#include "settings_query_handler.hpp"
+#include "registry_query_handler.hpp"
 
 NSClient *mainClient = NULL;	// Global core instance.
 
@@ -127,10 +127,6 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 	virtual std::string expand_path(std::string file) {
 		return mainClient->expand_path(file);
 	}
-	std::string get_data(std::string key) {
-		// TODO
-		return "";
-	}
 	nsclient::logging::logger_instance get_logger() const {
 		return log_instance_;
 	}
@@ -148,6 +144,7 @@ NSClientT::NSClientT()
 	, routers_(log_instance_)
 	, metricsFetchers(log_instance_)
 	, metricsSubmitetrs(log_instance_)
+	, plugin_cache_(log_instance_)
 {
 	provider_ = new nscp_settings_provider(log_instance_);
 	log_instance_->startup();
@@ -852,27 +849,20 @@ void NSClientT::registerCommand(unsigned int id, std::string cmd, std::string de
 	return commands_.register_command(id, cmd, desc);
 }
 
-NSCAPI::nagiosReturn NSClientT::inject(std::string command, std::string arguments, std::string &msg, std::string & perf) {
-	std::list<std::string> args;
-	strEx::s::parse_command(arguments, args);
-	std::string request, response;
-	nscapi::protobuf::functions::create_simple_query_request(command, args, request);
-	NSCAPI::nagiosReturn ret = injectRAW(request, response);
-	if (ret == NSCAPI::cmd_return_codes::hasFailed && response.empty()) {
-		msg = "Failed to execute: " + command;
-		return NSCAPI::query_return_codes::returnUNKNOWN;
-	} else if (response.empty()) {
-		msg = "No data returned from: " + command;
-		return NSCAPI::query_return_codes::returnUNKNOWN;
-	}
-	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
-}
-
 struct command_chunk {
 	nsclient::commands::plugin_type plugin;
 	Plugin::QueryRequestMessage request;
 };
 
+
+::Plugin::QueryResponseMessage NSClientT::execute_query(const ::Plugin::QueryRequestMessage &req) {
+	::Plugin::QueryResponseMessage resp;
+	std::string buffer;
+	if (execute_query(req.SerializeAsString(), buffer) == NSCAPI::cmd_return_codes::isSuccess) {
+		resp.ParseFromString(buffer);
+	}
+	return resp;
+}
 /**
  * Inject a command into the plug-in stack.
  *
@@ -885,7 +875,7 @@ struct command_chunk {
  * @param returnPerfBufferLen Length of returnPerfBuffer
  * @return The command status
  */
-NSCAPI::nagiosReturn NSClientT::injectRAW(std::string &request, std::string &response) {
+NSCAPI::nagiosReturn NSClientT::execute_query(const std::string &request, std::string &response) {
 	try {
 		Plugin::QueryRequestMessage request_message;
 		Plugin::QueryResponseMessage response_message;
@@ -1279,6 +1269,65 @@ NSClientT::plugin_type NSClientT::find_plugin(const unsigned int plugin_id) {
 	return plugin_type();
 }
 
+void NSClientT::remove_plugin(const std::string name) {
+	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!writeLock.owns_lock()) {
+		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+	} else {
+		for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
+			if ((*it)->getModule() == name) {
+				plugin_type instance = *it;
+				unsigned int plugin_id = instance->get_id();
+				commands_.remove_plugin(plugin_id);
+				metricsFetchers.remove_plugin(plugin_id);
+				metricsSubmitetrs.remove_plugin(plugin_id);
+				it = plugins_.erase(it);
+				instance->unload_plugin();
+				instance->unload_dll();
+				if (it == plugins_.end())
+					break;
+			} else {
+				++it;
+			}
+		}
+	}
+}
+void NSClientT::load_plugin(const boost::filesystem::path &file, std::string alias) {
+	try {
+		plugin_type instance = addPlugin(file, alias);
+		instance->load_plugin(NSCAPI::normalStart);
+	} catch (const NSPluginException& e) {
+		if (e.file().find("FileLogger") != std::string::npos) {
+			LOG_DEBUG_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
+		} else {
+			LOG_ERROR_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
+		}
+	}
+}
+unsigned int NSClientT::add_plugin(unsigned int plugin_id) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (readLock.owns_lock()) {
+		plugin_type match;
+		BOOST_FOREACH(plugin_type plugin, plugins_) {
+			if (plugin->get_id() == plugin_id) {
+				match = plugin;
+			}
+		}
+		if (match) {
+			int new_id = next_plugin_id_++;
+			commands_.add_plugin(new_id, match);
+			return new_id;
+		} else {
+			LOG_ERROR_CORE("Plugin not found.");
+			return -1;
+		}
+	} else {
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		return -1;
+	}
+}
+
+
 NSClientT::plugin_type NSClientT::find_plugin(const std::string key_ic) {
 	std::string key = boost::to_lower_copy(key_ic);
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
@@ -1551,368 +1600,27 @@ std::string NSClientT::expand_path(std::string file) {
 	}
 }
 
-typedef std::map<unsigned int, std::string> modules_type;
-
-inline std::string add_plugin_data(modules_type module_cache, unsigned int plugin_id, NSClientT *instance) {
-	modules_type::const_iterator it = module_cache.find(plugin_id);
-	std::string module;
-	if (it == module_cache.end()) {
-		module = utf8::cvt<std::string>(instance->get_plugin_module_name(plugin_id));
-		module_cache[plugin_id] = module;
-		return module;
-	} else {
-		return it->second;
-	}
-}
-
-void settings_add_plugin_data(const std::set<unsigned int> &plugins, modules_type module_cache, ::Plugin::Settings_Information* info, NSClientT *instance) {
-	BOOST_FOREACH(unsigned int i, plugins) {
-		info->add_plugin(add_plugin_data(module_cache, i, instance));
-	}
-}
-
 NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	std::string response_string;
-	Plugin::SettingsRequestMessage request;
-	Plugin::SettingsResponseMessage response;
-	nscapi::protobuf::functions::create_simple_header(response.mutable_header());
-	modules_type module_cache;
-	request.ParseFromArray(request_buffer, request_buffer_len);
-	timer t;
-	for (int i = 0; i < request.payload_size(); i++) {
-		Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
-		try {
-			const Plugin::SettingsRequestMessage::Request &r = request.payload(i);
-			if (r.has_inventory()) {
-				const Plugin::SettingsRequestMessage::Request::Inventory &q = r.inventory();
-				boost::optional<unsigned int> plugin_id;
-				if (q.has_plugin()) {
-					plugin_type p = find_plugin(q.plugin());
-					if (p)
-						plugin_id = p->get_id();
-				}
-				if (q.node().has_key()) {
-					t.start("fetching key");
-					settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(q.node().path(), q.node().key());
-					t.end();
-					Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-					rpp->mutable_node()->CopyFrom(q.node());
-					rpp->mutable_info()->set_title(desc.title);
-					rpp->mutable_info()->set_description(desc.description);
-				} else {
-					bool fetch_samples = q.fetch_samples();
-					if (q.recursive_fetch()) {
-						std::string base_path;
-						if (q.node().has_path())
-							base_path = q.node().path();
-						t.start("fetching paths");
-						std::list<std::string> list = settings_manager::get_core()->get_reg_sections(base_path, fetch_samples);
-						t.end();
-						BOOST_FOREACH(const std::string &path, list) {
-							if (q.fetch_keys()) {
-								t.start("fetching keys");
-								std::list<std::string> klist = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
-								t.end();
-								boost::unordered_set<std::string> cache;
-								BOOST_FOREACH(const std::string &key, klist) {
-									settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
-									if (plugin_id && !desc.has_plugin(*plugin_id))
-										continue;
-									Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-									cache.emplace(key);
-									rpp->mutable_node()->set_path(path);
-									rpp->mutable_node()->set_key(key);
-									rpp->mutable_info()->set_title(desc.title);
-									rpp->mutable_info()->set_description(desc.description);
-									rpp->mutable_info()->set_advanced(desc.advanced);
-									rpp->mutable_info()->set_sample(desc.is_sample);
-									rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
-									if (desc.type == NSCAPI::key_string) {
-										settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-										if (val)
-											rpp->mutable_value()->set_string_data(*val);
-									} else if (desc.type == NSCAPI::key_integer) {
-										settings::settings_interface::op_int val = settings_manager::get_settings()->get_int(path, key);
-										if (val)
-											rpp->mutable_value()->set_int_data(*val);
-									} else if (desc.type == NSCAPI::key_bool) {
-										settings::settings_interface::op_bool val = settings_manager::get_settings()->get_bool(path, key);
-										if (val)
-											rpp->mutable_value()->set_bool_data(*val);
-									} else {
-										LOG_ERROR_CORE("Invalid type");
-									}
-									settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
-								}
-								if (!plugin_id) {
-									t.start("fetching more keys");
-									klist = settings_manager::get_settings()->get_keys(path);
-									t.end();
-									BOOST_FOREACH(const std::string &key, klist) {
-										if (cache.find(key) == cache.end()) {
-											Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-											rpp->mutable_node()->set_path(path);
-											rpp->mutable_node()->set_key(key);
-											rpp->mutable_info()->set_advanced(true);
-											rpp->mutable_info()->set_sample(false);
-											rpp->mutable_info()->mutable_default_value()->set_string_data("");
-											settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-											if (val)
-												rpp->mutable_value()->set_string_data(*val);
-										}
-									}
-								}
-							}
-							if (q.fetch_paths()) {
-								t.start("fetching path");
-								settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
-								t.end();
-								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->mutable_node()->set_path(path);
-								rpp->mutable_info()->set_title(desc.title);
-								rpp->mutable_info()->set_description(desc.description);
-								rpp->mutable_info()->set_advanced(desc.advanced);
-								rpp->mutable_info()->set_sample(desc.is_sample);
-								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
-							}
-						}
-					} else {
-						std::string path = q.node().path();
-						if (q.fetch_keys()) {
-							t.start("fetching keys");
-							std::list<std::string> list = settings_manager::get_core()->get_reg_keys(path, fetch_samples);
-							t.end();
-							boost::unordered_set<std::string> cache;
-							BOOST_FOREACH(const std::string &key, list) {
-								t.start("fetching keys");
-								settings::settings_core::key_description desc = settings_manager::get_core()->get_registred_key(path, key);
-								if (plugin_id && !desc.has_plugin(*plugin_id))
-									continue;
-								t.end();
-								Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								cache.emplace(key);
-								rpp->mutable_node()->set_path(path);
-								rpp->mutable_node()->set_key(key);
-								rpp->mutable_info()->set_title(desc.title);
-								rpp->mutable_info()->set_description(desc.description);
-								rpp->mutable_info()->set_advanced(desc.advanced);
-								rpp->mutable_info()->set_sample(desc.is_sample);
-								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
-								try {
-									if (desc.type == NSCAPI::key_string)
-										rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(path, key, ""));
-									else if (desc.type == NSCAPI::key_integer)
-										rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(path, key, 0));
-									else if (desc.type == NSCAPI::key_bool)
-										rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(path, key, false));
-									else {
-										LOG_ERROR_CORE("Invalid type");
-									}
-								} catch (settings::settings_exception &) {}
-								settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
-							}
-							if (!plugin_id) {
-								t.start("fetching more keys");
-								list = settings_manager::get_settings()->get_keys(path);
-								t.end();
-								BOOST_FOREACH(const std::string &key, list) {
-									if (cache.find(key) == cache.end()) {
-										Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-										rpp->mutable_node()->set_path(path);
-										rpp->mutable_node()->set_key(key);
-										rpp->mutable_info()->set_advanced(true);
-										rpp->mutable_info()->set_sample(false);
-										settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-										if (val)
-											rpp->mutable_value()->set_string_data(*val);
-									}
-								}
-							}
-						}
-						if (q.fetch_paths()) {
-							t.start("fetching paths");
-							settings::settings_core::path_description desc = settings_manager::get_core()->get_registred_path(path);
-							t.end();
-							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->mutable_node()->set_path(path);
-							rpp->mutable_info()->set_title(desc.title);
-							rpp->mutable_info()->set_description(desc.description);
-							rpp->mutable_info()->set_advanced(desc.advanced);
-							rpp->mutable_info()->set_sample(desc.is_sample);
-							settings_add_plugin_data(desc.plugins, module_cache, rpp->mutable_info(), this);
-						}
-					}
-					if (q.fetch_templates()) {
-						t.start("fetching templates");
-						BOOST_FOREACH(const settings::settings_core::tpl_description &desc, settings_manager::get_core()->get_registred_tpls()) {
-							Plugin::SettingsResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->mutable_node()->set_path(desc.path);
-							rpp->mutable_info()->set_title(desc.title);
-							rpp->mutable_info()->set_is_template(true);
-							rpp->mutable_value()->set_string_data(desc.data);
-							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, desc.plugin_id, this));
-						}
-						t.end();
-					}
-					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-				}
-			} else if (r.has_query()) {
-				const Plugin::SettingsRequestMessage::Request::Query &q = r.query();
-				Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
-				rpp->mutable_node()->CopyFrom(q.node());
-				if (q.node().has_key()) {
-					if (q.type() == Plugin::Common_DataType_STRING)
-						rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), q.default_value().string_data()));
-					else if (q.type() == Plugin::Common_DataType_INT)
-						rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key(), q.default_value().int_data()));
-					else if (q.type() == Plugin::Common_DataType_BOOL)
-						rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key(), q.default_value().bool_data()));
-					else {
-						LOG_ERROR_CORE("Invalid type");
-					}
-				} else {
-					::Plugin::Common::AnyDataType *value = rpp->mutable_value();
-					if (q.has_recursive() && q.recursive()) {
-						BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_sections(q.node().path())) {
-							value->add_list_data(key);
-						}
-					} else {
-						BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(q.node().path())) {
-							value->add_list_data(key);
-						}
-					}
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else if (r.has_registration()) {
-				const Plugin::SettingsRequestMessage::Request::Registration &q = r.registration();
-				rp->mutable_registration();
-				if (q.has_fields()) {
-					json_spirit::Object node;
-
-					try {
-						json_spirit::Value value;
-						std::string data = q.fields();
-						json_spirit::read_or_throw(data, value);
-						if (value.isObject())
-							node = value.getObject();
-					} catch (const std::exception &e) {
-						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
-					} catch (const json_spirit::ParseError &e) {
-						LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + strEx::s::xtos(e.line_) + ":" + strEx::s::xtos(e.column_));
-					} catch (...) {
-						LOG_ERROR_CORE("Failed to process fields for ");
-					}
-
-					node.insert(json_spirit::Object::value_type("plugin", r.plugin_id()));
-					node.insert(json_spirit::Object::value_type("path", q.node().path()));
-					node.insert(json_spirit::Object::value_type("title", q.info().title()));
-					node.insert(json_spirit::Object::value_type("icon", q.info().icon()));
-					node.insert(json_spirit::Object::value_type("description", q.info().description()));
-
-					//node.insert(json_spirit::Object::value_type("fields", value));
-					std::string tplData = json_spirit::write(node);
-					settings_manager::get_core()->register_tpl(r.plugin_id(), q.node().path(), q.info().title(), tplData);
-				} else if (q.node().has_key()) {
-					settings_manager::get_core()->register_key(r.plugin_id(), q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced(), q.info().sample());
-				} else {
-					settings_manager::get_core()->register_path(r.plugin_id(), q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else if (r.has_update()) {
-				const Plugin::SettingsRequestMessage::Request::Update &p = r.update();
-				rp->mutable_update();
-				if (p.value().has_string_data()) {
-					settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
-				} else if (p.value().has_bool_data()) {
-					settings_manager::get_settings()->set_bool(p.node().path(), p.node().key(), p.value().bool_data());
-				} else if (p.value().has_int_data()) {
-					settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
-				} else {
-					LOG_ERROR_CORE("Invalid data type");
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else if (r.has_control()) {
-				const Plugin::SettingsRequestMessage::Request::Control &p = r.control();
-				rp->mutable_control();
-				if (p.command() == Plugin::Settings_Command_LOAD) {
-					if (p.has_context() && p.context().size() > 0)
-						settings_manager::get_core()->migrate_from(p.context());
-					else
-						settings_manager::get_settings()->load();
-					settings_manager::get_settings()->reload();
-					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-				} else if (p.command() == Plugin::Settings_Command_SAVE) {
-					if (p.has_context() && p.context().size() > 0)
-						settings_manager::get_core()->migrate_to(p.context());
-					else
-						settings_manager::get_settings()->save();
-					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-				} else {
-					rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-					rp->mutable_result()->set_message("Unknown command");
-				}
-			} else if (r.has_status()) {
-				rp->mutable_status()->set_has_changed(settings_manager::get_core()->is_dirty());
-				rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
-				rp->mutable_status()->set_type(settings_manager::get_settings()->get_type());
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else {
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-				rp->mutable_result()->set_message("Settings error: Invalid action");
-				LOG_ERROR_CORE_STD("Settings error: Invalid action");
-			}
-		} catch (settings::settings_exception &e) {
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			rp->mutable_result()->set_message("Settings error: " + e.reason());
-			LOG_ERROR_CORE_STD("Settings error: " + e.reason());
-		} catch (const std::exception &e) {
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			rp->mutable_result()->set_message("Settings error: " + utf8::utf8_from_native(e.what()));
-			LOG_ERROR_CORE_STD("Settings error: " + utf8::utf8_from_native(e.what()));
-		} catch (...) {
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			rp->mutable_result()->set_message("Settings error");
-			LOG_ERROR_CORE_STD("Settings error");
-		}
-	}
 	try {
+		Plugin::SettingsRequestMessage request;
+		Plugin::SettingsResponseMessage response;
+		request.ParseFromArray(request_buffer, request_buffer_len);
+
+		nsclient::core::settings_query_handler sqr(this, request);
+		sqr.parse(response);
 		*response_buffer_len = response.ByteSize();
 		*response_buffer = new char[*response_buffer_len + 10];
 		response.SerializeToArray(*response_buffer, *response_buffer_len);
 		return NSCAPI::api_return_codes::isSuccess;
 	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Settings error: " + utf8::utf8_from_native(e.what()));
+		LOG_ERROR_CORE_STD("Settings query error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		LOG_ERROR_CORE_STD("Settings error");
+		LOG_ERROR_CORE_STD("Unknown settings query error");
 	}
 	return NSCAPI::api_return_codes::hasFailed;
+
 }
 
-boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem::path path, const std::string filename) {
-	boost::filesystem::path fullpath = path / filename;
-#ifdef WIN32
-	std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
-	SHFILEINFOW sfi = { 0 };
-	boost::replace_all(tmp, "/", "\\");
-	HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
-	if (SUCCEEDED(hr)) {
-		tmp = sfi.szDisplayName;
-		boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
-		return rpath;
-	}
-#else
-	if (boost::filesystem::is_regular_file(fullpath))
-		return fullpath;
-	boost::filesystem::directory_iterator it(path), eod;
-	std::string tmp = boost::algorithm::to_lower_copy(filename);
-	BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-		if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
-			return p;
-		}
-	}
-#endif
-	return boost::optional<boost::filesystem::path>();
-}
 
 NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	try {
@@ -1920,303 +1628,10 @@ NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const 
 		Plugin::RegistryRequestMessage request;
 		Plugin::RegistryResponseMessage response;
 		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
-		modules_type module_cache;
 		request.ParseFromArray(request_buffer, request_buffer_len);
-		for (int i = 0; i < request.payload_size(); i++) {
-			const Plugin::RegistryRequestMessage::Request &r = request.payload(i);
-			if (r.has_inventory()) {
-				const Plugin::RegistryRequestMessage::Request::Inventory &q = r.inventory();
-				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
-				timer tme;
-				tme.start("...");
-				for (int i = 0; i < q.type_size(); i++) {
-					Plugin::Registry_ItemType type = q.type(i);
-					if (type == Plugin::Registry_ItemType_QUERY || type == Plugin::Registry_ItemType_ALL) {
-						if (q.has_name()) {
-							nsclient::commands::command_info info = commands_.describe(q.name());
-							if (!info.name.empty()) {
-								Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->set_name(q.name());
-								rpp->set_type(Plugin::Registry_ItemType_COMMAND);
-								rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
-								rpp->mutable_info()->set_title(info.name);
-								rpp->mutable_info()->set_description(info.description);
-								if (q.has_fetch_all() && q.fetch_all()) {
-									std::string resp;
-									Plugin::QueryRequestMessage req;
-									Plugin::QueryResponseMessage res;
-									nscapi::protobuf::functions::create_simple_header(req.mutable_header());
-									Plugin::QueryRequestMessage::Request * p = req.add_payload();
-									p->set_command(q.name());
-									p->add_arguments("help-pb");
-									std::string msg = req.SerializeAsString();
-									injectRAW(msg, resp);
-									res.ParseFromString(resp);
-									for (int i = 0; i < res.payload_size(); i++) {
-										const Plugin::QueryResponseMessage::Response p = res.payload(i);
-										rpp->mutable_parameters()->ParseFromString(p.data());
-									}
-								}
-							}
-						} else {
-							BOOST_FOREACH(const std::string &command, commands_.list_commands()) {
-								nsclient::commands::command_info info = commands_.describe(command);
-								Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->set_name(command);
-								rpp->set_type(Plugin::Registry_ItemType_COMMAND);
-								rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
-								rpp->mutable_info()->set_title(info.name);
-								rpp->mutable_info()->set_description(info.description);
-								if (q.has_fetch_all() && q.fetch_all()) {
-									std::string resp;
-									Plugin::QueryRequestMessage req;
-									Plugin::QueryResponseMessage res;
-									nscapi::protobuf::functions::create_simple_header(req.mutable_header());
-									Plugin::QueryRequestMessage::Request * p = req.add_payload();
-									p->set_command(command);
-									p->add_arguments("help-pb");
-									std::string msg = req.SerializeAsString();
-									injectRAW(msg, resp);
-									res.ParseFromString(resp);
-									for (int i = 0; i < res.payload_size(); i++) {
-										const Plugin::QueryResponseMessage::Response p = res.payload(i);
-										rpp->mutable_parameters()->ParseFromString(p.data());
-									}
-								}
-							}
-						}
-					}
-					if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
-						BOOST_FOREACH(const std::string &command, commands_.list_aliases()) {
-							nsclient::commands::command_info info = commands_.describe(command);
-							Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-							rpp->set_name(command);
-							rpp->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
-							rpp->mutable_info()->add_plugin(add_plugin_data(module_cache, info.plugin_id, this));
-							rpp->mutable_info()->set_title(info.name);
-							rpp->mutable_info()->set_description(info.description);
-						}
-					}
-					if (type == Plugin::Registry_ItemType_MODULE || type == Plugin::Registry_ItemType_ALL) {
-						boost::unordered_set<std::string> cache;
-						bool has_files = false;
-						tme.start("enumerating loaded");
-						{
-							tme.start("getting lock");
-							boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-							tme.end();
-							if (readLock.owns_lock()) {
-								BOOST_FOREACH(plugin_type plugin, plugins_) {
-									Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-									cache.emplace(plugin->getModule());
-									rpp->set_name(plugin->getModule());
-									rpp->set_type(Plugin::Registry_ItemType_MODULE);
-									rpp->set_id(plugin->get_alias_or_name());
-									rpp->mutable_info()->add_plugin(plugin->getModule());
-									rpp->mutable_info()->set_title(plugin->getName());
-									rpp->mutable_info()->set_description(plugin->getDescription());
-									Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
-									kvp->set_key("plugin_id");
-									kvp->set_value(strEx::s::xtos(plugin->get_id()));
-									kvp = rpp->mutable_info()->add_metadata();
-									kvp->set_key("loaded");
-									kvp->set_value("true");
-								}
-								if (!plugin_cache_.empty()) {
-									has_files = true;
-									BOOST_FOREACH(const plugin_cache_item &itm, plugin_cache_) {
-										if (cache.find(itm.name) == cache.end()) {
-											Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-											rpp->set_name(itm.name);
-											rpp->set_type(Plugin::Registry_ItemType_MODULE);
-											rpp->mutable_info()->set_title(itm.title);
-											rpp->mutable_info()->set_description(itm.desc);
-											Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
-											kvp->set_key("loaded");
-											kvp->set_value("false");
-										}
-									}
-								}
-							} else {
-								LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-							}
-						}
-						tme.end();
-						if (!has_files) {
-							tme.start("enumerating files");
-							plugin_cache_list  tmp_plugin_cache;
-							boost::filesystem::path pluginPath = expand_path("${module-path}");
-							boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
-							for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
-								if (!is_directory(itr->status())) {
-									boost::filesystem::path file = itr->path().filename();
-									if (NSCPlugin::is_module(pluginPath / file)) {
-										const std::string module = NSCPlugin::file_to_module(file);
-										plugin_cache_item itm;
-										try {
-											plugin_type plugin = find_plugin(module);
-											bool has_plugin = static_cast<bool>(plugin);
-											if (!has_plugin) {
-												boost::filesystem::path p = (pluginPath / file).normalize();
-												LOG_DEBUG_CORE("Loading " + p.string());
-												plugin = plugin_type(new NSCPlugin(-1, p, ""));
-												plugin->load_dll();
-											} else {
-												LOG_DEBUG_CORE("Found cached " + module);
-											}
-											itm.name = plugin->getModule();
-											itm.title = plugin->getName();
-											itm.desc = plugin->getDescription();
-											tmp_plugin_cache.push_back(itm);
-											if (!has_plugin) {
-												plugin->unload_dll();
-											}
-										} catch (const std::exception &e) {
-											LOG_DEBUG_CORE("Failed to load " + file.string() + ": " + utf8::utf8_from_native(e.what()));
-											continue;
-										}
-										if (!itm.name.empty() && cache.find(itm.name) == cache.end()) {
-											Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-											rpp->set_name(itm.name);
-											rpp->set_type(Plugin::Registry_ItemType_MODULE);
-											rpp->mutable_info()->set_title(itm.title);
-											rpp->mutable_info()->set_description(itm.desc);
-											Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
-											kvp->set_key("loaded");
-											kvp->set_value("false");
-										}
-									}
-								}
-							}
-							tme.end();
+		nsclient::core::registry_query_handler rqh(this, request);
+		rqh.parse(response);
 
-							{
-								tme.start("getting lock");
-								boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-								tme.end();
-								if (writeLock.owns_lock()) {
-									plugin_cache_.insert(plugin_cache_.end(), tmp_plugin_cache.begin(), tmp_plugin_cache.end());
-								}
-							}
-						}
-					}
-				}
-				tme.end();
-				BOOST_FOREACH(const std::string &s, tme.get()) {
-					LOG_DEBUG_CORE(s);
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else if (r.has_registration()) {
-				const Plugin::RegistryRequestMessage::Request::Registration registration = r.registration();
-				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
-				if (registration.type() == Plugin::Registry_ItemType_QUERY) {
-					if (registration.unregister()) {
-						commands_.unregister_command(registration.plugin_id(), registration.name());
-						BOOST_FOREACH(const std::string &alias, registration.alias())
-							commands_.unregister_command(registration.plugin_id(), alias);
-					} else {
-						commands_.register_command(registration.plugin_id(), registration.name(), registration.info().description());
-						std::string description = "Alternative name for: " + registration.name();
-						BOOST_FOREACH(const std::string &alias, registration.alias())
-							commands_.register_alias(registration.plugin_id(), alias, description);
-					}
-				} else if (registration.type() == Plugin::Registry_ItemType_QUERY_ALIAS) {
-					commands_.register_alias(registration.plugin_id(), registration.name(), registration.info().description());
-					for (int i = 0; i < registration.alias_size(); i++) {
-						commands_.register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
-					}
-				} else if (registration.type() == Plugin::Registry_ItemType_HANDLER) {
-					channels_.register_listener(registration.plugin_id(), registration.name());
-				} else if (registration.type() == Plugin::Registry_ItemType_ROUTER) {
-					routers_.register_listener(registration.plugin_id(), registration.name());
-				} else if (registration.type() == Plugin::Registry_ItemType_MODULE) {
-					Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
-					boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-					if (readLock.owns_lock()) {
-						plugin_type match;
-						BOOST_FOREACH(plugin_type plugin, plugins_) {
-							if (plugin->get_id() == registration.plugin_id()) {
-								match = plugin;
-							}
-						}
-						if (match) {
-							int new_id = next_plugin_id_++;
-							commands_.add_plugin(new_id, match);
-							rpp->set_item_id(new_id);
-						} else {
-							LOG_ERROR_CORE("Plugin not found.");
-						}
-					} else {
-						LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-					}
-				} else {
-					LOG_ERROR_CORE("Registration query: Unsupported type");
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else if (r.has_control()) {
-				const Plugin::RegistryRequestMessage::Request::Control control = r.control();
-				Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
-				if (control.type() == Plugin::Registry_ItemType_MODULE) {
-					if (control.command() == Plugin::Registry_Command_LOAD) {
-						boost::filesystem::path pluginPath = expand_path("${module-path}");
-						boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath, NSCPlugin::get_plugin_file(control.name()));
-						if (!module)
-							module = locateFileICase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(control.name()));
-						if (!module) {
-							LOG_ERROR_CORE("Failed to find: " + control.name());
-						} else {
-							LOG_DEBUG_CORE_STD("Module name: " + module->string());
-
-							try {
-								plugin_type instance = addPlugin(*module, control.alias());
-								instance->load_plugin(NSCAPI::normalStart);
-							} catch (const NSPluginException& e) {
-								if (e.file().find("FileLogger") != std::string::npos) {
-									LOG_DEBUG_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
-								} else {
-									LOG_ERROR_CORE_STD("Failed to load " + module->string() + ": " + e.reason());
-								}
-							} catch (const std::exception &e) {
-								LOG_ERROR_CORE_STD("exception loading plugin " + module->string() + ": " + utf8::utf8_from_native(e.what()));
-								return false;
-							} catch (...) {
-								LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module->string());
-								return false;
-							}
-						}
-					} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
-						boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
-						if (!writeLock.owns_lock()) {
-							LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
-						} else {
-							for (pluginList::iterator it = plugins_.begin(); it != plugins_.end();) {
-								if ((*it)->getModule() == control.name()) {
-									plugin_type instance = *it;
-									unsigned int plugin_id = instance->get_id();
-									commands_.remove_plugin(plugin_id);
-									metricsFetchers.remove_plugin(plugin_id);
-									metricsSubmitetrs.remove_plugin(plugin_id);
-									it = plugins_.erase(it);
-									instance->unload_plugin();
-									instance->unload_dll();
-									if (it == plugins_.end())
-										break;
-								} else {
-									++it;
-								}
-							}
-						}
-					} else {
-						LOG_ERROR_CORE("Registration query: Invalid command");
-					}
-				} else {
-					LOG_ERROR_CORE("Registration query: Unsupported type");
-				}
-				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-			} else {
-				LOG_ERROR_CORE("Registration query: Unsupported action");
-			}
-		}
 		*response_buffer_len = response.ByteSize();
 		*response_buffer = new char[*response_buffer_len + 10];
 		response.SerializeToArray(*response_buffer, *response_buffer_len);

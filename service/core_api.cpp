@@ -44,6 +44,8 @@
 #define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg); }
 #define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
 
+extern NSClient *mainClient;	// Global core instance forward declaration.
+
 NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer, unsigned int bufLen) {
 	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 }
@@ -80,7 +82,7 @@ void NSAPIStopServer(void) {
 }
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request(request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient->injectRAW(request, response);
+	NSCAPI::nagiosReturn ret = mainClient->execute_query(request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
