@@ -75,4 +75,24 @@ namespace nrdp {
 		doc.Print(&printer);
 		return printer.CStr();
 	}
+
+	boost::tuple<int, std::string> data::parse_response(const std::string &str) {
+		tinyxml2::XMLDocument doc;
+		doc.Parse(str.c_str(), str.length());
+		tinyxml2::XMLNode* node = doc.FirstChildElement("result");
+		if (node == NULL) {
+			return boost::make_tuple(-1, "Invalid response from server");
+		}
+		tinyxml2::XMLNode* nStatus = node->FirstChildElement("status");
+		tinyxml2::XMLNode* nError = node->FirstChildElement("message");
+		if (nStatus == NULL || nError == NULL) {
+			return boost::make_tuple(-1, "Invalid response from server");
+		}
+		tinyxml2::XMLNode* tnStatus = nStatus->FirstChild();
+		tinyxml2::XMLNode* tnError = nError->FirstChild();
+
+		std::string status = tnStatus->Value();
+		std::string error = tnError->Value();
+		return boost::make_tuple(strEx::s::stox<int>(status, -1), error);
+	}
 }

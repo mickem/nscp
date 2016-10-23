@@ -64,11 +64,6 @@ namespace nrdp_client {
 		}
 	};
 
-	struct g_data {
-		std::string path;
-		std::string value;
-	};
-
 	struct nrdp_client_handler : public client::handler_interface {
 		bool query(client::destination_container sender, client::destination_container target, const Plugin::QueryRequestMessage &request_message, Plugin::QueryResponseMessage &response_message) {
 			return false;
@@ -125,9 +120,14 @@ namespace nrdp_client {
 				}
 				http::response response = c.execute("http", con.get_address(), con.get_port(), request);
 				NSC_TRACE_ENABLED() {
-					NSC_TRACE_MSG("Happily ignoring: " + response.payload_);
+					NSC_TRACE_MSG("Recieved: " + response.payload_);
 				}
-				nscapi::protobuf::functions::set_response_good(*payload, "Data presumably sent successfully");
+				boost::tuple<int, std::string> ret = nrdp::data::parse_response(response.payload_);
+				if (ret.get<0>() != 0) {
+					nscapi::protobuf::functions::set_response_bad(*payload, ret.get<1>());
+				} else {
+					nscapi::protobuf::functions::set_response_good(*payload, ret.get<1>());
+				}
 			} catch (const std::runtime_error &e) {
 				nscapi::protobuf::functions::set_response_bad(*payload, "Socket error: " + utf8::utf8_from_native(e.what()));
 			} catch (const std::exception &e) {

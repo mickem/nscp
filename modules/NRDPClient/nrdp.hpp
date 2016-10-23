@@ -20,6 +20,7 @@
 #include <string>
 
 #include <boost/noncopyable.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <NSCAPI.h>
 
@@ -42,5 +43,6 @@ namespace nrdp {
 		void add_service(std::string host, std::string service, NSCAPI::nagiosReturn result, std::string message);
 		void add_command(std::string command, std::list<std::string> args);
 		std::string render_request() const;
+		static boost::tuple<int, std::string> parse_response(const std::string &str);
 	};
 }
