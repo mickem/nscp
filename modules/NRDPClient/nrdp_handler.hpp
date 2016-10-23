@@ -63,6 +63,10 @@ namespace nrdp_handler {
 					"SECURITY TOKEN", "The security token")
 
 				;
+
+			settings.register_all();
+			settings.notify();
+
 		}
 	};
 
