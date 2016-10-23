@@ -164,7 +164,7 @@ namespace settings {
 
 	public:
 
-		OLDSettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), map(core->get_logger()) {
+		OLDSettings(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context), map(core->get_logger()) {
 			get_logger()->debug("settings", __FILE__, __LINE__, "Loading OLD: " + context);
 			std::string mapfile = "old-settings.map";
 			std::string file = core->find_file("${exe-path}/" + mapfile, mapfile);
@@ -180,20 +180,10 @@ namespace settings {
 			string_list list = get_keys("/includes");
 			BOOST_FOREACH(const std::string &key, list) {
 				if (key.length() > 5 && key.substr(key.length() - 4, 4) == ".ini" && key.find_first_of(":/\\") == std::string::npos)
-					add_child_unsafe("old://${exe-path}/" + key);
+					add_child_unsafe(key, "old://${exe-path}/" + key);
 				else
-					add_child_unsafe(key);
+					add_child_unsafe(key, key);
 			}
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Create a new settings interface of "this kind"
-		///
-		/// @param context the context to use
-		/// @return the newly created settings interface
-		///
-		/// @author mickem
-		virtual settings_interface_impl* create_new_context(std::string context) {
-			return new OLDSettings(get_core(), context);
 		}
 		settings::error_list validate() {
 			settings::error_list ret;
@@ -222,7 +212,7 @@ namespace settings {
 		std::string internal_get_value(std::string path, std::string key, int bufferSize = 1024) {
 			TCHAR* buffer = new TCHAR[bufferSize + 2];
 			if (buffer == NULL)
-				throw settings_exception("Out of memory error!");
+				throw settings_exception(__FILE__, __LINE__, "Out of memory error!");
 			int retVal = GetPrivateProfileString(utf8::cvt<std::wstring>(path).c_str(), utf8::cvt<std::wstring>(key).c_str(), _T(""), buffer, bufferSize, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (retVal == bufferSize - 1) {
 				delete[] buffer;
@@ -280,7 +270,7 @@ namespace settings {
 		std::set<std::string> internal_read_keys_from_section(std::string section, unsigned int bufferLength = 1024) {
 			TCHAR* buffer = new TCHAR[bufferLength + 1];
 			if (buffer == NULL)
-				throw settings_exception("internal_read_keys_from_section:: Failed to allocate memory for buffer!");
+				throw settings_exception(__FILE__, __LINE__, "internal_read_keys_from_section:: Failed to allocate memory for buffer!");
 			unsigned int count = ::GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength - 2) {
 				delete[] buffer;
@@ -363,7 +353,7 @@ namespace settings {
 			string_list ret;
 			TCHAR* buffer = new TCHAR[bufferLength + 1];
 			if (buffer == NULL)
-				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+				throw settings_exception(__FILE__, __LINE__, "getSections:: Failed to allocate memory for buffer!");
 			unsigned int count = ::GetPrivateProfileSectionNames(buffer, BUFF_LEN, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength - 2) {
 				delete[] buffer;
@@ -426,7 +416,7 @@ namespace settings {
 		void int_read_section(std::string section, string_list &list, unsigned int bufferLength = BUFF_LEN) {
 			TCHAR* buffer = new TCHAR[bufferLength + 1];
 			if (buffer == NULL)
-				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+				throw settings_exception(__FILE__, __LINE__, "getSections:: Failed to allocate memory for buffer!");
 			unsigned int count = GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength - 2) {
 				delete[] buffer;
@@ -451,7 +441,7 @@ namespace settings {
 		string_list int_read_section_from_inifile(std::string section, unsigned int bufferLength = BUFF_LEN) {
 			TCHAR* buffer = new TCHAR[bufferLength + 1];
 			if (buffer == NULL)
-				throw settings_exception("getSections:: Failed to allocate memory for buffer!");
+				throw settings_exception(__FILE__, __LINE__, "getSections:: Failed to allocate memory for buffer!");
 			unsigned int count = GetPrivateProfileSection(utf8::cvt<std::wstring>(section).c_str(), buffer, bufferLength, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (count == bufferLength - 2) {
 				delete[] buffer;

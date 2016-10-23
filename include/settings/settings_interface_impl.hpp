@@ -33,12 +33,16 @@
 #define MUTEX_GUARD() \
 	boost::unique_lock<boost::timed_mutex> mutex(mutex_, boost::get_system_time() + boost::posix_time::seconds(5)); \
 	if (!mutex.owns_lock()) \
-		throw settings_exception("Failed to get mutex, cant get settings instance");
+		throw settings_exception(__FILE__, __LINE__, "Failed to get mutex, cant get settings instance");
 
 namespace settings {
 	class settings_interface_impl : public settings_interface {
 	protected:
 		settings_core *core_;
+		std::string alias_;
+		std::string context_;
+		net::url url_;
+
 		typedef std::list<instance_raw_ptr> parent_list_type;
 		parent_list_type children_;
 		boost::timed_mutex mutex_;
@@ -97,10 +101,8 @@ namespace settings {
 		path_cache_type path_cache_;
 		path_cache_type settings_delete_path_cache_;
 		key_cache_type key_cache_;
-		std::string context_;
-		net::url url_;
 
-		settings_interface_impl(settings_core *core, std::string context) : core_(core), context_(context), url_(net::parse(context_)) {}
+		settings_interface_impl(settings_core *core, std::string alias, std::string context) : core_(core), alias_(alias), context_(context), url_(net::parse(context_)) {}
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Empty all cached settings values and force a reload.
@@ -133,16 +135,16 @@ namespace settings {
 		}
 		settings_core* get_core() const {
 			if (core_ == NULL)
-				throw settings_exception("FATAL ERROR: Settings subsystem not initialized");
+				throw settings_exception(__FILE__, __LINE__, "FATAL ERROR: Settings subsystem not initialized");
 			return core_;
 		}
 		nsclient::logging::logger_instance get_logger() const {
 			return core_->get_logger();
 		}
 
-		instance_raw_ptr add_child(std::string context) {
+		instance_raw_ptr add_child(std::string alias, std::string context) {
 			try {
-				instance_raw_ptr child = get_core()->create_instance(context);
+				instance_raw_ptr child = get_core()->create_instance(alias, context);
 				{
 					MUTEX_GUARD();
 					children_.push_back(child);
@@ -154,9 +156,9 @@ namespace settings {
 			return instance_raw_ptr();
 		}
 
-		void add_child_unsafe(std::string context) {
+		void add_child_unsafe(std::string alias, std::string context) {
 			try {
-				instance_raw_ptr child = get_core()->create_instance(context);
+				instance_raw_ptr child = get_core()->create_instance(alias, context);
 				children_.push_back(child);
 			} catch (const std::exception &e) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Failed to load child " + context + ": " + utf8::utf8_from_native(e.what()));
@@ -617,13 +619,15 @@ namespace settings {
 		/// @param other the settings store to save to
 		///
 		/// @author mickem
-		virtual void save_to(std::string other) {
-			instance_ptr i = get_core()->create_instance(other);
+		virtual void save_to(std::string alias, std::string other) {
+			instance_ptr i = get_core()->create_instance(alias, other);
+			if (!i)
+				throw settings_exception(__FILE__, __LINE__, "Failed to create new instance!");
 			save_to(i);
 		}
 		virtual void save_to(instance_ptr other) {
 			if (!other)
-				throw settings_exception("Cant migrate to NULL instance!");
+				throw settings_exception(__FILE__, __LINE__, "Cant migrate to NULL instance!");
 			if (this->get_context() == other->get_context()) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Cant migrate to the same setting store: " + other->get_context());
 				return;
@@ -634,8 +638,16 @@ namespace settings {
 		}
 		void st_copy_section(std::string path, instance_ptr other) {
 			if (!other)
-				throw settings_exception("Failed to create new instance!");
-			string_list list = get_sections(path);
+				throw settings_exception(__FILE__, __LINE__, "No target instance: Cant copy settings");
+			get_logger()->trace("settings", __FILE__, __LINE__, "In " + alias_ + " copying section " + path);
+
+			string_list list;
+			{
+				MUTEX_GUARD();
+				get_cached_sections_unsafe(path, list);
+				get_real_sections(path, list);
+			}
+
 			std::string subpath = path;
 			// TODO: check trailing / instead!
 			if (!subpath.empty())
@@ -643,7 +655,13 @@ namespace settings {
 			for (string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
 				st_copy_section(subpath + *cit, other);
 			}
-			list = get_keys(path);
+			list.clear();
+			{
+				MUTEX_GUARD();
+				get_cached_keys_unsafe(path, list);
+				get_real_keys(path, list);
+
+			}
 			for (string_list::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
 				settings_core::key_path_type key(path, *cit);
 				settings_core::key_type type = get_key_type(key.first, key.second);
@@ -666,7 +684,7 @@ namespace settings {
 					else
 						other->set_bool(key.first, key.second, false);
 				} else
-					throw settings_exception("Invalid type for key: " + key.first + "." + key.second);
+					throw settings_exception(__FILE__, __LINE__, "Invalid type for key: " + key.first + "." + key.second);
 			}
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -695,25 +713,6 @@ namespace settings {
 				child->save();
 			}
 			get_core()->set_dirty(false);
-		}
-		/////////////////////////////////////////////////////////////////////////
-		/// Load from another settings store
-		///
-		/// @param other the other settings store to load from
-		///
-		/// @author mickem
-		virtual void load_from(instance_ptr other) {
-			throw settings_exception("TODO: FIX ME: load_from");
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Load from another context.
-		/// The context is an identifier for the settings store for INI/XML it is the filename.
-		///
-		/// @param context the context to load from
-		///
-		/// @author mickem
-		virtual void load_from(std::string context) {
-			throw settings_exception("TODO: FIX ME: load_from");
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Load settings from the context.
@@ -823,15 +822,6 @@ namespace settings {
 		///
 		/// @author mickem
 // 		virtual bool is_active() = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Create a new settings interface of "this kind"
-		///
-		/// @param context the context to use
-		/// @return the newly created settings interface
-		///
-		/// @author mickem
-		virtual settings_interface_impl* create_new_context(std::string context) = 0;
 
 		virtual void real_clear_cache() = 0;
 

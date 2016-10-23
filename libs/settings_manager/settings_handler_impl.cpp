@@ -3,18 +3,18 @@
 settings::instance_ptr settings::settings_handler_impl::get() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())
-		throw settings_exception("Failed to get mutex, cant get settings instance");
+		throw settings_exception(__FILE__, __LINE__, "Failed to get mutex, cant get settings instance");
 	if (!instance_)
-		throw settings_exception("Failed initialize settings instance");
+		throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
 	return instance_ptr(instance_);
 }
 
 settings::instance_ptr settings::settings_handler_impl::get_no_wait() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::try_to_lock);
 	if (!mutex.owns_lock())
-		throw settings_exception("Failed to get mutex, cant get settings instance");
+		throw settings_exception(__FILE__, __LINE__, "Failed to get mutex, cant get settings instance");
 	if (!instance_)
-		throw settings_exception("Failed initialize settings instance");
+		throw settings_exception(__FILE__, __LINE__, "Failed initialize settings instance");
 	return instance_;
 }
 
@@ -93,14 +93,14 @@ void settings::settings_handler_impl::remove_defaults() {
 void settings::settings_handler_impl::destroy_all_instances() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())
-		throw settings_exception("destroy_all_instances Failed to get mutex, cant get access settings");
+		throw settings_exception(__FILE__, __LINE__, "destroy_all_instances Failed to get mutex, cant get access settings");
 	instance_.reset();
 }
 
 void settings::settings_handler_impl::house_keeping() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())
-		throw settings_exception("destroy_all_instances Failed to get mutex, cant get access settings");
+		throw settings_exception(__FILE__, __LINE__, "destroy_all_instances Failed to get mutex, cant get access settings");
 	instance_->house_keeping();
 }
 

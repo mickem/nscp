@@ -39,13 +39,15 @@ namespace settings {
 	}
 	class settings_exception : public std::exception {
 		std::string error_;
+		const char* file_;
+		int line_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
 		/// Constructor takes an error message.
 		/// @param error the error message
 		///
 		/// @author mickem
-		settings_exception(std::string error) : error_(error) {}
+		settings_exception(const char* file, const int line, std::string error) : file_(file), line_(line), error_(error) {}
 		~settings_exception() throw() {}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -57,6 +59,8 @@ namespace settings {
 			return error_.c_str();
 		}
 		std::string reason() const throw() { return utf8::utf8_from_native(what()); }
+		const char* file() const { return file_; }
+		int line() const { return line_;  }
 	};
 
 	class settings_interface;
@@ -233,12 +237,8 @@ namespace settings {
 		/// @author mickem
 		//virtual settings_interface* get(settings_core::settings_type type) = 0;
 		// Conversion Functions
-		virtual void migrate(instance_ptr from, instance_ptr to) = 0;
-		virtual void migrate_to(instance_ptr to) = 0;
-		virtual void migrate_from(instance_ptr from) = 0;
-		virtual void migrate(std::string from, std::string to) = 0;
-		virtual void migrate_to(std::string to) = 0;
-		virtual void migrate_from(std::string from) = 0;
+		virtual void migrate_to(std::string alias, std::string to) = 0;
+		virtual void migrate_from(std::string alias, std::string from) = 0;
 
 		virtual void set_primary(std::string context) = 0;
 
@@ -277,7 +277,7 @@ namespace settings {
 		/// @return a new instance of given type.
 		///
 		/// @author mickem
-		virtual instance_raw_ptr create_instance(std::string context) = 0;
+		virtual instance_raw_ptr create_instance(std::string alias, std::string context) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Set the basepath for the settings subsystem.
@@ -479,20 +479,12 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void save_to(instance_ptr other) = 0;
-		virtual void save_to(std::string other) = 0;
+		virtual void save_to(std::string alias, std::string other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Save the settings store
 		///
 		/// @author mickem
 		virtual void save() = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Load from another settings store
-		///
-		/// @param other the other settings store to load from
-		///
-		/// @author mickem
-		virtual void load_from(instance_ptr other) = 0;
-		virtual void load_from(std::string other) = 0;
 		//////////////////////////////////////////////////////////////////////////
 		/// Load settings from the context.
 		///

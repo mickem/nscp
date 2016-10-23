@@ -55,8 +55,8 @@ namespace nsclient_core {
 		int show(std::string path, std::string key);
 		int list(std::string path);
 		int validate();
-		void error_msg(std::string msg);
-		void debug_msg(std::string msg);
+		void error_msg(const char* file, const int line, std::string msg);
+		void debug_msg(const char* file, const int line, std::string msg);
 
 		void list_settings_info();
 		void activate(const std::string &module);

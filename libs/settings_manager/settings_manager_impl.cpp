@@ -21,7 +21,7 @@ namespace settings_manager {
 
 	inline NSCSettingsImpl* internal_get() {
 		if (settings_impl == NULL)
-			throw settings::settings_exception("Settings has not been initiated!");
+			throw settings::settings_exception(__FILE__, __LINE__, "Settings has not been initiated!");
 		return settings_impl;
 	}
 	boost::shared_ptr<nscapi::settings_helper::settings_impl_interface> get_proxy() {
@@ -75,28 +75,28 @@ namespace settings_manager {
 	/// @return a new instance of given type.
 	///
 	/// @author mickem
-	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string key) {
+	settings::instance_raw_ptr NSCSettingsImpl::create_instance(std::string alias, std::string key) {
 		key = expand_context(key);
 		net::url url = net::parse(key);
 		get_logger()->debug("settings", __FILE__, __LINE__, "Creating instance for: " + url.to_string());
 #ifdef WIN32
 		if (url.protocol == "old")
-			return settings::instance_raw_ptr(new settings::OLDSettings(this, key));
+			return settings::instance_raw_ptr(new settings::OLDSettings(this, alias, key));
 		if (url.protocol == "registry")
-			return settings::instance_raw_ptr(new settings::REGSettings(this, key));
+			return settings::instance_raw_ptr(new settings::REGSettings(this, alias, key));
 #endif
 		if (url.protocol == "ini")
-			return settings::instance_raw_ptr(new settings::INISettings(this, key));
+			return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
 		if (url.protocol == "dummy")
-			return settings::instance_raw_ptr(new settings::settings_dummy(this, key));
+			return settings::instance_raw_ptr(new settings::settings_dummy(this, alias, key));
 		if (url.protocol == "http" || url.protocol == "https")
-			return settings::instance_raw_ptr(new settings::settings_http(this, key));
+			return settings::instance_raw_ptr(new settings::settings_http(this, alias, key));
 
 		if (settings::INISettings::context_exists(this, key))
-			return settings::instance_raw_ptr(new settings::INISettings(this, key));
+			return settings::instance_raw_ptr(new settings::INISettings(this, alias, key));
 		if (settings::INISettings::context_exists(this, DEFAULT_CONF_INI_BASE + key))
-			return settings::instance_raw_ptr(new settings::INISettings(this, DEFAULT_CONF_INI_BASE + key));
-		throw settings::settings_exception("Undefined settings protocol: " + url.protocol);
+			return settings::instance_raw_ptr(new settings::INISettings(this,alias,  DEFAULT_CONF_INI_BASE + key));
+		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol);
 	}
 
 	bool NSCSettingsImpl::context_exists(std::string key) {
@@ -160,7 +160,7 @@ namespace settings_manager {
 			if (context_exists(k)) {
 				get_logger()->debug("settings", __FILE__, __LINE__, "Activating: " + k);
 				try {
-					set_instance(k);
+					set_instance("master", k);
 					return;
 				} catch (const settings::settings_exception &e) {
 					get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
@@ -173,14 +173,14 @@ namespace settings_manager {
 		}
 		if (!key.empty()) {
 			get_logger()->info("settings", __FILE__, __LINE__, "No valid settings found but one was given (using that): " + key);
-			set_instance(key);
+			set_instance("master", key);
 			return;
 		}
 
 		get_logger()->debug("settings", __FILE__, __LINE__, "No valid settings found (tried): " + boot_order);
 
 		get_logger()->info("settings", __FILE__, __LINE__, "Creating new settings file: " DEFAULT_CONF_INI_LOCATION);
-		set_instance(DEFAULT_CONF_INI_LOCATION);
+		set_instance("master", DEFAULT_CONF_INI_LOCATION);
 	}
 
 	void NSCSettingsImpl::set_primary(std::string key) {
@@ -201,7 +201,7 @@ namespace settings_manager {
 			boot_conf.SetValue(L"settings", utf8::cvt<std::wstring>(strEx::s::xtos(i++)).c_str(), utf8::cvt<std::wstring>(k).c_str());
 		}
 		boot_conf.SaveFile(boot_.string().c_str());
-		get_core()->create_instance(key)->ensure_exists();
+		get_core()->create_instance("master", key)->ensure_exists();
 		boot(key);
 	}
 
@@ -220,7 +220,7 @@ namespace settings_manager {
 
 	void NSCSettingsImpl::change_context(std::string context) {
 		try {
-			get_core()->migrate_to(context);
+			get_core()->migrate_to("master", context);
 			set_primary(context);
 			get_core()->boot(context);
 		} catch (settings::settings_exception e) {

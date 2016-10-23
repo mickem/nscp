@@ -26,7 +26,7 @@ namespace settings_manager {
 		std::string expand_path(std::string file);
 		std::string expand_context(const std::string &key);
 
-		settings::instance_raw_ptr create_instance(std::string key);
+		settings::instance_raw_ptr create_instance(std::string alias, std::string key);
 		void change_context(std::string file);
 		bool context_exists(std::string key);
 		bool create_context(std::string key);

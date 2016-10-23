@@ -115,7 +115,7 @@ namespace settings {
 		void remove_defaults();
 		void migrate(instance_ptr from, instance_ptr to) {
 			if (!from || !to)
-				throw new settings_exception("Source or target is null");
+				throw new settings_exception(__FILE__, __LINE__, "Source or target is null");
 			from->save_to(to);
 			set_primary(to->get_context());
 		}
@@ -125,17 +125,17 @@ namespace settings {
 		void migrate_from(instance_ptr from) {
 			migrate(from, get());
 		}
-		void migrate_to(std::string to) {
-			instance_ptr i = create_instance(to);
+		void migrate_to(std::string alias, std::string to) {
+			instance_ptr i = create_instance(alias, to);
 			migrate_to(i);
 		}
-		void migrate_from(std::string from) {
-			instance_ptr i = create_instance(from);
+		void migrate_from(std::string alias, std::string from) {
+			instance_ptr i = create_instance(alias, from);
 			migrate_from(i);
 		}
-		void migrate(std::string from, std::string to) {
-			instance_ptr ifrom = create_instance(from);
-			instance_ptr ito = create_instance(to);
+		void migrate(std::string alias_from, std::string from, std::string alias_to, std::string to) {
+			instance_ptr ifrom = create_instance(alias_from, from);
+			instance_ptr ito = create_instance(alias_to, to);
 			migrate(ifrom, ito);
 		}
 
@@ -154,7 +154,7 @@ namespace settings {
 		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
@@ -179,7 +179,7 @@ namespace settings {
 		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
 			}
 			reg_paths_type::iterator it = registred_paths_.find(path);
 			if (it == registred_paths_.end()) {
@@ -217,7 +217,7 @@ namespace settings {
 		settings_core::key_description get_registred_key(std::string path, std::string key) {
 			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 			if (!readLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path + "." + key);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);
 			}
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
@@ -227,25 +227,25 @@ namespace settings {
 					return ret;
 				}
 			}
-			throw settings_exception("Key not found: " + path + ", " + key);
+			throw settings_exception(__FILE__, __LINE__, "Key not found: " + path + ", " + key);
 		}
 		settings_core::path_description get_registred_path(const std::string &path) {
 			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 			if (!readLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
 			if (cit != registred_paths_.end()) {
 				return (*cit).second;
 			}
-			throw settings_exception("Path not found: " + path);
+			throw settings_exception(__FILE__, __LINE__, "Path not found: " + path);
 		}
 
 		std::list<settings_core::tpl_description> get_registred_tpls() {
 			std::list<settings_core::tpl_description> ret;
 			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 			if (!readLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: when fetching tpls");
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: when fetching tpls");
 			}
 			BOOST_FOREACH(const tpl_desc_type::value_type &d, registered_tpls_) {
 				ret.push_back(d.second);
@@ -263,7 +263,7 @@ namespace settings {
 		string_list get_reg_sections(std::string path, bool fetch_samples) {
 			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 			if (!readLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			string_list ret;
 			BOOST_FOREACH(const reg_paths_type::value_type &v, registred_paths_) {
@@ -282,7 +282,7 @@ namespace settings {
 		virtual string_list get_reg_keys(std::string path, bool fetch_samples) {
 			boost::shared_lock<boost::shared_mutex> readLock(registry_mutex_, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 			if (!readLock.owns_lock()) {
-				throw settings_exception("Failed to lock registry mutex: " + path);
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
 			}
 			string_list ret;
 			reg_paths_type::const_iterator cit = registred_paths_.find(path);
@@ -296,13 +296,13 @@ namespace settings {
 			return ret;
 		}
 
-		void set_instance(std::string key) {
+		void set_instance(std::string alias, std::string key) {
 			boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!mutex.owns_lock())
-				throw settings_exception("set_instance Failed to get mutext, cant get access settings");
-			instance_ = create_instance(key);
+				throw settings_exception(__FILE__, __LINE__, "set_instance Failed to get mutex, cant get access settings");
+			instance_ = create_instance(alias, key);
 			if (!instance_)
-				throw settings_exception("set_instance Failed to create instance for: " + key);
+				throw settings_exception(__FILE__, __LINE__, "set_instance Failed to create instance for: " + key);
 		}
 
 	private:

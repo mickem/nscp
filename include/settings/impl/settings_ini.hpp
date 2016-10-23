@@ -39,18 +39,8 @@ namespace settings {
 		std::string filename_;
 
 	public:
-		INISettings(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context), ini(false, false, false), is_loaded_(false) {
+		INISettings(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context), ini(false, false, false), is_loaded_(false) {
 			load_data();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Create a new settings interface of "this kind"
-		///
-		/// @param context the context to use
-		/// @return the newly created settings interface
-		///
-		/// @author mickem
-		virtual settings_interface_impl* create_new_context(std::string context) {
-			return new INISettings(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
@@ -268,7 +258,7 @@ namespace settings {
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
 				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-					add_child_unsafe("ini:///" + p.string());
+					add_child_unsafe(p.filename().string(), "ini:///" + p.string());
 				}
 			}
 			if (!file_exists()) {
@@ -286,11 +276,12 @@ namespace settings {
 			CSimpleIni::TNamesDepend lst;
 			ini.GetAllKeys(L"/includes", lst);
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
+				std::string alias = utf8::cvt<std::string>((*cit).pItem);
 				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
 				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string,
 					"INCLUDED FILE", "Included configuration", "", true, false);
 				if (!child.empty())
-					add_child_unsafe(child);
+					add_child_unsafe(alias, child);
 			}
 			is_loaded_ = true;
 		}
@@ -302,7 +293,7 @@ namespace settings {
 				error_str = "General failure";
 			if (err == SI_FILE)
 				error_str = "I/O error: " + error::lookup::last_error();
-			throw settings_exception(msg + " '" + get_context() + "': " + error_str);
+			throw settings_exception(__FILE__, __LINE__, msg + " '" + get_context() + "': " + error_str);
 		}
 		boost::filesystem::path get_file_name() {
 			if (filename_.empty()) {

@@ -33,17 +33,7 @@ namespace settings {
 	private:
 
 	public:
-		settings_dummy(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {}
-		//////////////////////////////////////////////////////////////////////////
-		/// Create a new settings interface of "this kind"
-		///
-		/// @param context the context to use
-		/// @return the newly created settings interface
-		///
-		/// @author mickem
-		virtual settings_interface_impl* create_new_context(std::string context) {
-			return new settings_dummy(get_core(), context);
-		}
+		settings_dummy(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
 		///

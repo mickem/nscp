@@ -51,15 +51,15 @@ namespace settings {
 
 
 	public:
-		settings_http(settings::settings_core *core, std::string context) : settings::settings_interface_impl(core, context) {
+		settings_http(settings::settings_core *core, std::string alias, std::string context) : settings::settings_interface_impl(core, alias, context) {
 			remote_url = net::parse(utf8::cvt<std::string>(context));
 			boost::filesystem::path path = core->expand_path(CACHE_FOLDER);
 			if (!boost::filesystem::is_directory(path)) {
 				if (boost::filesystem::is_regular_file(path))
-					throw new settings_exception("Cache path not found: " + path.string());
+					throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
 				boost::filesystem::create_directories(path);
 				if (!boost::filesystem::is_directory(path))
-					throw new settings_exception("Cache path not found: " + path.string());
+					throw new settings_exception(__FILE__, __LINE__, "Cache path not found: " + path.string());
 			}
 			local_file = boost::filesystem::path(path) / "cached.ini";
 
@@ -153,26 +153,16 @@ namespace settings {
 		void initial_load() {
 			boost::filesystem::path local_file = resolve_cache_file(remote_url);
 			cache_remote_file(remote_url, local_file);
-			fetch_attachments(add_child("ini://" + local_file.string()));
+			fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
 		}
 
 		void reload_data() {
 			boost::filesystem::path local_file = resolve_cache_file(remote_url);
 			if (cache_remote_file(remote_url, local_file)) {
 				clear_cache();
-				fetch_attachments(add_child("ini://" + local_file.string()));
+				fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
 				get_core()->set_reload(true);
 			}
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Create a new settings interface of "this kind"
-		///
-		/// @param context the context to use
-		/// @return the newly created settings interface
-		///
-		/// @author mickem
-		virtual settings_interface_impl* create_new_context(std::string context) {
-			return new settings_http(get_core(), context);
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
@@ -230,20 +220,20 @@ namespace settings {
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
 			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP: " + make_skey(key.first, key.second));
-			throw settings_exception("Cannot save settings over HTTP");
+			throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
 		}
 
 		virtual void set_real_path(std::string path) {
 			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP: " + path);
-			throw settings_exception("Cannot save settings over HTTP");
+			throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
 		}
 		virtual void remove_real_value(settings_core::key_path_type key) {
 			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP");
-			throw settings_exception("Cannot save settings over HTTP");
+			throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
 		}
 		virtual void remove_real_path(std::string path) {
 			get_logger()->error("settings", __FILE__, __LINE__, "Cant save over HTTP");
-			throw settings_exception("Cannot save settings over HTTP");
+			throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
 		}
 
 		//////////////////////////////////////////////////////////////////////////
@@ -272,7 +262,7 @@ namespace settings {
 		/// @author mickem
 		virtual void save() {
 			get_logger()->error("settings", __FILE__, __LINE__, "Cannot save settings over HTTP");
-			throw settings_exception("Cannot save settings over HTTP");
+			throw settings_exception(__FILE__, __LINE__, "Cannot save settings over HTTP");
 		}
 
 		settings::error_list validate() {

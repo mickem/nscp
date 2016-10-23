@@ -340,14 +340,14 @@ namespace nsclient {
 			rp->mutable_control();
 			if (p.command() == Plugin::Settings_Command_LOAD) {
 				if (p.has_context() && p.context().size() > 0)
-					settings_manager::get_core()->migrate_from(p.context());
+					settings_manager::get_core()->migrate_from("master", p.context());
 				else
 					settings_manager::get_settings()->load();
 				settings_manager::get_settings()->reload();
 				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			} else if (p.command() == Plugin::Settings_Command_SAVE) {
 				if (p.has_context() && p.context().size() > 0)
-					settings_manager::get_core()->migrate_to(p.context());
+					settings_manager::get_core()->migrate_to("master", p.context());
 				else
 					settings_manager::get_settings()->save();
 				rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);

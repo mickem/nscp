@@ -79,25 +79,25 @@ void nsclient_core::settings_client::terminate() {
 
 int nsclient_core::settings_client::migrate_from(std::string src) {
 	try {
-		debug_msg("Migrating from: " + expand_context(src));
-		get_core()->migrate_from(expand_context(src));
+		debug_msg(__FILE__, __LINE__, "Migrating from: " + expand_context(src));
+		get_core()->migrate_from("master", expand_context(src));
 		return 1;
 	} catch (settings::settings_exception e) {
-		error_msg("Failed to initialize settings: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 	} catch (...) {
-		error_msg("FATAL ERROR IN SETTINGS SUBSYTEM");
+		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}
 	return -1;
 }
 int nsclient_core::settings_client::migrate_to(std::string target) {
 	try {
-		debug_msg("Migrating to: " + expand_context(target));
-		get_core()->migrate_to(expand_context(target));
+		debug_msg(__FILE__, __LINE__, "Migrating to: " + expand_context(target));
+		get_core()->migrate_to("master", expand_context(target));
 		return 1;
-	} catch (settings::settings_exception e) {
-		error_msg("Failed to initialize settings: " + e.reason());
+	} catch (const settings::settings_exception &e) {
+		error_msg(e.file(), e.line(), "Failed to initialize settings: " + e.reason());
 	} catch (...) {
-		error_msg("FATAL ERROR IN SETTINGS SUBSYTEM");
+		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}
 	return -1;
 }
@@ -123,20 +123,20 @@ int nsclient_core::settings_client::generate(std::string target) {
 		} else if (target.empty()) {
 			get_core()->get()->save();
 		} else {
-			get_core()->get()->save_to(expand_context(target));
+			get_core()->get()->save_to("master", expand_context(target));
 		}
 		return 0;
 	} catch (settings::settings_exception e) {
-		error_msg("Failed to initialize settings: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 		return 1;
 	} catch (NSPluginException &e) {
-		error_msg("Failed to load plugins: " + utf8::utf8_from_native(e.what()));
+		error_msg(__FILE__, __LINE__, "Failed to load plugins: " + utf8::utf8_from_native(e.what()));
 		return 1;
 	} catch (std::exception &e) {
-		error_msg("Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 		return 1;
 	} catch (...) {
-		error_msg("FATAL ERROR IN SETTINGS SUBSYTEM");
+		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 		return 1;
 	}
 }
@@ -154,7 +154,7 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 	} else if (type == settings::settings_core::key_bool) {
 		get_core()->get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
 	} else {
-		error_msg("Failed to set key (not found)");
+		error_msg(__FILE__, __LINE__, "Failed to set key (not found)");
 		return -1;
 	}
 	get_core()->get()->save();
@@ -182,9 +182,9 @@ int nsclient_core::settings_client::list(std::string path) {
 	try {
 		dump_path(path);
 	} catch (settings::settings_exception e) {
-		error_msg("Settings error: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Settings error: " + e.reason());
 	} catch (...) {
-		error_msg("FATAL ERROR IN SETTINGS SUBSYTEM");
+		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}
 
 	return 0;
@@ -197,11 +197,11 @@ int nsclient_core::settings_client::validate() {
 	return 0;
 }
 
-void nsclient_core::settings_client::error_msg(std::string msg) {
-	core_->get_logger()->error("client", __FILE__, __LINE__, msg.c_str());
+void nsclient_core::settings_client::error_msg(const char* file, const int line, std::string msg) {
+	core_->get_logger()->error("client", file, line, msg.c_str());
 }
-void nsclient_core::settings_client::debug_msg(std::string msg) {
-	core_->get_logger()->debug("client", __FILE__, __LINE__, msg.c_str());
+void nsclient_core::settings_client::debug_msg(const char* file, const int line, std::string msg) {
+	core_->get_logger()->debug("client", file, line, msg.c_str());
 }
 
 void nsclient_core::settings_client::list_settings_info() {
