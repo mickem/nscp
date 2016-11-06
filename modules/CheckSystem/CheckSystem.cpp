@@ -45,6 +45,7 @@
 #include <compat.hpp>
 
 #include "check_memory.hpp"
+#include "check_process.hpp"
 
 #include <json_spirit.h>
 
@@ -884,18 +885,6 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 	memory_checks::memory::check(request, response);
 }
 
-class NSC_error : public process_helper::error_reporter {
-	void report_error(std::string error) {
-		NSC_LOG_ERROR(error);
-	}
-	void report_warning(std::string error) {
-		NSC_LOG_MESSAGE(error);
-	}
-	void report_debug(std::string error) {
-		NSC_DEBUG_MSG_STD(error);
-	}
-};
-
 void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
 	boost::program_options::options_description desc;
 	std::vector<std::string> excludes;
@@ -962,81 +951,7 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	check_process(request, response);
 }
 void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	typedef check_proc_filter::filter filter_type;
-	modern_filter::data_container data;
-	modern_filter::cli_helper<filter_type> filter_helper(request, response, data);
-	std::vector<std::string> processes;
-	bool deep_scan = true;
-	bool vdm_scan = false;
-	bool unreadable_scan = true;
-	bool delta_scan = false;
-	bool total = false;
-
-	NSC_error err;
-	filter_type filter;
-	filter_helper.add_filter_option("state != 'unreadable'");
-	filter_helper.add_warn_option("state not in ('started')");
-	filter_helper.add_crit_option("state = 'stopped'", "count = 0");
-
-	filter_helper.add_options(filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_filter_syntax(), "${exe}=${state}", "${exe}", "%(status): No processes found", "%(status): all processes are ok.");
-	filter_helper.get_desc().add_options()
-		("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
-		("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
-		("scan-16bit", po::value<bool>(&vdm_scan), "If 16bit processes should be included")
-		("delta", po::value<bool>(&delta_scan), "Calculate delta over one elapsed second.\nThis call will measure values and then sleep for 2 second and then measure again calculating deltas.")
-		("scan-unreadable", po::value<bool>(&unreadable_scan), "If unreadable processes should be included (will not have information)")
-		("total", po::bool_switch(&total), "Include the total of all matching files")
-		;
-
-	if (!filter_helper.parse_options())
-		return;
-
-	if (processes.empty()) {
-		processes.push_back("*");
-	}
-	if (!filter_helper.build_filter(filter))
-		return;
-
-	std::set<std::string> procs;
-	bool all = false;
-	BOOST_FOREACH(const std::string &process, processes) {
-		if (process == "*")
-			all = true;
-		else if (procs.count(process) == 0)
-			procs.insert(process);
-	}
-
-
-	std::vector<std::string> matched;
-	process_helper::process_list list = delta_scan ? process_helper::enumerate_processes_delta(!unreadable_scan, &err) : process_helper::enumerate_processes(!unreadable_scan, vdm_scan, deep_scan, &err);
-	BOOST_FOREACH(const process_helper::process_info &info, list) {
-		bool wanted = procs.count(info.exe);
-		if (all || wanted) {
-			boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
-			filter.match(record);
-		}
-		if (wanted) {
-			matched.push_back(info.exe);
-		}
-	}
-	BOOST_FOREACH(const std::string &proc, matched) {
-		procs.erase(proc);
-	}
-
-	boost::shared_ptr<process_helper::process_info> total_obj;
-	if (total)
-		total_obj = process_helper::process_info::get_total();
-
-	BOOST_FOREACH(const std::string proc, procs) {
-		boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(proc));
-		modern_filter::match_result ret = filter.match(record);
-		if (total_obj && ret.matched_filter)
-			total_obj->operator+=(*record);
-	}
-	if (total_obj)
-		filter.match(total_obj);
-	filter_helper.post_process(filter);
+	process_checks::process::check(request, response);
 }
 
 void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

@@ -23,6 +23,7 @@ SET(SRCS ${SRCS}
 
 	pdh_thread.cpp
 	check_network.cpp
+	check_process.cpp
 	check_memory.cpp
 	check_pdh.cpp
 	filter_config_object.cpp
@@ -67,6 +68,7 @@ IF(WIN32)
 		filter_config_object.hpp
 		realtime_data.hpp
 		check_network.hpp
+		check_process.hpp
 
 		${NSCP_INCLUDEDIR}/pdh/basic_impl.hpp
 		${NSCP_INCLUDEDIR}/pdh/pdh_collectors.hpp

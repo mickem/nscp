@@ -238,62 +238,6 @@ namespace check_uptime_filter {
 	}
 }
 
-namespace check_proc_filter {
-	parsers::where::node_type parse_state(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(filter_obj::parse_state(subject->get_string_value(context)));
-	}
-
-	filter_obj_handler::filter_obj_handler() {
-		static const parsers::where::value_type type_custom_state = parsers::where::type_custom_int_1;
-		static const parsers::where::value_type type_custom_start_type = parsers::where::type_custom_int_2;
-
-		registry_.add_string()
-			("filename", boost::bind(&filter_obj::get_filename, _1), "Name of process (with path)")
-			("exe", boost::bind(&filter_obj::get_exe, _1), "The name of the executable")
-			("error", boost::bind(&filter_obj::get_error, _1), "Any error messages associated with fetching info")
-			("command_line", boost::bind(&filter_obj::get_command_line, _1), "Command line of process (not always available)")
-			("legacy_state", boost::bind(&filter_obj::get_legacy_state_s, _1), "Get process status (for legacy use via check_nt only)")
-			;
-		registry_.add_int()
-			("pid", boost::bind(&filter_obj::get_pid, _1), "Process id")
-			("started", parsers::where::type_bool, boost::bind(&filter_obj::get_started, _1), "Process is started")
-			("hung", parsers::where::type_bool, boost::bind(&filter_obj::get_hung, _1), "Process is hung")
-			("stopped", parsers::where::type_bool, boost::bind(&filter_obj::get_stopped, _1), "Process is stopped")
-			;
-		registry_.add_int()
-			("handles", boost::bind(&filter_obj::get_handleCount, _1), "Number of handles").add_perf("", "", " handle count")
-			("gdi_handles", boost::bind(&filter_obj::get_gdiHandleCount, _1), "Number of handles").add_perf("", "", " GDI handle count")
-			("user_handles", boost::bind(&filter_obj::get_userHandleCount, _1), "Number of handles").add_perf("", "", " USER handle count")
-			("peak_virtual", parsers::where::type_size, boost::bind(&filter_obj::get_PeakVirtualSize, _1), "Peak virtual size in bytes").add_scaled_byte(std::string(""), " pv_size")
-			("virtual", parsers::where::type_size, boost::bind(&filter_obj::get_VirtualSize, _1), "Virtual size in bytes").add_scaled_byte(std::string(""), " v_size")
-			("page_fault", boost::bind(&filter_obj::get_PageFaultCount, _1), "Page fault count").add_perf("", "", " pf_count")
-			("peak_working_set", parsers::where::type_size, boost::bind(&filter_obj::get_PeakWorkingSetSize, _1), "Peak working set in bytes").add_scaled_byte(std::string(""), " pws_size")
-			("working_set", parsers::where::type_size, boost::bind(&filter_obj::get_WorkingSetSize, _1), "Working set in bytes").add_scaled_byte(std::string(""), " ws_size")
-			// 			("qouta", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaPeakNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			// 			("virtual_size", parsers::where::type_size, boost::bind(&filter_obj::get_QuotaNonPagedPoolUsage, _1), "TODO").add_scaled_byte(std::string(""), " v_size")
-			("peak_pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PagefileUsage, _1), "Page file usage in bytes").add_scaled_byte(std::string(""), " ppf_use")
-			("pagefile", parsers::where::type_size, boost::bind(&filter_obj::get_PeakPagefileUsage, _1), "Peak page file use in bytes").add_scaled_byte(std::string(""), " pf_use")
-
-			("creation", parsers::where::type_date, boost::bind(&filter_obj::get_creation_time, _1), "Creation time").add_perf("", "", " creation")
-			("kernel", boost::bind(&filter_obj::get_kernel_time, _1), "Kernel time in seconds").add_perf("", "", " kernel")
-			("user", boost::bind(&filter_obj::get_user_time, _1), "User time in seconds").add_perf("", "", " user")
-			("time", boost::bind(&filter_obj::get_total_time, _1), "User-kernel time in seconds").add_perf("", "", " total")
-
-			("state", type_custom_state, boost::bind(&filter_obj::get_state_i, _1), "The current state (started, stopped hung)").add_perf("", "", " state")
-			;
-
-		registry_.add_human_string()
-			("state", boost::bind(&filter_obj::get_state_s, _1), "The current state (started, stopped hung)")
-			;
-
-		registry_.add_converter()
-			(type_custom_state, &parse_state)
-			;
-	}
-}
-
 namespace os_version_filter {
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_int()
