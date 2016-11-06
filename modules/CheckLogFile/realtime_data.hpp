@@ -7,7 +7,9 @@
 
 struct runtime_data {
 	struct transient_data_impl {
-		std::string to_string() const { return ""; }
+		std::string path_;
+		transient_data_impl(std::string path) : path_(path) {}
+		std::string to_string() const { return path_; }
 	};
 	typedef logfile_filter::filter filter_type;
 	typedef boost::shared_ptr<transient_data_impl> transient_data_type;
