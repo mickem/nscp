@@ -82,7 +82,7 @@ void real_time_thread::thread_proc() {
 	NSC_DEBUG_MSG_STD("Subscribing to folders: " + strEx::s::joinEx(logs, ", "));
 	std::vector<std::string> files_list(logs.begin(), logs.end());
 #ifdef WIN32
-	HANDLE *handles = new HANDLE[1 + logs.size()];
+	HANDLE *handles = new HANDLE[1 + files_list.size()];
 	handles[0] = stop_event_;
 	for (int i = 0; i < files_list.size(); i++) {
 		handles[i + 1] = FindFirstChangeNotification(utf8::cvt<std::wstring>(files_list[i]).c_str(), TRUE, FILE_NOTIFY_CHANGE_SIZE);
@@ -102,6 +102,7 @@ void real_time_thread::thread_proc() {
 
 	while (true) {
 		filter_helper::op_duration dur = helper.find_minimum_timeout();
+		std::string trigger_folder;
 #ifdef WIN32
 		DWORD dwWaitTime = INFINITE;
 		if (dur && dur->total_milliseconds() < 0)
@@ -115,7 +116,9 @@ void real_time_thread::thread_proc() {
 			delete[] handles;
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + files_list.size())) {
-			FindNextChangeNotification(handles[dwWaitReason - WAIT_OBJECT_0]);
+			int id = dwWaitReason - WAIT_OBJECT_0;
+			FindNextChangeNotification(handles[id]);
+			trigger_folder = files_list[id-1];
 		}
 #else
 
@@ -138,14 +141,14 @@ void real_time_thread::thread_proc() {
 			length = read(pollfds[0].fd, buffer, BUF_LEN);
 			for (int j = 0; j < length;) {
 				struct inotify_event * event = (struct inotify_event *) &buffer[j];
-				std::wstring wstr = utf8::cvt<std::wstring>(event->name);
+				trigger_folder = event->name;
 				j += EVENT_SIZE + event->len;
 			}
 		} else {
 			NSC_LOG_ERROR("Strange, please report this...");
 		}
 #endif
-		helper.process_items(boost::shared_ptr<runtime_data::transient_data_impl>());
+		helper.process_items(boost::shared_ptr<runtime_data::transient_data_impl>(new runtime_data::transient_data_impl(trigger_folder)));
 
 	}
 
