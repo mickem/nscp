@@ -135,29 +135,6 @@ message Common {
 		repeated Host hosts = 10;
 	};
 
-	//
-	// Attachment is used to attach information to another request.
-	// This is usually used to send along additional information not directly relatedt to the request.
-	// Or send unstructured data which is not supported by the original request.
-	//
-	message Attachment {
-
-		// Identifier of attachment (for reference purpouses)
-		optional int64 id = 1;
-
-		// The mime type for this attachment.
-		required string type = 2;
-
-		// Meta data related to the attachment.
-		repeated Common.KeyValue metadata = 3;
-
-		// A list of tags associated with the attachment.
-		repeated string tags = 4;
-
-		// The actual attachment (encoded)
-		required string data = 5;
-	};
-	
 	message PerformanceData {
 		message IntValue {
 			required int64 value = 1;
@@ -235,16 +212,10 @@ message QueryRequestMessage {
 		required string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 4;
-
-		// The attachment is used to attach additional free form information.
-		repeated Common.Attachment attachments = 17;
 	};
 
 	optional Common.Header header = 1;
 	repeated Request payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 
 //
@@ -269,17 +240,12 @@ message QueryResponseMessage {
 		required Common.ResultCode result = 4;
 		repeated Line lines = 9;
 
-		// The attachment is used to attach additional free form information.
-		repeated Common.Attachment attachments = 17;
 		optional bytes data = 5;
 		
 	}
 
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 
 //
@@ -292,16 +258,10 @@ message ExecuteRequestMessage {
 		optional int32 id = 1;
 		required string command = 2;
 		repeated string arguments = 3;
-
-		// The attachment is used to attach additional free form information.
-		repeated Common.Attachment attachments = 17;
 	};
 
 	optional Common.Header header = 1;
 	repeated Request payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 message ExecuteResponseMessage {
 	message Response {
@@ -312,16 +272,9 @@ message ExecuteResponseMessage {
 		required Common.ResultCode result = 9;
 		required string message = 10;
 		optional bytes data = 7;
-
-		// The attachment is used to attach additional free form information.
-		repeated Common.Attachment attachments = 17;
-		
 	}
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 
 //
@@ -334,9 +287,6 @@ message SubmitRequestMessage {
 	optional Common.Header header = 1;
 	required string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 4;
 }
 
 //
@@ -349,15 +299,9 @@ message SubmitResponseMessage {
 		optional int32 id = 1;
 		required string command = 2;
 		required Common.Result result = 3;
-
-		// The attachment is used to attach additional free form information.
-		repeated Common.Attachment attachments = 17;
 	};
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 
 
@@ -671,9 +615,6 @@ message MetricsQueryMessage {
 
 	optional Common.Header header = 1;
 	repeated Request payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
 
 //
@@ -690,8 +631,15 @@ message MetricsMessage {
 
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
-
-	// The attachment is used to attach additional free form information.
-	repeated Common.Attachment attachments = 3;
 }
+
+
+
+
+
+
+
+
+
+
 
