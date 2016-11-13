@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <strEx.h>
 
 #include <parsers/where/engine.hpp>
 #include <boost/foreach.hpp>
@@ -93,6 +94,10 @@ namespace parsers {
 
 
 
+		std::string engine_filter::to_string() const {
+			return filter_string;
+		}
+
 		engine::engine(std::vector<std::string> filter, error_handler error) : error(error) {
 			BOOST_FOREACH(const std::string &s, filter) {
 				filters_.push_back(engine_filter(s));
@@ -122,5 +127,14 @@ namespace parsers {
 			}
 			return false;
 		}
+
+		std::string engine::to_string() const {
+			std::string ret = "";
+			BOOST_FOREACH(const engine_filter &f, filters_) {
+				strEx::append_list(ret, f.to_string(), ", ");
+			}
+			return ret;
+		}
+
 	}
 }

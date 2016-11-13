@@ -48,6 +48,8 @@ namespace parsers {
 
 			bool match(error_handler error, execution_context_type context, bool expect_object);
 
+			std::string to_string() const;
+
 		};
 
 		struct NSCAPI_EXPORT engine {
@@ -74,6 +76,8 @@ namespace parsers {
 			bool match(execution_context_type context, bool expect_object);
 
 			std::string get_subject() { return "TODO"; }
+
+			std::string to_string() const;
 		};
 	}
 }
