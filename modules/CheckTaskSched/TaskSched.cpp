@@ -61,9 +61,6 @@ void find_old(tasksched_filter::filter &filter) {
 			CoTaskMemFree(lpwszNames[dwFetchedTasks]);
 			boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::old_filter_obj((ITask*)task, title));
 			modern_filter::match_result ret = filter.match(record);
-			if (ret.is_done) {
-				break;
-			}
 		}
 		CoTaskMemFree(lpwszNames);
 	}
@@ -147,9 +144,6 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 		if (SUCCEEDED(hr)) {
 			boost::shared_ptr<tasksched_filter::filter_obj> record(new tasksched_filter::new_filter_obj((IRegisteredTask*)pRegisteredTask, folder));
 			modern_filter::match_result ret = filter.match(record);
-			if (ret.is_done) {
-				break;
-			}
 		}
 	}
 

@@ -217,9 +217,6 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 				break;
 			}
 			modern_filter::match_result ret = filter.match(filter_type::object_type(new eventlog_filter::old_filter_obj(ltime, logfile, pevlr, truncate_message)));
-			if (ret.is_done) {
-				break;
-			}
 			dwRead -= pevlr->Length;
 			pevlr = reinterpret_cast<EVENTLOGRECORD*>((LPBYTE)pevlr + pevlr->Length);
 		}
@@ -296,11 +293,6 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 						return;
 					}
 					modern_filter::match_result ret = filter.match(item);
-					if (ret.is_done) {
-						for (; i < dwReturned; i++)
-							eventlog::EvtClose(hEvents[i]);
-						break;
-					}
 				} catch (const nscp_exception &e) {
 					for (; i < dwReturned; i++)
 						eventlog::EvtClose(hEvents[i]);

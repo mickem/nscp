@@ -39,7 +39,6 @@ void runtime_data::add_file(const std::string &file) {
 	files.push_back(boost::to_lower_copy(file));
 }
 
-bool runtime_data::process_item(filter_type &filter, transient_data_type record) {
-	filter.match(record);
-	return filter.summary.get_count_match() > 0;
+modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type record) {
+	return filter.match(record);
 }

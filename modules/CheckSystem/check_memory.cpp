@@ -72,6 +72,7 @@ namespace check_mem_filter {
 		std::string get_free_human() const {
 			return format::format_byte_units(get_free());
 		}
+
 	};
 
 	parsers::where::node_type calculate_free(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
@@ -161,8 +162,8 @@ namespace memory_checks {
 			checks.push_back(data);
 		}
 
-		bool runtime_data::process_item(filter_type &filter, transient_data_type memoryChecker) {
-			bool matched = false;
+		modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type memoryChecker) {
+			modern_filter::match_result ret;
 			CheckMemory::memData mem_data;
 			try {
 				mem_data = memoryChecker->getMemoryStatus();
@@ -181,16 +182,9 @@ namespace memory_checks {
 					total = mem_data.virt.total;
 				}
 				boost::shared_ptr<check_mem_filter::filter_obj> record(new check_mem_filter::filter_obj(type, used, total));
-				modern_filter::match_result ret = filter.match(record);
-
-				if (ret.matched_bound) {
-					matched = true;
-					if (ret.is_done) {
-						break;
-					}
-				}
+				ret.append(filter.match(record));
 			}
-			return matched;
+			return ret;
 		}
 
 

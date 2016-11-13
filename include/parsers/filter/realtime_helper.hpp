@@ -129,11 +129,13 @@ namespace parsers {
 				if (item->severity != -1)
 					item->filter.summary.returnCode = item->severity;
 
-				if (!item->data.process_item(item->filter, data)) {
+				modern_filter::match_result result = item->data.process_item(item->filter, data);
+				if (!result.matched_filter) {
 					return false;
 				}
 
 				nscapi::core_helper ch(core, plugin_id);
+
 				std::string message = item->filter.get_message();
 				if (message.empty())
 					message = "Nothing matched";

@@ -63,9 +63,6 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 			if (total_obj && (ret.matched_filter || total_all))
 				total_obj->add(info);
 			FindClose(hFind);
-			if (ret.is_done) {
-				return;
-			}
 		} else {
 			context.report_error("File was NOT found!");
 		}
@@ -82,10 +79,6 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 			modern_filter::match_result ret = filter.match(info);
 			if (total_obj && (ret.matched_filter || total_all))
 				total_obj->add(info);
-			if (ret.is_done) {
-				FindClose(hFind);
-				return;
-			}
 		} while (FindNextFile(hFind, &wfd));
 		FindClose(hFind);
 	}

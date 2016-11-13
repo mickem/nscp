@@ -30,6 +30,6 @@ struct runtime_data {
 	void boot() {}
 	void touch(boost::posix_time::ptime) {}
 	bool has_changed(transient_data_type record) const;
-	bool process_item(filter_type &filter, transient_data_type data);
+	modern_filter::match_result process_item(filter_type &filter, transient_data_type data);
 	void add_file(const std::string &file);
 };

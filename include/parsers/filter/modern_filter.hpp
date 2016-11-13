@@ -160,12 +160,36 @@ namespace modern_filter {
 	struct match_result {
 		bool matched_filter;
 		bool matched_bound;
-		bool is_done;
+		bool is_done_;
+
+
+		match_result()
+			: matched_filter(false)
+			, matched_bound(false)
+			, is_done_(false)
+		{}
 
 		match_result(bool matched_filter, bool matched_bound)
 			: matched_filter(matched_filter)
 			, matched_bound(matched_bound)
-			, is_done(false) {}
+			, is_done_(false) {}
+
+		match_result(const match_result &other)
+			: matched_filter(other.matched_filter)
+			, matched_bound(other.matched_bound)
+			, is_done_(other.is_done_) {}
+
+		const match_result& operator=(const match_result &other) {
+			matched_filter = other.matched_filter;
+			matched_bound = other.matched_bound;
+			is_done_ = other.is_done_;
+		}
+
+		void append(const match_result &other) {
+			matched_filter |= other.matched_filter;
+			matched_bound |= other.matched_bound;
+			is_done_ |= other.is_done_;
+		}
 	};
 
 	class error_handler_impl : public parsers::where::error_handler_interface{

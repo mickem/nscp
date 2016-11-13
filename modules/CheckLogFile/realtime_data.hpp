@@ -42,7 +42,7 @@ struct runtime_data {
 	void boot() {}
 	void touch(boost::posix_time::ptime now);
 	bool has_changed(transient_data_type) const;
-	bool process_item(filter_type &filter, transient_data_type);
+	modern_filter::match_result process_item(filter_type &filter, transient_data_type);
 	void set_split(std::string line, std::string column);
 
 	void add_file(const boost::filesystem::path &path);

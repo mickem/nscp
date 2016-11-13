@@ -37,7 +37,7 @@ namespace check_cpu_filter {
 		void boot() {}
 		void touch(boost::posix_time::ptime now) {}
 		bool has_changed(transient_data_type) const { return true; }
-		bool process_item(filter_type &filter, transient_data_type);
+		modern_filter::match_result process_item(filter_type &filter, transient_data_type);
 		void add(const std::string &time);
 	};
 }

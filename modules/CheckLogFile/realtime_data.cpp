@@ -58,8 +58,8 @@ void runtime_data::add_file(const boost::filesystem::path &path) {
 	}
 }
 
-bool runtime_data::process_item(filter_type &filter, transient_data_type) {
-	bool matched = false;
+modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type) {
+	modern_filter::match_result ret;
 	BOOST_FOREACH(file_container &c, files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
 		if (sz == c.size)
@@ -74,13 +74,7 @@ bool runtime_data::process_item(filter_type &filter, transient_data_type) {
 				if (!line.empty()) {
 					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
-					modern_filter::match_result ret = filter.match(record);
-					if (ret.matched_bound) {
-						matched = true;
-						if (ret.is_done) {
-							break;
-						}
-					}
+					ret.append(filter.match(record));
 				}
 			}
 			file.close();
@@ -88,7 +82,7 @@ bool runtime_data::process_item(filter_type &filter, transient_data_type) {
 			NSC_LOG_ERROR("Failed to open file: " + c.file.string());
 		}
 	}
-	return matched;
+	return ret;
 }
 
 void runtime_data::set_split(std::string line, std::string column) {
