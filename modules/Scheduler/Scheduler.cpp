@@ -105,7 +105,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 void Scheduler::add_schedule(std::string key, std::string arg) {
 	try {
-		schedules_.add(get_settings_proxy(), key, arg, key == "default");
+		schedules_.add(get_settings_proxy(), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
 	} catch (...) {

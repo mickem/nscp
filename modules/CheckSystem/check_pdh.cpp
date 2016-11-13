@@ -98,7 +98,7 @@ namespace check_pdh {
 	}
 	void check::add_counter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 		try {
-			counters_.add(proxy, key, query, key == "default");
+			counters_.add(proxy, key, query);
 		} catch (const std::exception &e) {
 			NSC_LOG_ERROR_EXR("Failed to add counter: " + key, e);
 		} catch (...) {

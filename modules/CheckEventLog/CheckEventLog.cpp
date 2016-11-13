@@ -115,7 +115,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	settings.notify();
 
 	thread_->filters_.add_samples(get_settings_proxy());
-	thread_->filters_.add_missing(get_settings_proxy(), "default", "", true);
+	thread_->filters_.add_missing(get_settings_proxy(), "default", "");
 
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())

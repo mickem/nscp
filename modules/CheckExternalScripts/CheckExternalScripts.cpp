@@ -212,10 +212,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		std::string alias_path = settings.alias().get_settings_path("alias");
 
 		commands_.add_samples(get_settings_proxy());
-		commands_.add_missing(get_settings_proxy(), "default", "", true);
+		commands_.add_missing(get_settings_proxy(), "default", "");
 
 		aliases_.add_samples(get_settings_proxy());
-		aliases_.add_missing(get_settings_proxy(), "default", "", true);
+		aliases_.add_missing(get_settings_proxy(), "default", "");
 
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);
@@ -499,7 +499,7 @@ void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Reques
 
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
-		commands_.add(get_settings_proxy(), key, arg, key == "default");
+		commands_.add(get_settings_proxy(), key, arg);
 		if (arg.find("$ARG") != std::string::npos) {
 			if (!allowArgs_) {
 				NSC_DEBUG_MSG_STD("Detected a $ARG??$ expression with allowed arguments flag set to false (perhaps this is not the intent)");
@@ -518,7 +518,7 @@ void CheckExternalScripts::add_command(std::string key, std::string arg) {
 }
 void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 	try {
-		aliases_.add(get_settings_proxy(), key, arg, key == "default");
+		aliases_.add(get_settings_proxy(), key, arg);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add: " + key, e);
 	} catch (...) {

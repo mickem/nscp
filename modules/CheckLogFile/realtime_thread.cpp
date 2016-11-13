@@ -188,7 +188,7 @@ bool real_time_thread::stop() {
 
 void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
 	try {
-		filters_.add(proxy, key, query, key == "default");
+		filters_.add(proxy, key, query);
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to add command: " + utf8::cvt<std::string>(key), e);
 	} catch (...) {

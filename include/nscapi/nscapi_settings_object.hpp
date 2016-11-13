@@ -249,10 +249,10 @@ namespace nscapi {
 				path = path_;
 			}
 
-			void add_missing(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool is_template = false) {
+			void add_missing(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value) {
 				if (has_object(alias))
 					return;
-				add(proxy, alias, value, is_template);
+				add(proxy, alias, value);
 			}
 
 			void add_samples(boost::shared_ptr<nscapi::settings_proxy> proxy) {
@@ -274,10 +274,11 @@ namespace nscapi {
 			void ensure_default() {
 				if (has_object("default"))
 					return;
-				add(boost::shared_ptr<nscapi::settings_proxy>(), "default", "", true);
+				add(boost::shared_ptr<nscapi::settings_proxy>(), "default", "");
 			}
 
-			object_instance add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool is_template = false) {
+			object_instance add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool force_template = false) {
+				bool is_template = (alias == "default") || force_template;
 				object_instance previous = find_object(alias);
 				if (previous) {
 					return previous;
@@ -291,11 +292,13 @@ namespace nscapi {
 						object_instance parent;
 						if (has_object(parent_name))
 							parent = find_object(parent_name);
-						else
-							parent = add(proxy, parent_name, "", true);
+ 						else
+ 							parent = add(proxy, parent_name, "", true);
 						if (parent) {
 							object = factory->clone(parent, alias, path);
 							object->make_template(false);
+						} else {
+							throw nscapi_exception("Failed to create settings object for: " + alias);
 						}
 					} else {
 						object = factory->create(alias, path);

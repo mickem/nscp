@@ -566,5 +566,5 @@ void client::configuration::do_metrics(const Plugin::MetricsMessage &request) {
 
 void client::configuration::finalize(boost::shared_ptr<nscapi::settings_proxy> settings) {
 	targets.add_samples(settings);
-	targets.add_missing(settings, "default", "", true);
+	targets.add_missing(settings, "default", "");
 }
