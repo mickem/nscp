@@ -61,6 +61,7 @@ public:
 	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
 	void submitMetrics(const Plugin::MetricsMessage &response);
 	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+	void onEvent(const Plugin::EventMessage &request, const std::string &buffer);
 
 	void list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 	void execute_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);

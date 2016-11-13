@@ -20,5 +20,7 @@
 
 	"metrics" : "both",
 
-	"channels" : true
+	"channels" : true,
+
+	"events": true
 }

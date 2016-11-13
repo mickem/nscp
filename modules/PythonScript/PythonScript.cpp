@@ -73,6 +73,8 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("simple_subscription", &script_wrapper::function_wrapper::subscribe_simple_function)
 		.def("submit_metrics", &script_wrapper::function_wrapper::register_submit_metrics)
 		.def("fetch_metrics", &script_wrapper::function_wrapper::register_fetch_metrics)
+		.def("event_pb", &script_wrapper::function_wrapper::register_event_pb)
+		.def("event", &script_wrapper::function_wrapper::register_event)
 		.def("query", &script_wrapper::function_wrapper::query)
 		;
 	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
@@ -574,8 +576,22 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 		return nscapi::protobuf::functions::set_response_good(*response, "");
 	}
 	return nscapi::protobuf::functions::set_response_bad(*response, "Unable to process message: " + channel);
+}
 
-
+void PythonScript::onEvent(const Plugin::EventMessage &request, const std::string &buffer) {
+	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
+	if (inst->has_event_handler("$$event$$")) {
+		inst->on_event("$$event$$", buffer);
+	}
+	BOOST_FOREACH(const ::Plugin::EventMessage::Request &line, request.payload()) {
+		if (inst->has_simple_event_handler(line.event())) {
+			boost::python::dict data;
+			BOOST_FOREACH(const ::Plugin::Common::KeyValue e, line.data()) {
+				data[e.key()] = e.value();
+			}
+			inst->on_simple_event(line.event(), data);
+		}
+	}
 }
 
 void PythonScript::submitMetrics(const Plugin::MetricsMessage &response) {

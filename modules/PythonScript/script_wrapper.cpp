@@ -305,6 +305,37 @@ void script_wrapper::function_wrapper::register_fetch_metrics(PyObject* callable
 		NSC_LOG_ERROR_EX("Query failed");
 	}
 }
+tuple script_wrapper::function_wrapper::register_event_pb(std::string event, PyObject* callable) {
+	try {
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_event(event);
+		boost::python::handle<> h(boost::python::borrowed(callable));
+		functions::get()->normal_handler[event] = h;
+		return boost::python::make_tuple(true, "");
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Query failed: ", e);
+		return boost::python::make_tuple(false, utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Query failed");
+		return boost::python::make_tuple(false, std::wstring());
+	}
+}
+
+tuple script_wrapper::function_wrapper::register_event(std::string event, PyObject* callable) {
+	try {
+		nscapi::core_helper ch(core, plugin_id);
+		ch.register_event(event);
+		boost::python::handle<> h(boost::python::borrowed(callable));
+		functions::get()->simple_handler[event] = h;
+		return boost::python::make_tuple(true, "");
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Query failed: ", e);
+		return boost::python::make_tuple(false, utf8::cvt<std::wstring>(e.what()));
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Query failed");
+		return boost::python::make_tuple(false, std::wstring());
+	}
+}
 
 int script_wrapper::function_wrapper::handle_query(const std::string cmd, const std::string &request, std::string &response) const {
 	try {
@@ -528,6 +559,56 @@ int script_wrapper::function_wrapper::handle_simple_message(const std::string ch
 	} catch (...) {
 		NSC_LOG_ERROR_EX(channel);
 		return NSCAPI::api_return_codes::hasFailed;
+	}
+}
+
+
+
+bool script_wrapper::function_wrapper::has_event_handler(const std::string channel) {
+	return functions::get()->normal_handler.find(channel) != functions::get()->normal_handler.end();
+}
+bool script_wrapper::function_wrapper::has_simple_event_handler(const std::string channel) {
+	return functions::get()->simple_handler.find(channel) != functions::get()->simple_handler.end();
+}
+
+void script_wrapper::function_wrapper::on_event(const std::string event, const std::string &request) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->normal_handler.find(event);
+		if (it == functions::get()->normal_handler.end()) {
+			NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
+		}
+		{
+			thread_locker locker;
+			try {
+				boost::python::call<object>(boost::python::object(it->second).ptr(), event, request);
+			} catch (error_already_set e) {
+				log_exception();
+			}
+		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR(event, e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX(event);
+	}
+}
+void script_wrapper::function_wrapper::on_simple_event(const std::string event, const boost::python::dict &data) const {
+	try {
+		functions::function_map_type::iterator it = functions::get()->simple_handler.find(event);
+		if (it == functions::get()->simple_handler.end()) {
+			NSC_LOG_ERROR_STD("Failed to find python handler: " + event);
+		}
+		{
+			thread_locker locker;
+			try {
+				boost::python::call<object>(boost::python::object(it->second).ptr(), event, data);
+			} catch (error_already_set e) {
+				log_exception();
+			}
+		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR(event, e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX(event);
 	}
 }
 

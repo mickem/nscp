@@ -162,8 +162,15 @@ namespace script_wrapper {
 		bool has_message_handler(const std::string command);
 		bool has_simple_message_handler(const std::string command);
 
+		void on_simple_event(const std::string event, const boost::python::dict &data) const;
+		void on_event(const std::string event, const std::string &request) const;
+		bool has_event_handler(const std::string event);
+		bool has_simple_event_handler(const std::string event);
+
 		void register_submit_metrics(PyObject* callable);
 		void register_fetch_metrics(PyObject* callable);
+		tuple register_event(std::string event, PyObject* callable);
+		tuple register_event_pb(std::string event, PyObject* callable);
 		void submit_metrics(const std::string &request) const;
 		void fetch_metrics(std::string &request) const;
 
