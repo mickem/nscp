@@ -59,6 +59,29 @@ namespace nscapi {
 				, target(target)
 				, severity(-1) {}
 
+			filter_object(const filter_object &other)
+				: debug(other.debug)
+				, escape_html(other.escape_html)
+				, syntax_top(other.syntax_top)
+				, syntax_detail(other.syntax_detail)
+				, target(other.target)
+				, syntax_ok(other.syntax_ok)
+				, syntax_empty(other.syntax_empty)
+				, filter_string(other.filter_string)
+				, filter_ok(other.filter_ok)
+				, filter_warn(other.filter_warn)
+				, filter_crit(other.filter_crit)
+				, perf_data(other.perf_data)
+				, perf_config(other.perf_config)
+				, severity(other.severity) 
+				, command(other.command)
+				, max_age(other.max_age)
+				, target_id(other.target_id)
+				, source_id(other.source_id)
+				, timeout_msg(other.timeout_msg)
+			{}
+
+
 			std::string to_string() const {
 				std::stringstream ss;
 				ss << "{TODO}";
