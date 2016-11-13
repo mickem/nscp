@@ -125,6 +125,9 @@ namespace parsers {
 
 			bool process_item(container_type item, transient_data_type data) {
 				std::string response;
+				if (item->target == "events") {
+					item->filter.fetch_hash(true);
+				}
 				item->filter.start_match();
 				if (item->severity != -1)
 					item->filter.summary.returnCode = item->severity;
@@ -135,6 +138,13 @@ namespace parsers {
 				}
 
 				nscapi::core_helper ch(core, plugin_id);
+				if (item->target == "events") {
+					std::list<std::map<std::string, std::string> > keys = item->filter.records_;
+					if (!ch.emit_event("CheckSystem", "name", keys, response)) {
+						NSC_LOG_ERROR("Failed to submit '" + response);
+					}
+					return true;
+				}
 
 				std::string message = item->filter.get_message();
 				if (message.empty())

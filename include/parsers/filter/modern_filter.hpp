@@ -105,6 +105,49 @@ namespace modern_filter {
 	};
 
 	template<class Tfactory>
+	struct filter_hash_renderer {
+		struct my_entry {
+			std::string key;
+			parsers::where::node_type node;
+			my_entry(const std::string &key, parsers::where::node_type node) : key(key), node(node) {}
+			my_entry(const my_entry &other) : key(other.key), node(other.node) {}
+			const my_entry& operator= (const my_entry &other) {
+				key = other.key;
+				node = other.node;
+				return *this;
+			}
+		};
+
+		typedef std::list<my_entry> entry_list;
+		entry_list entries;
+		filter_hash_renderer() {}
+
+		bool empty() const {
+			return entries.empty();
+		}
+		bool parse(boost::shared_ptr<Tfactory> context) {
+			BOOST_FOREACH(const std::string &e, context->get_variables()) {
+				my_entry my_e(e, context->create_variable(e, true));
+				entries.push_back(my_e);
+			}
+			return true;
+		}
+		std::map<std::string,std::string> render(boost::shared_ptr<Tfactory> context) const {
+			std::map<std::string, std::string> ret;
+			BOOST_FOREACH(const my_entry &e, entries) {
+				if (e.node->is_int())
+					ret[e.key] = strEx::s::xtos_non_sci(e.node->get_int_value(context));
+				else if (e.node->is_float())
+					ret[e.key] = strEx::s::xtos(e.node->get_float_value(context));
+				else
+					ret[e.key] = e.node->get_string_value(context);
+			}
+			return ret;
+		}
+	};
+
+
+	template<class Tfactory>
 	struct perf_config_parser {
 		typedef std::map<std::string, std::string> values_type;
 		struct config_entry {
@@ -216,6 +259,7 @@ namespace modern_filter {
 
 		filter_text_renderer<Tfactory> renderer_top;
 		filter_text_renderer<Tfactory> renderer_detail;
+		filter_hash_renderer<Tfactory> renderer_hash;
 		filter_text_renderer<Tfactory> renderer_perf;
 		filter_text_renderer<Tfactory> renderer_unqiue;
 		filter_text_renderer<Tfactory> renderer_ok;
@@ -228,6 +272,10 @@ namespace modern_filter {
 		parsers::where::generic_summary<object_type> summary;
 		boost::unordered_set<std::string> unique_index;
 		bool has_matched;
+		bool fetch_hash_;
+		typedef std::map<std::string, std::string> hash_type;
+		typedef std::list<hash_type> hash_list_type;
+		hash_list_type records_;
 		boost::shared_ptr<Tfactory> context;
 		bool has_unique_index;
 		error_type error_handler;
@@ -246,7 +294,7 @@ namespace modern_filter {
 		typedef std::map<std::string, perf_entry> leaf_performance_entry_type;
 		leaf_performance_entry_type leaf_performance_data;
 
-		modern_filters() : context(new Tfactory()), has_unique_index(false) {
+		modern_filters() : context(new Tfactory()), fetch_hash_(false), has_unique_index(false) {
 			context->set_summary(&summary);
 		}
 
@@ -287,6 +335,9 @@ namespace modern_filter {
 			if (!renderer_empty.parse(context, empty_syntax, lerror)) {
 				gerror = "Invalid syntax: " + lerror;
 				return false;
+			}
+			if (fetch_hash_) {
+				renderer_hash.parse(context);
 			}
 			return true;
 		}
@@ -405,6 +456,9 @@ namespace modern_filter {
 		bool has_filter() const {
 			return engine_filter;
 		}
+		void fetch_hash(bool fetch_hash) {
+			fetch_hash_ = fetch_hash;
+		}
 		void start_match() {
 			summary.returnCode = NSCAPI::query_return_codes::returnOK;
 			has_matched = false;
@@ -419,6 +473,7 @@ namespace modern_filter {
 			summary.count();
 			if (!engine_filter || engine_filter->match(context, true)) {
 				matched_filter = true;
+				records_.push_back(renderer_hash.render(context));
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
 				bool second_unique_match = false;
