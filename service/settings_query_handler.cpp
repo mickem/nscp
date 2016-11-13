@@ -40,7 +40,7 @@ namespace nsclient {
 						return parse_inventory(r.inventory(), rp);
 					} else if (r.has_query()) {
 						return parse_query(r.query(), rp);
-					} else if (r.has_registration(), rp) {
+					} else if (r.has_registration()) {
 						return parse_registration(r.registration(), r.plugin_id(), rp);
 					} else if (r.has_update()) {
 						const Plugin::SettingsRequestMessage::Request::Update &p = r.update();
