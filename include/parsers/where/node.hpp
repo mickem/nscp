@@ -222,6 +222,7 @@ namespace parsers {
 
 		struct any_node;
 		typedef boost::shared_ptr<any_node> node_type;
+		typedef std::list<std::string> variable_list_type;
 
 		struct performance_data {
 			template<class T>

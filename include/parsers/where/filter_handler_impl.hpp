@@ -349,6 +349,13 @@ namespace parsers {
 				}
 				return boost::shared_ptr<filter_converter<T> >(new filter_converter<T>(type_tbd));
 			}
+			std::list<std::string> get_variables() const {
+				std::list<std::string> ret;
+				BOOST_FOREACH(const variable_type::value_type &v, variables) {
+					ret.push_back(v.first);
+				}
+				return ret;
+			}
 			boost::shared_ptr<filter_function> get_function(const std::string &key) const {
 				typename function_type::const_iterator cit = functions.find(key);
 				if (cit != functions.end()) {
@@ -614,6 +621,11 @@ namespace parsers {
 			virtual node_type create_text_function(const std::string &name) {
 				return create_function(name, parsers::where::factory::create_list());
 			}
+
+			virtual variable_list_type get_variables() {
+				return registry_.get_variables();
+			}
+
 			virtual node_type create_function(const std::string &name, node_type subject) {
 				if (!registry_.has_function(name))
 					return parsers::where::factory::create_false();
