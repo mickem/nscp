@@ -146,12 +146,12 @@ namespace memory_checks {
 			void boot() {}
 			void touch(boost::posix_time::ptime now) {}
 			bool has_changed(transient_data_type) const { return true; }
-			bool process_item(filter_type &filter, transient_data_type);
+			modern_filter::match_result process_item(filter_type &filter, transient_data_type);
 			void add(const std::string &data);
 		};
 
 		struct mem_filter_helper_wrapper {
-			typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> mem_filter_helper;
+			typedef parsers::where::realtime_filter_helper<runtime_data, filters::mem::filter_config_object> mem_filter_helper;
 			mem_filter_helper helper;
 
 			mem_filter_helper_wrapper(nscapi::core_wrapper *core, int plugin_id) : helper(core, plugin_id) {}
@@ -191,7 +191,7 @@ namespace memory_checks {
 		helper::helper(nscapi::core_wrapper *core, int plugin_id) : memory_helper(new mem_filter_helper_wrapper(core, plugin_id)) {
 		}
 
-		void helper::add_obj(boost::shared_ptr<filters::filter_config_object> object) {
+		void helper::add_obj(boost::shared_ptr<filters::mem::filter_config_object> object) {
 			runtime_data data;
 			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);

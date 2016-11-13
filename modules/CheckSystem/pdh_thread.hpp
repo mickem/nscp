@@ -70,7 +70,6 @@ public:
 
 	std::string subsystem;
 	std::string default_buffer_size;
-	std::string filters_path_;
 
 public:
 
@@ -89,8 +88,12 @@ public:
 
 	bool start();
 	bool stop();
+	void set_path(const std::string mem_path, const std::string cpu_path, const std::string proc_path, const std::string legacy_path);
 
-	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+	void add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+	void add_realtime_cpu_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+	void add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
+	void add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
 	std::string to_string() const { return "pdh";  }
 
@@ -98,7 +101,10 @@ private:
 	spi_container fetch_spi(error_list &errors);
 	void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
 
-	filters::filter_config_handler filters_;
+	filters::mem::filter_config_handler mem_filters_;
+	filters::cpu::filter_config_handler cpu_filters_;
+	filters::proc::filter_config_handler proc_filters_;
+	filters::legacy::filter_config_handler legacy_filters_;
 
 	void thread_proc();
 };

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "check_memory.hpp"
+#include "check_process.hpp"
 
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
@@ -62,6 +62,7 @@ namespace check_proc_filter {
 			("started", parsers::where::type_bool, boost::bind(&filter_obj::get_started, _1), "Process is started")
 			("hung", parsers::where::type_bool, boost::bind(&filter_obj::get_hung, _1), "Process is hung")
 			("stopped", parsers::where::type_bool, boost::bind(&filter_obj::get_stopped, _1), "Process is stopped")
+			("new", parsers::where::type_bool, boost::bind(&filter_obj::get_is_new, _1), "Process is new (can inly be used for real-time filters)")
 			;
 		registry_.add_int()
 			("handles", boost::bind(&filter_obj::get_handleCount, _1), "Number of handles").add_perf("", "", " handle count")
@@ -111,7 +112,110 @@ class NSC_error : public process_helper::error_reporter {
 };
 
 namespace process_checks {
-	namespace process {
+
+
+	namespace realtime {
+
+		struct transient_data {
+			process_helper::process_list list;
+
+			transient_data(process_helper::process_list list) : list(list) {}
+			const transient_data& operator=(const transient_data &other) {
+				list = other.list;
+				return *this;
+			}
+
+			std::string to_string() const {
+				return strEx::s::xtos(list.size()) + " processes";
+			}
+		};
+
+		struct runtime_data {
+			typedef check_proc_filter::filter filter_type;
+			typedef boost::shared_ptr<transient_data> transient_data_type;
+
+			std::list<std::string> checks;
+			bool has_check_all;
+
+			runtime_data() : has_check_all(false) {}
+			void boot() {}
+			void touch(boost::posix_time::ptime now) {}
+			bool has_changed(transient_data_type) const { return true; }
+			modern_filter::match_result process_item(filter_type &filter, transient_data_type);
+			void add(const std::string &data);
+		};
+
+		struct proc_filter_helper_wrapper {
+			typedef parsers::where::realtime_filter_helper<runtime_data, filters::proc::filter_config_object> proc_filter_helper;
+			proc_filter_helper helper;
+
+			proc_filter_helper_wrapper(nscapi::core_wrapper *core, int plugin_id) : helper(core, plugin_id) {}
+
+		};
+
+		void runtime_data::add(const std::string &data) {
+			if (data == "*") {
+				has_check_all = true;
+			} else {
+				checks.push_back(data);
+			}
+		}
+
+		modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type data) {
+			modern_filter::match_result ret;
+
+			if (has_check_all) {
+				BOOST_FOREACH(const process_helper::process_info &info, data->list) {
+					boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+					ret.append(filter.match(record));
+				}
+			} else {
+				BOOST_FOREACH(const process_helper::process_info &info, data->list) {
+					bool found = (std::find(checks.begin(), checks.end(), info.exe.get()) != checks.end());
+					if (found) {
+						boost::shared_ptr<process_helper::process_info> record(new process_helper::process_info(info));
+						ret.append(filter.match(record));
+					}
+				}
+			}
+			return ret;
+		}
+
+
+		helper::helper(nscapi::core_wrapper *core, int plugin_id) : proc_helper(new proc_filter_helper_wrapper(core, plugin_id)) {}
+
+		void helper::add_obj(boost::shared_ptr<filters::proc::filter_config_object> object) {
+			runtime_data data;
+			BOOST_FOREACH(const std::string &d, object->data) {
+				data.add(d);
+			}
+			proc_helper->helper.add_item(object, data);
+
+		}
+
+		void helper::boot() {
+			proc_helper->helper.touch_all();
+		}
+
+		void helper::check() {
+			NSC_error err;
+
+			runtime_data::transient_data_type data(new transient_data(process_helper::enumerate_processes_delta(true, &err)));
+			BOOST_FOREACH(process_helper::process_info &i, data->list) {
+				if (known_processes_.find(i.exe.get()) == known_processes_.end()) {
+					i.is_new = true;
+					known_processes_.emplace(i.exe.get());
+				}
+			}
+			proc_helper->helper.process_items(data);
+		}
+
+
+	}
+
+
+
+	namespace active {
 
 		namespace po = boost::program_options;
 

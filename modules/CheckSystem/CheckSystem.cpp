@@ -139,8 +139,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.set_alias("system", alias, "windows");
 	pdh_checker.counters_.set_path(settings.alias().get_settings_path("counters"));
 
-
-	collector->filters_path_ = settings.alias().get_settings_path("real-time/checks");
+	collector->set_path(settings.alias().get_settings_path("real-time/memory"), 
+		settings.alias().get_settings_path("real-time/cpu"),
+		settings.alias().get_settings_path("real-time/process"),
+		settings.alias().get_settings_path("real-time/checks")
+		);
 
 	settings.alias().add_path_to_settings()
 		("WINDOWS CHECK SYSTEM", "Section for system checks and system settings")
@@ -153,7 +156,19 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
 
-		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_filter, collector, get_settings_proxy(), _1, _2)),
+		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"FILTER", "For more configuration options add a dedicated section")
+
+		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"FILTER", "For more configuration options add a dedicated section")
+
+		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, get_settings_proxy(), _1, _2)),
+			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"FILTER", "For more configuration options add a dedicated section")
+
+		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, get_settings_proxy(), _1, _2)),
 			"REALTIME FILTERS", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
@@ -951,7 +966,7 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 	check_process(request, response);
 }
 void CheckSystem::check_process(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
-	process_checks::process::check(request, response);
+	process_checks::active::check(request, response);
 }
 
 void CheckSystem::checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

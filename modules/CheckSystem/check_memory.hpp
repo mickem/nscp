@@ -28,7 +28,7 @@ namespace memory_checks {
 			mem_filter_helper_wrapper *memory_helper;
 
 			helper(nscapi::core_wrapper *core, int plugin_id);
-			void add_obj(boost::shared_ptr<filters::filter_config_object> object);
+			void add_obj(boost::shared_ptr<filters::mem::filter_config_object> object);
 			void boot();
 			void check();
 

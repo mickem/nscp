@@ -21,7 +21,23 @@
 
 namespace process_checks {
 
-	namespace process {
+	namespace realtime {
+
+		struct proc_filter_helper_wrapper;
+		struct helper {
+			typedef boost::unordered_set<std::string> known_type;
+			known_type known_processes_;
+			proc_filter_helper_wrapper *proc_helper;
+
+			helper(nscapi::core_wrapper *core, int plugin_id);
+			void add_obj(boost::shared_ptr<filters::proc::filter_config_object> object);
+			void boot();
+			void check();
+
+		};
+	}
+
+	namespace active {
 
 		void check(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	}

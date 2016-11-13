@@ -93,6 +93,7 @@ namespace process_helper {
 		INT_GETTER(pid);
 
 		bool started;
+		bool_var is_new;
 		bool_var hung;
 		bool_var wow64;
 		bool_var has_error;
@@ -130,6 +131,9 @@ namespace process_helper {
 		}
 		bool get_stopped() const {
 			return !started;
+		}
+		bool get_is_new() const {
+			return is_new;
 		}
 
 		// Handles
@@ -300,6 +304,11 @@ namespace process_helper {
 				total_time = (kernel_time_raw + user_time_raw) * 100 / total;
 		}
 		static boost::shared_ptr<process_helper::process_info> get_total();
+
+		std::string to_string() {
+			return exe.get();
+		}
+
 	};
 
 	struct error_reporter {
