@@ -304,6 +304,21 @@ message SubmitResponseMessage {
 	repeated Response payload = 2;
 }
 
+//
+// Execute command request and response.
+// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return nagios check data
+// Associated response is :py:class:`Plugin.ExecuteResponseMessage`
+//
+message EventMessage {
+	message Request {
+		optional string event = 1;
+		repeated string arguments = 2;
+		repeated Common.KeyValue data = 3;
+	};
+
+	optional Common.Header header = 1;
+	repeated Request payload = 2;
+}
 
 //
 // Registration is an internal message.
@@ -321,6 +336,7 @@ message Registry {
 		ROUTER = 6;
 		MODULE = 7;
 		SCHEDULE = 8;
+		EVENT = 9;
 
 		ALL = 99;
 	};
@@ -632,6 +648,7 @@ message MetricsMessage {
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
 }
+
 
 
 

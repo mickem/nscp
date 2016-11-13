@@ -320,12 +320,28 @@ namespace nscapi {
 			try {
 				std::string reply(buffer, buffer_len);
 				return instance->submitMetrics(reply);
-			}
-			catch (const std::exception &e) {
+			} catch (const std::exception &e) {
 				NSC_LOG_ERROR_EXR("NSFetchMetrics", e);
-			}
-			catch (...) {
+			} catch (...) {
 				NSC_LOG_ERROR_EX("NSFetchMetrics");
+			}
+			return NSCAPI::api_return_codes::hasFailed;
+		}
+	};
+
+	template<class impl_class>
+	struct event_wrapper {
+		boost::shared_ptr<impl_class> instance;
+		event_wrapper(boost::shared_ptr<impl_class> instance) : instance(instance) {}
+
+		int NSOnEvent(const char *buffer, const unsigned int buffer_len) {
+			try {
+				std::string message(buffer, buffer_len);
+				return instance->onRAWEvent(message);
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR_EXR("NSOnEvent", e);
+			} catch (...) {
+				NSC_LOG_ERROR_EX("NSOnEvent");
 			}
 			return NSCAPI::api_return_codes::hasFailed;
 		}

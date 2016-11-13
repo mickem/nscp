@@ -49,7 +49,9 @@ NSCPlugin::NSCPlugin(const unsigned int id, const boost::filesystem::path file, 
 	, fHasRoutingHandler(NULL)
 	, fRouteMessage(NULL)
 	, fFetchMetrics(NULL)
-	, fSubmitMetrics(NULL) {}
+	, fSubmitMetrics(NULL) 
+	, fOnEvent(NULL)
+{}
 /**
  * Default d-tor
  */
@@ -278,6 +280,25 @@ NSCAPI::nagiosReturn NSCPlugin::handleNotification(const char *channel, const ch
 	}
 }
 
+NSCAPI::nagiosReturn NSCPlugin::on_event(const std::string &request) {
+	return on_event(request.c_str(), request.size());
+}
+NSCAPI::nagiosReturn NSCPlugin::on_event(const char* request_buffer, const unsigned int request_buffer_len) {
+	if (!isLoaded() || !loaded_ || fOnEvent == NULL)
+		throw NSPluginException(get_alias_or_name(), "Library is not loaded");
+	try {
+		return fOnEvent(plugin_id_, request_buffer, request_buffer_len);
+	} catch (...) {
+		throw NSPluginException(get_alias_or_name(), "Unhandled exception in OnEvent.");
+	}
+}
+bool NSCPlugin::has_on_event() {
+	if (!isLoaded())
+		throw NSPluginException(get_alias_or_name(), "Module not loaded");
+	return fOnEvent != NULL;
+}
+
+
 NSCAPI::nagiosReturn NSCPlugin::fetchMetrics(std::string &request) {
 	char *buffer = NULL;
 	unsigned int len = 0;
@@ -389,6 +410,7 @@ void NSCPlugin::unload_dll() {
 	fHandleSchedule = NULL;
 	fFetchMetrics = NULL;
 	fSubmitMetrics = NULL;
+	fOnEvent = NULL;
 	module_.unload_library();
 }
 bool NSCPlugin::getName_(char* buf, unsigned int buflen) {
@@ -476,6 +498,7 @@ void NSCPlugin::loadRemoteProcs_(void) {
 		fHandleSchedule = (nscapi::plugin_api::lpHandleSchedule)module_.load_proc("NSHandleSchedule");
 		fFetchMetrics = (nscapi::plugin_api::lpFetchMetrics)module_.load_proc("NSFetchMetrics");
 		fSubmitMetrics = (nscapi::plugin_api::lpSubmitMetrics)module_.load_proc("NSSubmitMetrics");
+		fOnEvent = (nscapi::plugin_api::lpOnEvent)module_.load_proc("NSOnEvent");
 	} catch (NSPluginException &e) {
 		throw e;
 	} catch (dll::dll_exception &e) {

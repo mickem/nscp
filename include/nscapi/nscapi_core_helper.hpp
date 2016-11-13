@@ -32,6 +32,7 @@ namespace nscapi {
 		void register_command(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
 		void unregister_command(std::string command);
 		void register_alias(std::string command, std::string description, std::list<std::string> aliases = std::list<std::string>());
+		void register_event(const std::string event);
 		void register_channel(const std::string channel);
 
 		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf);
@@ -41,6 +42,7 @@ namespace nscapi {
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
 		bool submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);
+		bool emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
 
 	private:
 		const nscapi::core_wrapper* get_core();

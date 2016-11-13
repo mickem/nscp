@@ -64,6 +64,35 @@ bool nscapi::core_helper::submit_simple_message(const std::string channel, const
 	return true;
 }
 
+bool nscapi::core_helper::emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error) {
+	std::string request, buffer;
+
+	Plugin::EventMessage request_message;
+	nscapi::protobuf::functions::create_simple_header(request_message.mutable_header());
+
+	typedef std::list<std::map<std::string, std::string> > list_type;
+	typedef std::map<std::string, std::string> hash_type;
+
+	BOOST_FOREACH(const list_type::value_type &v, data) {
+		Plugin::EventMessage::Request *payload = request_message.add_payload();
+
+		payload->set_event(event);
+		BOOST_FOREACH(const hash_type::value_type &e, v) {
+			Plugin::Common::KeyValue *kv = payload->mutable_data()->Add();
+			kv->set_key(e.first);
+			kv->set_value(e.second);
+		}
+	}
+	request_message.SerializeToString(&request);
+
+	if (!get_core()->emit_event(request.c_str(), request.size())) {
+		error = "Failed to emit event: " + event;
+		return false;
+	}
+	return true;
+}
+
+
 /**
 * Inject a request command in the core (this will then be sent to the plug-in stack for processing)
 * @param command Command to inject (password should not be included.
@@ -210,5 +239,26 @@ void nscapi::core_helper::register_channel(const std::string channel) {
 	for (int i = 0; i < response.payload_size(); i++) {
 		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
 			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + channel + ": " + response.payload(i).result().message());
+	}
+}
+
+void nscapi::core_helper::register_event(const std::string event) {
+	Plugin::RegistryRequestMessage request;
+	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
+
+	Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
+	Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->set_plugin_id(plugin_id_);
+	regitem->set_type(Plugin::Registry_ItemType_EVENT);
+	regitem->set_name(event);
+	regitem->mutable_info()->set_title(event);
+	regitem->mutable_info()->set_description("Handler for: " + event);
+	std::string response_string;
+	get_core()->registry_query(request.SerializeAsString(), response_string);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(response_string);
+	for (int i = 0; i < response.payload_size(); i++) {
+		if (response.payload(i).result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK)
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to register " + event + ": " + response.payload(i).result().message());
 	}
 }

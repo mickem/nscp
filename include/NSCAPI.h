@@ -140,6 +140,9 @@ namespace nscapi {
 		// TODO: convert and re-add these
 		typedef NSCAPI::errorReturn(*lpNSAPIEncrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 		typedef NSCAPI::errorReturn(*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
+
+		typedef NSCAPI::errorReturn(*lpNSCAPIEmitEvent)(const char*, int);
+		
 	}
 
 	namespace plugin_api {
@@ -170,5 +173,7 @@ namespace nscapi {
 
 		typedef NSCAPI::errorReturn(*lpFetchMetrics)(unsigned int plugin_id, char **return_buffer, unsigned int *return_buffer_len);
 		typedef NSCAPI::errorReturn(*lpSubmitMetrics)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
+
+		typedef NSCAPI::errorReturn(*lpOnEvent)(unsigned int plugin_id, const char *buffer, const unsigned int buffer_len);
 	}
 }

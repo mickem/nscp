@@ -80,6 +80,7 @@ private:
 	nsclient::logging::logger_instance log_instance_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
+	nsclient::event_subscribers event_subscribers_;
 	nsclient::routers routers_;
 	nsclient::simple_plugins_list metricsFetchers;
 	nsclient::simple_plugins_list metricsSubmitetrs;
@@ -136,6 +137,7 @@ public:
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::errorReturn settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
+	NSCAPI::nagiosReturn emit_event(const std::string &request);
 
 	NSCAPI::errorReturn reload(const std::string module);
 	bool do_reload(const std::string module);
@@ -156,6 +158,9 @@ public:
 	}
 	nsclient::routers* get_routers() {
 		return &routers_;
+	}
+	nsclient::event_subscribers* get_event_subscribers() {
+		return &event_subscribers_;
 	}
 
 

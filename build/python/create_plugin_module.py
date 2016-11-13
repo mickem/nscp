@@ -34,6 +34,9 @@ EXPORTS
 {% if module.metrics == "consume" or module.metrics == "both" %}
 	NSSubmitMetrics
 {% endif %}
+{% if module.events %}
+	NSOnEvent
+{% endif %}
 """
 
 RC_TEMPLATE = """
@@ -470,6 +473,27 @@ int {{module.name}}Module::submitMetrics(const std::string &request) {
 }
 {% endif %}
 
+{% if module.events %}
+NSCAPI::nagiosReturn {{module.name}}Module::onRAWEvent(const std::string &request) {
+	try {
+		if (!impl_) {
+            NSC_LOG_ERROR("Failed to process event");
+			return NSCAPI::cmd_return_codes::returnIgnored;
+		}
+		Plugin::EventMessage request_message;
+		request_message.ParseFromString(request);
+		impl_->onEvent(request_message, request);
+		return NSCAPI::cmd_return_codes::isSuccess;
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to process event: ", e);
+		return NSCAPI::cmd_return_codes::isSuccess;
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to process event");
+		return NSCAPI::cmd_return_codes::isSuccess;
+	}
+}
+{% endif %}
+
 #ifdef _WIN32
 	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; }
 #endif
@@ -564,6 +588,12 @@ extern int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const uns
 	return wrapper.NSSubmitMetrics(buffer, buffer_len); 
 }
 {% endif %}
+{% if module.events %}
+extern int NSOnEvent(unsigned int id, const char* buffer, unsigned int buffer_len) {
+	nscapi::event_wrapper<plugin_impl_class> wrapper(plugin_instance.get(id));
+	return wrapper.NSOnEvent(buffer, buffer_len); 
+}
+{% endif %}
 """
 
 HPP_TEMPLATE = """#pragma once
@@ -595,6 +625,9 @@ extern "C" int NSFetchMetrics(unsigned int plugin_id, char** response_buffer, un
 {% endif %}
 {% if module.metrics == "consume" or module.metrics == "both" %}
 extern "C" int NSSubmitMetrics(unsigned int plugin_id, const char* buffer, const unsigned int buffer_len);
+{% endif %}
+{% if module.events %}
+extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned int buffer_len);
 {% endif %}
 
 
@@ -704,6 +737,14 @@ public:
 {% endif %}
 	// exposed functions
 	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
+{% if module.events %}
+	NSCAPI::nagiosReturn onRAWEvent(const std::string &request);
+	/*
+	Add the following to {{module.name}}
+	void onEvent(const Plugin::EventMessage &request_message, const std::string &buffer);
+	*/
+{% endif %}
+    
 };
 """
 
@@ -715,6 +756,7 @@ cli = False
 log_handler = False
 channels = False
 metrics = False
+events = False
 
 class Module:
 	name = ''
@@ -864,6 +906,8 @@ for key, value in data.iteritems():
 			log_handler = True
 	elif key == "metrics":
 		metrics = value
+	elif key == "events":
+		events = value
 	else:
 		print '* TODO: %s'%key
 
@@ -904,6 +948,7 @@ module.metrics = metrics
 module.log_handler = log_handler
 module.command_fallback = command_fallback
 module.command_fallback_raw = command_fallback_raw
+module.events = events
 
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring

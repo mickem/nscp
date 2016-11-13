@@ -43,6 +43,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSAPIRegistryQuery fNSAPIRegistryQuery;
 		nscapi::core_api::lpNSCAPIJson2Protobuf fNSCAPIJson2Protobuf;
 		nscapi::core_api::lpNSCAPIProtobuf2Json fNSCAPIProtobuf2Json;
+		nscapi::core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
 
 	public:
 
@@ -70,6 +71,7 @@ namespace nscapi {
 		bool exec_command(const std::string target, std::string request, std::string & result) const;
 
 		NSCAPI::errorReturn submit_message(const char* channel, const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		NSCAPI::errorReturn emit_event(const char *request, const unsigned int request_len) const;
 		bool submit_message(std::string channel, std::string request, std::string &response) const;
 		bool reload(std::string module) const;
 

@@ -145,6 +145,8 @@ NSClientT::NSClientT()
 	, metricsFetchers(log_instance_)
 	, metricsSubmitetrs(log_instance_)
 	, plugin_cache_(log_instance_)
+	, event_subscribers_(log_instance_)
+
 {
 	provider_ = new nscp_settings_provider(log_instance_);
 	log_instance_->startup();
@@ -832,6 +834,9 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 		if (plugin->hasMessageHandler()) {
 			log_instance_->add_subscriber(plugin);
 		}
+		if (plugin->has_on_event()) {
+			event_subscribers_.add_plugin(plugin);
+		}
 		if (plugin->has_routing_handler())
 			routers_.add_plugin(plugin);
 		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
@@ -1256,6 +1261,37 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	return NSCAPI::api_return_codes::isSuccess;
 }
 
+
+NSCAPI::errorReturn NSClientT::emit_event(const std::string &request) {
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!readLock.owns_lock()) {
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		return NSCAPI::api_return_codes::hasFailed;
+	}
+
+	Plugin::EventMessage em; em.ParseFromString(request);
+	BOOST_FOREACH(const Plugin::EventMessage::Request &r, em.payload()) {
+		try {
+			BOOST_FOREACH(nsclient::plugin_type p, event_subscribers_.get(r.event())) {
+				try {
+					p->on_event(request);
+				} catch (...) {
+					LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
+				}
+			}
+		} catch (nsclient::plugins_list_exception &e) {
+			LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+			return NSCAPI::api_return_codes::hasFailed;
+		} catch (const std::exception &e) {
+			LOG_ERROR_CORE("No handler for event: " + utf8::utf8_from_native(e.what()));
+			return NSCAPI::api_return_codes::hasFailed;
+		} catch (...) {
+			LOG_ERROR_CORE("No handler for event");
+			return NSCAPI::api_return_codes::hasFailed;
+		}
+	}
+	return NSCAPI::api_return_codes::isSuccess;
+}
 NSClientT::plugin_type NSClientT::find_plugin(const unsigned int plugin_id) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {

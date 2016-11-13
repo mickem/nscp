@@ -123,6 +123,7 @@ private:
 	nscapi::plugin_api::lpRouteMessage fRouteMessage;
 	nscapi::plugin_api::lpFetchMetrics fFetchMetrics;
 	nscapi::plugin_api::lpSubmitMetrics fSubmitMetrics;
+	nscapi::plugin_api::lpOnEvent fOnEvent;
 
 public:
 	NSCPlugin(const unsigned int id, const boost::filesystem::path file, std::string alias);
@@ -144,6 +145,9 @@ public:
 	NSCAPI::nagiosReturn handle_schedule(const std::string &request);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, std::string &request, std::string &reply);
 	NSCAPI::nagiosReturn handleNotification(const char *channel, const char* request_buffer, const unsigned int request_buffer_len, char** response_buffer, unsigned int *response_buffer_len);
+	bool has_on_event();
+	NSCAPI::nagiosReturn on_event(const std::string &request);
+	NSCAPI::nagiosReturn on_event(const char* request_buffer, const unsigned int request_buffer_len);
 	NSCAPI::nagiosReturn fetchMetrics(std::string &request);
 	NSCAPI::nagiosReturn fetchMetrics(char** response_buffer, unsigned int *response_buffer_len);
 	NSCAPI::nagiosReturn submitMetrics(const std::string &request);

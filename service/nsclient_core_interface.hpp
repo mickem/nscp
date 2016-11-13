@@ -39,6 +39,7 @@ namespace nsclient {
 			virtual nsclient::commands* get_commands() = 0;
 			virtual nsclient::channels* get_channels() = 0;
 			virtual nsclient::routers* get_routers() = 0;
+			virtual nsclient::event_subscribers* get_event_subscribers() = 0;
 
 
 

@@ -176,6 +176,8 @@ nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIJson2Protobuf);
 	if (strcmp(buffer, "NSCAPIProtobuf2Json") == 0)
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIProtobuf2Json);
+	if (strcmp(buffer, "NSCAPIEmitEvent") == 0)
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIEmitEvent);
 	mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
 	return NULL;
 }
@@ -306,3 +308,9 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 	return NSCAPI::hasFailed;
 }
 #endif
+
+
+NSCAPI::errorReturn NSCAPIEmitEvent(const char* request_buffer, unsigned int request_buffer_len) {
+	std::string request(request_buffer, request_buffer_len);
+	return mainClient->emit_event(request);
+}

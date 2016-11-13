@@ -49,7 +49,8 @@ nscapi::core_wrapper::core_wrapper()
 	, fNSAPIGetLoglevel(NULL)
 	, fNSAPIRegistryQuery(NULL)
 	, fNSCAPIJson2Protobuf(NULL)
-	, fNSCAPIProtobuf2Json(NULL) 
+	, fNSCAPIProtobuf2Json(NULL)
+	, fNSCAPIEmitEvent(NULL)
 {}
 nscapi::core_wrapper::~core_wrapper() {
 	delete pimpl;
@@ -133,6 +134,12 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char *request, const unsi
 	if (!fNSAPIInject)
 		throw nscapi::nscapi_exception("NSCore has not been initiated...");
 	return fNSAPIInject(request, request_len, response, response_len);
+}
+
+NSCAPI::errorReturn nscapi::core_wrapper::emit_event(const char *request, const unsigned int request_len) const {
+	if (!fNSCAPIEmitEvent)
+		throw nscapi::nscapi_exception("NSCore has not been initiated...");
+	return fNSCAPIEmitEvent(request, request_len);
 }
 
 void nscapi::core_wrapper::DestroyBuffer(char**buffer) const {
@@ -359,6 +366,8 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 
 	fNSCAPIJson2Protobuf = (nscapi::core_api::lpNSCAPIJson2Protobuf)f("NSCAPIJson2Protobuf");
 	fNSCAPIProtobuf2Json = (nscapi::core_api::lpNSCAPIProtobuf2Json)f("NSCAPIProtobuf2Json");
+
+	fNSCAPIEmitEvent = (nscapi::core_api::lpNSCAPIEmitEvent)f("NSCAPIEmitEvent");
 
 	return true;
 }
