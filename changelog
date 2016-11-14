@@ -1,3 +1,11 @@
+2016-11-13 Michael Medin
+ * CheckLogFile: Fixed crash when tracelogging realtime monitoring
+ * Installer: Fixed op5 scripts folder
+ * NRDP: Added parsing of NRDP server response
+ * NRDP: Fixed #331 token missing from NRDP
+ * Core: Fixed crash on reload
+ * Core: Improved error handling a bit
+
 2016-09-14 Michael Medin
  * NRDPClient: Fixed #286 (for real this time), NRDP not working over https
  * http client: changed error to reflect whats wrong (not config error)
