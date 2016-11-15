@@ -445,6 +445,9 @@ namespace windows {
 		}
 		if (status != STATUS_SUCCESS)
 			throw nscp_exception("Failed to get pagefile info");
+		if (retLen == 0) {
+			return ret;
+		}
 		ULONG offset = 0;
 		while (true) {
 			windows::winapi::SYSTEM_PAGEFILE_INFORMATION *info = buffer.get_t<windows::winapi::SYSTEM_PAGEFILE_INFORMATION*>(offset);
