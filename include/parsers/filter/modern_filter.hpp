@@ -336,9 +336,7 @@ namespace modern_filter {
 				gerror = "Invalid syntax: " + lerror;
 				return false;
 			}
-			if (fetch_hash_) {
-				renderer_hash.parse(context);
-			}
+			renderer_hash.parse(context);
 			return true;
 		}
 		bool build_engines(const bool debug, const std::string &filter, const std::string &ok, const std::string &warn, const std::string &crit) {
