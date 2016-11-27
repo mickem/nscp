@@ -43,6 +43,10 @@ namespace nscapi {
 		NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
 		bool submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);
 		bool emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
+		bool emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error);
+
+		bool nscapi::core_helper::load_module(std::string name, std::string alias = "");
+		bool nscapi::core_helper::unload_module(std::string name);
 
 	private:
 		const nscapi::core_wrapper* get_core();

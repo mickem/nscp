@@ -35,6 +35,55 @@ const nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
 
+bool nscapi::core_helper::load_module(std::string name, std::string alias) {
+	Plugin::RegistryRequestMessage rrm;
+	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+	payload->mutable_control()->set_name(name);
+	if (!alias.empty()) {
+		payload->mutable_control()->set_alias(name);
+	}
+	std::string buffer;
+	get_core()->registry_query(rrm.SerializeAsString(), buffer);
+
+	Plugin::RegistryResponseMessage resp_msg;
+	resp_msg.ParseFromString(buffer);
+	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &payload, resp_msg.payload()) {
+		if (payload.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+			return true;
+		} else {
+			CORE_LOG_ERROR("Failed to load " + name + ": " + payload.result().message());
+		}
+	}
+	return false;
+}
+
+bool nscapi::core_helper::unload_module(std::string name) {
+	Plugin::RegistryRequestMessage rrm;
+	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
+	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_control()->set_command(Plugin::Registry_Command_UNLOAD);
+	payload->mutable_control()->set_name(name);
+	std::string buffer;
+	get_core()->registry_query(rrm.SerializeAsString(), buffer);
+
+	Plugin::RegistryResponseMessage resp_msg;
+	resp_msg.ParseFromString(buffer);
+	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &payload, resp_msg.payload()) {
+		if (payload.result().code() == Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+			return true;
+		} else {
+			CORE_LOG_ERROR("Failed to load " + name + ": " + payload.result().message());
+		}
+	}
+	return false;
+}
+
 bool nscapi::core_helper::submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response) {
 	std::string request, buffer;
 
@@ -82,6 +131,32 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 			kv->set_key(e.first);
 			kv->set_value(e.second);
 		}
+	}
+	request_message.SerializeToString(&request);
+
+	if (!get_core()->emit_event(request.c_str(), request.size())) {
+		error = "Failed to emit event: " + event;
+		return false;
+	}
+	return true;
+}
+
+bool nscapi::core_helper::emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error) {
+	std::string request, buffer;
+
+	Plugin::EventMessage request_message;
+	nscapi::protobuf::functions::create_simple_header(request_message.mutable_header());
+
+	typedef std::list<std::map<std::string, std::string> > list_type;
+	typedef std::map<std::string, std::string> hash_type;
+
+	Plugin::EventMessage::Request *payload = request_message.add_payload();
+
+	payload->set_event(event);
+	BOOST_FOREACH(const hash_type::value_type &e, data) {
+		Plugin::Common::KeyValue *kv = payload->mutable_data()->Add();
+		kv->set_key(e.first);
+		kv->set_value(e.second);
 	}
 	request_message.SerializeToString(&request);
 
