@@ -461,6 +461,7 @@ namespace modern_filter {
 			summary.returnCode = NSCAPI::query_return_codes::returnOK;
 			has_matched = false;
 			summary.reset();
+			records_.clear();
 		}
 		match_result match(object_type record) {
 			context->set_object(record);
@@ -471,7 +472,9 @@ namespace modern_filter {
 			summary.count();
 			if (!engine_filter || engine_filter->match(context, true)) {
 				matched_filter = true;
-				records_.push_back(renderer_hash.render(context));
+				if (fetch_hash_) {
+					records_.push_back(renderer_hash.render(context));
+				}
 				std::string current = renderer_detail.render(context);
 				std::string perf_alias = renderer_perf.render(context);
 				bool second_unique_match = false;
