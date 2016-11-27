@@ -257,7 +257,7 @@ void pdh_thread::thread_proc() {
 		} catch (...) {
 			errors.push_back("Failed to get network metrics");
 		}
-		if (has_realtime && i == 0) {
+		if (has_realtime && i == (min_threshold-1)) {
 			if (has_cpu_realtime)
 				cpu_helper.process_items(this);
 			if (has_mem_realtime)
