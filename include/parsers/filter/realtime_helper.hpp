@@ -181,7 +181,7 @@ namespace parsers {
 					bool has_changed = false;
 					// Process all items matching this event
 					if (items.size() == 0) {
-						NSC_DEBUG_MSG("No filters to check for: " + data->to_string());
+						NSC_TRACE_MSG("No filters to check for: " + data->to_string());
 					}
 					BOOST_FOREACH(container_type item, items) {
 						if (item->data.has_changed(data)) {
@@ -193,9 +193,9 @@ namespace parsers {
 						}
 					}
 					if (!has_changed) {
-						NSC_DEBUG_MSG("No filters changes detected: " + data->to_string());
+						NSC_TRACE_MSG("No filters changes detected: " + data->to_string());
 					} else if (!has_matched) {
-						NSC_DEBUG_MSG("No filters matched: " + data->to_string());
+						NSC_TRACE_MSG("No filters matched: " + data->to_string());
 					}
 					do_process_no_items(current_time);
 				} catch (const nscp_exception &e) {
