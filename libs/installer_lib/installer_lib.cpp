@@ -299,6 +299,25 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
 		h.setPropertyIfEmpty(KEY_CONF_CAN_CHANGE, _T("1"));
 
+		h.dumpReason(_T("After ApplyConfig"));
+		h.dumpProperty(KEY_ALLOWED_HOSTS);
+		h.dumpProperty(KEY_NSCLIENT_PWD);
+		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
+		h.dumpProperty(KEY_CONF_SCHEDULER);
+		h.dumpProperty(KEY_CONF_CHECKS);
+		h.dumpProperty(KEY_CONF_NRPE);
+		h.dumpProperty(KEY_CONF_NSCA);
+		h.dumpProperty(KEY_CONF_WEB);
+		h.dumpProperty(KEY_CONF_NSCLIENT);
+		h.dumpProperty(KEY_NRPEMODE);
+
+		h.dumpProperty(KEY_CONFIGURATION_TYPE);
+		h.dumpProperty(KEY_CONF_INCLUDES);
+		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
+		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
+
+		h.dumpProperty(KEY_CONF_CAN_CHANGE);
+
 
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to apply monitoring tool: ") + e.what());
@@ -406,6 +425,27 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		h.setPropertyAndDefaultBool(KEY_CONF_CHECKS, has_mod("CheckSystem") && has_mod("CheckDisk") && has_mod("CheckEventLog") && has_mod("CheckHelpers") &&
 					has_mod("CheckExternalScripts") && has_mod("CheckNSCP"));
 		settings_manager::destroy_settings();
+
+
+		h.dumpReason(_T("After ImportConfig"));
+		h.dumpProperty(KEY_ALLOWED_HOSTS);
+		h.dumpProperty(KEY_NSCLIENT_PWD);
+		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
+		h.dumpProperty(KEY_CONF_SCHEDULER);
+		h.dumpProperty(KEY_CONF_CHECKS);
+		h.dumpProperty(KEY_CONF_NRPE);
+		h.dumpProperty(KEY_CONF_NSCA);
+		h.dumpProperty(KEY_CONF_WEB);
+		h.dumpProperty(KEY_CONF_NSCLIENT);
+		h.dumpProperty(KEY_NRPEMODE);
+
+		h.dumpProperty(KEY_CONFIGURATION_TYPE);
+		h.dumpProperty(KEY_CONF_INCLUDES);
+		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
+		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
+
+		h.dumpProperty(KEY_CONF_CAN_CHANGE);
+
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to read old configuration file: ") + e.what());
 		h.setProperty(KEY_CONF_OLD_ERROR, e.what());
@@ -453,6 +493,27 @@ void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, 
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ScheduleWriteConfig"));
 	try {
+
+		h.dumpReason(_T("Before ScheduleWriteConfig"));
+		h.dumpProperty(KEY_ALLOWED_HOSTS);
+		h.dumpProperty(KEY_NSCLIENT_PWD);
+		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
+		h.dumpProperty(KEY_CONF_SCHEDULER);
+		h.dumpProperty(KEY_CONF_CHECKS);
+		h.dumpProperty(KEY_CONF_NRPE);
+		h.dumpProperty(KEY_CONF_NSCA);
+		h.dumpProperty(KEY_CONF_WEB);
+		h.dumpProperty(KEY_CONF_NSCLIENT);
+		h.dumpProperty(KEY_NRPEMODE);
+
+		h.dumpProperty(KEY_CONFIGURATION_TYPE);
+		h.dumpProperty(KEY_CONF_INCLUDES);
+		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
+		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
+
+		h.dumpProperty(KEY_CONF_CAN_CHANGE);
+
+
 		if (h.getPropery(KEY_CONF_CAN_CHANGE) != _T("1")) {
 			h.logMessage(_T("Configuration changes not allowed: set CONF_CAN_CHANGE=1"));
 			return ERROR_SUCCESS;

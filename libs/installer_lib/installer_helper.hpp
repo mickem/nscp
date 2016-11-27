@@ -139,6 +139,17 @@ public:
 			logMessage(_T("  + ") + key + _T(" unchanged as overriden value was empty: keeping ") + old_value + _T(" over ") + new_value);
 		}
 	}
+
+	void dumpReason(std::wstring desc) {
+		logMessage(_T(" : NSCP Dumping properties: ") + desc);
+
+	}
+	void dumpProperty(std::wstring key) {
+		std::wstring value = getPropery(key);
+		logMessage(_T(" : +++ ") + key + _T("=") + value);
+	}
+
+
 	MSIHANDLE createSimpleString(std::wstring msg) {
 		MSIHANDLE hRecord = ::MsiCreateRecord(1);
 		::MsiRecordSetString(hRecord, 1, msg.c_str());
