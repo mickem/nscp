@@ -118,7 +118,9 @@ namespace nrdp_client {
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Sending: " + nrdp_data.render_request());
 				}
-				http::response response = c.execute("http", con.get_address(), con.get_port(), request);
+				std::ostringstream os;
+				http::response response = c.execute(os, "http", con.get_address(), con.get_port(), request);
+				response.payload_ = os.str();
 				NSC_TRACE_ENABLED() {
 					NSC_TRACE_MSG("Recieved: " + response.payload_);
 				}

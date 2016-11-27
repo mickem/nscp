@@ -209,7 +209,7 @@ namespace http {
 
 		}
 
-		http::response execute(std::string protocol, std::string server, std::string port, const http::packet &request) {
+		http::response execute(std::ostream &os, const std::string protocol, const std::string server, const std::string port, const http::packet &request) {
 			connect(protocol, server, port);
 			send_request(request);
 
@@ -219,7 +219,6 @@ namespace http {
 			if (!response.is_2xx()) {
 				throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + protocol + "://" + server + ":" + strEx::s::xtos(port) +  " " + strEx::s::xtos(response.status_code_) + ": " + response.payload_);
 			}
-			std::ostringstream os;
 			if (response_buffer.size() > 0)
 				os << &response_buffer;
 
@@ -229,7 +228,6 @@ namespace http {
 					os << &response_buffer;
 				}
 			}
-			response.payload_ = os.str();
 
 			return response;
 		}
@@ -239,8 +237,7 @@ namespace http {
 				http::packet rq("GET", server, path);
 				rq.add_default_headers();
 				simple_client c(protocol);
-				http::response rs = c.execute(protocol, server, port, rq);
-				os << rs.payload_;
+				c.execute(os, protocol, server, port, rq);
 				return true;
 			} catch (const socket_helpers::socket_exception& e) {
 				error_msg = e.reason();
