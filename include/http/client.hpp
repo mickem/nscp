@@ -36,7 +36,7 @@ namespace http {
 		typedef boost::asio::ip::basic_endpoint<boost::asio::ip::tcp> tcp_iterator;
 
 		virtual ~generic_socket() {}
-		virtual void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) = 0;
+		virtual void connect(const tcp_iterator &endpoint_iterator, std::string server_name, boost::system::error_code &error) = 0;
 		virtual void write(boost::asio::streambuf &buffer) = 0;
 		virtual void read_until(boost::asio::streambuf &buffer, std::string until) = 0;
 		virtual bool is_open() const = 0;
@@ -60,7 +60,7 @@ namespace http {
 		}
 
 
-		void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) {
+		void connect(const tcp_iterator &endpoint_iterator, std::string server_name, boost::system::error_code &error) {
 			socket_.close();
 			socket_.connect(endpoint_iterator, error);
 		}
@@ -98,12 +98,16 @@ namespace http {
 		}
 
 
-		void connect(const tcp_iterator &endpoint_iterator, boost::system::error_code &error) {
+		void connect(const tcp_iterator &endpoint_iterator, std::string server_name, boost::system::error_code &error) {
 			ssl_socket_.lowest_layer().close();
 			ssl_socket_.lowest_layer().connect(endpoint_iterator, error);
 
 			if (error) {
 				return;
+			}
+
+			if (!server_name.empty()) {
+				SSL_set_tlsext_host_name(ssl_socket_.native_handle(), server_name.c_str());
 			}
 
 			ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
@@ -161,7 +165,7 @@ namespace http {
 
 			boost::system::error_code error = boost::asio::error::host_not_found;
 			while (error && endpoint_iterator != end) {
-				socket_->connect(*endpoint_iterator, error);
+				socket_->connect(*endpoint_iterator, server, error);
 				endpoint_iterator++;
 			}
 			if (error) {
