@@ -15,6 +15,7 @@ public:
 };
 
 #define MY_EMPTY _T("$EMPTY$")
+#define KEY_DEF _T("_DEFAULT")
 class msi_helper {
 	MSIHANDLE hInstall_;
 	std::wstring action_;
@@ -22,7 +23,9 @@ class msi_helper {
 	PMSIHANDLE hActionRec;
 	PMSIHANDLE hDatabase;
 public:
-	msi_helper(MSIHANDLE hInstall, std::wstring action) : hInstall_(hInstall), hProgressPos(NULL), hActionRec(NULL), action_(action) {}
+	msi_helper(MSIHANDLE hInstall, std::wstring action) : hInstall_(hInstall), hProgressPos(NULL), hActionRec(NULL), action_(action) {
+		logMessage(_T("installer_lib::") + action);
+	}
 	~msi_helper() {
 		MsiCloseHandle(hInstall_);
 		hInstall_ = NULL;
@@ -60,8 +63,8 @@ public:
 		std::wstring str = source;
 		return trim_left(trim_right(str, t), t);
 	}
-	bool propertyNotOld(std::wstring path) {
-		std::wstring old = getPropery(path + _T("_OLD"));
+	bool propertyNotDefault(std::wstring path) {
+		std::wstring old = getPropery(path + KEY_DEF);
 		std::wstring cur = getPropery(path);
 		return old != cur;
 	}
@@ -99,21 +102,42 @@ public:
 	}
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
-		if (old.empty())
+		logMessage(_T("Setting ") + key + _T(" to ") + val + _T(" if empty"));
+		if (old.empty()) {
 			setProperty(key, val);
+		}
 	}
-	void setPropertyAndOld(std::wstring key, std::wstring value) {
+	void setPropertyAndDefault(std::wstring key, std::wstring value) {
 		logMessage(_T("Setting ") + key + _T("=") + value);
-		logMessage(_T("Setting ") + key + _T("_OLD=") + value);
+		logMessage(_T("Setting ") + key + KEY_DEF + _T("=") + value);
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
-		MsiSetProperty(hInstall_, (key + _T("_OLD")).c_str(), value.c_str());
+		MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), value.c_str());
 	}
-	void setPropertyAndOldBool(std::wstring key, bool value) {
+	void setPropertyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
+		logMessage(_T("Setting ") + key + _T("=") + value);
+		logMessage(_T("Setting ") + key + KEY_DEF + _T("=") + old_value);
+		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
+		MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), old_value.c_str());
+	}
+	void setPropertyAndDefaultBool(std::wstring key, bool value) {
 		std::wstring v = value ? L"1" : L"0";
-		setPropertyAndOld(key, v);
+		setPropertyAndDefault(key, v);
 	}
 	void setProperty(std::wstring key, std::wstring value) {
+		std::wstring old = getPropery(key);
+		logMessage(_T("Setting ") + key + _T("=") + value + _T(" previous value was: ") + old);
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
+	}
+	void applyProperty(std::wstring key, std::wstring value_key) {
+		std::wstring old_value = getPropery(key);
+		std::wstring new_value = getPropery(value_key);
+		logMessage(_T("Applying value from ") + value_key + _T(" to ") + key);
+		if (new_value.empty()) {
+			logMessage(_T("  + ") + key + _T(" goes from ") + old_value + _T(" to ") + new_value);
+			setProperty(key, new_value);
+		} else {
+			logMessage(_T("  + ") + key + _T(" unchanged as overriden value was empty: keeping ") + old_value + _T(" over ") + new_value);
+		}
 	}
 	MSIHANDLE createSimpleString(std::wstring msg) {
 		MSIHANDLE hRecord = ::MsiCreateRecord(1);
