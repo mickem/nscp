@@ -29,6 +29,9 @@
 #include <files.h>
 #endif
 
+#ifdef HAVE_MINIZ
+#include <miniz.c>
+#endif
 
 #include <socket/client.hpp>
 #include <socket/clients/http/http_client_protocol.hpp>
@@ -94,9 +97,17 @@ namespace settings {
 				return path;
 			}
 
-		bool cache_remote_file(const net::url &url, const boost::filesystem::path &local_file) {
-			boost::filesystem::path tmp_file = local_file.string() + ".tmp";
-			std::ofstream os(tmp_file.string().c_str());
+		bool cache_remote_file(const net::url &url, const std::string &file) {
+			bool unzip = false;
+			boost::filesystem::path tmp_file = file + ".tmp";
+			boost::filesystem::path local_file = file;
+			if (file.size() > 6 && file.substr(0, 6) == "unzip:") {
+				unzip = true;
+				local_file = file.substr(6);
+				tmp_file = resolve_cache_file(url);
+			}
+
+			std::ofstream os(tmp_file.string().c_str(), std::ofstream::binary);
 			std::string error;
 
 			try {
@@ -107,30 +118,84 @@ namespace settings {
 				if (!http::simple_client::download(url.protocol, url.host, url.get_port_string(def_port), url.path, os, error)) {
 					os.close();
 					get_logger()->error("settings", __FILE__, __LINE__, "Failed to download " + tmp_file.string() + ": " + error);
+					if (boost::filesystem::is_regular_file(local_file)) {
+						get_logger()->error("settings", __FILE__, __LINE__, "Using cached artifact: " + tmp_file.string());
+						return true;
+					}
 					return false;
 				}
 				os.close();
+
 				if (!boost::filesystem::is_regular_file(tmp_file)) {
 					get_logger()->error("settings", __FILE__, __LINE__, "Failed to find cached settings: " + tmp_file.string());
 					return false;
 				}
+
+
 			} catch (const socket_helpers::socket_exception &e) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Failed to update settings file: " + e.reason());
 				return false;
 			}
-			if (boost::filesystem::is_regular_file(local_file)) {
-				std::string old_hash = hash_file(local_file);
-				std::string new_hash = hash_file(tmp_file);
-				if (old_hash.empty() || old_hash != new_hash) {
-					if (old_hash.empty()) {
-						get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detect changes (assuming always changed)");
-					}
-					get_logger()->debug("settings", __FILE__, __LINE__, "File has changed: " + local_file.string());
-					boost::filesystem::rename(tmp_file, local_file);
-					return true;
+
+
+
+
+			if (unzip) {
+#ifdef HAVE_MINIZ
+
+				mz_zip_archive zip_archive;
+				mz_bool status;
+
+				// Now try to open the archive.
+				memset(&zip_archive, 0, sizeof(zip_archive));
+
+				status = mz_zip_reader_init_file(&zip_archive, tmp_file.string().c_str(), 0);
+				if (!status) {
+					printf("mz_zip_reader_init_file() failed!\n");
+					return false;
 				}
+
+				// Get and print information about each file in the archive.
+				for (mz_uint i = 0; i < mz_zip_reader_get_num_files(&zip_archive); i++) {
+					mz_zip_archive_file_stat file_stat;
+					if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
+						printf("mz_zip_reader_file_stat() failed!\n");
+						mz_zip_reader_end(&zip_archive);
+						return false;
+					}
+
+					boost::filesystem::path tr = local_file / file_stat.m_filename;
+
+					if (!boost::filesystem::exists(tr)) {
+
+						if (!boost::filesystem::exists(tr.parent_path())) {
+							boost::filesystem::create_directories(tr.parent_path());
+						}
+						get_logger()->error("settings", __FILE__, __LINE__, "Unzip to:: " + tr.string());
+						if (!mz_zip_reader_is_file_a_directory(&zip_archive, i)) {
+							mz_zip_reader_extract_to_file(&zip_archive, i, tr.string().c_str(), 0);
+						}
+					}
+				}
+#endif
 			} else {
-				boost::filesystem::rename(tmp_file, local_file);
+				if (boost::filesystem::is_regular_file(local_file)) {
+					std::string old_hash = hash_file(local_file);
+					std::string new_hash = hash_file(tmp_file);
+					if (old_hash.empty() || old_hash != new_hash) {
+						if (old_hash.empty()) {
+							get_logger()->error("settings", __FILE__, __LINE__, "Compiled without cryptopp cannot detect changes (assuming always changed)");
+						}
+						get_logger()->debug("settings", __FILE__, __LINE__, "File has changed: " + local_file.string());
+						boost::filesystem::rename(tmp_file, local_file);
+						return true;
+					}
+				} else {
+					if (!boost::filesystem::exists(local_file.parent_path())) {
+						boost::filesystem::create_directories(local_file.parent_path());
+					}
+					boost::filesystem::rename(tmp_file, local_file);
+				}
 			}
 			return false;
 		}
@@ -140,25 +205,25 @@ namespace settings {
 				return;
 			string_list keys = child->get_keys("/attachments");
 			BOOST_FOREACH(const std::string &k, keys) {
-				boost::filesystem::path target = get_core()->expand_path(k);
+				std::string target = get_core()->expand_path(k);
 				op_string str = child->get_string("/attachments", k);
 				if (!str)
 					continue;
 				net::url source = net::parse(*str);
-				get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_string() + " as " + target.string());
+				get_logger()->debug("settings", __FILE__, __LINE__, "Found attachment: " + source.to_string() + " as " + target);
 				cache_remote_file(source, target);
 			}
 		}
 
 		void initial_load() {
 			boost::filesystem::path local_file = resolve_cache_file(remote_url);
-			cache_remote_file(remote_url, local_file);
+			cache_remote_file(remote_url, local_file.string());
 			fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
 		}
 
 		void reload_data() {
 			boost::filesystem::path local_file = resolve_cache_file(remote_url);
-			if (cache_remote_file(remote_url, local_file)) {
+			if (cache_remote_file(remote_url, local_file.string())) {
 				clear_cache();
 				fetch_attachments(add_child("remote_http_file", "ini://" + local_file.string()));
 				get_core()->set_reload(true);
