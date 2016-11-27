@@ -1263,20 +1263,16 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 
 
 NSCAPI::errorReturn NSClientT::emit_event(const std::string &request) {
-	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-		return NSCAPI::api_return_codes::hasFailed;
-	}
-
 	Plugin::EventMessage em; em.ParseFromString(request);
 	BOOST_FOREACH(const Plugin::EventMessage::Request &r, em.payload()) {
 		try {
 			BOOST_FOREACH(nsclient::plugin_type p, event_subscribers_.get(r.event())) {
 				try {
 					p->on_event(request);
+				} catch (const std::exception &e) {
+					LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
 				} catch (...) {
-					LOG_ERROR_CORE("Plugin throw exception: " + p->get_alias_or_name());
+					LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": UNKNOWN EXCEPTION");
 				}
 			}
 		} catch (nsclient::plugins_list_exception &e) {
