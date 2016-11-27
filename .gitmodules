@@ -25,3 +25,6 @@
 [submodule "ext/google-breakpad"]
 	path = ext/google-breakpad
 	url = https://github.com/mickem/google-breakpad.git
+[submodule "ext/miniz"]
+	path = ext/miniz
+	url = https://github.com/paulharris/miniz.git
