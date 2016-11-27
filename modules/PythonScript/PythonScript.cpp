@@ -89,6 +89,8 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("simple_submit", &script_wrapper::command_wrapper::simple_submit)
 		.def("submit", &script_wrapper::command_wrapper::submit)
 		.def("reload", &script_wrapper::command_wrapper::reload)
+		.def("load_module", &script_wrapper::command_wrapper::load_module)
+		.def("unload_module", &script_wrapper::command_wrapper::unload_module)
 		.def("expand_path", &script_wrapper::command_wrapper::expand_path)
 		;
 

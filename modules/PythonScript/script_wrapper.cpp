@@ -600,7 +600,7 @@ void script_wrapper::function_wrapper::on_simple_event(const std::string event, 
 		{
 			thread_locker locker;
 			try {
-				boost::python::call<object>(boost::python::object(it->second).ptr(), event, data);
+				boost::python::call<void>(boost::python::object(it->second).ptr(), event, data);
 			} catch (error_already_set e) {
 				log_exception();
 			}
@@ -649,7 +649,7 @@ void script_wrapper::function_wrapper::submit_metrics(const std::string &request
 		BOOST_FOREACH(functions::function_list_type::value_type &v, functions::get()->submit_metrics) {
 			thread_locker locker;
 			try {
-				boost::python::call<object>(boost::python::object(v).ptr(), metrics, pystr(request));
+				boost::python::call<object>(boost::python::object(v).ptr(), metrics, pystr(""));
 			} catch (error_already_set e) {
 				log_exception();
 			}
@@ -783,6 +783,28 @@ bool script_wrapper::command_wrapper::reload(std::string module) {
 	{
 		thread_unlocker unlocker;
 		ret = core->reload(module);
+	}
+	return ret == NSCAPI::api_return_codes::isSuccess;
+}
+
+bool script_wrapper::command_wrapper::load_module(std::string name, std::string alias) {
+	int ret = 0;
+	{
+		thread_unlocker unlocker;
+		nscapi::core_helper ch(core, plugin_id);
+		ret = ch.load_module(name, alias);
+
+	}
+	return ret == NSCAPI::api_return_codes::isSuccess;
+}
+
+bool script_wrapper::command_wrapper::unload_module(std::string name) {
+	int ret = 0;
+	{
+		thread_unlocker unlocker;
+		nscapi::core_helper ch(core, plugin_id);
+		ret = ch.unload_module(name);
+
 	}
 	return ret == NSCAPI::api_return_codes::isSuccess;
 }
