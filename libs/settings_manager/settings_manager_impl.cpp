@@ -112,7 +112,7 @@ namespace settings_manager {
 			return settings::INISettings::context_exists(this, key);
 		if (url.protocol == "dummy")
 			return true;
-		if (url.protocol == "http")
+		if (url.protocol == "http" || url.protocol == "https")
 			return true;
 		if (settings::INISettings::context_exists(this, key))
 			return true;
