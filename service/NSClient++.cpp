@@ -1327,6 +1327,10 @@ void NSClientT::remove_plugin(const std::string name) {
 void NSClientT::load_plugin(const boost::filesystem::path &file, std::string alias) {
 	try {
 		plugin_type instance = addPlugin(file, alias);
+		if (!instance) {
+			LOG_DEBUG_CORE_STD("Failed to load " + file.string());
+			return;
+		}
 		instance->load_plugin(NSCAPI::normalStart);
 	} catch (const NSPluginException& e) {
 		if (e.file().find("FileLogger") != std::string::npos) {
