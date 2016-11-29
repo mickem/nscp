@@ -1,3 +1,71 @@
+2016-11-29 Michael Medin
+ * installer: Fixed some regression issues with related to settings fix
+ * installer: dumped all keys in log for simpler debug
+ * Installer: Improved key handling and removed "have to override keys on msiexec" bug
+
+2016-11-27 Michael Medin
+ * Fixed crash if module failed to load
+ * Core: Removed mutex from event processing
+ * CheckSystem: Real time thread nove logs on TRACE instead of DEBUG
+ * PythonScript: Added event support
+ * Added functions to API helpers to emit events
+ * settings: Added unzip: to attachments to unzip a file of attachments
+ * https: Fixed SNI in settings and NRDP
+ * CheckSystem: Delayed background threads
+ * Improved the https client (doesnt use a double bufffer)
+ * Fixed https settings
+ * Added miniz as a submodule for unzipping attached file from settings
+ * Fixed event record data collection
+
+2016-11-15 Michael Medin
+ * CheckSystem: Fixed #341 Crash in check_pagefile when there are no pagefiles
+
+2016-11-13 Michael Medin
+ * CheckSystem: refactored various real time filters into separate parts and added check_process
+ * PythonScript: Added support for events
+ * filters: Added event as target to send result of filters as events
+ * Core: Added events
+ * system: Fixed regression issue with registry messages
+ * filter: refactoring: Added ability to fetch att variables from a filter factory
+ * filter: added copy cons to filter_object
+ * filter: Added to string methods for filters to provide vbetter error handling
+ * filters: Refactored the return data to be simpler (and removed no longer used is_done flag)
+ * Filters: Refactored the "template flag" into the function
+
+2016-11-06 Michael Medin
+ * Removed attachments (as they are never used)
+ * CheckSystem: refactored check_process to a separate module
+ * CHeckLogFile: Fixed crash when tracelogging realtime monitoring
+ * reset version
+
+2016-10-30 Michael Medin
+ * Fixed op5 scripts folder
+
+2016-10-23 Michael Medin
+ * NRDP: Added parsing of NRDP server response
+ * NRDP: Fixed #331 token missing from NRDP
+ * Settings: Fixed #227 migration only saves the root scope
+ * Added aliases to settings for future use
+ * Improved settings esception to give error from correct line
+ * Moved settings and registry query to separate files to make the core more modular
+ * Removed "boot settings keys" as they are not really used
+
+2016-10-17 Michael Medin
+ * Some more (post) cr-lf fixes
+ * Removed unused files
+ * Updated and harmonized header comments
+ * Changed cr/lf on all files locally
+ * Normalize all the line endings
+ * Added gitattributes (crlf fix)
+ * updated some docs maybe?
+
+2016-10-16 Michael Medin
+ * Fixed crash on reload
+ * Improved error handling a bit
+ * Changed logger from static to factory and cleaned up the log classes
+ * removed log to file from service apis for windows (as there is no guarantee the logger is configured)
+ * moved replace to ::s namespace
+ 
 2016-09-14 Michael Medin
  * NRDPClient: Fixed #286 (for real this time), NRDP not working over https
  * http client: changed error to reflect whats wrong (not config error)
