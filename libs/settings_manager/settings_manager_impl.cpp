@@ -99,6 +99,25 @@ namespace settings_manager {
 		throw settings::settings_exception(__FILE__, __LINE__, "Undefined settings protocol: " + url.protocol);
 	}
 
+	bool NSCSettingsImpl::supports_edit(const std::string key) {
+		if (key.empty()) {
+			return true;
+		}
+		net::url url = net::parse(expand_context(key));
+#ifdef WIN32
+		if (url.protocol == "old")
+			return false;
+		if (url.protocol == "registry")
+			return true;
+#endif
+		if (url.protocol == "ini")
+			return true;
+		if (url.protocol == "dummy")
+			return false;
+		if (url.protocol == "http" || url.protocol == "https")
+			return true;
+		return false;
+	}
 	bool NSCSettingsImpl::context_exists(std::string key) {
 		key = expand_context(key);
 		net::url url = net::parse(key);
@@ -232,10 +251,36 @@ namespace settings_manager {
 
 	bool init_settings(provider_interface *provider, std::string context) {
 		try {
+
 			settings_impl = new NSCSettingsImpl(provider);
+			settings_impl->get_logger()->error("settings", __FILE__, __LINE__, "++++");
 			get_core()->set_base(provider->expand_path("${base-path}"));
 			get_core()->boot(context);
 			get_core()->set_ready();
+		} catch (const settings::settings_exception &e) {
+			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+			return false;
+		} catch (const std::exception &e) {
+			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
+			return false;
+		} catch (...) {
+			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
+			return false;
+		}
+		return true;
+	}
+
+	bool init_installer_settings(provider_interface *provider, std::string context) {
+		try {
+
+			settings_impl = new NSCSettingsImpl(provider);
+			settings_impl->get_logger()->error("settings", __FILE__, __LINE__, "++++");
+			get_core()->set_base(provider->expand_path("${base-path}"));
+			if (settings_impl->supports_edit(context)) {
+				get_core()->boot(context);
+				get_core()->set_ready();
+				return false;
+			}
 		} catch (const settings::settings_exception &e) {
 			get_core()->get_logger()->error("settings", __FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 			return false;

@@ -98,7 +98,7 @@ public:
 		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_LOCAL);
 	}
 	void setFeatureAbsent(std::wstring feature) {
-		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_REMOVED);
+		MsiSetFeatureState(hInstall_, feature.c_str(), INSTALLSTATE_ABSENT);
 	}
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
@@ -129,14 +129,14 @@ public:
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
 	}
 	void applyProperty(std::wstring key, std::wstring value_key) {
-		std::wstring old_value = getPropery(key);
-		std::wstring new_value = getPropery(value_key);
+		std::wstring current_value = getPropery(key);
+		std::wstring applied_value = getPropery(value_key);
 		logMessage(_T("Applying value from ") + value_key + _T(" to ") + key);
-		if (new_value.empty()) {
-			logMessage(_T("  + ") + key + _T(" goes from ") + old_value + _T(" to ") + new_value);
-			setProperty(key, new_value);
+		if (!applied_value.empty()) {
+			logMessage(_T("  + ") + key + _T(" goes from ") + current_value + _T(" to ") + applied_value);
+			setProperty(key, applied_value);
 		} else {
-			logMessage(_T("  + ") + key + _T(" unchanged as overriden value was empty: keeping ") + old_value + _T(" over ") + new_value);
+			logMessage(_T("  + ") + key + _T(" unchanged as overriden value was empty: keeping ") + current_value + _T(" over ") + applied_value);
 		}
 	}
 

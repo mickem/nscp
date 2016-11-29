@@ -32,6 +32,7 @@ namespace settings_manager {
 		bool create_context(std::string key);
 		bool has_boot_conf();
 		void set_primary(std::string key);
+		bool supports_edit(const std::string key);
 	};
 
 	// Alias to make handling "compatible" with old syntax
@@ -41,6 +42,7 @@ namespace settings_manager {
 	boost::shared_ptr<nscapi::settings_helper::settings_impl_interface>  get_proxy();
 	void destroy_settings();
 	bool init_settings(provider_interface *provider, std::string context = "");
+	bool init_installer_settings(provider_interface *provider, std::string context = "");
 	void change_context(std::string context);
 	bool has_boot_conf();
 	bool context_exists(std::string key);

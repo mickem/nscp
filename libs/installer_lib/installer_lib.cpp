@@ -40,9 +40,12 @@ void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 class msi_logger : public nsclient::logging::logger_impl {
 	std::wstring error;
 	std::list<std::wstring> log_;
+	msi_helper *h;
 
 public:
-	msi_logger()  {}
+	msi_logger(msi_helper *h) : h(h) {
+		set_log_level("trace");
+	}
 
 
 	void do_log(const std::string data) {
@@ -55,6 +58,7 @@ public:
 			error += str.substr(1);
 		}
 		log_.push_back(str.substr(1));
+		h->logMessage(str);
 	}
 	void asynch_configure() {}
 	void synch_configure() {}
@@ -123,9 +127,16 @@ struct installer_settings_provider : public settings_manager::provider_interface
 		: h(h)
 		, basepath(utf8::cvt<std::string>(basepath))
 		, old_settings_map(utf8::cvt<std::string>(old_settings_map))
-		, logger(new msi_logger())
-	{}
-	installer_settings_provider(msi_helper *h, std::wstring basepath) : h(h), basepath(utf8::cvt<std::string>(basepath)) {}
+		, logger(new msi_logger(h))
+	{
+	}
+	installer_settings_provider(msi_helper *h, std::wstring basepath) 
+		: h(h)
+		, basepath(utf8::cvt<std::string>(basepath)) 
+		, old_settings_map(utf8::cvt<std::string>(old_settings_map))
+		, logger(new msi_logger(h))
+	{
+	}
 
 	virtual std::string expand_path(std::string file) {
 		strEx::s::replace(file, "${base-path}", basepath);
@@ -243,6 +254,28 @@ std::wstring read_map_data(msi_helper &h) {
 #define KEY_CONF_HAS_ERRORS KEY CONF_HAS_ERRORS
 
 
+void dump_config(msi_helper &h, std::wstring title) {
+		h.dumpReason(title);
+		h.dumpProperty(KEY_ALLOWED_HOSTS);
+		h.dumpProperty(KEY_NSCLIENT_PWD);
+		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
+		h.dumpProperty(KEY_CONF_SCHEDULER);
+		h.dumpProperty(KEY_CONF_CHECKS);
+		h.dumpProperty(KEY_CONF_NRPE);
+		h.dumpProperty(KEY_CONF_NSCA);
+		h.dumpProperty(KEY_CONF_WEB);
+		h.dumpProperty(KEY_CONF_NSCLIENT);
+		h.dumpProperty(KEY_NRPEMODE);
+
+		h.dumpProperty(KEY_CONFIGURATION_TYPE);
+		h.dumpProperty(KEY_CONF_INCLUDES);
+		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
+		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
+
+		h.dumpProperty(KEY_CONF_CAN_CHANGE);
+}
+
+
 extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, _T("ApplyTool"));
 	try {
@@ -299,25 +332,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
 		h.setPropertyIfEmpty(KEY_CONF_CAN_CHANGE, _T("1"));
 
-		h.dumpReason(_T("After ApplyConfig"));
-		h.dumpProperty(KEY_ALLOWED_HOSTS);
-		h.dumpProperty(KEY_NSCLIENT_PWD);
-		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
-		h.dumpProperty(KEY_CONF_SCHEDULER);
-		h.dumpProperty(KEY_CONF_CHECKS);
-		h.dumpProperty(KEY_CONF_NRPE);
-		h.dumpProperty(KEY_CONF_NSCA);
-		h.dumpProperty(KEY_CONF_WEB);
-		h.dumpProperty(KEY_CONF_NSCLIENT);
-		h.dumpProperty(KEY_NRPEMODE);
-
-		h.dumpProperty(KEY_CONFIGURATION_TYPE);
-		h.dumpProperty(KEY_CONF_INCLUDES);
-		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
-		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
-
-		h.dumpProperty(KEY_CONF_CAN_CHANGE);
-
+		dump_config(h, _T("After ApplyConfig"));
 
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to apply monitoring tool: ") + e.what());
@@ -347,6 +362,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 			h.logMessage(_T("Configuration not allowed: ") + allow);
 			h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
 			h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
+			dump_config(h, _T("After ImportConfig"));
 			return ERROR_SUCCESS;
 		}
 
@@ -354,11 +370,12 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
  			h.logMessage(_T("Target folder not found: ") + target);
 			h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
 			h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
+			dump_config(h, _T("After ImportConfig"));
 			return ERROR_SUCCESS;
 		}
 
 		installer_settings_provider provider(&h, target, map_data);
-		if (!settings_manager::init_settings(&provider, "")) {
+		if (!settings_manager::init_installer_settings(&provider, "")) {
 			h.logMessage(_T("Settings context had fatal errors"));
 			h.setProperty(KEY_CONF_OLD_ERROR, provider.get_error());
 			h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
@@ -377,11 +394,13 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 					h.setProperty(KEY_CONF_OLD_ERROR, std::wstring(_T("Old configuration (")) + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + _T(") was found but we got errors accessing it: ") + provider.get_error());
 					h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
 					h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
+					dump_config(h, _T("After ImportConfig"));
 					return ERROR_SUCCESS;
 				} else {
 					h.logMessage(_T("Failed to read configuration but no configuration was found (so we are assuming there is no configuration)."));
 					h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
 					h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
+					dump_config(h, _T("After ImportConfig"));
 					return ERROR_SUCCESS;
 				}
 			} else {
@@ -389,6 +408,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 				h.setProperty(KEY_CONF_OLD_ERROR, provider.get_error());
 				h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
 				h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
+				dump_config(h, _T("After ImportConfig"));
 				return ERROR_SUCCESS;
 			}
 		}
@@ -427,24 +447,7 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		settings_manager::destroy_settings();
 
 
-		h.dumpReason(_T("After ImportConfig"));
-		h.dumpProperty(KEY_ALLOWED_HOSTS);
-		h.dumpProperty(KEY_NSCLIENT_PWD);
-		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
-		h.dumpProperty(KEY_CONF_SCHEDULER);
-		h.dumpProperty(KEY_CONF_CHECKS);
-		h.dumpProperty(KEY_CONF_NRPE);
-		h.dumpProperty(KEY_CONF_NSCA);
-		h.dumpProperty(KEY_CONF_WEB);
-		h.dumpProperty(KEY_CONF_NSCLIENT);
-		h.dumpProperty(KEY_NRPEMODE);
-
-		h.dumpProperty(KEY_CONFIGURATION_TYPE);
-		h.dumpProperty(KEY_CONF_INCLUDES);
-		h.dumpProperty(KEY_INSTALL_SAMPLE_CONFIG);
-		h.dumpProperty(KEY_GENERATE_SAMPLE_CONFIG);
-
-		h.dumpProperty(KEY_CONF_CAN_CHANGE);
+		dump_config(h, _T("After ImportConfig"));
 
 	} catch (installer_exception e) {
 		h.logMessage(_T("Failed to read old configuration file: ") + e.what());
@@ -632,6 +635,7 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			h.logMessage(_T("Found restore file: ") + strEx::xtos(boost::filesystem::file_size(restore_path)));
 
 		if (boost::filesystem::exists(restore_path)) {
+			h.logMessage(_T("Restore path exists: ") + restore);
 			if (!boost::filesystem::exists(path)) {
 				h.logMessage(_T("Restoring nsc.ini configuration file"));
 				copy_file(h, restore_path.wstring(), path.wstring());
@@ -646,9 +650,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			h.logMessage(_T("Size (001): ") + strEx::xtos(boost::filesystem::file_size(path)));
 
 		installer_settings_provider provider(&h, target);
-		if (!settings_manager::init_settings(&provider, context)) {
+		if (!settings_manager::init_installer_settings(&provider, context)) {
 			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
-			return ERROR_INSTALL_FAILURE;
+			h.logMessage(_T("Switching context: ") + context_w);
+			settings_manager::change_context(context);
+			return ERROR_SUCCESS;
 		}
 		if (boost::filesystem::exists(path))
 			h.logMessage(_T("Size (002): ") + strEx::xtos(boost::filesystem::file_size(path)));
