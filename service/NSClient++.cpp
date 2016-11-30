@@ -743,16 +743,24 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 	}
 }
 
+std::list<NSClientT::plugin_type> NSClientT::get_plugins_c() {
+	std::list<plugin_type> ret;
+	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
+	if (!readLock.owns_lock()) {
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		return ret;
+	}
+	BOOST_FOREACH(plugin_type &plugin, plugins_) {
+		ret.push_back(plugin);
+	}
+	return ret;
+}
+
 void NSClientT::loadPlugins(NSCAPI::moduleLoadMode mode) {
 	{
 		std::set<long> broken;
 		{
-			boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
-			if (!readLock.owns_lock()) {
-				LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-				return;
-			}
-			BOOST_FOREACH(plugin_type &plugin, plugins_) {
+			BOOST_FOREACH(plugin_type plugin, get_plugins_c()) {
 				LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_description());
 				try {
 					if (!plugin->load_plugin(mode)) {

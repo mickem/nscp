@@ -209,6 +209,7 @@ public:
 
 	typedef boost::function<int(plugin_type)> run_function;
 	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
+	std::list<plugin_type> get_plugins_c();
 
 
 
