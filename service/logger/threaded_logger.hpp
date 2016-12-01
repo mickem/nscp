@@ -33,8 +33,8 @@ namespace nsclient {
 				concurrent_queue<std::string> log_queue_;
 				boost::thread thread_;
 
-				log_driver_instance background_logger_;
 				logging_subscriber *subscriber_manager_;
+				log_driver_instance background_logger_;
 
 			public:
 

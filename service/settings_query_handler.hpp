@@ -15,8 +15,8 @@ namespace nsclient {
 			
 		private:
 			nsclient::logging::logger_instance logger_;
-			nsclient::core::core_interface *core_;
 			const Plugin::SettingsRequestMessage &request_;
+			nsclient::core::core_interface *core_;
 			timer t;
 
 		public:

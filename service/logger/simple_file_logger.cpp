@@ -182,6 +182,6 @@ namespace nsclient {
 					// ignored, since this might be after shutdown...
 				}
 			}
-		};
+		}
 	}
 }
