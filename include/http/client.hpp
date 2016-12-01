@@ -23,6 +23,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/tuple/tuple.hpp>
+#include <boost/version.hpp>
 
 #include <strEx.h>
 #include <socket/socket_helpers.hpp>
@@ -107,7 +108,12 @@ namespace http {
 			}
 
 			if (!server_name.empty()) {
+
+#if BOOST_VERSION >= 104700
 				SSL_set_tlsext_host_name(ssl_socket_.native_handle(), server_name.c_str());
+#else
+				SSL_set_tlsext_host_name(reinterpret_cast<SSL*>(ssl_socket_.impl()), server_name.c_str());
+#endif
 			}
 
 			ssl_socket_.handshake(boost::asio::ssl::stream_base::client, error);
@@ -125,7 +131,7 @@ namespace http {
 			return ssl_socket_.lowest_layer().is_open();
 		}
 		std::size_t read_some(boost::asio::streambuf &buffer, boost::system::error_code &error) {
-			return boost::asio::read(ssl_socket_, buffer, error);
+			return boost::asio::read(ssl_socket_, buffer, boost::asio::transfer_at_least(1), error);
 		}
 	};
 #endif
