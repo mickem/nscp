@@ -45,8 +45,8 @@ namespace nscapi {
 		bool emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
 		bool emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error);
 
-		bool nscapi::core_helper::load_module(std::string name, std::string alias = "");
-		bool nscapi::core_helper::unload_module(std::string name);
+		bool load_module(std::string name, std::string alias = "");
+		bool unload_module(std::string name);
 
 	private:
 		const nscapi::core_wrapper* get_core();

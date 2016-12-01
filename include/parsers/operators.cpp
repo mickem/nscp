@@ -95,9 +95,9 @@ namespace parsers {
 			};
 
 			struct eval_helper {
-				evaluation_context errors;
 				const node_type left;
 				const node_type right;
+				evaluation_context errors;
 				const value_type ltype;
 				const value_type rtype;
 				boost::optional<value_container> lhs;

@@ -58,9 +58,9 @@ namespace process {
 		std::string password;
 		std::string encoding;
 		std::string session;
-		bool fork;
 		bool display;
 		bool ignore_perf;
+		bool fork;
 	};
 	void kill_all();
 	int execute_process(process::exec_arguments args, std::string &output);

@@ -44,6 +44,7 @@ namespace ping_filter {
 			: is_total_(true) {}
 		const filter_obj& operator=(const filter_obj&other) {
 			result = other.result;
+			return *this;
 		}
 
 		static boost::shared_ptr<ping_filter::filter_obj> get_total();

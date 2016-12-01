@@ -147,7 +147,6 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 	Plugin::EventMessage request_message;
 	nscapi::protobuf::functions::create_simple_header(request_message.mutable_header());
 
-	typedef std::list<std::map<std::string, std::string> > list_type;
 	typedef std::map<std::string, std::string> hash_type;
 
 	Plugin::EventMessage::Request *payload = request_message.add_payload();

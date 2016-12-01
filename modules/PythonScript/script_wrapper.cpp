@@ -624,12 +624,14 @@ void build_metrics(boost::python::dict &metrics, const Plugin::Common::MetricsBu
 	}
 
 	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
+		if (!v.has_value())
+			continue;
 		if (v.value().has_int_data())
 			metrics[p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
 		else if (v.value().has_string_data())
 			metrics[p + "." + v.key()] = v.value().string_data();
 		else if (v.value().has_float_data())
-			metrics[p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
+			metrics[p + "." + v.key()] = strEx::s::xtos(v.value().float_data());
 	}
 }
 

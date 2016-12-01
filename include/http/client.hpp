@@ -228,7 +228,7 @@ namespace http {
 
 			boost::system::error_code error;
 			if (socket_->is_open()) {
-				while (std::size_t s = socket_->read_some(response_buffer, error)) {
+				while (socket_->read_some(response_buffer, error)) {
 					os << &response_buffer;
 				}
 			}

@@ -23,7 +23,6 @@ namespace nsclient {
 
 			virtual NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &reply) = 0;
 			virtual Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &req) = 0;
-			;
 			
 // 			virtual plugin_type find_plugin(const unsigned int plugin_id) = 0;
 // 			virtual plugin_type find_plugin(const std::string plugin_id) = 0;

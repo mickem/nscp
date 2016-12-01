@@ -44,7 +44,7 @@ boost::optional<unsigned int> nsclient::core::plugin_cache::find_plugin(const ::
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!readLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
-		return false;
+		return boost::optional<unsigned int>();
 	}
 	BOOST_FOREACH(const plugin_cache_item &i, plugin_cache_) {
 		if (i.dll == name || i.alias == name) {

@@ -520,7 +520,7 @@ int NSCPlugin::commandLineExec(bool targeted, std::string &request, std::string 
 }
 
 bool NSCPlugin::has_command_line_exec() {
-	return isLoaded() && !loaded_ || fCommandLineExec != NULL;
+	return (isLoaded() && !loaded_) || (fCommandLineExec != NULL);
 }
 
 int NSCPlugin::commandLineExec(bool targeted, const char* request, const unsigned int request_len, char** reply, unsigned int *reply_len) {

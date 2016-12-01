@@ -123,6 +123,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 
 	nsclient::logging::logger_instance log_instance_;
 	nscp_settings_provider(nsclient::logging::logger_instance log_instance) : log_instance_(log_instance) {}
+	virtual ~nscp_settings_provider() {}
 
 	virtual std::string expand_path(std::string file) {
 		return mainClient->expand_path(file);

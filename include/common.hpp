@@ -25,7 +25,6 @@
 #define CHECK_ALL_OTHERS "CheckAllOthers"
 
 #define CRASH_ARCHIVE_FOLDER_KEY	"crash-folder"
-#define CRASH_ARCHIVE_FOLDER		"${crash-folder}"
 #define CACHE_FOLDER_KEY		"cache-folder"
 #define CACHE_FOLDER			"${cache-folder}"
 

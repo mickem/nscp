@@ -351,7 +351,7 @@ namespace parsers {
 			}
 			std::list<std::string> get_variables() const {
 				std::list<std::string> ret;
-				BOOST_FOREACH(const variable_type::value_type &v, variables) {
+				BOOST_FOREACH(const typename variable_type::value_type &v, variables) {
 					ret.push_back(v.first);
 				}
 				return ret;

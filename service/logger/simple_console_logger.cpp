@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "simple_console_logger.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>

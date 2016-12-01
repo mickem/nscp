@@ -80,11 +80,11 @@ private:
 	nsclient::logging::logger_instance log_instance_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
-	nsclient::event_subscribers event_subscribers_;
 	nsclient::routers routers_;
 	nsclient::simple_plugins_list metricsFetchers;
 	nsclient::simple_plugins_list metricsSubmitetrs;
 	nsclient::core::plugin_cache plugin_cache_;
+	nsclient::event_subscribers event_subscribers_;
 
 	task_scheduler::scheduler scheduler_;
 

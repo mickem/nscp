@@ -145,6 +145,6 @@ private:
 	unsigned short sequence_number_;
 	posix_time::ptime time_sent_;
 	boost::asio::streambuf reply_buffer_;
-	result_container& result_;
 	int timeout_;
+	result_container& result_;
 };

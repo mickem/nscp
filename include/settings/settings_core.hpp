@@ -38,9 +38,9 @@ namespace settings {
 		return path + "." + key;
 	}
 	class settings_exception : public std::exception {
-		std::string error_;
 		const char* file_;
 		int line_;
+		std::string error_;
 	public:
 		//////////////////////////////////////////////////////////////////////////
 		/// Constructor takes an error message.

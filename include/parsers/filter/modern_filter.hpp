@@ -226,6 +226,7 @@ namespace modern_filter {
 			matched_filter = other.matched_filter;
 			matched_bound = other.matched_bound;
 			is_done_ = other.is_done_;
+			return *this;
 		}
 
 		void append(const match_result &other) {
@@ -272,11 +273,11 @@ namespace modern_filter {
 		parsers::where::generic_summary<object_type> summary;
 		boost::unordered_set<std::string> unique_index;
 		bool has_matched;
-		bool fetch_hash_;
 		typedef std::map<std::string, std::string> hash_type;
 		typedef std::list<hash_type> hash_list_type;
 		hash_list_type records_;
 		boost::shared_ptr<Tfactory> context;
+		bool fetch_hash_;
 		bool has_unique_index;
 		error_type error_handler;
 
