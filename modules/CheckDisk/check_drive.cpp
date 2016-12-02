@@ -81,20 +81,22 @@ struct drive_container {
 
 	};
 
+	unsigned long long type;
 	drive_flags flags;
 private:
-	drive_container() : is_mounted(false), flags(df_none) {}
+	drive_container() : is_mounted(false), type(0), flags(df_none) {}
 public:
-	drive_container(std::string id, std::string letter, std::string name, bool is_mounted, drive_flags flags) : id(id), letter(letter), name(name), is_mounted(is_mounted), flags(flags) {
+	drive_container(std::string id, std::string letter, std::string name, bool is_mounted, unsigned long long type, drive_flags flags) : id(id), letter(letter), name(name), is_mounted(is_mounted), type(type), flags(flags) {
 		letter_only = letter.substr(0, 1);
 	}
-	drive_container(const drive_container &other) : id(other.id), letter(other.letter), letter_only(other.letter_only), name(other.name), is_mounted(other.is_mounted), flags(other.flags) {}
+	drive_container(const drive_container &other) : id(other.id), letter(other.letter), letter_only(other.letter_only), name(other.name), is_mounted(other.is_mounted), type(other.type), flags(other.flags) {}
 	drive_container& operator=(const drive_container &other) {
 		id = other.id;
 		letter = other.letter;
 		letter_only = other.letter_only;
 		name = other.name;
 		is_mounted = other.is_mounted;
+		type = other.type;
 		flags = other.flags;
 		return *this;
 	}
@@ -197,6 +199,9 @@ struct filter_obj {
 	}
 	long long get_erasable(parsers::where::evaluation_context context) const {
 		return (drive.flags & drive_container::df_erasable) == drive_container::df_erasable;
+	}
+	long long get_media_type(parsers::where::evaluation_context context) const {
+		return drive.type;
 	}
 
 	std::wstring get_volume_or_letter_w() {
@@ -367,6 +372,7 @@ struct filter_obj_handler : public native_context {
 			("readable", &filter_obj::get_readable, "1 (true) if drive is readable")
 			("writable", &filter_obj::get_writable, "1 (true) if drive is writable")
 			("erasable", &filter_obj::get_erasable, "1 (true) if drive is erasable")
+			("media_type", &filter_obj::get_media_type, "Get the media type")
 			;
 
 		registry_.add_human_string()
@@ -491,10 +497,11 @@ public:
 		}
 	}
 
-	bool getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs, drive_container::drive_flags &flags) {
+	bool getVolumeInformation(std::wstring volume, std::wstring &name, std::wstring &fs, unsigned long long &type, drive_container::drive_flags &flags) {
 		hlp::tchar_buffer volumeName(1024);
 		hlp::tchar_buffer fileSysName(1024);
 		DWORD maximumComponentLength, fileSystemFlags;
+		type = 0;
 		std::wstring vfile = volume;
 		if (vfile[vfile.size() - 1] == '\\')
 			vfile = vfile.substr(0, vfile.size() - 1);
@@ -513,13 +520,17 @@ public:
 			}
 
 			hlp::buffer<TCHAR, GET_MEDIA_TYPES*> mediaType(2048);
-			while (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES_EX, 0, 0, mediaType.get(), mediaType.size(), &ReturnedSize, NULL) == FALSE && GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+			DWORD err = 0;
+			while (DeviceIoControl(hDevice, IOCTL_STORAGE_GET_MEDIA_TYPES_EX, 0, 0, mediaType.get(), mediaType.size(), &ReturnedSize, NULL) == FALSE && (err = GetLastError()) == ERROR_INSUFFICIENT_BUFFER) {
 				mediaType.resize(mediaType.size() * 2);
 			}
 
-			if (mediaType.get()->MediaInfoCount > 0) {
+
+			if (err == 0 && mediaType.get()->MediaInfoCount > 0) {
+
 				DWORD Characteristics = 0;
 				// Supports: Disk, CD, DVD
+				type = mediaType.get()->DeviceType;
 				if (mediaType.get()->DeviceType == FILE_DEVICE_DISK || mediaType.get()->DeviceType == FILE_DEVICE_CD_ROM || mediaType.get()->DeviceType == FILE_DEVICE_DVD) {
 					if (Info.MediaRemovable) {
 						Characteristics = mediaType.get()->MediaInfo[0].DeviceSpecific.RemovableDiskInfo.MediaCharacteristics;
@@ -537,6 +548,7 @@ public:
 						flags |= drive_container::df_erasable;
 				}
 			}
+
 			CloseHandle(hDevice);
 		}
 
@@ -624,17 +636,18 @@ public:
 		BOOL bFlag = TRUE;
 		while (bFlag) {
 			std::wstring name, fs;
+			unsigned long long type;
 			drive_container::drive_flags flags = drive_container::df_none;
-			bool is_valid = getVolumeInformation(volume, name, fs, flags);
+			bool is_valid = getVolumeInformation(volume, name, fs, type, flags);
 
 			bool found_mp = false;
 			std::string title = utf8::cvt<std::string>(name);
 			BOOST_FOREACH(const std::wstring &s, GetVolumePathNamesForVolumeName(volume)) {
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, flags));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(s), title, true, type, flags));
 				found_mp = true;
 			}
 			if (!found_mp && is_valid)
-				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false, flags));
+				ret.push_back(drive_container(utf8::cvt<std::string>(volume), "", title, false, type, flags));
 			bFlag = FindNextVolume(hVol, volume);
 		}
 		FindVolumeClose(hVol);
@@ -665,14 +678,15 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
 
 drive_container get_dc_from_string(std::wstring folder, volume_helper &helper) {
 	std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(folder);
+	unsigned long long type;
 	std::string title = "";
 	drive_container::drive_flags flags = drive_container::df_none;
 	if (!volume.empty()) {
 		std::wstring wtitle, wfs;
-		helper.getVolumeInformation(volume, wtitle, wfs, flags);
+		helper.getVolumeInformation(volume, wtitle, wfs, type, flags);
 		title = utf8::cvt<std::string>(wtitle);
 	}
-	return drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(folder), title, true, flags);
+	return drive_container(utf8::cvt<std::string>(volume), utf8::cvt<std::string>(folder), title, true, type, flags);
 }
 void find_all_drives(std::list<drive_container> &drives, std::vector<std::string> &exclude_drives, volume_helper &helper) {
 	DWORD bufSize = GetLogicalDriveStrings(0, NULL) + 5;
@@ -743,10 +757,10 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 		return;
 
 	if (only_mounted) {
-		filter_helper.append_all_filters("and", "mounted = 1");
+		filter_helper.append_all_filters("and", "( mounted = 1  or media_type = 0 )");
 	}
 	if (ignore_unreadable) {
-		filter_helper.append_all_filters("and", "mounted = 1 and readable = 1");
+		filter_helper.append_all_filters("and", " ( mounted = 1 and readable = 1 or media_type = 0)");
 	}
 
 	if (!filter_helper.build_filter(filter))
@@ -772,7 +786,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 	}
 	if (!buffer.empty())
 		excludes.insert(excludes.end(), buffer.begin(), buffer.end());
-	drive_container total_dc("total", "total", "total", true, drive_container::df_none);
+	drive_container total_dc("total", "total", "total", true, 0, drive_container::df_none);
 	boost::shared_ptr<filter_obj> total_obj(new filter_obj(total_dc));
 	if (total)
 		total_obj->make_total();
