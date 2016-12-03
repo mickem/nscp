@@ -1,0 +1,26 @@
+Source: nsclient++
+Section: unknown
+Priority: extra
+Maintainer: Michael Medin <michael@medin.name>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.2
+Homepage: https://nsclient.org
+Vcs-Git: https://github.com/mickem/nscp.git
+Vcs-Browser: https://github.com/mickem/nscp
+
+Package: nsclient++-server
+Architecture: all
+Description: NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon. It was built for Naemon/Nagios/Icinga, but nothing in the daemon is Naemon/Nagios/Icinga specific and it can be used in many other scenarios where you want to receive/distribute check metrics.
+
+Package: nsclient++-client
+Architecture: all
+Description: Client for checking status from remote NSClient++ servers.
+
+Package: nsclient++-nsca
+Architecture: all
+Description: NSCA Modules to allow NSClient++ to communicate with NSCA servers or clients.
+
+Package: nsclient++-bin
+Architecture: all
+Description: Shared libraries used by both NSClient++ server and client.
+

@@ -12,20 +12,27 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
 
   config.vm.provider :virtualbox do |vb|
-    # Don't boot with headless mode
     vb.gui = false
-    vb.customize ["modifyvm", :id, "--memory", "1024"]
+    vb.customize ["modifyvm", :id, "--memory", "2048"]
   end
 
-  config.vm.provision :puppet do |puppet|
-    puppet.manifests_path = "../../debian/manifests"
-    puppet.manifest_file  = "base.pp"
-  end
+  config.vm.provision "shell", inline: "sudo apt-get update -y"
+  config.vm.provision "shell", inline: "sudo apt-get install -y git build-essential debhelper cmake"
+  config.vm.provision "shell", inline: "sudo apt-get install -y python-dev libssl-dev libboost-all-dev libprotobuf-dev libcrypto++-dev libgtest-dev liblua5.1-0-dev"
+  config.vm.provision "shell", inline: "sudo apt-get install -y protobuf-compiler python-protobuf"
+  config.vm.provision "shell", inline: "sudo apt-get install -y python-sphinx"
+  config.vm.provision "shell", inline: "test -f /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py || sudo touch /usr/lib/python2.7/dist-packages/google/protobuf/compiler/__init__.py"
 
-  config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
+  # Provision build script
+  config.vm.provision "shell", inline: "cp /etc/puppet/files/build-debian.sh /home/vagrant/build-debian.sh"
+  config.vm.provision "shell", inline: "chmod 755 /home/vagrant/build-debian.sh"
+  # Build NSClient++
+  config.vm.provision "shell", inline: "su - vagrant -c ./build-debian.sh"
 
   config.vm.synced_folder "../../files", "/etc/puppet/files"
   config.vm.synced_folder "../../../", "/source/nscp"
   config.ssh.forward_agent = true
+  config.ssh.private_key_path = ['~/.vagrant.d/insecure_private_key', '~/.ssh/id_rsa']
+  config.ssh.insert_key = false
   
 end
