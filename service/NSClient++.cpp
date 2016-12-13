@@ -850,6 +850,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 			routers_.add_plugin(plugin);
 		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 	}
+	plugin_cache_.add_plugin(plugin);
 	return plugin;
 }
 

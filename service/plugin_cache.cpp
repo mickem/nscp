@@ -3,6 +3,9 @@
 #include <boost/thread/locks.hpp>
 #include <boost/foreach.hpp>
 
+#include <strEx.h>
+
+
 void nsclient::core::plugin_cache::add_plugins(const plugin_cache_list_type & item) {
 	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!writeLock.owns_lock()) {
@@ -72,8 +75,26 @@ boost::optional<nsclient::core::plugin_cache_item> nsclient::core::plugin_cache:
 std::string nsclient::core::plugin_cache::find_plugin_alias(unsigned int plugin_id) {
 	boost::optional<plugin_cache_item> info = find_plugin_info(plugin_id);
 	if (!info) {
-		return "TODO";
+		return "Failed to find plugin: " + strEx::s::xtos(plugin_id);
 	}
 	return info->alias;
 }
 
+void nsclient::core::plugin_cache::add_plugin(nsclient::core::plugin_type plugin) {
+	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!writeLock.owns_lock()) {
+		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+		return;
+	}
+	plugin_cache_.push_back(plugin_cache_item(plugin));
+}
+
+nsclient::core::plugin_cache_item::plugin_cache_item(const nsclient::core::plugin_type& plugin)
+	: id(plugin->get_id())
+	, dll(plugin->getModule())
+	, alias(plugin->get_alias_or_name())
+	, name(plugin->getModule())
+	, title(plugin->getName())
+	, desc(plugin->getDescription())
+	, version(plugin->get_version())
+	, is_loaded(true) {}

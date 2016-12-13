@@ -1,5 +1,7 @@
 #pragma once
 
+#include "NSCPlugin.h"
+
 #include <nsclient/logger/logger.hpp>
 
 #include <boost/thread/shared_mutex.hpp>
@@ -10,6 +12,9 @@
 
 namespace nsclient {
 	namespace core {
+
+		typedef boost::shared_ptr<NSCPlugin> plugin_type;
+
 		struct plugin_cache_item {
 			unsigned int id;
 			std::string dll;
@@ -21,6 +26,7 @@ namespace nsclient {
 			bool is_loaded;
 
 			plugin_cache_item() : id(0), is_loaded(false) {}
+			plugin_cache_item(const plugin_type& other);
 			plugin_cache_item(const plugin_cache_item& other)
 				: id(other.id)
 				, dll(other.dll)
@@ -64,12 +70,12 @@ namespace nsclient {
 			boost::optional<unsigned int> find_plugin(const ::std::string& name);
 
 			std::string find_plugin_alias(unsigned int plugin_id);
+			void add_plugin(plugin_type plugin);
 
 		private:
 			nsclient::logging::logger_instance get_logger() {
 				return logger_;
 			}
-
 		};
 	}
 }

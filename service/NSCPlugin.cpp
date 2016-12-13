@@ -542,3 +542,9 @@ bool NSCPlugin::is_duplicate(boost::filesystem::path file, std::string alias) {
 		return false;
 	return module_.get_file() == dll::dll_impl::fix_module_name(file) && alias == alias_;
 }
+
+std::string NSCPlugin::get_version() {
+	int major, minor, revision;
+	getVersion(&major, &minor, &revision);
+	return strEx::s::xtos(major) + "." + strEx::s::xtos(minor) + "." + strEx::s::xtos(revision);
+}

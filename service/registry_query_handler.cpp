@@ -171,6 +171,7 @@ namespace nsclient {
 											itm.dll = plugin->getModule();
 											itm.name = plugin->getName();
 											itm.desc = plugin->getDescription();
+											itm.id = plugin->get_id();
 											itm.is_loaded = false;
 											tmp_list.push_back(itm);
 											plugin->unload_dll();

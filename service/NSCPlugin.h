@@ -238,6 +238,7 @@ public:
 	void on_log_message(std::string &payload) {
 		handleMessage(payload.c_str(), static_cast<unsigned int>(payload.size()));
 	}
+	std::string get_version();
 
 private:
 	bool getName_(char* buf, unsigned int buflen);
