@@ -569,7 +569,6 @@ ADD_SUBDIRECTORY("files")
 LOAD_SECTIONS(ALL_MODULE_NAMES "modules/*/module.cmake" "Modules")
 LOAD_SECTIONS(ALL_CLIENT_NAMES "clients/*/module.cmake" "Clients")
 IF(WIN32)
-	LOAD_SECTIONS(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
 	LOAD_SECTIONS(ALL_TOOL_NAMES "tools/*/module.cmake" "Tools")
 ENDIF(WIN32)
 SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_CLIENT_NAMES} ${ALL_MODULE_NAMES} ${ALL_TOOL_NAMES} PROPERTIES 
@@ -579,6 +578,10 @@ SET_TARGET_PROPERTIES(${MAIN_NSCP_TARGET} ${ALL_CLIENT_NAMES} ${ALL_MODULE_NAMES
 )
 
 ADD_SUBDIRECTORY("docs")
+
+IF(WIN32)
+	LOAD_SECTIONS(ALL_INSTALLERS_NAMES "installers/*/CMakeLists.txt" "Installers")
+ENDIF(WIN32)
 
 #############################################################################
 #
