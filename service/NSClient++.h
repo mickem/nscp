@@ -79,7 +79,6 @@ private:
 	nsclient::logging::logger_instance log_instance_;
 	nsclient::commands commands_;
 	nsclient::channels channels_;
-	nsclient::routers routers_;
 	nsclient::simple_plugins_list metricsFetchers;
 	nsclient::simple_plugins_list metricsSubmitetrs;
 	nsclient::core::plugin_cache plugin_cache_;
@@ -124,7 +123,6 @@ public:
 		return log_instance_;
 	}
 
-	NSCAPI::errorReturn reroute(std::string &channel, std::string &buffer);
 	NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
 	NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
 	::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
@@ -133,7 +131,6 @@ public:
 	int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
 	NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
-	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::nagiosReturn emit_event(const std::string &request);
 
 	NSCAPI::errorReturn reload(const std::string module);
@@ -152,9 +149,6 @@ public:
 	}
 	nsclient::channels* get_channels() {
 		return &channels_;
-	}
-	nsclient::routers* get_routers() {
-		return &routers_;
 	}
 	nsclient::event_subscribers* get_event_subscribers() {
 		return &event_subscribers_;

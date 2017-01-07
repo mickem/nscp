@@ -227,8 +227,6 @@ namespace nsclient {
 				core_->get_channels()->register_listener(registration.plugin_id(), registration.name());
 			} else if (registration.type() == Plugin::Registry_ItemType_EVENT) {
 				core_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
-			} else if (registration.type() == Plugin::Registry_ItemType_ROUTER) {
-				core_->get_routers()->register_listener(registration.plugin_id(), registration.name());
 			} else if (registration.type() == Plugin::Registry_ItemType_MODULE) {
 				Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
 				unsigned int new_id = core_->add_plugin(registration.plugin_id());

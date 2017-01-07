@@ -141,7 +141,6 @@ NSClientT::NSClientT()
 	, log_instance_(new nsclient::logging::impl::nsclient_logger())
 	, commands_(log_instance_)
 	, channels_(log_instance_)
-	, routers_(log_instance_)
 	, metricsFetchers(log_instance_)
 	, metricsSubmitetrs(log_instance_)
 	, plugin_cache_(log_instance_)
@@ -540,7 +539,6 @@ void NSClientT::unloadPlugins() {
 		}
 		commands_.remove_all();
 		channels_.remove_all();
-		routers_.remove_all();
 		plugins_.clear();
 	}
 }
@@ -725,8 +723,6 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 		if (plugin->has_on_event()) {
 			event_subscribers_.add_plugin(plugin);
 		}
-		if (plugin->has_routing_handler())
-			routers_.add_plugin(plugin);
 		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 	}
 	plugin_cache_.add_plugin(plugin);
@@ -1044,39 +1040,8 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 	return NSCAPI::cmd_return_codes::returnIgnored;
 }
 
-NSCAPI::errorReturn NSClientT::reroute(std::string &channel, std::string &buffer) {
-	BOOST_FOREACH(nsclient::plugin_type p, routers_.get(channel)) {
-		char *new_channel_buffer;
-		char *new_buffer;
-		unsigned int new_buffer_len;
-		int status = p->route_message(channel.c_str(), buffer.c_str(), buffer.size(), &new_channel_buffer, &new_buffer, &new_buffer_len);
-		if ((status&NSCAPI::message::modified) == NSCAPI::message::modified) {
-			buffer = std::string(new_buffer, new_buffer_len);
-			p->deleteBuffer(&new_buffer);
-		}
-		if ((status&NSCAPI::message::routed) == NSCAPI::message::routed) {
-			channel = new_channel_buffer;
-			//p->deleteBuffer(new_channel_buffer);
-			return NSCAPI::message::routed;
-		}
-		if ((status&NSCAPI::message::ignored) == NSCAPI::message::ignored)
-			return NSCAPI::message::ignored;
-		if ((status&NSCAPI::message::digested) == NSCAPI::message::digested)
-			return NSCAPI::message::ignored;
-	}
-	return NSCAPI::message::hasFailed;
-}
 NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const char* channel) {
 	channels_.register_listener(plugin_id, channel);
-	return NSCAPI::api_return_codes::isSuccess;
-}
-NSCAPI::errorReturn NSClientT::register_routing_listener(unsigned int plugin_id, const char* channel) {
-	try {
-		routers_.register_listener(plugin_id, channel);
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE("Failed to register channel: " + utf8::cvt<std::string>(channel) + ": " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::api_return_codes::hasFailed;
-	}
 	return NSCAPI::api_return_codes::isSuccess;
 }
 
@@ -1088,22 +1053,6 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	}
 
 	std::string schannel = channel;
-	try {
-		int count = 0;
-		while (reroute(schannel, request) == NSCAPI::message::routed && count++ <= 10) {
-			LOG_DEBUG_CORE_STD("Re-routing message to: " + schannel);
-		}
-		if (count >= 10) {
-			LOG_ERROR_CORE("More then 10 routes, discarding message...");
-			return NSCAPI::api_return_codes::hasFailed;
-		}
-	} catch (nsclient::plugins_list_exception &e) {
-		LOG_ERROR_CORE("Error routing channel: " + schannel + ": " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::api_return_codes::hasFailed;
-	} catch (...) {
-		LOG_ERROR_CORE("Error routing channel: " + schannel);
-		return NSCAPI::api_return_codes::hasFailed;
-	}
 
 	bool found = false;
 	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
