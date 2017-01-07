@@ -106,6 +106,26 @@ namespace settings {
 			return ini.GetSectionSize(utf8::cvt<std::wstring>(path).c_str()) > 0;
 		}
 
+		std::string render_comment(const settings_core::key_description &desc) {
+			std::string comment = "; ";
+			if (!desc.title.empty())
+				comment += desc.title + " - ";
+			if (!desc.description.empty())
+				comment += desc.description;
+			strEx::s::replace(comment, "\n", " ");
+			return comment;
+		}
+
+		std::string render_comment(const settings_core::path_description &desc) {
+			std::string comment = "; ";
+			if (!desc.title.empty())
+				comment += desc.title + " - ";
+			if (!desc.description.empty())
+				comment += desc.description;
+			strEx::s::replace(comment, "\n", " ");
+			return comment;
+		}
+
 		//////////////////////////////////////////////////////////////////////////
 		/// Write a value to the resulting context.
 		///
@@ -118,13 +138,7 @@ namespace settings {
 				return;
 			try {
 				const settings_core::key_description desc = get_core()->get_registred_key(key.first, key.second);
-				std::string comment = "; ";
-				if (!desc.title.empty())
-					comment += desc.title + " - ";
-				if (!desc.description.empty())
-					comment += desc.description;
-				strEx::s::replace(comment, "\n", " ");
-
+				std::string comment = render_comment(desc);
 				ini.Delete(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str());
 				ini.SetValue(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(comment).c_str());
 			} catch (settings_exception e) {
@@ -137,9 +151,8 @@ namespace settings {
 		virtual void set_real_path(std::string path) {
 			try {
 				const settings_core::path_description desc = get_core()->get_registred_path(path);
-				if (!desc.description.empty()) {
-					std::string comment = "; " + desc.description;
-					boost::replace_all(comment, "\n", "\n;");
+				std::string comment = render_comment(desc);
+				if (!comment.empty()) {
 					ini.SetValue(utf8::cvt<std::wstring>(path).c_str(), NULL, NULL, utf8::cvt<std::wstring>(comment).c_str());
 				}
 			} catch (settings_exception e) {
@@ -216,6 +229,8 @@ namespace settings {
 		/// @author mickem
 		virtual void save() {
 			settings_interface_impl::save();
+
+
 			SI_Error rc = ini.SaveFile(get_file_name().string().c_str());
 			if (rc < 0)
 				throw_SI_error(rc, "Failed to save file");
@@ -246,6 +261,8 @@ namespace settings {
 
 			return ret;
 		}
+
+
 		virtual void real_clear_cache() {
 			is_loaded_ = false;
 			load_data();
