@@ -210,7 +210,7 @@ namespace settings {
 			bool unchanged = (current && *current == value) || (!current && T::is_default(value));
 			settings_cache_[cache_key_type(path, key)] = conainer(value, !unchanged);
 			path_cache_.insert(path);
-			core_->register_path(99, path, "in flight", "TODO", true, false);
+			core_->register_path(99, path, "in flight", "TODO", true, false, false);
 
 			if (unchanged)
 				return;
