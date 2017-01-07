@@ -81,7 +81,7 @@ namespace commands {
 
 			if (!oneliner) {
 				root_path.add_path()
-					("COMMAND DEFENITION", "Command definition for: " + get_alias())
+					("script: " + get_alias(), "The configuration section for the  " + get_alias() + " script.")
 					;
 
 				root_path.add_key()

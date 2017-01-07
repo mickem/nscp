@@ -70,12 +70,12 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	thread_->set_path(settings.alias().get_settings_path("real-time/filters"));
 
 	settings.alias().add_path_to_settings()
-		("EVENT LOG SECTION", "Section for the EventLog Checker (CheckEventLog.dll).")
+		("Eventlog configuration", "Section for the EventLog Checker (CheckEventLog.dll).")
 
-		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
+		("real-time", "Real-time monitoring", "A set of options to configure the real time checks")
 
 		("real-time/filters", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Real-time filters", "A set of filters to use in real-time mode",
 			"FILTER DEFENITION", "For more configuration options add a dedicated section")
 		;
 

@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Execute external scripts",
-		"description"	: "Execute external scripts",
+		"description"	: "Module used to execute external scripts",
 		"name"			: "CheckExternalScripts",
 		"alias"			: "ext-script",
 		"version"		: "auto"

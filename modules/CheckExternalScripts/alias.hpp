@@ -86,7 +86,7 @@ namespace alias {
 				return;
 
 			root_path.add_path()
-				("ALIAS DEFENITION", "Alias definition for: " + get_alias())
+				("alias: " + get_alias(), "The configuration section for the " + get_alias() + " alias")
 				;
 
 			root_path.add_key()

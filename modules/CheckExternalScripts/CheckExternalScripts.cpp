@@ -92,11 +92,11 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.alias().add_path_to_settings()
 
 			("wrappings", sh::string_map_path(&wrappings_)
-				, "EXTERNAL SCRIPT WRAPPINGS SECTION", "A list of templates for wrapped scripts.\n%SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
+				, "Script wrappings", "A list of templates for defining script commands.\nEnter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.",
 				"WRAPPING", "An external script wrapping")
 
 			("alias", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_alias, this, _1, _2)),
-				"ALIAS SECTION", "A list of aliases available.\n"
+				"Command aliases", "A list of aliases for already defined commands (with arguments).\n"
 				"An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)",
 				"ALIAS", "Query alias")
 
@@ -108,17 +108,17 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		if (wrappings_.find("ps1") == wrappings_.end()) {
 			wrappings_["ps1"] = "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -";
-			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "", "", false);
+			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts", "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -", false);
 			settings.set_static_key(wrappings_path, "ps1", wrappings_["ps1"]);
 		}
 		if (wrappings_.find("vbs") == wrappings_.end()) {
 			wrappings_["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "VISUAL BASIC WRAPPING", "", "", false);
+			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "Visual basic script", "Command line used for wrapped vbs scripts", "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "vbs", wrappings_["vbs"]);
 		}
 		if (wrappings_.find("bat") == wrappings_.end()) {
 			wrappings_["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "BATCH FILE WRAPPING", "", "", false);
+			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "bat", wrappings_["bat"]);
 		}
 
@@ -149,30 +149,30 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		}
 
 		settings.alias().add_path_to_settings()
-			("EXTERNAL SCRIPT SECTION", "Section for external scripts configuration options (CheckExternalScripts).")
+			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
 
 			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
-				"SCRIPT SECTION", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: <command>=<script> <arguments>",
+				"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
 				"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
 
 			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)),
-				"WRAPPED SCRIPTS SECTION", "A list of wrapped scripts (ie. scruts using a template mechanism). The template used will be defined by the extension of the script.",
-				"WRAPPED SCRIPT", "A wrapped script defenitions")
+				"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
+				"WRAPPED SCRIPT", "A wrapped script definitions")
 
 			;
 
 		settings.alias().add_key_to_settings()
 			("timeout", sh::uint_key(&timeout, 60),
-				"COMMAND TIMEOUT", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
+				"Command timeout", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
 
 			("allow arguments", sh::bool_key(&allowArgs_, false),
-				"COMMAND ARGUMENT PROCESSING", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
+				"Allow arguments when executing external scripts", "This option determines whether or not the we will allow clients to specify arguments to commands that are executed.")
 
 			("allow nasty characters", sh::bool_key(&allowNasty_, false),
-				"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
+				"Allow certain potentially dangerous characters in arguments", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
 			("script path", sh::string_key(&scriptDirectory_),
-				"SCRIPT DIRECTORY", "Load all scripts in a directory and use them as commands. Probably dangerous but useful if you have loads of scripts :)")
+				"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
 			;
 
 
