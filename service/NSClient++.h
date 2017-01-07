@@ -135,8 +135,6 @@ public:
 	NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
 	NSCAPI::errorReturn register_routing_listener(unsigned int plugin_id, const char* channel);
-	NSCAPI::errorReturn settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
-	NSCAPI::errorReturn registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len);
 	NSCAPI::nagiosReturn emit_event(const std::string &request);
 
 	NSCAPI::errorReturn reload(const std::string module);

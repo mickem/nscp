@@ -297,7 +297,6 @@ bool NSClientT::boot_init(const bool override_log) {
 			("enabled", sh::bool_key(&enable_shared_session_, false),
 				"ENABLE THE SAHRED SESSION", "This is currently not added in 0.4.x")
 			;
-
 		settings.add_key_to_settings("crash")
 			("submit", sh::bool_key(&crash_submit, false),
 				"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
@@ -513,6 +512,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));
 	return true;
 }
+
 /*
 void NSClientT::startTrayIcons() {
 // 	if (shared_server_.get() == NULL) {
@@ -1187,7 +1187,6 @@ NSCAPI::errorReturn NSClientT::reroute(std::string &channel, std::string &buffer
 	}
 	return NSCAPI::message::hasFailed;
 }
-
 NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const char* channel) {
 	channels_.register_listener(plugin_id, channel);
 	return NSCAPI::api_return_codes::isSuccess;
@@ -1644,54 +1643,6 @@ std::string NSClientT::expand_path(std::string file) {
 		LOG_ERROR_CORE("Failed to expand path: " + utf8::cvt<std::string>(file));
 		return "";
 	}
-}
-
-NSCAPI::errorReturn NSClientT::settings_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	try {
-		Plugin::SettingsRequestMessage request;
-		Plugin::SettingsResponseMessage response;
-		request.ParseFromArray(request_buffer, request_buffer_len);
-
-		nsclient::core::settings_query_handler sqr(this, request);
-		sqr.parse(response);
-		*response_buffer_len = response.ByteSize();
-		*response_buffer = new char[*response_buffer_len + 10];
-		response.SerializeToArray(*response_buffer, *response_buffer_len);
-		return NSCAPI::api_return_codes::isSuccess;
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Settings query error: " + utf8::utf8_from_native(e.what()));
-	} catch (...) {
-		LOG_ERROR_CORE_STD("Unknown settings query error");
-	}
-	return NSCAPI::api_return_codes::hasFailed;
-
-}
-
-
-NSCAPI::errorReturn NSClientT::registry_query(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	try {
-		std::string response_string;
-		Plugin::RegistryRequestMessage request;
-		Plugin::RegistryResponseMessage response;
-		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
-		request.ParseFromArray(request_buffer, request_buffer_len);
-		nsclient::core::registry_query_handler rqh(this, request);
-		rqh.parse(response);
-
-		*response_buffer_len = response.ByteSize();
-		*response_buffer = new char[*response_buffer_len + 10];
-		response.SerializeToArray(*response_buffer, *response_buffer_len);
-	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD("Failed query: " + e.reason());
-		return NSCAPI::api_return_codes::hasFailed;
-	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Failed query: " + utf8::utf8_from_native(e.what()));
-		return NSCAPI::api_return_codes::hasFailed;
-	} catch (...) {
-		LOG_ERROR_CORE("Failed query");
-		return NSCAPI::api_return_codes::hasFailed;
-	}
-	return NSCAPI::api_return_codes::isSuccess;
 }
 
 struct metrics_fetcher {

@@ -28,21 +28,15 @@
 #include <nsclient/logger/logger.hpp>
 
 #ifdef HAVE_JSON_SPIRIT
-//#define JSON_SPIRIT_VALUE_ENABLED
 #include <json_spirit.h>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <plugin.pb-json.h>
 #endif
 
-#define LOG_ERROR_STD(msg) LOG_ERROR(((std::string)msg).c_str())
-#define LOG_CRITICAL_STD(msg) LOG_CRITICAL(((std::string)msg).c_str())
-#define LOG_MESSAGE_STD(msg) LOG_MESSAGE(((std::string)msg).c_str())
-#define LOG_DEBUG_STD(msg) LOG_DEBUG(((std::string)msg).c_str())
+#include "settings_query_handler.hpp"
+#include "registry_query_handler.hpp"
 
-#define LOG_ERROR(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg); }
-#define LOG_CRITICAL(msg) { nsclient::logging::logger::get_logger()->error("core", __FILE__, __LINE__, msg); }
-#define LOG_MESSAGE(msg) { nsclient::logging::logger::get_logger()->info("core", __FILE__, __LINE__, msg); }
-#define LOG_DEBUG(msg) { nsclient::logging::logger::get_logger()->debug("core", __FILE__, __LINE__, msg); }
+#define LOG_ERROR(core, msg) { core->get_logger()->error("core", __FILE__, __LINE__, msg); }
 
 extern NSClient *mainClient;	// Global core instance forward declaration.
 
@@ -126,10 +120,49 @@ NSCAPI::boolReturn NSAPICheckLogMessages(int loglevel) {
 }
 
 NSCAPI::errorReturn NSAPISettingsQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	return mainClient->settings_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+
+	try {
+		Plugin::SettingsRequestMessage request;
+		Plugin::SettingsResponseMessage response;
+		request.ParseFromArray(request_buffer, request_buffer_len);
+
+		nsclient::core::settings_query_handler sqr(mainClient, request);
+		sqr.parse(response);
+		*response_buffer_len = response.ByteSize();
+		*response_buffer = new char[*response_buffer_len + 10];
+		response.SerializeToArray(*response_buffer, *response_buffer_len);
+		return NSCAPI::api_return_codes::isSuccess;
+	} catch (const std::exception &e) {
+		LOG_ERROR(mainClient, "Settings query error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		LOG_ERROR(mainClient, "Unknown settings query error");
+	}
+	return NSCAPI::api_return_codes::hasFailed;
 }
 NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
-	return mainClient->registry_query(request_buffer, request_buffer_len, response_buffer, response_buffer_len);
+	try {
+		std::string response_string;
+		Plugin::RegistryRequestMessage request;
+		Plugin::RegistryResponseMessage response;
+		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
+		request.ParseFromArray(request_buffer, request_buffer_len);
+		nsclient::core::registry_query_handler rqh(mainClient, request);
+		rqh.parse(response);
+
+		*response_buffer_len = response.ByteSize();
+		*response_buffer = new char[*response_buffer_len + 10];
+		response.SerializeToArray(*response_buffer, *response_buffer_len);
+	} catch (settings::settings_exception e) {
+		LOG_ERROR(mainClient, "Failed query: " + e.reason());
+		return NSCAPI::api_return_codes::hasFailed;
+	} catch (const std::exception &e) {
+		LOG_ERROR(mainClient, "Failed query: " + utf8::utf8_from_native(e.what()));
+		return NSCAPI::api_return_codes::hasFailed;
+	} catch (...) {
+		LOG_ERROR(mainClient, "Failed query");
+		return NSCAPI::api_return_codes::hasFailed;
+	}
+	return NSCAPI::api_return_codes::isSuccess;
 }
 
 wchar_t* copyString(const std::wstring &str) {
