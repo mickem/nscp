@@ -61,10 +61,10 @@ namespace nrpe_handler {
 
 			root_path.add_key()
 
-				("insecure", sh::path_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "insecure", _1)),
+				("insecure", sh::path_fun_key(boost::bind(&parent::set_property_string, this, "insecure", _1)),
 					"Insecure legacy mode", "Use insecure legacy mode to connect to old NRPE server", false)
 
-				("payload length", sh::int_fun_key<int>(boost::bind(&parent::set_property_int, this, "payload length", _1)),
+				("payload length", sh::int_fun_key(boost::bind(&parent::set_property_int, this, "payload length", _1)),
 					"PAYLOAD LENGTH", "Length of payload to/from the NRPE agent. This is a hard specific value so you have to \"configure\" (read recompile) your NRPE agent to use the same value for it to work.")
 				;
 			settings.register_all();

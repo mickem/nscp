@@ -66,7 +66,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("type", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+				("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 					"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
 				;
 
@@ -114,7 +114,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("time", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+				("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 					"TIME", "A list of times to check (coma separated)", true)
 				;
 
@@ -156,7 +156,7 @@ namespace filters {
 				("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + get_alias())
 				;
 			root_path.add_key()
-				("process", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+				("process", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 					"PROCESS", "A list of processes to check (or * for all)", false)
 				;
 
@@ -217,19 +217,19 @@ namespace filters {
 
 			if (check == "memory") {
 				root_path.add_key()
-					("type", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+					("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 						"MEMORY TYPE", "The type of memory to check: physical, committed or virtual", false)
 
-					("types", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
+					("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
 						"MEMORY TYPES", "A list of types to check: physical, committed or virtual", true)
 					;
 			} else {
 
 				root_path.add_key()
-					("time", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+					("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 						"TIME", "The time to check", false)
 
-					("times", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
+					("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
 						"FILES", "A list of times to check (soma separated)", true)
 					;
 			}

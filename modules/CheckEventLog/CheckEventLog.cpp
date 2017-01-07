@@ -96,10 +96,10 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 
 	settings.alias().add_key_to_settings("real-time")
 
-		("enabled", sh::bool_fun_key<bool>(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
+		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
 			"REAL TIME CHECKING", "Spawns a background thread which detects issues and reports them back instantly.")
 
-		("startup age", sh::string_fun_key<std::string>(boost::bind(&real_time_thread::set_start_age, thread_, _1), "30m"),
+		("startup age", sh::string_fun_key(boost::bind(&real_time_thread::set_start_age, thread_, _1), "30m"),
 			"STARTUP AGE", "The initial age to scan when starting NSClient++")
 
 		("log", sh::string_key(&thread_->logs_, "application,system"),

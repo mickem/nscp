@@ -56,7 +56,7 @@ namespace nscp_handler {
 
 			root_path.add_key()
 
-				("password", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "password", _1)),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "password", _1)),
 					"PASSWORD", "The password to use to authenticate towards the server.")
 				;
 			settings.register_all();

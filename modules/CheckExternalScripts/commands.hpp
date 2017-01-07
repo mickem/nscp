@@ -85,7 +85,7 @@ namespace commands {
 					;
 
 				root_path.add_key()
-					("command", sh::string_fun_key<std::string>(boost::bind(&command_object::set_command, this, _1)),
+					("command", sh::string_fun_key(boost::bind(&command_object::set_command, this, _1)),
 						"COMMAND", "Command to execute")
 
 					("user", nscapi::settings_helper::string_key(&user),

@@ -26,6 +26,7 @@
 #include <boost/regex.hpp>
 #include <strEx.h>
 #include <settings/settings_core.hpp>
+#include <settings/settings_value.hpp>
 #include <nsclient/logger/logger.hpp>
 
 namespace settings {
@@ -151,7 +152,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) {
+		void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
@@ -176,7 +177,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) {
+		void register_key(unsigned int plugin_id, std::string path, std::string key, settings_core::key_type type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool is_sample, bool update_existing = true) {
 			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
 				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path + "." + key);

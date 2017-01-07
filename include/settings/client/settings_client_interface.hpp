@@ -19,8 +19,14 @@
 #include <map>
 #include <list>
 
+#include <boost/optional/optional.hpp>
+
+#include <settings/settings_value.hpp>
+
 namespace nscapi {
 	namespace settings_helper {
+
+
 
 		class settings_impl_interface {
 		public:
@@ -51,7 +57,7 @@ namespace nscapi {
 			/// @param advanced advanced options will only be included if they are changed
 			///
 			/// @author mickem
-			virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defValue, bool advanced, bool sample) = 0;
+			virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool sample) = 0;
 
 			virtual void register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) = 0;
 

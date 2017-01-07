@@ -52,13 +52,13 @@ namespace smtp_handler {
 
 			root_path.add_key()
 
-				("sender", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "sender", _1), "nscp@localhost"),
+				("sender", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "sender", _1), "nscp@localhost"),
 					"SENDER", "Sender of email message")
 
-				("recipient", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "recipient", _1), "nscp@localhost"),
+				("recipient", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "recipient", _1), "nscp@localhost"),
 					"RECIPIENT", "Recipient of email message")
 
-				("template", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "template", _1), "Hello, this is %source% reporting %message%!"),
+				("template", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "template", _1), "Hello, this is %source% reporting %message%!"),
 					"TEMPLATE", "Template for message data")
 
 				;

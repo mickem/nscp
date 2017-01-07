@@ -53,13 +53,13 @@ namespace nrdp_handler {
 
 			root_path.add_key()
 
-				("key", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("key", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
 					"SECURITY TOKEN", "The security token")
 
-				("password", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("password", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
 					"SECURITY TOKEN", "The security token")
 
-				("token", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "token", _1)),
+				("token", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "token", _1)),
 					"SECURITY TOKEN", "The security token")
 
 				;

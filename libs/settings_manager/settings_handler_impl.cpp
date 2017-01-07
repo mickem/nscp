@@ -27,12 +27,12 @@ void settings::settings_handler_impl::update_defaults() {
 				if (!get()->has_key(path, key)) {
 					get_logger()->debug("settings", __FILE__, __LINE__, "Adding: " + key_to_string(path, key));
 					if (desc.type == key_string)
-						get()->set_string(path, key, desc.defValue);
+						get()->set_string(path, key, desc.defValue.get_string());
 					else if (desc.type == key_bool)
-						get()->set_bool(path, key, settings::settings_interface::string_to_bool(desc.defValue));
+						get()->set_bool(path, key, desc.defValue.get_bool());
 					else if (desc.type == key_integer) {
 						try {
-							get()->set_int(path, key, strEx::s::stox<int>(desc.defValue));
+							get()->set_int(path, key, desc.defValue.get_int());
 						} catch (const std::exception &) {
 							get_logger()->error("settings", __FILE__, __LINE__, "invalid default value for: " + key_to_string(path, key));
 						}
@@ -66,15 +66,15 @@ void settings::settings_handler_impl::remove_defaults() {
 			if (get()->has_key(path, key)) {
 				try {
 					if (desc.type == key_string) {
-						if (get()->get_string(path, key) == desc.defValue) {
+						if (get()->get_string(path, key) == desc.defValue.get_string()) {
 							get()->remove_key(path, key);
 						}
 					} else if (desc.type == key_bool) {
-						if (get()->get_bool(path, key) == settings::settings_interface::string_to_bool(desc.defValue)) {
+						if (get()->get_bool(path, key) == desc.defValue.get_bool()) {
 							get()->remove_key(path, key);
 						}
 					} else if (desc.type == key_integer) {
-						if (get()->get_int(path, key) == strEx::s::stox<int>(desc.defValue)) {
+						if (get()->get_int(path, key) == desc.defValue.get_int()) {
 							get()->remove_key(path, key);
 						}
 					} else

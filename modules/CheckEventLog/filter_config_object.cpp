@@ -129,14 +129,14 @@ namespace eventlog_filter {
 			return;
 
 		root_path.add_path()
-			("REAL TIME FILTER DEFENITION", "Definition for real time filter: " + alias)
+			("Real time filter: " + get_alias(), "Definition for real time filter: " + get_alias())
 			;
 
 		root_path.add_key()
-			("log", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_file, this, _1)),
+			("log", sh::string_fun_key(boost::bind(&filter_config_object::set_file, this, _1)),
 				"FILE", "The eventlog record to filter on (if set to 'all' means all enabled logs)", false)
 
-			("logs", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_files, this, _1)),
+			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, _1)),
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
 			;

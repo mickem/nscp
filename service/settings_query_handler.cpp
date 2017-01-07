@@ -125,7 +125,12 @@ namespace nsclient {
 								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
 								rpp->mutable_info()->set_sample(desc.is_sample);
-								rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
+								if (desc.defValue.string_value)
+									rpp->mutable_info()->mutable_default_value()->set_string_data(*desc.defValue.string_value);
+								if (desc.defValue.int_value)
+									rpp->mutable_info()->mutable_default_value()->set_int_data(*desc.defValue.int_value);
+								if (desc.defValue.bool_value)
+									rpp->mutable_info()->mutable_default_value()->set_bool_data(*desc.defValue.bool_value);
 								if (desc.type == NSCAPI::key_string) {
 									settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
 									if (val)
@@ -196,7 +201,12 @@ namespace nsclient {
 							rpp->mutable_info()->set_description(desc.description);
 							rpp->mutable_info()->set_advanced(desc.advanced);
 							rpp->mutable_info()->set_sample(desc.is_sample);
-							rpp->mutable_info()->mutable_default_value()->set_string_data(desc.defValue);
+							if (desc.defValue.string_value)
+								rpp->mutable_info()->mutable_default_value()->set_string_data(*desc.defValue.string_value);
+							if (desc.defValue.int_value)
+								rpp->mutable_info()->mutable_default_value()->set_int_data(*desc.defValue.int_value);
+							if (desc.defValue.bool_value)
+								rpp->mutable_info()->mutable_default_value()->set_bool_data(*desc.defValue.bool_value);
 							try {
 								if (desc.type == NSCAPI::key_string)
 									rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(path, key, ""));
@@ -316,7 +326,14 @@ namespace nsclient {
 				std::string tplData = json_spirit::write(node);
 				settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
 			} else if (q.node().has_key()) {
-				settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), q.info().default_value().string_data(), q.info().advanced(), q.info().sample());
+				nscapi::settings::settings_value defValue;
+				if (q.info().default_value().has_string_data())
+					defValue = nscapi::settings::settings_value::make_string(q.info().default_value().string_data());
+				else if (q.info().default_value().has_int_data())
+					defValue = nscapi::settings::settings_value::make_int(q.info().default_value().int_data());
+				else if (q.info().default_value().has_bool_data())
+					defValue = nscapi::settings::settings_value::make_bool(q.info().default_value().bool_data());
+				settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), defValue, q.info().advanced(), q.info().sample());
 			} else {
 				settings_manager::get_core()->register_path(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
 			}

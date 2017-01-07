@@ -90,7 +90,7 @@ namespace socket_helpers {
 				("bind to", nscapi::settings_helper::string_key(&info_.address),
 					"BIND TO ADDRESS", "Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.")
 
-				("allowed hosts", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), "127.0.0.1"),
+				("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), "127.0.0.1"),
 					"ALLOWED HOSTS", "A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
 				("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true),
@@ -109,7 +109,7 @@ namespace socket_helpers {
 				root_path.set_sample();
 			root_path.add_key()
 
-				("timeout", nscapi::settings_helper::int_fun_key<int>(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
+				("timeout", nscapi::settings_helper::int_fun_key(boost::bind(&object_type::set_property_int, &object, "timeout", _1), 30),
 					"TIMEOUT", "Timeout when reading/writing packets to/from sockets.")
 				;
 		}
@@ -120,28 +120,28 @@ namespace socket_helpers {
 				root_path.set_sample();
 			root_path.add_key()
 
-				("dh", nscapi::settings_helper::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
+				("dh", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "dh", _1), "${certificate-path}/nrpe_dh_512.pem"),
 					"DH KEY", "", true)
 
-				("certificate", nscapi::settings_helper::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
+				("certificate", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate", _1)),
 					"SSL CERTIFICATE", "", false)
 
-				("certificate key", nscapi::settings_helper::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
+				("certificate key", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate key", _1)),
 					"SSL CERTIFICATE", "", true)
 
-				("certificate format", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
+				("certificate format", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "certificate format", _1), "PEM"),
 					"CERTIFICATE FORMAT", "", true)
 
-				("ca", nscapi::settings_helper::path_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
+				("ca", nscapi::settings_helper::path_fun_key(boost::bind(&object_type::set_property_string, &object, "ca", _1)),
 					"CA", "", true)
 
-				("allowed ciphers", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
+				("allowed ciphers", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "allowed ciphers", _1), "ADH"),
 					"ALLOWED CIPHERS", "A better value is: ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH", false)
 
-				("verify mode", nscapi::settings_helper::string_fun_key<std::string>(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
+				("verify mode", nscapi::settings_helper::string_fun_key(boost::bind(&object_type::set_property_string, &object, "verify mode", _1), "none"),
 					"VERIFY MODE", "", false)
 
-				("use ssl", nscapi::settings_helper::bool_fun_key<bool>(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), true),
+				("use ssl", nscapi::settings_helper::bool_fun_key(boost::bind(&object_type::set_property_bool, &object, "ssl", _1), true),
 					"ENABLE SSL ENCRYPTION", "This option controls if SSL should be enabled.")
 				;
 		}

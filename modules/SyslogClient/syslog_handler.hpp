@@ -58,28 +58,28 @@ namespace syslog_handler {
 
 			root_path.add_key()
 
-				("severity", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "severity", _1), "error"),
+				("severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "severity", _1), "error"),
 					"TODO", "")
 
-				("facility", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "facility", _1), "kernel"),
+				("facility", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "facility", _1), "kernel"),
 					"TODO", "")
 
-				("tag_syntax", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "tag syntax", _1), "NSCA"),
+				("tag_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "tag syntax", _1), "NSCA"),
 					"TODO", "")
 
-				("message_syntax", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "message syntax", _1), "%message%"),
+				("message_syntax", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "message syntax", _1), "%message%"),
 					"TODO", "")
 
-				("ok severity", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "ok severity", _1), "informational"),
+				("ok severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "ok severity", _1), "informational"),
 					"TODO", "")
 
-				("warning severity", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "warning severity", _1), "warning"),
+				("warning severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "warning severity", _1), "warning"),
 					"TODO", "")
 
-				("critical severity", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "critical severity", _1), "critical"),
+				("critical severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "critical severity", _1), "critical"),
 					"TODO", "")
 
-				("unknown severity", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "unknown severity", _1), "emergency"),
+				("unknown severity", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "unknown severity", _1), "emergency"),
 					"TODO", "")
 				;
 		}

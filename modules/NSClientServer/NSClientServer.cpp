@@ -50,7 +50,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 	settings.alias().add_key_to_settings()
 
-		("performance data", sh::bool_fun_key<bool>(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
+		("performance data", sh::bool_fun_key(boost::bind(&NSClientServer::set_perf_data, this, _1), true),
 			"PERFORMANCE DATA", "Send performance data back to Nagios (set this to 0 to remove all performance data).")
 
 		;
@@ -61,7 +61,7 @@ bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
-		("password", sh::string_fun_key<std::string>(boost::bind(&NSClientServer::set_password, this, _1), ""),
+		("password", sh::string_fun_key(boost::bind(&NSClientServer::set_password, this, _1), ""),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;

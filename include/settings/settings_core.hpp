@@ -28,6 +28,8 @@
 
 #include <nsclient/logger/logger.hpp>
 
+#include <settings/settings_value.hpp>
+
 #include <strEx.h>
 #include <utf8.hpp>
 
@@ -81,11 +83,11 @@ namespace settings {
 			std::string title;
 			std::string description;
 			key_type type;
-			std::string defValue;
+			nscapi::settings::settings_value defValue;
 			bool advanced;
 			bool is_sample;
 			std::set<unsigned int> plugins;
-			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, std::string defValue_, bool advanced_, bool is_sample_)
+			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, nscapi::settings::settings_value defValue_, bool advanced_, bool is_sample_)
 				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_), is_sample(is_sample_) {
 				append_plugin(plugin_id);
 			}
@@ -184,7 +186,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
+		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
 
 
 		virtual void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) = 0;

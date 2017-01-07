@@ -55,32 +55,32 @@ namespace graphite_handler {
 
 				root_path.add_key()
 
-					("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
+					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
 						"PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1), "system.${hostname}.${check_alias}.status"),
+					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1), "system.${hostname}.${check_alias}.status"),
 						"PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1), true),
+					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", _1), true),
 						"SEND PERF DATA", "Send performance data to this server")
 
-					("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1), true),
+					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", _1), true),
 						"SEND STATUS", "Send status data to this server")
 
 					;
 			} else {
 				root_path.add_key()
 
-					("path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "perf path", _1)),
+					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1)),
 						"PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key<std::string>(boost::bind(&parent::set_property_string, this, "status path", _1)),
+					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1)),
 						"PATH FOR STATUS", "Path mapping for status")
 
-					("send perfdata", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
+					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", _1)),
 						"SEND PERF DATA", "Send performance data to this server")
 
-					("send status", sh::bool_fun_key<bool>(boost::bind(&parent::set_property_bool, this, "send status", _1)),
+					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", _1)),
 						"SEND STATUS", "Send status data to this server")
 
 					;

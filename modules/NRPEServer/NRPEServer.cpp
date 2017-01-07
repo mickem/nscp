@@ -72,7 +72,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("allow nasty characters", sh::bool_key(&allowNasty_, false),
 			"COMMAND ALLOW NASTY META CHARS", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-		("performance data", sh::bool_fun_key<bool>(boost::bind(&NRPEServer::set_perf_data, this, _1), true),
+		("performance data", sh::bool_fun_key(boost::bind(&NRPEServer::set_perf_data, this, _1), true),
 			"PERFORMANCE DATA", "Send performance data back to nagios (set this to 0 to remove all performance data).", true)
 
 		;
