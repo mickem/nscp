@@ -15,9 +15,13 @@ module_template = u"""# {{module.key}}
 
 {{module.info.description}}
 
+{%if module.ext_desc -%}
+{{ module.ext_desc}}
+{%- endif %}
+
 {% if module.queries -%}
 
-## Query list
+## List of commands
 
 A list of all available queries (check commands)
 {% set table = [] -%}
@@ -32,15 +36,15 @@ A list of all available queries (check commands)
         {% do table.append([query.key|md_self_link, query.info.description|firstline]) -%}
     {%- endif %}
 {%- endfor %}
-{{table|rst_csvtable('Command', 'Description')}}
+{{table|rst_table('Command', 'Description')}}
 {%- endif %}
 
 {% if module.aliases -%}
-## Alias list
+## List of command aliases
 
 A list of all short hand aliases for queries (check commands)
 
-{% set table = [] %}
+{% set table = [] -%}
 {% for key,query in module.aliases|dictsort  -%}
     {% if query.info.description.startswith('Alternative name for:') -%}
         {% set command = query.info.description[22:] -%}
@@ -52,15 +56,11 @@ A list of all short hand aliases for queries (check commands)
         {% do table.append([query.key, query.info.description|firstline]) -%}
     {%- endif %}
 {%- endfor %}
-{{table|rst_csvtable('Command', 'Description')}}
+{{table|rst_table('Command', 'Description')}}
 {%- endif %}
 
-## Command list
-
-**TODO:** Add a list of all external commands (this is not check commands)
-
 {% if module.paths -%}
-## Configuration list
+## List of Configuration
 
 {% set table = [] -%}
 {% set table_adv = [] -%}
@@ -79,24 +79,26 @@ A list of all short hand aliases for queries (check commands)
     {%- endfor %}
 {%- endfor %}
 {% if table -%}
-Common Keys:
+### Common Keys
 
-{{table|rst_csvtable('Path / Section', 'Key', 'Description')}}
+{{table|rst_table('Path / Section', 'Key', 'Description')}}
 {%- endif %}
 {% if table_adv -%}
-Advanced keys:
+### Advanced keys
 
-{{table_adv|rst_csvtable('Path / Section', 'Key', 'Description')}}
+{{table_adv|rst_table('Path / Section', 'Key', 'Description')}}
 {%- endif %}
 {% if table_sam -%}
-Sample keys:
+### Sample keys
 
-{{table_sam|rst_csvtable('Path / Section', 'Key', 'Description')}}
+{{table_sam|rst_table('Path / Section', 'Key', 'Description')}}
 {%- endif %}
 {%- endif %}
 
 {% if module.sample %}
-## Samples
+# Usage
+
+_To edit the usage section please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{module.sample_source}})_
 
 {{module.sample}}
 
@@ -114,7 +116,7 @@ A quick reference for all available queries (check commands) in the {{module.key
 {{query.info.description}}
 
 {% if query.sample -%}
-### Samples
+### Usage
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{query.sample_source}})_
 
@@ -122,12 +124,12 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endif %}
 ### Usage
 
-{% set table = [] %}
+{% set table = [] -%}
 {% for help in query.params -%}{% if help.content_type == 4 -%}
     {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),'N/A', help.long_description|firstline]) %}{% else -%}
     {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),help.default_value, help.long_description|firstline]) %}{%- endif %}
 {%- endfor %}
-{{table|rst_csvtable('Option', 'Default Value', 'Description')}}
+{{table|rst_table('Option', 'Default Value', 'Description')}}
 
 {% for help in query.params -%}
 <a name="{{help.name|md_prefix_lnk(query.key)}}"/>
@@ -153,23 +155,24 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endfor %}
 {%- endif %}
 
+{% if module.paths -%}
 # Configuration
 
-{% for pkey,path in module.paths|dictsort %}
-{% set common_heading=module.paths.keys()|common_head|length %}
-{% if common_heading != pkey|length -%}
-## {{pkey}}
-{%- else -%}
-## {{pkey}}
-{%- endif %}
-
-`{{pkey}}`
-
-{% if path.info.title -%}
-    **{{path.info.title}}**
-{%- endif %}
+{% for pkey,path in module.paths|dictsort -%}
+<a name="{{path.key}}"/>
+## {{path.info.title}}
 
 {{path.info.description}}
+
+```ini
+# {{path.info.description|firstline}}
+[{{path.key}}]
+{% for kkey,key in path.keys|dictsort -%}
+{% if key.info.default_value|extract_value -%}
+{{kkey}}={{key.info.default_value|extract_value}}
+{% endif %}
+{%- endfor %}
+```
 
 {% set tbl = [] -%}
 {% set pkey = path.key|md_self_link -%}
@@ -177,17 +180,8 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
     {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
     {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
 {%- endfor %}
-{{tbl|rst_csvtable('Key', 'Default Value', 'Description')}}
+{{tbl|rst_table('Key', 'Default Value', 'Description')}}
 
-**Sample**::
-
-```
-# {{path.info.title}}
-# {{path.info.description|firstline}}
-[{{path.key}}]
-{% for kkey,key in path.keys|dictsort %}{{kkey}}={{key.info.default_value|extract_value}}
-{% endfor %}
-```
 
 {% for kkey,key in path.keys|dictsort %}
 <a name="{{kkey|md_prefix_lnk(path.key)}}"/>
@@ -206,19 +200,24 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {{key.info.description|as_text}}
 {%- endif %}
 
-{% if key.info.advanced %}**Advanced** (means it is not commonly used)
+{% set table = [] -%}
+{% do table.append(['Path:', path.key|md_self_link(path.key)]) -%}
+{% do table.append(['Key:', kkey]) -%}
+{% if key.info.advanced -%}
+{% do table.append(['Advanced:', 'Yes (means it is not commonly used)']) -%}
+{%- endif %}
+{% if key.info.default_value|extract_value -%}
+{% do table.append(['Default value:', '`' + key.info.default_value|extract_value + '`']) -%}
+{% else %}
+{% do table.append(['Default value:', '_N/A_']) -%}
+{%- endif %}
+{% if key.info.sample -%}
+{% do table.append(['Sample key:', 'Yes (This section is only to show how this key is used)']) -%}
+{%- endif %}
+{% do table.append(['Used by:', ', '.join(path.info.plugin|sort)]) -%}
+{{table|rst_table('Key', 'Description')}}
 
-{% endif %}**Path**: {{path.key}}
-
-**Key**: {{kkey}}
-
-{% if key.info.default_value %}**Default value**: {{key.info.default_value|extract_value}}
-
-{% endif %}{% if key.info.sample %}**Sample key**: This key is provided as a sample to show how to configure objects
-
-{% endif %}**Used by**: {% for m in path.info.plugin|sort %}{% if not loop.first %},  {% endif %}:module:`{{m}}`{% endfor %}
-
-**Sample**::
+#### Sample
 
 ```
 [{{path.key}}]
@@ -228,6 +227,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 {% endfor %}
 {% endfor %}
+{%- endif %}
 """
 
 
@@ -240,7 +240,7 @@ index_template = u"""
 {% for key,module in plugins|dictsort  -%}
     {% do table.append([module.namespace, ('reference/' + module.namespace + '/' + module.key)|md_link(module.key), module.info.description|firstline]) -%}
 {%- endfor %}
-{{table|rst_csvtable('Type', 'Module', 'Description')}}
+{{table|rst_table('Type', 'Module', 'Description')}}
 
 # Queries
 
@@ -258,7 +258,7 @@ index_template = u"""
         {% do table.append([mk, ('reference/' + module.namespace + '/' + module.key + '#' + query.key)|md_link(query.key), desc]) -%}
     {%- endfor %}
 {%- endfor %}
-{{table|rst_csvtable('Module', 'Command', 'Description')}}
+{{table|rst_table('Module', 'Command', 'Description')}}
 """
 
 
@@ -379,6 +379,12 @@ class root_container(object):
                 with open(spath) as f:
                     self.plugins[name].sample = unicode(f.read(), 'utf8')
                     self.plugins[name].sample_source = 'samples/%s_samples.md'%(name)
+            spath = '%s/samples/%s_desc.md'%(folder, name)
+            self.plugins[name].ext_desc = ''
+            if os.path.exists(spath):
+                with open(spath) as f:
+                    self.plugins[name].ext_desc = unicode(f.read(), 'utf8')
+                    self.plugins[name].ext_desc_source = 'samples/%s_desc.md'%(name)
             
     def get_hash(self):
         ret = {}
@@ -448,7 +454,11 @@ def largest_value(a,b):
 def extract_value(value):
     if value.HasField("string_data"):
         return value.string_data
-    return '??? %s ???'%value
+    if value.HasField("int_data"):
+        return '%d'%value.int_data
+    if value.HasField("bool_data"):
+        return "true" if value.bool_data else "false"
+    return ''
 
 def as_text(value):
     value = value.replace('\\', '\\\\')
@@ -468,29 +478,17 @@ def block_pad(string, pad, prefix = ''):
             ret += line + '\n'
     return ret.rstrip()
 
-def render_rst_csv_table(table, *header):
-    if not table:
-        return ''
-    ret = ""
-    ret += '| ' + " | ".join(header) + '|\n'
-    ret += '| ' + " | ".join(map(lambda a:'-' * len(a), header)) + '|\n'
-    for line in table:
-        ret += '| ' + ' | '.join(line) + '|\n'
-    return ret
- 
-
 def render_rst_table(table, *args):
     if not table:
         return ''
     if args:
         table.insert(0, args)
     ret = ''
-    maxcol = map(lambda a:len(a)+1, reduce(lambda a,b: largest_value(a,b), table))
-    for line in table:
-        c = '| ' + ''.join(map(lambda a:a[1].ljust(a[0],' ') + ' | ', zip(maxcol, line))) + '|\n'
-        if not ret:
-            c = c + '| ' + ''.join(map(lambda a:''.ljust(a,'-') + ' | ', maxcol)) + '|\n'
-        ret = ret + c
+    maxcol = map(lambda a:len(a), reduce(lambda a,b: largest_value(a,b), table))
+    for idx, line in enumerate(table):
+        ret += '|' + ''.join(map(lambda a:' ' + a[1].ljust(a[0],' ') + ' |', zip(maxcol, line))) + '\n'
+        if idx == 0:
+            ret += '|' + ''.join(map(lambda a:'-' + ''.ljust(a[0],'-') + '-|', zip(maxcol, line))) + '\n'
     return ret
     
 def render_rst_heading(string, char='-', top=False):
@@ -692,7 +690,6 @@ class DocumentationHelper(object):
         env.filters['md_self_link'] = make_md_self_link
         env.filters['md_code'] = make_md_code
         env.filters['rst_table'] = render_rst_table
-        env.filters['rst_csvtable'] = render_rst_csv_table
         env.filters['rst_heading'] = render_rst_heading
         env.filters['extract_value'] = extract_value
         env.filters['block_pad'] = block_pad
