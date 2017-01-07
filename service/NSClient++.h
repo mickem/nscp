@@ -74,7 +74,6 @@ private:
 
 	std::string context_;
 
-	bool enable_shared_session_;
 	unsigned int next_plugin_id_;
 	std::string service_name_;
 	nsclient::logging::logger_instance log_instance_;

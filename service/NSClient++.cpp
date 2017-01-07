@@ -136,8 +136,7 @@ struct nscp_settings_provider : public settings_manager::provider_interface {
 nscp_settings_provider *provider_ = NULL;
 
 NSClientT::NSClientT()
-	: enable_shared_session_(false)
-	, next_plugin_id_(0)
+	: next_plugin_id_(0)
 	, service_name_(DEFAULT_SERVICE_NAME)
 	, log_instance_(new nsclient::logging::impl::nsclient_logger())
 	, commands_(log_instance_)
@@ -284,7 +283,6 @@ bool NSClientT::boot_init(const bool override_log) {
 
 		settings.add_path_to_settings()
 			("log", "LOG SETTINGS", "Section for configuring the log handling.")
-			("shared session", "SHRED SESSION", "Section for configuring the shared session.")
 			("crash", "CRASH HANDLER", "Section for configuring the crash handler.")
 			;
 
@@ -293,10 +291,6 @@ bool NSClientT::boot_init(const bool override_log) {
 				"LOG LEVEL", "Log level to use. Available levels are error,warning,info,debug,trace")
 			;
 
-		settings.add_key_to_settings("shared session")
-			("enabled", sh::bool_key(&enable_shared_session_, false),
-				"ENABLE THE SAHRED SESSION", "This is currently not added in 0.4.x")
-			;
 		settings.add_key_to_settings("crash")
 			("submit", sh::bool_key(&crash_submit, false),
 				"SUBMIT CRASHREPORTS", "Submit crash reports to nsclient.org (or your configured submission server)")
@@ -358,45 +352,6 @@ bool NSClientT::boot_init(const bool override_log) {
 #endif
 #endif
 
-	if (enable_shared_session_) {
-		LOG_INFO_CORE("shared session not ported yet!...");
-		// 		if (boot) {
-		// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
-		// 			try {
-		// 				shared_server_.reset(new nsclient_session::shared_server_session(this));
-		// 				if (!shared_server_->session_exists()) {
-		// 					shared_server_->create_new_session();
-		// 				} else {
-		// 					LOG_ERROR_STD(_T("Session already exists cant create a new one!"));
-		// 				}
-		// 				startTrayIcons();
-		// 			} catch (nsclient_session::session_exception e) {
-		// 				LOG_ERROR_STD(_T("Failed to create new session: ") + e.what());
-		// 				shared_server_.reset(NULL);
-		// 			} catch (...) {
-		// 				LOG_ERROR_STD(_T("Failed to create new session: Unknown exception"));
-		// 				shared_server_.reset(NULL);
-		// 			}
-		// 		} else {
-		// 			LOG_INFO_CORE(_T("shared session not ported yet!..."));
-		// 			try {
-		// 				std::wstring id = _T("_attached_") + strEx::itos(GetCurrentProcessId()) + _T("_");
-		// 				shared_client_.reset(new nsclient_session::shared_client_session(id, this));
-		// 				if (shared_client_->session_exists()) {
-		// 					shared_client_->attach_to_session(id);
-		// 				} else {
-		// 					LOG_ERROR_STD(_T("No session was found cant attach!"));
-		// 				}
-		// 				LOG_ERROR_STD(_T("Session is: ") + shared_client_->get_client_id());
-		// 			} catch (nsclient_session::session_exception e) {
-		// 				LOG_ERROR_STD(_T("Failed to attach to session: ") + e.what());
-		// 				shared_client_.reset(NULL);
-		// 			} catch (...) {
-		// 				LOG_ERROR_STD(_T("Failed to attach to session: Unknown exception"));
-		// 				shared_client_.reset(NULL);
-		// 			}
-		// 		}
-	}
 #ifdef WIN32
 	try {
 		com_helper_.initialize();
@@ -513,38 +468,6 @@ bool NSClientT::boot_start_plugins(bool boot) {
 	return true;
 }
 
-/*
-void NSClientT::startTrayIcons() {
-// 	if (shared_server_.get() == NULL) {
-// 		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
-// 		return;
-// 	}
-// 	remote_processes::PWTS_SESSION_INFO list;
-// 	DWORD count;
-// 	if (!remote_processes::_WTSEnumerateSessions(WTS_CURRENT_SERVER_HANDLE , 0, 1, &list, &count)) {
-// 		LOG_ERROR_STD(_T("Failed to enumerate sessions:" ) + error::lookup::last_error());
-// 	} else {
-// 		LOG_DEBUG_STD(_T("Found ") + strEx::itos(count) + _T(" sessions"));
-// 		for (DWORD i=0;i<count;i++) {
-// 			LOG_DEBUG_STD(_T("Found session: ") + strEx::itos(list[i].SessionId) + _T(" state: ") + strEx::itos(list[i].State));
-// 			if (list[i].State == remote_processes::_WTS_CONNECTSTATE_CLASS::WTSActive) {
-// 				startTrayIcon(list[i].SessionId);
-// 			}
-// 		}
-// 	}
-}
-void NSClientT::startTrayIcon(DWORD dwSessionId) {
-// 	if (shared_server_.get() == NULL) {
-// 		LOG_MESSAGE_STD(_T("No master session so tray icons not started"));
-// 		return;
-// 	}
-// 	if (!shared_server_->re_attach_client(dwSessionId)) {
-// 		if (!tray_starter::start(dwSessionId)) {
-// 			LOG_ERROR_STD(_T("Failed to start session (") + strEx::itos(dwSessionId) + _T("): " ) + error::lookup::last_error());
-// 		}
-// 	}
-}
-*/
 bool NSClientT::stop_unload_plugins_pre() {
 	scheduler_.stop();
 	LOG_DEBUG_CORE("Attempting to stop all plugins");
@@ -569,38 +492,8 @@ bool NSClientT::stop_exit_pre() {
 		LOG_ERROR_CORE("Unknown exception uniniating COM...");
 	}
 #endif
-	/*
-	LOG_DEBUG_STD(_T("Stopping: Socket Helpers"));
-	try {
-		simpleSocket::WSACleanup();
-	} catch (simpleSocket::SocketException e) {
-		LOG_ERROR_STD(_T("Socket exception: ") + e.getMessage());
-	} catch (...) {
-		LOG_ERROR_STD(_T("Unknown exception uniniating socket..."));
-	}
-	*/
 	LOG_DEBUG_CORE("Stopping: Settings instance");
 	settings_manager::destroy_settings();
-	// 	try {
-	// 		if (shared_client_.get() != NULL) {
-	// 			LOG_DEBUG_STD(_T("Stopping: shared client"));
-	// 			shared_client_->set_handler(NULL);
-	// 			shared_client_->close_session();
-	// 		}
-	// 	} catch(nsclient_session::session_exception &e) {
-	// 		LOG_ERROR_STD(_T("Exception closing shared client session: ") + e.what());
-	// 	} catch(...) {
-	// 		LOG_ERROR_STD(_T("Exception closing shared client session: Unknown exception!"));
-	// 	}
-	// 	try {
-	// 		if (shared_server_.get() != NULL) {
-	// 			LOG_DEBUG_STD(_T("Stopping: shared server"));
-	// 			shared_server_->set_handler(NULL);
-	// 			shared_server_->close_session();
-	// 		}
-	// 	} catch(...) {
-	// 		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
-	// 	}
 	return true;
 }
 bool NSClientT::stop_exit_post() {
@@ -608,24 +501,10 @@ bool NSClientT::stop_exit_post() {
 		log_instance_->shutdown();
 		google::protobuf::ShutdownProtobufLibrary();
 	} catch (...) {
-		LOG_ERROR_CORE("UNknown exception raised: When closing shared session");
+		LOG_ERROR_CORE("UNknown exception raised: When stopping");
 	}
 	return true;
 }
-/*
-void NSClientT::service_on_session_changed(unsigned long dwSessionId, bool logon, unsigned long dwEventType) {
-// 	if (shared_server_.get() == NULL) {
-// 		LOG_DEBUG_STD(_T("No shared session: ignoring change event!"));
-// 		return;
-// 	}
-// 	LOG_DEBUG_CORE_STD(_T("Got session change: ") + strEx::itos(dwSessionId));
-// 	if (!logon) {
-// 		LOG_DEBUG_CORE_STD(_T("Not a logon event: ") + strEx::itos(dwEventType));
-// 		return;
-// 	}
-// 	tray_starter::start(dwSessionId);
-}
-*/
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
