@@ -20,9 +20,11 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 #include <sstream>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_counters.hpp>
+
+#include <utf8.hpp>
 
 namespace PDH {
 	PDHCounter::PDHCounter(pdh_instance counter) : counter_(counter), hCounter_(NULL) {}

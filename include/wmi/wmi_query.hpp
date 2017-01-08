@@ -22,7 +22,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include <strEx.h>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <WbemCli.h>
 
 #include <atlbase.h>
@@ -56,7 +56,7 @@ namespace wmi_impl {
 			case WBEM_E_NOT_FOUND:
 				return _T("The query specifies a class that does not exist.");
 			default:
-				return _T("");
+				return L" ";
 			}
 		}
 		static std::string getComError(HRESULT hr);

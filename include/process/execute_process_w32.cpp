@@ -23,7 +23,7 @@
 #include <NSCAPI.h>
 #include <utf8.hpp>
 #include <strEx.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <iostream>
 

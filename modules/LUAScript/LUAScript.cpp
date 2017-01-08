@@ -20,7 +20,7 @@
 
 #include <strEx.h>
 #include <time.h>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>

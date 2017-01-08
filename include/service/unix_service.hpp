@@ -20,7 +20,6 @@
 #include <iostream>
 #include <string>
 #include <signal.h>
-#include <unicode_char.hpp>
 #include <strEx.h>
 
 namespace service_helper_impl {

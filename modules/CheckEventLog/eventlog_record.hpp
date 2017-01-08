@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <error/nscp_exception.hpp>
+
 #include "simple_registry.hpp"
 #include <boost/tuple/tuple.hpp>
 #include <wstring.hpp>
@@ -27,7 +29,7 @@ class EventLogRecord : boost::noncopyable {
 public:
 	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr) : file_(file), pevlr_(pevlr) {
 		if (pevlr == NULL)
-			throw nscp_exception("Invalid eventlog record");
+			throw error::nscp_exception("Invalid eventlog record");
 	}
 	inline unsigned long long generated() const {
 		return pevlr_->TimeGenerated;
@@ -67,7 +69,7 @@ public:
 
 	std::wstring userSID() const {
 		if (pevlr_->UserSidOffset == 0)
-			return _T("");
+			return L" ";
 		PSID p = NULL; // = reinterpret_cast<const void*>(reinterpret_cast<const BYTE*>(pevlr_) + + pevlr_->UserSidOffset);
 		DWORD userLen = 0;
 		DWORD domainLen = 0;
@@ -85,9 +87,9 @@ public:
 		delete[] user;
 		delete[] domain;
 		if (!dstr.empty())
-			dstr = dstr + _T("\\");
+			dstr = dstr + L"\\";
 		if (ustr.empty() && dstr.empty())
-			return _T("missing");
+			return L"missing";
 
 		return dstr + ustr;
 	}
@@ -98,7 +100,7 @@ public:
 		for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
 			std::wstring s = p;
 			if (!s.empty())
-				s += _T(", ");
+				s += L", ";
 			ret += s;
 			p = &p[wcslen(p) + 1];
 		}
@@ -114,17 +116,17 @@ public:
 	static WORD translateType(std::wstring sType) {
 		if (sType.empty())
 			return EVENTLOG_ERROR_TYPE;
-		if (sType == _T("error"))
+		if (sType == L"error")
 			return EVENTLOG_ERROR_TYPE;
-		if (sType == _T("warning"))
+		if (sType == L"warning")
 			return EVENTLOG_WARNING_TYPE;
-		if (sType == _T("success"))
+		if (sType == L"success")
 			return EVENTLOG_SUCCESS;
-		if (sType == _T("info"))
+		if (sType == L"info")
 			return EVENTLOG_INFORMATION_TYPE;
-		if (sType == _T("auditSuccess"))
+		if (sType == L"auditSuccess")
 			return EVENTLOG_AUDIT_SUCCESS;
-		if (sType == _T("auditFailure"))
+		if (sType == L"auditFailure")
 			return EVENTLOG_AUDIT_FAILURE;
 		return static_cast<WORD>(strEx::stox<WORD>(sType));
 	}
@@ -147,29 +149,29 @@ public:
 	}
 	static std::wstring translateType(WORD dwType) {
 		if (dwType == EVENTLOG_ERROR_TYPE)
-			return _T("error");
+			return L"error";
 		if (dwType == EVENTLOG_WARNING_TYPE)
-			return _T("warning");
+			return L"warning";
 		if (dwType == EVENTLOG_SUCCESS)
-			return _T("success");
+			return L"success";
 		if (dwType == EVENTLOG_INFORMATION_TYPE)
-			return _T("info");
+			return L"info";
 		if (dwType == EVENTLOG_AUDIT_SUCCESS)
-			return _T("auditSuccess");
+			return L"auditSuccess";
 		if (dwType == EVENTLOG_AUDIT_FAILURE)
-			return _T("auditFailure");
+			return L"auditFailure";
 		return strEx::xtos(dwType);
 	}
 	static WORD translateSeverity(std::wstring sType) {
 		if (sType.empty())
 			return 0;
-		if (sType == _T("success"))
+		if (sType == L"success")
 			return 0;
-		if (sType == _T("informational"))
+		if (sType == L"informational")
 			return 1;
-		if (sType == _T("warning"))
+		if (sType == L"warning")
 			return 2;
-		if (sType == _T("error"))
+		if (sType == L"error")
 			return 3;
 		return static_cast<WORD>(strEx::stox<WORD>(sType));
 	}
@@ -188,27 +190,27 @@ public:
 	}
 	static std::wstring translateSeverity(WORD dwType) {
 		if (dwType == 0)
-			return _T("success");
+			return L"success";
 		if (dwType == 1)
-			return _T("informational");
+			return L"informational";
 		if (dwType == 2)
-			return _T("warning");
+			return L"warning";
 		if (dwType == 3)
-			return _T("error");
+			return L"error";
 		return strEx::xtos(dwType);
 	}
 	bool get_dll(std::wstring &file_or_error) const {
 		try {
-			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("EventMessageFile"));
+			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" + utf8::cvt<std::wstring>(file_) + (std::wstring)L"\\" + get_source(), L"EventMessageFile");
 			return true;
 		} catch (simple_registry::registry_exception &) {
 		}
 		try {
-			std::wstring providerGuid = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + utf8::cvt<std::wstring>(file_) + (std::wstring)_T("\\") + get_source(), _T("ProviderGuid"));
-			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers") + providerGuid, _T("MessageFileName"));
+			std::wstring providerGuid = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" + utf8::cvt<std::wstring>(file_) + (std::wstring)L"\\" + get_source(), L"ProviderGuid");
+			file_or_error = simple_registry::registry_key::get_string(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers" + providerGuid, L"MessageFileName");
 			return true;
 		} catch (simple_registry::registry_exception &e) {
-			file_or_error = _T("Could not extract DLL for eventsource: ") + get_source() + _T(": ") + utf8::cvt<std::wstring>(e.reason());
+			file_or_error = L"Could not extract DLL for eventsource: " + get_source() + L": " + utf8::cvt<std::wstring>(e.reason());
 			return false;
 		}
 	}
@@ -240,13 +242,13 @@ public:
 		unsigned long dwRet = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_IGNORE_INSERTS, hDLL,
 			pevlr_->EventID, dwLang, (LPTSTR)&lpMsgBuf, 0, NULL);
 		if (dwRet == 0) {
-			return boost::tuple<DWORD, std::wstring>(GetLastError(), _T(""));
+			return boost::tuple<DWORD, std::wstring>(GetLastError(), L" ");
 		}
 		std::wstring msg = reinterpret_cast<wchar_t*>(lpMsgBuf);
 		LocalFree(lpMsgBuf);
 		const TCHAR* p = reinterpret_cast<const TCHAR*>(reinterpret_cast<const BYTE*>(pevlr_) + pevlr_->StringOffset);
 		for (unsigned int i = 0; i < pevlr_->NumStrings; i++) {
-			strEx::replace(msg, _T("%") + strEx::xtos(i + 1), std::wstring(p));
+			strEx::replace(msg, L"%" + strEx::xtos(i + 1), std::wstring(p));
 			std::size_t len = wcslen(p);
 			p = &(p[len + 1]);
 		}
@@ -259,13 +261,13 @@ public:
 		if (!get_dll(file)) {
 			return file;
 		}
-		BOOST_FOREACH(const std::wstring &dll, strEx::splitEx(file, _T(";"))) {
+		BOOST_FOREACH(const std::wstring &dll, strEx::splitEx(file, L";")) {
 			//std::wstring msg = error::format::message::from_module((*cit), eventID(), _sz);
 			std::wstring msg;
 			try {
 				HMODULE hDLL = LoadLibraryEx(dll.c_str(), NULL, DONT_RESOLVE_DLL_REFERENCES);
 				if (hDLL == NULL) {
-					msg = _T("failed to load: ") + dll + _T(", reason: ") + strEx::xtos(GetLastError());
+					msg = L"failed to load: " + dll + L", reason: " + strEx::xtos(GetLastError());
 					continue;
 				}
 				if (dwLang == 0)
@@ -275,31 +277,31 @@ public:
 					FreeLibrary(hDLL);
 					if (formated_data.get<0>() == 15100) {
 						// Invalid MUI file (wrong language)
-						msg = _T("");
+						msg = L" ";
 						continue;
 					}
 					if (formated_data.get<0>() == 317) {
 						// Missing message
-						msg = _T("");
+						msg = L" ";
 						continue;
 					}
-					msg = _T("failed to lookup error code: ") + strEx::xtos(eventID()) + _T(" from DLL: ") + dll + _T("( reason: ") + strEx::xtos(formated_data.get<0>()) + _T(")");
+					msg = L"failed to lookup error code: " + strEx::xtos(eventID()) + L" from DLL: " + dll + L"( reason: " + strEx::xtos(formated_data.get<0>()) + L")";
 					continue;
 				}
 				FreeLibrary(hDLL);
 				msg = formated_data.get<1>();
 			} catch (...) {
-				msg = _T("Unknown exception getting message");
+				msg = L"Unknown exception getting message";
 			}
-			strEx::replace(msg, _T("\n"), _T(" "));
-			strEx::replace(msg, _T("\t"), _T(" "));
-			std::string::size_type pos = msg.find_last_not_of(_T("\n\t "));
+			strEx::replace(msg, L"\n", L" ");
+			strEx::replace(msg, L"\t", L" ");
+			std::string::size_type pos = msg.find_last_not_of(L"\n\t ");
 			if (pos != std::string::npos) {
 				msg = msg.substr(0, pos);
 			}
 			if (!msg.empty()) {
 				if (!ret.empty())
-					ret += _T(", ");
+					ret += L", ";
 				ret += msg;
 			}
 		}

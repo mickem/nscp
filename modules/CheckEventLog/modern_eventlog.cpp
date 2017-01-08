@@ -16,10 +16,15 @@
 
 #pragma once
 
-#include <error.hpp>
+#include <utf8.hpp>
+#include <strEx.h>
+#include <error/nscp_exception.hpp>
 
 #include "modern_eventlog.hpp"
 #include <buffer.hpp>
+
+#include <utf8.hpp>
+#include <nscp_string.hpp>
 
 namespace eventlog {
 	namespace api {
@@ -41,7 +46,7 @@ namespace eventlog {
 		tEvtFormatMessage pEvtFormatMessage = NULL;
 
 		void load_procs() {
-			HMODULE hModule = LoadLibrary(_TEXT("Wevtapi.dll"));
+			HMODULE hModule = LoadLibrary(L"Wevtapi.dll");
 			pEvtFormatMessage = reinterpret_cast<api::tEvtFormatMessage>(GetProcAddress(hModule, "EvtFormatMessage"));
 			pEvtOpenPublisherMetadata = reinterpret_cast<api::tEvtOpenPublisherMetadata>(GetProcAddress(hModule, "EvtOpenPublisherMetadata"));
 			pEvtCreateRenderContext = reinterpret_cast<api::tEvtCreateRenderContext>(GetProcAddress(hModule, "EvtCreateRenderContext"));
@@ -65,7 +70,7 @@ namespace eventlog {
 	}
 	BOOL EvtFormatMessage(api::EVT_HANDLE PublisherMetadata, api::EVT_HANDLE Event, DWORD MessageId, DWORD ValueCount, api::PEVT_VARIANT Values, DWORD Flags, DWORD BufferSize, LPWSTR Buffer, PDWORD BufferUsed) {
 		if (!api::pEvtFormatMessage)
-			throw nscp_exception("Failed to load: EvtFormatMessage");
+			throw error::nscp_exception("Failed to load: EvtFormatMessage");
 		return api::pEvtFormatMessage(PublisherMetadata, Event, MessageId, ValueCount, Values, Flags, BufferSize, Buffer, BufferUsed);
 	}
 	int EvtFormatMessage(api::EVT_HANDLE PublisherMetadata, api::EVT_HANDLE Event, DWORD MessageId, DWORD ValueCount, api::PEVT_VARIANT Values, DWORD Flags, std::string &str) {
@@ -90,79 +95,79 @@ namespace eventlog {
 
 	api::EVT_HANDLE EvtOpenPublisherMetadata(api::EVT_HANDLE Session, LPCWSTR PublisherId, LPCWSTR LogFilePath, LCID Locale, DWORD Flags) {
 		if (!api::pEvtOpenPublisherMetadata)
-			throw nscp_exception("Failed to load: EvtOpenPublisherMetadata");
+			throw error::nscp_exception("Failed to load: EvtOpenPublisherMetadata");
 		return api::pEvtOpenPublisherMetadata(Session, PublisherId, LogFilePath, Locale, Flags);
 	}
 	api::EVT_HANDLE EvtCreateRenderContext(DWORD ValuePathsCount, LPCWSTR* ValuePaths, DWORD Flags) {
 		if (!api::pEvtCreateRenderContext)
-			throw nscp_exception("Failed to load: EvtCreateRenderContext");
+			throw error::nscp_exception("Failed to load: EvtCreateRenderContext");
 		return api::pEvtCreateRenderContext(ValuePathsCount, ValuePaths, Flags);
 	}
 	BOOL EvtRender(api::EVT_HANDLE Context, api::EVT_HANDLE Fragment, DWORD Flags, DWORD BufferSize, PVOID Buffer, PDWORD BufferUsed, PDWORD PropertyCount) {
 		if (!api::pEvtRender)
-			throw nscp_exception("Failed to load: EvtRender");
+			throw error::nscp_exception("Failed to load: EvtRender");
 		return api::pEvtRender(Context, Fragment, Flags, BufferSize, Buffer, BufferUsed, PropertyCount);
 	}
 	BOOL EvtNext(api::EVT_HANDLE ResultSet, DWORD EventsSize, api::PEVT_HANDLE Events, DWORD Timeout, DWORD Flags, PDWORD Returned) {
 		if (!api::pEvtNext)
-			throw nscp_exception("Failed to load: EvtNext");
+			throw error::nscp_exception("Failed to load: EvtNext");
 		return api::pEvtNext(ResultSet, EventsSize, Events, Timeout, Flags, Returned);
 	}
 	BOOL EvtSeek(api::EVT_HANDLE ResultSet, LONGLONG Position, api::EVT_HANDLE Bookmark, DWORD Timeout, DWORD Flags) {
 		if (!api::pEvtSeek)
-			throw nscp_exception("Failed to load: EvtSeek");
+			throw error::nscp_exception("Failed to load: EvtSeek");
 		return api::pEvtSeek(ResultSet, Position, Bookmark, Timeout, Flags);
 	}
 	api::EVT_HANDLE EvtQuery(api::EVT_HANDLE Session, LPCWSTR Path, LPCWSTR Query, DWORD Flags) {
 		if (!api::pEvtQuery)
-			throw nscp_exception("Failed to load: EvtQuery");
+			throw error::nscp_exception("Failed to load: EvtQuery");
 		return api::pEvtQuery(Session, Path, Query, Flags);
 	}
 	api::EVT_HANDLE EvtOpenPublisherEnum(api::EVT_HANDLE Session, DWORD Flags) {
 		if (!api::pEvtOpenPublisherEnum)
-			throw nscp_exception("Failed to load: EvtOpenPublisherEnum");
+			throw error::nscp_exception("Failed to load: EvtOpenPublisherEnum");
 		return api::pEvtOpenPublisherEnum(Session, Flags);
 	}
 	BOOL EvtClose(api::EVT_HANDLE Object) {
 		if (!api::pEvtClose)
-			throw nscp_exception("Failed to load: EvtClose");
+			throw error::nscp_exception("Failed to load: EvtClose");
 		return api::pEvtClose(Object);
 	}
 	BOOL EvtNextPublisherId(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed) {
 		if (!api::ptEvtNextPublisherId)
-			throw nscp_exception("Failed to load: EvtOpenPublisherEnum");
+			throw error::nscp_exception("Failed to load: EvtOpenPublisherEnum");
 		return api::ptEvtNextPublisherId(PublisherEnum, PublisherIdBufferSize, PublisherIdBuffer, PublisherIdBufferUsed);
 	}
 	api::EVT_HANDLE EvtOpenChannelEnum(api::EVT_HANDLE Session, DWORD Flags) {
 		if (!api::pEvtOpenChannelEnum)
-			throw nscp_exception("Failed to load: EvtOpenChannelEnum");
+			throw error::nscp_exception("Failed to load: EvtOpenChannelEnum");
 		return api::pEvtOpenChannelEnum(Session, Flags);
 	}
 	BOOL EvtNextChannelPath(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed) {
 		if (!api::pEvtNextChannelPath)
-			throw nscp_exception("Failed to load: EvtNextChannelPath");
+			throw error::nscp_exception("Failed to load: EvtNextChannelPath");
 		return api::pEvtNextChannelPath(PublisherEnum, PublisherIdBufferSize, PublisherIdBuffer, PublisherIdBufferUsed);
 	}
 	BOOL EvtGetPublisherMetadataProperty(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD Flags, DWORD PublisherMetadataPropertyBufferSize, api::PEVT_VARIANT PublisherMetadataPropertyBuffer, PDWORD PublisherMetadataPropertyBufferUsed) {
 		if (!api::pEvtGetPublisherMetadataProperty)
-			throw nscp_exception("Failed to load: EvtGetPublisherMetadataProperty");
+			throw error::nscp_exception("Failed to load: EvtGetPublisherMetadataProperty");
 		return api::pEvtGetPublisherMetadataProperty(PublisherMetadata, PropertyId, Flags, PublisherMetadataPropertyBufferSize, PublisherMetadataPropertyBuffer, PublisherMetadataPropertyBufferUsed);
 	}
 	BOOL EvtGetObjectArrayProperty(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, DWORD PropertyId, DWORD ArrayIndex, DWORD Flags, DWORD PropertyValueBufferSize, api::PEVT_VARIANT PropertyValueBuffer, PDWORD PropertyValueBufferUsed) {
 		if (!api::pEvtGetObjectArrayProperty)
-			throw nscp_exception("Failed to load: EvtGetObjectArrayProperty");
+			throw error::nscp_exception("Failed to load: EvtGetObjectArrayProperty");
 		return api::pEvtGetObjectArrayProperty(ObjectArray, PropertyId, ArrayIndex, Flags, PropertyValueBufferSize, PropertyValueBuffer, PropertyValueBufferUsed);
 
 	}
 	BOOL EvtGetObjectArraySize(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, PDWORD ObjectArraySize) {
 		if (!api::pEvtGetObjectArraySize)
-			throw nscp_exception("Failed to load: EvtGetObjectArraySize");
+			throw error::nscp_exception("Failed to load: EvtGetObjectArraySize");
 		return api::pEvtGetObjectArraySize(ObjectArray, ObjectArraySize);
 	}
 
 	api::EVT_HANDLE EvtSubscribe(api::EVT_HANDLE Session, HANDLE SignalEvent, LPCWSTR ChannelPath, LPCWSTR Query, api::EVT_HANDLE Bookmark, PVOID context, api::EVT_SUBSCRIBE_CALLBACK Callback, DWORD Flags) {
 		if (!api::pEvtSubscribe)
-			throw nscp_exception("Failed to load: EvtSubscribe");
+			throw error::nscp_exception("Failed to load: EvtSubscribe");
 		return api::pEvtSubscribe(Session, SignalEvent, ChannelPath, Query, Bookmark, context, Callback, Flags);
 
 	}

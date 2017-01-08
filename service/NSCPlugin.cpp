@@ -15,6 +15,9 @@
  */
 
 #include "NSCPlugin.h"
+
+#include <strEx.h>
+
 #include "core_api.h"
 #include "NSCAPI.h"
 

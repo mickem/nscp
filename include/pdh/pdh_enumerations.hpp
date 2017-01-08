@@ -20,7 +20,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 #include <sstream>
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace PDH {
 #define PDH_INDEX_BUF_LEN 2048
@@ -32,7 +32,6 @@ namespace PDH {
 			std::string error;
 			std::list<std::string> instances;
 			std::list<std::string> counters;
-			std::wstring name_w() const { return utf8::cvt<std::wstring>(name); }
 		};
 
 		typedef std::list<Object> Objects;

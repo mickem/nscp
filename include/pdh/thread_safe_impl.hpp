@@ -19,7 +19,7 @@
 #include <boost/thread.hpp>
 
 #include <pdh/pdh_interface.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <pdh/basic_impl.hpp>
 
 namespace PDH {

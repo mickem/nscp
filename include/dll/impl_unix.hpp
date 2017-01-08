@@ -17,7 +17,7 @@
 #pragma once
 
 #include <boost/noncopyable.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +31,7 @@
 #endif
 
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 #include <file_helpers.hpp>
 
 namespace dll {

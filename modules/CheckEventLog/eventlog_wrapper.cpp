@@ -15,18 +15,21 @@
  */
 
 #include "eventlog_wrapper.hpp"
+
+#include <error/nscp_exception.hpp>
+
 #include "simple_registry.hpp"
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
 std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 	try {
-		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog"));
+		simple_registry::registry_key key(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog");
 		BOOST_FOREACH(const std::wstring k, key.get_keys()) {
 			try {
-				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, _T("SYSTEM\\CurrentControlSet\\Services\\EventLog\\") + k);
-				std::wstring file = sub_key.get_string(_T("DisplayNameFile"));
-				int id = sub_key.get_int(_T("DisplayNameID"));
+				simple_registry::registry_key sub_key(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\" + k);
+				std::wstring file = sub_key.get_string(L"DisplayNameFile");
+				int id = sub_key.get_int(L"DisplayNameID");
 				std::string real_name = error::format::message::from_module(utf8::cvt<std::string>(file), id);
 				strEx::s::replace(real_name, "\n", "");
 				strEx::s::replace(real_name, "\r", "");
@@ -58,7 +61,7 @@ eventlog_wrapper_new::~eventlog_wrapper_new() {
 void eventlog_wrapper_new::open() {
 	hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
 	if (!hContext)
-		throw nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
+		throw error::nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
 }
 	
 void eventlog_wrapper_new::reopen() {
@@ -133,7 +136,7 @@ eventlog_wrapper_old::~eventlog_wrapper_old() {
 void eventlog_wrapper_old::open() {
 	hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
 	if (hLog == INVALID_HANDLE_VALUE) {
-		throw nscp_exception("Failed to open eventlog: " + error::lookup::last_error());
+		throw error::nscp_exception("Failed to open eventlog: " + error::lookup::last_error());
 	}
 	seek_end();
 }
@@ -278,7 +281,7 @@ DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
 //////////////////////////////////////////////////////////////////////////
 //
 event_source::event_source(const std::wstring &name) : hLog(NULL) {
-	open(_T(""), name);
+	open(L" ", name);
 }
 event_source::~event_source() {
 	if (isOpen())

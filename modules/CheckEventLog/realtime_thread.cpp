@@ -68,7 +68,7 @@ void real_time_thread::thread_proc() {
 			} else {
 				evlog_list.push_back(eventlog_type(new eventlog_wrapper_old(l)));
 			}
-		} catch (const nscp_exception &e) {
+		} catch (const error::nscp_exception &e) {
 			NSC_LOG_ERROR("Failed to read eventlog " + l + ": " + e.reason());
 		}
 	}
@@ -115,7 +115,7 @@ void real_time_thread::thread_proc() {
 					helper.process_items(item);
 				}
 				el->reset_event(handles[index + 1]);
-			} catch (const nscp_exception &e) {
+			} catch (const error::nscp_exception &e) {
 				NSC_LOG_ERROR("Failed to process eventlog: " + e.reason());
 				has_errors = true;
 			} catch (...) {
@@ -140,7 +140,7 @@ void real_time_thread::thread_proc() {
 bool real_time_thread::start() {
 	if (!enabled_)
 		return true;
-	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, L"EventLogShutdown");
 	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
 	return true;
 }

@@ -22,7 +22,7 @@
 #include <parsers/where.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/engine.hpp>

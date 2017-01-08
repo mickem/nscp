@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
+
+#include <error/nscp_exception.hpp>
+#include <utf8.hpp>
+#include <strEx.h>
+
 #include <map>
 #include <string>
+#include <iostream>
 
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <tchar.h>
-#include <iostream>
 
 #include <buffer.hpp>
 #include <handle.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <win_sysinfo/win_defines.hpp>
@@ -49,7 +54,7 @@ namespace process_helper {
 		TOKEN_PRIVILEGES token_privileges;
 		LUID luid;
 		if (!LookupPrivilegeValue(NULL, privilege, &luid))
-			throw nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
+			throw error::nscp_exception("Failed to lookup privilege: " + error::lookup::last_error());
 		ZeroMemory(&token_privileges, sizeof(TOKEN_PRIVILEGES));
 		token_privileges.PrivilegeCount = 1;
 		token_privileges.Privileges[0].Luid = luid;
@@ -58,9 +63,9 @@ namespace process_helper {
 		else
 			token_privileges.Privileges[0].Attributes = 0;
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, token.ref()))
-			throw nscp_exception("Failed to open process token: " + error::lookup::last_error());
+			throw error::nscp_exception("Failed to open process token: " + error::lookup::last_error());
 		if (!AdjustTokenPrivileges(token.get(), FALSE, &token_privileges, sizeof(TOKEN_PRIVILEGES), (PTOKEN_PRIVILEGES)NULL, (PDWORD)NULL))
-			throw nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
+			throw error::nscp_exception("Failed to adjust token privilege: " + error::lookup::last_error());
 	}
 
 	struct find_16bit_container {
@@ -135,7 +140,7 @@ namespace process_helper {
 		/* read the command line */
 		if (!ReadProcessMemory(hProcess, commandLine.Buffer, commandLineContents, commandLine.Length, NULL)) {
 			delete[] commandLineContents;
-			throw nscp_exception("Could not read command line string: " + error::lookup::last_error());
+			throw error::nscp_exception("Could not read command line string: " + error::lookup::last_error());
 		}
 
 		commandLineContents[(commandLine.Length / sizeof(WCHAR))] = '\0';
@@ -262,7 +267,7 @@ namespace process_helper {
 			TCHAR buffer[MAX_FILENAME + 1];
 			if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME)) {
 				CloseHandle(handle);
-				throw nscp_exception("Failed to find name for: " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
+				throw error::nscp_exception("Failed to find name for: " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
 			} else {
 				std::wstring path = buffer;
 				std::wstring::size_type pos = path.find_last_of(_T("\\"));
@@ -278,7 +283,7 @@ namespace process_helper {
 	process_list enumerate_processes(bool ignore_unreadable, bool find_16bit, bool deep_scan, error_reporter *error_interface, unsigned int buffer_size) {
 		try {
 			enable_token_privilege(SE_DEBUG_NAME, true);
-		} catch (nscp_exception &e) {
+		} catch (const error::nscp_exception &e) {
 			if (error_interface != NULL)
 				error_interface->report_warning(e.reason());
 		}
@@ -295,7 +300,7 @@ namespace process_helper {
 		}
 		if (!OK) {
 			delete[] dwPIDs;
-			throw nscp_exception("Failed to enumerate process: " + error::lookup::last_error());
+			throw error::nscp_exception("Failed to enumerate process: " + error::lookup::last_error());
 		}
 		unsigned int process_count = cbNeeded / sizeof(DWORD);
 		for (unsigned int i = 0; i < process_count; ++i) {
@@ -306,11 +311,11 @@ namespace process_helper {
 			try {
 				try {
 					entry = describe_pid(dwPIDs[i], deep_scan, ignore_unreadable);
-				} catch (const nscp_exception &e) {
+				} catch (const error::nscp_exception &e) {
 					if (deep_scan) {
 						try {
 							entry = describe_pid(dwPIDs[i], false, ignore_unreadable);
-						} catch (const nscp_exception &e) {
+						} catch (const error::nscp_exception &e) {
 							if (error_interface != NULL)
 								error_interface->report_debug(e.reason());
 						}
@@ -330,7 +335,7 @@ namespace process_helper {
 				if (ignore_unreadable && entry.unreadable)
 					continue;
 				ret.push_back(entry);
-			} catch (const nscp_exception &e) {
+			} catch (const error::nscp_exception &e) {
 				if (error_interface != NULL)
 					error_interface->report_error("Exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
 			} catch (...) {
@@ -351,7 +356,7 @@ namespace process_helper {
 
 		try {
 			enable_token_privilege(SE_DEBUG_NAME, false);
-		} catch (nscp_exception &e) {
+		} catch (const error::nscp_exception &e) {
 			if (error_interface != NULL)
 				error_interface->report_warning(e.reason());
 		}
@@ -373,7 +378,7 @@ namespace process_helper {
 		}
 		if (!OK) {
 			delete[] dwPIDs;
-			throw nscp_exception("Failed to enumerate process: " + error::lookup::last_error());
+			throw error::nscp_exception("Failed to enumerate process: " + error::lookup::last_error());
 		}
 		unsigned int process_count = cbNeeded / sizeof(DWORD);
 		for (unsigned int i = 0; i < process_count; ++i) {
@@ -384,13 +389,13 @@ namespace process_helper {
 			try {
 				try {
 					entry = describe_pid(dwPIDs[i], true, ignore_unreadable);
-				} catch (const nscp_exception &e) {
+				} catch (const error::nscp_exception &e) {
 					if (!ignore_unreadable && error_interface != NULL)
 						error_interface->report_debug(e.reason());
 					continue;
 				}
 				ret[dwPIDs[i]] = entry;
-			} catch (const nscp_exception &e) {
+			} catch (const error::nscp_exception &e) {
 				if (error_interface != NULL)
 					error_interface->report_error("Exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
 			} catch (...) {
@@ -406,7 +411,7 @@ namespace process_helper {
 		process_list ret;
 		try {
 			enable_token_privilege(SE_DEBUG_NAME, true);
-		} catch (nscp_exception &e) {
+		} catch (const error::nscp_exception &e) {
 			if (error_interface != NULL)
 				error_interface->report_error(e.reason());
 		}
@@ -447,7 +452,7 @@ namespace process_helper {
 
 		try {
 			enable_token_privilege(SE_DEBUG_NAME, false);
-		} catch (nscp_exception &e) {
+		} catch (const error::nscp_exception &e) {
 			if (error_interface != NULL)
 				error_interface->report_error(e.reason());
 		}

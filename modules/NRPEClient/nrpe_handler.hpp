@@ -100,6 +100,9 @@ namespace nrpe_handler {
 		}
 
 		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &target) {
+
+			namespace po = boost::program_options;
+
 			add_ssl_options(desc, target);
 
 			desc.add_options()

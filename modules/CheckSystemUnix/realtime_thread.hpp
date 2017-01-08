@@ -25,7 +25,8 @@
 
 #include <nscapi/nscapi_settings_proxy.hpp>
 
-#include <error.hpp>
+#include <error/error.hpp>
+#include <error/nscp_exception.hpp>
 
 /**
  * @ingroup NSClientCompat
@@ -82,7 +83,7 @@ public:
 		}
 		time/=60;
 		if (time >= 24)
-			throw nscp_exception("Size larger than buffer");
+			throw error::nscp_exception("Size larger than buffer");
 		for (const_iterator cit = hours.end()-time; cit != hours.end(); ++cit) {
 			ret.add(*cit);
 		}

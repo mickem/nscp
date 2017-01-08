@@ -38,6 +38,8 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/pdh/pdh_resolver.cpp
 	${NSCP_INCLUDEDIR}/pdh/thread_safe_impl.cpp
 
+  ${NSCP_ERROR_CPP}
+  
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.cpp
 
 	${NSCP_INCLUDEDIR}/wmi/wmi_query.cpp
@@ -81,6 +83,8 @@ IF(WIN32)
 
 		${NSCP_INCLUDEDIR}/wmi/wmi_query.hpp
 
+    ${NSCP_ERROR_HPP}
+    
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}

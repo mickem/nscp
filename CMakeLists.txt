@@ -411,6 +411,23 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/include)
 INCLUDE_DIRECTORIES(${NSCP_LOCAL_INCLUDE_PATH})
 # WHat does this do? INSTALL_FILES(/include FILES ${WCONFIG_H_PATH})
 
+
+IF(WIN32)
+  SET(NSCP_ERROR_CPP
+      ${NSCP_INCLUDEDIR}/error/error_w32.cpp
+  )
+  SET(NSCP_ERROR_HPP
+      ${NSCP_INCLUDEDIR}/error/error_w32.hpp
+      ${NSCP_INCLUDEDIR}/error/error.hpp
+  )
+ELSE()
+  SET(NSCP_ERROR_CPP
+  )
+  SET(NSCP_ERROR_HPP
+      ${NSCP_INCLUDEDIR}/error/error.hpp
+  )
+ENDIF()
+
 #############################################################################
 #
 # Build all included and required libraries

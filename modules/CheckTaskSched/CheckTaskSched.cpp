@@ -153,7 +153,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 		TaskSched query;
 		query.findAll(filter, computer, user, domain, password, folder, recursive, old);
 		filter_helper.post_process(filter);
-	} catch (const nscp_exception &e) {
+	} catch (const error::nscp_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to fetch tasks: " + e.reason());
 	}
 }

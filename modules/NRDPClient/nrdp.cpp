@@ -16,8 +16,13 @@
 
 #include "nrdp.hpp"
 
-#include <error.hpp>
+#include <strEx.h>
+#include <utf8.hpp>
+
 #include <tinyxml2.h>
+
+#include <boost/foreach.hpp>
+
 namespace nrdp {
 	void data::add_host(std::string host, NSCAPI::nagiosReturn result, std::string message) {
 		item_type item;

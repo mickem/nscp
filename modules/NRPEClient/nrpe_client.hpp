@@ -17,10 +17,15 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+
+#include <nscapi/macros.hpp>
+
 #include <client/command_line_parser.hpp>
 #include <nrpe/packet.hpp>
 #include <nrpe/client/nrpe_client_protocol.hpp>
 #include <socket/client.hpp>
+
 
 namespace nrpe_client {
 	struct connection_data : public socket_helpers::connection_info {

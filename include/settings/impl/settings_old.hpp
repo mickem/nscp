@@ -70,12 +70,12 @@ namespace settings {
 				}
 			}
 			void parse_line(std::wstring line) {
-				strEx::replace(line, _T("\n"), _T(""));
-				strEx::replace(line, _T("\r"), _T(""));
+				strEx::replace(line, L"\n", L"");
+				strEx::replace(line, L"\r", L"");
 				std::wstring::size_type pos = line.find('#');
 				if (pos != -1)
 					line = line.substr(0, pos);
-				pos = line.find_first_not_of(_T(" \t\n\r"));
+				pos = line.find_first_not_of(L" \t\n\r");
 				if (pos == -1)
 					return;
 				line = line.substr(pos);
@@ -86,7 +86,7 @@ namespace settings {
 				}
 				std::pair<std::wstring, std::wstring> old_key = split_key(line.substr(0, pos));
 				std::pair<std::wstring, std::wstring> new_key = split_key(line.substr(pos + 1));
-				if (old_key.second == _T("*") || old_key.second.empty()) {
+				if (old_key.second == L"*" || old_key.second.empty()) {
 					add(utf8::cvt<std::string>(line.substr(pos + 1)), utf8::cvt<std::string>(old_key.first));
 				} else {
 					add(utf8::cvt<std::string>(new_key.first), utf8::cvt<std::string>(new_key.second), utf8::cvt<std::string>(old_key.first), utf8::cvt<std::string>(old_key.second));
@@ -96,7 +96,7 @@ namespace settings {
 				std::pair<std::wstring, std::wstring> ret;
 				std::wstring::size_type pos = key.find_last_of('/');
 				if (pos == -1)
-					return std::pair<std::wstring, std::wstring>(key, _T(""));
+					return std::pair<std::wstring, std::wstring>(key, L"");
 				return std::pair<std::wstring, std::wstring>(key.substr(0, pos), key.substr(pos + 1));
 			}
 
@@ -117,7 +117,6 @@ namespace settings {
 			settings_core::key_path_type key(settings_core::key_path_type new_key) {
 				key_map::iterator it1 = keys_.find(new_key);
 				if (it1 != keys_.end()) {
-					//get_logger()->debug(__FILE__, __LINE__, new_key.first + _T(".") + new_key.second + _T(" found in alias list"));
 					return (*it1).second;
 				}
 				path_map::iterator it2 = sections_.find(new_key.first);
@@ -207,13 +206,13 @@ namespace settings {
 				return internal_get_value(in_key.first, in_key.second);
 			return op_string();
 		}
-#define UNLIKELY_STRING _T("$$$EMPTY_KEY$$$")
+#define UNLIKELY_STRING L"$$$EMPTY_KEY$$$"
 
 		std::string internal_get_value(std::string path, std::string key, int bufferSize = 1024) {
 			TCHAR* buffer = new TCHAR[bufferSize + 2];
 			if (buffer == NULL)
 				throw settings_exception(__FILE__, __LINE__, "Out of memory error!");
-			int retVal = GetPrivateProfileString(utf8::cvt<std::wstring>(path).c_str(), utf8::cvt<std::wstring>(key).c_str(), _T(""), buffer, bufferSize, utf8::cvt<std::wstring>(get_file_name()).c_str());
+			int retVal = GetPrivateProfileString(utf8::cvt<std::wstring>(path).c_str(), utf8::cvt<std::wstring>(key).c_str(), L"", buffer, bufferSize, utf8::cvt<std::wstring>(get_file_name()).c_str());
 			if (retVal == bufferSize - 1) {
 				delete[] buffer;
 				return internal_get_value(path, key, bufferSize * 10);

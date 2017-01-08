@@ -1295,7 +1295,7 @@ boost::filesystem::path NSClientT::getTempPath() {
 		return tempPath;
 #ifdef WIN32
 	unsigned int buf_len = 4096;
-	HMODULE hKernel = ::LoadLibrary(_TEXT("kernel32"));
+	HMODULE hKernel = ::LoadLibrary(L"kernel32");
 	if (hKernel) {
 		// Find PSAPI functions
 		PFGetTempPath FGetTempPath = (PFGetTempPath)::GetProcAddress(hKernel, "GetTempPathW");

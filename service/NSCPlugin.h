@@ -16,9 +16,13 @@
 
 #pragma once
 
+#include <utf8.hpp>
+
 #include <NSCAPI.h>
 #include <dll/dll.hpp>
 #include <nsclient/logger/logger.hpp>
+
+#include <boost/algorithm/string.hpp>
 
 /**
  * @ingroup NSClient++

@@ -26,7 +26,7 @@
 #include <boost/filesystem.hpp>
 
 #include <time.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
@@ -168,7 +168,7 @@ bool real_time_thread::start() {
 	if (!enabled_)
 		return true;
 #ifdef WIN32
-	stop_event_ = CreateEvent(NULL, TRUE, FALSE, _T("EventLogShutdown"));
+	stop_event_ = CreateEvent(NULL, TRUE, FALSE, L"EventLogShutdown");
 #else
 	pipe(stop_event_);
 #endif

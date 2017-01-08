@@ -149,7 +149,7 @@ std::string file_filter::filter_obj::get_version() {
 	}
 	UINT uLen;
 	VS_FIXEDFILEINFO *lpFfi;
-	if (!VerQueryValue(lpVersionInfo, _T("\\"), (LPVOID *)&lpFfi, &uLen)) {
+	if (!VerQueryValue(lpVersionInfo, L"\\", (LPVOID *)&lpFfi, &uLen)) {
 		delete[] lpVersionInfo;
 		//handler->error("Failed to query version for " + fullpath + ": " + error::lookup::last_error());
 		return "";

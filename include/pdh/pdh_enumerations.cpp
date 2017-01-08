@@ -20,12 +20,16 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 #include <sstream>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <buffer.hpp>
 
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_enumerations.hpp>
+
+#include <utf8.hpp>
+
+#include <boost/foreach.hpp>
 
 namespace PDH {
 	std::list<std::string> Enumerations::expand_wild_card_path(const std::string &query, std::string &error) {
@@ -96,12 +100,12 @@ namespace PDH {
 		DWORD dwInstanceBufLen = 0;
 		TCHAR* szInstanceBuffer = NULL;
 		try {
-			pdh_error status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.name_w().c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+			pdh_error status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
 			if (status.is_more_data()) {
 				szCounterBuffer = new TCHAR[dwCounterBufLen + 1];
 				szInstanceBuffer = new TCHAR[dwInstanceBufLen + 1];
 
-				status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, object.name_w().c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
+				status = factory::get_impl()->PdhEnumObjectItems(NULL, NULL, utf8::cvt<std::wstring>(object.name).c_str(), szCounterBuffer, &dwCounterBufLen, szInstanceBuffer, &dwInstanceBufLen, dwDetailLevel, 0);
 				if (status.is_error()) {
 					delete[] szCounterBuffer;
 					delete[] szInstanceBuffer;

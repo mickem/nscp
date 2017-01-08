@@ -20,8 +20,11 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 #include <sstream>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <pdh/pdh_resolver.hpp>
+
+#include <utf8.hpp>
+#include <strEx.h>
 
 namespace PDH {
 	std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {

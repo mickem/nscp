@@ -25,8 +25,7 @@ SET(service_SRCS
 	logger/simple_console_logger.cpp
 	logger/simple_file_logger.cpp
 	logger/threaded_logger.cpp
-	
-	
+  
 	settings_query_handler.cpp
 	registry_query_handler.cpp
 	plugin_cache.cpp
@@ -76,7 +75,9 @@ IF(WIN32)
 		commands.hpp
 		channels.hpp
 		routers.hpp
-		
+    
+    ${NSCP_ERROR_CPP}
+    ${NSCP_ERROR_HPP}
 		
 		# logger
 		logger/nsclient_logger.hpp
@@ -91,13 +92,11 @@ IF(WIN32)
 
 		service_manager.hpp
 
-		${NSCP_INCLUDEDIR}/charEx.h
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/com_helpers.hpp
 		${NSCP_INCLUDEDIR}/dll/dll.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_unix.hpp
 		${NSCP_INCLUDEDIR}/dll/impl_w32.hpp
-#		${NSCP_INCLUDEDIR}/nsclient_session.hpp
 
 		${NSCP_INCLUDEDIR}/service/system_service.hpp
 		${NSCP_INCLUDEDIR}/service/win32_service.hpp

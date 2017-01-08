@@ -15,6 +15,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/ServiceCmd.cpp
 		reporter.h
 		reporter.rc
+    ${NSCP_ERROR_CPP}
+    ${NSCP_ERROR_HPP}
 	)
 	SET(EXTRA_LIBS Wininet.lib)
 ENDIF(WIN32)

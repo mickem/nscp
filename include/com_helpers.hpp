@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <error.hpp>
+#include <error/error.hpp>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 

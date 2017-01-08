@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace simple_registry {
 	class registry_exception {

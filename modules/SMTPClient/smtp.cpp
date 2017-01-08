@@ -20,10 +20,11 @@
 #include <boost/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/locks.hpp>
-#include <error.hpp>
+#include <boost/foreach.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
 
 namespace smtp {
 	namespace client {

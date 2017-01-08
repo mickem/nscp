@@ -16,6 +16,8 @@
 
 #include "check_drive.hpp"
 
+#include <error/nscp_exception.hpp>
+
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -27,7 +29,7 @@
 #include <boost/enable_shared_from_this.hpp>
 
 #include <char_buffer.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
@@ -429,7 +431,7 @@ public:
 		, ptrGetVolumeNameForVolumeMountPointW(NULL)
 		, ptrGetVolumeInformationByHandleW(NULL)
 		, ptrGetVolumePathNamesForVolumeNameW(NULL) {
-		hLib = ::LoadLibrary(_TEXT("KERNEL32"));
+		hLib = ::LoadLibrary(L"KERNEL32");
 		if (hLib) {
 			ptrFindFirstVolumeW = (typeFindFirstVolumeW)::GetProcAddress(hLib, "FindFirstVolumeW");
 			ptrFindNextVolumeW = (typeFindNextVolumeW)::GetProcAddress(hLib, "FindNextVolumeW");
@@ -561,7 +563,7 @@ public:
 			if (dwErr == ERROR_PATH_NOT_FOUND)
 				return false;
 			if (dwErr != ERROR_NOT_READY)
-				name = _T("Failed to get volume information ") + volume + _T(": ") + utf8::cvt<std::wstring>(error::lookup::last_error());
+				name = L"Failed to get volume information " + volume + L": " + utf8::cvt<std::wstring>(error::lookup::last_error());
 		} else {
 			name = volumeName.get();
 			fs = fileSysName.get();
@@ -704,7 +706,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 			i += drv.size()+1;
 		}
 	} else
-		throw nscp_exception("Failed to get volume list: " + error::lookup::last_error());
+		throw error::nscp_exception("Failed to get volume list: " + error::lookup::last_error());
 }
 
 std::list<drive_container> find_drives(std::vector<std::string> drives) {
@@ -722,7 +724,7 @@ std::list<drive_container> find_drives(std::vector<std::string> drives) {
 		} else {
 			std::wstring drive = utf8::cvt<std::wstring>(d);
 			if (d.length() == 1)
-				drive = drive + _T(":");
+				drive = drive + L":";
 			ret.push_back(get_dc_from_string(drive, helper));
 		}
 	}

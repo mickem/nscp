@@ -26,7 +26,7 @@
 #include <settings/settings_interface_impl.hpp>
 //#define SI_CONVERT_ICU
 #include <simpleini/simpleini.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace settings {
 	class settings_dummy : public settings::settings_interface_impl {

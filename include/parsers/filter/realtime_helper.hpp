@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <error/nscp_exception.hpp>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/function.hpp>
 
@@ -198,7 +200,7 @@ namespace parsers {
 						NSC_TRACE_MSG("No filters matched: " + data->to_string());
 					}
 					do_process_no_items(current_time);
-				} catch (const nscp_exception &e) {
+				} catch (const error::nscp_exception &e) {
 					NSC_DEBUG_MSG("Realtime processing faillure: " + e.reason());
 				} catch (const std::exception &e) {
 					NSC_DEBUG_MSG("Realtime processing faillure: " + utf8::utf8_from_native(e.what()));

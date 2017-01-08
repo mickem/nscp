@@ -19,7 +19,6 @@
 //#include <psapi.h>
 #include <list>
 #include <string>
-//#include <error.hpp>
 
 #define DEFAULT_BUFFER_SIZE 4096
 

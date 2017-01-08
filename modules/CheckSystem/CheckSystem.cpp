@@ -15,6 +15,9 @@
  */
 
 #include "module.hpp"
+
+#include <error/nscp_exception.hpp>
+
 #include "CheckSystem.h"
 
 #include <map>
@@ -815,7 +818,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 				services_helper::service_info info = services_helper::get_service_info(computer, service);
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
 				filter.match(record);
-			} catch (const nscp_exception &e) {
+			} catch (const error::nscp_exception &e) {
 				return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
 			}
 		}

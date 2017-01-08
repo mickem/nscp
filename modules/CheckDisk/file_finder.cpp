@@ -73,7 +73,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	HANDLE hFind = FindFirstFile(utf8::cvt<std::wstring>(file_pattern).c_str(), &wfd);
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
-			if (is_directory(wfd.dwFileAttributes) && (wcscmp(wfd.cFileName, _T(".")) == 0 || wcscmp(wfd.cFileName, _T("..")) == 0))
+			if (is_directory(wfd.dwFileAttributes) && (wcscmp(wfd.cFileName, L".") == 0 || wcscmp(wfd.cFileName, L"..") == 0))
 				continue;
 			boost::shared_ptr<file_filter::filter_obj> info = file_filter::filter_obj::get(context.now, wfd, dir);
 			modern_filter::match_result ret = filter.match(info);
@@ -88,7 +88,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	if (hFind != INVALID_HANDLE_VALUE) {
 		do {
 			if (is_directory(wfd.dwFileAttributes)) {
-				if ((wcscmp(wfd.cFileName, _T(".")) != 0) && (wcscmp(wfd.cFileName, _T("..")) != 0))
+				if ((wcscmp(wfd.cFileName, L".") != 0) && (wcscmp(wfd.cFileName, L"..") != 0))
 					recursive_scan(filter, context, dir / wfd.cFileName, total_obj, total_all, true, current_level + 1);
 			}
 		} while (FindNextFile(hFind, &wfd));

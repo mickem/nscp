@@ -15,16 +15,13 @@
  */
 
 #pragma once
+#include <string>
 
-#include <nscapi/nscapi_protobuf.hpp>
-
-#include <client/command_line_parser.hpp>
-
-class check_nrpe {
-private:
-	client::configuration client_;
-
-public:
-	check_nrpe();
-	void query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
-};
+namespace error {
+	namespace win32 {
+		unsigned int lookup();
+		std::string failed(unsigned long err1, unsigned long err2 = 0);
+		std::string format_message(unsigned long attrs, std::string module, unsigned long dwError);
+		std::string format_message(unsigned long attrs, std::string module, unsigned long dwError, unsigned long *arguments);
+	}
+}

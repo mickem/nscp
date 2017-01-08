@@ -28,7 +28,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/noncopyable.hpp>
 
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <parsers/where.hpp>

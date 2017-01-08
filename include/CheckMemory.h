@@ -17,7 +17,7 @@
 #pragma once
 
 #include <windows.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 
 typedef BOOL (WINAPI *PFGlobalMemoryStatusEx)(LPMEMORYSTATUSEX lpBuffer);
@@ -61,7 +61,7 @@ public:
 public:
 	CheckMemory() : FEGlobalMemoryStatusEx(NULL), FEGlobalMemoryStatus(NULL), method_(CheckMemMethod::None)
 	{
-		hKernel32 = ::LoadLibrary(_TEXT("Kernel32"));
+		hKernel32 = ::LoadLibrary(L"Kernel32");
 		if (hKernel32)  
 		{
 			FEGlobalMemoryStatusEx = (PFGlobalMemoryStatusEx)::GetProcAddress(hKernel32, "GlobalMemoryStatusEx");

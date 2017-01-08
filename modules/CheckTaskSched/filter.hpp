@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <error/nscp_exception.hpp>
+
 #include <map>
 #include <string>
 
@@ -28,7 +30,7 @@
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <parsers/where/node.hpp>
@@ -146,7 +148,7 @@ namespace tasksched_filter {
 				raw_type tmp;
 				HRESULT hr = (object->*fun_)(&tmp);
 				if (traits::has_failed(hr)) {
-					throw nscp_exception("Failed to fetch " + title + ": " + ::error::format::from_system(hr));
+					throw error::nscp_exception("Failed to fetch " + title + ": " + ::error::format::from_system(hr));
 				} else {
 					data = traits::convert(hr, tmp);
 					traits::cleanup(tmp);
@@ -310,16 +312,16 @@ namespace tasksched_filter {
 		long long is_enabled() { return enabled(task, get_title()); }
 
 		std::string get_title() { if (str_title.empty()) str_title = title(task, "unknown"); return str_title; }
-		std::string get_account_name() { throw nscp_exception("account_name is not supported"); }
-		std::string get_application_name() { throw nscp_exception("application_name is not supported"); }
+		std::string get_account_name() { throw error::nscp_exception("account_name is not supported"); }
+		std::string get_application_name() { throw error::nscp_exception("application_name is not supported"); }
 		std::string get_comment() { return comment(get_reginfo(), get_title()); }
 		std::string get_creator() { return creator(get_reginfo(), get_title()); }
 
-		std::string get_parameters() { throw nscp_exception("get_parameters is not supported"); }
-		std::string get_working_directory() { throw nscp_exception("working_directory is not supported"); }
+		std::string get_parameters() { throw error::nscp_exception("get_parameters is not supported"); }
+		std::string get_working_directory() { throw error::nscp_exception("working_directory is not supported"); }
 
 		long long get_exit_code() { return exit_code(task, get_title()); }
-		long long get_flags() { throw nscp_exception("flags is not supported"); }
+		long long get_flags() { throw error::nscp_exception("flags is not supported"); }
 		long long get_max_run_time() { return convert_runtime(max_run_time(get_settings(), get_title())); }
 		long long get_priority() { return priority(get_settings(), get_title()); }
 

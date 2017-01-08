@@ -24,7 +24,7 @@
 #include <Wbemidl.h>
 #include <WMIUtils.h>
 
-#include <error_com.hpp>
+#include <error/error_com.hpp>
 
 namespace wmi_impl {
 	struct identidy_container {
@@ -69,7 +69,7 @@ namespace wmi_impl {
 	identidy_container get_identity(const std::wstring &username, const std::wstring &password) {
 		std::wstring::size_type pos = username.find('\\');
 		if (pos == std::string::npos) {
-			return identidy_container(_T(""), username, password);
+			return identidy_container(L" ", username, password);
 		}
 		return identidy_container(username.substr(0, pos), username.substr(pos + 1), password);
 	}

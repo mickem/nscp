@@ -16,7 +16,7 @@
 
 #include "PythonScript.h"
 #include <time.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <boost/python.hpp>
 #include <boost/program_options.hpp>

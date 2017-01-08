@@ -18,13 +18,12 @@
 
 #include <atlbase.h>
 
-#include <error_com.hpp>
-#include <error.hpp>
+#include <error/error_com.hpp>
 
 #include <map>
 #include <comdef.h>
 
-#include <error_com.hpp>
+#include <error/error_com.hpp>
 #include <objidl.h>
 #include <map>
 #include <Mstask.h>
@@ -42,13 +41,13 @@ void find_old(tasksched_filter::filter &filter) {
 	CComPtr<ITaskScheduler> taskSched;
 	HRESULT hr = CoCreateInstance(CLSID_CTaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskScheduler, reinterpret_cast<void**>(&taskSched));
 	if (FAILED(hr)) {
-		throw nscp_exception("CoCreateInstance for CLSID_CTaskScheduler failed: " + error::com::get(hr));
+		throw error::nscp_exception("CoCreateInstance for CLSID_CTaskScheduler failed: " + error::com::get(hr));
 	}
 
 	CComPtr<IEnumWorkItems> taskSchedEnum;
 	hr = taskSched->Enum(&taskSchedEnum);
 	if (FAILED(hr)) {
-		throw nscp_exception("Failed to enum work items: " + error::com::get(hr));
+		throw error::nscp_exception("Failed to enum work items: " + error::com::get(hr));
 	}
 
 	LPWSTR *lpwszNames;
@@ -94,7 +93,7 @@ void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, 
 	
 	if (FAILED(hr)) {
 		NSC_DEBUG_MSG("Failed to connect to: computer: '" + computer + "', domain: '" + domain + "', user: '" + user + "', password: '" + std::string(password.size(), '*') + "': " + strEx::s::xtos(hr));
-		throw nscp_exception("Failed to connect to task service on " + computer + ": " + error::com::get(hr));
+		throw error::nscp_exception("Failed to connect to task service on " + computer + ": " + error::com::get(hr));
 	}
 	do_get(taskSched, filter, folder, recursive);
 }
@@ -103,24 +102,24 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 	CComPtr<ITaskFolder> pRootFolder;
 	HRESULT hr = taskSched->GetFolder(_bstr_t(utf8::cvt<std::wstring>(folder).c_str()), &pRootFolder);
 	if (FAILED(hr)) {
-		throw nscp_exception("Failed to get root folder " + folder + ": " + error::com::get(hr));
+		throw error::nscp_exception("Failed to get root folder " + folder + ": " + error::com::get(hr));
 	}
 
 	std::vector<std::string> sub_folders;
 	if (recursive) {
 		CComPtr<ITaskFolderCollection> folders;
 		if (FAILED(pRootFolder->GetFolders(0, &folders)))
-			throw nscp_exception("Failed to get folders below " + folder + ": " + error::com::get(hr));
+			throw error::nscp_exception("Failed to get folders below " + folder + ": " + error::com::get(hr));
 		LONG count = 0;
 		if (FAILED(folders->get_Count(&count)))
-			throw nscp_exception("Failed to get count of folders below " + folder + ": " + error::com::get(hr));
+			throw error::nscp_exception("Failed to get count of folders below " + folder + ": " + error::com::get(hr));
 		for (LONG i = 0; i < count; ++i) {
 			CComPtr<ITaskFolder> inst;
 			if (FAILED(folders->get_Item(_variant_t(i + 1), &inst)))
-				throw nscp_exception("Failed to get folder item " + strEx::s::xtos(i) + ": " + error::com::get(hr));
+				throw error::nscp_exception("Failed to get folder item " + strEx::s::xtos(i) + ": " + error::com::get(hr));
 			BSTR str;
 			if (FAILED(inst->get_Path(&str)))
-				throw nscp_exception("Failed to get path for " + strEx::s::xtos(i) + ": " + error::com::get(hr));
+				throw error::nscp_exception("Failed to get path for " + strEx::s::xtos(i) + ": " + error::com::get(hr));
 			_bstr_t sstr(str, FALSE);
 			sub_folders.push_back(utf8::cvt<std::string>(std::wstring(sstr)));
 		}
@@ -129,13 +128,13 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 	CComPtr<IRegisteredTaskCollection> pTaskCollection;
 	hr = pRootFolder->GetTasks(NULL, &pTaskCollection);
 	if (FAILED(hr)) {
-		throw nscp_exception("Failed to enum work items failed: " + error::com::get(hr));
+		throw error::nscp_exception("Failed to enum work items failed: " + error::com::get(hr));
 	}
 
 	LONG numTasks = 0;
 	hr = pTaskCollection->get_Count(&numTasks);
 	if (FAILED(hr)) {
-		throw nscp_exception("Failed to get count: " + error::com::get(hr));
+		throw error::nscp_exception("Failed to get count: " + error::com::get(hr));
 	}
 
 	for (LONG i = 0; i < numTasks; i++) {

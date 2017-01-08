@@ -18,7 +18,7 @@
 
 #include <sysinfo.h>
 #include <tchar.h>
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace systemInfo {
 	LANGID GetSystemDefaultUILanguage() {

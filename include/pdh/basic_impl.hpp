@@ -17,7 +17,7 @@
 #pragma once
 
 #include <pdh/pdh_interface.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace PDH {
 	class NativeExternalPDH : public PDH::impl_interface {
@@ -100,7 +100,7 @@ namespace PDH {
 		}
 
 		void load_procs() {
-			PDH_ = ::LoadLibrary(_TEXT("PDH"));
+			PDH_ = ::LoadLibrary(L"PDH");
 
 			if (PDH_ == NULL) {
 				throw pdh_exception("LoadLibrary for PDH failed: " + error::lookup::last_error());

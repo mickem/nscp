@@ -23,7 +23,7 @@
 #include <string>
 
 #include <settings/settings_core.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <settings/config.hpp>
 
 #include <handle.hpp>
@@ -70,7 +70,7 @@ namespace settings {
 				return utf8::cvt<std::string>(path);
 			}
 			reg_key get_subkey(std::wstring sub_path) const {
-				return reg_key(hKey, path + boost::replace_all_copy(sub_path, _T("/"), _T("\\")));
+				return reg_key(hKey, path + boost::replace_all_copy(sub_path, L"/", L"\\"));
 			}
 			reg_key get_subkey(std::string sub_path) const {
 				return get_subkey(utf8::cvt<std::wstring>(sub_path));

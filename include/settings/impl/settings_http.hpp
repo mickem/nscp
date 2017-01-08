@@ -18,7 +18,6 @@
 
 #include <string>
 #include <fstream>
-#include <map>
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -43,7 +42,6 @@
 
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
-#include <error.hpp>
 
 namespace settings {
 	class settings_http : public settings::settings_interface_impl {

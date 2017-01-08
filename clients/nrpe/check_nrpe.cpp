@@ -16,6 +16,7 @@
 
 #include "check_nrpe.hpp"
 #include <boost/filesystem.hpp>
+
 #include <config.h>
 #include <common.hpp>
 
@@ -23,6 +24,8 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
+#include "../../modules/NRPEClient/nrpe_handler.hpp"
+#include "../../modules/NRPEClient/nrpe_client.hpp"
 
 std::string gLog = "";
 
@@ -195,6 +198,8 @@ bool test(client::destination_container &source, client::destination_container &
 }
 
 boost::program_options::options_description add_client_options(client::destination_container &source, client::destination_container &destination) {
+	namespace po = boost::program_options;
+
 	po::options_description desc("Client options");
 	desc.add_options()
 		("log", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "log", _1)),

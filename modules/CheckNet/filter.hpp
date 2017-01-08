@@ -24,7 +24,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
 
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <parsers/where/node.hpp>

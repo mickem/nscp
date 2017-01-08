@@ -28,7 +28,7 @@
 
 #include <rrd_buffer.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include "filter_config_object.hpp"
 #include "check_network.hpp"

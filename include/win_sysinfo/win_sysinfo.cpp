@@ -20,8 +20,10 @@
 #include <win_sysinfo/win_sysinfo.hpp>
 
 #include <boost/scoped_array.hpp>
-#include <error.hpp>
+#include <error/error.hpp>
+#include <error/nscp_exception.hpp>
 #include <buffer.hpp>
+#include <utf8.hpp>
 
 namespace windows {
 #define STATUS_SUCCESS                          ((NTSTATUS)0x00000000L)
@@ -57,24 +59,24 @@ namespace windows {
 
 		BOOL WTSQueryUserToken(ULONG   SessionId, PHANDLE phToken) {
 			if (pWTSQueryUserToken == NULL) {
-				HMODULE hMod = ::LoadLibrary(_TEXT("Wtsapi32.dll"));
+				HMODULE hMod = ::LoadLibrary(L"Wtsapi32.dll");
 				if (hMod == NULL)
-					throw nscp_exception("Failed to load: Wtsapi32: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: Wtsapi32: " + error::lookup::last_error());
 				pWTSQueryUserToken = reinterpret_cast<tWTSQueryUserToken>(GetProcAddress(hMod, "WTSQueryUserToken"));
 				if (pWTSQueryUserToken == NULL)
-					throw nscp_exception("Failed to load: WTSQueryUserToken: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: WTSQueryUserToken: " + error::lookup::last_error());
 			}
 			return pWTSQueryUserToken(SessionId, phToken);
 		}
 
 		DWORD WTSGetActiveConsoleSessionId() {
 			if (pWTSGetActiveConsoleSessionId == NULL) {
-				HMODULE hMod = ::LoadLibrary(_TEXT("Kernel32.dll"));
+				HMODULE hMod = ::LoadLibrary(L"Kernel32.dll");
 				if (hMod == NULL)
-					throw nscp_exception("Failed to load: Kernel32: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: Kernel32: " + error::lookup::last_error());
 				pWTSGetActiveConsoleSessionId = reinterpret_cast<tWTSGetActiveConsoleSessionId>(GetProcAddress(hMod, "WTSGetActiveConsoleSessionId"));
 				if (pWTSGetActiveConsoleSessionId == NULL)
-					throw nscp_exception("Failed to load: WTSGetActiveConsoleSessionId: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: WTSGetActiveConsoleSessionId: " + error::lookup::last_error());
 			}
 			return pWTSGetActiveConsoleSessionId();
 		}
@@ -82,41 +84,41 @@ namespace windows {
 
 		BOOL EnumServicesStatusEx(SC_HANDLE hSCManager, SC_ENUM_TYPE InfoLevel, DWORD dwServiceType, DWORD dwServiceState, LPBYTE lpServices, DWORD cbBufSize, LPDWORD pcbBytesNeeded, LPDWORD lpServicesReturned, LPDWORD lpResumeHandle, LPCTSTR pszGroupName) {
 			if (pEnumServicesStatusEx == NULL) {
-				HMODULE hMod = ::LoadLibrary(_TEXT("Advapi32.dll"));
+				HMODULE hMod = ::LoadLibrary(L"Advapi32.dll");
 				if (hMod == NULL)
-					throw nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
 				pEnumServicesStatusEx = reinterpret_cast<tEnumServicesStatusEx>(GetProcAddress(hMod, "EnumServicesStatusExW"));
 				if (pEnumServicesStatusEx == NULL)
-					throw nscp_exception("Failed to load: EnumServicesStatusEx: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: EnumServicesStatusEx: " + error::lookup::last_error());
 			}
 			return pEnumServicesStatusEx(hSCManager, InfoLevel, dwServiceType, dwServiceState, lpServices, cbBufSize, pcbBytesNeeded, lpServicesReturned, lpResumeHandle, pszGroupName);
 		}
 		BOOL QueryServiceConfig2(SC_HANDLE hService, DWORD dwInfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded) {
 			if (pQueryServiceConfig2 == NULL) {
-				HMODULE hMod = ::LoadLibrary(_TEXT("Advapi32.dll"));
+				HMODULE hMod = ::LoadLibrary(L"Advapi32.dll");
 				if (hMod == NULL)
-					throw nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
 				pQueryServiceConfig2 = reinterpret_cast<tQueryServiceConfig2>(GetProcAddress(hMod, "QueryServiceConfig2W"));
 				if (pQueryServiceConfig2 == NULL)
-					throw nscp_exception("Failed to load: QueryServiceConfig2: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: QueryServiceConfig2: " + error::lookup::last_error());
 			}
 			return pQueryServiceConfig2(hService, dwInfoLevel, lpBuffer, cbBufSize, pcbBytesNeeded);
 		}
 		BOOL QueryServiceStatusEx(SC_HANDLE hService, SC_STATUS_TYPE InfoLevel, LPBYTE lpBuffer, DWORD cbBufSize, LPDWORD pcbBytesNeeded) {
 			if (pQueryServiceStatusEx == NULL) {
-				HMODULE hMod = ::LoadLibrary(_TEXT("Advapi32.dll"));
+				HMODULE hMod = ::LoadLibrary(L"Advapi32.dll");
 				if (hMod == NULL)
-					throw nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: Advapi32: " + error::lookup::last_error());
 				pQueryServiceStatusEx = reinterpret_cast<tQueryServiceStatusEx>(GetProcAddress(hMod, "QueryServiceStatusEx"));
 				if (pQueryServiceStatusEx == NULL)
-					throw nscp_exception("Failed to load: QueryServiceStatusEx: " + error::lookup::last_error());
+					throw error::nscp_exception("Failed to load: QueryServiceStatusEx: " + error::lookup::last_error());
 			}
 			return pQueryServiceStatusEx(hService, InfoLevel, lpBuffer, cbBufSize, pcbBytesNeeded);
 		}
 
 		bool IsWow64(HANDLE hProcess, bool def) {
 			if (pIsWow64Process == NULL)
-				pIsWow64Process = reinterpret_cast<tIsWow64Process>(GetProcAddress(GetModuleHandle(TEXT("kernel32")), "IsWow64Process"));
+				pIsWow64Process = reinterpret_cast<tIsWow64Process>(GetProcAddress(GetModuleHandle(L"kernel32"), "IsWow64Process"));
 			if (pIsWow64Process == NULL)
 				return def;
 			BOOL bIsWow64 = FALSE;
@@ -129,29 +131,29 @@ namespace windows {
 			if (pGetProcessImageFileName == NULL)
 				pGetProcessImageFileName = reinterpret_cast<tGetProcessImageFileName>(GetProcAddress(GetModuleHandleA("PSAPI"), "GetProcessImageFileNameW"));
 			if (pGetProcessImageFileName == NULL)
-				throw nscp_exception("Failed to load GetProcessImageFileName: " + error::lookup::last_error());
+				throw error::nscp_exception("Failed to load GetProcessImageFileName: " + error::lookup::last_error());
 			return pGetProcessImageFileName(hProcess, lpImageFileName, nSize);
 		}
 		LONG NtQueryInformationProcess(HANDLE ProcessHandle, DWORD ProcessInformationClass, PVOID ProcessInformation, DWORD ProcessInformationLength, PDWORD ReturnLength) {
 			if (pNtQueryInformationProcess == NULL)
 				pNtQueryInformationProcess = reinterpret_cast<tNtQueryInformationProcess>(GetProcAddress(GetModuleHandleA("ntdll.dll"), "NtQueryInformationProcess"));
 			if (pNtQueryInformationProcess == NULL)
-				throw nscp_exception("Failed to load NtQueryInformationProcess");
+				throw error::nscp_exception("Failed to load NtQueryInformationProcess");
 			return pNtQueryInformationProcess(ProcessHandle, ProcessInformationClass, ProcessInformation, ProcessInformationLength, ReturnLength);
 		}
 		INT VDMEnumTaskWOWEx(DWORD dwProcessId, tTASKENUMPROCEX fp, LPARAM lparam) {
 			if (pVDMEnumTaskWOWEx == NULL)
 				pVDMEnumTaskWOWEx = reinterpret_cast<tVDMEnumTaskWOWEx>(GetProcAddress(GetModuleHandleA("VDMDBG"), "VDMEnumTaskWOWEx"));
 			if (pVDMEnumTaskWOWEx == NULL)
-				throw nscp_exception("Failed to load NtQueryInformationProcess");
+				throw error::nscp_exception("Failed to load NtQueryInformationProcess");
 			return pVDMEnumTaskWOWEx(dwProcessId, fp, lparam);
 		}
 
 		LONG NtQuerySystemInformation(SYSTEM_INFORMATION_CLASS SystemInformationClass, PVOID SystemInformation, ULONG SystemInformationLength, PULONG ReturnLength) {
 			if (pNtQuerySystemInformation == NULL)
-				pNtQuerySystemInformation = reinterpret_cast<tNtQuerySystemInformation>(GetProcAddress(LoadLibrary(_T("Ntdll")), "NtQuerySystemInformation"));
+				pNtQuerySystemInformation = reinterpret_cast<tNtQuerySystemInformation>(GetProcAddress(LoadLibrary(L"Ntdll"), "NtQuerySystemInformation"));
 			if (pNtQuerySystemInformation == NULL)
-				throw nscp_exception("Failed to load: NtQuerySystemInformation: " + error::lookup::last_error());
+				throw error::nscp_exception("Failed to load: NtQuerySystemInformation: " + error::lookup::last_error());
 			return pNtQuerySystemInformation(SystemInformationClass, SystemInformation, SystemInformationLength, ReturnLength);
 		}
 	}
@@ -322,8 +324,8 @@ namespace windows {
 		if (r == STATUS_INFO_LENGTH_MISMATCH)
 			return get_system_process_information(bufferSize + 4000);
 		if (r == STATUS_ACCESS_VIOLATION)
-			throw nscp_exception("Access violation");
-		throw nscp_exception("Failed to enumerate processes: unknown error");
+			throw error::nscp_exception("Access violation");
+		throw error::nscp_exception("Failed to enumerate processes: unknown error");
 	}
 
 	system_info::cpu_load system_info::get_cpu_load() {
@@ -334,7 +336,7 @@ namespace windows {
 
 		boost::scoped_array<winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION> buffer(new winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION[cores]);
 		if (winapi::NtQuerySystemInformation(winapi::SystemProcessorPerformanceInformation, &buffer[0], sizeof(winapi::SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION) * cores, NULL) != 0) {
-			throw nscp_exception("Whoops");
+			throw error::nscp_exception("Whoops");
 		}
 
 		cpu_load result;
@@ -377,7 +379,7 @@ namespace windows {
 	class CheckMemory {
 	public:
 		CheckMemory() : hKernel32(NULL), FEGlobalMemoryStatusEx(NULL), FEGlobalMemoryStatus(NULL) {
-			hKernel32 = ::LoadLibrary(_TEXT("Kernel32"));
+			hKernel32 = ::LoadLibrary(L"Kernel32");
 			if (hKernel32) {
 				FEGlobalMemoryStatusEx = (PFGlobalMemoryStatusEx)::GetProcAddress(hKernel32, "GlobalMemoryStatusEx");
 				FEGlobalMemoryStatus = (PFGlobalMemoryStatus)::GetProcAddress(hKernel32, "GlobalMemoryStatus");
@@ -393,7 +395,7 @@ namespace windows {
 				MEMORYSTATUSEX buffer;
 				buffer.dwLength = sizeof(buffer);
 				if (!FEGlobalMemoryStatusEx(&buffer))
-					throw nscp_exception("GlobalMemoryStatusEx failed: " + error::lookup::last_error());
+					throw error::nscp_exception("GlobalMemoryStatusEx failed: " + error::lookup::last_error());
 				ret.physical.total = buffer.ullTotalPhys;
 				ret.physical.avail = buffer.ullAvailPhys;
 				ret.virtual_memory.total = buffer.ullTotalVirtual;
@@ -405,7 +407,7 @@ namespace windows {
 				MEMORYSTATUS buffer;
 				buffer.dwLength = sizeof(buffer);
 				if (!FEGlobalMemoryStatus(&buffer))
-					throw nscp_exception("GlobalMemoryStatus failed: " + error::lookup::last_error());
+					throw error::nscp_exception("GlobalMemoryStatus failed: " + error::lookup::last_error());
 				ret.physical.total = buffer.dwTotalPhys;
 				ret.physical.avail = buffer.dwAvailPhys;
 				ret.virtual_memory.total = buffer.dwTotalVirtual;
@@ -414,7 +416,7 @@ namespace windows {
 				ret.pagefile.avail = buffer.dwAvailPageFile;
 				return ret;
 			} else {
-				throw nscp_exception("Failed to check memory: No method found");
+				throw error::nscp_exception("Failed to check memory: No method found");
 			}
 		}
 	private:
@@ -444,7 +446,7 @@ namespace windows {
 			status = windows::winapi::NtQuerySystemInformation(windows::winapi::SystemPageFileInformation, buffer, buffer.size(), &retLen);
 		}
 		if (status != STATUS_SUCCESS)
-			throw nscp_exception("Failed to get pagefile info");
+			throw error::nscp_exception("Failed to get pagefile info");
 		if (retLen == 0) {
 			return ret;
 		}

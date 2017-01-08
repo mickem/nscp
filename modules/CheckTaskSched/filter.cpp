@@ -20,7 +20,7 @@
 #include <parsers/where/node.hpp>
 
 #include "filter.hpp"
-#include <error_com.hpp>
+#include <error/error_com.hpp>
 
 using namespace parsers::where;
 
@@ -101,7 +101,7 @@ namespace tasksched_filter {
 			return reginfo;
 		HRESULT hr = get_def()->get_RegistrationInfo(&reginfo);
 		if (!SUCCEEDED(hr))
-			throw nscp_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
+			throw error::nscp_exception("Failed to get IRegistrationInfo: " + error::com::get(hr));
 		return reginfo;
 	}
 
@@ -110,7 +110,7 @@ namespace tasksched_filter {
 			return def;
 		HRESULT hr = task->get_Definition(&def);
 		if (!SUCCEEDED(hr))
-			throw nscp_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
+			throw error::nscp_exception("Failed to get ITaskDefinition: " + error::com::get(hr));
 		return def;
 	}
 
@@ -119,7 +119,7 @@ namespace tasksched_filter {
 			return settings;
 		HRESULT hr = get_def()->get_Settings(&settings);
 		if (!SUCCEEDED(hr))
-			throw nscp_exception("Failed to get ITaskSettings: " + error::com::get(hr));
+			throw error::nscp_exception("Failed to get ITaskSettings: " + error::com::get(hr));
 		return settings;
 	}
 

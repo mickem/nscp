@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <error/nscp_exception.hpp>
+
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
 
@@ -75,7 +77,7 @@ public:
 		}
 		time /= 60;
 		if (time >= hours.size())
-			throw nscp_exception("Size larger than buffer");
+			throw error::nscp_exception("Size larger than buffer");
 		for (list_type::const_iterator cit = hours.end() - time; cit != hours.end(); ++cit) {
 			ret.add(*cit);
 		}

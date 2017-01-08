@@ -24,7 +24,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_resolver.hpp>

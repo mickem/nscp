@@ -18,7 +18,7 @@
 
 #include <string>
 
-#include <error.hpp>
+#include <error/error.hpp>
 #include <format.hpp>
 
 #include <boost/date_time.hpp>

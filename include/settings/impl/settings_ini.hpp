@@ -25,7 +25,7 @@
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 
-#include <error.hpp>
+#include <error/error.hpp>
 
 //#define SI_CONVERT_ICU
 //#define SI_CONVERT_GENERIC

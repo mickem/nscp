@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
+#include <utf8.hpp>
+
 #include <windows.h>
 #include <tchar.h>
 #include "ServiceCmd.h"
 #include <strEx.h>
 #include <tchar.h>
 #include <iostream>
-#include <error.hpp>
+#include <error/error.hpp>
 
 namespace serviceControll {
 	/**
@@ -48,7 +50,7 @@ namespace serviceControll {
 
 		std::wstring bin = _T("\"") + exe + _T("\"");
 		if (!args.empty())
-			bin += _T(" ") + args;
+			bin += L" " + args;
 		schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
 		if (!schSCManager)
 			throw SCException("OpenSCManager failed:" + error::lookup::last_error());

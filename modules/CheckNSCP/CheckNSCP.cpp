@@ -29,7 +29,7 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
-#include <error.hpp>
+#include <error/nscp_exception.hpp>
 
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/filter/cli_helper.hpp>
@@ -123,7 +123,7 @@ struct nscp_version {
 		date = v2.get<1>();
 		std::list<std::string> vl = strEx::s::splitEx(v2.get<0>(), ".");
 		if (vl.size() != 4)
-			throw nscp_exception("Failed to parse version: " + v);
+			throw error::nscp_exception("Failed to parse version: " + v);
 		release = strEx::s::stox<int>(vl.front()); vl.pop_front();
 		major_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
 		minor_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
@@ -214,7 +214,7 @@ void CheckNSCP::check_nscp_version(const Plugin::QueryRequestMessage::Request &r
 	nscp_version version;
 	try {
 		version = nscp_version(get_core()->getApplicationVersionString());
-	} catch (const nscp_exception &e) {
+	} catch (const error::nscp_exception &e) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to parse version: " + e.reason());
 		return;
 	} catch (const std::exception &e) {

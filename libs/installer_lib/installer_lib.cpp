@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <msi.h>
 #include <msiquery.h>
-#include <error.hpp>
+#include <error/error.hpp>
 #include <config.h>
 #include <ServiceCmd.h>
 #include <char_buffer.hpp>
@@ -26,12 +26,12 @@ bool uninstall(msi_helper &h, std::wstring service_name);
 
 void copy_file(msi_helper &h, std::wstring source, std::wstring target) {
 	if (boost::filesystem::is_regular(utf8::cvt<std::string>(source))) {
-		h.logMessage(_T("Copying: ") + source + _T(" to ") + target);
+		h.logMessage(L"Copying: " + source + L" to " + target);
 		if (!CopyFile(source.c_str(), target.c_str(), FALSE)) {
-			h.errorMessage(_T("Failed to copy file: ") + utf8::cvt<std::wstring>(error::lookup::last_error()));
+			h.errorMessage(L"Failed to copy file: " + utf8::cvt<std::wstring>(error::lookup::last_error()));
 		}
 	} else {
-		h.logMessage(_T("Copying failed: ") + source + _T(" to ") + target + _T(" source was not found."));
+		h.logMessage(L"Copying failed: " + source + L" to " + target + L" source was not found.");
 	}
 
 }
@@ -54,7 +54,7 @@ public:
 			return;
 		if (str[0] == L'E') {
 			if (!error.empty())
-				error += _T("\n");
+				error += L"\n";
 			error += str.substr(1);
 		}
 		log_.push_back(str.substr(1));
@@ -167,7 +167,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	}
 };
 
-static const wchar_t alphanum[] = _T("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+static const wchar_t alphanum[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 std::wstring genpwd(const int len) {
 	srand((unsigned)time(NULL ));
 	std::wstring ret;
@@ -195,10 +195,10 @@ bool has_mod(std::string key) {
 
 std::wstring read_map_data(msi_helper &h) {
 	std::wstring ret;
-	PMSIHANDLE hView = h.open_execute_view(_T("SELECT Data FROM Binary WHERE Name='OldSettingsMap'"));
+	PMSIHANDLE hView = h.open_execute_view(L"SELECT Data FROM Binary WHERE Name='OldSettingsMap'");
 	if (h.isNull(hView)) {
-		h.logMessage(_T("Failed to query service view!"));
-		return _T("");
+		h.logMessage(L"Failed to query service view!");
+		return L" ";
 	}
 
 	PMSIHANDLE hRec = h.fetch_record(hView);
@@ -211,27 +211,27 @@ std::wstring read_map_data(msi_helper &h) {
 }
 
 
-#define ALLOWED_HOSTS _T("ALLOWED_HOSTS")
-#define NSCLIENT_PWD _T("NSCLIENT_PWD")
-#define NSCLIENT_PWD_DEFAULT _T("NSCLIENT_PWD_DEFAULT")
-#define CONF_SCHEDULER _T("CONF_SCHEDULER")
-#define CONF_CHECKS _T("CONF_CHECKS")
-#define CONF_NRPE _T("CONF_NRPE")
-#define CONF_NSCA _T("CONF_NSCA")
-#define CONF_WEB _T("CONF_WEB")
-#define CONF_NSCLIENT _T("CONF_NSCLIENT")
-#define NRPEMODE _T("NRPEMODE")
+#define ALLOWED_HOSTS L"ALLOWED_HOSTS"
+#define NSCLIENT_PWD L"NSCLIENT_PWD"
+#define NSCLIENT_PWD_DEFAULT L"NSCLIENT_PWD_DEFAULT"
+#define CONF_SCHEDULER L"CONF_SCHEDULER"
+#define CONF_CHECKS L"CONF_CHECKS"
+#define CONF_NRPE L"CONF_NRPE"
+#define CONF_NSCA L"CONF_NSCA"
+#define CONF_WEB L"CONF_WEB"
+#define CONF_NSCLIENT L"CONF_NSCLIENT"
+#define NRPEMODE L"NRPEMODE"
 
-#define CONFIGURATION_TYPE _T("CONFIGURATION_TYPE")
-#define CONF_CAN_CHANGE _T("CONF_CAN_CHANGE")
-#define CONF_INCLUDES _T("CONF_INCLUDES")
-#define INSTALL_SAMPLE_CONFIG _T("INSTALL_SAMPLE_CONFIG")
-#define GENERATE_SAMPLE_CONFIG _T("GENERATE_SAMPLE_CONFIG")
-#define CONF_OLD_ERROR _T("CONF_OLD_ERROR")
-#define CONF_HAS_ERRORS _T("CONF_HAS_ERRORS")
+#define CONFIGURATION_TYPE L"CONFIGURATION_TYPE"
+#define CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
+#define CONF_INCLUDES L"CONF_INCLUDES"
+#define INSTALL_SAMPLE_CONFIG L"INSTALL_SAMPLE_CONFIG"
+#define GENERATE_SAMPLE_CONFIG L"GENERATE_SAMPLE_CONFIG"
+#define CONF_OLD_ERROR L"CONF_OLD_ERROR"
+#define CONF_HAS_ERRORS L"CONF_HAS_ERRORS"
 
 
-#define KEY _T("KEY_")
+#define KEY L"KEY_"
 
 #define KEY_ALLOWED_HOSTS KEY ALLOWED_HOSTS
 #define KEY_NSCLIENT_PWD KEY NSCLIENT_PWD
@@ -277,41 +277,41 @@ void dump_config(msi_helper &h, std::wstring title) {
 
 
 extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("ApplyTool"));
+	msi_helper h(hInstall, L"ApplyTool");
 	try {
 		h.logMessage("Applying monitoring tool config");
-		std::wstring tool = h.getPropery(_T("MONITORING_TOOL"));
-		h.logMessage(_T("Monitoring tool is: ") + tool);
+		std::wstring tool = h.getPropery(L"MONITORING_TOOL");
+		h.logMessage(L"Monitoring tool is: " + tool);
 
-		if (tool == _T("OP5")) {
-			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, _T(""));
-			h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, _T(""));
-			h.setPropertyAndDefault(KEY_CONF_CHECKS, _T("1"));
-			h.setPropertyAndDefault(KEY_CONF_NRPE, _T("1"));
-			h.setPropertyAndDefault(KEY_CONF_NSCA, _T("1"));
-			h.setPropertyAndDefault(KEY_CONF_WEB, _T("0"));
-			h.setPropertyAndDefault(KEY_NRPEMODE, _T("LEGACY"));
+		if (tool == L"OP5") {
+			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L" ");
+			h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L" ");
+			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1");
+			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1");
+			h.setPropertyAndDefault(KEY_CONF_NSCA, L"1");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L"0");
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
 
-			h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
-			h.setProperty(KEY_CONF_INCLUDES, _T("op5;op5.ini"));
-			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, _T(""));
-			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, _T(""));
-			h.setProperty(KEY_CONFIGURATION_TYPE, _T("registry://HKEY_LOCAL_MACHINE/software/NSClient++"));
-			h.setFeatureLocal(_T("OP5Montoring"));
-		} else if (tool == _T("GENERIC")) {
-			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), _T(""));
-			h.setPropertyAndDefault(KEY_CONF_CHECKS, _T("1"), _T(""));
-			h.setPropertyAndDefault(KEY_CONF_NRPE, _T("1"), _T(""));
-			h.setPropertyAndDefault(KEY_CONF_NSCA, _T(""));
-			h.setPropertyAndDefault(KEY_CONF_WEB, _T(""));
-			h.setPropertyAndDefault(KEY_NRPEMODE, _T("SAFE"), _T(""));
+			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
+			h.setProperty(KEY_CONF_INCLUDES, L"op5;op5.ini");
+			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++");
+			h.setFeatureLocal(L"OP5Montoring");
+		} else if (tool == L"GENERIC") {
+			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L" ");
+			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L" ");
+			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L" ");
+			h.setPropertyAndDefault(KEY_CONF_NSCA, L" ");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L" ");
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE", L" ");
 
-			h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
-			h.setProperty(KEY_CONF_INCLUDES, _T(""));
-			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, _T(""));
-			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, _T(""));
-			h.setProperty(KEY_CONFIGURATION_TYPE, _T("ini://${shared-path}/nsclient.ini"));
-			h.setFeatureAbsent(_T("OP5Montoring"));
+			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
+			h.setProperty(KEY_CONF_INCLUDES, L" ");
+			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
+			h.setFeatureAbsent(L"OP5Montoring");
 		}
 
 		h.applyProperty(KEY_ALLOWED_HOSTS, ALLOWED_HOSTS);
@@ -330,15 +330,15 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 		h.applyProperty(KEY_INSTALL_SAMPLE_CONFIG, INSTALL_SAMPLE_CONFIG);
 		h.applyProperty(KEY_GENERATE_SAMPLE_CONFIG, GENERATE_SAMPLE_CONFIG);
 
-		h.setPropertyIfEmpty(KEY_CONF_CAN_CHANGE, _T("1"));
+		h.setPropertyIfEmpty(KEY_CONF_CAN_CHANGE, L"1");
 
-		dump_config(h, _T("After ApplyConfig"));
+		dump_config(h, L"After ApplyConfig");
 
 	} catch (installer_exception e) {
-		h.logMessage(_T("Failed to apply monitoring tool: ") + e.what());
+		h.logMessage(L"Failed to apply monitoring tool: " + e.what());
 		return ERROR_SUCCESS;
 	} catch (...) {
-		h.logMessage(_T("Failed to apply monitoring tool: Unknown exception"));
+		h.logMessage(L"Failed to apply monitoring tool: Unknown exception");
 		return ERROR_SUCCESS;
 	}
 	return ERROR_SUCCESS;
@@ -347,68 +347,68 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 
 
 extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("ImportConfig"));
+	msi_helper h(hInstall, L"ImportConfig");
 	try {
 		h.logMessage("importing config");
-		std::wstring target = h.getTargetPath(_T("INSTALLLOCATION"));
-		std::wstring allow = h.getPropery(_T("ALLOW_CONFIGURATION"));
+		std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
+		std::wstring allow = h.getPropery(L"ALLOW_CONFIGURATION");
 
 		std::wstring pwd = h.getPropery(KEY_NSCLIENT_PWD);
-		if (pwd == _T("$GEN$")) {
+		if (pwd == L"$GEN$") {
 			h.setProperty(KEY_NSCLIENT_PWD, genpwd(16));
 		}
 		std::wstring map_data = read_map_data(h);
-		if (allow == _T("0")) {
-			h.logMessage(_T("Configuration not allowed: ") + allow);
-			h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-			h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
-			dump_config(h, _T("After ImportConfig"));
+		if (allow == L"0") {
+			h.logMessage(L"Configuration not allowed: " + allow);
+			h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+			h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
+			dump_config(h, L"After ImportConfig");
 			return ERROR_SUCCESS;
 		}
 
  		if (!boost::filesystem::is_directory(utf8::cvt<std::string>(target))) {
- 			h.logMessage(_T("Target folder not found: ") + target);
-			h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
-			h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
-			dump_config(h, _T("After ImportConfig"));
+ 			h.logMessage(L"Target folder not found: " + target);
+			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
+			h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
+			dump_config(h, L"After ImportConfig");
 			return ERROR_SUCCESS;
 		}
 
 		installer_settings_provider provider(&h, target, map_data);
 		if (!settings_manager::init_installer_settings(&provider, "")) {
-			h.logMessage(_T("Settings context had fatal errors"));
+			h.logMessage(L"Settings context had fatal errors");
 			h.setProperty(KEY_CONF_OLD_ERROR, provider.get_error());
-			h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-			h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
+			h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+			h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
 		}
 		if (provider.has_errors()) {
-			h.logMessage(_T("Settings context reported errors (debug log end)"));
+			h.logMessage(L"Settings context reported errors (debug log end)");
 			BOOST_FOREACH(std::wstring l, provider.get_errors()) {
 				h.logMessage(l);
 			}
-			h.logMessage(_T("Settings context reported errors (debug log end)"));
+			h.logMessage(L"Settings context reported errors (debug log end)");
 			if (!settings_manager::has_boot_conf()) {
-				h.logMessage(_T("boot.conf was NOT found (so no new configuration)"));
+				h.logMessage(L"boot.conf was NOT found (so no new configuration)");
 				if (settings_manager::context_exists(DEFAULT_CONF_OLD_LOCATION)) {
 					h.logMessage("Old configuration found: " DEFAULT_CONF_OLD_LOCATION);
-					h.setProperty(KEY_CONF_OLD_ERROR, std::wstring(_T("Old configuration (")) + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + _T(") was found but we got errors accessing it: ") + provider.get_error());
-					h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-					h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
-					dump_config(h, _T("After ImportConfig"));
+					h.setProperty(KEY_CONF_OLD_ERROR, std::wstring(L"Old configuration (") + utf8::cvt<std::wstring>(DEFAULT_CONF_OLD_LOCATION) + L") was found but we got errors accessing it: " + provider.get_error());
+					h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+					h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
+					dump_config(h, L"After ImportConfig");
 					return ERROR_SUCCESS;
 				} else {
-					h.logMessage(_T("Failed to read configuration but no configuration was found (so we are assuming there is no configuration)."));
-					h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
-					h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
-					dump_config(h, _T("After ImportConfig"));
+					h.logMessage(L"Failed to read configuration but no configuration was found (so we are assuming there is no configuration).");
+					h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
+					h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
+					dump_config(h, L"After ImportConfig");
 					return ERROR_SUCCESS;
 				}
 			} else {
-				h.logMessage(_T("boot.conf was found but we got errors booting it..."));
+				h.logMessage(L"boot.conf was found but we got errors booting it...");
 				h.setProperty(KEY_CONF_OLD_ERROR, provider.get_error());
-				h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-				h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
-				dump_config(h, _T("After ImportConfig"));
+				h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+				h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
+				dump_config(h, L"After ImportConfig");
 				return ERROR_SUCCESS;
 			}
 		}
@@ -416,8 +416,8 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		h.setProperty(KEY_CONFIGURATION_TYPE, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_context()));
 		h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_context());
 		h.logMessage("CONFIGURATION_TYPE=" + settings_manager::get_settings()->get_info());
-		h.setProperty(KEY_CONF_CAN_CHANGE, _T("1"));
-		h.setProperty(KEY_CONF_HAS_ERRORS, _T("0"));
+		h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
+		h.setProperty(KEY_CONF_HAS_ERRORS, L"0");
 
 		h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "allowed hosts", "")));
 		h.setPropertyAndDefault(KEY_NSCLIENT_PWD, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
@@ -430,15 +430,15 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 
 		std::string insecure = settings_manager::get_settings()->get_string("/settings/NRPE/server", "insecure", "");
 		std::string verify = settings_manager::get_settings()->get_string("/settings/NRPE/server", "verify mode", "");
-		h.logMessage(_T("insecure: ") + utf8::cvt<std::wstring>(insecure));
-		h.logMessage(_T("verify: ") + utf8::cvt<std::wstring>(verify));
+		h.logMessage(L"insecure: " + utf8::cvt<std::wstring>(insecure));
+		h.logMessage(L"verify: " + utf8::cvt<std::wstring>(verify));
 		if (insecure == "true" || insecure == "1")
-			h.setPropertyAndDefault(KEY_NRPEMODE, _T("LEGACY"));
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
 		else if (verify == "peer-cert")
-			h.setPropertyAndDefault(KEY_NRPEMODE, _T("SECURE"));
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"SECURE");
 		else
-			h.setPropertyAndDefault(KEY_NRPEMODE, _T("SAFE"));
-		h.logMessage(_T("NRPEMODE: ") + h.getPropery(KEY_NRPEMODE));
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE");
+		h.logMessage(L"NRPEMODE: " + h.getPropery(KEY_NRPEMODE));
 
 		h.setPropertyAndDefault(KEY_NSCLIENT_PWD, utf8::cvt<std::wstring>(settings_manager::get_settings()->get_string("/settings/default", "password", "")));
 
@@ -447,19 +447,19 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		settings_manager::destroy_settings();
 
 
-		dump_config(h, _T("After ImportConfig"));
+		dump_config(h, L"After ImportConfig");
 
 	} catch (installer_exception e) {
-		h.logMessage(_T("Failed to read old configuration file: ") + e.what());
+		h.logMessage(L"Failed to read old configuration file: " + e.what());
 		h.setProperty(KEY_CONF_OLD_ERROR, e.what());
-		h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-		h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
+		h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+		h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
 		return ERROR_SUCCESS;
 	} catch (...) {
-		h.logMessage(_T("Failed to read old configuration file: Unknown exception"));
-		h.setProperty(KEY_CONF_OLD_ERROR, _T("Unknown exception!"));
-		h.setProperty(KEY_CONF_CAN_CHANGE, _T("0"));
-		h.setProperty(KEY_CONF_HAS_ERRORS, _T("1"));
+		h.logMessage(L"Failed to read old configuration file: Unknown exception");
+		h.setProperty(KEY_CONF_OLD_ERROR, L"Unknown exception!");
+		h.setProperty(KEY_CONF_CAN_CHANGE, L"0");
+		h.setProperty(KEY_CONF_HAS_ERRORS, L"1");
 		return ERROR_SUCCESS;
 	}
 	return ERROR_SUCCESS;
@@ -472,13 +472,13 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
 void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
 	std::wstring val = h.getPropery(prop);
-	if (val == _T("$GEN$"))
+	if (val == L"$GEN$")
 		val = genpwd(12);
 	if (!h.propertyNotDefault(prop)) {
-		h.logMessage(_T("IGNORING property not changed: ") + prop + _T("; ") + path + _T(".") + key + _T("=") + val);
+		h.logMessage(L"IGNORING property not changed: " + prop + L"; " + path + L"." + key + L"=" + val);
 		return;
 	}
-	h.logMessage(_T("write_changed_key: ") + prop + _T("; ") + path + _T(".") + key + _T("=") + val);
+	h.logMessage(L"write_changed_key: " + prop + L"; " + path + L"." + key + L"=" + val);
 	data.write_int(1);
 	data.write_string(path);
 	data.write_string(key);
@@ -490,14 +490,14 @@ void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, 
 	data.write_string(path);
 	data.write_string(key);
 	data.write_string(val);
-	h.logMessage(_T("write_key: ") + path + _T(".") + key + _T("=") + val);
+	h.logMessage(L"write_key: " + path + L"." + key + L"=" + val);
 }
 
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("ScheduleWriteConfig"));
+	msi_helper h(hInstall, L"ScheduleWriteConfig");
 	try {
 
-		h.dumpReason(_T("Before ScheduleWriteConfig"));
+		h.dumpReason(L"Before ScheduleWriteConfig");
 		h.dumpProperty(KEY_ALLOWED_HOSTS);
 		h.dumpProperty(KEY_NSCLIENT_PWD);
 		h.dumpProperty(KEY_NSCLIENT_PWD_DEFAULT);
@@ -517,109 +517,109 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		h.dumpProperty(KEY_CONF_CAN_CHANGE);
 
 
-		if (h.getPropery(KEY_CONF_CAN_CHANGE) != _T("1")) {
-			h.logMessage(_T("Configuration changes not allowed: set CONF_CAN_CHANGE=1"));
+		if (h.getPropery(KEY_CONF_CAN_CHANGE) != L"1") {
+			h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
 			return ERROR_SUCCESS;
 		}
 		msi_helper::custom_action_data_w data;
-		data.write_string(h.getTargetPath(_T("INSTALLLOCATION")));
+		data.write_string(h.getTargetPath(L"INSTALLLOCATION"));
 		data.write_string(h.getPropery(KEY_CONFIGURATION_TYPE));
-		data.write_string(h.getPropery(_T("RESTORE_FILE")));
-		data.write_int(h.getPropery(_T("ADD_DEFAULTS"))==_T("1")?1:0);
+		data.write_string(h.getPropery(L"RESTORE_FILE"));
+		data.write_int(h.getPropery(L"ADD_DEFAULTS")==L"1"?1:0);
 
 		std::wstring confInclude = h.getPropery(KEY_CONF_INCLUDES);
-		h.logMessage(_T("Adding include: ") + confInclude);
+		h.logMessage(L"Adding include: " + confInclude);
 		if (!confInclude.empty()) {
 			std::vector<std::wstring> lst;
-			boost::split(lst, confInclude, boost::is_any_of(_T(";")));
+			boost::split(lst, confInclude, boost::is_any_of(L";"));
 			for (int i=0;i+1<lst.size();i+=2) {
-				h.logMessage(_T(" + : ") + lst[i] + _T("=") + lst[i+1]);
-				write_key(h, data, 1, _T("/includes"), lst[i], lst[i+1]);
+				h.logMessage(L" + : " + lst[i] + L"=" + lst[i+1]);
+				write_key(h, data, 1, L"/includes", lst[i], lst[i+1]);
 			}
 		}
 
-		std::wstring modpath = _T(MAIN_MODULES_SECTION);
-		write_changed_key(h, data, KEY_CONF_NRPE, modpath, _T("NRPEServer"));
-		write_changed_key(h, data, KEY_CONF_SCHEDULER, modpath, _T("Scheduler"));
-		write_changed_key(h, data, KEY_CONF_NSCA, modpath, _T("NSCAClient"));
-		write_changed_key(h, data, KEY_CONF_NSCLIENT, modpath, _T("NSClientServer"));
-		write_changed_key(h, data, _T("CONF_WMI"), modpath, _T("CheckWMI"));
-		write_changed_key(h, data, KEY_CONF_WEB, modpath, _T("WEBSErver"));
+		std::wstring modpath = utf8::cvt<std::wstring>(MAIN_MODULES_SECTION);
+		write_changed_key(h, data, KEY_CONF_NRPE, modpath, L"NRPEServer");
+		write_changed_key(h, data, KEY_CONF_SCHEDULER, modpath, L"Scheduler");
+		write_changed_key(h, data, KEY_CONF_NSCA, modpath, L"NSCAClient");
+		write_changed_key(h, data, KEY_CONF_NSCLIENT, modpath, L"NSClientServer");
+		write_changed_key(h, data, L"CONF_WMI", modpath, L"CheckWMI");
+		write_changed_key(h, data, KEY_CONF_WEB, modpath, L"WEBSErver");
 
 		if (h.propertyNotDefault(KEY_CONF_CHECKS)) {
 			std::wstring modval = h.getPropery(KEY_CONF_CHECKS);
-			write_key(h, data, 1, modpath, _T("CheckSystem"), modval);
-			write_key(h, data, 1, modpath, _T("CheckDisk"), modval);
-			write_key(h, data, 1, modpath, _T("CheckEventLog"), modval);
-			write_key(h, data, 1, modpath, _T("CheckHelpers"), modval);
-			write_key(h, data, 1, modpath, _T("CheckExternalScripts"), modval);
-			write_key(h, data, 1, modpath, _T("CheckNSCP"), modval);
+			write_key(h, data, 1, modpath, L"CheckSystem", modval);
+			write_key(h, data, 1, modpath, L"CheckDisk", modval);
+			write_key(h, data, 1, modpath, L"CheckEventLog", modval);
+			write_key(h, data, 1, modpath, L"CheckHelpers", modval);
+			write_key(h, data, 1, modpath, L"CheckExternalScripts", modval);
+			write_key(h, data, 1, modpath, L"CheckNSCP", modval);
 		}
-		if (h.getPropery(KEY_CONF_NRPE) == _T("1")) {
+		if (h.getPropery(KEY_CONF_NRPE) == L"1") {
 			if (h.propertyNotDefault(KEY_NRPEMODE)) {
 				std::wstring mode = h.getPropery(KEY_NRPEMODE);
-				if (mode == _T("LEGACY")) {
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("true"));
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T(""));
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T(""));
+				if (mode == L"LEGACY") {
+					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"true");
+					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L" ");
+					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L" ");
 				} else {
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("insecure"), _T("false"));
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("ssl options"), _T("no-sslv2,no-sslv3"));
+					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"false");
+					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"no-sslv2,no-sslv3");
 				}
-				if (mode == _T("SAFE"))
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("peer-cert"));
+				if (mode == L"SAFE")
+					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"peer-cert");
 				else
-					write_key(h, data, 1, _T("/settings/NRPE/server"), _T("verify mode"), _T("none"));
+					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"none");
 			}
 		}
 
-		std::wstring defpath = _T("/settings/default");
-		write_changed_key(h, data, KEY_ALLOWED_HOSTS, defpath, _T("allowed hosts"));
-		write_changed_key(h, data, KEY_NSCLIENT_PWD, defpath, _T("password"));
+		std::wstring defpath = L"/settings/default";
+		write_changed_key(h, data, KEY_ALLOWED_HOSTS, defpath, L"allowed hosts");
+		write_changed_key(h, data, KEY_NSCLIENT_PWD, defpath, L"password");
 
-		std::wstring confSet = h.getPropery(_T("CONF_SET"));
-		h.logMessage(_T("Adding conf: ") + confSet);
+		std::wstring confSet = h.getPropery(L"CONF_SET");
+		h.logMessage(L"Adding conf: " + confSet);
 		if (!confSet.empty()) {
 			std::vector<std::wstring> lst;
-			boost::split(lst, confSet, boost::is_any_of(_T(";")));
+			boost::split(lst, confSet, boost::is_any_of(L";"));
 			for (int i = 0; i + 2 < lst.size(); i += 3) {
-				h.logMessage(_T(" + : ") + lst[i] + _T(" ") + lst[i + 1] + _T("=") + lst[i + 2]);
+				h.logMessage(L" + : " + lst[i] + L" " + lst[i + 1] + L"=" + lst[i + 2]);
 				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
 			}
 		}
 
 		if (data.has_data()) {
-			h.logMessage(_T("Scheduling (ExecWriteConfig): ") + data.to_string());
+			h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
 			HRESULT hr = h.do_deferred_action(L"ExecWriteConfig", data, 1000);
 			if (FAILED(hr)) {
-				h.errorMessage(_T("failed to schedule config update"));
+				h.errorMessage(L"failed to schedule config update");
 				return hr;
 			}
 		}
 	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to install service: ") + e.what());
+		h.errorMessage(L"Failed to install service: " + e.what());
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
-		h.errorMessage(_T("Failed to install service: <UNKNOWN EXCEPTION>"));
+		h.errorMessage(L"Failed to install service: <UNKNOWN EXCEPTION>");
 		return ERROR_INSTALL_FAILURE;
 	}
 	return ERROR_SUCCESS;
 }
 extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("ExecWriteConfig"));
+	msi_helper h(hInstall, L"ExecWriteConfig");
 	try {
-		h.logMessage(_T("RAW: ") + h.getPropery(L"CustomActionData"));
+		h.logMessage(L"RAW: " + h.getPropery(L"CustomActionData"));
 		msi_helper::custom_action_data_r data(h.getPropery(L"CustomActionData"));
-		h.logMessage(_T("Got CA data: ") + data.to_string());
+		h.logMessage(L"Got CA data: " + data.to_string());
 		std::wstring target = data.get_next_string();
 		std::wstring context_w = data.get_next_string();
 		std::string context = utf8::cvt<std::string>(context_w);
 		std::wstring restore = data.get_next_string();
 		int add_defaults = data.get_next_int();
 
-		h.logMessage(_T("Target: ") + target);
+		h.logMessage(L"Target: " + target);
 		h.logMessage("Context: " + context);
-		h.logMessage(_T("Restore: ") + restore);
+		h.logMessage(L"Restore: " + restore);
 
 		boost::filesystem::path path = target;
 		boost::filesystem::path old_path = path / "nsc.ini.old";
@@ -628,41 +628,41 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		boost::filesystem::path restore_path = restore;
 
 		if (boost::filesystem::exists(old_path))
-			h.logMessage(_T("Found old (.old) file: ") + strEx::xtos(boost::filesystem::file_size(old_path)));
+			h.logMessage(L"Found old (.old) file: " + strEx::xtos(boost::filesystem::file_size(old_path)));
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Found old file: ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Found old file: " + strEx::xtos(boost::filesystem::file_size(path)));
 		if (boost::filesystem::exists(restore_path))
-			h.logMessage(_T("Found restore file: ") + strEx::xtos(boost::filesystem::file_size(restore_path)));
+			h.logMessage(L"Found restore file: " + strEx::xtos(boost::filesystem::file_size(restore_path)));
 
 		if (boost::filesystem::exists(restore_path)) {
-			h.logMessage(_T("Restore path exists: ") + restore);
+			h.logMessage(L"Restore path exists: " + restore);
 			if (!boost::filesystem::exists(path)) {
-				h.logMessage(_T("Restoring nsc.ini configuration file"));
+				h.logMessage(L"Restoring nsc.ini configuration file");
 				copy_file(h, restore_path.wstring(), path.wstring());
 			}
 			if (!boost::filesystem::exists(old_path)) {
-				h.logMessage(_T("Creating backup nsc.ini.old configuration file"));
+				h.logMessage(L"Creating backup nsc.ini.old configuration file");
 				copy_file(h, restore_path.wstring(), old_path.wstring());
 			}
 		}
 
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (001): ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Size (001): " + strEx::xtos(boost::filesystem::file_size(path)));
 
 		installer_settings_provider provider(&h, target);
 		if (!settings_manager::init_installer_settings(&provider, context)) {
-			h.errorMessage(_T("Failed to boot settings: ") + provider.get_error());
-			h.logMessage(_T("Switching context: ") + context_w);
+			h.errorMessage(L"Failed to boot settings: " + provider.get_error());
+			h.logMessage(L"Switching context: " + context_w);
 			settings_manager::change_context(context);
 			return ERROR_SUCCESS;
 		}
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (002): ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Size (002): " + strEx::xtos(boost::filesystem::file_size(path)));
 
 		h.logMessage("Switching to: " + context);
 		settings_manager::change_context(context);
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (003): ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Size (003): " + strEx::xtos(boost::filesystem::file_size(path)));
 
 		while (data.has_more()) {
 			unsigned int mode = data.get_next_int();
@@ -676,20 +676,20 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 			} else if (mode == 2) {
 				h.logMessage("***UNSUPPORTED*** Remove key: " + path + "/" + key + " = " + val);
 			} else {
-				h.errorMessage(_T("Unknown mode in CA data: ") + strEx::xtos(mode) + _T(": ") + data.to_string());
+				h.errorMessage(L"Unknown mode in CA data: " + strEx::xtos(mode) + L": " + data.to_string());
 				return ERROR_INSTALL_FAILURE;
 			}
 		}
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (004): ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Size (004): " + strEx::xtos(boost::filesystem::file_size(path)));
 		settings_manager::get_settings()->save();
 		if (boost::filesystem::exists(path))
-			h.logMessage(_T("Size (005): ") + strEx::xtos(boost::filesystem::file_size(path)));
+			h.logMessage(L"Size (005): " + strEx::xtos(boost::filesystem::file_size(path)));
 	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to write configuration: ") + e.what());
+		h.errorMessage(L"Failed to write configuration: " + e.what());
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
-		h.errorMessage(_T("Failed to write configuration: <UNKNOWN EXCEPTION>"));
+		h.errorMessage(L"Failed to write configuration: <UNKNOWN EXCEPTION>");
 		return ERROR_INSTALL_FAILURE;
 	}
 	return ERROR_SUCCESS;
@@ -698,13 +698,13 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 
 
 extern "C" UINT __stdcall NeedUninstall (MSIHANDLE hInstall) {
-	msi_helper h(hInstall, _T("NeedUninstall"));
+	msi_helper h(hInstall, L"NeedUninstall");
 	try {
 		std::list<std::wstring> list = h.enumProducts();
 		for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
-			if ((*cit) == _T("{E7CF81FE-8505-4D4A-8ED3-48949C8E4D5B}")) {
-				h.errorMessage(_T("Found old NSClient++/OP5 client installed, will uninstall it now!"));
-				std::wstring command = _T("msiexec /uninstall ") + (*cit);
+			if ((*cit) == L"{E7CF81FE-8505-4D4A-8ED3-48949C8E4D5B}") {
+				h.errorMessage(L"Found old NSClient++/OP5 client installed, will uninstall it now!");
+				std::wstring command = L"msiexec /uninstall " + (*cit);
 				wchar_t *cmd = new wchar_t[command.length()+1];
 				wcsncpy(cmd, command.c_str(), command.length());
 				cmd[command.length()] = 0;
@@ -718,18 +718,18 @@ extern "C" UINT __stdcall NeedUninstall (MSIHANDLE hInstall) {
 				if (processOK) {
 					DWORD dwstate = WaitForSingleObject(pi.hProcess, 1000*60);
 					if (dwstate == WAIT_TIMEOUT)
-						h.errorMessage(_T("Failed to wait for process (probably not such a big deal, the uninstall usualy takes alonger)!"));
+						h.errorMessage(L"Failed to wait for process (probably not such a big deal, the uninstall usualy takes alonger)!");
 				} else {
-					h.errorMessage(_T("Failed to start process: ") + utf8::cvt<std::wstring>(error::lookup::last_error()));
+					h.errorMessage(L"Failed to start process: " + utf8::cvt<std::wstring>(error::lookup::last_error()));
 				}
 			}
 		}
 	
 	} catch (installer_exception e) {
-		h.errorMessage(_T("Failed to start service: ") + e.what());
+		h.errorMessage(L"Failed to start service: " + e.what());
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
-		h.errorMessage(_T("Failed to start service: <UNKNOWN EXCEPTION>"));
+		h.errorMessage(L"Failed to start service: <UNKNOWN EXCEPTION>");
 		return ERROR_INSTALL_FAILURE;
 	}
 	return ERROR_SUCCESS;
@@ -742,14 +742,14 @@ extern "C" UINT __stdcall TranslateSid (MSIHANDLE hInstall) {
 	TCHAR szName[MAX_PATH] = {0};
 	DWORD size = MAX_PATH;
 	UINT ret = 0;
-	ret = MsiGetProperty (hInstall, _T("TRANSLATE_SID"), szSid, &size);
+	ret = MsiGetProperty (hInstall, L"TRANSLATE_SID", szSid, &size);
 
 	if(ret != ERROR_SUCCESS) {
 		return 4444;
 	}
 
 	size = MAX_PATH;
-	ret = MsiGetProperty (hInstall, _T("TRANSLATE_SID_PROPERTY"), szSidProperty, &size);
+	ret = MsiGetProperty (hInstall, L"TRANSLATE_SID_PROPERTY", szSidProperty, &size);
 
 	if(ret != ERROR_SUCCESS) {
 		return 4445;

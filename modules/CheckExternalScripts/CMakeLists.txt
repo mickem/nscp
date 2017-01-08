@@ -18,6 +18,7 @@ SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
 
 	${NSCP_DEF_PLUGIN_CPP}
+  ${NSCP_ERROR_CPP}
 )
 
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
@@ -33,6 +34,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/win_sysinfo/win_sysinfo.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
+    ${NSCP_ERROR_HPP}
+
 	)
 	SET(SRCS ${SRCS}
 		${NSCP_INCLUDEDIR}/process/execute_process_w32.cpp

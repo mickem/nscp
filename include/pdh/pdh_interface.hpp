@@ -20,7 +20,7 @@
 #include <pdh.h>
 #include <pdhmsg.h>
 #include <sstream>
-#include <error.hpp>
+#include <error/error.hpp>
 
 #include <boost/shared_ptr.hpp>
 

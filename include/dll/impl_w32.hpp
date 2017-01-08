@@ -15,10 +15,14 @@
  */
 
 #pragma once
+#include <error/error.hpp>
+#include <utf8.hpp>
+
 #include <boost/noncopyable.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
 
-#include <error.hpp>
+#include <Windows.h>
 
 namespace dll {
 	namespace win32 {
