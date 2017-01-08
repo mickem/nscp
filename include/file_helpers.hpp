@@ -19,7 +19,6 @@
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <unicode_char.hpp>
 #include <utf8.hpp>
 
 namespace file_helpers {

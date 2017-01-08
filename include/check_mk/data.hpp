@@ -21,7 +21,6 @@
 #include <boost/asio/buffer.hpp>
 
 #include <swap_bytes.hpp>
-#include <unicode_char.hpp>
 #include <strEx.h>
 
 #include <nscapi/nscapi_protobuf.hpp>

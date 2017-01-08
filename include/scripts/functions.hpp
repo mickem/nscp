@@ -20,7 +20,6 @@
 #include <boost/filesystem.hpp>
 
 #include <NSCAPI.h>
-#include <unicode_char.hpp>
 #include <utf8.hpp>
 
 

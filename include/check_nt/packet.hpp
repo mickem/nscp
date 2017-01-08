@@ -18,7 +18,6 @@
 
 #include <types.hpp>
 #include <string>
-#include <unicode_char.hpp>
 #include <boost/asio/buffer.hpp>
 #include <strEx.h>
 

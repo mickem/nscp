@@ -16,7 +16,6 @@
 
 #include "NSClient++.h"
 #include <settings/settings_core.hpp>
-#include <charEx.h>
 #include <config.h>
 #include <common.hpp>
 #ifdef WIN32

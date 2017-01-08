@@ -19,8 +19,6 @@
 #include <buffer.hpp>
 #include <string>
 
-//typedef buffer<TCHAR> char_buffer;
-
 namespace hlp {
 	class tchar_buffer : public hlp::buffer<wchar_t> {
 	public:

@@ -18,7 +18,6 @@
 
 #include <config.h>
 #include "core_api.h"
-#include <charEx.h>
 #include <string.h>
 #include <settings/settings_core.hpp>
 #include <nscapi/nscapi_helper.hpp>

@@ -6,7 +6,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
-#include <unicode_char.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
 
 #ifdef HAVE_LIBCRYPTOPP

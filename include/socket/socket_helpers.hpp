@@ -26,7 +26,6 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/basic_context.hpp>
 #endif
-#include <unicode_char.hpp>
 #include <strEx.h>
 
 namespace socket_helpers {

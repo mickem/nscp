@@ -20,7 +20,6 @@
 #include <boost/date_time.hpp>
 
 #include <file_helpers.hpp>
-#include <unicode_char.hpp>
 #include <format.hpp>
 #include <file_helpers.hpp>
 #include <common.hpp>

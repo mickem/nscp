@@ -22,7 +22,6 @@
 #include <swap_bytes.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
 
-#include <unicode_char.hpp>
 #include <utils.h>
 
 namespace nsca {

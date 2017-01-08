@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <unicode_char.hpp>
 #include <string>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>

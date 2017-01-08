@@ -15,7 +15,6 @@
  */
 
 #pragma once
-#include <unicode_char.hpp>
 
 #include <string>
 #include <list>

@@ -21,8 +21,6 @@
 #include <set>
 #include <map>
 
-#include <unicode_char.hpp>
-
 #include <NSCAPI.h>
 #include <net/net.hpp>
 #include <strEx.h>
