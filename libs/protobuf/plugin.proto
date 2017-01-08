@@ -8,20 +8,25 @@ package Plugin;
 message Common {
 
 	//
-	// A "nagios" status result.
+	// A "Nagios" status result.
 	//
 	enum ResultCode {
-		OK		= 0;
-		WARNING	= 1;
+		// An ok status in Nagios
+		OK			= 0;
+		// A warning status in Nagios
+		WARNING		= 1;
+		// A critical status in Nagios
 		CRITICAL	= 2;
-		UNKNOWN	= 3;
+		// Not able to determine status in Nagios
+		UNKNOWN		= 3;
 	};
 
 	//
 	// Type of data fields.
-	// @deprecated in favour of checking which field is available.
+	// @deprecated in favor of checking which field is available.
 	//
 	enum DataType {
+		// Number (64 bit signed)
 		INT = 1;
 		STRING = 2;
 		FLOAT = 3;
@@ -47,8 +52,7 @@ message Common {
 		// Boolean (true/false) payload
 		optional bool bool_data = 5;
 
-		// A string (multiple lines are separated by list entries
-		// @todo: remove repeated modifier from this field.
+		// A string (multiple lines are separated by list entries)
 		repeated string list_data = 6;
 	}
 
@@ -63,7 +67,7 @@ message Common {
 		// The value
 		required string value = 2;
 	}
-	
+
 
 	//
 	// Field identifying a host entry
@@ -76,7 +80,7 @@ message Common {
 		// The host name
 		optional string host = 2;
 
-		// The address (usually the ip)
+		// The address
 		optional string address = 3;
 
 		// The protocol used to talk whit this host.
@@ -89,12 +93,12 @@ message Common {
 		// The content and use of this attributes are application defined.
 		repeated Common.KeyValue metadata = 6;
 
-		// A numer of tags defined for this host (can be used for routing purposes).
+		// A number of tags defined for this host
 		repeated string tags = 7;
 	};
 
 	//
-	// Header used in all messages.
+	// A common header used in all messages.
 	// Contains basic information about the message.
 	//
 	message Header {
@@ -108,7 +112,7 @@ message Common {
 		optional string source_id = 3;
 
 		// Sender is the original source of the message.
-		// THis is same as source unless message has been relayed.
+		// This is same as source unless message has been relayed.
 		optional string sender_id = 4;
 
 		// Recipient is the final destination.
@@ -116,7 +120,7 @@ message Common {
 		optional string recipient_id = 5;
 
 		// Destination (target) system.
-		// The system which will receive the message.
+		// The system which will receive the message next.
 		optional string destination_id = 6;
 
 		// Message identification.
@@ -135,36 +139,74 @@ message Common {
 		repeated Host hosts = 10;
 	};
 
+	//
+	// How metrics are encoded into check results
+	// Nagios calls this performance data and we inherited the name.
+	//
 	message PerformanceData {
+		//
+		// Numeric performance data
+		//
 		message IntValue {
+			// The value we are tracking
 			required int64 value = 1;
+			// The unit of all the values
 			optional string unit = 2;
+			// The warning threshold (if available)
 			optional int64 warning = 3;
+			// The warning critical (if available)
 			optional int64 critical = 4;
+			// The lowest possible value
 			optional int64 minimum = 6;
+			// The highest possible value
 			optional int64 maximum = 7;
 		}
+		//
+		// Textual performance data
+		//
 		message StringValue {
+			// The value
 			required string value = 1;
 		}
+		//
+		// Floating point performance data
+		//
 		message FloatValue {
+			// The value we are tracking
 			required double value = 1;
+			// The unit of all the values
 			optional string unit = 2;
+			// The warning threshold (if available)
 			optional double warning = 3;
+			// The warning critical (if available)
 			optional double critical = 4;
+			// The lowest possible value
 			optional double minimum = 6;
+			// The highest possible value
 			optional double maximum = 7;
 		}
+		//
+		// Boolean performance data
+		//
 		message BoolValue {
+			// The value we are tracking
 			required bool value = 1;
+			// The unit of all the values
 			optional string unit = 2;
+			// The warning threshold (if available)
 			optional bool warning = 3;
+			// The warning critical (if available)
 			optional bool critical = 4;
 		}
+		// The name of the value
 		required string alias = 1;
+		// If the value is an integer (can be only one)
 		optional IntValue int_value = 3;
+		// If the value is a string (can be only one)
 		optional StringValue string_value = 4;
+		// If the value is a floating point number (can be only one)
 		optional FloatValue float_value = 5;
+		// If the value is a boolean (can be only one)
 		optional BoolValue bool_value = 6;
 	}
 
@@ -184,16 +226,16 @@ message Common {
 		optional string alias = 3;
 		optional string desc = 4;
 	}
-	
+
 	message Result {
-	
+
 		enum StatusCodeType {
 			STATUS_OK = 0;
 			STATUS_WARNING = 1;
 			STATUS_ERROR = 2;
 			STATUS_DELAYED = 3;
 		};
-	
+
 		required StatusCodeType code = 1;
 		optional string message = 2;
 		optional string data = 3;
@@ -221,7 +263,7 @@ message QueryRequestMessage {
 //
 // Query response
 // Used for querying the client this is the "normal" check_nrpe message request.
-// Associated request is :py:class:`Plugin.QueryRequestMessage`
+// Associated request is `[QueryRequestMessage](#.Plugin.QueryRequestMessage)`
 //
 message QueryResponseMessage {
 
@@ -236,12 +278,12 @@ message QueryResponseMessage {
 		optional string command = 2;
 		optional string alias = 3;
 		repeated string arguments = 16;
-		
+
 		required Common.ResultCode result = 4;
 		repeated Line lines = 9;
 
 		optional bytes data = 5;
-		
+
 	}
 
 	optional Common.Header header = 1;
@@ -268,7 +310,7 @@ message ExecuteResponseMessage {
 		optional int32 id = 2;
 		required string command = 5;
 		repeated string arguments = 16;
-		
+
 		required Common.ResultCode result = 9;
 		required string message = 10;
 		optional bytes data = 7;
@@ -284,6 +326,7 @@ message ExecuteResponseMessage {
 // Associated response is :py:class:`Plugin.SubmitResponseMessage`
 //
 message SubmitRequestMessage {
+	// The header
 	optional Common.Header header = 1;
 	required string channel = 2;
 	repeated QueryResponseMessage.Response payload = 3;
@@ -327,7 +370,7 @@ message EventMessage {
 // The registry is a central component inside NSClient++ and this is the way to interact with the registry.
 //
 message Registry {
-	enum ItemType { 
+	enum ItemType {
 		QUERY = 1;
 		COMMAND = 2;
 		HANDLER = 3;
@@ -348,10 +391,10 @@ message Registry {
 		optional string description = 2;
 
 		repeated Common.KeyValue metadata = 3;
-		
+
 		optional string min_version = 5;
 		optional string max_version = 6;
-		
+
 		optional bool advanced = 8;
 		repeated string plugin = 9;
 	};
@@ -396,7 +439,7 @@ message RegistryRequestMessage {
 			required string name = 3;
 			optional Registry.Information info = 4;
 			optional bool unregister = 5;
-			
+
 			repeated string alias = 9;
 
 			repeated Registry.Schedule schedule = 20;
@@ -454,12 +497,12 @@ message RegistryResponseMessage {
 	repeated Response payload = 2;
 };
 
-// // // // // // // // // // // // // // // // // // // // // // // // 
+// // // // // // // // // // // // // // // // // // // // // // // //
 //
 // Schedule Notification commands
 // Used when a schedule is executed
 //
-// // // // // // // // // // // // // // // // // // // // // // // // 
+// // // // // // // // // // // // // // // // // // // // // // // //
 
 message ScheduleNotificationMessage {
 	message Request {
@@ -545,7 +588,7 @@ message SettingsRequestMessage {
 		};
 		optional int64 id = 1;
 		required int32 plugin_id = 3;
-		
+
 		optional Registration registration = 10;
 		optional Query query = 11;
 		optional Update update = 12;
@@ -580,7 +623,7 @@ message SettingsResponseMessage {
 		};
 		optional int64 id = 1;
 		required Common.Result result = 2;
-		
+
 		optional Registration registration = 10;
 		optional Query query = 11;
 		optional Update update = 12;
@@ -641,22 +684,10 @@ message MetricsMessage {
 	message Response {
 		optional int64 id = 1;
 		required Common.Result result = 2;
-		
+
 		repeated Common.MetricsBundle bundles = 3;
 	};
 
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
 }
-
-
-
-
-
-
-
-
-
-
-
-
