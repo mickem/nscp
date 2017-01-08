@@ -51,6 +51,7 @@ namespace boost {
 namespace nscapi {
 	namespace settings_helper {
 		typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
+
 		inline std::string make_skey(std::string path, std::string key) {
 			return path + "." + key;
 		}
@@ -63,31 +64,32 @@ namespace nscapi {
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const = 0;
 			virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const = 0;
 		};
+		typedef boost::shared_ptr<key_interface> key_type;
 
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> string_key(std::string *val, std::string def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> string_key(std::string *val);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> int_key(int *val, int def = 0);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> size_key(std::size_t *val, std::size_t def = 0);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> uint_key(unsigned int *val, unsigned int def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> uint_key(unsigned int *val);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> bool_key(bool *val, bool def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> bool_key(bool *val);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_key(std::string *val, std::string def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_key(std::string *val);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_key(boost::filesystem::path *val, std::string def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_key(boost::filesystem::path *val);
+		NSCAPI_EXPORT key_type string_key(std::string *val, std::string def);
+		NSCAPI_EXPORT key_type string_key(std::string *val);
+		NSCAPI_EXPORT key_type int_key(int *val, int def = 0);
+		NSCAPI_EXPORT key_type size_key(std::size_t *val, std::size_t def = 0);
+		NSCAPI_EXPORT key_type uint_key(unsigned int *val, unsigned int def);
+		NSCAPI_EXPORT key_type uint_key(unsigned int *val);
+		NSCAPI_EXPORT key_type bool_key(bool *val, bool def);
+		NSCAPI_EXPORT key_type bool_key(bool *val);
+		NSCAPI_EXPORT key_type path_key(std::string *val, std::string def);
+		NSCAPI_EXPORT key_type path_key(std::string *val);
+		NSCAPI_EXPORT key_type path_key(boost::filesystem::path *val, std::string def);
+		NSCAPI_EXPORT key_type path_key(boost::filesystem::path *val);
 
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> string_fun_key(boost::function<void(std::string)> fun, std::string def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> string_fun_key(boost::function<void(std::string)> fun);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_fun_key(boost::function<void(std::string)> fun, std::string def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> path_fun_key(boost::function<void(std::string)> fun);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> bool_fun_key(boost::function<void(bool)> fun, bool def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> bool_fun_key(boost::function<void(bool)> fun);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> int_fun_key(boost::function<void(int)> fun, int def);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> int_fun_key(boost::function<void(int)> fun);
+		NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
+		NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun);
+		NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
+		NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun);
+		NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
+		NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun);
+		NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun, int def);
+		NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun);
 
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> fun_values_path(boost::function<void(std::string, std::string)> fun);
-		NSCAPI_EXPORT boost::shared_ptr<key_interface> string_map_path(std::map<std::string, std::string> *val);
+		NSCAPI_EXPORT key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
+		NSCAPI_EXPORT key_type string_map_path(std::map<std::string, std::string> *val);
 
 		struct description_container {
 			std::string icon;
@@ -128,12 +130,12 @@ namespace nscapi {
 		struct key_info {
 			std::string path;
 			std::string key_name;
-			boost::shared_ptr<key_interface> key;
+			key_type key;
 			description_container description;
 			std::string parent;
 			bool is_sample;
 
-			key_info(std::string path_, std::string key_name_, boost::shared_ptr<key_interface> key, description_container description_)
+			key_info(std::string path_, std::string key_name_, key_type key, description_container description_)
 				: path(path_)
 				, key_name(key_name_)
 				, key(key)
@@ -161,13 +163,13 @@ namespace nscapi {
 		};
 		struct path_info {
 			std::string path_name;
-			boost::shared_ptr<key_interface> path;
+			key_type path;
 			description_container description;
 			description_container subkey_description;
 			bool is_sample;
 
 			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
-			path_info(std::string path_name, boost::shared_ptr<key_interface> path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
+			path_info(std::string path_name, key_type path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
 
 			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
 			virtual path_info& operator=(const path_info& obj) {
@@ -202,7 +204,7 @@ namespace nscapi {
 			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner), is_sample(false) {}
 			settings_paths_easy_init(std::string path, settings_registry* owner, bool is_sample) : path_(path), owner(owner), is_sample(is_sample) {}
 
-			settings_paths_easy_init& operator()(boost::shared_ptr<key_interface> value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
+			settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
 				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
 				add(d);
 				return *this;
@@ -219,7 +221,7 @@ namespace nscapi {
 				add(d);
 				return *this;
 			}
-			settings_paths_easy_init& operator()(std::string path, boost::shared_ptr<key_interface> value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
+			settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
 				if (!path_.empty())
 					path = path_ + "/" + path;
 				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
@@ -266,7 +268,7 @@ namespace nscapi {
 
 			virtual ~settings_keys_easy_init() {}
 
-			settings_keys_easy_init& operator()(std::string path, std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
+			settings_keys_easy_init& operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description, bool advanced = false) {
 				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);
@@ -274,7 +276,7 @@ namespace nscapi {
 				return *this;
 			}
 
-			settings_keys_easy_init& operator()(std::string key_name, boost::shared_ptr<key_interface> value, std::string title, std::string description, bool advanced = false) {
+			settings_keys_easy_init& operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false) {
 				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
 				if (!parent_.empty())
 					d->set_parent(parent_);

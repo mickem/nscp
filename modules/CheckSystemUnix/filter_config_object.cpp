@@ -89,10 +89,10 @@ namespace filters {
 			}
 
 			root_path.add_key()
-				("type", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+				("type", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 				"TIME", "The time to check", false)
 
-				("types", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
+				("types", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
 				"FILES", "A list of times to check (soma separated)", true)
 				;
 
@@ -105,10 +105,10 @@ namespace filters {
 			}
 
 			root_path.add_key()
-				("time", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_data, this, _1)),
+				("time", sh::string_fun_key(boost::bind(&filter_config_object::set_data, this, _1)),
 				"TIME", "The time to check", false)
 
-				("times", sh::string_fun_key<std::string>(boost::bind(&filter_config_object::set_datas, this, _1)),
+				("times", sh::string_fun_key(boost::bind(&filter_config_object::set_datas, this, _1)),
 				"FILES", "A list of times to check (soma separated)", true)
 				;
 		}

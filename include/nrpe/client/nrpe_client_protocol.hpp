@@ -20,7 +20,6 @@
 #include <boost/shared_ptr.hpp>
 
 #include <socket/socket_helpers.hpp>
-#include <iostream>
 
 using boost::asio::ip::tcp;
 
