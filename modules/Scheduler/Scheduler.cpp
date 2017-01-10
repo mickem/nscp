@@ -15,7 +15,7 @@
  */
 
 #include "Scheduler.h"
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <time.h>
 #include <utils.h>
 

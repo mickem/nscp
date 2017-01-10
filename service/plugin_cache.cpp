@@ -1,9 +1,9 @@
 #include "plugin_cache.hpp"
 
+#include <str/xtos.hpp>
+
 #include <boost/thread/locks.hpp>
 #include <boost/foreach.hpp>
-
-#include <strEx.h>
 
 
 void nsclient::core::plugin_cache::add_plugins(const plugin_cache_list_type & item) {
@@ -75,7 +75,7 @@ boost::optional<nsclient::core::plugin_cache_item> nsclient::core::plugin_cache:
 std::string nsclient::core::plugin_cache::find_plugin_alias(unsigned int plugin_id) {
 	boost::optional<plugin_cache_item> info = find_plugin_info(plugin_id);
 	if (!info) {
-		return "Failed to find plugin: " + strEx::s::xtos(plugin_id);
+		return "Failed to find plugin: " + str::xtos(plugin_id);
 	}
 	return info->alias;
 }

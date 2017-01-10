@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>

@@ -14,18 +14,14 @@
  * limitations under the License.
  */
 
-#include <boost/program_options.hpp>
 
 #include "CheckTaskSched.h"
-#include <strEx.h>
-#include <time.h>
-#include <map>
-#include <vector>
 
-#include <strEx.h>
+
 #include "TaskSched.h"
-
 #include "filter.hpp"
+
+#include <str/utils.hpp>
 
 #include <parsers/filter/cli_helper.hpp>
 
@@ -33,6 +29,11 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+
+#include <boost/program_options.hpp>
+
+#include <map>
+#include <vector>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

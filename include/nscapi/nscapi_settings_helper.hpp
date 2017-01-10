@@ -31,8 +31,6 @@
 
 #include <utf8.hpp>
 
-#include <strEx.h>
-
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <settings/client/settings_client_interface.hpp>
 #include <nscapi/dll_defines.hpp>

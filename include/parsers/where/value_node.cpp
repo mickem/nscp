@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <parsers/where/value_node.hpp>
 
@@ -23,7 +23,7 @@ namespace parsers {
 		value_container string_value::get_value(evaluation_context errors, value_type type) const {
 			if (type == type_float) {
 				try {
-					return value_container::create_float(strEx::s::stox<double>(value_), is_unsure_);
+					return value_container::create_float(str::stox<double>(value_), is_unsure_);
 				} catch (const std::exception &) {
 					errors->error("Failed to convert string to number: " + value_);
 					return value_container::create_nil();
@@ -31,7 +31,7 @@ namespace parsers {
 			}
 			if (type == type_int) {
 				try {
-					return value_container::create_int(strEx::s::stox<long long>(value_), is_unsure_);
+					return value_container::create_int(str::stox<long long>(value_), is_unsure_);
 				} catch (const std::exception &) {
 					errors->error("Failed to convert string to number: " + value_);
 					return value_container::create_nil();
@@ -61,16 +61,16 @@ namespace parsers {
 				return value_container::create_int(value_, is_unsure_);
 			}
 			if (type == type_string) {
-				return value_container::create_string(strEx::s::xtos(value_), is_unsure_);
+				return value_container::create_string(str::xtos(value_), is_unsure_);
 			}
 			errors->error("Failed to convert int to ?: " + value_);
 			return value_container::create_nil();
 		}
 		std::string int_value::to_string() const {
-			return "(i){" + strEx::s::xtos(value_) + "}";
+			return "(i){" + str::xtos(value_) + "}";
 		}
 		std::string int_value::to_string(evaluation_context context) const {
-			return strEx::s::xtos(value_);
+			return str::xtos(value_);
 		}
 		bool int_value::find_performance_data(evaluation_context context, performance_collector &collector) {
 			collector.set_candidate_value(shared_from_this());
@@ -83,14 +83,14 @@ namespace parsers {
 			if (type == type_int) {
 				return value_container::create_int(value_, is_unsure_);
 			}
-			errors->error("Failed to convert string to ?: " + strEx::s::xtos(value_));
+			errors->error("Failed to convert string to ?: " + str::xtos(value_));
 			return value_container::create_nil();
 		}
 		std::string float_value::to_string() const {
-			return "(f){" + strEx::s::xtos(value_) + "}";
+			return "(f){" + str::xtos(value_) + "}";
 		}
 		std::string float_value::to_string(evaluation_context context) const {
-			return strEx::s::xtos(value_);
+			return str::xtos(value_);
 		}
 		bool float_value::find_performance_data(evaluation_context context, performance_collector &collector) {
 			collector.set_candidate_value(shared_from_this());

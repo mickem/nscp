@@ -16,10 +16,13 @@
 
 #pragma once
 
-#include <strEx.h>
 #include <error/nscp_exception.hpp>
 
+#include <str/xtos.hpp>
+#include <str/utils.hpp>
+
 #include <boost/date_time/gregorian/gregorian.hpp>
+
 
 
 namespace cron_parser {
@@ -92,7 +95,7 @@ namespace cron_parser {
 		std::string to_string() const {
 			if (star_)
 				return "*";
-			return strEx::s::xtos(value_);
+			return str::xtos(value_);
 		}
 
 

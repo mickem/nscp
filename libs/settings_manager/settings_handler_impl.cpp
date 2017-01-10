@@ -1,5 +1,7 @@
 #include "settings_handler_impl.hpp"
 
+#include <str/xtos.hpp>
+
 settings::instance_ptr settings::settings_handler_impl::get() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())
@@ -47,7 +49,7 @@ void settings::settings_handler_impl::update_defaults() {
 						else if (desc.type == key_bool)
 							get()->set_bool(path, key, settings::settings_interface::string_to_bool(*val));
 						else if (desc.type == key_integer)
-							get()->set_int(path, key, strEx::s::stox<int>(*val));
+							get()->set_int(path, key, str::stox<int>(*val));
 						else
 							get_logger()->error("settings", __FILE__, __LINE__, "Unknown key type for: " + key_to_string(path, key));
 					}

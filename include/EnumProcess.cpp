@@ -17,7 +17,7 @@
 
 #include <error/nscp_exception.hpp>
 #include <utf8.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <map>
 #include <string>
@@ -166,7 +166,7 @@ namespace process_helper {
 				DWORD err = GetLastError();
 				entry.unreadable = true;
 				if (!ignore_unreadable || err != ERROR_ACCESS_DENIED)
-					entry.set_error("Failed to open process " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
+					entry.set_error("Failed to open process " + str::xtos(pid) + ": " + error::lookup::last_error());
 				return entry;
 			}
 		}
@@ -267,7 +267,7 @@ namespace process_helper {
 			TCHAR buffer[MAX_FILENAME + 1];
 			if (!GetModuleFileNameEx(handle, hMod, reinterpret_cast<LPTSTR>(&buffer), MAX_FILENAME)) {
 				CloseHandle(handle);
-				throw error::nscp_exception("Failed to find name for: " + strEx::s::xtos(pid) + ": " + error::lookup::last_error());
+				throw error::nscp_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
 			} else {
 				std::wstring path = buffer;
 				std::wstring::size_type pos = path.find_last_of(_T("\\"));
@@ -295,7 +295,7 @@ namespace process_helper {
 		if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
 			delete[] dwPIDs;
 			if (error_interface != NULL)
-				error_interface->report_debug("Need larger buffer: " + strEx::s::xtos(buffer_size));
+				error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
 			return enumerate_processes(ignore_unreadable, find_16bit, deep_scan, error_interface, buffer_size * 10);
 		}
 		if (!OK) {
@@ -337,10 +337,10 @@ namespace process_helper {
 				ret.push_back(entry);
 			} catch (const error::nscp_exception &e) {
 				if (error_interface != NULL)
-					error_interface->report_error("Exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
+					error_interface->report_error("Exception describing PID: " + str::xtos(dwPIDs[i]) + ": " + e.reason());
 			} catch (...) {
 				if (error_interface != NULL)
-					error_interface->report_error("Unknown exception describing PID: " + strEx::s::xtos(dwPIDs[i]));
+					error_interface->report_error("Unknown exception describing PID: " + str::xtos(dwPIDs[i]));
 			}
 		}
 
@@ -373,7 +373,7 @@ namespace process_helper {
 		if (cbNeeded >= DEFAULT_BUFFER_SIZE*sizeof(DWORD)) {
 			delete[] dwPIDs;
 			if (error_interface != NULL)
-				error_interface->report_debug("Need larger buffer: " + strEx::s::xtos(buffer_size));
+				error_interface->report_debug("Need larger buffer: " + str::xtos(buffer_size));
 			return get_process_data(ignore_unreadable, error_interface, buffer_size * 10);
 		}
 		if (!OK) {
@@ -397,10 +397,10 @@ namespace process_helper {
 				ret[dwPIDs[i]] = entry;
 			} catch (const error::nscp_exception &e) {
 				if (error_interface != NULL)
-					error_interface->report_error("Exception describing PID: " + strEx::s::xtos(dwPIDs[i]) + ": " + e.reason());
+					error_interface->report_error("Exception describing PID: " + str::xtos(dwPIDs[i]) + ": " + e.reason());
 			} catch (...) {
 				if (error_interface != NULL)
-					error_interface->report_error("Unknown exception describing PID: " + strEx::s::xtos(dwPIDs[i]));
+					error_interface->report_error("Unknown exception describing PID: " + str::xtos(dwPIDs[i]));
 			}
 		}
 		delete[] dwPIDs;
@@ -442,7 +442,7 @@ namespace process_helper {
 			process_map::iterator v2 = p2.find(v1.first);
 			if (v2 == p2.end()) {
 				if (error_interface != NULL)
-					error_interface->report_debug("process died: " + strEx::s::xtos(v1.first));
+					error_interface->report_debug("process died: " + str::xtos(v1.first));
 				continue;
 			}
 			v2->second -= v1.second;

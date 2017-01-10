@@ -16,13 +16,13 @@
 
 #include "realtime_data.hpp"
 
-#include <boost/foreach.hpp>
-#include <boost/filesystem.hpp>
-
-#include <strEx.h>
-
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
+#include <str/xtos.hpp>
+
+#include <boost/foreach.hpp>
+#include <boost/filesystem.hpp>
 
 bool runtime_data::has_changed(transient_data_type record) const {
 	if (files.empty())

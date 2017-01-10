@@ -219,7 +219,7 @@ namespace client {
 			address = net::parse(value);
 		}
 		void set_port(std::string value) {
-			address.port = strEx::s::stox<unsigned int>(value);
+			address.port = str::stox<unsigned int>(value);
 		}
 		std::string get_protocol() const {
 			return address.protocol;
@@ -276,7 +276,7 @@ namespace client {
 				data[key] = value;
 		}
 		void set_int_data(std::string key, int value) {
-			set_string_data(key, strEx::s::xtos(value));
+			set_string_data(key, str::xtos(value));
 		}
 		void set_bool_data(std::string key, bool value) {
 			set_string_data(key, value ? "true" : "false");

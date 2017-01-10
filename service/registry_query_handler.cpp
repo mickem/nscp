@@ -145,7 +145,7 @@ namespace nsclient {
 						rpp->mutable_info()->set_description(plugin.desc);
 						Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
 						kvp->set_key("plugin_id");
-						kvp->set_value(strEx::s::xtos(plugin.id));
+						kvp->set_value(str::xtos(plugin.id));
 						kvp = rpp->mutable_info()->add_metadata();
 						kvp->set_key("loaded");
 						kvp->set_value(plugin.is_loaded?"true":"false");

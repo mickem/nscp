@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <utf8.hpp>
-#include <strEx.h>
-#include <error/nscp_exception.hpp>
-
 #include "modern_eventlog.hpp"
+
+#include <utf8.hpp>
+#include <str/xtos.hpp>
+#include <nscp_string.hpp>
+#include <error/nscp_exception.hpp>
 #include <buffer.hpp>
 
-#include <utf8.hpp>
-#include <nscp_string.hpp>
 
 namespace eventlog {
 	namespace api {
@@ -208,7 +207,7 @@ namespace eventlog {
 			return var->AnsiStringVal;
 		if (var->Type == EvtVarTypeString)
 			return utf8::cvt<std::string>(var->StringVal);
-		return strEx::s::xtos(get_int(var));
+		return str::xtos(get_int(var));
 	}
 
 

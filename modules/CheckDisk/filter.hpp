@@ -16,6 +16,18 @@
 
 #pragma once
 
+#include <parsers/where.hpp>
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+#include <parsers/helpers.hpp>
+
+#include <error/error.hpp>
+
+#include <format.hpp>
+#include <str/utils.hpp>
+
 #ifdef WIN32
 #include <Windows.h>
 #endif
@@ -23,19 +35,11 @@
 #include <map>
 #include <string>
 
-#include <parsers/where.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/filesystem.hpp>
 
-#include <error/error.hpp>
-#include <format.hpp>
 
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
-#include <parsers/helpers.hpp>
 
 namespace file_filter {
 	struct file_object_exception : public std::exception {

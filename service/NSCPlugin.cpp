@@ -16,10 +16,10 @@
 
 #include "NSCPlugin.h"
 
-#include <strEx.h>
-
 #include "core_api.h"
 #include "NSCAPI.h"
+
+#include <str/xtos.hpp>
 
 /**
  * Default c-tor
@@ -549,5 +549,5 @@ bool NSCPlugin::is_duplicate(boost::filesystem::path file, std::string alias) {
 std::string NSCPlugin::get_version() {
 	int major, minor, revision;
 	getVersion(&major, &minor, &revision);
-	return strEx::s::xtos(major) + "." + strEx::s::xtos(minor) + "." + strEx::s::xtos(revision);
+	return str::xtos(major) + "." + str::xtos(minor) + "." + str::xtos(revision);
 }

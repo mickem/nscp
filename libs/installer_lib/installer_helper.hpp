@@ -1,10 +1,15 @@
 #pragma once
 
-#include <windows.h>
-#include <msi.h>
 #include <error/error.hpp>
 #include <char_buffer.hpp>
 #include <wstring.hpp>
+#include <utf8.hpp>
+
+#include <msi.h>
+#include <MsiQuery.h>
+#include <windows.h>
+
+#include <vector>
 
 class installer_exception {
 	std::wstring error_;
@@ -203,7 +208,7 @@ public:
 		return hDatabase;
 	}
 
-	inline boolean isNull(MSIHANDLE h) {
+	inline bool isNull(MSIHANDLE h) {
 		return h == NULL;
 	}
 
@@ -463,14 +468,14 @@ WcaGetRecordString() - gets a string field out of a record
 	/********************************************************************
 	WcaIsInstalling() - determines if a pair of installstates means install
 	********************************************************************/
-	boolean WcaIsInstalling(INSTALLSTATE isInstalled, INSTALLSTATE isAction) {
+	bool WcaIsInstalling(INSTALLSTATE isInstalled, INSTALLSTATE isAction) {
 		return (INSTALLSTATE_LOCAL == isAction || INSTALLSTATE_SOURCE == isAction || (INSTALLSTATE_DEFAULT == isAction && (INSTALLSTATE_LOCAL == isInstalled || INSTALLSTATE_SOURCE == isInstalled)));
 	}
 
 	/********************************************************************
 	WcaIsReInstalling() - determines if a pair of installstates means reinstall
 	********************************************************************/
-	boolean WcaIsReInstalling(INSTALLSTATE isInstalled, INSTALLSTATE isAction) {
+	bool WcaIsReInstalling(INSTALLSTATE isInstalled, INSTALLSTATE isAction) {
 		return ((INSTALLSTATE_LOCAL == isAction || INSTALLSTATE_SOURCE == isAction || INSTALLSTATE_DEFAULT == isAction) && (INSTALLSTATE_LOCAL == isInstalled || INSTALLSTATE_SOURCE == isInstalled));
 	}
 
@@ -520,7 +525,7 @@ WcaGetRecordString() - gets a string field out of a record
 		}
 		~custom_action_data_r() {}
 
-		boolean has_more() {
+		bool has_more() {
 			return position_ < list_.size();
 		}
 		std::wstring get_next_string() {
@@ -584,7 +589,7 @@ WcaGetRecordString() - gets a string field out of a record
 		std::wstring to_string() const {
 			return buf_; //return std::wstring(data_);
 		}
-		boolean has_data(const int size = 0) const {
+		bool has_data(const int size = 0) const {
 			return used_size() > size;
 		}
 		operator const wchar_t* () const {

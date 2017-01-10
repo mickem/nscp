@@ -16,8 +16,14 @@
 
 #include "filter_config_object.hpp"
 
-#include <map>
-#include <string>
+#include "filter.hpp"
+
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/functions.hpp>
+#include <nscapi/nscapi_helper.hpp>
+
+#include <str/utils.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
@@ -25,12 +31,9 @@
 #include <boost/date_time.hpp>
 #include <boost/filesystem.hpp>
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/functions.hpp>
-#include <nscapi/nscapi_helper.hpp>
+#include <map>
+#include <string>
 
-#include "filter.hpp"
 
 namespace sh = nscapi::settings_helper;
 

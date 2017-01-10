@@ -15,29 +15,27 @@
  */
 
 #include "CheckExternalScripts.h"
-#include <time.h>
-#include <string>
-
-#include <strEx.h>
-#include <file_helpers.hpp>
-#include <common.hpp>
-
-#include <boost/regex.hpp>
-#include <boost/filesystem.hpp>
 
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-
 #include <nscapi/nscapi_protobuf.hpp>
+
+#include <settings/config.hpp>
+#include <str/utils.hpp>
+#include <file_helpers.hpp>
+#include <common.hpp>
 
 #include <json_spirit.h>
 
-#include <settings/config.hpp>
+#include <boost/regex.hpp>
+#include <boost/filesystem.hpp>
 
-#include <file_helpers.hpp>
+#include <time.h>
+#include <string>
+
 
 namespace sh = nscapi::settings_helper;
 
@@ -578,8 +576,8 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
 			}
-			strEx::s::replace(cmdline, "$ARG" + strEx::s::xtos(i) + "$", str);
-			strEx::s::replace(cmdline, "%ARG" + strEx::s::xtos(i) + "%", str);
+			strEx::s::replace(cmdline, "$ARG" + str::xtos(i) + "$", str);
+			strEx::s::replace(cmdline, "%ARG" + str::xtos(i) + "%", str);
 			strEx::append_list(all, str, " ");
 			strEx::append_list(allesc, "\"" + str + "\"", " ");
 			i++;
@@ -615,7 +613,7 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	std::string output;
 	int result = process::execute_process(arg, output);
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
-		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.get_alias() + ") returned an invalid return code: " + strEx::s::xtos(result));
+		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.get_alias() + ") returned an invalid return code: " + str::xtos(result));
 		return;
 	}
 	std::string message, perf;
@@ -657,12 +655,12 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 			while (found) {
 				found = false;
 				BOOST_FOREACH(std::string &arg, args) {
-					if (arg.find("$ARG" + strEx::s::xtos(i++) + "$") != std::string::npos) {
-						ss << "$ARG" << strEx::s::xtos(i++) << "$,false,," << arg << "\n";
+					if (arg.find("$ARG" + str::xtos(i++) + "$") != std::string::npos) {
+						ss << "$ARG" << str::xtos(i++) << "$,false,," << arg << "\n";
 						found = true;
 					}
-					if (arg.find("%ARG" + strEx::s::xtos(i++) + "%") != std::string::npos) {
-						ss << "%ARG" << strEx::s::xtos(i++) << "%,false,," << arg << "\n";
+					if (arg.find("%ARG" + str::xtos(i++) + "%") != std::string::npos) {
+						ss << "%ARG" << str::xtos(i++) << "%,false,," << arg << "\n";
 						found = true;
 					}
 				}
@@ -675,8 +673,8 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	BOOST_FOREACH(std::string &arg, args) {
 		int i = 1;
 		BOOST_FOREACH(const std::string &str, src_args) {
-			strEx::s::replace(arg, "$ARG" + strEx::s::xtos(i) + "$", str);
-			strEx::s::replace(arg, "%ARG" + strEx::s::xtos(i) + "%", str);
+			strEx::s::replace(arg, "$ARG" + str::xtos(i) + "$", str);
+			strEx::s::replace(arg, "%ARG" + str::xtos(i) + "%", str);
 			i++;
 		}
 		if (arg.find("$ARG") != std::string::npos)

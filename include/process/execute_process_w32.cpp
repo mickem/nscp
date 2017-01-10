@@ -22,7 +22,7 @@
 #include <Windows.h>
 #include <NSCAPI.h>
 #include <utf8.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <error/error.hpp>
 
 #include <iostream>
@@ -165,7 +165,7 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 		remove_proc(pi.hProcess);
 		if (dwstate == WAIT_TIMEOUT) {
 			TerminateProcess(pi.hProcess, 5);
-			output = "Command " + args.alias + " didn't terminate within the timeout period " + strEx::s::xtos(args.timeout) + "s";
+			output = "Command " + args.alias + " didn't terminate within the timeout period " + str::xtos(args.timeout) + "s";
 			result = NSCAPI::query_return_codes::returnUNKNOWN;
 		} else {
 			if (GetExitCodeProcess(pi.hProcess, &dwexitcode) == 0) {

@@ -16,6 +16,13 @@
 
 #pragma once
 
+#include <str/xtos.hpp>
+
+#include <nscp_string.hpp>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/foreach.hpp>
 #include <string>
 #include <list>
 #include <time.h>
@@ -26,11 +33,36 @@
 #include <errno.h>
 #endif
 
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/foreach.hpp>
+namespace str {
+  template<typename T>
+  inline std::string xtos_non_sci(T i) {
+    std::stringstream ss;
+    if (i < 10)
+      ss.precision(20);
+    ss << std::noshowpoint << std::fixed << i;
+    std::string s = ss.str();
+    std::string::size_type pos = s.find('.');
+    // 1234456 => 1234456
+    if (pos == std::string::npos)
+      return s;
+    // 12340.0000001234 => 12340.000000
+    if ((s.length()-pos) > 6)
+      s = s.substr(0, pos+6);
 
-#include <nscp_string.hpp>
+    std::string::size_type dot_pos = s.find_last_of('.');
+    // 12345600 -> 12345600
+    if (dot_pos == std::string::npos)
+      return s;
+    pos = s.find_last_not_of('0');
+    // 1234.5600 -> 1234.56
+    if (pos > dot_pos)
+      return s.substr(0, pos+1);
+    // 123.0000 -> 123
+    return s.substr(0, pos);
+  }
+  
+  
+}
 
 namespace strEx {
 	inline void append_list(std::string &lst, const std::string &append, const std::string sep = ", ") {
@@ -156,21 +188,21 @@ namespace strEx {
 			long long d = (time - (w*WEEK)) / DAY;
 			long long h = (time - (w*WEEK) - (d*DAY)) / HOUR;
 			long long m = (time - (w*WEEK) - (d*DAY) - (h*HOUR)) / MINUTES;
-			return s::xtos(w) + "w " + s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
+			return str::xtos(w) + "w " + str::xtos(d) + "d " + str::xtos(h) + ":" + str::xtos(m);
 		} else if (time > DAY) {
 			long long d = time / DAY;
 			long long h = (time - (d*DAY)) / HOUR;
 			long long m = (time - (d*DAY) - (h*HOUR)) / MINUTES;
-			return s::xtos(d) + "d " + s::xtos(h) + ":" + s::xtos(m);
+			return str::xtos(d) + "d " + str::xtos(h) + ":" + str::xtos(m);
 		} else if (time > HOUR) {
 			long long h = time / HOUR;
 			long long m = (time - (h*HOUR)) / MINUTES;
-			return s::xtos(h) + ":" + s::xtos(m);
+			return str::xtos(h) + ":" + str::xtos(m);
 		} else if (time > MINUTES) {
-			return "0:" + s::xtos(time / MINUTES);
+			return "0:" + str::xtos(time / MINUTES);
 		} else if (time > SEC)
-			return s::xtos(time / SEC) + "s";
-		return s::xtos(time);
+			return str::xtos(time / SEC) + "s";
+		return str::xtos(time);
 	}
 
 	template<class T>
@@ -194,7 +226,7 @@ namespace strEx {
 
 #define MK_FORMAT_FTD(min, key, val) \
 	if (mtm->tm_year > min) \
-	strEx::s::replace(format, key, strEx::s::xtos(val));  \
+	strEx::s::replace(format, key, str::xtos(val));  \
 	else  \
 	strEx::s::replace(format, key, "0");
 #ifdef WIN32

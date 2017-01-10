@@ -27,6 +27,9 @@
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);
 #define CORE_LOG_ERROR_EXR(msg, ex) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, std::string("Exception in: ") + msg + utf8::utf8_from_native(ex.what()));

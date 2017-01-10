@@ -74,7 +74,7 @@ namespace simple_scheduler {
 		log_trace(__FILE__, __LINE__, "starting all threads");
 		running_ = true;
 		start_threads();
-		log_trace(__FILE__, __LINE__, "Thread pool contains: " + strEx::s::xtos(threads_.threadCount()));
+		log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 	}
 
 	void scheduler::prepare_shutdown() {
@@ -91,7 +91,7 @@ namespace simple_scheduler {
 		has_watchdog_ = false;
 		threads_.interruptThreads();
 		threads_.waitForThreads();
-		log_trace(__FILE__, __LINE__, "Thread pool contains: " + strEx::s::xtos(threads_.threadCount()));
+		log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 	}
 
 	int scheduler::add_task(std::string tag, boost::posix_time::time_duration duration) {
@@ -146,7 +146,7 @@ namespace simple_scheduler {
 							if (thread_count_ < 10)
 								thread_count_++;
 							if (threads_.threadCount() > thread_count_) {
-								log_error(__FILE__, __LINE__, "Scheduler is overloading: " + strEx::s::xtos(instance->schedule_id) + " is " + strEx::s::xtos(off.total_seconds()) + " seconds slow");
+								log_error(__FILE__, __LINE__, "Scheduler is overloading: " + str::xtos(instance->schedule_id) + " is " + str::xtos(off.total_seconds()) + " seconds slow");
 							}
 						}
 					}
@@ -167,7 +167,7 @@ namespace simple_scheduler {
 				break;
 			}
 		}
-		log_trace(__FILE__, __LINE__, "Terminating thread: " + strEx::s::xtos(id));
+		log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
 	}
 
 	void scheduler::thread_proc(int id) {
@@ -184,14 +184,14 @@ namespace simple_scheduler {
 				try {
 					boost::posix_time::time_duration off = now() - (*instance).time;
 					if (off.total_seconds() > error_threshold_) {
-						log_error(__FILE__, __LINE__, "Ran scheduled item " + strEx::s::xtos(instance->schedule_id) + " " + strEx::s::xtos(off.total_seconds()) + " seconds to late from thread " + strEx::s::xtos(id));
+						log_error(__FILE__, __LINE__, "Ran scheduled item " + str::xtos(instance->schedule_id) + " " + str::xtos(off.total_seconds()) + " seconds to late from thread " + str::xtos(id));
 					}
 					boost::thread::sleep((*instance).time);
 				} catch (const boost::thread_interrupted &) {
 					if (!queue_.push(*instance))
 						log_error(__FILE__, __LINE__, "Failed to push item");
 					if (stop_requested_) {
-						log_trace(__FILE__, __LINE__, "Terminating thread: " + strEx::s::xtos(id));
+						log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
 						return;
 					}
 					continue;
@@ -225,7 +225,7 @@ namespace simple_scheduler {
 					}
 				} else {
 					atomic_inc32(&metric_errors);
-					log_error(__FILE__, __LINE__, "Task not found: " + strEx::s::xtos(instance->schedule_id));
+					log_error(__FILE__, __LINE__, "Task not found: " + str::xtos(instance->schedule_id));
 				}
 			}
 		} catch (const boost::thread_interrupted &e) {
@@ -236,7 +236,7 @@ namespace simple_scheduler {
 			atomic_inc32(&metric_errors);
 			log_error(__FILE__, __LINE__, "Exception in scheduler thread (thread will be killed)");
 		}
-		log_trace(__FILE__, __LINE__, "Terminating thread: " + strEx::s::xtos(id));
+		log_trace(__FILE__, __LINE__, "Terminating thread: " + str::xtos(id));
 	}
 
 

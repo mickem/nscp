@@ -97,12 +97,12 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 		pdh.open();
 		pdh.gatherData();
 		pdh.close();
-		return std::make_pair(true, "ok(" + strEx::s::xtos(instance->get_value()) + ")");
+		return std::make_pair(true, "ok(" + str::xtos(instance->get_value()) + ")");
 	} catch (const PDH::pdh_exception &e) {
 		try {
 			pdh.gatherData();
 			pdh.close();
-			return std::make_pair(true, "ok-rate(" + strEx::s::xtos(instance->get_value()) + ")");
+			return std::make_pair(true, "ok-rate(" + str::xtos(instance->get_value()) + ")");
 		} catch (const std::exception&) {
 			std::pair<bool, std::string> p(false, "query failed: EXCEPTION" + e.reason());
 			return p;
@@ -337,7 +337,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 			result = json_spirit::write(data, json_spirit::raw_utf8);
 		else if (!porcelain) {
 			result += "---------------------------\n";
-			result += "Listed " + strEx::s::xtos(match) + " of " + strEx::s::xtos(total) + " counters.";
+			result += "Listed " + str::xtos(match) + " of " + str::xtos(total) + " counters.";
 		}
 		return true;
 	} catch (const PDH::pdh_exception &e) {
@@ -448,7 +448,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 					}
 					if (!porcelain) {
 						result += "---------------------------\n";
-						result += "Listed " + strEx::s::xtos(match) + " of " + strEx::s::xtos(count) + " counters.";
+						result += "Listed " + str::xtos(match) + " of " + str::xtos(count) + " counters.";
 						if (match == 0) {
 							result += "No counters was found (perhaps you wanted the --all option to make this a global query, the default is so only look in configured counters).";
 						}
@@ -460,10 +460,10 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			try {
 				DWORD dw = PDH::PDHResolver::lookupIndex(lookup);
 				if (porcelain) {
-					result += strEx::s::xtos(dw);
+					result += str::xtos(dw);
 				} else {
 					result += "--+--[ Lookup Result ]----------------------------------------\n";
-					result += "  | Index for '" + lookup + "' is " + strEx::s::xtos(dw) + "\n";
+					result += "  | Index for '" + lookup + "' is " + str::xtos(dw) + "\n";
 					result += "--+-----------------------------------------------------------";
 				}
 			} catch (const PDH::pdh_exception &e) {
@@ -472,7 +472,7 @@ int CheckSystem::commandLineExec(const int target_mode, const std::string &comma
 			}
 		} else if (vm.count("lookup-name")) {
 			try {
-				std::string name = PDH::PDHResolver::lookupIndex(strEx::s::stox<DWORD>(lookup));
+				std::string name = PDH::PDHResolver::lookupIndex(str::stox<DWORD>(lookup));
 				if (porcelain) {
 					result += name;
 				} else {

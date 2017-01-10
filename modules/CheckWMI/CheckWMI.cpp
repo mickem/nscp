@@ -21,7 +21,7 @@
 #include <boost/program_options.hpp>
 
 #include "CheckWMI.h"
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <time.h>
 
 #include <nscapi/nscapi_program_options.hpp>

@@ -14,19 +14,7 @@
  * limitations under the License.
  */
 
-#include <iostream>
-#include <fstream>
 #include "WEBServer.h"
-#include <strEx.h>
-#include <time.h>
-#include <timer.hpp>
-#include <format.hpp>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/thread/shared_mutex.hpp>
-#include <boost/program_options.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/unordered_set.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -38,7 +26,21 @@
 
 #include <client/simple_client.hpp>
 
+#include <str/xtos.hpp>
+#include <time.h>
+#include <timer.hpp>
+#include <format.hpp>
+
 #include <json_spirit.h>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/program_options.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/unordered_set.hpp>
+
+#include <iostream>
+#include <fstream>
 
 namespace sh = nscapi::settings_helper;
 
@@ -427,7 +429,7 @@ public:
 		json_spirit::Array data;
 
 		std::string str_position = request.get("pos", "0");
-		std::size_t pos = strEx::s::stox<std::size_t>(str_position);
+		std::size_t pos = str::stox<std::size_t>(str_position);
 		BOOST_FOREACH(const error_handler::log_entry &e, log_data.get_errors(pos)) {
 			json_spirit::Object node;
 			node.insert(json_spirit::Object::value_type("file", e.file));

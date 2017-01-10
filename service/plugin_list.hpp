@@ -16,14 +16,17 @@
 
 #pragma once
 
-#include <set>
+#include "NSCPlugin.h"
+
+#include <nsclient/logger/logger.hpp>
+
+#include <str/xtos.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/function.hpp>
 
-#include "NSCPlugin.h"
-#include <nsclient/logger/logger.hpp>
+#include <set>
 
 namespace nsclient {
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
@@ -98,7 +101,7 @@ namespace nsclient {
 
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + strEx::s::xtos(id)))
+			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id)))
 				return;
 			simple_plugin_list_type::iterator it = plugins_.begin();
 			while (it != plugins_.end()) {
@@ -192,7 +195,7 @@ namespace nsclient {
 
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + strEx::s::xtos(id)))
+			if (!has_valid_lock_log(writeLock, "plugins_list::remove_plugin" + str::xtos(id)))
 				return;
 			plugin_list_type::iterator pit = plugins_.find(id);
 			if (pit != plugins_.end())
@@ -284,7 +287,7 @@ namespace nsclient {
 			std::string lc = make_key(channel);
 			if (!have_plugin(plugin_id)) {
 				writeLock.unlock();
-				throw plugins_list_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + ", Plugins: " + to_string());
+				throw plugins_list_exception("Failed to find plugin: " + str::xtos(plugin_id) + ", Plugins: " + to_string());
 			}
 			listeners_[lc].insert(plugin_id);
 		}

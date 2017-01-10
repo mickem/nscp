@@ -16,8 +16,7 @@
 
 #include "SyslogClient.h"
 
-#include <utils.h>
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <nscapi/macros.hpp>
 
 #include <boost/make_shared.hpp>

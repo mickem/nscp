@@ -16,20 +16,21 @@
 
 #pragma once
 
+#include "handler.hpp"
+#include "parser.hpp"
+
+#include <socket/socket_helpers.hpp>
+#include <socket/server.hpp>
+
+#include <utf8.hpp>
+#include <str/xtos.hpp>
+
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio/ssl/context.hpp>
-
-#include <socket/socket_helpers.hpp>
-#include <socket/server.hpp>
-#include <utf8.hpp>
-
-#include <string/simple.hpp>
-#include "handler.hpp"
-#include "parser.hpp"
 
 namespace nrpe {
 	using boost::asio::ip::tcp;
@@ -85,7 +86,7 @@ namespace nrpe {
 			parser_.reset();
 			std::string s = socket.remote_endpoint().address().to_string();
 			if (info_.allowed_hosts.is_allowed(socket.remote_endpoint().address(), errors)) {
-				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count=" + ss::xtos(count));
+				log_debug(__FILE__, __LINE__, "Accepting connection from: " + s + ", count=" + str::xtos(count));
 				return true;
 			} else {
 				BOOST_FOREACH(const std::string &e, errors) {

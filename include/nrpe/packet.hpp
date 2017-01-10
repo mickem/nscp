@@ -20,8 +20,11 @@
 #include <string>
 #include <boost/asio/buffer.hpp>
 #include <swap_bytes.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <utils.h>
+
+#include <stdio.h>
+#include <cstring>
 
 namespace nrpe {
 	class data {
@@ -192,14 +195,14 @@ namespace nrpe {
 			if (buffer == NULL)
 				throw nrpe::nrpe_exception("No buffer.");
 			if (length != get_packet_length())
-				throw nrpe::nrpe_exception("Invalid packet length: " + strEx::s::xtos(length) + " != " + strEx::s::xtos(get_packet_length()) + " configured payload is: " + strEx::s::xtos(get_payload_length()));
+				throw nrpe::nrpe_exception("Invalid packet length: " + str::xtos(length) + " != " + str::xtos(get_packet_length()) + " configured payload is: " + str::xtos(get_payload_length()));
 			const nrpe::data::packet *p = reinterpret_cast<const nrpe::data::packet*>(buffer);
 			type_ = swap_bytes::ntoh<int16_t>(p->packet_type);
 			if (type_ != nrpe::data::queryPacket && type_ != nrpe::data::responsePacket  && type_ != nrpe::data::moreResponsePacket)
-				throw nrpe::nrpe_exception("Invalid packet type: " + strEx::s::xtos(type_));
+				throw nrpe::nrpe_exception("Invalid packet type: " + str::xtos(type_));
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
-				throw nrpe::nrpe_exception("Invalid packet version." + strEx::s::xtos(version_));
+				throw nrpe::nrpe_exception("Invalid packet version." + str::xtos(version_));
 			crc32_ = swap_bytes::ntoh<u_int32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
@@ -210,7 +213,7 @@ namespace nrpe {
 			calculatedCRC32_ = calculate_crc32(tb, get_packet_length());
 			delete[] tb;
 			if (crc32_ != calculatedCRC32_)
-				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + strEx::s::xtos(crc32_) + "!=" + strEx::s::xtos(calculatedCRC32_));
+				throw nrpe::nrpe_exception("Invalid checksum in NRPE packet: " + str::xtos(crc32_) + "!=" + str::xtos(calculatedCRC32_));
 			// Verify CRC32 end
 			result_ = swap_bytes::ntoh<int16_t>(p->result_code);
 			payload_ = fetch_payload(p);

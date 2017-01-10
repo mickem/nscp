@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <types.hpp>
-#include <string>
-#include <boost/asio/buffer.hpp>
 
-#include <swap_bytes.hpp>
-#include <strEx.h>
+#include <str/utils.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
+
+#include <boost/asio/buffer.hpp>
+
+#include <string>
 
 namespace check_mk {
 	class check_mk_exception : public std::exception {

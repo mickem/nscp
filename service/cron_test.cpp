@@ -17,7 +17,7 @@
 #include <vector>
 #include <string>
 #include <format.hpp>
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <parsers/cron/cron_parser.hpp>
 
 #include <gtest/gtest.h>

@@ -266,13 +266,13 @@ namespace parsers {
 						return value_container::create_nil();
 					}
 				}
-				context->error("Invalid type " + name_ + " we are int but wanted: " + strEx::s::xtos(vt));
+				context->error("Invalid type " + name_ + " we are int but wanted: " + str::xtos(vt));
 				return value_container::create_nil();
 			}
 			virtual std::string to_string(evaluation_context context) const {
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && fun && native_context->has_object()) {
-					return strEx::s::xtos(fun(native_context->get_object(), context));
+					return str::xtos(fun(native_context->get_object(), context));
 				}
 				return name_ + "?";
 			}
@@ -380,13 +380,13 @@ namespace parsers {
 						return value_container::create_nil();
 					}
 				}
-				context->error("Invalid type " + name_ + " we are float but wanted: " + strEx::s::xtos(vt));
+				context->error("Invalid type " + name_ + " we are float but wanted: " + str::xtos(vt));
 				return value_container::create_nil();
 			}
 			virtual std::string to_string(evaluation_context context) const {
 				native_context_type native_context = reinterpret_cast<native_context_type>(context.get());
 				if (native_context != NULL && fun && native_context->has_object()) {
-					return strEx::s::xtos(fun(native_context->get_object(), context));
+					return str::xtos(fun(native_context->get_object(), context));
 				}
 				return "(float)var:" + name_;
 			}
@@ -594,9 +594,9 @@ namespace parsers {
 						if (vt == type_string && s_fun)
 							return value_container::create_string(s_fun(native_context->get_object(), context));
 						if (vt == type_string && i_fun && (is_int() || !f_fun))
-							return value_container::create_string(strEx::s::xtos(i_fun(native_context->get_object(), context)));
+							return value_container::create_string(str::xtos(i_fun(native_context->get_object(), context)));
 						if (vt == type_string && f_fun)
-							return value_container::create_string(strEx::s::xtos(f_fun(native_context->get_object(), context)));
+							return value_container::create_string(str::xtos(f_fun(native_context->get_object(), context)));
 					} else {
 						context->warn("Failed to get " + name_ + " no object instance");
 						if (helpers::type_is_int(vt))
@@ -620,9 +620,9 @@ namespace parsers {
 					if (s_fun)
 						return s_fun(native_context->get_object(), context);
 					if (i_fun)
-						return strEx::s::xtos(i_fun(native_context->get_object(), context));
+						return str::xtos(i_fun(native_context->get_object(), context));
 					if (f_fun)
-						return strEx::s::xtos(f_fun(native_context->get_object(), context));
+						return str::xtos(f_fun(native_context->get_object(), context));
 				}
 				if (is_int())
 					return name_ + "?";
@@ -811,8 +811,8 @@ namespace parsers {
 				bool summary = false;
 				if (int_get_value(context, summary, value)) {
 					if (summary)
-						return strEx::s::xtos(value);
-					return strEx::s::xtos(value) + "?";
+						return str::xtos(value);
+					return str::xtos(value) + "?";
 				}
 				return name_ + "?";
 			}

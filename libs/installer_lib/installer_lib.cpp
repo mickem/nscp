@@ -1,22 +1,29 @@
 //#define _WIN32_WINNT 0x0500
-#include <string>
 
-#include <windows.h>
-#include <msi.h>
-#include <msiquery.h>
+#include "installer_helper.hpp"
+
+#include "../settings_manager/settings_manager_impl.h"
+#include <settings/config.hpp>
+
+#include <file_helpers.hpp>
+
+#include <wstring.hpp>
+#include <str/xtos.hpp>
+#include <str/utils.hpp>
+
+#include <nsclient/logger/logger.hpp>
+#include <nsclient/logger/base_logger_impl.hpp>
+
 #include <error/error.hpp>
 #include <config.h>
-#include <ServiceCmd.h>
-#include <char_buffer.hpp>
-#include <file_helpers.hpp>
-#include "installer_helper.hpp"
+
+#include <windows.h>
 #include <Sddl.h>
-#include "../settings_manager/settings_manager_impl.h"
-#include <nsclient/logger/logger.hpp>
-#include <nsclient/logger/logger_helper.hpp>
-#include <nsclient/logger/base_logger_impl.hpp>
-#include <wstring.hpp>
-#include <settings/config.hpp>
+#include <msi.h>
+#include <msiquery.h>
+
+#include <string>
+
 
 const UINT COST_SERVICE_INSTALL = 2000;
 
@@ -68,7 +75,7 @@ public:
 	std::wstring get_error() {
 		return error;
 	}
-	boolean has_errors() {
+	bool has_errors() {
 		return !error.empty();
 	}
 	std::list<std::wstring> get_errors() {
@@ -154,7 +161,7 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	std::wstring get_error() {
 		return logger->get_error();
 	}
-	boolean has_errors() {
+	bool has_errors() {
 		return logger->has_errors();
 	}
 	std::list<std::wstring> get_errors() {

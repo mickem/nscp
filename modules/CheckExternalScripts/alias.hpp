@@ -16,14 +16,6 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-#include <algorithm>
-
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
@@ -31,6 +23,16 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
+#include <str/utils.hpp>
+
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+
+#include <map>
+#include <string>
+#include <algorithm>
 
 namespace sh = nscapi::settings_helper;
 

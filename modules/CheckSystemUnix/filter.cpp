@@ -24,7 +24,7 @@
 #include <parsers/where/helpers.hpp>
 
 #include <simple_timer.hpp>
-#include <strEx.h>
+#include <str/utils.hpp>
 #include "filter.hpp"
 
 using namespace parsers::where;

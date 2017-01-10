@@ -25,7 +25,8 @@
 #include <nscapi/macros.hpp>
 
 namespace script_wrapper {
-	using namespace boost::python;
+
+	namespace py = boost::python;
 
 	namespace thread_support {
 		static bool enabled = true;
@@ -76,9 +77,9 @@ namespace script_wrapper {
 	int py_to_nagios_return(status code);
 
 	void log_exception();
-	void log_msg(object x);
-	void log_debug(object x);
-	void log_error(object x);
+	void log_msg(py::object x);
+	void log_debug(py::object x);
+	void log_error(py::object x);
 	void sleep(unsigned int seconds);
 	//std::string get_alias();
 
@@ -169,8 +170,8 @@ namespace script_wrapper {
 
 		void register_submit_metrics(PyObject* callable);
 		void register_fetch_metrics(PyObject* callable);
-		tuple register_event(std::string event, PyObject* callable);
-		tuple register_event_pb(std::string event, PyObject* callable);
+		py::tuple register_event(std::string event, PyObject* callable);
+		py::tuple register_event_pb(std::string event, PyObject* callable);
 		void submit_metrics(const std::string &request) const;
 		void fetch_metrics(std::string &request) const;
 
@@ -178,7 +179,7 @@ namespace script_wrapper {
 		bool has_metrics_fetcher();
 
 		std::string get_commands();
-		tuple query(std::string request);
+		py::tuple query(std::string request);
 	};
 	struct command_wrapper {
 	private:
@@ -195,12 +196,12 @@ namespace script_wrapper {
 	public:
 		static boost::shared_ptr<command_wrapper> create(unsigned int plugin_id);
 
-		tuple simple_query(std::string command, boost::python::list args);
-		tuple query(std::string command, std::string request);
-		tuple simple_exec(std::string target, std::string command, boost::python::list args);
-		tuple exec(std::string target, std::string request);
-		tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
-		tuple submit(std::string channel, std::string request);
+		py::tuple simple_query(std::string command, boost::python::list args);
+		py::tuple query(std::string command, std::string request);
+		py::tuple simple_exec(std::string target, std::string command, boost::python::list args);
+		py::tuple exec(std::string target, std::string request);
+		py::tuple simple_submit(std::string channel, std::string command, status code, std::string message, std::string perf);
+		py::tuple submit(std::string channel, std::string request);
 		bool reload(std::string module);
 		bool load_module(std::string name, std::string alias = "");
 		bool unload_module(std::string name);
@@ -236,7 +237,7 @@ namespace script_wrapper {
 		NSCAPI::settings_type get_type(std::string stype);
 		void settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue);
 		void settings_register_path(std::string path, std::string title, std::string description);
-		tuple query(std::string request);
+		py::tuple query(std::string request);
 	};
 
 	class PyInitializer {

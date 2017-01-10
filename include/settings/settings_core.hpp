@@ -30,7 +30,6 @@
 
 #include <settings/settings_value.hpp>
 
-#include <strEx.h>
 #include <utf8.hpp>
 
 #define BUFF_LEN 4096

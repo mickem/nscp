@@ -26,7 +26,7 @@
 #endif
 #include <iostream>
 #include <file_helpers.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #ifdef USE_BREAKPAD
 #include <client/windows/sender/crash_report_sender.cc>

@@ -150,7 +150,7 @@ int nsclient_core::settings_client::set(std::string path, std::string key, std::
 	if (type == settings::settings_core::key_string) {
 		get_core()->get()->set_string(path, key, val);
 	} else if (type == settings::settings_core::key_integer) {
-		get_core()->get()->set_int(path, key, strEx::s::stox<int>(val));
+		get_core()->get()->set_int(path, key, str::stox<int>(val));
 	} else if (type == settings::settings_core::key_bool) {
 		get_core()->get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
 	} else {

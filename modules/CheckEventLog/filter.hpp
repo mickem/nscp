@@ -141,7 +141,7 @@ namespace eventlog_filter {
 		bool is_modern() const { return false; }
 		
 		virtual std::string to_string() const { 
-			return get_log() + ":" + strEx::s::xtos(get_id()) + "=" + get_el_type_s();
+			return get_log() + ":" + str::xtos(get_id()) + "=" + get_el_type_s();
 		}
 
 	};
@@ -190,7 +190,7 @@ namespace eventlog_filter {
 		}
 		bool is_modern() const { return true; }
 		eventlog::evt_handle& get_provider_handle();
-		virtual std::string to_string() const { return logfile + ":" + strEx::s::xtos(get_id()) + "=" + get_el_type_s(); }
+		virtual std::string to_string() const { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 	};
 
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;

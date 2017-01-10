@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <strEx.h>
-#include <utils.h>
 #include <nrpe/packet.hpp>
 
 unsigned int nrpe::length::payload_length_ = 1024;

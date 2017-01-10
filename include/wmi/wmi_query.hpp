@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include <string>
-#include <map>
-
-#include <boost/lexical_cast.hpp>
-
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <error/error.hpp>
 #include <WbemCli.h>
 
+#include <boost/lexical_cast.hpp>
+
+#include <string>
+#include <map>
+#include <list>
+
 #include <atlbase.h>
-//#include <atlcom.h>
-//#include <atlstr.h>
 #include <atlsafe.h>
 
 #include <objidl.h>

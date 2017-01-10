@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <strEx.h>
+#include <str/utils.hpp>
 
 #include <parsers/where/engine.hpp>
 #include <boost/foreach.hpp>

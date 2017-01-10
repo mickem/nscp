@@ -17,7 +17,7 @@
 #include <metrics/metrics_store_map.hpp>
 
 #include <boost/foreach.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 namespace metrics {
 
@@ -33,11 +33,11 @@ namespace metrics {
 
 		BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
 			if (v.value().has_int_data())
-				metrics[ p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
+				metrics[ p + "." + v.key()] = str::xtos(v.value().int_data());
 			else if (v.value().has_string_data())
 				metrics[p + "." + v.key()] = v.value().string_data();
 			else if (v.value().has_float_data())
-				metrics[p + "." + v.key()] = strEx::s::xtos(v.value().int_data());
+				metrics[p + "." + v.key()] = str::xtos(v.value().int_data());
 		}
 	}
 

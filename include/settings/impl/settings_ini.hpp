@@ -16,20 +16,22 @@
 
 #pragma once
 
-#include <string>
-#include <map>
-
-#include <boost/filesystem/path.hpp>
-#include <boost/filesystem/operations.hpp>
-
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
 
 #include <error/error.hpp>
 
-//#define SI_CONVERT_ICU
-//#define SI_CONVERT_GENERIC
+#include <str/xtos.hpp>
+#include <str/utils.hpp>
+
 #include <simpleini/simpleini.h>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
+
+#include <string>
+#include <map>
+
 
 namespace settings {
 	class INISettings : public settings::settings_interface_impl {
@@ -69,7 +71,7 @@ namespace settings {
 			op_string str = get_real_string(key);
 			if (str) {
 				try {
-					return strEx::s::stox<int>(*str);
+					return str::stox<int>(*str);
 				} catch (const std::exception &e) {
 					return op_int();
 				}

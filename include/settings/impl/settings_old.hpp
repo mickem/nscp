@@ -16,15 +16,18 @@
 
 #pragma once
 
+#include <settings/settings_core.hpp>
+
+#include <nsclient/logger/logger.hpp>
+
+#include <str/xtos.hpp>
+
+#include <simpleini/SimpleIni.h>
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <map>
-#include <settings/settings_core.hpp>
-#include <simpleini/SimpleIni.h>
-#include <nsclient/logger/logger.hpp>
-
-#include <strEx.h>
 
 namespace settings {
 	class OLDSettings : public settings::settings_interface_impl {
@@ -126,8 +129,8 @@ namespace settings {
 				return new_key;
 			}
 			std::string status() {
-				return "Sections: " + strEx::s::xtos(sections_.size()) + ", "
-					+ "Keys: " + strEx::s::xtos(keys_.size())
+				return "Sections: " + str::xtos(sections_.size()) + ", "
+					+ "Keys: " + str::xtos(keys_.size())
 					;
 			}
 
@@ -233,7 +236,7 @@ namespace settings {
 		virtual op_int get_real_int(settings_core::key_path_type key) {
 			op_string str = get_real_string(key);
 			if (str)
-				return op_int(strEx::s::stox<int>(*str));
+				return op_int(str::stox<int>(*str));
 			return op_int();
 		}
 		//////////////////////////////////////////////////////////////////////////

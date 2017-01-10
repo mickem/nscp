@@ -16,18 +16,23 @@
 
 #pragma once
 
-#include <iostream>
-#include <istream>
-#include <ostream>
-#include <string>
+#include <socket/socket_helpers.hpp>
+#include <socket/clients/http/http_packet.hpp>
+
+//#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/tuple/tuple.hpp>
 #include <boost/version.hpp>
 
-#include <strEx.h>
-#include <socket/socket_helpers.hpp>
-#include <socket/clients/http/http_packet.hpp>
+
+#include <iostream>
+#include <istream>
+#include <ostream>
+#include <string>
+
+
 
 using boost::asio::ip::tcp;
 
@@ -227,7 +232,7 @@ namespace http {
 			http::response response = read_result(response_buffer);
 
 			if (!response.is_2xx()) {
-				throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + protocol + "://" + server + ":" + strEx::s::xtos(port) +  " " + strEx::s::xtos(response.status_code_) + ": " + response.payload_);
+				throw socket_helpers::socket_exception("Failed to " + request.verb_ + " " + protocol + "://" + server + ":" + str::xtos(port) +  " " + str::xtos(response.status_code_) + ": " + response.payload_);
 			}
 			if (response_buffer.size() > 0)
 				os << &response_buffer;

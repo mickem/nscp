@@ -14,5 +14,4 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
 #include <check_nt/packet.hpp>

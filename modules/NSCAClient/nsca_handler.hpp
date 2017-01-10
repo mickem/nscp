@@ -17,7 +17,7 @@
 #pragma once
 
 #include <utils.h>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <nsca/nsca_packet.hpp>
 

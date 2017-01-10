@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include <utils.h>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>

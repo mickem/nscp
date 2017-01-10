@@ -17,8 +17,11 @@
 #pragma once
 
 #include <nrpe/packet.hpp>
-#include <boost/tuple/tuple.hpp>
 
+#include <boost/tuple/tuple.hpp>
+#include <boost/noncopyable.hpp>
+
+#include <list>
 namespace nrpe {
 	namespace server {
 		class handler : boost::noncopyable {

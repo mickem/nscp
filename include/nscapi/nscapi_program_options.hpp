@@ -16,8 +16,10 @@
 
 #pragma once
 
-#include <list>
-#include <vector>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include <str/utils.hpp>
+#include <utf8.hpp>
 
 #ifdef WIN32
 #pragma warning(push)
@@ -30,7 +32,9 @@
 #endif
 #include <boost/function/function1.hpp>
 #include <boost/bind.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+
+#include <list>
+#include <vector>
 
 namespace nscapi {
 	namespace program_options {

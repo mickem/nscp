@@ -22,6 +22,11 @@
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#include <utf8.hpp>
+#include <str/utils.hpp>
+
+#include <boost/foreach.hpp>
+
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
 	Plugin::RegistryRequestMessage rrm;
 	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());

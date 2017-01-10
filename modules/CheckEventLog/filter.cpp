@@ -13,25 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "filter.hpp"
 
+#include <parsers/where.hpp>
+
+#include <simple_timer.hpp>
+
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+
+#include <str/utils.hpp>
 #include <error/nscp_exception.hpp>
-
-#include <map>
-#include <list>
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
-#include <parsers/where.hpp>
+#include <map>
+#include <list>
 
-#include <simple_timer.hpp>
-#include <strEx.h>
-#include "filter.hpp"
 
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
 
 typedef boost::optional<std::string> op_str;
 template<eventlog::api::EVT_PUBLISHER_METADATA_PROPERTY_ID T_object, DWORD T_id, DWORD T_desc>
@@ -163,7 +165,7 @@ namespace eventlog_filter {
 
 	long long new_filter_obj::get_el_type() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemLevel].Type) {
-			NSC_DEBUG_MSG(" --> missing level: " + strEx::s::xtos(get_id()));
+			NSC_DEBUG_MSG(" --> missing level: " + str::xtos(get_id()));
 			return 0;
 		}
 		return buffer.get()[eventlog::api::EvtSystemLevel].ByteVal;
@@ -208,7 +210,7 @@ namespace eventlog_filter {
 			std::string msg;
 			int status = eventlog::EvtFormatMessage(get_provider_handle(), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
 			if (status != ERROR_SUCCESS) {
-				NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + strEx::s::xtos(get_id()) + ": " + error::format::from_system(status));
+				NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + str::xtos(get_id()) + ": " + error::format::from_system(status));
 				if (status == ERROR_INVALID_PARAMETER)
 					return "";
 				else if (status == ERROR_EVT_MESSAGE_NOT_FOUND)
@@ -269,7 +271,7 @@ namespace eventlog_filter {
 		if (str == "error" || str == "err")
 			return 3;
 		context->error("Invalid severity: " + str);
-		return strEx::s::stox<int>(str);
+		return str::stox<int>(str);
 	}
 	int convert_old_type(parsers::where::evaluation_context context, std::string str) {
 		if (str == "error")
@@ -286,7 +288,7 @@ namespace eventlog_filter {
 			return EVENTLOG_AUDIT_FAILURE;
 		try {
 			context->error("Invalid severity: " + str);
-			return strEx::s::stox<int>(str);
+			return str::stox<int>(str);
 		} catch (const std::exception&) {
 			context->error("Failed to convert: " + str);
 			return EVENTLOG_ERROR_TYPE;
@@ -304,7 +306,7 @@ namespace eventlog_filter {
 		if (str == "debug" || str == "verbose")
 			return 5;
 		try {
-			return strEx::s::stox<int>(str);
+			return str::stox<int>(str);
 		} catch (const std::exception&) {
 			context->error("Failed to convert: " + str);
 			return 2;

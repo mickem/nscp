@@ -17,7 +17,7 @@
 #include <error/error_w32.hpp>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <utf8.hpp>
 
 namespace error {
@@ -30,7 +30,7 @@ namespace error {
 		std::string failed(unsigned long err1, unsigned long err2) {
 			if (err2 == 0)
 				err2 = GetLastError();
-			return "failed to lookup error code: " + strEx::s::xtos(err1) + " (reason: " + strEx::s::xtos(err2) + ")";
+			return "failed to lookup error code: " + str::xtos(err1) + " (reason: " + str::xtos(err2) + ")";
 		}
 
 		std::string format_message(unsigned long attrs, std::string module, unsigned long dwError) {

@@ -16,19 +16,21 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
-#include <boost/scoped_ptr.hpp>
-
-#include <nscapi/nscapi_protobuf.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-#include <strEx.h>
-#include <utils.h>
 #include <scripts/functions.hpp>
 #include <scripts/script_interface.hpp>
 #include <scripts/script_nscp.hpp>
 
+#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_plugin_impl.hpp>
+
+#include <str/xtos.hpp>
+
 #include <lua/lua_script.hpp>
 #include <lua/lua_core.hpp>
+
+#include <boost/optional.hpp>
+#include <boost/scoped_ptr.hpp>
+
 
 class LUAScript : public nscapi::impl::simple_plugin {
 private:

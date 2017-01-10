@@ -24,7 +24,7 @@
 #include <pdh/pdh_resolver.hpp>
 
 #include <utf8.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 namespace PDH {
 	std::wstring PDHResolver::PdhLookupPerfNameByIndex(LPCTSTR szMachineName, DWORD dwNameIndex) {
@@ -34,7 +34,7 @@ namespace PDH {
 		pdh_error status = factory::get_impl()->PdhLookupPerfNameByIndex(szMachineName, dwNameIndex, buffer, &bufLen);
 		if (status.is_error()) {
 			delete[] buffer;
-			throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + strEx::s::xtos(dwNameIndex), status);
+			throw pdh_exception("PdhLookupPerfNameByIndex: Could not find index: " + str::xtos(dwNameIndex), status);
 		}
 		std::wstring ret = buffer;
 		delete[] buffer;
@@ -97,7 +97,7 @@ namespace PDH {
 					continue;
 				}
 			}
-			unsigned int index = strEx::s::stox<unsigned int>(counter.substr(p1, p2 - p1));
+			unsigned int index = str::stox<unsigned int>(counter.substr(p1, p2 - p1));
 			std::string sindex = PDHResolver::lookupIndex(index);
 			counter.replace(p1, p2 - p1, sindex);
 			pos = p1 + sindex.size();

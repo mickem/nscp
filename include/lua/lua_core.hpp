@@ -32,7 +32,7 @@ extern "C" {
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <scripts/script_interface.hpp>
 #include <lua/lua_script.hpp>
 

@@ -20,6 +20,7 @@
 
 #define BOOST_CB_DISABLE_DEBUG
 #include <boost/circular_buffer.hpp>
+#include <boost/foreach.hpp>
 
 /**
  * @ingroup NSClientCompat

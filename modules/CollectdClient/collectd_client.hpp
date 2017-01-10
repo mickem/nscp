@@ -18,6 +18,10 @@
 
 #include <collectd/collectd_packet.hpp>
 
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+
+
 namespace collectd_client {
 
 	class udp_sender {
@@ -147,9 +151,9 @@ namespace collectd_client {
 			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
 				const ::Plugin::Common_AnyDataType &value = v.value();
 				if (value.has_int_data()) {
-					builder.set_metric(mypath + "." + v.key(), strEx::s::xtos(v.value().int_data()));
+					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().int_data()));
 				} else if (value.has_float_data()) {
-					builder.set_metric(mypath + "." + v.key(), strEx::s::xtos(v.value().float_data()));
+					builder.set_metric(mypath + "." + v.key(), str::xtos(v.value().float_data()));
 				} else if (value.has_string_data()) {
 					builder.set_metric(mypath + "." + v.key(), v.value().string_data());
 				} else {
@@ -231,7 +235,7 @@ namespace collectd_client {
 
 
 		void send(const connection_data target, const collectd::collectd_builder::packet_list &packets) {
-			NSC_DEBUG_MSG("Sending " + strEx::s::xtos(packets.size()) + " packets to: " + target.to_string());
+			NSC_DEBUG_MSG("Sending " + str::xtos(packets.size()) + " packets to: " + target.to_string());
 			BOOST_FOREACH(const collectd::packet &p, packets) {
 				try {
 					boost::asio::io_service io_service;

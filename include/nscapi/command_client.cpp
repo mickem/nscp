@@ -20,6 +20,8 @@
 #include <nscapi/command_proxy.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <boost/foreach.hpp>
+
 namespace nscapi {
 	namespace command_helper {
 		void register_command_helper::add(boost::shared_ptr<command_info> d) {

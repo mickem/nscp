@@ -174,7 +174,7 @@ namespace nscapi {
 				return options.find(key) != options.end();
 			}
 			void set_property_int(std::string key, int value) {
-				translate(key, strEx::s::xtos(value));
+				translate(key, str::xtos(value));
 			}
 			void set_property_bool(std::string key, bool value) {
 				translate(key, value ? "true" : "false");
@@ -186,7 +186,7 @@ namespace nscapi {
 				options_map::const_iterator cit = options.find(key);
 				if (cit == options.end())
 					return value;
-				return strEx::s::stox<int>(cit->second);
+				return str::stox<int>(cit->second);
 			}
 			bool get_property_bool(std::string key, bool value) {
 				options_map::const_iterator cit = options.find(key);

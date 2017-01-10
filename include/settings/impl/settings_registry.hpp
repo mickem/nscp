@@ -16,18 +16,22 @@
 
 #pragma once
 
+#include <settings/settings_core.hpp>
+#include <settings/config.hpp>
+
+#include <error/error.hpp>
+
+#include <str/xtos.hpp>
+
+#include <handle.hpp>
+#include <buffer.hpp>
+
 #include <boost/algorithm/string.hpp>
+
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 #include <string>
-
-#include <settings/settings_core.hpp>
-#include <error/error.hpp>
-#include <settings/config.hpp>
-
-#include <handle.hpp>
-#include <buffer.hpp>
 
 #define BUFF_LEN 4096
 
@@ -158,7 +162,7 @@ namespace settings {
 			op_string str = get_real_string(key);
 			if (str && !str->empty()) {
 				try {
-					return strEx::s::stox<int>(*str);
+					return str::stox<int>(*str);
 				} catch (const std::exception &e) {
 					throw settings_exception(__FILE__, __LINE__, "Failed to convert " + key.first + "." + key.second + " = " + *str + " to a number");
 				}
@@ -285,7 +289,7 @@ namespace settings {
 					throw settings_exception(__FILE__, __LINE__, "String to long: " + path.to_string());
 				} else if (type == REG_DWORD) {
 					DWORD dw = *(reinterpret_cast<DWORD*>(bData.get()));
-					return strEx::s::xtos(dw);
+					return str::xtos(dw);
 				}
 				throw settings_exception(__FILE__, __LINE__, "Unsupported key type: " + path.to_string());
 			} else if (lRet == ERROR_FILE_NOT_FOUND)

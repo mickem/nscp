@@ -16,18 +16,21 @@
 
 #pragma once
 
-#include <string>
-#include <map>
-#include <set>
+#include <settings/settings_core.hpp>
+#include <settings/settings_value.hpp>
+
+#include <nsclient/logger/logger.hpp>
+
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
-#include <strEx.h>
-#include <settings/settings_core.hpp>
-#include <settings/settings_value.hpp>
-#include <nsclient/logger/logger.hpp>
+#include <boost/foreach.hpp>
+
+#include <string>
+#include <map>
+#include <set>
 
 namespace settings {
 	class settings_handler_impl : public settings_core {

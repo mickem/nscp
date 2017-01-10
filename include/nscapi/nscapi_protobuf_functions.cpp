@@ -16,8 +16,12 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <str/utils.hpp>
+
+#include <iostream>
+
 #define THROW_INVALID_SIZE(size) \
-	throw nscapi_exception(std::string("Whoops, invalid payload size: ") + strEx::s::xtos(size) + " != 1 at line " + strEx::s::xtos(__LINE__));
+	throw nscapi_exception(std::string("Whoops, invalid payload size: ") + str::xtos(size) + " != 1 at line " + str::xtos(__LINE__));
 
 namespace nscapi {
 	namespace protobuf {
@@ -552,14 +556,14 @@ namespace nscapi {
 			if (perf.has_int_value()) {
 				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
 				if (val.has_unit())
-					return strEx::s::xtos_non_sci(val.value()*get_multiplier(val.unit()));
-				return strEx::s::xtos_non_sci(val.value());
+					return str::xtos_non_sci(val.value()*get_multiplier(val.unit()));
+				return str::xtos_non_sci(val.value());
 			} else if (perf.has_bool_value()) {
 				const Plugin::Common::PerformanceData::BoolValue &val = perf.bool_value();
 				return val.value() ? "true" : "false";
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
-				return strEx::s::xtos_non_sci(val.value()*get_multiplier(val.unit()));
+				return str::xtos_non_sci(val.value()*get_multiplier(val.unit()));
 			} else if (perf.has_string_value()) {
 				const Plugin::Common::PerformanceData::StringValue& val = perf.string_value();
 				return val.value();
@@ -589,15 +593,15 @@ namespace nscapi {
 			if (perf.has_int_value()) {
 				const Plugin::Common::PerformanceData::IntValue &val = perf.int_value();
 				if (val.has_unit())
-					return strEx::s::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
-				return strEx::s::xtos_non_sci(val.maximum());
+					return str::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return str::xtos_non_sci(val.maximum());
 			} else if (perf.has_bool_value() || perf.has_string_value()) {
 				return "";
 			} else if (perf.has_float_value()) {
 				const Plugin::Common::PerformanceData::FloatValue &val = perf.float_value();
 				if (val.has_unit())
-					return strEx::s::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
-				return strEx::s::xtos_non_sci(val.maximum());
+					return str::xtos_non_sci(val.maximum()*get_multiplier(val.unit()));
+				return str::xtos_non_sci(val.maximum());
 			}
 			return "unknown";
 		}
@@ -700,29 +704,29 @@ namespace nscapi {
 				if (perfData.has_float_value()) {
 					Plugin::Common_PerformanceData_FloatValue fval = perfData.float_value();
 
-					ss << strEx::s::xtos_non_sci(fval.value());
+					ss << str::xtos_non_sci(fval.value());
 					if (fval.has_unit())
 						ss << fval.unit();
 					if (!fval.has_warning() && !fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_warning())
-						ss << strEx::s::xtos_non_sci(fval.warning());
+						ss << str::xtos_non_sci(fval.warning());
 					if (!fval.has_critical() && !fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_critical())
-						ss << strEx::s::xtos_non_sci(fval.critical());
+						ss << str::xtos_non_sci(fval.critical());
 					if (!fval.has_minimum() && !fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_minimum())
-						ss << strEx::s::xtos_non_sci(fval.minimum());
+						ss << str::xtos_non_sci(fval.minimum());
 					if (!fval.has_maximum())
 						continue;
 					ss << ";";
 					if (fval.has_maximum())
-						ss << strEx::s::xtos_non_sci(fval.maximum());
+						ss << str::xtos_non_sci(fval.maximum());
 				} else if (perfData.has_int_value()) {
 					Plugin::Common_PerformanceData_IntValue fval = perfData.int_value();
 					ss << fval.value();
@@ -868,7 +872,7 @@ namespace nscapi {
 				if (pimpl->str_value)
 					return *pimpl->str_value;
 				if (pimpl->int_value)
-					return strEx::s::xtos(*pimpl->int_value);
+					return str::xtos(*pimpl->int_value);
 				if (pimpl->bool_value)
 					return *pimpl->bool_value ? "true" : "false";
 				return "";
@@ -876,7 +880,7 @@ namespace nscapi {
 
 			long long settings_query::key_values::get_int() const {
 				if (pimpl->str_value)
-					return strEx::s::stox<long long>(*pimpl->str_value);
+					return str::stox<long long>(*pimpl->str_value);
 				if (pimpl->int_value)
 					return *pimpl->int_value;
 				if (pimpl->bool_value)

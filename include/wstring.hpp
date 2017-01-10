@@ -16,6 +16,7 @@
 
 #pragma once
 #include <string>
+#include <list>
 
 namespace strEx {
 	template<class T>

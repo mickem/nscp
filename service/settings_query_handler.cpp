@@ -311,7 +311,7 @@ namespace nsclient {
 				} catch (const std::exception &e) {
 					LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.what());
 				} catch (const json_spirit::ParseError &e) {
-					LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + strEx::s::xtos(e.line_) + ":" + strEx::s::xtos(e.column_));
+					LOG_ERROR_CORE(std::string("Failed to process fields for ") + e.reason_ + " @ " + str::xtos(e.line_) + ":" + str::xtos(e.column_));
 				} catch (...) {
 					LOG_ERROR_CORE("Failed to process fields for ");
 				}

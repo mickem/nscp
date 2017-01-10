@@ -16,8 +16,8 @@
 
 #include "CollectdClient.h"
 
-#include <utils.h>
-#include <strEx.h>
+#include "collectd_client.hpp"
+#include "collectd_handler.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -26,12 +26,11 @@
 #include <nscapi/macros.hpp>
 #include <parsers/expression/expression.hpp>
 
+#include <str/utils.hpp>
 
 #include <boost/make_shared.hpp>
 #include <boost/regex.hpp>
 
-#include "collectd_client.hpp"
-#include "collectd_handler.hpp"
 
 /**
  * Default c-tor

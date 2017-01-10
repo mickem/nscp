@@ -23,7 +23,7 @@
 #include <parsers/where.hpp>
 
 #include <simple_timer.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include "filter.hpp"
 
 #include "file_finder.hpp"
@@ -48,7 +48,7 @@ int convert_new_type(parsers::where::evaluation_context context, std::string str
 	if (str == "debug" || str == "verbose")
 		return 5;
 	try {
-		return strEx::s::stox<int>(str);
+		return str::stox<int>(str);
 	} catch (const std::exception&) {
 		context->error("Failed to convert: " + str);
 		return 2;
@@ -161,10 +161,10 @@ std::string file_filter::filter_obj::get_version() {
 	DWORD dwSecondLeft = LOWORD(dwFileVersionMS);
 	DWORD dwSecondRight = HIWORD(dwFileVersionLS);
 	DWORD dwRightMost = LOWORD(dwFileVersionLS);
-	cached_version.reset(strEx::s::xtos(dwLeftMost) + "." +
-		strEx::s::xtos(dwSecondLeft) + "." +
-		strEx::s::xtos(dwSecondRight) + "." +
-		strEx::s::xtos(dwRightMost));
+	cached_version.reset(str::xtos(dwLeftMost) + "." +
+		str::xtos(dwSecondLeft) + "." +
+		str::xtos(dwSecondRight) + "." +
+		str::xtos(dwRightMost));
 	return *cached_version;
 }
 

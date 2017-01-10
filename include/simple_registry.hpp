@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <str/utils.hpp>
+
 namespace simple_registry {
 	class registry_exception {
 		std::string what_;
@@ -118,11 +120,11 @@ namespace simple_registry {
 			std::string sValue;
 			void set_dword(DWORD value) {
 				iValue = value;
-				sValue = strEx::s::xtos(value);
+				sValue = str::xtos(value);
 			}
 			void set_string(std::string value) {
 				sValue = value;
-				iValue = strEx::s::stox<unsigned long>(value);
+				iValue = str::stox<unsigned long>(value);
 			}
 		};
 		reg_info get_info() {

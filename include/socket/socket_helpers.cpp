@@ -18,7 +18,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <utf8.hpp>
 
 #include <socket/socket_helpers.hpp>
@@ -99,9 +99,9 @@ std::size_t extract_mask(std::string &mask, std::size_t masklen) {
 		if (p1 != std::string::npos) {
 			std::string::size_type p2 = mask.find_first_not_of("0123456789", p1);
 			if (p2 != std::string::npos)
-				masklen = strEx::s::stox<std::size_t>(mask.substr(p1, p2));
+				masklen = str::stox<std::size_t>(mask.substr(p1, p2));
 			else
-				masklen = strEx::s::stox<std::size_t>(mask.substr(p1));
+				masklen = str::stox<std::size_t>(mask.substr(p1));
 		}
 	}
 	return static_cast<unsigned int>(masklen);

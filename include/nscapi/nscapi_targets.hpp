@@ -136,7 +136,7 @@ namespace nscapi {
 					set_property_string("address", n.to_string());
 				} else if (key == "port") {
 					net::url n = net::parse(get_property_string("address"));
-					n.port = strEx::s::stox<unsigned int>(value);
+					n.port = str::stox<unsigned int>(value);
 					set_property_string("address", n.to_string());
 				} else
 					parent::translate(key, value);

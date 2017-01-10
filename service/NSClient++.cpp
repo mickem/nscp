@@ -15,6 +15,9 @@
  */
 
 #include "NSClient++.h"
+
+#include <str/xtos.hpp>
+
 #include <settings/settings_core.hpp>
 #include <config.h>
 #include <common.hpp>
@@ -692,7 +695,7 @@ NSClientT::plugin_type NSClientT::addPlugin(boost::filesystem::path file, std::s
 
 		BOOST_FOREACH(plugin_type plug, plugins_) {
 			if (plug->is_duplicate(file, alias)) {
-				LOG_DEBUG_CORE_STD("Found duplicate plugin returning old " + strEx::s::xtos(plug->get_id()));
+				LOG_DEBUG_CORE_STD("Found duplicate plugin returning old " + str::xtos(plug->get_id()));
 				return plug;
 			}
 		}

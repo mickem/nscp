@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
-#include <nscp_string.hpp>
+#include <str/xtos.hpp>
+ #include <str/utils.hpp>
 
 #include <nscapi/nscapi_helper.hpp>
+
+#include <boost/foreach.hpp>
 
 #define REPORT_ERROR	0x01
 #define REPORT_WARNING	0x02
@@ -170,7 +173,7 @@ std::string nscapi::plugin_helper::translateReturn(NSCAPI::nagiosReturn returnCo
 	else if (returnCode == NSCAPI::query_return_codes::returnUNKNOWN)
 		return "UNKNOWN";
 	else
-		return "BAD_CODE: " + strEx::s::xtos(returnCode);
+		return "BAD_CODE: " + str::xtos(returnCode);
 }
 /**
 * Translate a string into the corresponding return code

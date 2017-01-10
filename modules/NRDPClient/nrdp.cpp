@@ -16,7 +16,7 @@
 
 #include "nrdp.hpp"
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <utf8.hpp>
 
 #include <tinyxml2.h>
@@ -64,7 +64,7 @@ namespace nrdp {
 			child->InsertEndChild(doc.NewText(item.service.c_str()));
 		}
 		child = node->InsertEndChild(doc.NewElement("state"));
-		child->InsertEndChild(doc.NewText(strEx::s::xtos(item.result).c_str()));
+		child->InsertEndChild(doc.NewText(str::xtos(item.result).c_str()));
 		child = node->InsertEndChild(doc.NewElement("output"));
 		child->InsertEndChild(doc.NewText(item.message.c_str()));
 	}
@@ -98,6 +98,6 @@ namespace nrdp {
 
 		std::string status = tnStatus->Value();
 		std::string error = tnError->Value();
-		return boost::make_tuple(strEx::s::stox<int>(status, -1), error);
+		return boost::make_tuple(str::stox<int>(status, -1), error);
 	}
 }

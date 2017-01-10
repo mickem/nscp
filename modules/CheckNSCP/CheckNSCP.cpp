@@ -124,16 +124,16 @@ struct nscp_version {
 		std::list<std::string> vl = strEx::s::splitEx(v2.get<0>(), ".");
 		if (vl.size() != 4)
 			throw error::nscp_exception("Failed to parse version: " + v);
-		release = strEx::s::stox<int>(vl.front()); vl.pop_front();
-		major_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
-		minor_version = strEx::s::stox<int>(vl.front()); vl.pop_front();
-		build = strEx::s::stox<int>(vl.front());
+		release = str::stox<int>(vl.front()); vl.pop_front();
+		major_version = str::stox<int>(vl.front()); vl.pop_front();
+		minor_version = str::stox<int>(vl.front()); vl.pop_front();
+		build = str::stox<int>(vl.front());
 	}
 	std::string to_string() const {
-		return strEx::s::xtos(release) + "."
-			+ strEx::s::xtos(major_version) + "."
-			+ strEx::s::xtos(minor_version) + "."
-			+ strEx::s::xtos(build);
+		return str::xtos(release) + "."
+			+ str::xtos(major_version) + "."
+			+ str::xtos(minor_version) + "."
+			+ str::xtos(build);
 	}
 };
 
@@ -232,14 +232,14 @@ void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, 
 	response->set_result(Plugin::Common_ResultCode_OK);
 	std::string last, message;
 	int crash_count = get_crashes(crashFolder, last);
-	format::append_list(message, strEx::s::xtos(crash_count) + " crash(es)", std::string(", "));
+	format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
 	if (crash_count > 0) {
 		response->set_result(Plugin::Common_ResultCode_CRITICAL);
 		format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}
 
 	int err_count = get_errors(last);
-	format::append_list(message, strEx::s::xtos(err_count) + " error(s)", std::string(", "));
+	format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
 	if (err_count > 0) {
 		response->set_result(Plugin::Common_ResultCode_CRITICAL);
 		format::append_list(message, std::string("last error: " + last), std::string(", "));

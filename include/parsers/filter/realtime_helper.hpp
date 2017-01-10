@@ -16,10 +16,6 @@
 
 #pragma once
 
-#include <error/nscp_exception.hpp>
-
-#include <boost/shared_ptr.hpp>
-#include <boost/function.hpp>
 
 #include <parsers/expression/expression.hpp>
 #include <parsers/where/engine_impl.hpp>
@@ -27,6 +23,14 @@
 #include <NSCAPI.h>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+
+#include <error/nscp_exception.hpp>
+
+#include <boost/shared_ptr.hpp>
+#include <boost/function.hpp>
+
 
 namespace parsers {
 	namespace where {
@@ -253,7 +257,7 @@ namespace parsers {
 							dur = boost::posix_time::time_duration(0, 0, 30, 0);
 						}
 					}
-					NSC_DEBUG_MSG("Next miss time is in: " + strEx::s::xtos(dur.total_seconds()) + "s");
+					NSC_DEBUG_MSG("Next miss time is in: " + str::xtos(dur.total_seconds()) + "s");
 					ret = dur;
 				}
 				return ret;

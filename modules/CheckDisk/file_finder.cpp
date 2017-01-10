@@ -37,7 +37,7 @@ bool file_finder::is_directory(unsigned long dwAttr) {
 
 void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &context, boost::filesystem::path dir, boost::shared_ptr<file_filter::filter_obj> total_obj, bool total_all, bool recursive, int current_level) {
 	if (!context.is_valid_level(current_level)) {
-		if (context.debug) context.report_debug("Level death exhausted: " + strEx::s::xtos(current_level));
+		if (context.debug) context.report_debug("Level death exhausted: " + str::xtos(current_level));
 		return;
 	}
 	WIN32_FIND_DATA wfd;
@@ -48,7 +48,7 @@ void file_finder::recursive_scan(file_filter::filter &filter, scanner_context &c
 	} else if (fileAttr == INVALID_FILE_ATTRIBUTES) {
 		context.report_warning("Invalid file specified: " + dir.string());
 	}
-	//if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + strEx::s::xtos(fileAttr));
+	//if (context.debug) context.report_debug("Input is: " + dir.string() + " / " + str::xtos(fileAttr));
 
 	if (!is_directory(fileAttr)) {
 		if (context.debug) context.report_debug("Found a file won't do recursive scan: " + dir.string());

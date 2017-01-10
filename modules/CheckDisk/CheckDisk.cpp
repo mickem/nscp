@@ -175,7 +175,7 @@ void CheckDisk::checkFiles(Plugin::QueryRequestMessage::Request &request, Plugin
 	if (debug)
 		request.add_arguments("debug");
 	if (maxDepth > 0)
-		request.add_arguments("max-depth=" + strEx::s::xtos(maxDepth));
+		request.add_arguments("max-depth=" + str::xtos(maxDepth));
 	compat::log_args(request);
 	check_files(request, response);
 }

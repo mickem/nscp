@@ -14,32 +14,33 @@
  * limitations under the License.
  */
 
-#ifndef WIN32
-#include <poll.h>
-#include <sys/inotify.h>
-#endif
+#include "realtime_thread.hpp"
+#include "filter.hpp"
+#include "realtime_data.hpp"
 
-#include <map>
-#include <vector>
-
-#include <boost/foreach.hpp>
-#include <boost/filesystem.hpp>
-
-#include <time.h>
-#include <error/error.hpp>
+#include <parsers/filter/realtime_helper.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
+#include <str/utils.hpp>
+#include <error/error.hpp>
 #include <simple_timer.hpp>
 
-#include "realtime_thread.hpp"
-#include "filter.hpp"
+#include <boost/foreach.hpp>
+#include <boost/filesystem.hpp>
 
-#include "realtime_data.hpp"
-#include <parsers/filter/realtime_helper.hpp>
+#include <map>
+#include <vector>
+#include <time.h>
+
+#ifndef WIN32
+#include <poll.h>
+#include <sys/inotify.h>
+#endif
+
 
 typedef parsers::where::realtime_filter_helper<runtime_data, filters::filter_config_object> filter_helper;
 

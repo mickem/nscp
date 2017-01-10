@@ -17,6 +17,7 @@
 #include "eventlog_wrapper.hpp"
 
 #include <error/nscp_exception.hpp>
+#include <str/utils.hpp>
 
 #include "simple_registry.hpp"
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -269,7 +270,7 @@ DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
 			}
 		} else {
 			if (ERROR_HANDLE_EOF != status) {
-				NSC_LOG_ERROR_STD("Failed to read eventlog record(" + strEx::s::xtos(dwRecordNumber) + "): " + utf8::cvt<std::string>(error::lookup::last_error(status)));
+				NSC_LOG_ERROR_STD("Failed to read eventlog record(" + str::xtos(dwRecordNumber) + "): " + utf8::cvt<std::string>(error::lookup::last_error(status)));
 				return status;
 			}
 		}

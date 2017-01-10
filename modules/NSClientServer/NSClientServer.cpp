@@ -15,12 +15,8 @@
  */
 
 #include "NSClientServer.h"
-
-#include <boost/assign.hpp>
-
-#include <strEx.h>
-#include <time.h>
 #include "handler_impl.hpp"
+
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
@@ -31,6 +27,10 @@
 #include <nscapi/nscapi_common_options.hpp>
 
 #include <settings/config.hpp>
+#include <str/utils.hpp>
+#include <time.h>
+
+#include <boost/assign.hpp>
 
 namespace sh = nscapi::settings_helper;
 
@@ -305,10 +305,10 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	if (!message.ParseFromString(response))
 		return check_nt::packet("ERROR: Failed to parse data from: " + cmd.first);
 	if (message.payload_size() != 1)
-		return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + strEx::s::xtos(message.payload_size()));
+		return check_nt::packet("ERROR: Command returned invalid number of payloads: " + cmd.first + ", " + str::xtos(message.payload_size()));
 	const ::Plugin::QueryResponseMessage::Response &payload = message.payload(0);
 	if (payload.lines_size() != 1) {
-		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + strEx::s::xtos(payload.lines_size()));
+		return check_nt::packet("ERROR: Invalid number of lines returned from command: " + cmd.first + ", " + str::xtos(payload.lines_size()));
 	}
 	const ::Plugin::QueryResponseMessage::Response::Line &line = payload.lines(0);
 
@@ -331,11 +331,11 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	case REQ_FILEAGE:
 		if (line.perf_size() < 1)
 			return check_nt::packet("ERROR: No performance data from command: " + cmd.first);
-		return check_nt::packet(strEx::s::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message());
+		return check_nt::packet(str::xtos_non_sci(extract_perf_value_i(line.perf(0)) / 60) + "&" + line.message());
 
 	case REQ_SERVICESTATE:	// Some check_nt commands return the return code (coded as a string)
 	case REQ_PROCSTATE:
-		return check_nt::packet(strEx::s::xtos(payload.result()) + "& " + line.message());
+		return check_nt::packet(str::xtos(payload.result()) + "& " + line.message());
 	}
 
 	return check_nt::packet("ERROR: Unknown command " + cmd.first);

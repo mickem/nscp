@@ -16,11 +16,13 @@
 
 #pragma once
 
-#include <error/nscp_exception.hpp>
-
 #include "simple_registry.hpp"
-#include <boost/tuple/tuple.hpp>
+
+#include <error/nscp_exception.hpp>
 #include <wstring.hpp>
+#include <str/utils.hpp>
+
+#include <boost/tuple/tuple.hpp>
 #include <boost/noncopyable.hpp>
 
 class EventLogRecord : boost::noncopyable {
@@ -145,7 +147,7 @@ public:
 			return EVENTLOG_AUDIT_SUCCESS;
 		if (sType == "auditFailure")
 			return EVENTLOG_AUDIT_FAILURE;
-		return strEx::s::stox<WORD>(sType);
+		return str::stox<WORD>(sType);
 	}
 	static std::wstring translateType(WORD dwType) {
 		if (dwType == EVENTLOG_ERROR_TYPE)
@@ -186,7 +188,7 @@ public:
 			return 2;
 		if (sType == "error")
 			return 3;
-		return strEx::s::stox<WORD>(sType);
+		return str::stox<WORD>(sType);
 	}
 	static std::wstring translateSeverity(WORD dwType) {
 		if (dwType == 0)

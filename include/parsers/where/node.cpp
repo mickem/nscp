@@ -17,7 +17,7 @@
 #include <boost/foreach.hpp>
 
 #include <utf8.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/helpers.hpp>
@@ -32,18 +32,18 @@ namespace parsers {
 	namespace where {
 		std::string value_container::get_string() const {
 			if (i_value)
-				return strEx::s::xtos(*i_value);
+				return str::xtos(*i_value);
 			if (f_value)
-				return strEx::s::xtos(*f_value);
+				return str::xtos(*f_value);
 			if (s_value)
 				return *s_value;
 			throw filter_exception("Type is not string");
 		}
 		std::string value_container::get_string(std::string def) const {
 			if (i_value)
-				return strEx::s::xtos(*i_value);
+				return str::xtos(*i_value);
 			if (f_value)
-				return strEx::s::xtos(*f_value);
+				return str::xtos(*f_value);
 			if (s_value)
 				return *s_value;
 			return def;
@@ -133,7 +133,7 @@ namespace parsers {
 		// 			if (string_value)
 		// 				return *string_value;
 		// 			if (int_value)
-		// 				return strEx::s::xtos(*int_value);
+		// 				return str::xtos(*int_value);
 		// 			return "N/A";
 		// 		}
 

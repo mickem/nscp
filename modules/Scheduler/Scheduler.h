@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
-
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <scheduler/simple_scheduler.hpp>
 #include "schedules_handler.hpp"

@@ -46,7 +46,7 @@ namespace logfile_filter {
 		}
 		long long get_column_number(std::size_t col) const {
 			if (col >= 1 && col <= chunks.size())
-				return strEx::s::stox<long long>(chunks[col - 1]);
+				return str::stox<long long>(chunks[col - 1]);
 			return 0;
 		}
 		std::string get_filename() const {

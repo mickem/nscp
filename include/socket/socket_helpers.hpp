@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <str/xtos.hpp>
+
+
 #include <boost/asio.hpp>
 #include <boost/foreach.hpp>
 #include <boost/bind.hpp>
@@ -26,7 +29,9 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/ssl/basic_context.hpp>
 #endif
-#include <strEx.h>
+
+#include <list>
+#include <string>
 
 namespace socket_helpers {
 #ifdef USE_SSL
@@ -243,7 +248,7 @@ namespace socket_helpers {
 
 		bool get_reuse() const { return reuse; }
 		std::string get_port() const { return port_; }
-		unsigned short get_int_port() const { return strEx::s::stox<unsigned short>(port_); }
+		unsigned short get_int_port() const { return str::stox<unsigned short>(port_); }
 		std::string get_address() const { return address; }
 		std::string get_endpoint_string() const {
 			return address + ":" + get_port();

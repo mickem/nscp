@@ -23,7 +23,7 @@
 #include <parsers/where.hpp>
 
 #include <simple_timer.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include "filter.hpp"
 
 using namespace parsers::where;

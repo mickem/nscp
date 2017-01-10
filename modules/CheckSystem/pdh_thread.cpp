@@ -379,7 +379,7 @@ std::map<std::string, windows::system_info::load_entry> pdh_thread::get_cpu_load
 	ret["total"] = load.total;
 	int i = 0;
 	BOOST_FOREACH(const windows::system_info::load_entry &l, load.core)
-		ret["core " + strEx::s::xtos(i++)] = l;
+		ret["core " + str::xtos(i++)] = l;
 	return ret;
 }
 

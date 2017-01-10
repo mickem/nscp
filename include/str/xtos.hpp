@@ -21,12 +21,19 @@
 #include <sstream>
 
 
-namespace ss {
-
+namespace str {
 
 		template<class T>
 		inline T stox(std::string s) {
 			return boost::lexical_cast<T>(s.c_str());
+		}
+		template<class T>
+		inline T stox(std::string s, T def) {
+			try {
+				return boost::lexical_cast<T>(s.c_str());
+			} catch (...) {
+				return def;
+			}
 		}
 
 		template<typename T>

@@ -149,7 +149,7 @@ namespace socket_helpers {
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_read_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_read_request(" + utf8::utf8_from_native(e.message()) + ", " + str::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_read(bytes_transferred);
 					do_process();
@@ -169,7 +169,7 @@ namespace socket_helpers {
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) = 0;
 
 			virtual void handle_write_request(const boost::system::error_code& e, std::size_t bytes_transferred) {
-				trace("handle_write_request(" + utf8::utf8_from_native(e.message()) + ", " + strEx::s::xtos(bytes_transferred) + ")");
+				trace("handle_write_request(" + utf8::utf8_from_native(e.message()) + ", " + str::xtos(bytes_transferred) + ")");
 				if (!e) {
 					protocol_.on_write(bytes_transferred);
 					do_process();
@@ -228,14 +228,14 @@ namespace socket_helpers {
 			}
 
 			virtual void start_read_request(boost::asio::mutable_buffers_1 buffer) {
-				this->trace("tcp::start_read_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
+				this->trace("tcp::start_read_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
 				async_read(socket_, buffer,
 					boost::bind(&connection_type::handle_read_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
 			}
 
 			virtual void start_write_request(boost::asio::mutable_buffers_1 buffer) {
-				this->trace("tcp::start_write_request(" + strEx::s::xtos(boost::asio::buffer_size(buffer)) + ")");
+				this->trace("tcp::start_write_request(" + str::xtos(boost::asio::buffer_size(buffer)) + ")");
 				async_write(socket_, buffer,
 					boost::bind(&connection_type::handle_write_request, this->shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)
 					);
@@ -362,7 +362,7 @@ namespace socket_helpers {
 				boost::optional<typename protocol_type::response_type> response = connection_->process_request(packet);
 				if (!response) {
 					for (int i = 0; i < info_.retry; i++) {
-						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + strEx::s::xtos(i) + " of " + strEx::s::xtos(info_.retry));
+						handler_->log_debug(__FILE__, __LINE__, "Retrying attempt " + str::xtos(i) + " of " + str::xtos(info_.retry));
 						connect();
 						response = connection_->process_request(packet);
 						if (response)

@@ -6,12 +6,14 @@ extern "C" {
 }
 #include "luna.h"
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <utf8.hpp>
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
+
+#include <boost/foreach.hpp>
 
 #ifndef TRUE
 #define TRUE 1
@@ -39,13 +41,13 @@ std::string lua::lua_wrapper::get_string(int pos) {
 	std::string ret;
 	if (get_string(ret, pos))
 		return ret;
-	return "<NOT_A_STRING:" + strEx::s::xtos(type(pos)) + ">";
+	return "<NOT_A_STRING:" + str::xtos(type(pos)) + ">";
 }
 std::string lua::lua_wrapper::get_raw_string(int pos) {
 	std::string ret;
 	if (get_raw_string(ret, pos))
 		return ret;
-	return "<NOT_A_STRING:" + strEx::s::xtos(type(pos)) + ">";
+	return "<NOT_A_STRING:" + str::xtos(type(pos)) + ">";
 }
 bool lua::lua_wrapper::get_string(std::string &str, int pos) {
 	if (pos == -1)
@@ -55,11 +57,11 @@ bool lua::lua_wrapper::get_string(std::string &str, int pos) {
 	if (is_string(pos))
 		str = lua_tostring(L, pos);
 	else if (is_number(pos))
-		str = strEx::s::xtos(lua_tonumber(L, pos));
+		str = str::xtos(lua_tonumber(L, pos));
 	else if (is_nil(pos))
 		str = "NIL";
 	else {
-		NSC_DEBUG_MSG("Cannot convert " + strEx::s::xtos(type(pos)) + " to string");
+		NSC_DEBUG_MSG("Cannot convert " + str::xtos(type(pos)) + " to string");
 		return false;
 	}
 	return true;
@@ -74,7 +76,7 @@ bool lua::lua_wrapper::get_raw_string(std::string &str, int pos) {
 		const char* cstr = lua_tolstring(L, -1, &len);
 		str = std::string(cstr, len);
 	} else if (is_number(pos))
-		str = strEx::s::xtos(lua_tonumber(L, pos));
+		str = str::xtos(lua_tonumber(L, pos));
 	else
 		return false;
 	return true;
@@ -85,7 +87,7 @@ int lua::lua_wrapper::get_int(int pos) {
 	if (pos == 0)
 		return 0;
 	if (is_string(pos))
-		return strEx::s::stox<int>(lua_tostring(L, pos));
+		return str::stox<int>(lua_tostring(L, pos));
 	if (is_number(pos))
 		return lua_tonumber(L, pos);
 	return 0;
@@ -116,7 +118,7 @@ NSCAPI::nagiosReturn lua::lua_wrapper::get_code(int pos) {
 	case LUA_TBOOLEAN:
 		return lua_toboolean(L, pos) ? NSCAPI::query_return_codes::returnOK : NSCAPI::query_return_codes::returnUNKNOWN;
 	}
-	NSC_LOG_ERROR_STD("Incorrect type: should be error, ok, warning or unknown: " + strEx::s::xtos(lua_type(L, pos)));
+	NSC_LOG_ERROR_STD("Incorrect type: should be error, ok, warning or unknown: " + str::xtos(lua_type(L, pos)));
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
@@ -347,17 +349,17 @@ std::string lua::lua_wrapper::dump_stack() {
 			ret += pop_string();
 		} else if (t == LUA_TTABLE) {
 			std::list<std::string> list = pop_array();
-			ret += "<" + strEx::s::xtos(list.size()) + ">[";
+			ret += "<" + str::xtos(list.size()) + ">[";
 			BOOST_FOREACH(std::string s, list) {
 				ret += s + ", ";
 			}
 			ret += "]";
 		} else {
-			ret += "UNKNOWN:" + strEx::s::xtos(t);
+			ret += "UNKNOWN:" + str::xtos(t);
 			pop();
 		}
 	}
-	return "stack(" + strEx::s::xtos(len) + "): " + ret;
+	return "stack(" + str::xtos(len) + "): " + ret;
 }
 
 void lua::lua_wrapper::openlibs() {

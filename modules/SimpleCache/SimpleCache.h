@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include <boost/thread/shared_mutex.hpp>
-
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+
+#include <boost/thread/shared_mutex.hpp>
+#include <boost/function.hpp>
+
 
 class SimpleCache : public nscapi::impl::simple_plugin {
 public:

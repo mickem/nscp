@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+#include "ServiceCmd.h"
+
 #include <utf8.hpp>
+#include <error/error.hpp>
 
 #include <windows.h>
 #include <tchar.h>
-#include "ServiceCmd.h"
-#include <strEx.h>
-#include <tchar.h>
+
 #include <iostream>
-#include <error/error.hpp>
 
 namespace serviceControll {
 	/**

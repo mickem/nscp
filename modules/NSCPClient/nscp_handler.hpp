@@ -16,9 +16,6 @@
 
 #pragma once
 
-#include <utils.h>
-#include <strEx.h>
-
 #include <socket/client.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>

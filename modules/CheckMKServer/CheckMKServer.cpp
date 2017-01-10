@@ -15,12 +15,13 @@
  */
 
 #include "CheckMKServer.h"
-#include <strEx.h>
-#include <time.h>
 #include "handler_impl.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <socket/socket_settings_helper.hpp>
+
+#include <str/xtos.hpp>
+#include <time.h>
 
 namespace sh = nscapi::settings_helper;
 

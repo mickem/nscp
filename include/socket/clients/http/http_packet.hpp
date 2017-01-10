@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <str/xtos.hpp>
+
 #include <string>
 #include <map>
 
@@ -134,7 +136,7 @@ namespace http {
 
 		}
 		void set_http_response(std::string version, std::string code) {
-			status_code_ = strEx::s::stox<int>(code);
+			status_code_ = str::stox<int>(code);
 		}
 		void add_header(std::string key, std::string value) {
 			headers_[key] = value;
@@ -218,13 +220,13 @@ namespace http {
 				data += "=";
 				data += uri_encode(v.second);
 			}
-			add_header("Content-Length", strEx::s::xtos(data.size()));
+			add_header("Content-Length", str::xtos(data.size()));
 			add_header("Content-Type", "application/x-www-form-urlencoded");
 			verb_ = "POST";
 			payload_ = data;
 		}
 		void add_post_payload(const std::string &content_type, const std::string &payload_data) {
-			add_header("Content-Length", strEx::s::xtos(payload_data.size()));
+			add_header("Content-Length", str::xtos(payload_data.size()));
 			add_header("Content-Type", content_type);
 			verb_ = "POST";
 			payload_ = payload_data;

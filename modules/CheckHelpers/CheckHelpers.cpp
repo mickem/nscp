@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
-#include <boost/program_options.hpp>
-#include <boost/thread/thread.hpp>
-
 #include "CheckHelpers.h"
-#include <strEx.h>
-#include <time.h>
-#include <vector>
-#include <algorithm>
+
+#include <str/utils.hpp>
+#include <parsers/filter/cli_helper.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <parsers/filter/cli_helper.hpp>
+
+#include <boost/program_options.hpp>
+#include <boost/thread/thread.hpp>
+
+#include <time.h>
+#include <vector>
+#include <algorithm>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -419,45 +421,45 @@ namespace perf_filter {
 		}
 		std::string get_value() const {
 			if (data.has_bool_value())
-				return strEx::s::xtos(data.bool_value().value());
+				return str::xtos(data.bool_value().value());
 			if (data.has_float_value())
-				return strEx::s::xtos(data.float_value().value());
+				return str::xtos(data.float_value().value());
 			if (data.has_int_value())
-				return strEx::s::xtos(data.int_value().value());
+				return str::xtos(data.int_value().value());
 			if (data.has_string_value())
 				return data.string_value().value();
 			return "";
 		}
 		std::string get_warn() const {
 			if (data.has_bool_value())
-				return strEx::s::xtos(data.bool_value().warning());
+				return str::xtos(data.bool_value().warning());
 			if (data.has_float_value())
-				return strEx::s::xtos(data.float_value().warning());
+				return str::xtos(data.float_value().warning());
 			if (data.has_int_value())
-				return strEx::s::xtos(data.int_value().warning());
+				return str::xtos(data.int_value().warning());
 			return "";
 		}
 		std::string get_crit() const {
 			if (data.has_bool_value())
-				return strEx::s::xtos(data.bool_value().critical());
+				return str::xtos(data.bool_value().critical());
 			if (data.has_float_value())
-				return strEx::s::xtos(data.float_value().critical());
+				return str::xtos(data.float_value().critical());
 			if (data.has_int_value())
-				return strEx::s::xtos(data.int_value().critical());
+				return str::xtos(data.int_value().critical());
 			return "";
 		}
 		std::string get_max() const {
 			if (data.has_float_value())
-				return strEx::s::xtos(data.float_value().maximum());
+				return str::xtos(data.float_value().maximum());
 			if (data.has_int_value())
-				return strEx::s::xtos(data.int_value().maximum());
+				return str::xtos(data.int_value().maximum());
 			return "";
 		}
 		std::string get_min() const {
 			if (data.has_float_value())
-				return strEx::s::xtos(data.float_value().minimum());
+				return str::xtos(data.float_value().minimum());
 			if (data.has_int_value())
-				return strEx::s::xtos(data.int_value().minimum());
+				return str::xtos(data.int_value().minimum());
 			return "";
 		}
 	};

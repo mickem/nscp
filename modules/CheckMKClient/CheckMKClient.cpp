@@ -16,8 +16,8 @@
 
 #include "CheckMKClient.h"
 
-#include <time.h>
-#include <strEx.h>
+#include "check_mk_client.hpp"
+#include "check_mk_handler.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
@@ -25,10 +25,10 @@
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
-#include <boost/make_shared.hpp>
+#include <time.h>
+#include <str/xtos.hpp>
 
-#include "check_mk_client.hpp"
-#include "check_mk_handler.hpp"
+#include <boost/make_shared.hpp>
 
 /**
  * Default c-tor

@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-#include <map>
-#include <list>
+#include "filter.hpp"
+
+#include <parsers/where.hpp>
+#include <simple_timer.hpp>
+#include <str/utils.hpp>
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/make_shared.hpp>
 
-#include <parsers/where.hpp>
-
-#include <simple_timer.hpp>
-#include <strEx.h>
-#include "filter.hpp"
+#include <map>
+#include <list>
 
 using namespace boost::assign;
 using namespace parsers::where;

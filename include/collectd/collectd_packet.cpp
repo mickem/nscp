@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
 #include "collectd_packet.hpp"
 
 #include <parsers/expression/expression.hpp>
 
-#include <boost/regex.hpp>
+#include <str/xtos.hpp>
 
-//unsigned int collectd::length::payload_length_ = 512;
+#include <boost/regex.hpp>
+#include <boost/foreach.hpp>
 
 
 std::list<collectd::collectd_builder::expanded_keys> collectd::collectd_builder::expand_keyword(const std::string &keyword, const std::string &value) {

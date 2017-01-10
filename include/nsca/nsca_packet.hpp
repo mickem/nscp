@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <boost/date_time.hpp>
-
 #include <types.hpp>
 #include <swap_bytes.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
-
+#include <str/utils.hpp>
 #include <utils.h>
+
+#include <boost/date_time.hpp>
 
 namespace nsca {
 	class data {
@@ -151,8 +151,8 @@ namespace nsca {
 		std::string to_string() const {
 			return "host: " + host + ", " +
 				"service: " + service + ", " +
-				"code: " + strEx::s::xtos(code) + ", " +
-				"time: " + strEx::s::xtos(time) + ", " +
+				"code: " + str::xtos(code) + ", " +
+				"time: " + str::xtos(time) + ", " +
 				"result: " + result;
 		}
 
@@ -174,15 +174,15 @@ namespace nsca {
 			unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
 			delete[] tmp;
 			if (crc32 != calculated_crc32)
-				throw nsca::nsca_exception("Invalid crc: " + strEx::s::xtos(crc32) + " != " + strEx::s::xtos(calculated_crc32));
+				throw nsca::nsca_exception("Invalid crc: " + str::xtos(crc32) + " != " + str::xtos(calculated_crc32));
 		}
 		void validate_lengths() const {
 			if (service.length() >= nsca::length::desc_length)
-				throw nsca::nsca_exception("Description field to long: " + strEx::s::xtos(service.length()) + " > " + strEx::s::xtos(nsca::length::desc_length));
+				throw nsca::nsca_exception("Description field to long: " + str::xtos(service.length()) + " > " + str::xtos(nsca::length::desc_length));
 			if (host.length() >= nsca::length::host_length)
-				throw nsca::nsca_exception("Host field to long: " + strEx::s::xtos(host.length()) + " > " + strEx::s::xtos(nsca::length::host_length));
+				throw nsca::nsca_exception("Host field to long: " + str::xtos(host.length()) + " > " + str::xtos(nsca::length::host_length));
 			if (result.length() >= get_payload_length())
-				throw nsca::nsca_exception("Result field to long: " + strEx::s::xtos(result.length()) + " > " + strEx::s::xtos(get_payload_length()));
+				throw nsca::nsca_exception("Result field to long: " + str::xtos(result.length()) + " > " + str::xtos(get_payload_length()));
 		}
 
 		static void copy_string(char* data, const std::string &value, std::string::size_type max_length) {
@@ -193,7 +193,7 @@ namespace nsca {
 		void get_buffer(std::string &buffer, int servertime = 0) const {
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(&*buffer.begin());
 			if (buffer.size() < get_packet_length())
-				throw nsca::nsca_exception("Buffer is to short: " + strEx::s::xtos(buffer.length()) + " > " + strEx::s::xtos(get_packet_length()));
+				throw nsca::nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(get_packet_length()));
 
 			data->packet_version = swap_bytes::hton<int16_t>(nsca::data::version3);
 			if (servertime != 0)
@@ -243,7 +243,7 @@ namespace nsca {
 
 		std::string get_buffer() const {
 			if (iv.size() != nsca::length::iv::get_payload_length())
-				throw nsca::nsca_exception("Invalid IV size: " + strEx::s::xtos(iv.size()) + " != " + strEx::s::xtos(nsca::length::iv::get_payload_length()));
+				throw nsca::nsca_exception("Invalid IV size: " + str::xtos(iv.size()) + " != " + str::xtos(nsca::length::iv::get_payload_length()));
 			nsca::data::iv_packet data;
 			memcpy(data.iv, iv.c_str(), iv.size());
 			data.timestamp = swap_bytes::hton<u_int32_t>(time);
@@ -253,7 +253,7 @@ namespace nsca {
 		}
 		void parse(const std::string &buffer) {
 			if (buffer.size() < nsca::length::iv::get_packet_length())
-				throw nsca::nsca_exception("Buffer is to short: " + strEx::s::xtos(buffer.length()) + " > " + strEx::s::xtos(nsca::length::iv::get_packet_length()));
+				throw nsca::nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(nsca::length::iv::get_packet_length()));
 			const nsca::data::iv_packet *data = reinterpret_cast<const nsca::data::iv_packet*>(buffer.c_str());
 			iv = std::string(data->iv, nsca::data::transmitted_iuv_size);
 			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);

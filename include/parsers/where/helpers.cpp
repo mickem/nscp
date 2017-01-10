@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <parsers/where/helpers.hpp>
 
@@ -39,14 +39,14 @@ namespace parsers {
 				if (type == type_tbd)
 					return "tbd";
 				if (type >= type_custom)
-					return "u:" + strEx::s::xtos(type - type_custom);
+					return "u:" + str::xtos(type - type_custom);
 				if (type >= type_custom_float)
-					return "uf:" + strEx::s::xtos(type - type_custom_float);
+					return "uf:" + str::xtos(type - type_custom_float);
 				if (type >= type_custom_string)
-					return "us:" + strEx::s::xtos(type - type_custom_string);
+					return "us:" + str::xtos(type - type_custom_string);
 				if (type >= type_custom_int)
-					return "ui:" + strEx::s::xtos(type - type_custom_int);
-				return "unknown:" + strEx::s::xtos(type);
+					return "ui:" + str::xtos(type - type_custom_int);
+				return "unknown:" + str::xtos(type);
 			}
 
 			bool type_is_int(value_type type) {

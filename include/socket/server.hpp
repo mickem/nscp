@@ -26,7 +26,7 @@
 
 #include <socket/socket_helpers.hpp>
 #include <socket/connection.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 namespace socket_helpers {
 	namespace server {
@@ -115,7 +115,7 @@ namespace socket_helpers {
 			bool setup_endpoint_retry(ip::tcp::endpoint &endpoint, int retries, bool reuse) {
 				for (int count = 0; count < retries; count++) {
 					if (count > 0) {
-						logger_->log_debug(__FILE__, __LINE__, "Retrying " + strEx::s::xtos(count));
+						logger_->log_debug(__FILE__, __LINE__, "Retrying " + str::xtos(count));
 						boost::thread::sleep(boost::get_system_time() + boost::posix_time::seconds(1));
 					}
 					if (setup_endpoint(endpoint, true, reuse))

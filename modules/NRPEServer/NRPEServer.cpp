@@ -15,7 +15,7 @@
  */
 
 #include "NRPEServer.h"
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <time.h>
 #include <common.hpp>
 
@@ -113,7 +113,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 #endif
 	if (mode == NSCAPI::normalStart || mode == NSCAPI::reloadStart) {
 		if (payload_length_ != 1024)
-			NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(payload_length_));
+			NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nrpe changing #define MAX_PACKETBUFFER_LENGTH = " + str::xtos(payload_length_));
 		NSC_LOG_ERROR_LISTS(info_.validate());
 
 		std::list<std::string> errors;

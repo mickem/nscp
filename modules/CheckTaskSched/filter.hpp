@@ -18,6 +18,18 @@
 
 #include <error/nscp_exception.hpp>
 
+#include <parsers/where/node.hpp>
+#include <parsers/where/engine.hpp>
+#include <parsers/filter/modern_filter.hpp>
+#include <parsers/where/filter_handler_impl.hpp>
+
+#include <error/error.hpp>
+#include <format.hpp>
+#include <str/utils.hpp>
+
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+
 #include <map>
 #include <string>
 
@@ -27,16 +39,6 @@
 #include <MSTask.h>
 #include <taskschd.h>
 
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-
-#include <error/error.hpp>
-#include <format.hpp>
-
-#include <parsers/where/node.hpp>
-#include <parsers/where/engine.hpp>
-#include <parsers/filter/modern_filter.hpp>
-#include <parsers/where/filter_handler_impl.hpp>
 
 namespace tasksched_filter {
 	namespace helpers {
@@ -257,7 +259,7 @@ namespace tasksched_filter {
 				return "has_more_runs";
 			if (i == SCHED_S_TASK_NO_VALID_TRIGGERS)
 				return "no_valid_triggers";
-			return strEx::s::xtos(i);
+			return str::xtos(i);
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
 		std::string get_most_recent_run_time_s() {
@@ -338,7 +340,7 @@ namespace tasksched_filter {
 				return "running";
 			if (i == TASK_STATE_DISABLED)
 				return "disabled";
-			return strEx::s::xtos(i);
+			return str::xtos(i);
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
 		std::string get_most_recent_run_time_s() {

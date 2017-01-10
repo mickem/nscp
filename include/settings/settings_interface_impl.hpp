@@ -25,7 +25,6 @@
 #include <boost/regex.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
-#include <strEx.h>
 #include <settings/settings_core.hpp>
 #include <net/net.hpp>
 #include <nsclient/logger/logger.hpp>
@@ -62,7 +61,7 @@ namespace settings {
 				if (type == settings_core::key_string)
 					return string_val;
 				if (type == settings_core::key_integer)
-					return strEx::s::xtos(int_val);
+					return str::xtos(int_val);
 				if (type == settings_core::key_bool)
 					return int_val == 1 ? "true" : "false";
 				return "UNKNOWN TYPE";
@@ -70,7 +69,7 @@ namespace settings {
 			int get_int() const {
 				try {
 					if (type == settings_core::key_string)
-						return strEx::s::stox<int>(string_val);
+						return str::stox<int>(string_val);
 					if (type == settings_core::key_integer)
 						return int_val;
 					if (type == settings_core::key_bool)

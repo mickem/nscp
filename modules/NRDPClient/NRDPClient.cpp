@@ -16,18 +16,18 @@
 
 #include "NRDPClient.h"
 
-#include <utils.h>
-#include <strEx.h>
-#include <http/client.hpp>
+#include "nrdp_client.hpp"
+#include "nrdp_handler.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#include <str/utils.hpp>
+#include <http/client.hpp>
+
 #include <boost/make_shared.hpp>
 
-#include "nrdp_client.hpp"
-#include "nrdp_handler.hpp"
 
 /**
  * Default c-tor

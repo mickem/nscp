@@ -15,13 +15,17 @@
  */
 
 #pragma once
+
+#include "NSCPlugin.h"
+
+#include <nsclient/logger/logger.hpp>
+
+#include <str/xtos.hpp>
+//#include <strEx.h>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/thread.hpp>
-
-#include "NSCPlugin.h"
-#include <nsclient/logger/logger.hpp>
-#include <strEx.h>
 
 namespace nsclient {
 	class commands : boost::noncopyable {
@@ -98,7 +102,7 @@ namespace nsclient {
 		void remove_plugin(unsigned long id) {
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
 			if (!writeLock.owns_lock()) {
-				log_error(__FILE__, __LINE__, "Failed to get mutex in remove_plugin for plugin id: " + strEx::s::xtos(id));
+				log_error(__FILE__, __LINE__, "Failed to get mutex in remove_plugin for plugin id: " + str::xtos(id));
 				return;
 			}
 			command_list_type::iterator it = commands_.begin();
@@ -127,7 +131,7 @@ namespace nsclient {
 			}
 			std::string lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
-				throw command_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+				throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			if (commands_.find(lc) != commands_.end()) {
 				log_info(__FILE__, __LINE__, "Duplicate command", cmd);
 			}
@@ -144,7 +148,7 @@ namespace nsclient {
 			}
 			std::string lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
-				throw command_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+				throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			command_list_type::iterator it = commands_.find(lc);
 			if (it == commands_.end()) {
 				log_info(__FILE__, __LINE__, "Command not found: ", cmd);
@@ -162,7 +166,7 @@ namespace nsclient {
 			}
 			std::string lc = make_key(cmd);
 			if (!have_plugin(plugin_id))
-				throw command_exception("Failed to find plugin: " + strEx::s::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
+				throw command_exception("Failed to find plugin: " + str::xtos(plugin_id) + " {" + unsafe_get_all_plugin_ids() + "}");
 			descriptions_[lc].description = desc;
 			descriptions_[lc].plugin_id = plugin_id;
 			descriptions_[lc].name = cmd;
@@ -175,7 +179,7 @@ namespace nsclient {
 			std::string ret;
 			std::pair<unsigned long, plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
-				ret += strEx::s::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getFilename()) + "), ";
+				ret += str::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getFilename()) + "), ";
 			}
 			return ret;
 		}
@@ -245,7 +249,7 @@ namespace nsclient {
 			}
 			std::pair<unsigned long, plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
-				lst.push_back(strEx::s::xtos(cit.first));
+				lst.push_back(str::xtos(cit.first));
 			}
 			return lst;
 		}

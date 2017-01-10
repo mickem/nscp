@@ -19,6 +19,9 @@
 #include <check_mk/client/client_protocol.hpp>
 #include <socket/client.hpp>
 
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+
 namespace check_mk_client {
 	struct connection_data : public socket_helpers::connection_info {
 		connection_data(client::destination_container arguments, client::destination_container sender) {

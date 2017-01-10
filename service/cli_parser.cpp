@@ -423,9 +423,9 @@ struct client_arguments {
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Module: " + module);
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Command: " + command);
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra Query: " + combined_query);
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Mode: " + strEx::s::xtos(mode));
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Boot: " + strEx::s::xtos(boot));
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Load All: " + strEx::s::xtos(load_all));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Mode: " + str::xtos(mode));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Boot: " + str::xtos(boot));
+			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Load All: " + str::xtos(load_all));
 			if (!module.empty() && boot)
 				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Warning module and boot specified only THAT module will be loaded");
 			std::string args;

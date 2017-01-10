@@ -16,14 +16,19 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
-
 #include <types.hpp>
 #include <swap_bytes.hpp>
+#include <str/utils.hpp>
 #include <stdint.h>
+
+#include <boost/noncopyable.hpp>
+#include <boost/optional.hpp>
+#include <boost/foreach.hpp>
+#include <boost/tuple/tuple.hpp>
 
 #include <map>
 #include <list>
+#include <sstream>
 
 namespace collectd {
 	class data {
@@ -283,17 +288,17 @@ namespace collectd {
 			if (svalue.get<0>() == "gauge") {
 				BOOST_FOREACH(const std::string &vkey, strEx::s::splitEx(svalue.get<1>(), ",")) {
 					if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
-						metric.gauges.push_back(strEx::s::stox<double>(vkey, 0));
+						metric.gauges.push_back(str::stox<double>(vkey, 0));
 					else
-						metric.gauges.push_back(strEx::s::stox<double>(metrics[vkey], 0));
+						metric.gauges.push_back(str::stox<double>(metrics[vkey], 0));
 				}
 			}
 			if (svalue.get<0>() == "derive") {
 				std::string vkey = svalue.get<1>();
 				if (vkey.size() > 0 && vkey[0] >= '0' && vkey[0] <= '9')
-					metric.derives.push_back(strEx::s::stox<double>(svalue.get<1>(), 0));
+					metric.derives.push_back(str::stox<double>(svalue.get<1>(), 0));
 				else
-					metric.derives.push_back(strEx::s::stox<unsigned long long>(metrics[svalue.get<1>()], 0));
+					metric.derives.push_back(str::stox<unsigned long long>(metrics[svalue.get<1>()], 0));
 			}
 		}
 

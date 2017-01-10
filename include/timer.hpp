@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include <str/xtos.hpp>
+
 #include <boost/date_time/posix_time/posix_time.hpp>
 
-#include <strEx.h>
 
 namespace pt = boost::posix_time;
 
@@ -32,7 +33,7 @@ struct timer {
 	void check(std::string tag) {
 		pt::ptime time = pt::microsec_clock::local_time();
 		pt::time_duration diff = time - start_time;
-		times.push_back(tag + ": " + strEx::s::xtos(diff.total_milliseconds()));
+		times.push_back(tag + ": " + str::xtos(diff.total_milliseconds()));
 	}
 	void start(const std::string tag) {
 		check(">>> " + tag);

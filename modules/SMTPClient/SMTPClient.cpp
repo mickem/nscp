@@ -16,8 +16,7 @@
 
 #include "SMTPClient.h"
 
-#include <utils.h>
-#include <strEx.h>
+#include <str/xtos.hpp>
 #include <nscapi/macros.hpp>
 
 #include <boost/make_shared.hpp>

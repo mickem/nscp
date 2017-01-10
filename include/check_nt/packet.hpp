@@ -19,7 +19,7 @@
 #include <types.hpp>
 #include <string>
 #include <boost/asio/buffer.hpp>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 namespace check_nt {
 	class check_nt_exception {

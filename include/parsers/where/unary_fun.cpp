@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <parsers/where/unary_fun.hpp>
 #include <parsers/where/helpers.hpp>
+
+#include <boost/foreach.hpp>
 
 namespace parsers {
 	namespace where {
@@ -50,7 +52,7 @@ namespace parsers {
 		boost::shared_ptr<any_node> unary_fun::evaluate(evaluation_context errors) const {
 			if (function)
 				return function->evaluate(get_type(), errors, subject);
-			errors->error("Missing function binding: " + name + "bound: " + strEx::s::xtos(is_bound()));
+			errors->error("Missing function binding: " + name + "bound: " + str::xtos(is_bound()));
 			return factory::create_false();
 		}
 		bool unary_fun::bind(object_converter converter) {

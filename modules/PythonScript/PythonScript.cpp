@@ -24,7 +24,7 @@
 #include <json_spirit.h>
 
 
-#include <strEx.h>
+#include <str/utils.hpp>
 #include <file_helpers.hpp>
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -40,10 +40,10 @@
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
-using namespace boost::python;
+namespace py = boost::python;
 
 BOOST_PYTHON_MODULE(NSCP) {
-	class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", no_init)
+	py::class_<script_wrapper::settings_wrapper, boost::shared_ptr<script_wrapper::settings_wrapper> >("Settings", py::no_init)
 		.def("get", &script_wrapper::settings_wrapper::create)
 		.staticmethod("get")
 		.def("create", &script_wrapper::settings_wrapper::create)
@@ -60,7 +60,7 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("register_key", &script_wrapper::settings_wrapper::settings_register_key)
 		.def("query", &script_wrapper::settings_wrapper::query)
 		;
-	class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", no_init)
+	py::class_<script_wrapper::function_wrapper, boost::shared_ptr<script_wrapper::function_wrapper> >("Registry", py::no_init)
 		.def("get", &script_wrapper::function_wrapper::create)
 		.staticmethod("get")
 		.def("create", &script_wrapper::function_wrapper::create)
@@ -77,7 +77,7 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("event", &script_wrapper::function_wrapper::register_event)
 		.def("query", &script_wrapper::function_wrapper::query)
 		;
-	class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", no_init)
+	py::class_<script_wrapper::command_wrapper, boost::shared_ptr<script_wrapper::command_wrapper> >("Core", py::no_init)
 		.def("get", &script_wrapper::command_wrapper::create)
 		.staticmethod("get")
 		.def("create", &script_wrapper::command_wrapper::create)
@@ -94,18 +94,18 @@ BOOST_PYTHON_MODULE(NSCP) {
 		.def("expand_path", &script_wrapper::command_wrapper::expand_path)
 		;
 
-	enum_<script_wrapper::status>("status")
+	py::enum_<script_wrapper::status>("status")
 		.value("CRITICAL", script_wrapper::CRIT)
 		.value("WARNING", script_wrapper::WARN)
 		.value("UNKNOWN", script_wrapper::UNKNOWN)
 		.value("OK", script_wrapper::OK)
 		;
-	def("log", script_wrapper::log_msg);
-	def("log_err", script_wrapper::log_error);
-	def("log_deb", script_wrapper::log_debug);
-	def("log_error", script_wrapper::log_error);
-	def("log_debug", script_wrapper::log_debug);
-	def("sleep", script_wrapper::sleep);
+	py::def("log", script_wrapper::log_msg);
+	py::def("log_err", script_wrapper::log_error);
+	py::def("log_deb", script_wrapper::log_debug);
+	py::def("log_error", script_wrapper::log_error);
+	py::def("log_debug", script_wrapper::log_debug);
+	py::def("sleep", script_wrapper::sleep);
 	//	def("get_module_alias", script_wrapper::get_module_alias);
 	//	def("get_script_alias", script_wrapper::get_script_alias);
 }
@@ -132,11 +132,11 @@ bool python_script::callFunction(const std::string& functionName) {
 		try {
 			if (!localDict.has_key(functionName))
 				return true;
-			object scriptFunction = extract<object>(localDict[functionName]);
+			py::object scriptFunction = py::extract<py::object>(localDict[functionName]);
 			if (scriptFunction)
 				scriptFunction();
 			return true;
-		} catch (error_already_set e) {
+		} catch (py::error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -151,11 +151,11 @@ bool python_script::callFunction(const std::string& functionName, const std::lis
 		try {
 			if (!localDict.has_key(functionName))
 				return true;
-			object scriptFunction = extract<object>(localDict[functionName]);
+			py::object scriptFunction = py::extract<py::object>(localDict[functionName]);
 			if (scriptFunction)
 				scriptFunction(script_wrapper::convert(args));
 			return true;
-		} catch (error_already_set e) {
+		} catch (py::error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -170,11 +170,11 @@ bool python_script::callFunction(const std::string& functionName, unsigned int i
 		try {
 			if (!localDict.has_key(functionName))
 				return true;
-			object scriptFunction = extract<object>(localDict[functionName]);
+			py::object scriptFunction = py::extract<py::object>(localDict[functionName]);
 			if (scriptFunction)
 				scriptFunction(i1, s1, s2);
 			return true;
-		} catch (error_already_set e) {
+		} catch (py::error_already_set e) {
 			script_wrapper::log_exception();
 			return false;
 		}
@@ -187,8 +187,8 @@ void python_script::_exec(const std::string &scriptfile) {
 	try {
 		script_wrapper::thread_locker locker;
 		try {
-			object main_module = import("__main__");
-			dict globalDict = extract<dict>(main_module.attr("__dict__"));
+			py::object main_module = py::import("__main__");
+			py::dict globalDict = py::extract<py::dict>(main_module.attr("__dict__"));
 			localDict = globalDict.copy();
 			localDict.setdefault("__file__", scriptfile);
 			//localDict.attr("plugin_id") = plugin_id;
@@ -209,14 +209,14 @@ void python_script::_exec(const std::string &scriptfile) {
 #else
 				PyRun_SimpleString(("sys.path.append('" + path.string() + "')").c_str());
 #endif
-			} catch (error_already_set e) {
+			} catch (py::error_already_set e) {
 				NSC_LOG_ERROR("Failed to setup env for script: " + scriptfile);
 				script_wrapper::log_exception();
 				return;
 			}
 
-			object ignored = exec_file(scriptfile.c_str(), localDict, localDict);
-		} catch (error_already_set e) {
+			py::object ignored = exec_file(scriptfile.c_str(), localDict, localDict);
+		} catch (py::error_already_set e) {
 			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			script_wrapper::log_exception();
 		} catch (const std::exception &e) {
@@ -303,7 +303,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 						NSC_DEBUG_MSG("init python");
 						initNSCP();
 					}
-				} catch (error_already_set e) {
+				} catch (py::error_already_set e) {
 					script_wrapper::log_exception();
 				}
 			}

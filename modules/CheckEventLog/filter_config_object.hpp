@@ -16,18 +16,20 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
+#include "filter.hpp"
 
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 #include <nscapi/nscapi_settings_filter.hpp>
 
-#include "filter.hpp"
+#include <str/utils.hpp>
+
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+
+#include <map>
+#include <string>
 
 namespace eventlog_filter {
 	struct filter_config_object : public nscapi::settings_objects::object_instance_interface {

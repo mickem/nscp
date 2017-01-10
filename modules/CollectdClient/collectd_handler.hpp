@@ -17,7 +17,7 @@
 #pragma once
 
 #include <utils.h>
-#include <strEx.h>
+#include <str/xtos.hpp>
 
 #include <collectd/collectd_packet.hpp>
 

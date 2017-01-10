@@ -16,15 +16,16 @@
 
 #include <wmi/wmi_query.hpp>
 
-#include <map>
+#include <error/error_com.hpp>
 
 #include <boost/optional.hpp>
+#include <boost/foreach.hpp>
+
+#include <map>
 
 #include <objidl.h>
 #include <Wbemidl.h>
 #include <WMIUtils.h>
-
-#include <error/error_com.hpp>
 
 namespace wmi_impl {
 	struct identidy_container {

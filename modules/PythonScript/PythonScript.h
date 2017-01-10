@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <strEx.h>
-#include <utils.h>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/python.hpp>

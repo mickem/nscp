@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
+#include <str/xtos.hpp>
 
 #include <boost/optional/optional.hpp>
 
-#include <strEx.h>
+#include <string>
 
 namespace nscapi {
 	namespace settings {
@@ -49,7 +49,7 @@ namespace nscapi {
 				if (string_value)
 					return *string_value;
 				if (int_value)
-					return strEx::s::xtos(*int_value);
+					return str::xtos(*int_value);
 				if (bool_value)
 					return (*bool_value) ? "true" : "false";
 				return "UNKNOWN";

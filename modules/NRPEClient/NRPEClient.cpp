@@ -296,7 +296,7 @@ bool NRPEClient::install_server(const Plugin::ExecuteRequestMessage::Request &re
 			s.set(path, "allow arguments", "false");
 			s.set(path, "allow nasty characters", "false");
 		}
-		s.set(path, "payload length", strEx::s::xtos(length));
+		s.set(path, "payload length", str::xtos(length));
 		if (length != 1024)
 			result << "NRPE is using non standard payload length " << length << " please use same configuration in check_nrpe." << std::endl;
 		s.save();

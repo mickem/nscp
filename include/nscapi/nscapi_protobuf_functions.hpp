@@ -26,8 +26,6 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/dll_defines.hpp>
 
-#include <strEx.h>
-
 namespace nscapi {
 	namespace protobuf {
 		namespace functions {

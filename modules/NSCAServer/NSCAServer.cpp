@@ -82,7 +82,7 @@ bool NSCAServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	}
 #endif
 	if (payload_length_ != 512)
-		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " + strEx::s::xtos(payload_length_));
+		NSC_DEBUG_MSG_STD("Non-standard buffer length (hope you have recompiled check_nsca changing #define MAX_PACKETBUFFER_LENGTH = " + str::xtos(payload_length_));
 	NSC_LOG_ERROR_LISTS(info_.validate());
 
 	std::list<std::string> errors;

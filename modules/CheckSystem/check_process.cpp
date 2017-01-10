@@ -126,7 +126,7 @@ namespace process_checks {
 			}
 
 			std::string to_string() const {
-				return strEx::s::xtos(list.size()) + " processes";
+				return str::xtos(list.size()) + " processes";
 			}
 		};
 

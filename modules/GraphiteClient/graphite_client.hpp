@@ -100,7 +100,7 @@ namespace graphite_client {
 					d.path = spath;
 					strEx::s::replace(d.path, "${check_alias}", p.alias());
 					strEx::s::replace(d.path, " ", "_");
-					d.value = strEx::s::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
+					d.value = str::xtos(nscapi::protobuf::functions::gbp_to_nagios_status(p.result()));
 					list.push_back(d);
 				}
 
@@ -136,10 +136,10 @@ namespace graphite_client {
 				const ::Plugin::Common_AnyDataType &value = v.value();
 				d.path = fix_graphite_string(mypath + "." + v.key());
 				if (value.has_int_data()) {
-					d.value = strEx::s::xtos(v.value().int_data());
+					d.value = str::xtos(v.value().int_data());
 					list.push_back(d);
 				} else if (value.has_float_data()) {
-					d.value = strEx::s::xtos(v.value().float_data());
+					d.value = str::xtos(v.value().float_data());
 					list.push_back(d);
 				}
 			}

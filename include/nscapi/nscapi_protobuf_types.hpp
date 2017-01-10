@@ -18,12 +18,7 @@
 
 #include <string>
 #include <list>
-#include <set>
-#include <map>
 
-#include <NSCAPI.h>
-#include <net/net.hpp>
-#include <strEx.h>
 #include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
