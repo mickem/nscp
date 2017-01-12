@@ -13,6 +13,7 @@
 #include <config.h>
 
 #include <str/xtos.hpp>
+#include <str/format.hpp>
 #include <utf8.hpp>
 
 static settings_manager::NSCSettingsImpl* settings_impl = NULL;
@@ -174,7 +175,7 @@ namespace settings_manager {
 		}
 		std::string boot_order;
 		BOOST_FOREACH(const std::string &k, order) {
-			strEx::append_list(boot_order, k, ", ");
+			str::format::append_list(boot_order, k, ", ");
 		}
 		BOOST_FOREACH(std::string k, order) {
 			if (context_exists(k)) {

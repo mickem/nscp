@@ -16,15 +16,6 @@
 
 #include "CheckNSCP.h"
 
-#include <boost/filesystem.hpp>
-#include <boost/date_time.hpp>
-
-#include <file_helpers.hpp>
-#include <format.hpp>
-#include <file_helpers.hpp>
-#include <common.hpp>
-#include <config.h>
-
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -36,8 +27,14 @@
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/helpers.hpp>
 
-
 #include <nscapi/nscapi_settings_helper.hpp>
+
+#include <file_helpers.hpp>
+#include <str/format.hpp>
+#include <config.h>
+
+#include <boost/filesystem.hpp>
+#include <boost/date_time.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -119,9 +116,9 @@ struct nscp_version {
 		return *this;
 	}
 	nscp_version(std::string v) {
-		boost::tuple<std::string,std::string> v2 = strEx::s::split2(v, " ");
-		date = v2.get<1>();
-		std::list<std::string> vl = strEx::s::splitEx(v2.get<0>(), ".");
+		str::utils::token v2 = str::utils::split2(v, " ");
+		date = v2.second;
+		std::list<std::string> vl = str::utils::split_lst(v2.first, ".");
 		if (vl.size() != 4)
 			throw error::nscp_exception("Failed to parse version: " + v);
 		release = str::stox<int>(vl.front()); vl.pop_front();
@@ -232,23 +229,23 @@ void CheckNSCP::check_nscp(const Plugin::QueryRequestMessage::Request &request, 
 	response->set_result(Plugin::Common_ResultCode_OK);
 	std::string last, message;
 	int crash_count = get_crashes(crashFolder, last);
-	format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
+	str::format::append_list(message, str::xtos(crash_count) + " crash(es)", std::string(", "));
 	if (crash_count > 0) {
 		response->set_result(Plugin::Common_ResultCode_CRITICAL);
-		format::append_list(message, std::string("last crash: " + last), std::string(", "));
+		str::format::append_list(message, std::string("last crash: " + last), std::string(", "));
 	}
 
 	int err_count = get_errors(last);
-	format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
+	str::format::append_list(message, str::xtos(err_count) + " error(s)", std::string(", "));
 	if (err_count > 0) {
 		response->set_result(Plugin::Common_ResultCode_CRITICAL);
-		format::append_list(message, std::string("last error: " + last), std::string(", "));
+		str::format::append_list(message, std::string("last error: " + last), std::string(", "));
 	}
 	boost::posix_time::ptime end = boost::posix_time::microsec_clock::local_time();;
 	boost::posix_time::time_duration td = end - start_;
 
 	std::stringstream uptime;
 	uptime << "uptime " << td;
-	format::append_list(message, uptime.str(), std::string(", "));
+	str::format::append_list(message, uptime.str(), std::string(", "));
 	response->add_lines()->set_message(message);
 }

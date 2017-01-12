@@ -32,8 +32,8 @@ std::string eventlog_wrapper::find_eventlog_name(const std::string name) {
 				std::wstring file = sub_key.get_string(L"DisplayNameFile");
 				int id = sub_key.get_int(L"DisplayNameID");
 				std::string real_name = error::format::message::from_module(utf8::cvt<std::string>(file), id);
-				strEx::s::replace(real_name, "\n", "");
-				strEx::s::replace(real_name, "\r", "");
+				str::utils::replace(real_name, "\n", "");
+				str::utils::replace(real_name, "\r", "");
 				if (real_name == name)
 					return utf8::cvt<std::string>(k);
 			} catch (simple_registry::registry_exception &e) { e; }

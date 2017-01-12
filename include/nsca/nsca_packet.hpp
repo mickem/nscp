@@ -20,6 +20,7 @@
 #include <swap_bytes.hpp>
 #include <nscpcrypt/nscpcrypt.hpp>
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 #include <utils.h>
 
 #include <boost/date_time.hpp>

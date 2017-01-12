@@ -27,6 +27,7 @@
 
 #include <NSCAPI.h>
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
 namespace parsers {

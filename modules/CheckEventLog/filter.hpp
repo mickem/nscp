@@ -29,7 +29,7 @@
 #include <boost/noncopyable.hpp>
 
 #include <error/error.hpp>
-#include <format.hpp>
+#include <str/format.hpp>
 
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
@@ -72,7 +72,7 @@ namespace eventlog_filter {
 		virtual bool is_modern() const = 0;
 		virtual std::string get_written_s() const {
 			unsigned long long time = get_written();
-			return format::itos_as_time((now_-time)*1000);
+			return str::format::itos_as_time((now_-time)*1000);
 		}
 		virtual std::string to_string() const = 0;
 	};

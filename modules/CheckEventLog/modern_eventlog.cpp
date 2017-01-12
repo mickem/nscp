@@ -20,7 +20,6 @@
 
 #include <utf8.hpp>
 #include <str/xtos.hpp>
-#include <nscp_string.hpp>
 #include <error/nscp_exception.hpp>
 #include <buffer.hpp>
 

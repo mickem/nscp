@@ -16,16 +16,16 @@
 
 #include "realtime_data.hpp"
 
+#include <str/format.hpp>
+
 #include <boost/foreach.hpp>
 #include <boost/filesystem.hpp>
-
-#include <format.hpp>
 
 namespace check_cpu_filter {
 	void runtime_data::add(const std::string &time) {
 		container c;
 		c.alias = time;
-		c.time = format::decode_time<long>(time, 1);
+		c.time = str::format::decode_time<long>(time, 1);
 		checks.push_back(c);
 	}
 

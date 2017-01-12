@@ -145,7 +145,7 @@ bool NSClientServer::isPasswordOk(std::string remotePassword) {
 }
 
 void split_to_list(std::list<std::string> &list, const std::string str, const std::string key) {
-	BOOST_FOREACH(const std::string &s, strEx::s::splitEx(str, std::string("&"))) {
+	BOOST_FOREACH(const std::string &s, str::utils::split_lst(str, std::string("&"))) {
 		list.push_back(key + "=" + s);
 	}
 }
@@ -208,13 +208,13 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 		buffer = buffer.substr(0, pos);
 	}
 
-	strEx::s::token pwd = strEx::s::getToken(buffer, '&');
+	str::utils::token pwd = str::utils::getToken(buffer, '&');
 	if (!isPasswordOk(pwd.first)) {
 		return check_nt::packet("ERROR: Invalid password.");
 	}
 	if (pwd.second.empty())
 		return check_nt::packet("ERROR: No command specified.");
-	strEx::s::token cmd = strEx::s::getToken(pwd.second, '&');
+	str::utils::token cmd = str::utils::getToken(pwd.second, '&');
 	if (cmd.first.empty())
 		return check_nt::packet("ERROR: No command specified.");
 
@@ -295,7 +295,7 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 
 	std::string response;
 	nscapi::core_helper ch(get_core(), get_id());
-	NSC_DEBUG_MSG("Real command: " + cmd.first + " " + strEx::s::joinEx(args, " "));
+	NSC_DEBUG_MSG("Real command: " + cmd.first + " " + str::utils::joinEx(args, " "));
 	if (!ch.simple_query(cmd.first, args, response)) {
 		log_bad_command(cmd.first);
 		return check_nt::packet("ERROR: Could not complete the request check log file for more information.");

@@ -21,6 +21,7 @@
 #include <nsclient/logger/logger.hpp>
 
 #include <str/xtos.hpp>
+#include <str/wstring.hpp>
 
 #include <simpleini/SimpleIni.h>
 
@@ -68,7 +69,7 @@ namespace settings {
 				}
 			}
 			void read_map_data(const std::string data) {
-				BOOST_FOREACH(const std::string &l, strEx::s::splitEx(data, std::string("\n"))) {
+				BOOST_FOREACH(const std::string &l, str::utils::split_lst(data, std::string("\n"))) {
 					parse_line(utf8::cvt<std::wstring>(l));
 				}
 			}

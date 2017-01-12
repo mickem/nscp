@@ -124,7 +124,7 @@ namespace nrpe_client {
 			if (request_message.payload_size() == 0) {
 				std::string command = get_command("");
 				boost::tuple<int, std::string> ret = send(con, command);
-				strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
+				str::utils::token rdata = str::utils::getToken(ret.get<1>(), '|');
 				nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
 			} else {
 				for (int i = 0; i < request_message.payload_size(); i++) {
@@ -134,7 +134,7 @@ namespace nrpe_client {
 						data += "!" + request_message.payload(i).arguments(a);
 					}
 					boost::tuple<int, std::string> ret = send(con, data);
-					strEx::s::token rdata = strEx::s::getToken(ret.get<1>(), '|');
+					str::utils::token rdata = str::utils::getToken(ret.get<1>(), '|');
 					nscapi::protobuf::functions::append_simple_query_response_payload(response_message.add_payload(), command, ret.get<0>(), rdata.first, rdata.second);
 				}
 			}

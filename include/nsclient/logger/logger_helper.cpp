@@ -16,8 +16,8 @@
 
 #include <nsclient/logger/logger_helper.hpp>
 
-#include <format.hpp>
-#include <nscp_string.hpp>
+#include <str/format.hpp>
+#include <str/utils.hpp>
 #include <utf8.hpp>
 
 #include <boost/date_time.hpp>
@@ -70,14 +70,14 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
 	try {
 		Plugin::LogEntry message;
 		if (!message.ParseFromString(data)) {
-			log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
+			log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
 			return std::make_pair(true, "ERROR");
 		}
 
 		for (int i = 0; i < message.entry_size(); i++) {
 			const ::Plugin::LogEntry::Entry &msg = message.entry(i);
 			std::string tmp = msg.message();
-			strEx::s::replace(tmp, "\n", "\n    -    ");
+			str::utils::replace(tmp, "\n", "\n    -    ");
 			if (oneline) {
 				ss << msg.file()
 					<< "("
@@ -90,8 +90,8 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
 			} else {
 				if (i > 0)
 					ss << " -- ";
-				ss << strEx::s::lpad(render_log_level_short(msg.level()), 1)
-					<< " " << strEx::s::rpad(msg.sender(), 10)
+				ss << str::format::lpad(render_log_level_short(msg.level()), 1)
+					<< " " << str::format::rpad(msg.sender(), 10)
 					<< " " + msg.message()
 					<< "\n";
 				if (msg.level() == ::Plugin::LogEntry_Entry_Level_LOG_ERROR) {
@@ -108,9 +108,9 @@ std::pair<bool, std::string> nsclient::logging::logger_helper::render_console_me
 		return std::make_pair(is_error, ss.str());
 #endif
 	} catch (std::exception &e) {
-		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
+		log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data) + ": " + e.what());
 	} catch (...) {
-		log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
+		log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data));
 	}
 	return std::make_pair(true, "ERROR");
 }

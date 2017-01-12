@@ -15,29 +15,18 @@
  */
 
 #include "module.hpp"
-
-#include <error/nscp_exception.hpp>
-
+#include "filter.hpp"
+#include "counter_filter.hpp"
+#include "check_memory.hpp"
+#include "check_process.hpp"
 #include "CheckSystem.h"
 
-#include <map>
-#include <set>
-
-#include <boost/regex.hpp>
-#include <boost/assign/list_of.hpp>
-#include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
-
-#include <utils.h>
 #include <EnumNtSrv.h>
 #include <EnumProcess.h>
 #include <sysinfo.h>
 #include <simple_registry.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
-
 #include <pdh/pdh_enumerations.hpp>
-
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
@@ -46,15 +35,18 @@
 
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
-
-#include "check_memory.hpp"
-#include "check_process.hpp"
-
+#include <error/nscp_exception.hpp>
 #include <json_spirit.h>
 
+#include <boost/regex.hpp>
+#include <boost/assign/list_of.hpp>
+#include <boost/program_options.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/make_shared.hpp>
 
-#include "filter.hpp"
-#include "counter_filter.hpp"
+#include <map>
+#include <set>
+
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -73,7 +65,7 @@ std::pair<bool, std::string> validate_counter(std::string counter) {
 		std::size_t pos = counter.find("($INSTANCE$)");
 		if (pos != std::string::npos) {
 			std::string c = counter;
-			strEx::s::replace(c, "$INSTANCE$", "*");
+			str::utils::replace(c, "$INSTANCE$", "*");
 			std::string err;
 			bool status = true;
 			BOOST_FOREACH(std::string s, PDH::Enumerations::expand_wild_card_path(c, err)) {
@@ -572,7 +564,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 		return;
 
 	BOOST_FOREACH(const std::string &time, times) {
-		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(format::decode_time<long>(time, 1));
+		std::map<std::string, windows::system_info::load_entry> vals = collector->get_cpu_load(str::format::decode_time<long>(time, 1));
 		typedef std::map<std::string, windows::system_info::load_entry>::value_type vt;
 		BOOST_FOREACH(vt v, vals) {
 			boost::shared_ptr<check_cpu_filter::filter_obj> record(new check_cpu_filter::filter_obj(time, v.first, v.second));
@@ -728,7 +720,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 			sn = sn.substr(0, pos);
 		}
 		request.add_arguments("service=" + sn);
-		strEx::append_list(tmp, "( name like '" + sn + "' and state != '" + ss + "' )", " or ");
+		str::format::append_list(tmp, "( name like '" + sn + "' and state != '" + ss + "' )", " or ");
 	}
 	if (!tmp.empty()) {
 		if (crit.empty())
@@ -739,7 +731,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 
 	BOOST_FOREACH(const std::string &s, excludes) {
 		if (!s.empty())
-			strEx::append_list(filter, "name != '" + s + "'", " AND ");
+			str::format::append_list(filter, "name != '" + s + "'", " AND ");
 	}
 	if (!crit.empty())
 		request.add_arguments("crit=" + crit);
@@ -929,10 +921,10 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 			std::string::size_type pos = s.find('=');
 			if (pos != std::string::npos) {
 				request.add_arguments("process=" + s.substr(0, pos));
-				strEx::append_list(filter, "( exe like '" + s.substr(0, pos) + "' and state = '" + s.substr(pos + 1) + "' )", " or ");
+				str::format::append_list(filter, "( exe like '" + s.substr(0, pos) + "' and state = '" + s.substr(pos + 1) + "' )", " or ");
 			} else {
 				request.add_arguments("process=" + s);
-				strEx::append_list(filter, "(exe like '" + s + "' and state = 'started')", " or ");
+				str::format::append_list(filter, "(exe like '" + s + "' and state = 'started')", " or ");
 			}
 		}
 	} else {
@@ -944,10 +936,10 @@ void CheckSystem::checkProcState(Plugin::QueryRequestMessage::Request &request, 
 				std::string::size_type pos = pn.find('=');
 				if (pos != std::string::npos) {
 					request.add_arguments("process=" + pn.substr(0, pos));
-					strEx::append_list(tmp, "(exe like '" + pn.substr(0, pos) + "' and state != '" + pn.substr(pos + 1) + "')", " or ");
+					str::format::append_list(tmp, "(exe like '" + pn.substr(0, pos) + "' and state != '" + pn.substr(pos + 1) + "')", " or ");
 				} else {
 					request.add_arguments("process=" + pn);
-					strEx::append_list(tmp, "(exe like '" + pn + "' and state != 'started')", " or ");
+					str::format::append_list(tmp, "(exe like '" + pn + "' and state != 'started')", " or ");
 				}
 			}
 		}
@@ -1103,8 +1095,8 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 
 		add_metric(section, "ticks.raw", value);
 		add_metric(section, "boot.raw", value);
-		add_metric(section, "uptime", format::itos_as_time(value * 1000));
-		add_metric(section, "boot", format::format_date(boot));
+		add_metric(section, "uptime", str::format::itos_as_time(value * 1000));
+		add_metric(section, "boot", str::format::format_date(boot));
 	} catch (...) {
 		NSC_LOG_ERROR("Failed to getch memory metrics: ");
 	}

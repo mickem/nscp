@@ -15,6 +15,7 @@
  */
 
 #include <str/utils.hpp>
+#include <str/format.hpp>
 #include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>
@@ -83,7 +84,7 @@ namespace PDH {
 		if (buffer_size_.empty())
 			return;
 		try {
-			buffer_size = strEx::stoui_as_time(buffer_size_) / 1000;
+			buffer_size = str::format::stox_as_time<long>(buffer_size_, 1000) / 1000;
 		} catch (...) {
 			buffer_size = 0;
 		}
@@ -125,7 +126,7 @@ namespace PDH {
 	}
 
 	void pdh_object::set_flags(const std::string &value) {
-		BOOST_FOREACH(const std::string f, strEx::s::splitEx(value, std::string(","))) {
+		BOOST_FOREACH(const std::string f, str::utils::split_lst(value, std::string(","))) {
 			if (f == "nocap100")
 				flags_ |= PDH_FMT_NOCAP100;
 			else if (f == "1000")
@@ -137,7 +138,7 @@ namespace PDH {
 		}
 	}
 	void pdh_object::add_flags(const std::string &value) {
-		BOOST_FOREACH(const std::string f, strEx::s::splitEx(value, std::string(","))) {
+		BOOST_FOREACH(const std::string f, str::utils::split_lst(value, std::string(","))) {
 			if (f == "nocap100")
 				flags_ |= PDH_FMT_NOCAP100;
 			else if (f == "1000")
@@ -176,7 +177,7 @@ namespace PDH {
 		if (object.has_instances()) {
 			std::string path = object.path;
 
-			strEx::s::replace(path, "$INSTANCE$", "*");
+			str::utils::replace(path, "$INSTANCE$", "*");
 			std::string alias = object.alias;
 			std::string err;
 			std::list<pdh_object> sub_counters;

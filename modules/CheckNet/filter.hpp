@@ -16,24 +16,24 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
-#include <parsers/where.hpp>
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/filesystem.hpp>
-
-#include <error/error.hpp>
-#include <format.hpp>
+#include <net/pinger.hpp>
 
 #include <parsers/where/node.hpp>
 #include <parsers/where/engine.hpp>
 #include <parsers/filter/modern_filter.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/helpers.hpp>
+#include <parsers/where.hpp>
 
-#include <net/pinger.hpp>
+#include <error/error.hpp>
+#include <str/format.hpp>
+
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/filesystem.hpp>
+
+#include <map>
+#include <string>
 
 namespace ping_filter {
 	struct filter_obj {

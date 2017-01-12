@@ -25,7 +25,7 @@
 
 #include <error/error.hpp>
 
-#include <format.hpp>
+#include <str/format.hpp>
 #include <str/utils.hpp>
 
 #ifdef WIN32
@@ -104,13 +104,13 @@ namespace file_filter {
 		std::string get_path(parsers::where::evaluation_context) { return path.string(); }
 
 		long long get_creation() {
-			return strEx::filetime_to_time(ullCreationTime);
+			return str::format::filetime_to_time(ullCreationTime);
 		}
 		long long get_access() {
-			return strEx::filetime_to_time(ullLastAccessTime);
+			return str::format::filetime_to_time(ullLastAccessTime);
 		}
 		long long get_write() {
-			return strEx::filetime_to_time(ullLastWriteTime);
+			return str::format::filetime_to_time(ullLastWriteTime);
 		}
 		long long get_age() {
 			long long now = parsers::where::constants::get_now();
@@ -134,22 +134,22 @@ namespace file_filter {
 		}
 
 		std::string get_creation_su() {
-			return format::format_filetime(ullCreationTime);
+			return str::format::format_filetime(ullCreationTime);
 		}
 		std::string get_access_su() {
-			return format::format_filetime(ullLastAccessTime);
+			return str::format::format_filetime(ullLastAccessTime);
 		}
 		std::string get_written_su() {
-			return format::format_filetime(ullLastWriteTime);
+			return str::format::format_filetime(ullLastWriteTime);
 		}
 		std::string get_creation_sl() {
-			return format::format_filetime(to_local_time(ullCreationTime));
+			return str::format::format_filetime(to_local_time(ullCreationTime));
 		}
 		std::string get_access_sl() {
-			return format::format_filetime(to_local_time(ullLastAccessTime));
+			return str::format::format_filetime(to_local_time(ullLastAccessTime));
 		}
 		std::string get_written_sl() {
-			return format::format_filetime(to_local_time(ullLastWriteTime));
+			return str::format::format_filetime(to_local_time(ullLastWriteTime));
 		}
 		unsigned long long get_type();
 		std::string get_type_su();

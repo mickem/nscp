@@ -17,7 +17,6 @@
 #include "NRPEServer.h"
 #include <str/utils.hpp>
 #include <time.h>
-#include <common.hpp>
 
 #include <socket/socket_settings_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -26,6 +25,8 @@
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/macros.hpp>
+
+#include <config.h>
 
 namespace sh = nscapi::settings_helper;
 
@@ -149,7 +150,7 @@ bool NRPEServer::unloadModule() {
 
 std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	std::list<nrpe::packet> packets;
-	strEx::s::token cmd = strEx::s::getToken(p.getPayload(), '!');
+	str::utils::token cmd = str::utils::getToken(p.getPayload(), '!');
 	if (cmd.first == "_NRPE_CHECK") {
 		packets.push_back(nrpe::packet::create_response(NSCAPI::query_return_codes::returnOK, "I (" + utf8::cvt<std::string>(nscapi::plugin_singleton->get_core()->getApplicationVersionString()) + ") seem to be doing fine...", p.get_payload_length()));
 		return packets;

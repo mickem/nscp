@@ -97,17 +97,6 @@ namespace strEx {
 			return args;
 		}
 
-		inline void replace(std::string &string, const std::string replace, const std::string with) {
-			std::string::size_type pos = string.find(replace);
-			std::string::size_type len = replace.length();
-			while (pos != std::string::npos) {
-				string = string.substr(0, pos) + with + string.substr(pos + len);
-				if (with.find(replace) != std::string::npos) // If the replace containes the key look after the replace!
-					pos = string.find(replace, pos + with.length());
-				else
-					pos = string.find(replace, pos + 1);
-			}
-		}
 
 		inline std::string rpad(std::string str, std::size_t len) {
 			if (str.length() > len)

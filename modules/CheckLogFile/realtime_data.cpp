@@ -73,7 +73,7 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 			while (file.good()) {
 				std::getline(file, line, '\n');
 				if (!line.empty()) {
-					std::list<std::string> chunks = strEx::s::splitEx(line, utf8::cvt<std::string>(column_split));
+					std::list<std::string> chunks = str::utils::split_lst(line, utf8::cvt<std::string>(column_split));
 					boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(c.file.string(), line, chunks));
 					ret.append(filter.match(record));
 				}
@@ -91,8 +91,8 @@ void runtime_data::set_split(std::string line, std::string column) {
 		column_split = "\t";
 	else
 		column_split = column;
-	strEx::s::replace(column_split, "\\t", "\t");
-	strEx::s::replace(column_split, "\\n", "\n");
+	str::utils::replace(column_split, "\\t", "\t");
+	str::utils::replace(column_split, "\\n", "\n");
 	std::size_t len = column_split.size();
 	if (len == 0)
 		column_split = " ";
@@ -104,8 +104,8 @@ void runtime_data::set_split(std::string line, std::string column) {
 		line = "\n";
 	else
 		line_split = line;
-	strEx::s::replace(line_split, "\\t", "\t");
-	strEx::s::replace(line_split, "\\n", "\n");
+	str::utils::replace(line_split, "\\t", "\t");
+	str::utils::replace(line_split, "\\n", "\n");
 	len = line_split.size();
 	if (len == 0)
 		line_split = " ";

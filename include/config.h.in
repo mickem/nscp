@@ -39,6 +39,10 @@
 #define SERVICE_NAME APPLICATION_NAME " " CURRENT_SERVICE_VERSION " " SZARCH
 #define CURRENT_SERVICE_VERSION STRPRODUCTVER " " STRPRODUCTDATE
 
+#define CRASH_ARCHIVE_FOLDER_KEY	"crash-folder"
+#define CACHE_FOLDER_KEY		"cache-folder"
+#define CACHE_FOLDER			"${cache-folder}"
+
 #define CRASH_SUBMIT_URL		"@CONFIG_CRASH_SUBMIT_URL@"
 #define CRASH_ARCHIVE_FOLDER		"@CONFIG_CRASH_ARCHIVE_FOLDER@"
 
@@ -56,3 +60,4 @@
 #define CERT_FOLDER			"@CONFIG_CERT_FOLDER@"
 #define LOG_FOLDER			"@CONFIG_LOG_FOLDER@"
 
+#define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */

@@ -14,10 +14,18 @@
  * limitations under the License.
  */
 
+#include <win_sysinfo/win_defines.hpp>
+#include <win_sysinfo/win_sysinfo.hpp>
 
+#include "EnumProcess.h"
+
+#include <buffer.hpp>
+#include <handle.hpp>
 #include <error/nscp_exception.hpp>
 #include <utf8.hpp>
 #include <str/xtos.hpp>
+#include <error/error.hpp>
+#include <str/format.hpp>
 
 #include <map>
 #include <string>
@@ -26,16 +34,6 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <tchar.h>
-
-#include <buffer.hpp>
-#include <handle.hpp>
-#include <error/error.hpp>
-#include <format.hpp>
-
-#include <win_sysinfo/win_defines.hpp>
-#include <win_sysinfo/win_sysinfo.hpp>
-
-#include "EnumProcess.h"
 
 #include <Psapi.h>
 
@@ -209,7 +207,7 @@ namespace process_helper {
 				entry.user_time_raw = (userTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)userTime.dwLowDateTime;
 				entry.kernel_time = entry.kernel_time_raw / 10000000;
 				entry.user_time = entry.user_time_raw / 10000000;
-				entry.creation_time = format::filetime_to_time((creationTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)creationTime.dwLowDateTime);
+				entry.creation_time = str::format::filetime_to_time((creationTime.dwHighDateTime * ((unsigned long long)MAXDWORD + 1)) + (unsigned long long)creationTime.dwLowDateTime);
 			}
 
 			SIZE_T minimumWorkingSetSize;

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <str/utils.hpp>
+#include <str/format.hpp>
 
 #include <parsers/where/engine.hpp>
 #include <boost/foreach.hpp>
@@ -131,7 +132,7 @@ namespace parsers {
 		std::string engine::to_string() const {
 			std::string ret = "";
 			BOOST_FOREACH(const engine_filter &f, filters_) {
-				strEx::append_list(ret, f.to_string(), ", ");
+				str::format::append_list(ret, f.to_string(), ", ");
 			}
 			return ret;
 		}

@@ -18,20 +18,6 @@
 
 #include <error/nscp_exception.hpp>
 
-#ifdef WIN32
-#include <Windows.h>
-#endif
-
-#include <boost/bind.hpp>
-#include <boost/tuple/tuple.hpp>
-#include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
-
-#include <char_buffer.hpp>
-#include <error/error.hpp>
-#include <format.hpp>
-
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
@@ -40,6 +26,22 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 #include <parsers/where/helpers.hpp>
+
+#include <char_buffer.hpp>
+#include <error/error.hpp>
+#include <str/format.hpp>
+
+#include <boost/bind.hpp>
+#include <boost/tuple/tuple.hpp>
+#include <boost/program_options.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
+
+#ifdef WIN32
+#include <Windows.h>
+#include <winioctl.h>
+#endif
+
 
 namespace npo = nscapi::program_options;
 namespace po = boost::program_options;
@@ -136,17 +138,17 @@ struct filter_obj {
 	std::string get_flags(parsers::where::evaluation_context) const { 
 		std::string ret;
 		if ((drive.flags & drive_container::df_mounted) == drive_container::df_mounted)
-			strEx::append_list(ret, "mounted");
+			str::format::append_list(ret, "mounted");
 		if ((drive.flags & drive_container::df_hotplug) == drive_container::df_hotplug)
-			strEx::append_list(ret, "hotplug");
+			str::format::append_list(ret, "hotplug");
 		if ((drive.flags & drive_container::df_removable) == drive_container::df_removable)
-			strEx::append_list(ret, "removable");
+			str::format::append_list(ret, "removable");
 		if ((drive.flags & drive_container::df_readable) == drive_container::df_readable)
-			strEx::append_list(ret, "readable");
+			str::format::append_list(ret, "readable");
 		if ((drive.flags & drive_container::df_writable) == drive_container::df_writable)
-			strEx::append_list(ret, "writable");
+			str::format::append_list(ret, "writable");
 		if ((drive.flags & drive_container::df_erasable) == drive_container::df_erasable)
-			strEx::append_list(ret, "erasable");
+			str::format::append_list(ret, "erasable");
 		return ret;
 	}
 
@@ -165,19 +167,19 @@ struct filter_obj {
 	}
 
 	std::string get_user_free_human(parsers::where::evaluation_context context) {
-		return format::format_byte_units(get_user_free(context));
+		return str::format::format_byte_units(get_user_free(context));
 	}
 	std::string get_total_free_human(parsers::where::evaluation_context context) {
-		return format::format_byte_units(get_total_free(context));
+		return str::format::format_byte_units(get_total_free(context));
 	}
 	std::string get_drive_size_human(parsers::where::evaluation_context context) {
-		return format::format_byte_units(get_drive_size(context));
+		return str::format::format_byte_units(get_drive_size(context));
 	}
 	std::string get_total_used_human(parsers::where::evaluation_context context) {
-		return format::format_byte_units(get_total_used(context));
+		return str::format::format_byte_units(get_total_used(context));
 	}
 	std::string get_user_used_human(parsers::where::evaluation_context context) {
-		return format::format_byte_units(get_user_used(context));
+		return str::format::format_byte_units(get_user_used(context));
 	}
 
 	std::string get_type_as_string(parsers::where::evaluation_context context) {
@@ -273,7 +275,7 @@ parsers::where::node_type calculate_total_used(boost::shared_ptr<filter_obj> obj
 	if (unit == "%") {
 		number = (static_cast<double>(object->get_drive_size(context))*number) / 100.0;
 	} else {
-		number = format::decode_byte_units(number, unit);
+		number = str::format::decode_byte_units(number, unit);
 	}
 	return parsers::where::factory::create_int(number);
 }
@@ -286,7 +288,7 @@ parsers::where::node_type calculate_user_used(boost::shared_ptr<filter_obj> obje
 	if (unit == "%") {
 		number = (static_cast<double>(object->get_user_free(context))*number) / 100.0;
 	} else {
-		number = format::decode_byte_units(number, unit);
+		number = str::format::decode_byte_units(number, unit);
 	}
 	return parsers::where::factory::create_int(number);
 }

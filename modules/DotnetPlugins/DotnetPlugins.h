@@ -16,6 +16,11 @@
 
 #pragma once
 
+#include <NSCAPI.h>
+#include <nscapi/nscapi_plugin_wrapper.hpp>
+
+#include <map>
+
 extern "C" int NSModuleHelperInit(unsigned int id, nscapi::core_api::lpNSAPILoader f);
 extern "C" int NSLoadModule();
 extern "C" int NSLoadModuleEx(unsigned int plugin_id, char* alias, int mode);

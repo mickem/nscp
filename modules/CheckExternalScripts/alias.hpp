@@ -105,10 +105,10 @@ namespace alias {
 			if (str.empty())
 				return;
 			try {
-				strEx::parse_command(str, command, arguments);
+				str::utils::parse_command(str, command, arguments);
 			} catch (const std::exception &e) {
 				NSC_LOG_MESSAGE("Failed to parse arguments for command using old split string method: " + utf8::utf8_from_native(e.what()) + ": " + str);
-				std::list<std::string> list = strEx::s::splitEx(str, std::string(" "));
+				std::list<std::string> list = str::utils::split_lst(str, std::string(" "));
 				if (list.size() > 0) {
 					command = list.front();
 					list.pop_front();

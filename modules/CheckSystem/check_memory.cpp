@@ -16,6 +16,8 @@
 
 #include "check_memory.hpp"
 
+#include <CheckMemory.h>
+
 #include <parsers/where.hpp>
 #include <parsers/where/node.hpp>
 #include <parsers/where/engine.hpp>
@@ -27,11 +29,9 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#include <str/format.hpp>
+
 #include <string>
-
-#include <format.hpp>
-
-#include <CheckMemory.h>
 
 CheckMemory memchecker;
 
@@ -64,13 +64,13 @@ namespace check_mem_filter {
 		}
 
 		std::string get_total_human() const {
-			return format::format_byte_units(get_total());
+			return str::format::format_byte_units(get_total());
 		}
 		std::string get_used_human() const {
-			return format::format_byte_units(get_used());
+			return str::format::format_byte_units(get_used());
 		}
 		std::string get_free_human() const {
-			return format::format_byte_units(get_free());
+			return str::format::format_byte_units(get_free());
 		}
 
 	};
@@ -83,7 +83,7 @@ namespace check_mem_filter {
 		if (unit == "%") {
 			number = (static_cast<double>(object->get_total())*number) / 100.0;
 		} else {
-			number = format::decode_byte_units(number, unit);
+			number = str::format::decode_byte_units(number, unit);
 		}
 		return parsers::where::factory::create_int(number);
 	}

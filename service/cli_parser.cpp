@@ -18,12 +18,14 @@
 #include "NSClient++.h"
 #include "settings_client.hpp"
 #include "service_manager.hpp"
+#include "../libs/settings_manager/settings_manager_impl.h"
+
 #include <config.h>
 #include <nsclient/logger/logger.hpp>
 #include <pid_file.hpp>
 
 #include <settings/settings_core.hpp>
-#include "../libs/settings_manager/settings_manager_impl.h"
+#include <str/format.hpp>
 
 #define LOG_MODULE "client"
 namespace po = boost::program_options;
@@ -430,7 +432,7 @@ struct client_arguments {
 				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Warning module and boot specified only THAT module will be loaded");
 			std::string args;
 			BOOST_FOREACH(std::string s, arguments)
-				strEx::append_list(args, s, ", ");
+				str::format::append_list(args, s, ", ");
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Arguments: " + args);
 		}
 	}
@@ -473,7 +475,7 @@ struct client_arguments {
 					resp.push_back("Command not found: " + command);
 					std::string commands;
 					BOOST_FOREACH(const std::string &c, core_->list_commands()) {
-						strEx::append_list(commands, c);
+						str::format::append_list(commands, c);
 					}
 					resp.push_back("Available commands: " + commands);
 				}

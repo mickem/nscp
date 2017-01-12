@@ -96,7 +96,7 @@ namespace network_check {
 		}
 		std::string keys;
 		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
-			strEx::append_list(keys, v.first);
+			str::format::append_list(keys, v.first);
 
 		}
 	}

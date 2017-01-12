@@ -16,12 +16,14 @@
 
 #pragma once
 
-#include <boost/asio.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include <socket/socket_helpers.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <format.hpp>
+#include <str/format.hpp>
+
+#include <boost/asio.hpp>
 
 namespace syslog_client {
 	struct connection_data : public socket_helpers::connection_info {
@@ -131,12 +133,12 @@ namespace syslog_client {
 
 			BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response &p, request_message.payload()) {
 				boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
-				std::string date = format::format_date(now, "%b %e %H:%M:%S");
+				std::string date = str::format::format_date(now, "%b %e %H:%M:%S");
 				std::string tag = con.tag_syntax;
 				std::string message = con.message_syntax;
 				std::string nagios_msg = nscapi::protobuf::functions::query_data_to_nagios_string(p);
-				strEx::s::replace(message, "%message%", nagios_msg);
-				strEx::s::replace(tag, "%message%", nagios_msg);
+				str::utils::replace(message, "%message%", nagios_msg);
+				str::utils::replace(tag, "%message%", nagios_msg);
 
 				std::string severity = con.severity;
 				if (p.result() == ::Plugin::Common_ResultCode_OK)

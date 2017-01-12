@@ -20,6 +20,8 @@
 #include <nsca/client/nsca_client_protocol.hpp>
 #include <socket/client.hpp>
 
+#include <str/format.hpp>
+
 namespace nsca_client {
 	struct connection_data : public socket_helpers::connection_info {
 		std::string password;
@@ -48,7 +50,7 @@ namespace nsca_client {
 			encoding = arguments.get_string_data("encoding");
 			std::string tmp = arguments.get_string_data("time offset");
 			if (!tmp.empty())
-				time_delta = strEx::stol_as_time_sec(arguments.get_string_data("time offset"));
+				time_delta = str::format::stox_as_time<int>(arguments.get_string_data("time offset"), 1);
 			else
 				time_delta = 0;
 			sender_hostname = sender.address.host;

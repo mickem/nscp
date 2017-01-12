@@ -140,7 +140,7 @@ po::options_description add_exec_options(client::destination_container &source, 
 std::string client::configuration::add_command(std::string name, std::string args) {
 	command_container data;
 	bool first = true;
-	BOOST_FOREACH(const std::string &s, strEx::s::parse_command(args)) {
+	BOOST_FOREACH(const std::string &s, str::utils::parse_command(args)) {
 		if (first) {
 			data.command = s;
 			first = false;
@@ -183,7 +183,7 @@ void client::configuration::do_query(const Plugin::QueryRequestMessage &request,
 	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -334,7 +334,7 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -497,7 +497,7 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 	else if (request.header().has_destination_id() && !request.header().destination_id().empty())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 
@@ -552,7 +552,7 @@ void client::configuration::do_metrics(const Plugin::MetricsMessage &request) {
 	else if (request.header().has_destination_id())
 		target = request.header().destination_id();
 
-	BOOST_FOREACH(const std::string t, strEx::s::splitEx(target, std::string(","))) {
+	BOOST_FOREACH(const std::string t, str::utils::split_lst(target, std::string(","))) {
 		destination_container d = get_target(t);
 		destination_container s = get_sender();
 

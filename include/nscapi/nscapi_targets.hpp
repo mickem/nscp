@@ -16,23 +16,20 @@
 
 #pragma once
 
-#include <map>
-#include <string>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
+
+#include <nscapi/dll_defines.hpp>
+
+#include <net/net.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_protobuf_types.hpp>
-
-#include <nscp_string.hpp>
-
-#include <nscapi/dll_defines.hpp>
-
-#include <net/net.hpp>
+#include <map>
+#include <string>
 
 namespace sh = nscapi::settings_helper;
 

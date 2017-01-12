@@ -23,6 +23,7 @@
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
+#include <str/format.hpp>
 #include <error/nscp_exception.hpp>
 
 #include <boost/bind.hpp>
@@ -94,7 +95,7 @@ private:
 		std::string keys = "";
 		BOOST_FOREACH(const eventlog::eventlog_table::value_type &cit, table) {
 			if ((mask&cit.first) == cit.first)
-				strEx::append_list(keys, cit.second, ",");
+				str::format::append_list(keys, cit.second, ",");
 		}
 		return keys;
 	}
@@ -127,7 +128,7 @@ namespace eventlog_filter {
 	long long new_filter_obj::get_written() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTimeCreated].Type)
 			return 0;
-		return static_cast<long long>(strEx::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
+		return static_cast<long long>(str::format::filetime_to_time(buffer.get()[eventlog::api::EvtSystemTimeCreated].FileTimeVal));
 	}
 	std::string new_type_to_string(long long ival) {
 		if (ival == 1)

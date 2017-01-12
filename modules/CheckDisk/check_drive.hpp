@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#include <list>
-#include <vector>
-#include <string>
-
 #include <nscapi/nscapi_protobuf.hpp>
 
 struct check_drive {

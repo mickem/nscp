@@ -16,12 +16,14 @@
 
 #pragma once
 
-#include "Vcclr.h"
+#include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <clr/clr_scoped_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 #include <string>
-#include <boost/enable_shared_from_this.hpp>
+
+#include "Vcclr.h"
+#include <clr/clr_scoped_ptr.hpp>
 
 typedef cli::array<System::Byte> protobuf_data;
 

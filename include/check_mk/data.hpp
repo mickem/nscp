@@ -23,6 +23,7 @@
 
 #include <boost/asio/buffer.hpp>
 
+#include <sstream>
 #include <string>
 
 namespace check_mk {

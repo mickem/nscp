@@ -17,6 +17,7 @@
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <str/utils.hpp>
+#include <str/xtos.hpp>
 
 #include <iostream>
 
@@ -29,12 +30,12 @@ namespace nscapi {
 			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
 			if (pend != std::string::npos)
 				s = s.substr(0, pend);
-			strEx::s::replace(s, ",", ".");
+			str::utils::replace(s, ",", ".");
 			if (s.empty()) {
 				return 0.0;
 			}
 			try {
-				return strEx::stod(s);
+				return str::stox<double>(s);
 			} catch (...) {
 				return 0.0;
 			}
@@ -644,17 +645,17 @@ namespace nscapi {
 						perf = perf.substr(p);
 				}
 				std::vector<std::string> items;
-				strEx::split(items, chunk, perf_item_splitter);
+				str::utils::split(items, chunk, perf_item_splitter);
 				if (items.size() < 1) {
 					Plugin::Common::PerformanceData* perfData = payload->add_perf();
-					std::pair<std::string, std::string> fitem = strEx::split("", perf_equal_sign);
+					std::pair<std::string, std::string> fitem = str::utils::split2("", perf_equal_sign);
 					perfData->set_alias("invalid");
 					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
 					stringPerfData->set_value("invalid performance data");
 					break;
 				}
 
-				std::pair<std::string, std::string> fitem = strEx::split(items[0], perf_equal_sign);
+				std::pair<std::string, std::string> fitem = str::utils::split2(items[0], perf_equal_sign);
 				std::string alias = fitem.first;
 				if (alias.size() > 0 && alias[0] == perf_lable_enclosure[0] && alias[alias.size() - 1] == perf_lable_enclosure[0])
 					alias = alias.substr(1, alias.size() - 2);

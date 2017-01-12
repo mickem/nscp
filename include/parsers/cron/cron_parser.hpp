@@ -21,6 +21,7 @@
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 
 
@@ -162,7 +163,8 @@ namespace cron_parser {
 	inline schedule parse(std::string s) {
 		// min hour dom mon dow
 		// min: 0-59, hour: 0-23, dom: 1-31, mon: 1-12, dow: 0-6
-		std::vector<std::string> v = strEx::s::split<std::vector<std::string> >(s, " ");
+		typedef std::vector<std::string> vec;
+		vec v = str::utils::split<vec>(s, " ");
 		schedule ret;
 		if (v.size() != 5)
 			throw error::nscp_exception("invalid cron syntax: " + s);

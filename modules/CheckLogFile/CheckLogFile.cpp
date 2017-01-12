@@ -112,10 +112,10 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 	if (file_list.empty())
 		return nscapi::protobuf::functions::set_response_bad(*response, "Need to specify at least one file: file=foo.txt");
 
-	strEx::s::replace(column_split, "\\t", "\t");
-	strEx::s::replace(column_split, "\\n", "\n");
-	strEx::s::replace(line_split, "\\t", "\t");
-	strEx::s::replace(line_split, "\\n", "\n");
+	str::utils::replace(column_split, "\\t", "\t");
+	str::utils::replace(column_split, "\\n", "\n");
+	str::utils::replace(line_split, "\\t", "\t");
+	str::utils::replace(line_split, "\\n", "\n");
 
 	if (!filter_helper.build_filter(filter))
 		return;
@@ -126,7 +126,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 			std::string line;
 			while (file.good()) {
 				std::getline(file, line, '\n');
-				std::list<std::string> chunks = strEx::s::splitEx(line, column_split);
+				std::list<std::string> chunks = str::utils::split_lst(line, column_split);
 				boost::shared_ptr<logfile_filter::filter_obj> record(new logfile_filter::filter_obj(filename, line, chunks));
 				filter.match(record);
 			}

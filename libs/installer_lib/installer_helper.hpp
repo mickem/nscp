@@ -2,7 +2,7 @@
 
 #include <error/error.hpp>
 #include <char_buffer.hpp>
-#include <wstring.hpp>
+#include <str/wstring.hpp>
 #include <utf8.hpp>
 
 #include <msi.h>

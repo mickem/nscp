@@ -29,6 +29,7 @@
 
 #include <utf8.hpp>
 #include <str/utils.hpp>
+#include <str/format.hpp>
 
 typedef boost::unordered_map<std::string, std::string> hash_map;
 hash_map smap;
@@ -272,7 +273,7 @@ typedef hlp::handle<SC_HANDLE, service_closer> service_handle;
 namespace services_helper {
 	DWORD parse_service_type(const std::string str) {
 		DWORD ret = 0;
-		BOOST_FOREACH(const std::string key, strEx::s::splitEx(str, std::string(","))) {
+		BOOST_FOREACH(const std::string key, str::utils::split_lst(str, std::string(","))) {
 			if (key == "driver" || key == "drv")
 				ret |= SERVICE_DRIVER;
 			else if (key == "file-system-driver" || key == "fs-drv")
@@ -292,7 +293,7 @@ namespace services_helper {
 	}
 	DWORD parse_service_state(const std::string str) {
 		DWORD ret = 0;
-		BOOST_FOREACH(const std::string key, strEx::s::splitEx(str, std::string(","))) {
+		BOOST_FOREACH(const std::string key, str::utils::split_lst(str, std::string(","))) {
 			if (key == "active")
 				ret |= SERVICE_ACTIVE;
 			else if (key == "inactive")
@@ -532,17 +533,17 @@ namespace services_helper {
 	std::string service_info::get_type() const {
 		std::string str = "";
 		if (type&SERVICE_FILE_SYSTEM_DRIVER)
-			strEx::append_list(str, "system-driver");
+			str::format::append_list(str, "system-driver");
 		if (type&SERVICE_KERNEL_DRIVER)
-			strEx::append_list(str, "kernel-driver");
+			str::format::append_list(str, "kernel-driver");
 		if (type&SERVICE_WIN32_OWN_PROCESS)
-			strEx::append_list(str, "service-own-process");
+			str::format::append_list(str, "service-own-process");
 		if (type&SERVICE_WIN32_SHARE_PROCESS)
-			strEx::append_list(str, "service-shared-process");
+			str::format::append_list(str, "service-shared-process");
 		if (type&SERVICE_WIN32)
-			strEx::append_list(str, "service");
+			str::format::append_list(str, "service");
 		if (type&SERVICE_INTERACTIVE_PROCESS)
-			strEx::append_list(str, "interactive");
+			str::format::append_list(str, "interactive");
 		return str;
 	}
 }

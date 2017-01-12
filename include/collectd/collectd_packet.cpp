@@ -22,6 +22,7 @@
 
 #include <boost/regex.hpp>
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
 
 
 std::list<collectd::collectd_builder::expanded_keys> collectd::collectd_builder::expand_keyword(const std::string &keyword, const std::string &value) {

@@ -15,11 +15,13 @@
  */
 
 #include "scheduler_handler.hpp"
-
-#include <nsclient/logger/logger.hpp>
+#include "NSClient++.h"
 #include "../libs/settings_manager/settings_manager_impl.h"
 
-#include "NSClient++.h"
+#include <nsclient/logger/logger.hpp>
+
+#include <str/format.hpp>
+
 
 extern NSClient *mainClient;
 
@@ -57,7 +59,7 @@ namespace task_scheduler {
 	boost::posix_time::seconds parse_interval(const std::string &str) {
 		if (str.empty())
 			return boost::posix_time::seconds(0);
-		return boost::posix_time::seconds(strEx::stoui_as_time_sec(str, 1));
+		return boost::posix_time::seconds(str::format::stox_as_time<long>(str, 1));
 	}
 
 	void scheduler::add_task(schedule_metadata::task_source source, std::string interval, const std::string info) {

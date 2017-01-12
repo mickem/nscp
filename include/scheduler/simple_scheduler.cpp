@@ -17,7 +17,6 @@
 #include <scheduler/simple_scheduler.hpp>
 
 #include <boost/bind.hpp>
-#include <nscp_string.hpp>
 #include <utf8.hpp>
 
 #include <nscapi/macros.hpp>

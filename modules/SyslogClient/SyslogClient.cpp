@@ -16,20 +16,18 @@
 
 #include "SyslogClient.h"
 
-#include <str/utils.hpp>
-#include <nscapi/macros.hpp>
-
-#include <boost/make_shared.hpp>
-#include <boost/asio.hpp>
+#include "syslog_client.hpp"
+#include "syslog_handler.hpp"
 
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
-#include "syslog_client.hpp"
-#include "syslog_handler.hpp"
+#include <str/utils.hpp>
+#include <nscapi/macros.hpp>
 
-#include <format.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/asio.hpp>
 
 /**
  * Default c-tor
@@ -93,7 +91,7 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			hostname_ = boost::asio::ip::host_name();
 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
 		} else {
-			strEx::s::token dn = strEx::s::getToken(boost::asio::ip::host_name(), '.');
+			str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
 
 			try {
 				boost::asio::io_service svc;
@@ -112,16 +110,16 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
 			}
 
-			strEx::s::replace(hostname_, "${host}", dn.first);
-			strEx::s::replace(hostname_, "${domain}", dn.second);
+			str::utils::replace(hostname_, "${host}", dn.first);
+			str::utils::replace(hostname_, "${domain}", dn.second);
 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-			strEx::s::replace(hostname_, "${host_uc}", dn.first);
-			strEx::s::replace(hostname_, "${domain_uc}", dn.second);
+			str::utils::replace(hostname_, "${host_uc}", dn.first);
+			str::utils::replace(hostname_, "${domain_uc}", dn.second);
 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-			strEx::s::replace(hostname_, "${host_lc}", dn.first);
-			strEx::s::replace(hostname_, "${domain_lc}", dn.second);
+			str::utils::replace(hostname_, "${host_lc}", dn.first);
+			str::utils::replace(hostname_, "${domain_lc}", dn.second);
 		}
 	} catch (nscapi::nscapi_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);

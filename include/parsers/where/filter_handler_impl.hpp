@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <map>
-#include <vector>
+#include <parsers/where/engine_impl.hpp>
+#include <parsers/where/variable.hpp>
+#include <parsers/where/helpers.hpp>
+
+#include <str/format.hpp>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
@@ -25,11 +28,8 @@
 #include <boost/unordered_map.hpp>
 #include <boost/optional.hpp>
 
-#include <format.hpp>
-
-#include <parsers/where/engine_impl.hpp>
-#include <parsers/where/variable.hpp>
-#include <parsers/where/helpers.hpp>
+#include <map>
+#include <vector>
 
 namespace parsers {
 	namespace where {
@@ -443,7 +443,7 @@ namespace parsers {
 				count_total++;
 			}
 			void matched(std::string &line) {
-				format::append_list(list_match, line);
+				str::format::append_list(list_match, line);
 				count_match++;
 			}
 			void matched_unique() {
@@ -453,17 +453,17 @@ namespace parsers {
 				return count_match > 0;
 			}
 			void matched_ok(std::string &line) {
-				format::append_list(list_ok, line);
+				str::format::append_list(list_ok, line);
 				count_ok++;
 			}
 			void matched_warn(std::string &line) {
-				format::append_list(list_warn, line);
-				format::append_list(list_problem, line);
+				str::format::append_list(list_warn, line);
+				str::format::append_list(list_problem, line);
 				count_warn++;
 			}
 			void matched_crit(std::string &line) {
-				format::append_list(list_crit, line);
-				format::append_list(list_problem, line);
+				str::format::append_list(list_crit, line);
+				str::format::append_list(list_problem, line);
 				count_crit++;
 			}
 			void matched_ok_unique() {
@@ -505,7 +505,7 @@ namespace parsers {
 				std::string ret;
 				append_list(ret, "critical", list_crit);
 				append_list(ret, "warning", list_warn);
-				format::append_list(ret, list_ok);
+				str::format::append_list(ret, list_ok);
 				return ret;
 			}
 			long long get_count_match() {

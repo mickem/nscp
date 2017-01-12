@@ -19,7 +19,7 @@
 #include "simple_registry.hpp"
 
 #include <error/nscp_exception.hpp>
-#include <wstring.hpp>
+#include <str/wstring.hpp>
 #include <str/utils.hpp>
 
 #include <boost/tuple/tuple.hpp>

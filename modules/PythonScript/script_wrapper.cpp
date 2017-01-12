@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-#include <str/utils.hpp>
 #include "script_wrapper.hpp"
 #include "PythonScript.h"
+
 #include <nscapi/functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
+#include <str/utils.hpp>
+#include <str/format.hpp>
+
 #include <boost/thread.hpp>
 
 namespace py = boost::python;
@@ -713,10 +717,10 @@ bool script_wrapper::function_wrapper::has_simple_cmdline(const std::string comm
 std::string script_wrapper::function_wrapper::get_commands() {
 	std::string str;
 	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->normal_functions) {
-		strEx::append_list(str, i.first, ", ");
+		str::format::append_list(str, i.first, ", ");
 	}
 	BOOST_FOREACH(const functions::function_map_type::value_type& i, functions::get()->simple_functions) {
-		strEx::append_list(str, i.first, ", ");
+		str::format::append_list(str, i.first, ", ");
 	}
 	return str;
 }

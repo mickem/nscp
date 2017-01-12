@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <Windows.h>
+
 namespace windows {
 	namespace winapi {
 

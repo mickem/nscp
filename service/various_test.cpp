@@ -14,54 +14,55 @@
  * limitations under the License.
  */
 
+#include <str/format.hpp>
+#include <str/utils.hpp>
+
 #include <vector>
 #include <string>
-#include <format.hpp>
-#include <str/utils.hpp>
 
 #include <gtest/gtest.h>
 
 TEST(format, format_byte_units_units) {
-	EXPECT_EQ(format::format_byte_units(0LL), "0B");
-	EXPECT_EQ(format::format_byte_units(1LL), "1B");
-	EXPECT_EQ(format::format_byte_units(1024LL), "1KB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024LL), "1MB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024LL), "1GB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024 * 1024LL), "1TB");
-	EXPECT_EQ(format::format_byte_units(-76100000000LL), "-70.874GB");
-	EXPECT_EQ(format::format_byte_units(9223372036854775807LL), "8192PB");
-	EXPECT_EQ(format::format_byte_units(-1LL), "-1B");
-	EXPECT_EQ(format::format_byte_units(-1024LL), "-1KB");
-	EXPECT_EQ(format::format_byte_units(-1024 * 1024LL), "-1MB");
-	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024LL), "-1GB");
-	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024 * 1024LL), "-1TB");
+	EXPECT_EQ(str::format::format_byte_units(0LL), "0B");
+	EXPECT_EQ(str::format::format_byte_units(1LL), "1B");
+	EXPECT_EQ(str::format::format_byte_units(1024LL), "1KB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024LL), "1MB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024LL), "1GB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024 * 1024LL), "1TB");
+	EXPECT_EQ(str::format::format_byte_units(-76100000000LL), "-70.874GB");
+	EXPECT_EQ(str::format::format_byte_units(9223372036854775807LL), "8192PB");
+	EXPECT_EQ(str::format::format_byte_units(-1LL), "-1B");
+	EXPECT_EQ(str::format::format_byte_units(-1024LL), "-1KB");
+	EXPECT_EQ(str::format::format_byte_units(-1024 * 1024LL), "-1MB");
+	EXPECT_EQ(str::format::format_byte_units(-1024 * 1024 * 1024LL), "-1GB");
+	EXPECT_EQ(str::format::format_byte_units(-1024 * 1024 * 1024 * 1024LL), "-1TB");
 
-	EXPECT_EQ(format::format_byte_units(0ULL), "0B");
-	EXPECT_EQ(format::format_byte_units(1ULL), "1B");
-	EXPECT_EQ(format::format_byte_units(1024ULL), "1KB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024ULL), "1MB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024ULL), "1GB");
-	EXPECT_EQ(format::format_byte_units(1024 * 1024 * 1024 * 1024ULL), "1TB");
-	EXPECT_EQ(format::format_byte_units(-76100000000ULL), "16384PB");
-	EXPECT_EQ(format::format_byte_units(9223372036854775807ULL), "8192PB");
+	EXPECT_EQ(str::format::format_byte_units(0ULL), "0B");
+	EXPECT_EQ(str::format::format_byte_units(1ULL), "1B");
+	EXPECT_EQ(str::format::format_byte_units(1024ULL), "1KB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024ULL), "1MB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024ULL), "1GB");
+	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024 * 1024ULL), "1TB");
+	EXPECT_EQ(str::format::format_byte_units(-76100000000ULL), "16384PB");
+	EXPECT_EQ(str::format::format_byte_units(9223372036854775807ULL), "8192PB");
 
-	EXPECT_EQ(format::format_byte_units(-1ULL), "16384PB");
-	EXPECT_EQ(format::format_byte_units(-1024ULL), "16384PB");
-	EXPECT_EQ(format::format_byte_units(-1024 * 1024 * 1024 * 1024ULL), "16383.999PB");
+	EXPECT_EQ(str::format::format_byte_units(-1ULL), "16384PB");
+	EXPECT_EQ(str::format::format_byte_units(-1024ULL), "16384PB");
+	EXPECT_EQ(str::format::format_byte_units(-1024 * 1024 * 1024 * 1024ULL), "16383.999PB");
 }
 
 TEST(format, format_byte_units_common) {
-	EXPECT_EQ(format::format_byte_units(512LL), "512B");
-	EXPECT_EQ(format::format_byte_units(999LL), "999B");
+	EXPECT_EQ(str::format::format_byte_units(512LL), "512B");
+	EXPECT_EQ(str::format::format_byte_units(999LL), "999B");
 }
 
 TEST(format, format_byte_units_rounding) {
-	EXPECT_EQ(format::format_byte_units(0LL), "0B");
-	EXPECT_EQ(format::format_byte_units(1000LL), "0.977KB");
-	EXPECT_EQ(format::format_byte_units(1023LL), "0.999KB");
-	EXPECT_EQ(format::format_byte_units(1024LL), "1KB");
-	EXPECT_EQ(format::format_byte_units(1126LL), "1.1KB");
-	EXPECT_EQ(format::format_byte_units(1136LL), "1.109KB");
+	EXPECT_EQ(str::format::format_byte_units(0LL), "0B");
+	EXPECT_EQ(str::format::format_byte_units(1000LL), "0.977KB");
+	EXPECT_EQ(str::format::format_byte_units(1023LL), "0.999KB");
+	EXPECT_EQ(str::format::format_byte_units(1024LL), "1KB");
+	EXPECT_EQ(str::format::format_byte_units(1126LL), "1.1KB");
+	EXPECT_EQ(str::format::format_byte_units(1136LL), "1.109KB");
 }
 TEST(format, strex_s__xtos_non_sci_int) {
 	EXPECT_EQ(str::xtos_non_sci(0LL), "0");
@@ -144,15 +145,15 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
 
 
 TEST(format, itos_as_time) {
-	EXPECT_EQ(format::itos_as_time(12345), "12s");
-	EXPECT_EQ(format::itos_as_time(1234512), "0:20");
-	EXPECT_EQ(format::itos_as_time(123451234), "1d 10:17");
-	EXPECT_EQ(format::itos_as_time(1234512345), "2w 0d 06:55");
-	EXPECT_EQ(format::itos_as_time(12345123456), "20w 2d 21:12");
+	EXPECT_EQ(str::format::itos_as_time(12345), "12s");
+	EXPECT_EQ(str::format::itos_as_time(1234512), "0:20");
+	EXPECT_EQ(str::format::itos_as_time(123451234), "1d 10:17");
+	EXPECT_EQ(str::format::itos_as_time(1234512345), "2w 0d 06:55");
+	EXPECT_EQ(str::format::itos_as_time(12345123456), "20w 2d 21:12");
 }
 
 
 TEST(format, format_date) {
 	boost::posix_time::ptime time(boost::gregorian::date(2002, 3, 4), boost::posix_time::time_duration(5, 6, 7));
-	EXPECT_EQ(format::format_date(time), "2002-03-04 05:06:07");
+	EXPECT_EQ(str::format::format_date(time), "2002-03-04 05:06:07");
 }

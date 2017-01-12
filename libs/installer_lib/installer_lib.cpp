@@ -7,7 +7,7 @@
 
 #include <file_helpers.hpp>
 
-#include <wstring.hpp>
+#include <str/wstring.hpp>
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
 
@@ -16,6 +16,8 @@
 
 #include <error/error.hpp>
 #include <config.h>
+
+#include <boost/algorithm/string.hpp>
 
 #include <windows.h>
 #include <Sddl.h>
@@ -146,9 +148,9 @@ struct installer_settings_provider : public settings_manager::provider_interface
 	}
 
 	virtual std::string expand_path(std::string file) {
-		strEx::s::replace(file, "${base-path}", basepath);
-		strEx::s::replace(file, "${exe-path}", basepath);
-		strEx::s::replace(file, "${shared-path}", basepath);
+		str::utils::replace(file, "${base-path}", basepath);
+		str::utils::replace(file, "${exe-path}", basepath);
+		str::utils::replace(file, "${shared-path}", basepath);
 		return file;
 	}
 	std::string get_data(std::string key) {

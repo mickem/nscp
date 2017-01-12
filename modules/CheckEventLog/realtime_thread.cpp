@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#include <boost/foreach.hpp>
-
-#include <format.hpp>
-
 #include "realtime_thread.hpp"
 #include "realtime_data.hpp"
 
@@ -29,6 +25,10 @@
 
 #include <parsers/filter/realtime_helper.hpp>
 
+#include <str/format.hpp>
+
+#include <boost/foreach.hpp>
+
 typedef parsers::where::realtime_filter_helper<runtime_data, eventlog_filter::filter_config_object> filter_helper;
 
 void real_time_thread::set_path(const std::string &p) {
@@ -39,7 +39,7 @@ void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
 
-	BOOST_FOREACH(const std::string &s, strEx::s::splitEx(logs_, std::string(","))) {
+	BOOST_FOREACH(const std::string &s, str::utils::split_lst(logs_, std::string(","))) {
 		logs.push_back(s);
 	}
 
@@ -55,7 +55,7 @@ void real_time_thread::thread_proc() {
 	}
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD("Scanning logs: " + utf8::cvt<std::string>(format::join(logs, ", ")));
+	NSC_DEBUG_MSG_STD("Scanning logs: " + utf8::cvt<std::string>(str::format::join(logs, ", ")));
 
 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
 	typedef std::vector<eventlog_type> eventlog_list;

@@ -114,7 +114,7 @@ namespace settings {
 				comment += desc.title + " - ";
 			if (!desc.description.empty())
 				comment += desc.description;
-			strEx::s::replace(comment, "\n", " ");
+			str::utils::replace(comment, "\n", " ");
 			return comment;
 		}
 
@@ -124,7 +124,7 @@ namespace settings {
 				comment += desc.title + " - ";
 			if (!desc.description.empty())
 				comment += desc.description;
-			strEx::s::replace(comment, "\n", " ");
+			str::utils::replace(comment, "\n", " ");
 			return comment;
 		}
 

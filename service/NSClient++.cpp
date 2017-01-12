@@ -15,35 +15,34 @@
  */
 
 #include "NSClient++.h"
+#include "core_api.h"
+#include "cli_parser.hpp"
+#include "../libs/settings_manager/settings_manager_impl.h"
 
-#include <str/xtos.hpp>
+#include "logger/nsclient_logger.hpp"
+#include "settings_query_handler.hpp"
+#include "registry_query_handler.hpp"
 
+
+#include <settings/config.hpp>
+#include <nscapi/functions.hpp>
+#include <parsers/expression/expression.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <version.hpp>
+
+#include <timer.hpp>
+#include <file_helpers.hpp>
+#include <str/format.hpp>
 #include <settings/settings_core.hpp>
 #include <config.h>
-#include <common.hpp>
+
+#include <boost/unordered_set.hpp>
+
+
 #ifdef WIN32
 #include <Userenv.h>
 #include <Lmcons.h>
 #include <shellapi.h>
-#endif
-
-#include <boost/unordered_set.hpp>
-#include <timer.hpp>
-#include <file_helpers.hpp>
-
-#include "core_api.h"
-#include "../libs/settings_manager/settings_manager_impl.h"
-#include <settings/config.hpp>
-#include <nscapi/functions.hpp>
-#include <parsers/expression/expression.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-#include "cli_parser.hpp"
-#include <version.hpp>
-
-#include <config.h>
-
-#ifdef WIN32
 #include <ServiceCmd.h>
 #include <com_helpers.hpp>
 com_helper::initialize_com com_helper_;
@@ -57,9 +56,6 @@ static ExceptionManager *g_exception_manager = NULL;
 #endif
 #endif
 
-#include "logger/nsclient_logger.hpp"
-#include "settings_query_handler.hpp"
-#include "registry_query_handler.hpp"
 
 NSClient *mainClient = NULL;	// Global core instance.
 
@@ -786,7 +782,7 @@ NSCAPI::nagiosReturn NSClientT::execute_query(const std::string &request, std::s
 				command_chunks[id].plugin = plugin;
 				command_chunks[id].request.CopyFrom(request_message);
 			} else {
-				strEx::append_list(missing_commands, command);
+				str::format::append_list(missing_commands, command);
 			}
 		} else {
 			for (int i = 0; i < request_message.payload_size(); i++) {
@@ -801,7 +797,7 @@ NSCAPI::nagiosReturn NSClientT::execute_query(const std::string &request, std::s
 					}
 					command_chunks[id].request.add_payload()->CopyFrom(*payload);
 				} else {
-					strEx::append_list(missing_commands, payload->command());
+					str::format::append_list(missing_commands, payload->command());
 				}
 			}
 		}
@@ -1057,7 +1053,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	std::string schannel = channel;
 
 	bool found = false;
-	BOOST_FOREACH(std::string cur_chan, strEx::s::splitEx(schannel, std::string(","))) {
+	BOOST_FOREACH(std::string cur_chan, str::utils::split_lst(schannel, std::string(","))) {
 		if (cur_chan == "noop") {
 			found = true;
 			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);

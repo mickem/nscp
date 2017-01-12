@@ -24,9 +24,10 @@
 #include <nscapi/nscapi_protobuf.hpp>
 
 #include <settings/config.hpp>
+#include <config.h>
 #include <str/utils.hpp>
+#include <str/format.hpp>
 #include <file_helpers.hpp>
-#include <common.hpp>
 
 #include <json_spirit.h>
 
@@ -525,7 +526,7 @@ void CheckExternalScripts::add_alias(std::string key, std::string arg) {
 }
 
 std::string CheckExternalScripts::generate_wrapped_command(std::string command) {
-	strEx::s::token tok = strEx::s::getToken(command, ' ');
+	str::utils::token tok = str::utils::getToken(command, ' ');
 	std::string::size_type pos = tok.first.find_last_of(".");
 	std::string type = "none";
 	if (pos != std::wstring::npos)
@@ -534,8 +535,8 @@ std::string CheckExternalScripts::generate_wrapped_command(std::string command) 
 	if (tpl.empty()) {
 		NSC_LOG_ERROR("Failed to find wrapping for type: " + type);
 	} else {
-		strEx::s::replace(tpl, "%SCRIPT%", tok.first);
-		strEx::s::replace(tpl, "%ARGS%", tok.second);
+		str::utils::replace(tpl, "%SCRIPT%", tok.first);
+		str::utils::replace(tpl, "%ARGS%", tok.second);
 		return tpl;
 	}
 	return "";
@@ -576,16 +577,16 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 				nscapi::protobuf::functions::set_response_bad(*response, "Request contained illegal characters set /settings/external scripts/allow nasty characters=true!");
 				return;
 			}
-			strEx::s::replace(cmdline, "$ARG" + str::xtos(i) + "$", str);
-			strEx::s::replace(cmdline, "%ARG" + str::xtos(i) + "%", str);
-			strEx::append_list(all, str, " ");
-			strEx::append_list(allesc, "\"" + str + "\"", " ");
+			str::utils::replace(cmdline, "$ARG" + str::xtos(i) + "$", str);
+			str::utils::replace(cmdline, "%ARG" + str::xtos(i) + "%", str);
+			str::format::append_list(all, str, " ");
+			str::format::append_list(allesc, "\"" + str + "\"", " ");
 			i++;
 		}
-		strEx::s::replace(cmdline, "$ARGS$", all);
-		strEx::s::replace(cmdline, "%ARGS%", all);
-		strEx::s::replace(cmdline, "$ARGS\"$", allesc);
-		strEx::s::replace(cmdline, "%ARGS\"%", allesc);
+		str::utils::replace(cmdline, "$ARGS$", all);
+		str::utils::replace(cmdline, "%ARGS%", all);
+		str::utils::replace(cmdline, "$ARGS\"$", allesc);
+		str::utils::replace(cmdline, "%ARGS\"%", allesc);
 	} else if (args.size() > 0) {
 		NSC_LOG_ERROR_STD("Arguments not allowed in CheckExternalScripts set /settings/external scripts/allow arguments=true");
 		nscapi::protobuf::functions::set_response_bad(*response, "Arguments not allowed see nsclient.log for details");
@@ -673,8 +674,8 @@ void CheckExternalScripts::handle_alias(const alias::command_object &cd, const s
 	BOOST_FOREACH(std::string &arg, args) {
 		int i = 1;
 		BOOST_FOREACH(const std::string &str, src_args) {
-			strEx::s::replace(arg, "$ARG" + str::xtos(i) + "$", str);
-			strEx::s::replace(arg, "%ARG" + str::xtos(i) + "%", str);
+			str::utils::replace(arg, "$ARG" + str::xtos(i) + "$", str);
+			str::utils::replace(arg, "%ARG" + str::xtos(i) + "%", str);
 			i++;
 		}
 		if (arg.find("$ARG") != std::string::npos)

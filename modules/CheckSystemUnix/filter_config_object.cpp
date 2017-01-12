@@ -47,7 +47,7 @@ namespace filters {
 		if (file_string.empty())
 			return;
 		data.clear();
-		BOOST_FOREACH(const std::string &s, strEx::s::splitEx(file_string, std::string(","))) {
+		BOOST_FOREACH(const std::string &s, str::utils::split_lst(file_string, std::string(","))) {
 			data.push_back(s);
 		}
 	}

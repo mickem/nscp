@@ -70,7 +70,7 @@ namespace check_page_filter {
 		if (unit == "%") {
 			number = (static_cast<double>(object->get_total())*number) / 100.0;
 		} else {
-			number = format::decode_byte_units(number, unit);
+			number = str::format::decode_byte_units(number, unit);
 		}
 		return parsers::where::factory::create_int(number);
 	}
@@ -219,7 +219,7 @@ namespace check_uptime_filter {
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
 		std::string expr = str::xtos(value.get<0>()) + value.get<2>();
-		return parsers::where::factory::create_int(strEx::stoui_as_time_sec(expr));
+		return parsers::where::factory::create_int(str::format::stox_as_time(expr, 1));
 	}
 
 	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;

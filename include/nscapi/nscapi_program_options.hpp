@@ -112,7 +112,7 @@ namespace nscapi {
 			std::vector<std::basic_string<char> >make_vector(const std::string &arguments)
 			{
 				std::vector<std::basic_string<char> > result;
-				strEx::s::parse_command(arguments, result);
+				str::utils::parse_command(arguments, result);
 				return result;
 			}
 			basic_command_line_parser(const Plugin::QueryRequestMessage::Request &request) 
@@ -335,8 +335,8 @@ namespace nscapi {
 					ret = arg.substr(0, arg.size()-1);
 				if (arg[arg.size()-1] == ']')
 					ret = arg.substr(0, arg.size()-2);
-				strEx::s::replace(ret, "arg (=", "");
-				strEx::s::replace(ret, "[=arg(=", "");
+				str::utils::replace(ret, "arg (=", "");
+				str::utils::replace(ret, "[=arg(=", "");
 				if (ret == "arg")
 					return "";
 				return ret;
@@ -427,9 +427,9 @@ namespace nscapi {
 		}
 		static std::string make_csv(const std::string s) {
 			std::string ret = s;
-			strEx::s::replace(ret, "\n", "\\n");
+			str::utils::replace(ret, "\n", "\\n");
 			if (ret.find(',') != std::string::npos || ret.find('\"') != std::string::npos) {
-				strEx::s::replace(ret, "\"", "\\\"");
+				str::utils::replace(ret, "\"", "\\\"");
 				return "\"" + ret + "\"";
 			}
 			return ret;

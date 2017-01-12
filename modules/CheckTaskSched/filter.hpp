@@ -24,7 +24,7 @@
 #include <parsers/where/filter_handler_impl.hpp>
 
 #include <error/error.hpp>
-#include <format.hpp>
+#include <str/format.hpp>
 #include <str/utils.hpp>
 
 #include <boost/optional.hpp>
@@ -58,12 +58,12 @@ namespace tasksched_filter {
 			operator unsigned long long() {
 				if (never_ || date_ == 0)
 					return 0;
-				return strEx::filetime_to_time(date_);
+				return str::format::filetime_to_time(date_);
 			}
 			operator const unsigned long long() const {
 				if (never_ || date_ == 0)
 					return 0;
-				return strEx::filetime_to_time(date_);
+				return str::format::filetime_to_time(date_);
 			}
 		};
 		typedef boost::optional<std::string> op_string;
@@ -263,7 +263,7 @@ namespace tasksched_filter {
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, title); }
 		std::string get_most_recent_run_time_s() {
-			return format::format_date(get_most_recent_run_time());
+			return str::format::format_date(get_most_recent_run_time());
 		}
 		bool get_has_run() {
 			return most_recent_run_time(task, title).has_run();
@@ -344,7 +344,7 @@ namespace tasksched_filter {
 		}
 		long long get_most_recent_run_time() { return most_recent_run_time(task, get_title()); }
 		std::string get_most_recent_run_time_s() {
-			return format::format_date(get_most_recent_run_time());
+			return str::format::format_date(get_most_recent_run_time());
 		}
 		bool get_has_run() {
 			return most_recent_run_time(task, get_title()).has_run();

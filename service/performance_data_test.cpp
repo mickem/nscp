@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <nscapi/functions.hpp>
+#include <str/format.hpp>
+
 #include <vector>
 #include <string>
-#include <nscapi/functions.hpp>
-#include <format.hpp>
 
 #include <gtest/gtest.h>
 
@@ -115,18 +116,18 @@ TEST(PerfDataTest, value_various_reparse) {
 }
 
 TEST(PerfDataTest, unit_conversion_b) {
-	double d = format::convert_to_byte_units(1234567890, "B");
+	double d = str::format::convert_to_byte_units(1234567890, "B");
 	ASSERT_DOUBLE_EQ(1234567890, d);
 }
 TEST(PerfDataTest, unit_conversion_k) {
-	double d = format::convert_to_byte_units(1234567890, "K");
+	double d = str::format::convert_to_byte_units(1234567890, "K");
 	ASSERT_DOUBLE_EQ(1205632.705078125, d);
 }
 TEST(PerfDataTest, unit_conversion_m) {
-	double d = format::convert_to_byte_units(1234567890, "M");
+	double d = str::format::convert_to_byte_units(1234567890, "M");
 	ASSERT_DOUBLE_EQ(1177.3756885528564, d);
 }
 TEST(PerfDataTest, unit_conversion_g) {
-	double d = format::convert_to_byte_units(1234567890, "G");
+	double d = str::format::convert_to_byte_units(1234567890, "G");
 	ASSERT_DOUBLE_EQ(1.1497809458523989, d);
 }

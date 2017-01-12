@@ -14,29 +14,27 @@
  * limitations under the License.
  */
 
-#include <stack>
-#include <iostream>
-
-#include "Vcclr.h"
-
-#include <string>
-#include <functional>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include "Vcclr.h"
+#include "DotnetPlugins.h"
+#include "plugin_instance.hpp"
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <nscp_string.hpp>
 #include <utf8.hpp>
-
 #include <tchar.h>
 
-#include "DotnetPlugins.h"
+#include <boost/foreach.hpp>
+
+#include <stack>
+#include <iostream>
+#include <string>
+#include <functional>
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include "Vcclr.h"
 
 typedef DotnetPlugins plugin_impl_class;
 static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance;

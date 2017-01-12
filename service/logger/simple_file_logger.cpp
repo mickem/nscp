@@ -20,8 +20,9 @@
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+
 #include <file_helpers.hpp>
-#include <format.hpp>
+#include <str/format.hpp>
 
 #include <boost/filesystem.hpp>
 
@@ -91,7 +92,7 @@ namespace nsclient {
 
 					Plugin::LogEntry message;
 					if (!message.ParseFromString(data)) {
-						logger_helper::log_fatal("Failed to parse message: " + format::strip_ctrl_chars(data));
+						logger_helper::log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
 					} else {
 						std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
 						for (int i = 0; i < message.entry_size(); i++) {
@@ -108,9 +109,9 @@ namespace nsclient {
 						}
 					}
 				} catch (std::exception &e) {
-					logger_helper::log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data) + ": " + e.what());
+					logger_helper::log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data) + ": " + e.what());
 				} catch (...) {
-					logger_helper::log_fatal("Failed to parse data from: " + format::strip_ctrl_chars(data));
+					logger_helper::log_fatal("Failed to parse data from: " + str::format::strip_ctrl_chars(data));
 				}
 			}
 

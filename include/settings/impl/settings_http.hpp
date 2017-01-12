@@ -38,10 +38,11 @@
 #include <http/client.hpp>
 #include <net/net.hpp>
 #include <file_helpers.hpp>
-#include <common.hpp>
 
 #include <settings/settings_core.hpp>
 #include <settings/settings_interface_impl.hpp>
+
+#include <config.h>
 
 namespace settings {
 	class settings_http : public settings::settings_interface_impl {

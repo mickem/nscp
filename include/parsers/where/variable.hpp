@@ -25,6 +25,7 @@
 #include <parsers/where/helpers.hpp>
 
 #include <utf8.hpp>
+#include <str/format.hpp>
 
 namespace parsers {
 	namespace where {
@@ -172,25 +173,25 @@ namespace parsers {
 						m = (std::min)(m, max_value);
 					if (min_value > 0)
 						m = (std::min)(m, min_value);
-					active_unit = format::find_proper_unit_BKMG(m);
+					active_unit = str::format::find_proper_unit_BKMG(m);
 				}
 
 				performance_data::perf_value<double> double_data;
 				if (maxfun) {
 					if (max_value > 0)
-						double_data.maximum = format::convert_to_byte_units(max_value, active_unit);
+						double_data.maximum = str::format::convert_to_byte_units(max_value, active_unit);
 					else
 						double_data.maximum = max_value;
 				}
 				if (minfun) {
 					if (min_value > 0)
-						double_data.minimum = format::convert_to_byte_units(min_value, active_unit);
+						double_data.minimum = str::format::convert_to_byte_units(min_value, active_unit);
 					else
 						double_data.minimum = min_value;
 				}
-				double_data.warn = format::convert_to_byte_units(warn, active_unit);
-				double_data.crit = format::convert_to_byte_units(crit, active_unit);
-				double_data.value = format::convert_to_byte_units(current_value, active_unit);
+				double_data.warn = str::format::convert_to_byte_units(warn, active_unit);
+				double_data.crit = str::format::convert_to_byte_units(crit, active_unit);
+				double_data.value = str::format::convert_to_byte_units(current_value, active_unit);
 				performance_data data;
 				data.set(double_data);
 				data.alias = prefix + alias + suffix;

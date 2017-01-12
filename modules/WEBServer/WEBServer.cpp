@@ -27,9 +27,9 @@
 #include <client/simple_client.hpp>
 
 #include <str/xtos.hpp>
+#include <str/format.hpp>
 #include <time.h>
 #include <timer.hpp>
-#include <format.hpp>
 
 #include <json_spirit.h>
 
@@ -349,7 +349,7 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		std::string response_pb;
-		NSC_LOG_ERROR(format::format_buffer(request.getData()));
+		NSC_LOG_ERROR(str::format::format_buffer(request.getData()));
 		if (!core->query(request.getData(), response_pb)) {
 			response.setCode(HTTP_SERVER_ERROR);
 			response << "500 QUery failed";

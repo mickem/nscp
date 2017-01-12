@@ -40,5 +40,16 @@ namespace strEx {
 	inline T stox(std::wstring s) {
 		return boost::lexical_cast<T>(s.c_str());
 	}
+	inline void replace(std::wstring &string, const std::wstring replace, const std::wstring with) {
+		std::wstring::size_type pos = string.find(replace);
+		std::wstring::size_type len = replace.length();
+		while (pos != std::wstring::npos) {
+			string = string.substr(0, pos) + with + string.substr(pos + len);
+			if (with.find(replace) != std::wstring::npos) // If the replace containes the key look after the replace!
+				pos = string.find(replace, pos + with.length());
+			else
+				pos = string.find(replace, pos + 1);
+		}
+	}
 
 }

@@ -17,10 +17,12 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf.hpp>
+
 #include <client/command_line_parser.hpp>
 #include <socket/client.hpp>
 #include <socket/clients/http/http_client_protocol.hpp>
-#include <format.hpp>
+
+#include <str/format.hpp>
 
 namespace nscp_client {
 	struct connection_data : public socket_helpers::connection_info {

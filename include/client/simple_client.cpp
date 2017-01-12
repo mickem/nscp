@@ -249,7 +249,7 @@ namespace client {
 		} else if (command.size() > 4 && command.substr(0, 4) == "exec") {
 			try {
 				std::list<std::string> args;
-				strEx::s::parse_command(command, args);
+				str::utils::parse_command(command, args);
 				if (args.size() < 3) {
 					handler->output_message("Usage: exec <target> <command> [args]");
 					return;
@@ -270,7 +270,7 @@ namespace client {
 		} else if (!command.empty()) {
 			try {
 				std::list<std::string> args;
-				strEx::s::parse_command(command, args);
+				str::utils::parse_command(command, args);
 				std::string cmd = args.front(); args.pop_front();
 				std::string msg, perf;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());

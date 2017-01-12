@@ -15,7 +15,7 @@
  */
 
 #include <str/xtos.hpp>
- #include <str/utils.hpp>
+#include <str/utils.hpp>
 
 #include <nscapi/nscapi_helper.hpp>
 
@@ -28,7 +28,7 @@
 
 unsigned int nscapi::report::parse(std::string str) {
 	unsigned int report = 0;
-	BOOST_FOREACH(const std::string &key, strEx::s::splitEx(str, std::string(","))) {
+	BOOST_FOREACH(const std::string &key, str::utils::split_lst(str, std::string(","))) {
 		if (key == "all") {
 			report |= REPORT_ERROR | REPORT_OK | REPORT_UNKNOWN | REPORT_WARNING;
 		} else if (key == "error" || key == "err" || key == "critical" || key == "crit") {

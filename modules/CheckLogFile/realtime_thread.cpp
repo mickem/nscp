@@ -80,7 +80,7 @@ void real_time_thread::thread_proc() {
 
 	logs.sort();
 	logs.unique();
-	NSC_DEBUG_MSG_STD("Subscribing to folders: " + strEx::s::joinEx(logs, ", "));
+	NSC_DEBUG_MSG_STD("Subscribing to folders: " + str::utils::joinEx(logs, ", "));
 	std::vector<std::string> files_list(logs.begin(), logs.end());
 #ifdef WIN32
 	HANDLE *handles = new HANDLE[1 + files_list.size()];

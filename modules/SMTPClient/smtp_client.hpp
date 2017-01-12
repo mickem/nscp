@@ -73,7 +73,7 @@ namespace smtp_client {
 				std::list<std::string> recipients;
 				std::string message = con.template_string;
 
-				strEx::s::replace(message, "%message%", nscapi::protobuf::functions::query_data_to_nagios_string(p));
+				str::utils::replace(message, "%message%", nscapi::protobuf::functions::query_data_to_nagios_string(p));
 				recipients.push_back(con.recipient_str);
 				client->send_mail(con.sender_hostname, recipients, "Hello world\n");
 				io_service.run();

@@ -16,11 +16,12 @@
 
 #pragma once
 
+#include <NSCAPI.h>
+
+#include <nscapi/dll_defines.hpp>
+
 #include <string>
 #include <list>
-
-#include <NSCAPI.h>
-#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 	class core_wrapper_impl;

@@ -16,13 +16,14 @@
 
 #pragma once
 
-#include <boost/python.hpp>
-#include <boost/thread.hpp>
-
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
+
+#include <boost/python.hpp>
+#include <boost/thread.hpp>
+#include <boost/foreach.hpp>
 
 namespace script_wrapper {
 

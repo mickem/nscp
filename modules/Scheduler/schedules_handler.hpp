@@ -16,13 +16,6 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
@@ -32,6 +25,16 @@
 #include <parsers/cron/cron_parser.hpp>
 
 #include <scheduler/simple_scheduler.hpp>
+
+#include <str/utils.hpp>
+#include <str/format.hpp>
+
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
+#include <boost/shared_ptr.hpp>
+
+#include <map>
+#include <string>
 
 namespace sh = nscapi::settings_helper;
 
@@ -68,14 +71,14 @@ namespace schedules {
 			report = nscapi::report::parse(str);
 		}
 		void set_duration(std::string str) {
-			duration = boost::posix_time::seconds(strEx::stoui_as_time_sec(str, 1));
+			duration = boost::posix_time::seconds(str::format::stox_as_time<long>(str, 1));
 		}
 		void set_schedule(std::string str) {
 			schedule = str;
 		}
 		void set_command(std::string str) {
 			if (!str.empty()) {
-				strEx::parse_command(str, command, arguments);
+				str::utils::parse_command(str, command, arguments);
 			}
 		}
 

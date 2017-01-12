@@ -211,7 +211,7 @@ void CheckHelpers::check_multi(const Plugin::QueryRequestMessage::Request &reque
 	response->set_result(Plugin::Common_ResultCode_OK);
 	BOOST_FOREACH(std::string command_line, arguments) {
 		std::list<std::string> args;
-		strEx::s::parse_command(command_line, args);
+		str::utils::parse_command(command_line, args);
 
 		if (args.size() == 0) {
 			return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
