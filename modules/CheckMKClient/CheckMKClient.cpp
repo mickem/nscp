@@ -94,7 +94,7 @@ bool CheckMKClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		core.register_channel(channel_);
 
 		scripts_->load_all();
-	} catch (nscapi::nscapi_exception &e) {
+	} catch (nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {

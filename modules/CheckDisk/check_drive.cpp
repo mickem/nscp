@@ -19,7 +19,7 @@
 
 #include "check_drive.hpp"
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -711,7 +711,7 @@ void find_all_drives(std::list<drive_container> &drives, std::vector<std::string
 			i += drv.size()+1;
 		}
 	} else
-		throw error::nscp_exception("Failed to get volume list: " + error::lookup::last_error());
+		throw nsclient::nsclient_exception("Failed to get volume list: " + error::lookup::last_error());
 }
 
 std::list<drive_container> find_drives(std::vector<std::string> drives) {

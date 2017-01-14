@@ -17,7 +17,7 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
@@ -169,7 +169,7 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 	eventlog_buffer buffer(4096);
 	HANDLE hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(logfile).c_str());
 	if (hLog == NULL)
-		throw error::nscp_exception("Could not open the '" + logfile + "' event log: " + error::lookup::last_error());
+		throw nsclient::nsclient_exception("Could not open the '" + logfile + "' event log: " + error::lookup::last_error());
 	long long stop_date;
 	enum direction_type {
 		direction_none, direction_forwards, direction_backwards
@@ -197,14 +197,14 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 			if (err == ERROR_INSUFFICIENT_BUFFER) {
 				buffer.resize(dwNeeded);
 				if (!ReadEventLog(hLog, flags, 0, buffer.get(), static_cast<DWORD>(buffer.size()), &dwRead, &dwNeeded))
-					throw error::nscp_exception("Error reading eventlog: " + error::lookup::last_error());
+					throw nsclient::nsclient_exception("Error reading eventlog: " + error::lookup::last_error());
 			} else if (err == ERROR_HANDLE_EOF) {
 				is_scanning = false;
 				break;
 			} else {
 				std::string error_msg = error::lookup::last_error(err);
 				CloseEventLog(hLog);
-				throw error::nscp_exception("Failed to read from event log: " + error_msg);
+				throw nsclient::nsclient_exception("Failed to read from event log: " + error_msg);
 			}
 		}
 		__time64_t ltime;
@@ -257,16 +257,16 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 	if (!hResults) {
 		status = GetLastError();
 		if (status == ERROR_EVT_CHANNEL_NOT_FOUND)
-			throw error::nscp_exception("Channel " + logfile + " not found: " + error::lookup::last_error(status));
+			throw nsclient::nsclient_exception("Channel " + logfile + " not found: " + error::lookup::last_error(status));
 		else if (status == ERROR_EVT_INVALID_QUERY)
-			throw error::nscp_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
+			throw nsclient::nsclient_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
 		else if (status != ERROR_SUCCESS)
-			throw error::nscp_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
+			throw nsclient::nsclient_exception("Failed to open " + logfile + ": " + error::lookup::last_error(status));
 	}
 
 	eventlog::evt_handle hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
 	if (!hContext)
-		throw error::nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
+		throw nsclient::nsclient_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
 
 	while (true) {
 		DWORD status = ERROR_SUCCESS;
@@ -282,7 +282,7 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 				if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT)
 					return;
 				else if (status != ERROR_SUCCESS)
-					throw error::nscp_exception("EvtNext failed: " + error::lookup::last_error(status));
+					throw nsclient::nsclient_exception("EvtNext failed: " + error::lookup::last_error(status));
 			}
 			for (DWORD i = 0; i < dwReturned; i++) {
 				try {
@@ -298,7 +298,7 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 						return;
 					}
 					modern_filter::match_result ret = filter.match(item);
-				} catch (const error::nscp_exception &e) {
+				} catch (const nsclient::nsclient_exception &e) {
 					for (; i < dwReturned; i++)
 						eventlog::EvtClose(hEvents[i]);
 					NSC_LOG_ERROR("Failed to describe event: " + e.reason());
@@ -539,9 +539,9 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 					else if (ERROR_INSUFFICIENT_BUFFER == status) {
 						buffer.resize(dwBufferSize);
 						if (!eventlog::EvtNextChannelPath(hProviders, buffer.size(), buffer.get(), &dwBufferSize))
-							throw error::nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
+							throw nsclient::nsclient_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
 					} else if (status != ERROR_SUCCESS)
-						throw error::nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
+						throw nsclient::nsclient_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
 				}
 				if (channels || all) {
 					ss << utf8::cvt<std::string>(buffer.get()) << "\n";
@@ -637,9 +637,9 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 						else if (ERROR_INSUFFICIENT_BUFFER == status) {
 							buffer.resize(dwBufferSize);
 							if (!eventlog::EvtNextPublisherId(hProviders, buffer.size(), buffer.get(), &dwBufferSize))
-								throw error::nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
+								throw nsclient::nsclient_exception("EvtNextChannelPath failed: " + error::lookup::last_error());
 						} else if (status != ERROR_SUCCESS)
-							throw error::nscp_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
+							throw nsclient::nsclient_exception("EvtNextChannelPath failed: " + error::lookup::last_error(status));
 					}
 					if (channels || all) {
 						ss << utf8::cvt<std::string>(buffer.get()) << "\n";

@@ -16,7 +16,7 @@
 
 #include <nscapi/nscapi_settings_helper.hpp>
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #define STRING_FUN_STORER(val) boost::shared_ptr<store_functor>(new string_fun_storer(val))
 #define BOOL_FUN_STORER(val) boost::shared_ptr<store_functor>(new bool_fun_storer(val))
@@ -77,7 +77,7 @@ namespace nscapi {
 					store_functor_->store(value);
 			}
 			virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const {
-				throw error::nscp_exception("Not implemented: notify_path");
+				throw nsclient::nsclient_exception("Not implemented: notify_path");
 			}
 
 		protected:
@@ -244,10 +244,10 @@ namespace nscapi {
 			}
 
 			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
-				throw error::nscp_exception("Not implemented: notify");
+				throw nsclient::nsclient_exception("Not implemented: notify");
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
-				throw error::nscp_exception("Not implemented: notify");
+				throw nsclient::nsclient_exception("Not implemented: notify");
 			}
 
 			virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const {

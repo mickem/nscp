@@ -76,7 +76,7 @@ bool SMTPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
-	} catch (const nscapi::nscapi_exception &e) {
+	} catch (const nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("load", e);
 		return false;
 	} catch (std::exception &e) {

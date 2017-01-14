@@ -71,7 +71,7 @@ void real_time_thread::thread_proc() {
 			} else {
 				evlog_list.push_back(eventlog_type(new eventlog_wrapper_old(l)));
 			}
-		} catch (const error::nscp_exception &e) {
+		} catch (const nsclient::nsclient_exception &e) {
 			NSC_LOG_ERROR("Failed to read eventlog " + l + ": " + e.reason());
 		}
 	}
@@ -118,7 +118,7 @@ void real_time_thread::thread_proc() {
 					helper.process_items(item);
 				}
 				el->reset_event(handles[index + 1]);
-			} catch (const error::nscp_exception &e) {
+			} catch (const nsclient::nsclient_exception &e) {
 				NSC_LOG_ERROR("Failed to process eventlog: " + e.reason());
 				has_errors = true;
 			} catch (...) {

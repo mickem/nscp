@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <string>
-
 namespace NSCAPI {
 	namespace query_return_codes {
 		const int returnOK = 0;
@@ -102,17 +100,6 @@ namespace NSCAPI {
 }
 
 namespace nscapi {
-	class nscapi_exception : public std::exception {
-	public:
-		std::string msg;
-		nscapi_exception(std::string msg) : msg(msg) {}
-
-		~nscapi_exception() throw() {}
-		const char* what() const throw() {
-			return msg.c_str();
-		}
-	};
-
 	namespace core_api {
 
 		typedef void(*FUNPTR)();

@@ -126,7 +126,7 @@ bool NRDPClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			str::utils::replace(hostname_, "${domain_lc}", dn.second);
 		}
 		client_.set_sender(hostname_);
-	} catch (nscapi::nscapi_exception &e) {
+	} catch (nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {

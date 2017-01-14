@@ -21,7 +21,7 @@
 
 #include "simple_registry.hpp"
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 #include <str/wstring.hpp>
 #include <str/utils.hpp>
 
@@ -34,7 +34,7 @@ class EventLogRecord : boost::noncopyable {
 public:
 	EventLogRecord(std::string file, const EVENTLOGRECORD *pevlr) : file_(file), pevlr_(pevlr) {
 		if (pevlr == NULL)
-			throw error::nscp_exception("Invalid eventlog record");
+			throw nsclient::nsclient_exception("Invalid eventlog record");
 	}
 	inline unsigned long long generated() const {
 		return pevlr_->TimeGenerated;

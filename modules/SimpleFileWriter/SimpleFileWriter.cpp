@@ -36,6 +36,7 @@
 
 #include <parsers/expression/expression.hpp>
 
+#include <nsclient/nsclient_exception.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 
 #include "SimpleFileWriter.h"
@@ -185,7 +186,7 @@ bool SimpleFileWriter::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 		build_syntax(parser, syntax_host, syntax_host_lookup_);
 		build_syntax(parser, syntax_service, syntax_service_lookup_);
 
-	} catch (nscapi::nscapi_exception &e) {
+	} catch (nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
 		return false;
 	} catch (std::exception &e) {

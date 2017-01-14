@@ -19,7 +19,7 @@
 
 #include "eventlog_wrapper.hpp"
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 #include <str/utils.hpp>
 
 #include "simple_registry.hpp"
@@ -65,7 +65,7 @@ eventlog_wrapper_new::~eventlog_wrapper_new() {
 void eventlog_wrapper_new::open() {
 	hContext = eventlog::EvtCreateRenderContext(0, NULL, eventlog::api::EvtRenderContextSystem);
 	if (!hContext)
-		throw error::nscp_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
+		throw nsclient::nsclient_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
 }
 	
 void eventlog_wrapper_new::reopen() {
@@ -140,7 +140,7 @@ eventlog_wrapper_old::~eventlog_wrapper_old() {
 void eventlog_wrapper_old::open() {
 	hLog = OpenEventLog(NULL, utf8::cvt<std::wstring>(name).c_str());
 	if (hLog == INVALID_HANDLE_VALUE) {
-		throw error::nscp_exception("Failed to open eventlog: " + error::lookup::last_error());
+		throw nsclient::nsclient_exception("Failed to open eventlog: " + error::lookup::last_error());
 	}
 	seek_end();
 }

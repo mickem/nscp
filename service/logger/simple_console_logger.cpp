@@ -19,13 +19,12 @@
 
 #include "simple_console_logger.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-
 #include "../libs/settings_manager/settings_manager_impl.h"
 
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nsclient/nsclient_exception.hpp>
+
 #include <iostream>
-#include <sstream>
 
 namespace nsclient {
 	namespace logging {
@@ -64,7 +63,7 @@ namespace nsclient {
 
 						settings.register_all();
 						settings.notify();
-					} catch (nscapi::nscapi_exception &e) {
+					} catch (nsclient::nsclient_exception &e) {
 						logger_helper::log_fatal(std::string("Failed to register command: ") + e.what());
 					} catch (std::exception &e) {
 						logger_helper::log_fatal(std::string("Exception caught: ") + e.what());
@@ -80,7 +79,7 @@ namespace nsclient {
 					try {
 						config_data config = do_config();
 						format_ = config.format;
-					} catch (nscapi::nscapi_exception &e) {
+					} catch (nsclient::nsclient_exception &e) {
 						logger_helper::log_fatal(std::string("Failed to register command: ") + e.what());
 					} catch (std::exception &e) {
 						logger_helper::log_fatal(std::string("Exception caught: ") + e.what());

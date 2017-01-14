@@ -38,7 +38,7 @@
 
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 #include <json_spirit.h>
 
 #include <boost/regex.hpp>
@@ -813,7 +813,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 				services_helper::service_info info = services_helper::get_service_info(computer, service);
 				boost::shared_ptr<services_helper::service_info> record(new services_helper::service_info(info));
 				filter.match(record);
-			} catch (const error::nscp_exception &e) {
+			} catch (const nsclient::nsclient_exception &e) {
 				return nscapi::protobuf::functions::set_response_bad(*response, e.reason());
 			}
 		}

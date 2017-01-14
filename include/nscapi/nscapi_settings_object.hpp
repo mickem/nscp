@@ -25,6 +25,7 @@
 #include <nscapi/dll_defines.hpp>
 
 #include <settings/client/settings_client_interface.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
@@ -300,7 +301,7 @@ namespace nscapi {
 							object = factory->clone(parent, alias, path);
 							object->make_template(false);
 						} else {
-							throw nscapi_exception("Failed to create settings object for: " + alias);
+							throw nsclient::nsclient_exception("Failed to create settings object for: " + alias);
 						}
 					} else {
 						object = factory->create(alias, path);
@@ -380,7 +381,6 @@ namespace nscapi {
 				templates[alias] = object;
 			}
 		};
-
 		/*
 		struct NSCAPI_EXPORT template_object {
 			template_object() : is_template(false)  {}

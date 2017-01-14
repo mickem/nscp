@@ -124,7 +124,7 @@ bool SyslogClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 			str::utils::replace(hostname_, "${host_lc}", dn.first);
 			str::utils::replace(hostname_, "${domain_lc}", dn.second);
 		}
-	} catch (nscapi::nscapi_exception &e) {
+	} catch (nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("NSClient API exception: ", e);
 		return false;
 	} catch (std::exception &e) {

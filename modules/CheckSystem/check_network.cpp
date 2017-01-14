@@ -31,7 +31,7 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <parsers/where/filter_handler_impl.hpp>
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 
 namespace network_check {
@@ -138,14 +138,14 @@ namespace network_check {
 		} catch (const wmi_impl::wmi_exception &e) {
 			if (e.get_code() == WBEM_E_INVALID_QUERY) {
 				fetch_network_ = false;
-				throw error::nscp_exception("Failed to fetch network metrics, disabling...");
+				throw nsclient::nsclient_exception("Failed to fetch network metrics, disabling...");
 			}
-			throw error::nscp_exception("Failed to fetch network metrics: " + e.reason());
+			throw nsclient::nsclient_exception("Failed to fetch network metrics: " + e.reason());
 		}
 		{
 			boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 			if (!writeLock.owns_lock())
-				throw error::nscp_exception("Failed to get mutex for writing");
+				throw nsclient::nsclient_exception("Failed to get mutex for writing");
 			nics_ = tmp;
 		}
 	}
@@ -153,7 +153,7 @@ namespace network_check {
 	nics_type network_data::get() {
 		boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!readLock.owns_lock()) 
-			throw error::nscp_exception("Failed to get mutex for reading");
+			throw nsclient::nsclient_exception("Failed to get mutex for reading");
 		return nics_;
 	}
 

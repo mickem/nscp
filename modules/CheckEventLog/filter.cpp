@@ -27,7 +27,7 @@
 
 #include <str/utils.hpp>
 #include <str/format.hpp>
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
@@ -122,9 +122,9 @@ namespace eventlog_filter {
 			if (status == ERROR_INSUFFICIENT_BUFFER) {
 				buffer.resize(dwBufferSize);
 				if (!EvtRender(hContext, hEvent, eventlog::api::EvtRenderEventValues, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount))
-					throw error::nscp_exception("EvtRender failed: " + error::lookup::last_error());
+					throw nsclient::nsclient_exception("EvtRender failed: " + error::lookup::last_error());
 			} else 
-				throw error::nscp_exception("EvtRender failed: " + error::lookup::last_error(status));
+				throw nsclient::nsclient_exception("EvtRender failed: " + error::lookup::last_error(status));
 		}
 	}
 
@@ -204,7 +204,7 @@ namespace eventlog_filter {
 			std::string provider = get_source();
 			hProviderMetadataHandle = eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(provider).c_str(), NULL, 0, 0);
 			if (!hProviderMetadataHandle)
-				throw error::nscp_exception("EvtOpenPublisherMetadata failed for '" + provider + "': " + error::lookup::last_error());
+				throw nsclient::nsclient_exception("EvtOpenPublisherMetadata failed for '" + provider + "': " + error::lookup::last_error());
 		}
 		return hProviderMetadataHandle;
 	}
@@ -222,8 +222,8 @@ namespace eventlog_filter {
 				else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
 					return "";
 				else if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
-					throw error::nscp_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
-				throw error::nscp_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+					throw nsclient::nsclient_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
+				throw nsclient::nsclient_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
 			}
 			boost::replace_all(msg, "\n", " ");
 			boost::replace_all(msg, "\r", " ");
@@ -232,7 +232,7 @@ namespace eventlog_filter {
 			if (truncate_message > 0 && msg.length() > truncate_message)
 				msg = msg.substr(0, truncate_message);
 			return msg;
-		} catch (const error::nscp_exception &e) {
+		} catch (const nsclient::nsclient_exception &e) {
 			return e.reason();
 		}
 	}

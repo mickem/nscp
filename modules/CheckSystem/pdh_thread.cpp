@@ -253,7 +253,7 @@ void pdh_thread::thread_proc() {
 		try {
 			if (i == 0)
 				network.fetch();
-		} catch (const error::nscp_exception &e) {
+		} catch (const nsclient::nsclient_exception &e) {
 			errors.push_back("Failed to get network metrics: " + e.reason());
 		} catch (const std::exception &e) {
 			errors.push_back("Failed to get network metrics: " + utf8::utf8_from_native(e.what()));

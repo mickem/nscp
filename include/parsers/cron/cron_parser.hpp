@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <error/nscp_exception.hpp>
+#include <nsclient/nsclient_exception.hpp>
 
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
@@ -67,12 +67,12 @@ namespace cron_parser {
 			try {
 				v.value_ = boost::lexical_cast<int>(value.c_str());
 				if (v.value_ < v.min_ || v.value_ > v.max_)
-					throw error::nscp_exception("Invalid value: " + value);
+					throw nsclient::nsclient_exception("Invalid value: " + value);
 				return v;
 			} catch (...) {
-				throw error::nscp_exception("Invalid value: " + value);
+				throw nsclient::nsclient_exception("Invalid value: " + value);
 			}
-			throw error::nscp_exception("Invalid value: " + value);
+			throw nsclient::nsclient_exception("Invalid value: " + value);
 		}
 		bool is_valid_for(int v) const {
 			if (star_)
@@ -93,7 +93,7 @@ namespace cron_parser {
 					return next_value(i, true);
 				}
 			}
-			throw error::nscp_exception("Failed to find match for: " + value);
+			throw nsclient::nsclient_exception("Failed to find match for: " + value);
 		}
 
 		std::string to_string() const {
@@ -170,7 +170,7 @@ namespace cron_parser {
 		vec v = str::utils::split<vec>(s, " ");
 		schedule ret;
 		if (v.size() != 5)
-			throw error::nscp_exception("invalid cron syntax: " + s);
+			throw nsclient::nsclient_exception("invalid cron syntax: " + s);
 		ret.min = schedule_item::parse(v[0], 0, 59);
 		ret.hour = schedule_item::parse(v[1], 0, 23);
 		ret.dom = schedule_item::parse(v[2], 1, 31);

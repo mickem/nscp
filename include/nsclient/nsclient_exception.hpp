@@ -18,15 +18,17 @@
  */
 
 #pragma once
-#include <string>
-namespace error {
 
-	class nscp_exception : public std::exception {
+#include <string>
+
+namespace nsclient {
+
+	class nsclient_exception : public std::exception {
 	private:
 		std::string error;
 	public:
-		nscp_exception(std::string error) : error(error) {};
-		~nscp_exception() throw() {}
+		nsclient_exception(std::string error) : error(error) {};
+		~nsclient_exception() throw() {}
 
 		const char* what() const throw() {
 			return error.c_str();

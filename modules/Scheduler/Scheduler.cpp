@@ -177,7 +177,7 @@ bool Scheduler::handle_schedule(schedules::target_object item) {
 			NSC_DEBUG_MSG("Filter not matched for: " + item->get_alias() + " so nothing is reported");
 		}
 		return true;
-	} catch (nscapi::nscapi_exception &e) {
+	} catch (nsclient::nsclient_exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to register command: ", e);
 		return false;
 	} catch (std::exception &e) {
