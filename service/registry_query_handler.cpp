@@ -50,7 +50,6 @@ namespace nsclient {
 
 
 		void registry_query_handler::parse(Plugin::RegistryResponseMessage &response) {
-			nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 
 			BOOST_FOREACH(const Plugin::RegistryRequestMessage::Request &r, request_.payload()) {
 				if (r.has_inventory()) {
@@ -84,7 +83,6 @@ namespace nsclient {
 							rpp->mutable_info()->set_description(info.description);
 							if (q.has_fetch_all() && q.fetch_all()) {
 								Plugin::QueryRequestMessage req;
-								nscapi::protobuf::functions::create_simple_header(req.mutable_header());
 								Plugin::QueryRequestMessage::Request * p = req.add_payload();
 								p->set_command(q.name());
 								p->add_arguments("help-pb");
@@ -107,7 +105,6 @@ namespace nsclient {
 							if (q.has_fetch_all() && q.fetch_all()) {
 								std::string resp;
 								Plugin::QueryRequestMessage req;
-								nscapi::protobuf::functions::create_simple_header(req.mutable_header());
 								Plugin::QueryRequestMessage::Request * p = req.add_payload();
 								p->set_command(command);
 								p->add_arguments("help-pb");

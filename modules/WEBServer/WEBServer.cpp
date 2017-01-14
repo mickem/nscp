@@ -212,7 +212,6 @@ public:
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
-		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		if (request.get("all", "true") == "true")
 			payload->mutable_inventory()->set_fetch_all(true);
@@ -243,7 +242,6 @@ public:
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
-		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		std::string name = request.get("name", "");
 
@@ -260,7 +258,6 @@ public:
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
-		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		std::string name = request.get("name", "");
 
@@ -277,7 +274,6 @@ public:
 			return;
 
 		Plugin::RegistryRequestMessage rrm;
-		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		if (request.get("all", "true") == "true")
 			payload->mutable_inventory()->set_fetch_all(true);
@@ -294,7 +290,6 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		Plugin::SettingsRequestMessage rm;
-		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
 		if (request.get("paths", "false") == "true")
 			payload->mutable_inventory()->set_fetch_paths(true);
@@ -372,7 +367,6 @@ public:
 		if (!is_loggedin(request, response, password))
 			return;
 		Plugin::SettingsRequestMessage rm;
-		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
 		payload->mutable_status();
 		payload->set_plugin_id(plugin_id);
@@ -628,7 +622,6 @@ public:
 			return;
 
 		Plugin::QueryRequestMessage rm;
-		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::QueryRequestMessage::Request *payload = rm.add_payload();
 
 		payload->set_command(obj);
@@ -656,7 +649,6 @@ public:
 		std::string target = obj.substr(0, pos);
 		std::string cmd = obj.substr(pos + 1);
 		Plugin::ExecuteRequestMessage rm;
-		nscapi::protobuf::functions::create_simple_header(rm.mutable_header());
 		Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
 		payload->set_command(cmd);

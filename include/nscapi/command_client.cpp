@@ -38,7 +38,6 @@ namespace nscapi {
 			if (commands.size() == 0)
 				return;
 			Plugin::RegistryRequestMessage request;
-			nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 			BOOST_FOREACH(command_list::value_type v, commands) {
 				Plugin::RegistryRequestMessage::Request *payload = request.add_payload();
 				Plugin::RegistryRequestMessage::Request::Registration *regitem = payload->mutable_registration();

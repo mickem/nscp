@@ -31,7 +31,6 @@ namespace nsclient {
 
 		void settings_query_handler::parse(Plugin::SettingsResponseMessage &response) {
 			std::string response_string;
-			nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 
 			BOOST_FOREACH(const Plugin::SettingsRequestMessage::Request &r, request_.payload()) {
 				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();

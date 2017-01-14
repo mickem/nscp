@@ -807,7 +807,6 @@ NSCAPI::nagiosReturn NSClientT::execute_query(const std::string &request, std::s
 
 		if (command_chunks.size() == 0) {
 			LOG_ERROR_CORE("Unknown command(s): " + missing_commands + " available commands: " + commands_.to_string());
-			nscapi::protobuf::functions::create_simple_header(response_message.mutable_header());
 			Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
 			payload->set_command(missing_commands);
 			nscapi::protobuf::functions::set_response_bad(*payload, "Unknown command(s): " + missing_commands);
@@ -1025,7 +1024,6 @@ NSCAPI::nagiosReturn NSClientT::exec_command(const char* raw_target, std::string
 	}
 
 	Plugin::ExecuteResponseMessage response_message;
-	nscapi::protobuf::functions::create_simple_header(response_message.mutable_header());
 
 	BOOST_FOREACH(std::string r, responses) {
 		Plugin::ExecuteResponseMessage tmp;

@@ -29,10 +29,10 @@
 #include <str/utils.hpp>
 
 #include <boost/foreach.hpp>
+#include <boost/function.hpp>
 
 static void create_registry_query(const nscapi::core_wrapper *core, const std::string command, const Plugin::Registry_ItemType &type, Plugin::RegistryResponseMessage &response_message) {
 	Plugin::RegistryRequestMessage rrm;
-	nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	if (!command.empty()) {
 		payload->mutable_inventory()->set_name(command);
@@ -183,7 +183,6 @@ namespace client {
 				handler->output_message(name + " disabled successfully...");
 		} else if (command.size() > 4 && command.substr(0, 4) == "load") {
 			Plugin::RegistryRequestMessage rrm;
-			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 			std::string name = command.substr(5);
 			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
@@ -204,7 +203,6 @@ namespace client {
 				handler->output_message(name + " loaded successfully...");
 		} else if (command.size() > 6 && command.substr(0, 6) == "unload") {
 			Plugin::RegistryRequestMessage rrm;
-			nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 			Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 			std::string name = command.substr(7);
 			payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);

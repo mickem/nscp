@@ -27,7 +27,6 @@ void report_errors(const T &response, nscapi::core_wrapper* core, const std::str
 }
 void nscapi::settings_proxy::register_path(std::string path, std::string title, std::string description, bool advanced, bool sample) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
@@ -46,7 +45,6 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
 }
 void nscapi::settings_proxy::register_key(std::string path, std::string key, int type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool sample) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
@@ -72,7 +70,6 @@ void nscapi::settings_proxy::register_key(std::string path, std::string key, int
 
 void nscapi::settings_proxy::register_tpl(std::string path, std::string title, std::string icon, std::string description, std::string fields) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
@@ -93,7 +90,6 @@ void nscapi::settings_proxy::register_tpl(std::string path, std::string title, s
 
 std::string nscapi::settings_proxy::get_string(std::string path, std::string key, std::string def) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
@@ -114,7 +110,6 @@ std::string nscapi::settings_proxy::get_string(std::string path, std::string key
 }
 void nscapi::settings_proxy::set_string(std::string path, std::string key, std::string value) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
@@ -130,7 +125,6 @@ void nscapi::settings_proxy::set_string(std::string path, std::string key, std::
 }
 int nscapi::settings_proxy::get_int(std::string path, std::string key, int def) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
@@ -151,7 +145,6 @@ int nscapi::settings_proxy::get_int(std::string path, std::string key, int def) 
 }
 void nscapi::settings_proxy::set_int(std::string path, std::string key, int value) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
@@ -167,7 +160,6 @@ void nscapi::settings_proxy::set_int(std::string path, std::string key, int valu
 }
 bool nscapi::settings_proxy::get_bool(std::string path, std::string key, bool def) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
@@ -188,7 +180,6 @@ bool nscapi::settings_proxy::get_bool(std::string path, std::string key, bool de
 }
 void nscapi::settings_proxy::set_bool(std::string path, std::string key, bool value) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
@@ -205,7 +196,6 @@ void nscapi::settings_proxy::set_bool(std::string path, std::string key, bool va
 nscapi::settings_proxy::string_list nscapi::settings_proxy::get_sections(std::string path) {
 	nscapi::settings_proxy::string_list ret;
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
@@ -232,7 +222,6 @@ nscapi::settings_proxy::string_list nscapi::settings_proxy::get_sections(std::st
 nscapi::settings_proxy::string_list nscapi::settings_proxy::get_keys(std::string path) {
 	nscapi::settings_proxy::string_list ret;
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Query *item = payload->mutable_query();
@@ -275,7 +264,6 @@ void nscapi::settings_proxy::debug(const char* file, int line, std::string messa
 
 void nscapi::settings_proxy::save(const std::string context) {
 	Plugin::SettingsRequestMessage request;
-	nscapi::protobuf::functions::create_simple_header(request.mutable_header());
 	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
 	payload->set_plugin_id(plugin_id_);
 	Plugin::SettingsRequestMessage::Request::Control *item = payload->mutable_control();

@@ -25,6 +25,7 @@
 #include <string>
 #include <list>
 #include <vector>
+#include <map>
 
 namespace nscapi {
 	class NSCAPI_EXPORT core_helper {

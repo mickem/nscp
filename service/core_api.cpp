@@ -146,7 +146,6 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 		std::string response_string;
 		Plugin::RegistryRequestMessage request;
 		Plugin::RegistryResponseMessage response;
-		nscapi::protobuf::functions::create_simple_header(response.mutable_header());
 		request.ParseFromArray(request_buffer, request_buffer_len);
 		nsclient::core::registry_query_handler rqh(mainClient, request);
 		rqh.parse(response);

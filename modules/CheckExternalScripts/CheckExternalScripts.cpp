@@ -20,6 +20,7 @@
 #include "CheckExternalScripts.h"
 
 #include <nscapi/functions.hpp>
+
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_program_options.hpp>
@@ -310,7 +311,6 @@ void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &re
 	if (query) {
 		Plugin::RegistryRequestMessage rrm;
 		Plugin::RegistryResponseMessage response;
-		nscapi::protobuf::functions::create_simple_header(rrm.mutable_header());
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 		payload->mutable_inventory()->set_fetch_all(true);
 		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
@@ -550,7 +550,6 @@ void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
 
 void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
 	//nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
-
 	commands::command_object_instance command_def = commands_.find_object(request.command());
 
 	std::list<std::string> args;
