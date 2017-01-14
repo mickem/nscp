@@ -26,13 +26,30 @@
 #include <boost/filesystem/operations.hpp>
 
 #ifdef HAVE_LIBCRYPTOPP
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-pedantic"
+#pragma GCC diagnostic ignored "-Wunused-variable"
+#endif
 #include <sha.h>
 #include <hex.h>
 #include <files.h>
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 #endif
 
 #ifdef HAVE_MINIZ
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#pragma GCC diagnostic ignored "-pedantic"
+#endif
 #include <miniz.c>
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 #endif
 
 #include <socket/client.hpp>
