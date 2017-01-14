@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+#include <nscapi/nscapi_helper.hpp>
+
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
-
-#include <nscapi/nscapi_helper.hpp>
 
 #include <boost/foreach.hpp>
 

@@ -16,9 +16,12 @@
 
 #pragma once
 
-#include <map>
-#include <list>
-#include <string>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/dll_defines.hpp>
+
+#include <settings/client/settings_client_interface.hpp>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
@@ -26,13 +29,9 @@
 #include <boost/unordered_map.hpp>
 #include <boost/make_shared.hpp>
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/nscapi_settings_proxy.hpp>
-
-#include <settings/client/settings_client_interface.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include <nscapi/dll_defines.hpp>
+#include <map>
+#include <list>
+#include <string>
 
 namespace nscapi {
 	namespace settings_objects {

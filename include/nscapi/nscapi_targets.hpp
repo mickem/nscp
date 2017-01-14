@@ -20,13 +20,10 @@
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 
-#include <nscapi/dll_defines.hpp>
-
 #include <net/net.hpp>
 
-#include <boost/foreach.hpp>
-#include <boost/optional.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/optional.hpp>
 
 #include <map>
 #include <string>
@@ -38,29 +35,20 @@ namespace nscapi {
 		struct target_object : public nscapi::settings_objects::object_instance_interface {
 			typedef nscapi::settings_objects::object_instance_interface parent;
 
-			//net::url address;
-
 			target_object(std::string alias, std::string path) : parent(alias, path) {}
 			target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 			std::string to_string() const {
 				std::stringstream ss;
 				ss << "{tpl: " << parent::to_string()
-					//<< ", address: " << get_address()
 					<< "}";
 				return ss.str();
 			}
-			/*
-			std::string get_address() const {
-				return address.to_string();
-			}
-			*/
 			void set_address(std::string value) {
 				set_property_string("address", value);
 			}
 
 			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
-				//parent::read(proxy, oneliner, is_sample);
 				set_address(this->get_value());
 				nscapi::settings_helper::settings_registry settings(proxy);
 
@@ -68,7 +56,6 @@ namespace nscapi {
 				if (is_sample)
 					root_path.set_sample();
 
-				//target_object::options_type options;
 				root_path.add_path()
 					("TARGET", "Target definition for: " + this->get_alias())
 					;

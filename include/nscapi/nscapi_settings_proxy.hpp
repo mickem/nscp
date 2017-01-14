@@ -16,14 +16,13 @@
 
 #pragma once
 
-#include <list>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/dll_defines.hpp>
 
 #include <settings/settings_core.hpp>
 #include <settings/client/settings_client_interface.hpp>
 
-#include <nscapi/nscapi_core_wrapper.hpp>
-
-#include <nscapi/dll_defines.hpp>
+#include <list>
 
 namespace nscapi {
 	class NSCAPI_EXPORT settings_proxy : public nscapi::settings_helper::settings_impl_interface {

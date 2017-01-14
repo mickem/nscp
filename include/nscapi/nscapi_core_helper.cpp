@@ -14,21 +14,19 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
-
-#include <utf8.hpp>
-
-//#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 
+#include <utf8.hpp>
+
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
+
+#include <iostream>
 
 #define CORE_LOG_ERROR(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, msg);
 #define CORE_LOG_ERROR_EX(msg) get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Exception in: " + msg);

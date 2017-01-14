@@ -15,16 +15,17 @@
  */
 
 #pragma once
-#include <string>
-#include <list>
-
-#include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 
 #include <NSCAPI.h>
 #include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/dll_defines.hpp>
+
+#include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
+
+#include <string>
+#include <list>
 
 namespace nscapi {
 	namespace protobuf {

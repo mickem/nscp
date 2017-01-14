@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/dll_defines.hpp>
+
 #include <string>
 #include <list>
 #include <vector>
-
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 	class NSCAPI_EXPORT core_helper {

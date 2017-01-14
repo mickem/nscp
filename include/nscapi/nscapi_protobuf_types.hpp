@@ -16,10 +16,10 @@
 
 #pragma once
 
+#include <nscapi/dll_defines.hpp>
+
 #include <string>
 #include <list>
-
-#include <nscapi/dll_defines.hpp>
 
 namespace nscapi {
 	namespace protobuf {

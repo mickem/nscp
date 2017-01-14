@@ -16,12 +16,13 @@
 
 #pragma once
 
-#include <map>
-#include <list>
-#include <string>
+#include <nscapi/nscapi_core_wrapper.hpp>
+#include <nscapi/dll_defines.hpp>
+#include <settings/client/settings_client_interface.hpp>
+
+#include <utf8.hpp>
 
 #include <boost/any.hpp>
-#include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
@@ -29,11 +30,9 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 
-#include <utf8.hpp>
-
-#include <nscapi/nscapi_core_wrapper.hpp>
-#include <settings/client/settings_client_interface.hpp>
-#include <nscapi/dll_defines.hpp>
+#include <map>
+#include <list>
+#include <string>
 
 #ifdef WIN32
 #pragma warning( disable : 4800 )

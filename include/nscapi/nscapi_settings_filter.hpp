@@ -16,16 +16,13 @@
 
 #pragma once
 
-#include <map>
-#include <string>
-
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
-#include <nscapi/nscapi_settings_object.hpp>
-#include <nscapi/nscapi_protobuf_types.hpp>
 #include <nscapi/nscapi_helper.hpp>
-
 #include <nscapi/dll_defines.hpp>
+
+#include <map>
+#include <string>
 
 namespace nscapi {
 	namespace settings_filters {

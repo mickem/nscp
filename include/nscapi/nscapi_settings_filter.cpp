@@ -15,6 +15,7 @@
  */
 
 #include <nscapi/nscapi_settings_filter.hpp>
+#include <nscapi/nscapi_settings_object.hpp>
 
 namespace nscapi {
 	namespace settings_filters {
