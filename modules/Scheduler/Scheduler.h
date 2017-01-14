@@ -40,7 +40,7 @@ public:
 	bool unloadModule();
 
 	// Metrics
-	void fetchMetrics(Plugin::MetricsMessage::Response *response);
+	void fetchMetrics(Plugin::MetricsMessage_Response *response);
 
 	void add_schedule(std::string alias, std::string command);
 	bool handle_schedule(schedules::target_object task);

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
 
 #include <str/utils.hpp>
 #include <utf8.hpp>

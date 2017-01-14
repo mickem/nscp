@@ -19,19 +19,20 @@
 
 #include "CheckHelpers.h"
 
-#include <str/utils.hpp>
 #include <parsers/filter/cli_helper.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+
+#include <str/utils.hpp>
 
 #include <boost/program_options.hpp>
 #include <boost/thread/thread.hpp>
 
-#include <time.h>
 #include <vector>
 #include <algorithm>
 

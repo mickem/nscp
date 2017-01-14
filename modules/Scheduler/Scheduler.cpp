@@ -18,13 +18,12 @@
  */
 
 #include "Scheduler.h"
-#include <str/xtos.hpp>
-#include <time.h>
-#include <utils.h>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
 
 namespace sh = nscapi::settings_helper;

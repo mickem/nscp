@@ -17,9 +17,6 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/shared_ptr.hpp>
-#include <boost/noncopyable.hpp>
-
 #include <parsers/where/engine_impl.hpp>
 #include <parsers/filter/modern_filter.hpp>
 
@@ -29,6 +26,10 @@
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
+
+#include <boost/shared_ptr.hpp>
+#include <boost/noncopyable.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace modern_filter {
 	struct data_container {
@@ -372,10 +373,18 @@ namespace modern_filter {
 			}
 			line->set_message(msg);
 			filter.fetch_perf(&writer);
+			int retCode = filter.summary.returnCode;
 			if ((data.empty_state != "ignored") && (!filter.summary.has_matched()))
-				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(data.empty_state)));
-			else
-				response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(filter.summary.returnCode));
+				retCode = nscapi::plugin_helper::translateReturn(data.empty_state);
+			if (retCode == NSCAPI::query_return_codes::returnOK) {
+				response->set_result(Plugin::Common_ResultCode_OK);
+			} else if (retCode == NSCAPI::query_return_codes::returnWARN) {
+				response->set_result(Plugin::Common_ResultCode_WARNING);
+			} else if (retCode == NSCAPI::query_return_codes::returnCRIT) {
+				response->set_result(Plugin::Common_ResultCode_CRITICAL);
+			} else {
+				response->set_result(Plugin::Common_ResultCode_UNKNOWN);
+			}
 		}
 	};
 }

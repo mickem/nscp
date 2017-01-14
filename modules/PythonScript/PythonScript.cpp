@@ -18,28 +18,24 @@
  */
 
 #include "PythonScript.h"
-#include <time.h>
-#include <error/error.hpp>
+#include "script_wrapper.hpp"
 
-#include <boost/python.hpp>
-#include <boost/program_options.hpp>
-
-#include <json_spirit.h>
-
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
 #include <file_helpers.hpp>
-#include <nscapi/functions.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/macros.hpp>
 
-#include "script_wrapper.hpp"
+#include <json_spirit.h>
 
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <boost/python.hpp>
+#include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 
-#include <nscapi/nscapi_settings_helper.hpp>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;

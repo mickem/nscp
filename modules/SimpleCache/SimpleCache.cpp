@@ -17,28 +17,26 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <vector>
+#include "SimpleCache.h"
+
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_program_options.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+#include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
+
+#include <parsers/expression/expression.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
 #include <boost/optional.hpp>
 
-#include <time.h>
-
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <nscapi/nscapi_helper.hpp>
-
-#include <parsers/expression/expression.hpp>
-
-#include <nscapi/nscapi_settings_helper.hpp>
-
-#include "SimpleCache.h"
+#include <map>
+#include <vector>
 
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
@@ -180,12 +178,12 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), false, "Failed to get lock");
 			return;
 		}
 		cache_[key] = data;
 	}
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_OK, "message has been cached");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "message has been cached");
 }
 
 void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

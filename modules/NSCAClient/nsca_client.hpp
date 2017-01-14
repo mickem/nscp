@@ -21,6 +21,8 @@
 
 #include <nsca/nsca_packet.hpp>
 #include <nsca/client/nsca_client_protocol.hpp>
+
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <socket/client.hpp>
 
 #include <str/format.hpp>

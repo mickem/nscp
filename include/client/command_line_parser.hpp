@@ -19,18 +19,16 @@
 
 #pragma once
 
-#include <NSCAPI.h>
-#include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/scoped_ptr.hpp>
-#include <boost/unordered_map.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <nscapi/nscapi_program_options.hpp>
-
-#include <nscapi/nscapi_protobuf_types.hpp>
-#include <nscapi/nscapi_protobuf.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_targets.hpp>
+
+#include <net/net.hpp>
+
+#include <NSCAPI.h>
+
+#include <boost/shared_ptr.hpp>
+#include <boost/program_options.hpp>
+#include <boost/unordered_map.hpp>
 
 namespace client {
 	struct cli_exception : public std::exception {
@@ -40,144 +38,6 @@ namespace client {
 		~cli_exception() throw() {}
 		const char* what() const throw() {
 			return error_.c_str();
-		}
-	};
-
-	struct payload_builder {
-		enum types {
-			type_submit,
-			type_query,
-			type_exec,
-			type_none
-		};
-
-		::Plugin::SubmitRequestMessage submit_message;
-		::Plugin::QueryResponseMessage::Response *submit_payload;
-
-		::Plugin::ExecuteRequestMessage exec_message;
-		::Plugin::ExecuteRequestMessage::Request *exec_payload;
-
-		::Plugin::QueryRequestMessage query_message;
-		::Plugin::QueryRequestMessage::Request *query_payload;
-
-		types type;
-		std::string separator;
-		payload_builder() : submit_payload(NULL), exec_payload(NULL), query_payload(NULL), type(type_none), separator("|") {}
-
-		void set_type(types type_) {
-			type = type_;
-		}
-
-		void set_separator(const std::string &value) {
-			separator = value;
-		}
-		bool is_query() const {
-			return type == type_query;
-		}
-		bool is_exec() const {
-			return type == type_exec;
-		}
-		bool is_submit() const {
-			return type == type_submit;
-		}
-
-		void set_result(const std::string &value) {
-			if (is_submit()) {
-				get_submit_payload()->set_result(nscapi::protobuf::functions::parse_nagios(value));
-			} else if (is_exec()) {
-				throw cli_exception("result not supported for exec");
-			} else {
-				throw cli_exception("result not supported for query");
-			}
-		}
-		void set_message(const std::string &value) {
-			if (is_submit()) {
-				Plugin::QueryResponseMessage::Response::Line *l = get_submit_payload()->add_lines();
-				l->set_message(value);
-			} else if (is_exec()) {
-				throw cli_exception("message not supported for exec");
-			} else {
-				throw cli_exception("message not supported for query");
-			}
-		}
-		void set_command(const std::string value) {
-			if (is_submit()) {
-				get_submit_payload()->set_command(value);
-			} else if (is_exec()) {
-				get_exec_payload()->set_command(value);
-			} else {
-				get_query_payload()->set_command(value);
-			}
-		}
-		void set_arguments(const std::vector<std::string> &value) {
-			if (is_submit()) {
-				throw cli_exception("arguments not supported for submit");
-			} else if (is_exec()) {
-				BOOST_FOREACH(const std::string &a, value)
-					get_exec_payload()->add_arguments(a);
-			} else {
-				BOOST_FOREACH(const std::string &a, value)
-					get_query_payload()->add_arguments(a);
-			}
-		}
-		void set_batch(const std::vector<std::string> &data) {
-			if (is_submit()) {
-				BOOST_FOREACH(const std::string &e, data) {
-					submit_payload = submit_message.add_payload();
-					std::vector<std::string> line;
-					boost::iter_split(line, e, boost::algorithm::first_finder(separator));
-					if (line.size() >= 3)
-						set_message(line[2]);
-					if (line.size() >= 2)
-						set_result(line[1]);
-					if (line.size() >= 1)
-						set_command(line[0]);
-				}
-			} else if (type == type_exec) {
-				BOOST_FOREACH(const std::string &e, data) {
-					exec_payload = exec_message.add_payload();
-					std::list<std::string> line;
-					boost::iter_split(line, e, boost::algorithm::first_finder(separator));
-					if (line.size() >= 1) {
-						set_command(line.front());
-						line.pop_front();
-					}
-					BOOST_FOREACH(const std::string &a, line) {
-						get_exec_payload()->add_arguments(a);
-					}
-				}
-			} else {
-				BOOST_FOREACH(const std::string &e, data) {
-					query_payload = query_message.add_payload();
-					std::list<std::string> line;
-					boost::iter_split(line, e, boost::algorithm::first_finder(separator));
-					if (line.size() >= 1) {
-						set_command(line.front());
-						line.pop_front();
-					}
-					BOOST_FOREACH(const std::string &a, line) {
-						get_query_payload()->add_arguments(a);
-					}
-				}
-			}
-		}
-
-	private:
-
-		::Plugin::QueryResponseMessage::Response *get_submit_payload() {
-			if (submit_payload == NULL)
-				submit_payload = submit_message.add_payload();
-			return submit_payload;
-		}
-		::Plugin::QueryRequestMessage::Request *get_query_payload() {
-			if (query_payload == NULL)
-				query_payload = query_message.add_payload();
-			return query_payload;
-		}
-		::Plugin::ExecuteRequestMessage::Request *get_exec_payload() {
-			if (exec_payload == NULL)
-				exec_payload = exec_message.add_payload();
-			return exec_payload;
 		}
 	};
 

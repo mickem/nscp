@@ -21,6 +21,7 @@
 
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
 
 #include "nrdp.hpp"

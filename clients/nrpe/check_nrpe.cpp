@@ -25,6 +25,7 @@
 #include <types.hpp>
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include "../../modules/NRPEClient/nrpe_handler.hpp"
 #include "../../modules/NRPEClient/nrpe_client.hpp"

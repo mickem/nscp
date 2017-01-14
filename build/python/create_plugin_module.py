@@ -81,13 +81,16 @@ BEGIN
 END
 """
 
-CPP_TEMPLATE = """#include <nscapi/nscapi_helper_singleton.hpp>
+CPP_TEMPLATE = """#include "module.hpp"
+
+#include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
-
-#include "module.hpp"
-#include <nscapi/command_client.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
+
+#include <nscapi/command_client.hpp>
 
 namespace ch = nscapi::command_helper;
 
@@ -154,9 +157,9 @@ bool {{module.name}}Module::unloadModule() {
  * @return status code
  */
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &request, std::string &response) {
+	Plugin::QueryResponseMessage response_message;
 	try {
 		Plugin::QueryRequestMessage request_message;
-		Plugin::QueryResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
@@ -227,15 +230,19 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 			}
 		}
 {% endif %}
-		response_message.SerializeToString(&response);
-		return NSCAPI::cmd_return_codes::isSuccess;
 	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::create_simple_query_response_unknown("", std::string("Failed to process command : ") + e.what(), response);
-		return NSCAPI::cmd_return_codes::isSuccess;
+        ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+        payload->set_command("");
+        payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+        payload->add_lines()->set_message(std::string("Failed to process command : ") + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		nscapi::protobuf::functions::create_simple_query_response_unknown("", "Failed to process command", response);
-		return NSCAPI::cmd_return_codes::isSuccess;
+        ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
+        payload->set_command("");
+        payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
+        payload->add_lines()->set_message("Failed to process command ");
 	}
+    response_message.SerializeToString(&response);
+    return NSCAPI::cmd_return_codes::isSuccess;
 }
 
 void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {
@@ -282,32 +289,20 @@ void {{module.name}}Module::handleMessageRAW(std::string data) {
 }
 {% endif %}
 
-{% if module.channels == "raw" %}
+{% if module.channels %}
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* char_channel, const std::string &request, std::string &response) {
 	const std::string channel = char_channel;
+    Plugin::SubmitResponseMessage response_message;
 	try {
+{% if module.channels == "raw" %}
 		if (!impl_) {
 			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
 		Plugin::SubmitRequestMessage request_message;
-		Plugin::SubmitResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 		impl_->handleNotification(channel, request_message, &response_message);
-		response_message.SerializeToString(&response);
-		return NSCAPI::cmd_return_codes::isSuccess;
-	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::create_simple_submit_response(channel, "", Plugin::Common_Result_StatusCodeType_STATUS_ERROR, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
-		return NSCAPI::cmd_return_codes::isSuccess;
-	} catch (...) {
-		nscapi::protobuf::functions::create_simple_submit_response(channel, "", Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to process submission on: " + channel, response);
-		return NSCAPI::cmd_return_codes::isSuccess;
-	}
-}
-{% elif module.channels %}
-NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* char_channel, const std::string &request, std::string &response) {
-	const std::string channel = char_channel;
-	try {
+{% else %}
 		Plugin::SubmitRequestMessage request_message;
 		Plugin::SubmitResponseMessage response_message;
 		request_message.ParseFromString(request);
@@ -323,15 +318,20 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* ch
 				impl_->handleNotification(channel, request_payload, response_payload, request_message);
 			}
 		}
-		response_message.SerializeToString(&response);
-		return NSCAPI::cmd_return_codes::isSuccess;
+{% endif %}
 	} catch (const std::exception &e) {
-		nscapi::protobuf::functions::create_simple_submit_response(channel, "", Plugin::Common_Result_StatusCodeType_STATUS_ERROR, std::string("Failed to process submission on ") + channel + ": " + e.what(), response);
-		return NSCAPI::cmd_return_codes::isSuccess;
+        Plugin::SubmitResponseMessage::Response *payload = response_message.add_payload();
+        payload->set_command("");
+        payload->mutable_result()->set_message(std::string("Failed to process submission on ") + channel + ": " + utf8::utf8_from_native(e.what()));
+        payload->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
 	} catch (...) {
-		nscapi::protobuf::functions::create_simple_submit_response(channel, "", Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to process submission on: " + channel, response);
-		return NSCAPI::cmd_return_codes::isSuccess;
+        Plugin::SubmitResponseMessage::Response *payload = response_message.add_payload();
+        payload->set_command("");
+        payload->mutable_result()->set_message(std::string("Failed to process submission on ") + channel);
+        payload->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
 	}
+    response_message.SerializeToString(&response);
+    return NSCAPI::cmd_return_codes::isSuccess;
 }
 {% endif %}
 

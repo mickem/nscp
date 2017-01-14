@@ -21,6 +21,9 @@
 
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
+
+#include <boost/tuple/tuple.hpp>
 
 namespace graphite_client {
 	struct connection_data : public socket_helpers::connection_info {

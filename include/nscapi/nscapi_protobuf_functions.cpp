@@ -15,17 +15,35 @@
  */
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 
 #include <str/utils.hpp>
 #include <str/xtos.hpp>
+#include <nsclient/nsclient_exception.hpp>
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/optional.hpp>
 
 #include <iostream>
 
 #define THROW_INVALID_SIZE(size) \
-	throw nscapi_exception(std::string("Whoops, invalid payload size: ") + str::xtos(size) + " != 1 at line " + str::xtos(__LINE__));
+	throw nsclient::nsclient_exception(std::string("Whoops, invalid payload size: ") + str::xtos(size) + " != 1 at line " + str::xtos(__LINE__));
 
 namespace nscapi {
 	namespace protobuf {
+
+		inline Plugin::Common::ResultCode gbp_status_to_gbp_nagios(Plugin::Common::Result::StatusCodeType ret) {
+			if (ret == Plugin::Common_Result_StatusCodeType_STATUS_OK)
+				return Plugin::Common_ResultCode_OK;
+			return Plugin::Common_ResultCode_UNKNOWN;
+		}
+		inline Plugin::Common::Result::StatusCodeType gbp_to_nagios_gbp_status(Plugin::Common::ResultCode ret) {
+			if (ret == Plugin::Common_ResultCode_UNKNOWN || ret == Plugin::Common_ResultCode_WARNING || ret == Plugin::Common_ResultCode_CRITICAL)
+				return Plugin::Common_Result_StatusCodeType_STATUS_ERROR;
+			return Plugin::Common_Result_StatusCodeType_STATUS_OK;
+		}
+
 		double trim_to_double(std::string s) {
 			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
 			if (pend != std::string::npos)
@@ -41,8 +59,6 @@ namespace nscapi {
 			}
 		}
 
-		void functions::create_simple_header(Plugin::Common::Header* hdr) {}
-
 		std::string functions::query_data_to_nagios_string(const Plugin::QueryResponseMessage &message) {
 			std::stringstream ss;
 			for (int i = 0; i < message.payload_size(); ++i) {
@@ -57,6 +73,46 @@ namespace nscapi {
 			}
 			return ss.str();
 		}
+
+		void functions::set_response_good(::Plugin::QueryResponseMessage_Response &response, std::string message) {
+			response.set_result(::Plugin::Common_ResultCode_OK);
+			response.add_lines()->set_message(message);
+		}
+
+		void functions::set_response_good_wdata(::Plugin::QueryResponseMessage_Response &response, std::string message) {
+			response.set_result(::Plugin::Common_ResultCode_OK);
+			response.set_data(message);
+			response.add_lines()->set_message("see data segment");
+		}
+
+		void functions::set_response_good_wdata(::Plugin::SubmitResponseMessage_Response &response, std::string message) {
+			response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_OK);
+			response.mutable_result()->set_data(message);
+			response.mutable_result()->set_message("see data segment");
+		}
+
+		void functions::set_response_good_wdata(::Plugin::ExecuteResponseMessage_Response &response, std::string message) {
+			response.set_result(::Plugin::Common_ResultCode_OK);
+			response.set_data(message);
+			response.set_message("see data segment");
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
+		void functions::set_response_good(::Plugin::SubmitResponseMessage_Response &response, std::string message) {
+			response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_OK);
+			response.mutable_result()->set_message(message);
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
+		void functions::set_response_good(::Plugin::ExecuteResponseMessage_Response &response, std::string message) {
+			response.set_result(::Plugin::Common_ResultCode_OK);
+			response.set_message(message);
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
 		std::string functions::query_data_to_nagios_string(const Plugin::QueryResponseMessage::Response &p) {
 			std::stringstream ss;
 			for (int j = 0; j < p.lines_size(); ++j) {
@@ -70,51 +126,6 @@ namespace nscapi {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
-		/*
-		void functions::add_host(Plugin::Common::Header* hdr, const destination_container &dst)  {
-			::Plugin::Common::Host *host = hdr->add_hosts();
-			if (!dst.id.empty())
-				host->set_id(dst.id);
-			if (!dst.address.host.empty())
-				host->set_address(dst.address.to_string());
-			if (!dst.has_protocol())
-				host->set_protocol(dst.get_protocol());
-			if (!dst.comment.empty())
-				host->set_comment(dst.comment);
-			BOOST_FOREACH(const std::string &t, dst.tags) {
-				host->add_tags(t);
-			}
-			BOOST_FOREACH(const destination_container::data_map::value_type &kvp, dst.data) {
-				::Plugin::Common_KeyValue* x = host->add_metadata();
-				x->set_key(kvp.first);
-				x->set_value(kvp.second);
-			}
-		}
-
-		bool functions::parse_destination(const ::Plugin::Common_Header &header, const std::string tag, destination_container &data, const bool expand_meta) {
-			for (int i=0;i<header.hosts_size();++i) {
-				const ::Plugin::Common::Host &host = header.hosts(i);
-				if (host.id() == tag) {
-					data.id = tag;
-					if (!host.address().empty())
-						data.address.import(net::parse(host.address()));
-					if (!host.comment().empty())
-						data.comment = host.comment();
-					if (expand_meta) {
-						for(int j=0;j<host.tags_size(); ++j) {
-							data.tags.insert(host.tags(j));
-						}
-						for(int j=0;j<host.metadata_size(); ++j) {
-							data.data[host.metadata(j).key()] = host.metadata(j).value();
-						}
-					}
-					return true;
-				}
-			}
-			return false;
-		}
-*/
-//////////////////////////////////////////////////////////////////////////
 
 		void functions::make_submit_from_query(std::string &message, const std::string channel, const std::string alias, const std::string target, const std::string source) {
 			Plugin::QueryResponseMessage response;
@@ -217,7 +228,6 @@ namespace nscapi {
 
 		void functions::create_simple_submit_request(std::string channel, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer) {
 			Plugin::SubmitRequestMessage message;
-			create_simple_header(message.mutable_header());
 			message.set_channel(channel);
 
 			Plugin::QueryResponseMessage::Response *payload = message.add_payload();
@@ -231,15 +241,13 @@ namespace nscapi {
 			message.SerializeToString(&buffer);
 		}
 
-		void functions::create_simple_submit_response(const std::string channel, const std::string command, const ::Plugin::Common_Result_StatusCodeType result, const std::string msg, std::string &buffer) {
+		void functions::create_simple_submit_response_ok(const std::string channel, const std::string command, const std::string msg, std::string &buffer) {
 			Plugin::SubmitResponseMessage message;
-			create_simple_header(message.mutable_header());
-			//message.set_channel(to_string(channel));
 
 			Plugin::SubmitResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(command);
 			payload->mutable_result()->set_message(msg);
-			payload->mutable_result()->set_code(result);
+			payload->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 			message.SerializeToString(&buffer);
 		}
 		bool functions::parse_simple_submit_response(const std::string &request, std::string &response) {
@@ -255,7 +263,6 @@ namespace nscapi {
 		}
 		void functions::create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
-			create_simple_header(message.mutable_header());
 
 			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
@@ -268,7 +275,6 @@ namespace nscapi {
 		}
 		void functions::create_simple_query_request(std::string command, std::vector<std::string> arguments, std::string &buffer) {
 			Plugin::QueryRequestMessage message;
-			create_simple_header(message.mutable_header());
 
 			Plugin::QueryRequestMessage::Request *payload = message.add_payload();
 			payload->set_command(command);
@@ -278,48 +284,6 @@ namespace nscapi {
 			}
 
 			message.SerializeToString(&buffer);
-		}
-
-		NSCAPI::nagiosReturn functions::create_simple_query_response_unknown(std::string command, std::string msg, std::string &buffer) {
-			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header());
-
-			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
-			payload->set_command(command);
-			payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
-			payload->add_lines()->set_message(msg);
-			message.SerializeToString(&buffer);
-			return NSCAPI::query_return_codes::returnUNKNOWN;
-		}
-		NSCAPI::nagiosReturn functions::create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf, std::string &buffer) {
-			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header());
-
-			append_simple_query_response_payload(message.add_payload(), command, ret, msg, perf);
-
-			message.SerializeToString(&buffer);
-			return ret;
-		}
-		NSCAPI::nagiosReturn functions::create_simple_query_response(std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string &buffer) {
-			Plugin::QueryResponseMessage message;
-			create_simple_header(message.mutable_header());
-
-			::Plugin::QueryResponseMessage::Response *payload = message.add_payload();
-			payload->set_command(command);
-			payload->set_result(nagios_status_to_gpb(ret));
-			payload->add_lines()->set_message(msg);
-
-			message.SerializeToString(&buffer);
-			return ret;
-		}
-
-		void functions::append_simple_submit_request_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf) {
-			payload->set_command(command);
-			payload->set_result(nagios_status_to_gpb(ret));
-			Plugin::QueryResponseMessage::Response::Line *l = payload->add_lines();
-			l->set_message(msg);
-			if (!perf.empty())
-				parse_performance_data(l, perf);
 		}
 
 		void functions::append_simple_query_response_payload(Plugin::QueryResponseMessage::Response *payload, std::string command, NSCAPI::nagiosReturn ret, std::string msg, std::string perf) {
@@ -335,9 +299,9 @@ namespace nscapi {
 			payload->set_message(msg);
 			payload->set_result(nagios_status_to_gpb(ret));
 		}
-		void functions::append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, ::Plugin::Common_Result_StatusCodeType result, std::string msg) {
+		void functions::append_simple_submit_response_payload(Plugin::SubmitResponseMessage::Response *payload, std::string command, bool result, std::string msg) {
 			payload->set_command(command);
-			payload->mutable_result()->set_code(result);
+			payload->mutable_result()->set_code(result? Plugin::Common_Result_StatusCodeType_STATUS_OK:Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
 			payload->mutable_result()->set_message(msg);
 		}
 
@@ -356,7 +320,6 @@ namespace nscapi {
 		}
 
 		void functions::parse_simple_query_request(std::list<std::string> &args, const std::string &request) {
-			decoded_simple_command_data data;
 
 			Plugin::QueryRequestMessage message;
 			message.ParseFromString(request);
@@ -368,46 +331,6 @@ namespace nscapi {
 			for (int i = 0; i < payload.arguments_size(); i++) {
 				args.push_back(payload.arguments(i));
 			}
-		}
-		functions::decoded_simple_command_data functions::parse_simple_query_request(const std::string command, const std::string &request) {
-			decoded_simple_command_data data;
-
-			data.command = command;
-			Plugin::QueryRequestMessage message;
-			message.ParseFromString(request);
-
-			if (message.payload_size() != 1) {
-				THROW_INVALID_SIZE(message.payload_size());
-			}
-			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i = 0; i < payload.arguments_size(); i++) {
-				data.args.push_back(payload.arguments(i));
-			}
-			return data;
-		}
-		functions::decoded_simple_command_data functions::parse_simple_query_request(const char* char_command, const std::string &request) {
-			decoded_simple_command_data data;
-
-			data.command = char_command;
-			Plugin::QueryRequestMessage message;
-			message.ParseFromString(request);
-
-			if (message.payload_size() != 1) {
-				THROW_INVALID_SIZE(message.payload_size());
-			}
-			::Plugin::QueryRequestMessage::Request payload = message.payload().Get(0);
-			for (int i = 0; i < payload.arguments_size(); i++) {
-				data.args.push_back(payload.arguments(i));
-			}
-			return data;
-		}
-		functions::decoded_simple_command_data functions::parse_simple_query_request(const ::Plugin::QueryRequestMessage::Request &payload) {
-			decoded_simple_command_data data;
-			data.command = payload.command();
-			for (int i = 0; i < payload.arguments_size(); i++) {
-				data.args.push_back(payload.arguments(i));
-			}
-			return data;
 		}
 		int functions::parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf) {
 			Plugin::QueryResponseMessage message;
@@ -438,7 +361,6 @@ namespace nscapi {
 
 		void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::list<std::string> & args, std::string &request) {
 			Plugin::ExecuteRequestMessage message;
-			create_simple_header(message.mutable_header());
 			if (!module.empty()) {
 				::Plugin::Common_KeyValue* kvp = message.mutable_header()->add_metadata();
 				kvp->set_key("target");
@@ -456,7 +378,6 @@ namespace nscapi {
 
 		void functions::create_simple_exec_request(const std::string &module, const std::string &command, const std::vector<std::string> & args, std::string &request) {
 			Plugin::ExecuteRequestMessage message;
-			create_simple_header(message.mutable_header());
 			if (!module.empty()) {
 				::Plugin::Common_KeyValue* kvp = message.mutable_header()->add_metadata();
 				kvp->set_key("target");
@@ -484,38 +405,9 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const std::string &request) {
-			Plugin::ExecuteRequestMessage message;
-			message.ParseFromString(request);
 
-			return parse_simple_exec_request(message);
-		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request(const Plugin::ExecuteRequestMessage &message) {
-			decoded_simple_command_data data;
-			if (message.has_header())
-				data.target = message.header().recipient_id();
-
-			if (message.payload_size() != 1) {
-				THROW_INVALID_SIZE(message.payload_size());
-			}
-			Plugin::ExecuteRequestMessage::Request payload = message.payload().Get(0);
-			data.command = payload.command();
-			for (int i = 0; i < payload.arguments_size(); i++) {
-				data.args.push_back(payload.arguments(i));
-			}
-			return data;
-		}
-		functions::decoded_simple_command_data functions::parse_simple_exec_request_payload(const Plugin::ExecuteRequestMessage::Request &payload) {
-			decoded_simple_command_data data;
-			data.command = payload.command();
-			for (int i = 0; i < payload.arguments_size(); i++) {
-				data.args.push_back(payload.arguments(i));
-			}
-			return data;
-		}
 		int functions::create_simple_exec_response(const std::string &command, NSCAPI::nagiosReturn ret, const std::string result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
-			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(command);
@@ -527,7 +419,6 @@ namespace nscapi {
 		}
 		int functions::create_simple_exec_response_unknown(std::string command, std::string result, std::string &response) {
 			Plugin::ExecuteResponseMessage message;
-			create_simple_header(message.mutable_header());
 
 			Plugin::ExecuteResponseMessage::Response *payload = message.add_payload();
 			payload->set_command(command);
@@ -778,6 +669,27 @@ namespace nscapi {
 			return NSCAPI::query_return_codes::returnUNKNOWN;
 		}
 
+		void functions::set_response_bad(::Plugin::QueryResponseMessage_Response &response, std::string message) {
+			response.set_result(Plugin::Common_ResultCode_UNKNOWN);
+			response.add_lines()->set_message(message);
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
+		void functions::set_response_bad(::Plugin::SubmitResponseMessage::Response &response, std::string message) {
+			response.mutable_result()->set_code(::Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
+			response.mutable_result()->set_message(message);
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
+		void functions::set_response_bad(::Plugin::ExecuteResponseMessage::Response &response, std::string message) {
+			response.set_result(Plugin::Common_ResultCode_UNKNOWN);
+			response.set_message(message);
+			if (!response.has_command())
+				response.set_command("unknown");
+		}
+
 		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status) {
 			std::string lcstat = boost::to_lower_copy(status);
 			if (lcstat == "o" || lcstat == "ok")
@@ -787,22 +699,6 @@ namespace nscapi {
 			if (lcstat == "c" || lcstat == "crit" || lcstat == "critical")
 				return Plugin::Common_ResultCode_CRITICAL;
 			return Plugin::Common_ResultCode_UNKNOWN;
-		}
-
-		NSCAPI::messageTypes functions::gpb_to_log(Plugin::LogEntry::Entry::Level ret) {
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_CRITICAL)
-				return NSCAPI::log_level::critical;
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_DEBUG)
-				return NSCAPI::log_level::debug;
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_TRACE)
-				return NSCAPI::log_level::trace;
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_ERROR)
-				return NSCAPI::log_level::error;
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_INFO)
-				return NSCAPI::log_level::info;
-			if (ret == Plugin::LogEntry_Entry_Level_LOG_WARNING)
-				return NSCAPI::log_level::warning;
-			return NSCAPI::log_level::error;
 		}
 
 		namespace functions {
@@ -903,7 +799,6 @@ namespace nscapi {
 			}
 
 			settings_query::settings_query(int plugin_id) : pimpl(new settings_query_data(plugin_id)) {
-				create_simple_header(pimpl->request_message.mutable_header());
 			}
 			settings_query::~settings_query() {
 				delete pimpl;
@@ -972,7 +867,7 @@ namespace nscapi {
 				return pimpl->request_message.SerializeAsString();
 			}
 
-			bool settings_query::validate_response() {
+			bool settings_query::validate_response() const {
 				pimpl->response_message.ParsePartialFromString(pimpl->response_buffer);
 				bool ret = true;
 				for (int i = 0; i < pimpl->response_message.payload_size(); ++i) {
@@ -1009,9 +904,11 @@ namespace nscapi {
 				return ret;
 			}
 
-			std::string& settings_query::response() { 
+			std::string& settings_query::response() const { 
 				return pimpl->response_buffer; 
 			}
+
+
 
 
 			void copy_response(const std::string command, ::Plugin::QueryResponseMessage::Response* target, const ::Plugin::ExecuteResponseMessage::Response source) {

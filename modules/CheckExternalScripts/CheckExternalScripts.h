@@ -17,12 +17,12 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <error/error.hpp>
-#include <nscapi/nscapi_plugin_impl.hpp>
-#include <process/execute_process.hpp>
 #include "commands.hpp"
 #include "alias.hpp"
+
+#include <nscapi/nscapi_plugin_impl.hpp>
+
+#include <map>
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
@@ -43,20 +43,20 @@ public:
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
 	bool unloadModule();
-	void query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &request_message);
-	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);
+	void query_fallback(const Plugin::QueryRequestMessage_Request &request, Plugin::QueryResponseMessage_Response *response, const Plugin::QueryRequestMessage &request_message);
+	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response, const Plugin::ExecuteRequestMessage &request_message);
 
 private:
 
-	void add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	void add_script(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 
-	void handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
-	void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage::Response *response);
+	void handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage_Response *response);
+	void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage_Response *response);
 	void addAllScriptsFrom(std::string path);
 	void add_command(std::string key, std::string arg);
 	void add_alias(std::string key, std::string command);
 	void add_wrapping(std::string key, std::string command);
 	std::string generate_wrapped_command(std::string command);
-	void configure(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
-	void list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+	void configure(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
+	void list(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 };

@@ -1057,7 +1057,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 	BOOST_FOREACH(std::string cur_chan, str::utils::split_lst(schannel, std::string(","))) {
 		if (cur_chan == "noop") {
 			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
 			continue;
 		}
 		if (cur_chan == "log") {
@@ -1067,7 +1067,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 				LOG_INFO_CORE("Logging notification: " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i)));
 			}
 			found = true;
-			nscapi::protobuf::functions::create_simple_submit_response(cur_chan, "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "seems ok", response);
+			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);
 			continue;
 		}
 		try {

@@ -19,14 +19,16 @@
 
 #include "CheckExternalScripts.h"
 
-#include <nscapi/functions.hpp>
+#include <process/execute_process.hpp>
 
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_program_options.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 
+#include <settings/config.hpp>
 #include <settings/config.hpp>
 #include <config.h>
 #include <str/utils.hpp>
@@ -549,7 +551,6 @@ void CheckExternalScripts::add_wrapping(std::string key, std::string command) {
 }
 
 void CheckExternalScripts::query_fallback(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response, const Plugin::QueryRequestMessage &) {
-	//nscapi::functions::decoded_simple_command_data data = nscapi::functions::parse_simple_query_request(char_command, request);
 	commands::command_object_instance command_def = commands_.find_object(request.command());
 
 	std::list<std::string> args;

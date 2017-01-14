@@ -18,6 +18,7 @@
  */
 
 #include <nscapi/functions.hpp>
+#include <nscapi/nscapi_protobuf.hpp>
 #include <str/format.hpp>
 
 #include <vector>

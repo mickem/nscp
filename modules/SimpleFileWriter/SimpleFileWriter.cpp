@@ -17,29 +17,28 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <map>
-#include <vector>
-#include <ostream>
-#include <fstream>
-
-#include <boost/foreach.hpp>
-#include <boost/bind.hpp>
-#include <boost/assign.hpp>
-#include <boost/optional.hpp>
-#include <boost/date_time.hpp>
+#include "SimpleFileWriter.h"
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
+#include <nscapi/nscapi_settings_helper.hpp>
 
 #include <parsers/expression/expression.hpp>
 
 #include <nsclient/nsclient_exception.hpp>
-#include <nscapi/nscapi_settings_helper.hpp>
 
-#include "SimpleFileWriter.h"
+#include <boost/foreach.hpp>
+#include <boost/bind.hpp>
+#include <boost/date_time.hpp>
+
+#include <map>
+#include <vector>
+#include <ostream>
+#include <fstream>
 
 namespace sh = nscapi::settings_helper;
 
@@ -250,12 +249,12 @@ void SimpleFileWriter::handleNotification(const std::string &, const Plugin::Que
 	{
 		boost::unique_lock<boost::shared_mutex> lock(cache_mutex_);
 		if (!lock) {
-			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_ERROR, "Failed to get lock");
+			nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), false, "Failed to get lock");
 			return;
 		}
 		std::ofstream out;
 		out.open(filename_.c_str(), std::ios::out | std::ios::app);
 		out << key << std::endl;
 	}
-	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), Plugin::Common_Result_StatusCodeType_STATUS_OK, "message has been written");
+	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "message has been written");
 }

@@ -19,21 +19,20 @@
 
 #pragma once
 
-#include <string>
-#include <map>
-#include <set>
-#include <algorithm>
+#include <nsclient/logger/logger.hpp>
+#include <settings/settings_value.hpp>
+
+#include <utf8.hpp>
 
 #include <boost/thread/thread.hpp>
 #include <boost/thread/locks.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 
-#include <nsclient/logger/logger.hpp>
-
-#include <settings/settings_value.hpp>
-
-#include <utf8.hpp>
+#include <string>
+#include <map>
+#include <set>
+#include <algorithm>
 
 #define BUFF_LEN 4096
 

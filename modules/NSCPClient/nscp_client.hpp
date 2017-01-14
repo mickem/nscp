@@ -132,7 +132,7 @@ namespace nscp_client {
 				}
 				boost::tuple<int, std::string> ret = send(con, data);
 				bool wentOk = ret.get<0>() != NSCAPI::query_return_codes::returnUNKNOWN;
-				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), command, wentOk ? Plugin::Common_Result_StatusCodeType_STATUS_OK : Plugin::Common_Result_StatusCodeType_STATUS_ERROR, ret.get<1>());
+				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), command, wentOk, ret.get<1>());
 			}
 			return true;
 		}

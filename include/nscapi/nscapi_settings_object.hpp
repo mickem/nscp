@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/dll_defines.hpp>
@@ -27,13 +26,12 @@
 #include <settings/client/settings_client_interface.hpp>
 #include <nsclient/nsclient_exception.hpp>
 
-#include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/function.hpp>
 #include <boost/foreach.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/make_shared.hpp>
 
-#include <map>
 #include <list>
 #include <string>
 
@@ -381,24 +379,5 @@ namespace nscapi {
 				templates[alias] = object;
 			}
 		};
-		/*
-		struct NSCAPI_EXPORT template_object {
-			template_object() : is_template(false)  {}
-
-			std::string path;
-			std::string alias;
-			std::string value;
-			std::string parent;
-			bool is_template;
-
-			bool is_default() const {
-				return alias == "default";
-			}
-
-			void read_object(nscapi::settings_helper::path_extension &root_path);
-			void add_oneliner_hint(boost::shared_ptr<nscapi::settings_proxy> proxy, const bool oneliner, const bool is_sample);
-			std::string to_string() const;
-		};
-		*/
 	}
 }

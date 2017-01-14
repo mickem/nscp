@@ -80,7 +80,7 @@ namespace smtp_client {
 				recipients.push_back(con.recipient_str);
 				client->send_mail(con.sender_hostname, recipients, "Hello world\n");
 				io_service.run();
-				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", Plugin::Common_Result_StatusCodeType_STATUS_OK, "Message send successfully");
+				nscapi::protobuf::functions::append_simple_submit_response_payload(response_message.add_payload(), "TODO", true, "Message send successfully");
 			}
 			return true;
 		}

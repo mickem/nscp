@@ -22,12 +22,11 @@
 #include <socket/socket_helpers.hpp>
 #include <socket/clients/http/http_packet.hpp>
 
-//#include <strEx.h>
 #include <str/xtos.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/tuple/tuple.hpp>
 #include <boost/version.hpp>
+#include <boost/scoped_ptr.hpp>
 
 
 #include <iostream>

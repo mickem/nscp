@@ -24,6 +24,19 @@
 
 #include <boost/shared_ptr.hpp>
 
+namespace Plugin {
+	class Common_Header;
+	class ExecuteRequestMessage;
+	class ExecuteRequestMessage_Request;
+	class ExecuteResponseMessage_Response;
+	class QueryRequestMessage;
+	class QueryRequestMessage_Request;
+	class QueryResponseMessage;
+	class QueryResponseMessage_Response;
+	class SubmitResponseMessage_Response;
+	class MetricsMessage_Response;
+}
+
 namespace nscapi {
 	namespace impl {
 		struct simple_plugin {

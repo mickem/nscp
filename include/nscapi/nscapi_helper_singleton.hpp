@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <NSCAPI.h>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/dll_defines.hpp>
 
