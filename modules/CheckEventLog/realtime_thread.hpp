@@ -46,7 +46,7 @@ struct real_time_thread {
 	void add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 	void set_enabled(bool flag) { enabled_ = flag; }
 	void set_start_age(std::string age) {
-		start_age_ = str::format::stox_as_time<unsigned long long>(age, 1000);
+		start_age_ = str::format::stox_as_time_sec<unsigned long long>(age, "s");
 	}
 
 	void set_language(std::string lang);

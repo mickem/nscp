@@ -74,7 +74,7 @@ namespace schedules {
 			report = nscapi::report::parse(str);
 		}
 		void set_duration(std::string str) {
-			duration = boost::posix_time::seconds(str::format::stox_as_time<long>(str, 1));
+			duration = boost::posix_time::seconds(str::format::stox_as_time_sec<long>(str, "s"));
 		}
 		void set_schedule(std::string str) {
 			schedule = str;

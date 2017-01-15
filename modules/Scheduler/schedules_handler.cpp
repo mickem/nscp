@@ -47,7 +47,7 @@ namespace schedules {
 	boost::posix_time::seconds parse_interval(const std::string &str) {
 		if (str.empty())
 			return boost::posix_time::seconds(0);
-		return boost::posix_time::seconds(str::format::stox_as_time<long>(str, 1));
+		return boost::posix_time::seconds(str::format::stox_as_time_sec<long>(str, "s"));
 	}
 
 	void scheduler::add_task(const target_object target) {

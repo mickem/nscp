@@ -222,7 +222,7 @@ namespace check_uptime_filter {
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
 		parsers::where::helpers::read_arg_type value = parsers::where::helpers::read_arguments(context, subject, "d");
 		std::string expr = str::xtos(value.get<0>()) + value.get<2>();
-		return parsers::where::factory::create_int(str::format::stox_as_time(expr, 1));
+		return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(expr, "s"));
 	}
 
 	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;

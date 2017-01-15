@@ -236,23 +236,29 @@ namespace str {
 			return ss.str();
 		}
 		template<class T>
-		inline T stox_as_time(std::string time, T smallest_unit = 1000) {
+		inline T stox_as_time_sec(std::string time, std::string default_unit) {
 			std::string::size_type p = time.find_first_of("sSmMhHdDwW");
 			std::string::size_type pend = time.find_first_not_of("0123456789");
 			T value = str::stox<T>(pend == std::string::npos ? time : time.substr(0, pend).c_str());
-			if (p == std::string::npos)
-				return value * smallest_unit;
-			else if ((time[p] == 's') || (time[p] == 'S'))
-				return value * 1000;
-			else if ((time[p] == 'm') || (time[p] == 'M'))
-				return value * 60 * 1000;
-			else if ((time[p] == 'h') || (time[p] == 'H'))
-				return value * 60 * 60 * 1000;
-			else if ((time[p] == 'd') || (time[p] == 'D'))
-				return value * 24 * 60 * 60 * 1000;
-			else if ((time[p] == 'w') || (time[p] == 'W'))
-				return value * 7 * 24 * 60 * 60 * 1000;
-			return value * smallest_unit;
+			std::string unit = default_unit;
+			if (p != std::string::npos) {
+				unit = time.substr(p);
+			}
+			char u = ' ';
+			if (unit.length() > 0) {
+				u = unit[0];
+			}
+			if ((u == 's') || (u == 'S'))
+				return value;
+			else if ((u == 'm') || (u == 'M'))
+				return value * 60;
+			else if ((u == 'h') || (u == 'H'))
+				return value * 60 * 60;
+			else if ((u == 'd') || (u == 'D'))
+				return value * 24 * 60 * 60;
+			else if ((u == 'w') || (u == 'W'))
+				return value * 7 * 24 * 60 * 60;
+			return value;
 		}
 
 		//

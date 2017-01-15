@@ -57,7 +57,7 @@ namespace nsca_client {
 			encoding = arguments.get_string_data("encoding");
 			std::string tmp = arguments.get_string_data("time offset");
 			if (!tmp.empty())
-				time_delta = str::format::stox_as_time<int>(arguments.get_string_data("time offset"), 1);
+				time_delta = str::format::stox_as_time_sec<int>(arguments.get_string_data("time offset"), "s");
 			else
 				time_delta = 0;
 			sender_hostname = sender.address.host;

@@ -248,7 +248,7 @@ namespace check_pdh {
 					if (time.empty()) {
 						values = collector->get_value(vc.second);
 					} else {
-						values = collector->get_average(vc.second, str::format::stox_as_time<long>(time) / 1000);
+						values = collector->get_average(vc.second, str::format::stox_as_time_sec<long>(time, "s"));
 					}
 					if (values.empty())
 						return nscapi::protobuf::functions::set_response_bad(*response, "Failed to get value");

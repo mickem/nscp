@@ -87,7 +87,7 @@ namespace PDH {
 		if (buffer_size_.empty())
 			return;
 		try {
-			buffer_size = str::format::stox_as_time<long>(buffer_size_, 1000) / 1000;
+			buffer_size = str::format::stox_as_time_sec<long>(buffer_size_, "s");
 		} catch (...) {
 			buffer_size = 0;
 		}
