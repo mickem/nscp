@@ -18,6 +18,12 @@
 
 #include <nsclient/nsclient_exception.hpp>
 
+#include <utf8.hpp>
+
+#include <boost/any.hpp>
+#include <boost/foreach.hpp>
+#include <boost/optional.hpp>
+
 #define STRING_FUN_STORER(val) boost::shared_ptr<store_functor>(new string_fun_storer(val))
 #define BOOL_FUN_STORER(val) boost::shared_ptr<store_functor>(new bool_fun_storer(val))
 
@@ -35,6 +41,10 @@
 namespace nscapi {
 	namespace settings_helper {
 		namespace s = nscapi::settings;
+
+		inline std::string make_skey(std::string path, std::string key) {
+			return path + "." + key;
+		}
 
 		struct post_processor {
 			virtual s::settings_value process(settings_impl_interface_ptr core, s::settings_value value) = 0;
@@ -65,7 +75,7 @@ namespace nscapi {
 
 			typed_key* default_value(const s::settings_value &v) {
 				has_default_ = true;
-				default_value_ = default_value_;
+				default_value_ = v;
 				return this;
 			}
 
@@ -449,19 +459,203 @@ namespace nscapi {
 			key_type r(new typed_kvp_value(MAP_STORER(val)));
 			return r;
 		}
+		//////////////////////////////////////////////////////////////////////////
+		// 
+		// Helper classes
+		//
+
+		struct path_info {
+			std::string path_name;
+			key_type path;
+			description_container description;
+			description_container subkey_description;
+			bool is_sample;
+
+			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
+			path_info(std::string path_name, key_type path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
+
+			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
+			virtual path_info& operator=(const path_info& obj) {
+				path_name = obj.path_name;
+				path = obj.path;
+				description = obj.description;
+				subkey_description = obj.subkey_description;
+				is_sample = obj.is_sample;
+				return *this;
+			}
+		};
+		struct tpl_info {
+			std::string path_name;
+			description_container description;
+			std::string fields;
+
+			tpl_info(std::string path_name, description_container description, std::string fields) : path_name(path_name), description(description), fields(fields) {}
+
+			tpl_info(const tpl_info& obj) : path_name(obj.path_name), description(obj.description), fields(obj.fields) {}
+			virtual tpl_info& operator=(const tpl_info& obj) {
+				path_name = obj.path_name;
+				description = obj.description;
+				fields = obj.fields;
+				return *this;
+			}
+		};
+
+
+		struct key_info {
+			std::string path;
+			std::string key_name;
+			key_type key;
+			description_container description;
+			std::string parent;
+			bool is_sample;
+
+			key_info(std::string path_, std::string key_name_, key_type key, description_container description_)
+				: path(path_)
+				, key_name(key_name_)
+				, key(key)
+				, description(description_)
+				, is_sample(false) {}
+			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent), is_sample(obj.is_sample) {}
+			virtual key_info& operator=(const key_info& obj) {
+				path = obj.path;
+				key_name = obj.key_name;
+				key = obj.key;
+				description = obj.description;
+				parent = obj.parent;
+				is_sample = obj.is_sample;
+				return *this;
+			}
+			void set_parent(std::string parent_) {
+				parent = parent_;
+			}
+			bool has_parent() const {
+				return !parent.empty();
+			}
+			std::string get_parent() const {
+				return parent;
+			}
+		};
+
+		settings_paths_easy_init& settings_paths_easy_init::operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
+			boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
+			add(d);
+			return *this;
+		}
+
+		settings_paths_easy_init& settings_paths_easy_init::operator()(std::string title, std::string description) {
+			boost::shared_ptr<path_info> d(new path_info(path_, description_container(title, description)));
+			add(d);
+			return *this;
+		}
+
+		settings_paths_easy_init& settings_paths_easy_init::operator()(std::string path, std::string title, std::string description) {
+			if (!path_.empty())
+				path = path_ + "/" + path;
+			boost::shared_ptr<path_info> d(new path_info(path, description_container(title, description)));
+			add(d);
+			return *this;
+		}
+
+		settings_paths_easy_init& settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
+			if (!path_.empty())
+				path = path_ + "/" + path;
+			boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
+			add(d);
+			return *this;
+		}
 
 		void settings_paths_easy_init::add(boost::shared_ptr<path_info> d) {
 			if (is_sample)
 				d->is_sample = true;
 			owner->add(d);
 		}
+
+		settings_tpl_easy_init& settings_tpl_easy_init::operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields) {
+			if (!path_.empty())
+				path = path_ + "/" + path;
+			boost::shared_ptr<tpl_info> d(new tpl_info(path, description_container(title, desc, icon), fields));
+			add(d);
+			return *this;
+		}
+
 		void settings_tpl_easy_init::add(boost::shared_ptr<tpl_info> d) {
 			owner->add(d);
 		}
+
+		settings_keys_easy_init& settings_keys_easy_init::operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
+			boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
+			if (!parent_.empty())
+				d->set_parent(parent_);
+			add(d);
+			return *this;
+		}
+
+		settings_keys_easy_init& settings_keys_easy_init::operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced /*= false*/) {
+			boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
+			if (!parent_.empty())
+				d->set_parent(parent_);
+			add(d);
+			return *this;
+		}
+
 		void settings_keys_easy_init::add(boost::shared_ptr<key_info> d) {
 			if (is_sample)
 				d->is_sample = true;
 			owner->add(d);
+		}
+
+
+
+
+		void settings_registry::register_all() const {
+			BOOST_FOREACH(key_list::value_type v, keys_) {
+				if (v->key) {
+					if (v->has_parent()) {
+						core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
+						std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
+						core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default(), true, false);
+					} else {
+						core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
+					}
+				}
+			}
+			BOOST_FOREACH(path_list::value_type v, paths_) {
+				core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
+				if (!v->subkey_description.title.empty()) {
+					BOOST_FOREACH(const std::string &s, core_->get_keys(v->path_name))
+						core_->register_key(v->path_name, s, NSCAPI::key_string, v->subkey_description.title, v->subkey_description.description, "", v->description.advanced, v->is_sample);
+				}
+			}
+			BOOST_FOREACH(tpl_list_type::value_type v, tpl_) {
+				core_->register_tpl(v->path_name, v->description.title, v->description.icon, v->description.description, v->fields);
+			}
+		}
+
+		void settings_registry::notify() {
+			BOOST_FOREACH(key_list::value_type v, keys_) {
+				try {
+					if (v->key) {
+						if (v->has_parent())
+							v->key->notify(core_, v->parent, v->path, v->key_name);
+						else
+							v->key->notify(core_, v->path, v->key_name);
+					}
+				} catch (const std::exception &e) {
+					core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name + ": " + utf8::utf8_from_native(e.what()));
+				} catch (...) {
+					core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
+				}
+			}
+			BOOST_FOREACH(path_list::value_type v, paths_) {
+				try {
+					if (v->path)
+						v->path->notify_path(core_, v->path_name);
+				} catch (const std::exception &e) {
+					core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name + ": " + utf8::utf8_from_native(e.what()));
+				} catch (...) {
+					core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name);
+				}
+			}
 		}
 
 	}

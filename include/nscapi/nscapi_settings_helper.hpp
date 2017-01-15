@@ -20,41 +20,20 @@
 #pragma once
 
 #include <nscapi/nscapi_core_wrapper.hpp>
-#include <nscapi/dll_defines.hpp>
 #include <settings/client/settings_client_interface.hpp>
 
-#include <utf8.hpp>
-
-#include <boost/any.hpp>
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/foreach.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/optional.hpp>
 
 #include <map>
 #include <list>
 #include <string>
 
-#ifdef WIN32
-#pragma warning( disable : 4800 )
-#endif
-
-namespace boost {
-	template<>
-	inline std::string lexical_cast<std::string, boost::filesystem::path>(const boost::filesystem::path& arg) {
-		return utf8::cvt<std::string>(arg.string());
-	}
-}
 
 namespace nscapi {
 	namespace settings_helper {
 		typedef boost::shared_ptr<settings_impl_interface> settings_impl_interface_ptr;
-
-		inline std::string make_skey(std::string path, std::string key) {
-			return path + "." + key;
-		}
 
 		class key_interface {
 		public:
@@ -66,30 +45,30 @@ namespace nscapi {
 		};
 		typedef boost::shared_ptr<key_interface> key_type;
 
-		NSCAPI_EXPORT key_type string_key(std::string *val, std::string def);
-		NSCAPI_EXPORT key_type string_key(std::string *val);
-		NSCAPI_EXPORT key_type int_key(int *val, int def = 0);
-		NSCAPI_EXPORT key_type size_key(std::size_t *val, std::size_t def = 0);
-		NSCAPI_EXPORT key_type uint_key(unsigned int *val, unsigned int def);
-		NSCAPI_EXPORT key_type uint_key(unsigned int *val);
-		NSCAPI_EXPORT key_type bool_key(bool *val, bool def);
-		NSCAPI_EXPORT key_type bool_key(bool *val);
-		NSCAPI_EXPORT key_type path_key(std::string *val, std::string def);
-		NSCAPI_EXPORT key_type path_key(std::string *val);
-		NSCAPI_EXPORT key_type path_key(boost::filesystem::path *val, std::string def);
-		NSCAPI_EXPORT key_type path_key(boost::filesystem::path *val);
+		key_type string_key(std::string *val, std::string def);
+		key_type string_key(std::string *val);
+		key_type int_key(int *val, int def = 0);
+		key_type size_key(std::size_t *val, std::size_t def = 0);
+		key_type uint_key(unsigned int *val, unsigned int def);
+		key_type uint_key(unsigned int *val);
+		key_type bool_key(bool *val, bool def);
+		key_type bool_key(bool *val);
+		key_type path_key(std::string *val, std::string def);
+		key_type path_key(std::string *val);
+		key_type path_key(boost::filesystem::path *val, std::string def);
+		key_type path_key(boost::filesystem::path *val);
 
-		NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
-		NSCAPI_EXPORT key_type string_fun_key(boost::function<void(std::string)> fun);
-		NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
-		NSCAPI_EXPORT key_type path_fun_key(boost::function<void(std::string)> fun);
-		NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
-		NSCAPI_EXPORT key_type bool_fun_key(boost::function<void(bool)> fun);
-		NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun, int def);
-		NSCAPI_EXPORT key_type int_fun_key(boost::function<void(int)> fun);
+		key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
+		key_type string_fun_key(boost::function<void(std::string)> fun);
+		key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
+		key_type path_fun_key(boost::function<void(std::string)> fun);
+		key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
+		key_type bool_fun_key(boost::function<void(bool)> fun);
+		key_type int_fun_key(boost::function<void(int)> fun, int def);
+		key_type int_fun_key(boost::function<void(int)> fun);
 
-		NSCAPI_EXPORT key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
-		NSCAPI_EXPORT key_type string_map_path(std::map<std::string, std::string> *val);
+		key_type fun_values_path(boost::function<void(std::string, std::string)> fun);
+		key_type string_map_path(std::map<std::string, std::string> *val);
 
 		struct description_container {
 			std::string icon;
@@ -127,138 +106,44 @@ namespace nscapi {
 			}
 		};
 
-		struct key_info {
-			std::string path;
-			std::string key_name;
-			key_type key;
-			description_container description;
-			std::string parent;
-			bool is_sample;
-
-			key_info(std::string path_, std::string key_name_, key_type key, description_container description_)
-				: path(path_)
-				, key_name(key_name_)
-				, key(key)
-				, description(description_)
-				, is_sample(false) {}
-			key_info(const key_info& obj) : path(obj.path), key_name(obj.key_name), key(obj.key), description(obj.description), parent(obj.parent), is_sample(obj.is_sample) {}
-			virtual key_info& operator=(const key_info& obj) {
-				path = obj.path;
-				key_name = obj.key_name;
-				key = obj.key;
-				description = obj.description;
-				parent = obj.parent;
-				is_sample = obj.is_sample;
-				return *this;
-			}
-			void set_parent(std::string parent_) {
-				parent = parent_;
-			}
-			bool has_parent() const {
-				return !parent.empty();
-			}
-			std::string get_parent() const {
-				return parent;
-			}
-		};
-		struct path_info {
-			std::string path_name;
-			key_type path;
-			description_container description;
-			description_container subkey_description;
-			bool is_sample;
-
-			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
-			path_info(std::string path_name, key_type path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
-
-			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
-			virtual path_info& operator=(const path_info& obj) {
-				path_name = obj.path_name;
-				path = obj.path;
-				description = obj.description;
-				subkey_description = obj.subkey_description;
-				is_sample = obj.is_sample;
-				return *this;
-			}
-		};
-		struct tpl_info {
-			std::string path_name;
-			description_container description;
-			std::string fields;
-
-			tpl_info(std::string path_name, description_container description, std::string fields) : path_name(path_name), description(description), fields(fields) {}
-
-			tpl_info(const tpl_info& obj) : path_name(obj.path_name), description(obj.description), fields(obj.fields) {}
-			virtual tpl_info& operator=(const tpl_info& obj) {
-				path_name = obj.path_name;
-				description = obj.description;
-				fields = obj.fields;
-				return *this;
-			}
-		};
-
 		class settings_registry;
-		class NSCAPI_EXPORT settings_paths_easy_init {
+		struct path_info;
+		class settings_paths_easy_init {
 		public:
 			settings_paths_easy_init(settings_registry* owner) : owner(owner), is_sample(false) {}
 			settings_paths_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner), is_sample(false) {}
 			settings_paths_easy_init(std::string path, settings_registry* owner, bool is_sample) : path_(path), owner(owner), is_sample(is_sample) {}
 
-			settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
-				boost::shared_ptr<path_info> d(new path_info(path_, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
-				add(d);
-				return *this;
-			}
-			settings_paths_easy_init& operator()(std::string title, std::string description) {
-				boost::shared_ptr<path_info> d(new path_info(path_, description_container(title, description)));
-				add(d);
-				return *this;
-			}
-			settings_paths_easy_init& operator()(std::string path, std::string title, std::string description) {
-				if (!path_.empty())
-					path = path_ + "/" + path;
-				boost::shared_ptr<path_info> d(new path_info(path, description_container(title, description)));
-				add(d);
-				return *this;
-			}
-			settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription) {
-				if (!path_.empty())
-					path = path_ + "/" + path;
-				boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description), description_container(subkeytitle, subkeydescription)));
-				add(d);
-				return *this;
-			}
+			settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
+			settings_paths_easy_init& operator()(std::string title, std::string description);
+			settings_paths_easy_init& operator()(std::string path, std::string title, std::string description);
+			settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
 
+		private:
 			void add(boost::shared_ptr<path_info> d);
 
-		private:
 			std::string path_;
 			settings_registry* owner;
 			bool is_sample;
 		};
 
-		class NSCAPI_EXPORT settings_tpl_easy_init {
+		struct tpl_info;
+		class settings_tpl_easy_init {
 		public:
-			settings_tpl_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner) {}
+			settings_tpl_easy_init(std::string path, settings_registry* owner) : path_(path), owner(owner), is_sample(false) {}
 
-			settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields) {
-				if (!path_.empty())
-					path = path_ + "/" + path;
-				boost::shared_ptr<tpl_info> d(new tpl_info(path, description_container(title, desc, icon), fields));
-				add(d);
-				return *this;
-			}
+			settings_tpl_easy_init& operator()(std::string path, std::string icon, std::string title, std::string desc, std::string fields);
 
+		private:
 			void add(boost::shared_ptr<tpl_info> d);
 
-		private:
 			std::string path_;
 			settings_registry* owner;
 			bool is_sample;
 		};
 
-
-		class NSCAPI_EXPORT settings_keys_easy_init {
+		struct key_info;
+		class settings_keys_easy_init {
 		public:
 			settings_keys_easy_init(settings_registry* owner_) : owner(owner_), is_sample(false) {}
 			settings_keys_easy_init(std::string path, settings_registry* owner_) : owner(owner_), path_(path), is_sample(false) {}
@@ -268,25 +153,14 @@ namespace nscapi {
 
 			virtual ~settings_keys_easy_init() {}
 
-			settings_keys_easy_init& operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description, bool advanced = false) {
-				boost::shared_ptr<key_info> d(new key_info(path, key_name, value, description_container(title, description, advanced)));
-				if (!parent_.empty())
-					d->set_parent(parent_);
-				add(d);
-				return *this;
-			}
+			settings_keys_easy_init& operator()(std::string path, std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
-			settings_keys_easy_init& operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false) {
-				boost::shared_ptr<key_info> d(new key_info(path_, key_name, value, description_container(title, description, advanced)));
-				if (!parent_.empty())
-					d->set_parent(parent_);
-				add(d);
-				return *this;
-			}
+			settings_keys_easy_init& operator()(std::string key_name, key_type value, std::string title, std::string description, bool advanced = false);
 
-			void add(boost::shared_ptr<key_info> d);
 
 		private:
+			void add(boost::shared_ptr<key_info> d);
+
 			settings_registry* owner;
 			std::string path_;
 			std::string parent_;
@@ -336,7 +210,7 @@ namespace nscapi {
 			settings_paths_easy_init add_path(std::string path) {
 				return settings_paths_easy_init(get_path(path), owner_);
 			}
-			inline std::string get_path(std::string path = "") {
+			std::string get_path(std::string path = "") const {
 				if (path.empty())
 					return "/" + alias_;
 				return path + "/" + alias_;
@@ -351,7 +225,7 @@ namespace nscapi {
 			settings_tpl_easy_init add_templates(std::string path = "") {
 				return settings_tpl_easy_init(get_settings_path(path), owner_);
 			}
-			inline std::string get_settings_path(std::string path) {
+			std::string get_settings_path(std::string path) const {
 				if (path.empty())
 					return "/settings/" + alias_;
 				return "/settings/" + alias_ + "/" + path;
@@ -456,74 +330,27 @@ namespace nscapi {
 				return path_extension(this, path);
 			}
 
-			void set_static_key(std::string path, std::string key, std::string value) {
+			void set_static_key(std::string path, std::string key, std::string value) const {
 				core_->set_string(path, key, value);
 			}
-			std::string get_static_string(std::string path, std::string key, std::string def_value) {
+			std::string get_static_string(std::string path, std::string key, std::string def_value) const {
 				return core_->get_string(path, key, def_value);
 			}
 
-			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false) {
+			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
 				core_->register_key(path, key, type, title, description, nscapi::settings::settings_value::make_string(defaultValue), advanced, false);
 			}
-			void register_all() {
-				BOOST_FOREACH(key_list::value_type v, keys_) {
-					if (v->key) {
-						if (v->has_parent()) {
-							core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
-							std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
-							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default(), true, false);
-						} else {
-							core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
-						}
-					}
-				}
-				BOOST_FOREACH(path_list::value_type v, paths_) {
-					core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
-					if (!v->subkey_description.title.empty()) {
-						BOOST_FOREACH(const std::string &s, core_->get_keys(v->path_name))
-							core_->register_key(v->path_name, s, NSCAPI::key_string, v->subkey_description.title, v->subkey_description.description, "", v->description.advanced, v->is_sample);
-					}
-				}
-				BOOST_FOREACH(tpl_list_type::value_type v, tpl_) {
-					core_->register_tpl(v->path_name, v->description.title, v->description.icon, v->description.description, v->fields);
-				}
-			}
+			void register_all() const;
 			void clear() {
 				keys_.clear();
 				paths_.clear();
 			}
 
-			std::string expand_path(std::string path) {
+			std::string expand_path(std::string path) const {
 				return core_->expand_path(path);
 			}
 
-			void notify() {
-				BOOST_FOREACH(key_list::value_type v, keys_) {
-					try {
-						if (v->key) {
-							if (v->has_parent())
-								v->key->notify(core_, v->parent, v->path, v->key_name);
-							else
-								v->key->notify(core_, v->path, v->key_name);
-						}
-					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name + ": " + utf8::utf8_from_native(e.what()));
-					} catch (...) {
-						core_->err(__FILE__, __LINE__, "Failed to notify " + v->key_name);
-					}
-				}
-				BOOST_FOREACH(path_list::value_type v, paths_) {
-					try {
-						if (v->path)
-							v->path->notify_path(core_, v->path_name);
-					} catch (const std::exception &e) {
-						core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name + ": " + utf8::utf8_from_native(e.what()));
-					} catch (...) {
-						core_->err(__FILE__, __LINE__, "Failed to notify " + v->path_name);
-					}
-				}
-			}
+			void notify();
 		};
 	}
 }
