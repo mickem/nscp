@@ -304,7 +304,6 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWNotification(const char* ch
 		impl_->handleNotification(channel, request_message, &response_message);
 {% else %}
 		Plugin::SubmitRequestMessage request_message;
-		Plugin::SubmitResponseMessage response_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
 
