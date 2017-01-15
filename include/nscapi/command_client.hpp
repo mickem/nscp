@@ -94,6 +94,7 @@ namespace nscapi {
 
 
 		class NSCAPI_EXPORT command_registry {
+		private:
 			typedef std::list<boost::shared_ptr<command_info> > command_list;
 			command_list commands;
 			command_proxy_ptr core_;

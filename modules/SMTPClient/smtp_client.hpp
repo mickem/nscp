@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include "smtp.hpp"
+
 #include <socket/socket_helpers.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 

@@ -19,17 +19,11 @@
 
 #pragma once
 
-#include <utils.h>
-#include <str/xtos.hpp>
-
 #include <nsca/nsca_packet.hpp>
 
 #include <nsca/client/nsca_client_protocol.hpp>
-#include <socket/client.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
 
 #include <boost/make_shared.hpp>
 

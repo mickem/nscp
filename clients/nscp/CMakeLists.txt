@@ -7,6 +7,7 @@ PROJECT(clients)
 SET(SRCS ${SRCS}
 	check_nscp.cpp
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 
 	${NSCP_CLIENT_CPP}
 	
@@ -27,6 +28,7 @@ IF(WIN32)
 		../../modules/NSCPClient/nscp_client.hpp
 		../../modules/NSCPClient/nscp_handler.hpp
 
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 		${NSCP_INCLUDEDIR}/socket/clients/http/http_client_protocol.hpp
 		${NSCP_INCLUDEDIR}/socket/clients/http/http_packet.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp

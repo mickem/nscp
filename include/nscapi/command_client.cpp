@@ -21,7 +21,6 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/command_proxy.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 
 #include <boost/foreach.hpp>
 

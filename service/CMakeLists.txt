@@ -37,7 +37,6 @@ SET(service_SRCS
 
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_functions.cpp
-	${NSCP_INCLUDEDIR}/nscapi/nscapi_protobuf_types.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 

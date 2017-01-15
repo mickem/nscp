@@ -20,9 +20,10 @@
 #pragma once
 
 #include <nrpe/packet.hpp>
-#include <boost/shared_ptr.hpp>
-
 #include <socket/socket_helpers.hpp>
+#include <socket/client.hpp>
+
+#include <boost/shared_ptr.hpp>
 
 using boost::asio::ip::tcp;
 

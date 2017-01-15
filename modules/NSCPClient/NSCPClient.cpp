@@ -18,20 +18,18 @@
  */
 
 #include "NSCPClient.h"
+#include "nscp_client.hpp"
+#include "nscp_handler.hpp"
+
+#include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_core_helper.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
 
 #include <boost/filesystem.hpp>
 #include <boost/make_shared.hpp>
 
-#include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
-#include <nscapi/nscapi_program_options.hpp>
-#include <nscapi/nscapi_core_helper.hpp>
-#include <nscapi/nscapi_helper_singleton.hpp>
-#include <nscapi/macros.hpp>
-#include <settings/config.hpp>
-
-#include "nscp_client.hpp"
-#include "nscp_handler.hpp"
 
 namespace sh = nscapi::settings_helper;
 

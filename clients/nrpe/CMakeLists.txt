@@ -15,6 +15,7 @@ SET(SRCS ${SRCS}
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 
 	${NSCP_INCLUDEDIR}/utils.cpp
+  ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 	${NSCP_CLIENT_CPP}
 	
 	../../resources/nsclient.ico
@@ -39,6 +40,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/swap_bytes.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
 		${NSCP_INCLUDEDIR}/socket/client.hpp
+    ${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 		${NSCP_INCLUDEDIR}/utils.h
 		${NSCP_CLIENT_HPP}
 	)

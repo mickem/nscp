@@ -21,8 +21,10 @@
 
 #include <nsca/nsca_packet.hpp>
 #include <nsca/client/nsca_client_protocol.hpp>
-
 #include <nscapi/nscapi_protobuf_nagios.hpp>
+#include <nscapi/nscapi_helper_singleton.hpp>
+#include <nscapi/macros.hpp>
+#include <client/command_line_parser.hpp>
 #include <socket/client.hpp>
 
 #include <str/format.hpp>

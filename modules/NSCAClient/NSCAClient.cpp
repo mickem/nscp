@@ -18,20 +18,17 @@
  */
 
 #include "NSCAClient.h"
+#include "nsca_client.hpp"
+#include "nsca_handler.hpp"
 
-#include <utils.h>
 #include <str/utils.hpp>
 
 #include <nscapi/nscapi_settings_helper.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
 
 #include <boost/make_shared.hpp>
-
-#include "nsca_client.hpp"
-#include "nsca_handler.hpp"
 
 /**
  * Default c-tor

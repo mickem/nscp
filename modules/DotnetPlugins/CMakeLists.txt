@@ -33,8 +33,6 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/str/utils.hpp
 		${NSCP_INCLUDEDIR}/config.h
 		${NSCP_INCLUDEDIR}/NSCAPI.h
-		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
-#		${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 	)
 ENDIF(WIN32)
 
