@@ -174,7 +174,9 @@ bool real_time_thread::start() {
 #ifdef WIN32
 	stop_event_ = CreateEvent(NULL, TRUE, FALSE, L"EventLogShutdown");
 #else
-	pipe(stop_event_);
+	if (pipe(stop_event_) == -1) {
+		NSC_LOG_ERROR("Failed to create pipe");
+	}
 #endif
 	thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&real_time_thread::thread_proc, this)));
 	return true;
@@ -183,7 +185,9 @@ bool real_time_thread::stop() {
 #ifdef WIN32
 	SetEvent(stop_event_);
 #else
-	write(stop_event_[1], " ", 4);
+	if (write(stop_event_[1], " ", 4) == -1) {
+		NSC_LOG_ERROR("Failed to signal a stop");
+	}
 #endif
 	if (thread_)
 		thread_->join();

@@ -55,7 +55,10 @@ int process::execute_process(process::exec_arguments args, std::string &output) 
 	std::size_t bytes_read=0;
 	early_timeout=false;
 
-	pipe(fd);
+	if (pipe(fd) == -1) {
+    output = "Failed to create pipe";
+		result = NSCAPI::query_return_codes::returnUNKNOWN;
+  }
 	//fcntl(fd[0],F_SETFL,O_NONBLOCK);
 	//fcntl(fd[1],F_SETFL,O_NONBLOCK);
 
