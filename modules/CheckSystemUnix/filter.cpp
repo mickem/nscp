@@ -241,7 +241,7 @@ namespace check_svc_filter {
 namespace check_uptime_filter {
 
 	parsers::where::node_type parse_time(boost::shared_ptr<filter_obj> object, parsers::where::evaluation_context context, parsers::where::node_type subject) {
-		return parsers::where::factory::create_int(str::format::stox_as_time<long long>(subject->get_string_value(context), 1));
+		return parsers::where::factory::create_int(str::format::stox_as_time_sec<long long>(subject->get_string_value(context), "s"));
 	}
 
 	static const parsers::where::value_type type_custom_uptime = parsers::where::type_custom_int_1;
