@@ -34,6 +34,7 @@
 namespace nrpe_client {
 	struct connection_data : public socket_helpers::connection_info {
 		int buffer_length;
+		std::string encoding;
 		boost::shared_ptr<socket_helpers::client::client_handler> handler;
 
 		connection_data(client::destination_container source, client::destination_container target, boost::shared_ptr<socket_helpers::client::client_handler> handler) : buffer_length(0), handler(handler) {
@@ -68,6 +69,7 @@ namespace nrpe_client {
 			timeout = target.timeout;
 			retry = target.retry;
 			buffer_length = target.get_int_data("payload length", 1024);
+			encoding = target.get_string_data("encoding");
 
 			if (target.has_data("no ssl"))
 				ssl.enabled = !target.get_bool_data("no ssl");
@@ -196,7 +198,14 @@ namespace nrpe_client {
 				if (con.ssl.enabled)
 					return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, "SSL support not available (compiled without USE_SSL)");
 #endif
-				nrpe::packet packet = nrpe::packet::make_request(data, con.buffer_length);
+
+				std::string encoded_data;
+				if (con.encoding.empty()) {
+					encoded_data = utf8::to_system(utf8::cvt<std::wstring>(data));
+				} else {
+					encoded_data = utf8::to_encoding(utf8::cvt<std::wstring>(data), con.encoding);
+				}
+				nrpe::packet packet = nrpe::packet::make_request(encoded_data, con.buffer_length);
 				socket_helpers::client::client<nrpe::client::protocol> client(con, handler_);
 				client.connect();
 				std::list<nrpe::packet> responses = client.process_request(packet);
@@ -208,7 +217,14 @@ namespace nrpe_client {
 				BOOST_FOREACH(const nrpe::packet &p, responses) {
 					payload += p.getPayload();
 				}
-				return boost::make_tuple(result, payload);
+
+				std::string decoded_response;
+				if (con.encoding.empty()) {
+					decoded_response = utf8::cvt<std::string>(utf8::to_unicode(payload));
+				} else {
+					decoded_response = utf8::cvt<std::string>(utf8::from_encoding(payload, con.encoding));
+				}
+				return boost::make_tuple(result, decoded_response);
 			} catch (nrpe::nrpe_exception &e) {
 				return boost::make_tuple(NSCAPI::query_return_codes::returnUNKNOWN, std::string("NRPE Packet error: ") + e.what());
 			} catch (std::runtime_error &e) {
