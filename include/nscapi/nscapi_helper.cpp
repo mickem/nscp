@@ -192,19 +192,19 @@ NSCAPI::nagiosReturn nscapi::plugin_helper::translateReturn(std::string str) {
 }
 /**
 * Returns the biggest of the two states
-* STATE_UNKNOWN < STATE_OK < STATE_WARNING < STATE_CRITICAL
+* STATE_OK < STATE_WARNING < STATE_CRITICAL < STATE_UNKNOWN
 * @param a
 * @param b
 * @return
 */
 NSCAPI::nagiosReturn nscapi::plugin_helper::maxState(NSCAPI::nagiosReturn a, NSCAPI::nagiosReturn b) {
-	if (a == NSCAPI::query_return_codes::returnCRIT || b == NSCAPI::query_return_codes::returnCRIT)
+	if (a == NSCAPI::query_return_codes::returnUNKNOWN || b == NSCAPI::query_return_codes::returnUNKNOWN)
+		return NSCAPI::query_return_codes::returnUNKNOWN;
+	else if (a == NSCAPI::query_return_codes::returnCRIT || b == NSCAPI::query_return_codes::returnCRIT)
 		return NSCAPI::query_return_codes::returnCRIT;
 	else if (a == NSCAPI::query_return_codes::returnWARN || b == NSCAPI::query_return_codes::returnWARN)
 		return NSCAPI::query_return_codes::returnWARN;
 	else if (a == NSCAPI::query_return_codes::returnOK || b == NSCAPI::query_return_codes::returnOK)
 		return NSCAPI::query_return_codes::returnOK;
-	else if (a == NSCAPI::query_return_codes::returnUNKNOWN || b == NSCAPI::query_return_codes::returnUNKNOWN)
-		return NSCAPI::query_return_codes::returnUNKNOWN;
 	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
