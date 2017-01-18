@@ -66,6 +66,9 @@ namespace graphite_client {
 		str::utils::replace(sc, "\\", "_");
 		str::utils::replace(sc, "[", "_");
 		str::utils::replace(sc, "]", "_");
+		str::utils::replace(sc, "(", "_");
+		str::utils::replace(sc, ")", "_");
+		str::utils::replace(sc, "%", "percent");
 		return sc;
 	}
 	struct graphite_client_handler : public client::handler_interface {
