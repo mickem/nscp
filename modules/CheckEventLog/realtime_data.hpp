@@ -18,11 +18,9 @@
  */
 
 #pragma once
-#include <list>
-
-#include <boost/filesystem/path.hpp>
-
 #include "filter.hpp"
+
+#include <list>
 
 struct runtime_data {
 	typedef eventlog_filter::filter filter_type;
