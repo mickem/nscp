@@ -539,7 +539,7 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 	desc.add_options()
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")
-		("mode", po::value<std::string>(&mode), "Transformation mode (currently only supports extract)")
+		("mode", po::value<std::string>(&mode), "Transformation mode: extract to fetch data or minmax to add missing min/max")
 		("field", po::value<std::string>(&field), "Field to work with (value, warn, crit, max, min)")
 		("replace", po::value<std::string>(&replace), "Replace expression for the alias")
 		;
@@ -554,12 +554,14 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 		return nscapi::program_options::invalid_syntax(desc, request.command(), "Missing command", *response);
 	simple_query(command, arguments, response);
 
-	std::vector<std::string> repl;
-	boost::split(repl, replace, boost::is_any_of("="));
-	if (repl.size() != 2)
-		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid syntax replace string", *response);
 
 	if (mode == "extract") {
+
+		std::vector<std::string> repl;
+		boost::split(repl, replace, boost::is_any_of("="));
+		if (repl.size() != 2)
+			return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid syntax replace string", *response);
+
 		for (int i = 0; i < response->lines_size(); i++) {
 			::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
 			std::vector<Plugin::Common::PerformanceData> perf;
@@ -588,6 +590,24 @@ void CheckHelpers::xform_perf(const Plugin::QueryRequestMessage::Request &reques
 			}
 			BOOST_FOREACH(const Plugin::Common::PerformanceData &p, perf) {
 				line->add_perf()->CopyFrom(p);
+			}
+		}
+	} else if (mode == "minmax") {
+		for (int i = 0; i < response->lines_size(); i++) {
+			::Plugin::QueryResponseMessage_Response_Line* line = response->mutable_lines(i);
+			for (int i=0;i<line->perf_size();i++) {
+				Plugin::Common_PerformanceData *np = line->mutable_perf(i);
+				if (np->has_int_value()) {
+					if (np->int_value().unit() == "%") {
+						np->mutable_int_value()->set_maximum(100);
+						np->mutable_int_value()->set_minimum(0);
+					}
+				} else if (np->has_float_value()) {
+					if (np->float_value().unit() == "%") {
+						np->mutable_float_value()->set_maximum(100);
+						np->mutable_float_value()->set_minimum(0);
+					}
+				}
 			}
 		}
 	} else {
