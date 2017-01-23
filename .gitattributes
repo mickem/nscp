@@ -9,6 +9,7 @@
 *.h      text
 *.h++    text
 *.hh     text
+*.py     text eol=lf
 
 # Compiled Object files
 *.slo    binary
