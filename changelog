@@ -1,3 +1,26 @@
+2016-01-24 Michael Medin
+ * Fixes tomake sure it builds properly on linux
+ * CheckHelpers: Added new mode minmax to xform_perf to add missing minimum and maximum performance data to % commands. (Fixes/Improves #334 and #363 )
+ * graphite: Added removal of more invalid graphite chars (% and () Fixes #358
+ * check_nscp_nrpe returns wrong status code (for unknown) fixes #359
+ * check_nrpe: added support for encoding to client
+ * Code cleanup: Organized includes
+ * Code cleanup: reorganized string helpers
+ * Code cleanup: Harmonized nscp_exception and nscapi_exception into nsclient_exception
+ * Code cleanup: Fixed accidentally replaced with wrong license before
+ * Code cleanup: removed dead code
+ * refactor-core: Moved registry and settings handler out of core
+ * Fixed accidental overwriting of section description in config
+ * Added support for default values in settings to generate better docs
+ * Fixed dependency order for installer
+ * Switched documentation to markdown, and improved it a lot
+ * Fixed issue with missing loaded plugins from cache
+ * Added mkdocs detection
+ * First prototype of debian packages
+ * check_drivesize: Added mediatype
+ * changed attributes on scripts
+ * Fixed a bunch of linux/boost compiler issues
+
 2016-11-29 Michael Medin
  * installer: Fixed some regression issues with related to settings fix
  * installer: dumped all keys in log for simpler debug
