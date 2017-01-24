@@ -292,7 +292,7 @@ message QueryResponseMessage {
 
 //
 // Execute command request and response.
-// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return nagios check data
+// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return Nagios check data
 // Associated response is :py:class:`Plugin.ExecuteResponseMessage`
 //
 message ExecuteRequestMessage {
@@ -349,7 +349,7 @@ message SubmitResponseMessage {
 
 //
 // Execute command request and response.
-// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return nagios check data
+// Used for executing commands on clients similar to :py:class:`Plugin.QueryRequestMessage` but wont return Nagios check data
 // Associated response is :py:class:`Plugin.ExecuteResponseMessage`
 //
 message EventMessage {
