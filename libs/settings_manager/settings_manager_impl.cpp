@@ -255,7 +255,6 @@ namespace settings_manager {
 		try {
 
 			settings_impl = new NSCSettingsImpl(provider);
-			settings_impl->get_logger()->error("settings", __FILE__, __LINE__, "++++");
 			get_core()->set_base(provider->expand_path("${base-path}"));
 			get_core()->boot(context);
 			get_core()->set_ready();
