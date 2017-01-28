@@ -61,12 +61,12 @@ public:
 		std::wstring str = utf8::cvt<std::wstring>(data);
 		if (str.empty())
 			return;
-		if (str[0] == L'E') {
+		if (boost::algorithm::starts_with(str, L"error:")) {
 			if (!error.empty())
 				error += L"\n";
-			error += str.substr(1);
+			error += str.substr(6);
 		}
-		log_.push_back(str.substr(1));
+		log_.push_back(str);
 		h->logMessage(str);
 	}
 	void asynch_configure() {}
