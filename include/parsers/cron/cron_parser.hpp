@@ -26,7 +26,8 @@
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
-
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 
 namespace cron_parser {
@@ -42,11 +43,11 @@ namespace cron_parser {
 		}
 	};
 	struct schedule_item {
-		int value_;
+		std::list<int> value_;
 		int min_;
 		int max_;
 		bool star_;
-		schedule_item() : value_(0), min_(0), max_(0), star_(false) {}
+		schedule_item() : min_(0), max_(0), star_(false) {}
 		schedule_item(const schedule_item &other) : value_(other.value_), min_(other.min_), max_(other.max_), star_(other.star_) {}
 		schedule_item& operator= (const schedule_item &other) {
 			value_ = other.value_;
@@ -65,9 +66,14 @@ namespace cron_parser {
 				return v;
 			}
 			try {
-				v.value_ = boost::lexical_cast<int>(value.c_str());
-				if (v.value_ < v.min_ || v.value_ > v.max_)
-					throw nsclient::nsclient_exception("Invalid value: " + value);
+				std::vector<std::string> split;
+				boost::algorithm::split(split, value, boost::algorithm::is_any_of(","));
+				BOOST_FOREACH(const std::string &val, split) {
+					int iVal = boost::lexical_cast<int>(val.c_str());
+					if (iVal < v.min_ || iVal > v.max_)
+						throw nsclient::nsclient_exception("Invalid value: " + value);
+					v.value_.push_back(iVal);
+				}
 				return v;
 			} catch (...) {
 				throw nsclient::nsclient_exception("Invalid value: " + value);
@@ -77,8 +83,10 @@ namespace cron_parser {
 		bool is_valid_for(int v) const {
 			if (star_)
 				return true;
-			if (value_ == v)
-				return true;
+			BOOST_FOREACH(const int &val, value_) {
+				if (val == v)
+					return true;
+			}
 			return false;
 		}
 
@@ -99,7 +107,16 @@ namespace cron_parser {
 		std::string to_string() const {
 			if (star_)
 				return "*";
-			return str::xtos(value_);
+			std::stringstream ss;
+			bool first = true;
+			BOOST_FOREACH(const int &v, value_) {
+				if (!first) {
+					ss << ",";
+				}
+				ss << str::xtos(v);
+				first = false;
+			}
+			return ss.str();
 		}
 
 

@@ -29,100 +29,44 @@
 
 TEST(cron, test_parse_simple) {
 	cron_parser::schedule s = cron_parser::parse("0 0 1 1 0");
-	EXPECT_EQ(0, s.min.value_);
-	EXPECT_EQ(false, s.min.star_);
-	EXPECT_EQ(0, s.hour.value_);
-	EXPECT_EQ(false, s.hour.star_);
-	EXPECT_EQ(1, s.dom.value_);
-	EXPECT_EQ(false, s.dom.star_);
-	EXPECT_EQ(1, s.mon.value_);
-	EXPECT_EQ(false, s.mon.star_);
-	EXPECT_EQ(0, s.dow.value_);
-	EXPECT_EQ(false, s.dow.star_);
+	EXPECT_EQ("0 0 1 1 0", s.to_string());
 
 	s = cron_parser::parse("1 1 1 1 1");
-	EXPECT_EQ(1, s.min.value_);
-	EXPECT_EQ(1, s.hour.value_);
-	EXPECT_EQ(1, s.dom.value_);
-	EXPECT_EQ(1, s.mon.value_);
-	EXPECT_EQ(1, s.dow.value_);
+	EXPECT_EQ("1 1 1 1 1", s.to_string());
 
 	s = cron_parser::parse("2 3 4 5 6");
-	EXPECT_EQ(2, s.min.value_);
-	EXPECT_EQ(3, s.hour.value_);
-	EXPECT_EQ(4, s.dom.value_);
-	EXPECT_EQ(5, s.mon.value_);
-	EXPECT_EQ(6, s.dow.value_);
+	EXPECT_EQ("2 3 4 5 6", s.to_string());
 
 	s = cron_parser::parse("59 23 31 12 6");
-	EXPECT_EQ(59, s.min.value_);
-	EXPECT_EQ(23, s.hour.value_);
-	EXPECT_EQ(31, s.dom.value_);
-	EXPECT_EQ(12, s.mon.value_);
-	EXPECT_EQ(6, s.dow.value_);
+	EXPECT_EQ("59 23 31 12 6", s.to_string());
 }
 
 TEST(cron, test_parse_wildcard) {
 
 	cron_parser::schedule s = cron_parser::parse("* 23 31 12 6");
-	EXPECT_EQ(0, s.min.value_);
-	EXPECT_EQ(true, s.min.star_);
-	EXPECT_EQ(23, s.hour.value_);
-	EXPECT_EQ(false, s.hour.star_);
-	EXPECT_EQ(31, s.dom.value_);
-	EXPECT_EQ(false, s.dom.star_);
-	EXPECT_EQ(12, s.mon.value_);
-	EXPECT_EQ(false, s.mon.star_);
-	EXPECT_EQ(6, s.dow.value_);
-	EXPECT_EQ(false, s.dow.star_);
+	EXPECT_EQ("* 23 31 12 6", s.to_string());
 
 	s = cron_parser::parse("59 * 31 12 6");
-	EXPECT_EQ(59, s.min.value_);
-	EXPECT_EQ(false, s.min.star_);
-	EXPECT_EQ(0, s.hour.value_);
-	EXPECT_EQ(true, s.hour.star_);
-	EXPECT_EQ(31, s.dom.value_);
-	EXPECT_EQ(false, s.dom.star_);
-	EXPECT_EQ(12, s.mon.value_);
-	EXPECT_EQ(false, s.mon.star_);
-	EXPECT_EQ(6, s.dow.value_);
-	EXPECT_EQ(false, s.dow.star_);
+	EXPECT_EQ("59 * 31 12 6", s.to_string());
 
 	s = cron_parser::parse("59 23 * 12 6");
-	EXPECT_EQ(59, s.min.value_);
-	EXPECT_EQ(false, s.min.star_);
-	EXPECT_EQ(23, s.hour.value_);
-	EXPECT_EQ(false, s.hour.star_);
-	EXPECT_EQ(0, s.dom.value_);
-	EXPECT_EQ(true, s.dom.star_);
-	EXPECT_EQ(12, s.mon.value_);
-	EXPECT_EQ(false, s.mon.star_);
-	EXPECT_EQ(6, s.dow.value_);
-	EXPECT_EQ(false, s.dow.star_);
+	EXPECT_EQ("59 23 * 12 6", s.to_string());
 
 	s = cron_parser::parse("59 23 31 * 6");
-	EXPECT_EQ(59, s.min.value_);
-	EXPECT_EQ(false, s.min.star_);
-	EXPECT_EQ(23, s.hour.value_);
-	EXPECT_EQ(false, s.hour.star_);
-	EXPECT_EQ(31, s.dom.value_);
-	EXPECT_EQ(false, s.dom.star_);
-	EXPECT_EQ(0, s.mon.value_);
-	EXPECT_EQ(true, s.mon.star_);
-	EXPECT_EQ(6, s.dow.value_);
-	EXPECT_EQ(false, s.dow.star_);
+	EXPECT_EQ("59 23 31 * 6", s.to_string());
 
 	s = cron_parser::parse("59 23 31 12 *");
-	EXPECT_EQ(59, s.min.value_);
-	EXPECT_EQ(false, s.min.star_);
-	EXPECT_EQ(23, s.hour.value_);
-	EXPECT_EQ(false, s.hour.star_);
-	EXPECT_EQ(31, s.dom.value_);
-	EXPECT_EQ(false, s.dom.star_);
-	EXPECT_EQ(12, s.mon.value_);
-	EXPECT_EQ(false, s.mon.star_);
-	EXPECT_EQ(0, s.dow.value_);
-	EXPECT_EQ(true, s.dow.star_);
+	EXPECT_EQ("59 23 31 12 *", s.to_string());
+
+}
+
+TEST(cron, test_parse_list) {
+
+	cron_parser::schedule s = cron_parser::parse("10,11 23 31 12 6");
+	EXPECT_EQ("10,11 23 31 12 6", s.to_string());
+
+	s = cron_parser::parse("59 10,12,23 31 12 6");
+	EXPECT_EQ("59 10,12,23 31 12 6", s.to_string());
 
 }
 
@@ -202,5 +146,19 @@ TEST(cron, test_parse_single_date_2) {
 	EXPECT_EQ("2016-01-05T23:59:00", get_next("* * * * 2", "2016-01-05 23:58:00"));
 	EXPECT_EQ("2016-01-13T00:00:00", get_next("* * * * 2", "2016-01-05 23:59:00"));
 	EXPECT_EQ("2016-01-13T00:00:00", get_next("* * * * 2", "2016-01-06 00:00:00"));
+
+}
+
+
+TEST(cron, test_eval_list) {
+
+	EXPECT_EQ("2016-01-01T01:01:00", get_next("1 * * * *", "2016-01-01 01:00:00"));
+	EXPECT_EQ("2016-01-01T02:01:00", get_next("1 * * * *", "2016-01-01 01:01:00"));
+	EXPECT_EQ("2016-01-01T01:01:00", get_next("1,5 * * * *", "2016-01-01 01:00:00"));
+	EXPECT_EQ("2016-01-01T01:05:00", get_next("1,5 * * * *", "2016-01-01 01:01:00"));
+	EXPECT_EQ("2016-01-01T02:01:00", get_next("1,5 * * * *", "2016-01-01 01:05:00"));
+	EXPECT_EQ("2016-01-01T01:05:00", get_next("5,10 * * * *", "2016-01-01 01:00:00"));
+	EXPECT_EQ("2016-01-01T01:10:00", get_next("5,10 * * * *", "2016-01-01 01:05:00"));
+	EXPECT_EQ("2016-01-01T02:05:00", get_next("5,10 * * * *", "2016-01-01 01:10:00"));
 
 }
