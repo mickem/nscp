@@ -685,7 +685,7 @@ void find_all_volumes(std::list<drive_container> &drives, std::vector<std::strin
 
 drive_container get_dc_from_string(std::wstring folder, volume_helper &helper) {
 	std::wstring volume = helper.GetVolumeNameForVolumeMountPoint(folder);
-	unsigned long long type;
+	unsigned long long type = 0;
 	std::string title = "";
 	drive_container::drive_flags flags = drive_container::df_none;
 	if (!volume.empty()) {
