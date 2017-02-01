@@ -22,7 +22,6 @@ export DH_OPTIONS
 
 override_dh_auto_clean:
 	dh_auto_clean
-	test ! -f ext/docs/tools/sphinxext/nscp.pyc || rm ext/docs/tools/sphinxext/nscp.pyc
 	test ! -f ext/lua-protobuf/lua_protobuf/__init__.pyc || rm ext/lua-protobuf/lua_protobuf/__init__.pyc
 	test ! -f ext/lua-protobuf/lua_protobuf/generator.pyc || rm ext/lua-protobuf/lua_protobuf/generator.pyc
 	test ! -f ext/json-protobuf/json_protobuf/generator.pyc || rm ext/json-protobuf/json_protobuf/generator.pyc
