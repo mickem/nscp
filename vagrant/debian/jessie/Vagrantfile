@@ -22,7 +22,7 @@ Vagrant.configure(2) do |config|
   config.vm.provision "shell", inline: "cp /etc/puppet/files/build-debian.sh /home/vagrant/build-debian.sh"
   config.vm.provision "shell", inline: "chmod 755 /home/vagrant/build-debian.sh"
   # Build NSClient++
-  config.vm.provision "shell", inline: "su - vagrant -c ./build.sh"
+  config.vm.provision "shell", inline: "su - vagrant -c ./build-debian.sh"
 
   config.vm.synced_folder "../../files", "/etc/puppet/files"
   config.vm.synced_folder "../../../", "/source/nscp"
