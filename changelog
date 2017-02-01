@@ -1,3 +1,9 @@
+2016-02-01 Michael Medin
+ * Added debian packages
+
+2016-01-28 Michael Medin
+ * Fixed invalid error in installer
+ 
 2016-01-24 Michael Medin
  * Fixes tomake sure it builds properly on linux
  * CheckHelpers: Added new mode minmax to xform_perf to add missing minimum and maximum performance data to % commands. (Fixes/Improves #334 and #363 )
