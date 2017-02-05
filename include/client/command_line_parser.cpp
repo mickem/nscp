@@ -179,10 +179,10 @@ po::options_description add_common_options(client::destination_container &source
 		("retries", po::value<int>()->notifier(boost::bind(&client::destination_container::set_int_data, &destination, "retry", _1)),
 			"legacy version of retry")
 
-		("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "host", _1)),
+		("source-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
 			"Source/sender host name (default is auto which means use the name of the actual host)")
 
-		("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, source, "host", _1)),
+		("sender-host", po::value<std::string>()->notifier(boost::bind(&client::destination_container::set_string_data, &source, "host", _1)),
 			"Source/sender host name (default is auto which means use the name of the actual host)")
 
 		;
