@@ -130,7 +130,7 @@ namespace str {
 			return args;
 		}
 		inline void parse_command(std::string cmd_line, std::string &cmd, std::list<std::string> &args) {
-			boost::tokenizer<boost::escaped_list_separator<char>, typename std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
+			boost::tokenizer<boost::escaped_list_separator<char>, std::string::const_iterator, std::string > tok(cmd_line, boost::escaped_list_separator<char>('\\', ' ', '\"'));
 			bool first = true;
 			BOOST_FOREACH(std::string s, tok) {
 				if (first) {

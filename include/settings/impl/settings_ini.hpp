@@ -27,7 +27,10 @@
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
 
+#include <file_helpers.hpp>
+
 #include <simpleini/simpleini.h>
+
 
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -280,7 +283,7 @@ namespace settings {
 				boost::filesystem::directory_iterator it(get_file_name()), eod;
 
 				BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-					add_child_unsafe(p.filename().string(), "ini:///" + p.string());
+					add_child_unsafe(file_helpers::meta::get_filename(p), "ini:///" + p.string());
 				}
 			}
 			if (!file_exists()) {
