@@ -701,7 +701,7 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 		WORD facility = 0;
 		po::options_description desc("Allowed options");
 		desc.add_options()
-			("help,h", po::bool_switch(), "Show help screen")
+			("help,h", "Show help screen")
 			("source,s", po::wvalue<std::wstring>(&source_name)->default_value(L"Application Error"), "source to use")
 			("type,t", po::value<std::string>(&type), "Event type")
 			("level,l", po::value<std::string>(&type), "Event level (type)")
@@ -713,9 +713,20 @@ void CheckEventLog::insert_eventlog(const Plugin::ExecuteRequestMessage::Request
 			("arguments,a", po::wvalue<std::vector<std::wstring> >(&strings), "Message arguments (strings)")
 			("id,i", po::value<WORD>(&wEventID), "Event ID")
 			;
+
+
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
 		boost::program_options::variables_map vm;
-		if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
 			return;
+		}
 
 		event_source source(source_name);
 		WORD wType = EventLogRecord::translateType(type);

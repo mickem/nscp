@@ -285,7 +285,7 @@ DWORD eventlog_wrapper_old::do_record(DWORD dwRecordNumber, DWORD dwFlags) {
 //////////////////////////////////////////////////////////////////////////
 //
 event_source::event_source(const std::wstring &name) : hLog(NULL) {
-	open(L" ", name);
+	open(L"", name);
 }
 event_source::~event_source() {
 	if (isOpen())
