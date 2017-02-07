@@ -1,3 +1,9 @@
+2016-02-07 Michael Medin
+ * eventlog: Fixed #348 eventlog insert not working...
+ * clients: Fixed #372 --source-host not working
+ * Linux: Some debian build issues
+ * Added sample debian package descriptors
+
 2016-02-01 Michael Medin
  * Added debian packages
 
