@@ -62,10 +62,22 @@ namespace network_check {
 		has_nif = true;
 	}
 
-	void network_interface::read_prd(wmi_impl::row r) {
-		BytesReceivedPersec = r.get_int("BytesReceivedPersec");
-		BytesSentPersec = r.get_int("BytesSentPersec");
-		BytesTotalPersec = r.get_int("BytesTotalPersec");
+	void network_interface::read_prd(wmi_impl::row r, long long delta) {
+		if (delta == 0) {
+			BytesReceivedPersec = 0;
+			BytesSentPersec = 0;
+			BytesTotalPersec = 0;
+		} else {
+			long long v = r.get_int("BytesReceivedPersec");
+			BytesReceivedPersec = (v - oldBytesReceivedPersec) / delta;
+			oldBytesReceivedPersec = v;
+			v = r.get_int("BytesSentPersec");
+			BytesSentPersec = (v - oldBytesSentPersec) / delta;
+			oldBytesSentPersec = v;
+			v = r.get_int("BytesTotalPersec");
+			BytesTotalPersec = (v - oldBytesTotalPersec ) / delta;
+			oldBytesTotalPersec = v;
+		}
 		has_prd = true;
 	}
 
@@ -91,11 +103,18 @@ namespace network_check {
 
 	void network_data::query_nif(netmap_type &netmap) {
 		wmi_impl::query wmiQuery1(helper::nif_query, "root\\cimv2", "", "");
-		wmi_impl::row_enumerator row1 = wmiQuery1.execute();
-		while (row1.has_next()) {
-			network_interface nif;
-			nif.read_wna(row1.get_next());
-			netmap[nif.name] = nif;
+		wmi_impl::row_enumerator row = wmiQuery1.execute();
+		while (row.has_next()) {
+			wmi_impl::row r = row.get_next();
+			std::string name = helper::parse_nif_name(r.get_string("Name"));
+			netmap_type::iterator it = netmap.find(name);
+			if (it == netmap.end()) {
+				network_interface nif;
+				nif.read_wna(r);
+				netmap[nif.name] = nif;
+			} else {
+				it->second.read_wna(r);
+			}
 		}
 		std::string keys;
 		BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
@@ -104,7 +123,7 @@ namespace network_check {
 		}
 	}
 
-	void network_data::query_prd(netmap_type &netmap) {
+	void network_data::query_prd(netmap_type &netmap, long long delta) {
 		wmi_impl::query wmiQuery(helper::prd_query, "root\\cimv2", "", "");
 		wmi_impl::row_enumerator row = wmiQuery.execute();
 		while (row.has_next()) {
@@ -114,7 +133,7 @@ namespace network_check {
 			if (it == netmap.end()) {
 				continue;
 			}
-			it->second.read_prd(r);
+			it->second.read_prd(r, delta);
 		}
 	}
 
@@ -125,10 +144,23 @@ namespace network_check {
 			return;
 
 		nics_type tmp;
+		netmap_type netmap;
+		boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
+		boost::posix_time::ptime last;
+		{
+			boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+			if (!readLock.owns_lock())
+				throw nsclient::nsclient_exception("Failed to get mutex for reading");
+			last = last_;
+			BOOST_FOREACH(const network_interface &v, nics_) {
+				netmap[v.get_name()] = v;
+			}
+		}
 		try {
-			netmap_type netmap;
+			boost::posix_time::time_duration diff = now - last;
+			long long delta = diff.total_seconds();
 			query_nif(netmap);
-			query_prd(netmap);
+			query_prd(netmap, delta);
 				
 			BOOST_FOREACH(const netmap_type::value_type &v, netmap) {
 				if (!v.second.is_compleate())

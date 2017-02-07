@@ -49,11 +49,22 @@ namespace network_check {
 		std::string Speed;
 		bool has_nif;
 		bool has_prd;
+		long long oldBytesReceivedPersec;
+		long long oldBytesSentPersec;
+		long long oldBytesTotalPersec;
 		long long BytesReceivedPersec;
 		long long BytesSentPersec;
 		long long BytesTotalPersec;
 
-		network_interface() : has_nif(false), has_prd(false) {}
+		network_interface() 
+			: has_nif(false)
+			, has_prd(false)
+			, oldBytesReceivedPersec(0)
+			, oldBytesSentPersec(0)
+			, oldBytesTotalPersec(0)
+			, BytesReceivedPersec(0)
+			, BytesSentPersec(0)
+			, BytesTotalPersec(0) {}
 		network_interface(const network_interface &other)
 			: name(other.name)
 			, NetConnectionID(other.NetConnectionID)
@@ -63,11 +74,15 @@ namespace network_check {
 			, Speed(other.Speed)
 			, has_nif(other.has_nif)
 			, has_prd(other.has_prd)
+			, oldBytesReceivedPersec(other.oldBytesReceivedPersec)
+			, oldBytesSentPersec(other.oldBytesSentPersec)
+			, oldBytesTotalPersec(other.oldBytesTotalPersec)
 			, BytesReceivedPersec(other.BytesReceivedPersec)
 			, BytesSentPersec(other.BytesSentPersec)
-			, BytesTotalPersec(other.BytesTotalPersec) {}
+			, BytesTotalPersec(other.BytesTotalPersec) 
+		{}
 
-		const network_interface* operator()(const network_interface &other) {
+		const network_interface& operator()(const network_interface &other) {
 			name = other.name;
 			NetConnectionID = other.NetConnectionID;
 			MACAddress = other.MACAddress;
@@ -76,14 +91,18 @@ namespace network_check {
 			Speed = other.Speed;
 			has_nif = other.has_nif;
 			has_prd = other.has_prd;
+			oldBytesReceivedPersec = other.oldBytesReceivedPersec;
+			oldBytesSentPersec = other.oldBytesSentPersec;
+			oldBytesTotalPersec = other.oldBytesTotalPersec;
 			BytesReceivedPersec = other.BytesReceivedPersec;
 			BytesSentPersec = other.BytesSentPersec;
 			BytesTotalPersec = other.BytesTotalPersec;
+			return *this;
 		}
 
 
 		void read_wna(wmi_impl::row r);
-		void read_prd(wmi_impl::row r);
+		void read_prd(wmi_impl::row r, long long delta);
 
 		bool is_compleate() const { return has_nif; }
 		void build_metrics(Plugin::Common::MetricsBundle *section) const;
@@ -109,16 +128,21 @@ namespace network_check {
 		boost::shared_mutex mutex_;
 		bool fetch_network_;
 		nics_type nics_;
+		boost::posix_time::ptime last_;
+
 	public:
 
-		network_data() : fetch_network_(true) {}
+		network_data() 
+		: fetch_network_(true) 
+		, last_(boost::posix_time::second_clock::local_time()) 
+		{}
 
 		void fetch();
 		nics_type get();
 
 	private:
 		void query_nif(netmap_type &netmap);
-		void query_prd(netmap_type &netmap);
+		void query_prd(netmap_type &netmap, long long delta);
 	};
 
 
