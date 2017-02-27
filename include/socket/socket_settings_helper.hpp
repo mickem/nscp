@@ -94,7 +94,7 @@ namespace socket_helpers {
 					"BIND TO ADDRESS", "Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.")
 
 				("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &info_.allowed_hosts, _1), "127.0.0.1"),
-					"ALLOWED HOSTS", "A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+					"ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
 				("cache allowed hosts", nscapi::settings_helper::bool_key(&info_.allowed_hosts.cached, true),
 					"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
