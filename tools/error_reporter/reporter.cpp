@@ -62,12 +62,12 @@ int main(int argc, char* argv[]) {
 			return send_dump_ui(argv[2], argv[3], argv[4], argv[5], argv[6]);
 		}
 	}
-	std::cout << "Usage: " << argv[0] << L"archive|send|send-gui [options]" << std::endl;
+	std::cout << "Usage: " << argv[0] << "archive|send|send-gui [options]" << std::endl;
 	std::cout << "    archive <file> <archive path>" << std::endl;
 	std::cout << "    send <file> <product> <version> <date> <url>" << std::endl;
 	std::cout << "    send <file> [url] (This requires the .txt to accompany the file)" << std::endl;
 	std::cout << "         <file> is the crashdump file usually called GUID.dmp but we also need the GUID.dmp.txt" << std::endl;
-	std::cout << "         [url]  is the crash server: https://crash.nsclient.org/post" << std::endl;
+	std::cout << "         [url]  is the crash server: http://crash.nsclient.org/crash_upload" << std::endl;
 	std::cout << "    send-gui <file> <product> <version> <date> <url>" << std::endl;
 	std::cout << "    restart <service>" << std::endl;
 	return -1;
