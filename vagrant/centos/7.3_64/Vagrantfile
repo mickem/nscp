@@ -15,7 +15,7 @@ Vagrant.configure(2) do |config|
   config.vm.provision "shell", inline: "sudo yum groupinstall -y 'Development Tools'"
   config.vm.provision "shell", inline: "sudo yum install -y epel-release"
   config.vm.provision "shell", inline: "sudo yum install --enablerepo=epel -y gtest-devel python-argparse.noarch"
-  config.vm.provision "shell", inline: "sudo yum install -y python-sphinx"
+  config.vm.provision "shell", inline: "sudo yum install -y mkdocs"
   config.vm.provision "shell", inline: "sudo yum install -y protobuf-devel protobuf-compiler protobuf-python cryptopp-devel python-jinja2"
   
   # Provision build script
