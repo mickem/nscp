@@ -710,7 +710,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&socket_helpers::allowed_hosts_manager::set_source, &allowed_hosts, _1), "127.0.0.1"),
-			"ALLOWED HOSTS", "A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+			"ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
 		("cache allowed hosts", nscapi::settings_helper::bool_key(&allowed_hosts.cached, true),
 			"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
