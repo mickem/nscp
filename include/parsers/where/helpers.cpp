@@ -162,6 +162,8 @@ namespace parsers {
 					else
 						rt = right->infer_type(factory, lt);
 				}
+				if (lt == rt)
+					return lt;
 				if (type_is_float(lt) && type_is_int(rt))
 					rt = right->infer_type(factory, lt);
 				if (type_is_float(rt) && type_is_int(lt))
