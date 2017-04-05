@@ -30,6 +30,8 @@
 #include <str/utils.hpp>
 #include <file_helpers.hpp>
 
+#include <settings/config.hpp>
+
 #include <json_spirit.h>
 
 #include <boost/python.hpp>
@@ -366,6 +368,33 @@ bool PythonScript::unloadModule() {
 }
 
 bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message) {
+	std::string command = request.command();
+	if (command == "ext-scr" && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module && request.arguments_size() > 0)
+		command = request.arguments(0);
+	else if (command.empty() && target_mode == NSCAPI::target_module)
+		command = "help";
+	try {
+		if (command == "execute") {
+			execute_script(request, response);
+			return true;
+		} else if (command == "list") {
+			list(request, response);
+			return true;
+		} else if (command == "install") {
+			install(request, response);
+			return true;
+		} else if (command == "help") {
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [execute|list|install] --help");
+		} 
+	} catch (const std::exception &e) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+	}
+
+
 	boost::shared_ptr<script_wrapper::function_wrapper> inst = script_wrapper::function_wrapper::create(get_id());
 	if (inst->has_cmdline(request.command())) {
 		std::string buffer;
@@ -388,7 +417,6 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 		response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(ret));
 		return true;
 	}
-	std::string command = request.command();
 	if (command == "ext-scr" && request.arguments_size() > 0)
 		command = request.arguments(0);
 	else if (command.empty() && target_mode == NSCAPI::target_module && request.arguments_size() > 0)
@@ -400,6 +428,8 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 			execute_script(request, response);
 		else if (command == "list")
 			list(request, response);
+		else if (command == "install")
+			install(request, response);
 		else if (command == "help") {
 			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [execute|list|install] --help");
 		} else
@@ -413,6 +443,94 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 	return false;
 }
 
+void PythonScript::install(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string script;
+
+	typedef std::map<std::string, std::string> script_map_type;
+	script_map_type scripts;
+	std::vector<std::string> to_add;
+	std::vector<std::string> to_remove;
+	bool module = false;
+
+	pf::settings_query q(get_id());
+	q.list("/settings/python/scripts");
+	q.get("/modules", "PythonScript", "");
+
+	get_core()->settings_query(q.request(), q.response());
+	if (!q.validate_response()) {
+		nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+		return;
+	}
+	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+		if (val.matches(MAIN_MODULES_SECTION, "PythonScript") && val.get_bool())
+			module = true;
+		else if (val.matches("/settings/python/scripts"))
+			scripts[val.get_string()] = val.key();
+	}
+	desc.add_options()
+		("help", "Show help.")
+		("add", po::value<std::vector<std::string> >(&to_add), "Scripts to add to the list of loaded scripts.")
+		("remove", po::value<std::vector<std::string> >(&to_remove), "Scripts to remove from list of loaded scripts.")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+	std::stringstream result;
+
+	nscapi::protobuf::functions::settings_query sq(get_id());
+	if (!module) {
+		sq.set(MAIN_MODULES_SECTION, "PythonScript", "enabled");
+	}
+	BOOST_FOREACH(const std::string &s, to_add) {
+		boost::optional<boost::filesystem::path> ofile = find_file(s);
+		if (!ofile) {
+			result << "Failed to find: " << s << std::endl;
+		} else {
+			if (scripts.find(s) == scripts.end()) {
+				sq.set("/settings/python/scripts", s, s);
+				scripts[s] = s;
+			} else {
+				result << "Failed to add duplicate script: " << s << std::endl;
+			}
+		}
+	}
+	BOOST_FOREACH(const std::string &s, to_remove) {
+		const script_map_type::const_iterator v = scripts.find(s);
+		if (v != scripts.end()) {
+			sq.erase("/settings/python/scripts", v->second);
+			scripts.erase(s);
+		} else {
+			result << "Failed to remove nonexisting script: " << s << std::endl;
+		}
+	}
+	BOOST_FOREACH(const script_map_type::value_type &e, scripts) {
+		result << e.second << std::endl;
+	}
+	sq.save();
+	get_core()->settings_query(sq.request(), sq.response());
+	if (!sq.validate_response())
+		nscapi::protobuf::functions::set_response_bad(*response, sq.get_response_error());
+	else
+		nscapi::protobuf::functions::set_response_good(*response, result.str());
+}
 
 void PythonScript::list(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
