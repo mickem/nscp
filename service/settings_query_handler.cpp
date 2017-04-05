@@ -36,27 +36,15 @@ namespace nsclient {
 				Plugin::SettingsResponseMessage::Response* rp = response.add_payload();
 				try {
 					if (r.has_inventory()) {
-						return parse_inventory(r.inventory(), rp);
+						parse_inventory(r.inventory(), rp);
 					} else if (r.has_query()) {
-						return parse_query(r.query(), rp);
+						parse_query(r.query(), rp);
 					} else if (r.has_registration()) {
-						return parse_registration(r.registration(), r.plugin_id(), rp);
+						parse_registration(r.registration(), r.plugin_id(), rp);
 					} else if (r.has_update()) {
-						const Plugin::SettingsRequestMessage::Request::Update &p = r.update();
-						rp->mutable_update();
-						if (p.value().has_string_data()) {
-							settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
-						} else if (p.value().has_bool_data()) {
-							settings_manager::get_settings()->set_bool(p.node().path(), p.node().key(), p.value().bool_data());
-						} else if (p.value().has_int_data()) {
-							settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
-						} else {
-							LOG_ERROR_CORE("Invalid data type");
-						}
-						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+						parse_update(r.update(), rp);
 					} else if (r.has_control()) {
 						parse_control(r.control(), rp);
-						
 					} else if (r.has_status()) {
 						rp->mutable_status()->set_has_changed(settings_manager::get_core()->is_dirty());
 						rp->mutable_status()->set_context(settings_manager::get_settings()->get_context());
@@ -339,16 +327,17 @@ namespace nsclient {
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
 
+
 		void settings_query_handler::parse_update(const Plugin::SettingsRequestMessage::Request::Update &p, Plugin::SettingsResponseMessage::Response* rp) {
 		rp->mutable_update();
-			if (p.value().has_string_data()) {
+			if (p.has_value() && p.value().has_string_data()) {
 				settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
-			} else if (p.value().has_bool_data()) {
+			} else if (p.has_value() && p.value().has_bool_data()) {
 				settings_manager::get_settings()->set_bool(p.node().path(), p.node().key(), p.value().bool_data());
-			} else if (p.value().has_int_data()) {
+			} else if (p.has_value() && p.value().has_int_data()) {
 				settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
 			} else {
-				LOG_ERROR_CORE("Invalid data type");
+				settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());
 			}
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
