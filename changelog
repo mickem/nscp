@@ -1,20 +1,20 @@
-2016-03-19 Michael Medin
+2017-03-19 Michael Medin
  * Fixed url in reporter
  * Fixed running external scripts as other users when running as local system
 
-2016-02-07 Michael Medin
+2017-02-07 Michael Medin
  * eventlog: Fixed #348 eventlog insert not working...
  * clients: Fixed #372 --source-host not working
  * Linux: Some debian build issues
  * Added sample debian package descriptors
 
-2016-02-01 Michael Medin
+2017-02-01 Michael Medin
  * Added debian packages
 
-2016-01-28 Michael Medin
+2017-01-28 Michael Medin
  * Fixed invalid error in installer
  
-2016-01-24 Michael Medin
+2017-01-24 Michael Medin
  * Fixes tomake sure it builds properly on linux
  * CheckHelpers: Added new mode minmax to xform_perf to add missing minimum and maximum performance data to % commands. (Fixes/Improves #334 and #363 )
  * graphite: Added removal of more invalid graphite chars (% and () Fixes #358
@@ -496,7 +496,7 @@
  * Added target_mode flag to exec to diverge between targeted commands and generic ones.
  * Tweked some build issues
 
-2015-10-19 Ola Sandström
+2015-10-19 Ola SandstrÃ¶m
  * updated comments [in op5 config]
 
 ... Need to add in all missing commits here...
@@ -2251,7 +2251,7 @@
  * Fixed so PDH Collectors use the same exception as the rest of the PDH stuff (might give better errors when PDH breaks, but I doubt it)
  * removed debug output from -noboot
  + Added new command line pdhmatch option to use pattern matching on PDH queries
-   Usage: nsclient++ -noboot CheckSystem pdhmatch \Process(*)\Antal trådar
+   Usage: nsclient++ -noboot CheckSystem pdhmatch \Process(*)\Antal trÃ¥dar
  * Improved error reporting in the PDH subsystem.
  + Added new module A_DebugLogMetrics.dll which can be used to generate debug info.
    Enable the module and a file called process_info.csv will be created under %APP_DATA%/nsclient++/process_info.csv which contains metrics.
