@@ -755,14 +755,30 @@ namespace nscapi {
 
 
 			bool settings_query::key_values::matches(const char* path, const char* key) const {
-				if (!pimpl->key)
+				if (!pimpl || !pimpl->key)
 					return false;
 				return pimpl->path == path && *pimpl->key == key;
+			}
+			bool settings_query::key_values::matches(const char* path) const {
+				if (!pimpl->key)
+					return false;
+				return pimpl->path == path;
 			}
 			bool settings_query::key_values::matches(const std::string &path, const std::string &key) const {
 				if (!pimpl || !pimpl->key)
 					return false;
 				return pimpl->path == path && *pimpl->key == key;
+			}
+			bool settings_query::key_values::matches(const std::string &path) const {
+				if (!pimpl)
+					return false;
+				return pimpl->path == path;
+			}
+
+			std::string settings_query::key_values::key() const {
+				if (!pimpl || !pimpl->key)
+					return "";
+				return *pimpl->key;
 			}
 
 			std::string settings_query::key_values::get_string() const {
@@ -811,6 +827,14 @@ namespace nscapi {
 				r->mutable_update()->mutable_node()->set_key(key);
 				r->mutable_update()->mutable_value()->set_string_data(value);
 			}
+
+			void settings_query::erase(const std::string path, const std::string key) {
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
+				r->mutable_update()->mutable_node()->set_path(path);
+				r->mutable_update()->mutable_node()->set_key(key);
+			}
+
 			void settings_query::get(const std::string path, const std::string key, const std::string def) {
 				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
 				r->set_plugin_id(pimpl->plugin_id);
@@ -847,6 +871,14 @@ namespace nscapi {
 				r->mutable_query()->mutable_default_value()->set_bool_data(def);
 				r->mutable_query()->set_recursive(false);
 			}
+
+			void settings_query::list(const std::string path) {
+				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
+				r->set_plugin_id(pimpl->plugin_id);
+				r->mutable_inventory()->mutable_node()->set_path(path);
+				r->mutable_inventory()->set_fetch_keys(true);
+			}
+
 
 			void settings_query::save() {
 				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
@@ -898,6 +930,19 @@ namespace nscapi {
 								ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
 						} else {
 							ret.push_back(key_values(q.node().path()));
+						}
+					} else if (pl.inventory_size() > 0) {
+						BOOST_FOREACH(const ::Plugin::SettingsResponseMessage::Response::Inventory &q, pl.inventory()) {
+							if (q.node().has_key() && q.has_value()) {
+								if (q.value().has_string_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), q.value().string_data()));
+								else if (q.value().has_int_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.value().int_data())));
+								else if (q.value().has_bool_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
+							} else {
+								ret.push_back(key_values(q.node().path()));
+							}
 						}
 					}
 				}
