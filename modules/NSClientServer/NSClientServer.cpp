@@ -229,7 +229,9 @@ check_nt::packet NSClientServer::handle(check_nt::packet p) {
 	switch (c) {
 	case REQ_CPULOAD:
 		cmd.first = "check_cpu";
-		split_to_list(args, cmd.second, "time");
+		BOOST_FOREACH(const std::string &s, str::utils::split_lst(cmd.second, std::string("&"))) {
+			args.push_back("time=" + s + "m");
+		}
 		break;
 	case REQ_UPTIME:
 		cmd.first = "check_uptime";
