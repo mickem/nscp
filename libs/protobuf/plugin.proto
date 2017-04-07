@@ -605,7 +605,7 @@ message SettingsResponseMessage {
 		};
 		message Query {
 			required Settings.Node node = 1;
-			required Common.AnyDataType value = 2;
+			optional Common.AnyDataType value = 2;
 		};
 		message Update {
 		};
