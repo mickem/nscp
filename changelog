@@ -1,3 +1,18 @@
+2017-04-06 Michael Medin
+* Webserver: Fixed password encoding #389
+* return values should be optional
+* Fixed command-line parser using the wrong options
+
+2017-04-06 Michael Medin
+* check_nt CPU load using invalid time (second instead of minute) Fixes #251 and #403
+* PythonScript: Fixed so install commands works (i.e. nscp py install --add sample.py)
+* settings: Fixed internal API wrapper with multiple payloads
+* Thank you Yannick Charton: New year in changelog: It's time to enter in 2017 ;-)
+
+2017-04-04 Michael Medin
+* filters: Fixed expression parsing (Possible fix for #396 )
+* Thank you Marcel Hecko: Fix typos. comaseparated => comma separated
+
 2017-03-19 Michael Medin
  * Fixed url in reporter
  * Fixed running external scripts as other users when running as local system
