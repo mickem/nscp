@@ -7,7 +7,7 @@ define(['knockout', 'text!app/misc/login.html', 'app/core/globalStatus', 'app/co
 		self.login_error_message = ko.observable('')
 		
 		self.login = function() {
-			$.getJSON("/auth/token?password="+self.password(), function(data, textStatus, xhr) {
+			$.getJSON("/auth/token?password="+encodeURIComponent(self.password()), function(data, textStatus, xhr) {
 				console.log("Is logged in")
 				auth.set(xhr.getResponseHeader("__TOKEN"));
 				gs.is_loggedin(true)
