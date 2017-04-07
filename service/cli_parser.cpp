@@ -230,16 +230,8 @@ int cli_parser::parse(int argc, char* argv[]) {
 }
 
 po::basic_parsed_options<char> cli_parser::do_parse(int argc, char* argv[], po::options_description &desc) {
-	int pos = 0;
-	for (; pos < argc; pos++) {
-		if (strcmp(argv[pos], "..") == 0)
-			break;
-	}
-	po::basic_parsed_options<char> parsed = po::command_line_parser(pos, argv).options(desc).allow_unregistered().run();
+	po::basic_parsed_options<char> parsed = po::command_line_parser(argc, argv).options(desc).style(po::command_line_style::default_style & ~po::command_line_style::allow_guessing).allow_unregistered().run();
 	unknown_options = po::collect_unrecognized(parsed.options, po::include_positional);
-	for (int i = pos + 1; i < argc; i++) {
-		unknown_options.push_back(argv[i]);
-	}
 	return parsed;
 }
 
