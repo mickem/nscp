@@ -47,11 +47,14 @@ namespace filters {
 		std::string column_split;
 		std::string line_split;
 		std::list<std::string> files;
+		bool read_from_start;
 
 		filter_config_object(std::string alias, std::string path)
 			: parent(alias, path)
 			, filter("${file}: ${count} (${list})", "${column1}, ${column2}, ${column3}", "NSCA")
-			, column_split("\\t") {}
+			, column_split("\\t") 
+			, read_from_start(false)
+		{}
 
 		std::string to_string() const;
 		void set_files(std::string file_string);

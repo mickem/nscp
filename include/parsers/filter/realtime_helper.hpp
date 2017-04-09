@@ -244,7 +244,7 @@ namespace parsers {
 
 				boost::posix_time::time_duration dur;
 				if (!minNext) {
-					NSC_DEBUG_MSG("Next miss time is in: no timeout specified");
+					NSC_TRACE_MSG("Next miss time is in: no timeout specified");
 				} else {
 					boost::posix_time::time_duration dur = *minNext - current_time;
 					if (dur.total_seconds() <= 0) {
@@ -260,7 +260,7 @@ namespace parsers {
 							dur = boost::posix_time::time_duration(0, 0, 30, 0);
 						}
 					}
-					NSC_DEBUG_MSG("Next miss time is in: " + str::xtos(dur.total_seconds()) + "s");
+					NSC_TRACE_MSG("Next miss time is in: " + str::xtos(dur.total_seconds()) + "s");
 					ret = dur;
 				}
 				return ret;

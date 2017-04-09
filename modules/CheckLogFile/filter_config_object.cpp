@@ -93,6 +93,9 @@ namespace filters {
 			("column-split", nscapi::settings_helper::string_key(&column_split),
 			"COLUMN SPLIT", "Alias for column split", true)
 
+			("read entire file", nscapi::settings_helper::bool_key(&read_from_start),
+			"read entire file", "Set to true to always read the entire file not just new data", true)
+
 			;
 		filter.read_object(root_path, is_default);
 

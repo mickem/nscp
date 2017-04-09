@@ -38,10 +38,39 @@ void runtime_data::touch(boost::posix_time::ptime now) {
 	}
 }
 
+bool runtime_data::has_changed(const file_container &fc) const {
+	if (!boost::filesystem::exists(fc.file)) {
+		NSC_TRACE_ENABLED() {
+			NSC_TRACE_MSG("File was not found: " + fc.file.string());
+		}
+		return false;
+	}
+	if (check_time) {
+		std::time_t time = boost::filesystem::last_write_time(fc.file);
+		if (std::difftime(time, fc.time) != 0) {
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("File was changed (time): " + fc.file.string());
+			}
+			return true;
+		}
+	} else {
+		boost::uintmax_t sz = boost::filesystem::file_size(fc.file);
+		if (sz != fc.size) {
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("File was changed (size): " + fc.file.string());
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+
 bool runtime_data::has_changed(transient_data_type) const {
 	BOOST_FOREACH(const file_container &fc, files) {
-		if (boost::filesystem::exists(fc.file) &&  fc.size != boost::filesystem::file_size(fc.file))
+		if (has_changed(fc)) {
 			return true;
+		}
 	}
 	return false;
 }
@@ -66,12 +95,25 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 	modern_filter::match_result ret;
 	BOOST_FOREACH(file_container &c, files) {
 		boost::uintmax_t sz = boost::filesystem::file_size(c.file);
-		if (sz == c.size)
+		if (sz == 0) {
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("File was zero, no point in reading it: " + c.file.string());
+			}
 			continue;
+		}
+		if (!has_changed(c)) {
+			NSC_TRACE_ENABLED() {
+				NSC_TRACE_MSG("File was unchanged, no point in reading it: " + c.file.string());
+			}
+			continue;
+		}
+		c.time = boost::filesystem::last_write_time(c.file);
+		c.size = sz;
+
 		std::ifstream file(c.file.string().c_str());
 		if (file.is_open()) {
 			std::string line;
-			if (sz > c.size)
+			if (!read_from_start && sz > c.size)
 				file.seekg(c.size);
 			while (file.good()) {
 				std::getline(file, line, '\n');
@@ -87,6 +129,16 @@ modern_filter::match_result runtime_data::process_item(filter_type &filter, tran
 		}
 	}
 	return ret;
+}
+
+void runtime_data::set_read_from_start(bool read_from_start_) {
+	read_from_start = read_from_start_;
+	if (read_from_start) {
+		check_time = true;
+	}
+}
+void runtime_data::set_comparison(bool check_time_) {
+	check_time = check_time_;
 }
 
 void runtime_data::set_split(std::string line, std::string column) {
