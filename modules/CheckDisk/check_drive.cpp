@@ -134,6 +134,14 @@ struct filter_obj {
 		, unreadable(true) {};
 
 	std::string get_drive(parsers::where::evaluation_context) const { return drive.letter; }
+	std::string get_letter(parsers::where::evaluation_context) const {
+		if (drive.letter.size() >= 2) {
+			if (drive.letter[1] == ':') {
+				return drive.letter.substr(0, 1);
+			}
+		}
+		return "";
+	}
 	std::string get_name(parsers::where::evaluation_context) const { return drive.name; }
 	std::string get_id(parsers::where::evaluation_context) const { return drive.id; }
 	std::string get_drive_or_id(parsers::where::evaluation_context) const { return drive.letter.empty() ? drive.id : drive.letter; }
@@ -341,6 +349,7 @@ struct filter_obj_handler : public native_context {
 			("name", &filter_obj::get_name, "Descriptive name of drive")
 			("id", &filter_obj::get_id, "Drive or id of drive")
 			("drive", &filter_obj::get_drive, "Technical name of drive")
+			("letter", &filter_obj::get_letter, "Letter the drive is mountedd on")
 			("flags", &filter_obj::get_flags, "String representation of flags")
 			("drive_or_id", &filter_obj::get_drive_or_id, "Drive letter if present if not use id")
 			("drive_or_name", &filter_obj::get_drive_or_name, "Drive letter if present if not use name")
