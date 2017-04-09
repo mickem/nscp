@@ -30,6 +30,8 @@
 
 #include <parsers/expression/expression.hpp>
 
+#include <str/format.hpp>
+
 #include <boost/foreach.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign.hpp>
@@ -184,6 +186,30 @@ void SimpleCache::handleNotification(const std::string &channel, const Plugin::Q
 		cache_[key] = data;
 	}
 	nscapi::protobuf::functions::append_simple_submit_response_payload(response, request.command(), true, "message has been cached");
+}
+
+void SimpleCache::list_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {
+ 	cache_query query;
+	std::string not_found_msg, not_found_msg_code;
+	std::string key;
+	po::options_description desc = nscapi::program_options::create_desc(request);
+
+	boost::program_options::variables_map vm;
+	if (!nscapi::program_options::process_arguments_from_request(vm, desc, request, *response))
+		return;
+
+	std::string data;
+	{
+		boost::shared_lock<boost::shared_mutex> lock(cache_mutex_);
+		if (!lock) {
+			return nscapi::protobuf::functions::set_response_bad(*response, std::string("Failed to get lock"));
+		}
+		BOOST_FOREACH(const cache_type::value_type &c, cache_) {
+			str::format::append_list(data, c.first);
+		}
+	}
+	response->add_lines()->set_message(data);
+	response->set_result(nscapi::protobuf::functions::nagios_status_to_gpb(nscapi::plugin_helper::translateReturn(not_found_msg_code)));
 }
 
 void SimpleCache::check_cache(const Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response) {

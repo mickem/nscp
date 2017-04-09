@@ -16,6 +16,9 @@
 		"check_cache" : { 
 			"alias"		: "CheckCache",
 			"description" : "Fetch results from the cache."
+			},
+		"list_cache" : { 
+			"description" : "List all keys in the cache."
 			}
 	},
 
