@@ -88,7 +88,10 @@ namespace filters {
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
 			("column split", nscapi::settings_helper::string_key(&column_split),
-				"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
+			"COLUMN SPLIT", "THe character(s) to use when splitting on column level", !is_default)
+
+			("column-split", nscapi::settings_helper::string_key(&column_split),
+			"COLUMN SPLIT", "Alias for column split", true)
 
 			;
 		filter.read_object(root_path, is_default);
