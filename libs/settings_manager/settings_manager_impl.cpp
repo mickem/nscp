@@ -273,7 +273,6 @@ namespace settings_manager {
 
 	bool init_installer_settings(provider_interface *provider, std::string context) {
 		try {
-
 			settings_impl = new NSCSettingsImpl(provider);
 			get_core()->set_base(provider->expand_path("${base-path}"));
 			if (settings_impl->supports_edit(context)) {
