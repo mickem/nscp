@@ -172,19 +172,21 @@ NSClientT::plugin_alias_list_type NSClientT::find_all_plugins(bool active) {
 		} catch (settings::settings_exception e) {
 			LOG_DEBUG_CORE_STD("Exception looking for module: " + e.reason());
 		}
-		if (plugin == "enabled" || plugin == "1") {
+		if (plugin == "enabled" || plugin == "1" || plugin == "true") {
 			plugin = alias;
 			alias = "";
-		} else if (alias == "enabled" || alias == "1") {
+		} else if (alias == "enabled" || alias == "1" || alias == "true") {
 			alias = "";
 		} else if ((active && plugin == "disabled") || (active && alias == "disabled"))
 			continue;
 		else if ((active && plugin == "0") || (active && alias == "0"))
 			continue;
-		else if (plugin == "disabled" || plugin == "0") {
+		else if ((active && plugin == "false") || (active && alias == "false"))
+			continue;
+		else if (plugin == "disabled" || plugin == "0" || plugin == "false") {
 			plugin = alias;
 			alias = "";
-		} else if (alias == "disabled" || alias == "0") {
+		} else if (alias == "disabled" || alias == "0" || alias == "false") {
 			alias = "";
 		}
 		if (!alias.empty()) {
