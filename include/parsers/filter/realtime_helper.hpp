@@ -105,7 +105,7 @@ namespace parsers {
 					item->command = object->filter.command;
 				std::string message;
 
-				if (!item->filter.build_syntax(object->filter.syntax_top, object->filter.syntax_detail, object->filter.perf_data, object->filter.perf_config, object->filter.syntax_ok, object->filter.syntax_empty, message)) {
+				if (!item->filter.build_syntax(object->filter.debug, object->filter.syntax_top, object->filter.syntax_detail, object->filter.perf_data, object->filter.perf_config, object->filter.syntax_ok, object->filter.syntax_empty, message)) {
 					NSC_LOG_ERROR("Failed to build strings " + object->get_alias() + ": " + message);
 					return false;
 				}
