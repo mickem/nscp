@@ -66,7 +66,7 @@ namespace PDH {
 		}
 
 		bool is_negative_denominator() {
-			return status_ == PDH_CALC_NEGATIVE_DENOMINATOR;
+			return status_ == PDH_CALC_NEGATIVE_DENOMINATOR || status_ == PDH_CALC_NEGATIVE_VALUE;
 		}
 	};
 
