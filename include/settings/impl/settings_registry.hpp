@@ -118,7 +118,7 @@ namespace settings {
 			}
 			inline void setValueEx(const std::string &key, DWORD type, const std::string &value) const {
 				std::wstring wvalue = utf8::cvt<std::wstring>(value);
-				reg_buffer buffer(wvalue.size() + 10, wvalue.c_str());
+				reg_buffer buffer(wvalue.size() + 1, wvalue.c_str());
 				setValueEx(key, type, buffer);
 			}
 		};
