@@ -28,4 +28,9 @@
 	<!-- CONFIGURE THE PROGRAM -->
 	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
 	<Property Id="SERVICE_NAME">nscp</Property>
+  
+  <!-- internal keys -->
+	<Property Id="KEY_NRPEMODE">SAFE</Property>
+  
+  
 </Include>

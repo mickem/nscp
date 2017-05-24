@@ -694,8 +694,11 @@ extern "C" UINT __stdcall ExecWriteConfig (MSIHANDLE hInstall) {
 		settings_manager::get_settings()->save();
 		if (boost::filesystem::exists(path))
 			h.logMessage(L"Size (005): " + strEx::xtos(boost::filesystem::file_size(path)));
-	} catch (installer_exception e) {
+	} catch (const installer_exception &e) {
 		h.errorMessage(L"Failed to write configuration: " + e.what());
+		return ERROR_INSTALL_FAILURE;
+	} catch (const std::exception &e) {
+		h.errorMessage(L"Failed to write configuration: " + utf8::to_unicode(e.what()));
 		return ERROR_INSTALL_FAILURE;
 	} catch (...) {
 		h.errorMessage(L"Failed to write configuration: <UNKNOWN EXCEPTION>");

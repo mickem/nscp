@@ -7,7 +7,7 @@
 					<Text>Reading the old configuration failed for some reason (se below). This is not as bad as it sounds since you already have a (hopefully) working configuration. So we will go ahead and use that one instead of allowing you to pick one here.</Text>
 				</Control>
 				<Control Id="HelpTextNew" Type="Text" X="45" Y="140" Width="260" Height="100" Hidden="no" Transparent="yes" NoPrefix="yes">
-					<Text>Problem was: [CONF_OLD_ERROR]</Text>
+					<Text>Problem was: [KEY_CONF_OLD_ERROR]</Text>
 				</Control>
 				<Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
 				</Control>

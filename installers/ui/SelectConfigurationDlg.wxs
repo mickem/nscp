@@ -2,18 +2,18 @@
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Fragment>
         <UI>
-            <ComboBox Property="CONFIGURATION_TYPE">
+            <ComboBox Property="KEY_CONFIGURATION_TYPE">
                 <ListItem Value="old://${exe-path}/nsc.ini" Text="Old 0.3.x Configuration (Program Files)" />
                 <ListItem Value="ini://${exe-path}/nsclient.ini" Text="INI file (Program files)" />
                 <ListItem Value="registry://HKEY_LOCAL_MACHINE/software/NSClient++" Text="Registry (HKLM)" />
             </ComboBox>
             <Dialog Id="SelectConfigurationDlg" Width="370" Height="270" Title="[ProductName] [Setup]" NoMinimize="yes">
-                <Control Id="WhichConfigOption" Type="ComboBox" X="45" Y="53" Width="260" Height="16" Property="CONFIGURATION_TYPE">
-                    <Text>[CONFIGURATION_TYPE]</Text>
+                <Control Id="WhichConfigOption" Type="ComboBox" X="45" Y="53" Width="260" Height="16" Property="KEY_CONFIGURATION_TYPE">
+                    <Text>[KEY_CONFIGURATION_TYPE]</Text>
                 </Control>
                 <Control Id="generateConfig" Type="CheckBox" X="45" Y="73" Width="260" Height="15" Property="INSTALL_SAMPLE_CONFIG" Text="Install sample configuration" CheckBoxValue="1">
                     <Condition Action="enable">CONFIGURATION_TYPE = "ini://${exe-path}/nsclient.ini"</Condition>
-                    <Condition Action="disable"><![CDATA[CONFIGURATION_TYPE <> "ini://${exe-path}/nsclient.ini" OR MONITORING_TOOL = "OP5"]]></Condition>
+                    <Condition Action="disable"><![CDATA[KEY_CONFIGURATION_TYPE <> "ini://${exe-path}/nsclient.ini" OR MONITORING_TOOL = "OP5"]]></Condition>
                 </Control>
                 <Control Id="line" Type="Line" X="10" Y="105" Width="353" Height="10" />
                 <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back">
