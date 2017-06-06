@@ -8,19 +8,9 @@
 	<Property Id="ARPHELPTELEPHONE">http://nsclient.org</Property>
 	<Property Id="ARPPRODUCTICON">nscp.exe</Property>
 
-	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
-	<Property Id="ALLOWED_HOSTS">127.0.0.1,::1</Property>
-	<Property Id="NSCLIENT_PWD">$GEN$</Property>
-	<Property Id="ALLOWUPGRADE">Yes</Property>
-
+	<!-- DEFAULT MONITORING TOOL -->
 	<Property Id="MONITORING_TOOL">GENERIC</Property>
 	
-	<Property Id="CONFIGURATION_TYPE">ini://${exe-path}/nsclient.ini</Property>
-	<Property Id="GENERATE_SAMPLE_CONFIG">0</Property>
-	<Property Id="INSTALL_SAMPLE_CONFIG">0</Property>
-
-	<Property Id="NRPEMODE">SAFE</Property>
-
 	<!-- CONFIGURE THE INSTALLER -->
 	<Property Id="ALLOW_CONFIGURATION">1</Property>
 	<WixVariable Id="WixUIBannerBmp" Value="Bitmaps\bannrbmp.bmp" />
@@ -31,8 +21,7 @@
 	<Property Id="SERVICE_NAME">$(var.App.ServiceName)</Property>
 	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   
-  <!-- internal keys -->
+	<!-- internal keys (required for the UI, never used) -->
 	<Property Id="KEY_NRPEMODE">SAFE</Property>
-  
   
 </Include>

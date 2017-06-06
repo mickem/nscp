@@ -12,7 +12,7 @@
                     <Text>[KEY_CONFIGURATION_TYPE]</Text>
                 </Control>
                 <Control Id="generateConfig" Type="CheckBox" X="45" Y="73" Width="260" Height="15" Property="INSTALL_SAMPLE_CONFIG" Text="Install sample configuration" CheckBoxValue="1">
-                    <Condition Action="enable">CONFIGURATION_TYPE = "ini://${exe-path}/nsclient.ini"</Condition>
+                    <Condition Action="enable">KEY_CONFIGURATION_TYPE = "ini://${exe-path}/nsclient.ini"</Condition>
                     <Condition Action="disable"><![CDATA[KEY_CONFIGURATION_TYPE <> "ini://${exe-path}/nsclient.ini" OR MONITORING_TOOL = "OP5"]]></Condition>
                 </Control>
                 <Control Id="line" Type="Line" X="10" Y="105" Width="353" Height="10" />

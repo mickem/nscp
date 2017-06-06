@@ -293,32 +293,34 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 		h.logMessage(L"Monitoring tool is: " + tool);
 
 		if (tool == L"OP5") {
-			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L" ");
-			h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L" ");
+			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L"");
+			h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L"");
 			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1");
 			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1");
 			h.setPropertyAndDefault(KEY_CONF_NSCA, L"1");
-			h.setPropertyAndDefault(KEY_CONF_WEB, L"0");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L"");
+			h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"1");
 			h.setPropertyAndDefault(KEY_NRPEMODE, L"LEGACY");
 
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
 			h.setProperty(KEY_CONF_INCLUDES, L"op5;op5.ini");
-			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L" ");
-			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L"");
+			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L"");
 			h.setProperty(KEY_CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++");
 			h.setFeatureLocal(L"OP5Montoring");
 		} else if (tool == L"GENERIC") {
-			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L" ");
-			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L" ");
-			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L" ");
-			h.setPropertyAndDefault(KEY_CONF_NSCA, L" ");
-			h.setPropertyAndDefault(KEY_CONF_WEB, L" ");
-			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE", L" ");
+			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L"");
+			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
+			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
+			h.setPropertyAndDefault(KEY_CONF_NSCA, L"");
+			h.setPropertyAndDefault(KEY_CONF_WEB, L"");
+			h.setPropertyAndDefault(KEY_CONF_NSCLIENT, L"");
+			h.setPropertyAndDefault(KEY_NRPEMODE, L"SAFE", L"");
 
 			h.setProperty(KEY_CONF_CAN_CHANGE, L"1");
-			h.setProperty(KEY_CONF_INCLUDES, L" ");
-			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L" ");
-			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L" ");
+			h.setProperty(KEY_CONF_INCLUDES, L"");
+			h.setProperty(KEY_INSTALL_SAMPLE_CONFIG, L"");
+			h.setProperty(KEY_GENERATE_SAMPLE_CONFIG, L"");
 			h.setProperty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 			h.setFeatureAbsent(L"OP5Montoring");
 		}
@@ -362,10 +364,6 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		std::wstring target = h.getTargetPath(L"INSTALLLOCATION");
 		std::wstring allow = h.getPropery(L"ALLOW_CONFIGURATION");
 
-		std::wstring pwd = h.getPropery(KEY_NSCLIENT_PWD);
-		if (pwd == L"$GEN$") {
-			h.setProperty(KEY_NSCLIENT_PWD, genpwd(16));
-		}
 		std::wstring map_data = read_map_data(h);
 		if (allow == L"0") {
 			h.logMessage(L"Configuration not allowed: " + allow);
@@ -481,8 +479,6 @@ bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
 void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
 	std::wstring val = h.getPropery(prop);
-	if (val == L"$GEN$")
-		val = genpwd(12);
 	if (!h.propertyNotDefault(prop)) {
 		h.logMessage(L"IGNORING property not changed: " + prop + L"; " + path + L"." + key + L"=" + val);
 		return;
@@ -569,8 +565,8 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 				std::wstring mode = h.getPropery(KEY_NRPEMODE);
 				if (mode == L"LEGACY") {
 					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"true");
-					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L" ");
-					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L" ");
+					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"");
+					write_key(h, data, 1, L"/settings/NRPE/server", L"verify mode", L"");
 				} else {
 					write_key(h, data, 1, L"/settings/NRPE/server", L"insecure", L"false");
 					write_key(h, data, 1, L"/settings/NRPE/server", L"ssl options", L"no-sslv2,no-sslv3");
