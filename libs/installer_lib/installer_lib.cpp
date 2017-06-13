@@ -553,7 +553,7 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		write_changed_key(h, data, KEY_CONF_NSCA, modpath, L"NSCAClient");
 		write_changed_key(h, data, KEY_CONF_NSCLIENT, modpath, L"NSClientServer");
 		write_changed_key(h, data, L"CONF_WMI", modpath, L"CheckWMI");
-		write_changed_key(h, data, KEY_CONF_WEB, modpath, L"WEBSErver");
+		write_changed_key(h, data, KEY_CONF_WEB, modpath, L"WEBServer");
 
 		if (h.propertyNotDefault(KEY_CONF_CHECKS)) {
 			std::wstring modval = h.getPropery(KEY_CONF_CHECKS);
