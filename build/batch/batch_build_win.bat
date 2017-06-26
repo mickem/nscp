@@ -1,5 +1,5 @@
 @ECHO OFF
-SET ROOT=c:\source\mbuild
+SET ROOT=B:\master
 SET SOURCE=c:\source\master
 
 GOTO :start
@@ -17,9 +17,9 @@ SETLOCAL
 SET ENV=%1
 echo Creating folders for %ENV%
 title Creating folders for %ENV%
-mkdir %ROOT%
-mkdir %ROOT%\%ENV%
-mkdir %ROOT%\%ENV%\dist
+if not exist "%ROOT%" mkdir %ROOT%
+if not exist "%ROOT%\%ENV%" mkdir %ROOT%\%ENV%
+if not exist "%ROOT%\%ENV%\dist" mkdir %ROOT%\%ENV%\dist
 ENDLOCAL
 GOTO :EOF
 
@@ -29,8 +29,8 @@ SET ENV=%1
 SET GENERATOR=%2
 ECHO Bumping version %ENV% (%GENERATOR%)
 title Bumping version %ENV% (%GENERATOR%)
-cd %ROOT%\%ENV%\dist
 if %ERRORLEVEL% == 1 goto :error
+cd /D %ROOT%\%ENV%\dist
 cmake -D INCREASE_BUILD=1 -G %GENERATOR% -T v110_xp %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 ENDLOCAL
@@ -42,12 +42,12 @@ SET ENV=%1
 SET GENERATOR=%2
 ECHO Building %ENV% (%GENERATOR%)
 title Building %ENV% (%GENERATOR%)
-cd %ROOT%\%ENV%\dist
 if %ERRORLEVEL% == 1 goto :error
-msbuild /p:Configuration=RelWithDebInfo /p:Platform=%GENERATOR% NSCP.sln
+msbuild /p:Configuration=RelWithDebInfo /p:Platform=%GENERATOR% %ROOT%\%ENV%\dist\NSCP.sln
 if %ERRORLEVEL% == 1 goto :error
 ECHO Packaging %ENV%
 title Packaging %ENV%
+cd /D %ROOT%\%ENV%\dist
 cpack
 if %ERRORLEVEL% == 1 goto :error
 ENDLOCAL
@@ -59,9 +59,9 @@ SETLOCAL
 SET ENV=%1
 ECHO Post build %ENV%
 title Post build %ENV%
-cd %ROOT%\%ENV%\dist
 if %ERRORLEVEL% == 1 goto :error
-call postbuild.bat
+cd /D %ROOT%\%ENV%\dist
+call %ROOT%\%ENV%\dist\postbuild.bat
 if %ERRORLEVEL% == 1 goto :error
 ENDLOCAL
 GOTO :EOF
@@ -73,9 +73,9 @@ SET ENV=%1
 SET GENERATOR=%2
 title Configuring %ENV% using %GENERATOR% (%ROOT%)
 ECHO Configuring %ENV% using %GENERATOR% (%ROOT%)
-cd %ROOT%\%ENV%\dist
 if %ERRORLEVEL% == 1 goto :error
-cmake -D INCREASE_BUILD=0 -G %GENERATOR% -T v110_xp %SOURCE%
+cd /D %ROOT%\%ENV%\dist
+cmake -D INCREASE_BUILD=0 -G %GENERATOR% -T v110_xp -B %ROOT%\%ENV%\dist %SOURCE%
 if %ERRORLEVEL% == 1 goto :error
 ENDLOCAL
 GOTO :EOF
