@@ -11,6 +11,7 @@
 	<!-- CONFIGURE INITAL VALUES IN CONFIG UI -->
 	<Property Id="ALLOWED_HOSTS">127.0.0.1,::1</Property>
 	<Property Id="NSCLIENT_PWD">$GEN$</Property>
+	<Property Id="ALLOWUPGRADE">Yes</Property>
 
 	<Property Id="MONITORING_TOOL">GENERIC</Property>
 	
@@ -28,6 +29,7 @@
 	<!-- CONFIGURE THE PROGRAM -->
 	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
 	<Property Id="SERVICE_NAME">nscp</Property>
+	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   
   <!-- internal keys -->
 	<Property Id="KEY_NRPEMODE">SAFE</Property>
