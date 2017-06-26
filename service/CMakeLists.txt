@@ -157,12 +157,6 @@ SOURCE_GROUP("Settings" REGULAR_EXPRESSION .*include/settings/.*)
 #SOURCE_GROUP("Common Files" REGULAR_EXPRESSION .*include/.*)
 SOURCE_GROUP("Log" REGULAR_EXPRESSION .*/logger/.*)
 
-ADD_CUSTOM_TARGET(${TARGET}_full_config
-	COMMAND ${CMAKE_BINARY_DIR}/${TARGET} settings --settings ini://nsclient-full.ini --add-defaults --load-all --generate
-	WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-	DEPENDS ${TARGET})
-
-
 IF(GTEST_FOUND)
 	INCLUDE_DIRECTORIES(${GTEST_INCLUDE_DIR})
 	SET(TEST_SRCS
