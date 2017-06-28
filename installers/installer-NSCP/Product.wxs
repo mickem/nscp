@@ -3,7 +3,6 @@
 
   <?include setup.wxs ?>
 
-  <?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
   <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision)$(var.Version.BuildPad)" ?>
   
   <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
@@ -49,7 +48,7 @@
             <RemoveFolder Id="RemoveSecurityFolder" Directory="INSTALLLOCATION_SECURITY" On="uninstall" />
           </Component>
           <Component Id="FWException" Guid="7A02C807-749C-4F10-B7C3-8B50BFA74204" Win64="$(var.Win64)">
-            <fire:FirewallException Id="FWX1" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
+            <fire:FirewallException Id="FWException" Program="[#NSClientEXE]" Name="$(var.App.Title) Monitoring Agent" Scope="any" IgnoreFailure="yes" />
             <RegistryValue Root="HKCU" Key="Software\NSClient++\Installer" Name="firewall exception" Type="integer" Value="1" KeyPath="yes"/>
           </Component>
           <Component Id="SampleConfig" Guid="D22CC1A3-6479-4f80-81C2-BDE7F37D16C4" Win64="$(var.Win64)">
