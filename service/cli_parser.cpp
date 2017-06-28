@@ -25,8 +25,9 @@
 
 #include <config.h>
 #include <nsclient/logger/logger.hpp>
+#ifndef WIN32
 #include <pid_file.hpp>
-
+#endif
 #include <settings/settings_core.hpp>
 #include <str/format.hpp>
 
@@ -86,7 +87,9 @@ cli_parser::cli_parser(NSClient* core)
 		("info", "Show information about service")
 		("run", "Run as a service")
 		("name", po::value<std::string>(), "Name of service")
+#ifndef WIN32
 		("pid", po::value<std::string>()->implicit_value(pidfile::get_default_pidfile("nscp")), "Create a pid file")
+#endif
 		("description", po::value<std::string>()->default_value(""), "Description of service")
 		;
 
@@ -356,12 +359,14 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 		}
 		if (vm.count("run")) {
 			try {
+#ifndef WIN32
 				std::string pfile = pidfile::get_default_pidfile("nscp");
 				if (vm.count("pid"))
 					pfile = vm["pid"].as<std::string>();
 				pidfile pid(pfile);
 				if (vm.count("pid"))
 					pid.create();
+#endif
 				core_->start_and_wait(name);
 			} catch (const std::exception &e) {
 				core_->get_logger()->error(LOG_MODULE, __FILE__, __LINE__, "Failed to start: " + utf8::utf8_from_native(e.what()));
