@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 2.6)
 
-SET(ALIAS NSCP)
+SET(ALIAS Seconday_NSCP)
 SET(TARGET installer_${ALIAS})
 	
 PROJECT(${TARGET})
 
 SET(SRCS
-	Product.wxs
+	../installer-NSCP/Product.wxs
 
 	../ui/ConfigureDlg.wxs
 	../ui/InvalidConfigureationDlg.wxs
@@ -22,7 +22,7 @@ SET(SRCS
 IF(USE_STATIC_RUNTIME)
 	SET(RUNTIME "static")
 ELSE(USE_STATIC_RUNTIME)
-	SET(SRCS ${SRCS} RUNTIME_DLL.wxs)
+	SET(SRCS ${SRCS} ../installer-NSCP/RUNTIME_DLL.wxs)
 	SET(RUNTIME "dynamic")
 ENDIF(USE_STATIC_RUNTIME)
 
@@ -65,12 +65,12 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	"-dOP5ScriptSource=..\\..\\scripts\\op5" 
 	"-dOP5ConfigSource=${NSCP_PROJECT_BINARY_DIR}" 
 	"-dInSource=${CMAKE_CURRENT_SOURCE_DIR}"
-	"-dApp.Title=NSClient++"
-	"-dApp.Path=NSClient++"
-	"-dApp.ShortPath=NSClient"
+	"-dApp.Title=Secondary NSClient++"
+	"-dApp.Path=Secondary NSClient++"
+	"-dApp.ShortPath=SecNSClient"
 	"-dApp.StartMenuPath=NSClient++"
-	"-dApp.ServiceName=nscp"
-	"-dApp.UppgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
+	"-dApp.ServiceName=nscp2"
+	"-dApp.UppgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDAA"
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
 	-dBoostTag=${MSVER}-mt-1_58

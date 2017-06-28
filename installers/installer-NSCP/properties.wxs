@@ -28,7 +28,7 @@
 
 	<!-- CONFIGURE THE PROGRAM -->
 	<Property Id="HELP_LINK">http://nsclient.org/nscp/</Property>
-	<Property Id="SERVICE_NAME">nscp</Property>
+	<Property Id="SERVICE_NAME">$(var.App.ServiceName)</Property>
 	<Property Id="APP_TITLE">$(var.App.Title) Monitoring Agent</Property>
   
   <!-- internal keys -->

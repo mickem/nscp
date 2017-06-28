@@ -6,7 +6,7 @@
   <?define Version.String = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision).$(var.Version.Build)" ?>
   <?define Version.Tag = "$(var.Version.Major).$(var.Version.Minor).$(var.Version.Revision)$(var.Version.BuildPad)" ?>
   
-  <?define UpgradeCode = "0B36E3B7-0042-452d-B376-57E0C07ADDAA" ?>
+  <?define UpgradeCode = "$(var.App.UppgradeCode)" ?>
 
   <?include config.wxs ?>
 
