@@ -28,6 +28,12 @@ If Args.Exists("warning") Then threshold_warning = Args("warning")
 If Args.Exists("critical") Then threshold_critical = Args("critical")
 np.set_thresholds threshold_warning, threshold_critical
 
+' Check if the Windows Update service is running
+Set wmi = GetObject("winmgmts://./root/cimv2")
+If wmi.Get("Win32_Service.Name='wuauserv'").StartMode = "Disabled" Then
+	np.nagios_exit "UNKNOWN: Windows Update service is disabled", UNKNOWN
+End If
+
 Set objAutoUpdate = CreateObject("Microsoft.Update.AutoUpdate")
 
 intResultDetect = objAutoUpdate.DetectNow
