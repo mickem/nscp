@@ -59,7 +59,7 @@ set(MSVER "vc140")
 endif()
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} -dVersion.BuildPad=${VERSION_BUILD_PAD}
-	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\ext\\docs\\html"
+	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\docs\\html"
 	"-dWebSource=..\\..\\web" 
 	"-dScriptSource=..\\..\\scripts" 
 	"-dOP5ScriptSource=..\\..\\scripts\\op5" 

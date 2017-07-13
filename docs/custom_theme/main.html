@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+
+{%- block footer %}
+  <hr>
+  {%- if config.copyright %}
+      <p>{{ config.copyright }}</p>
+  {%- endif %}
+  <p>This page can be edited <a href="{{ page.edit_url|replace("s//", "s/blob/master/docs/")|replace("\\", "/") }}">on github</a>.</p>
+  
+{%- endblock %}
+
+{#
+The entry point for the MkDocs Theme.
+ 
+Any theme customisations should override this file to redefine blocks defined in
+the various templates. The custom theme should only need to define a main.html
+which `{% extends "base.html" %}` and defines various blocks which will replace
+the blocks defined in base.html and its included child templates.
+#}
