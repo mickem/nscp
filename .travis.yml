@@ -19,7 +19,7 @@ before_install:
   - sudo apt-get install -y libboost-all-dev
   - sudo apt-get install -y protobuf-compiler python-protobuf libprotobuf-dev
   - sudo apt-get install -y python-sphinx
-  - sudo apt-get install -y libcrypto++-dev libcrypto++
+  - sudo apt-get install -y libcrypto++-dev
   - sudo apt-get install -y liblua5.1-0-dev
   - sudo apt-get install -y libgtest-dev
   - sudo touch /usr/share/pyshared/google/protobuf/compiler/__init__.py
