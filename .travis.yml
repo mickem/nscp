@@ -6,6 +6,7 @@ script:
   - pushd tmp 
   - cmake .. 
   - make
+dist: trusty
 after_success:
   - ctest --output-on-failure || exit 1
 before_install:
