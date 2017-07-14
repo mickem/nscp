@@ -115,7 +115,9 @@ public:
 	void setPropertyAndDefault(std::wstring key, std::wstring value) {
 		logMessage(L"Setting " + key + L"=" + value);
 		logMessage(L"Setting " + key + KEY_DEF + L"=" + value);
+		MsiSetProperty(hInstall_, key.c_str(), L"");
 		MsiSetProperty(hInstall_, key.c_str(), value.c_str());
+		MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), L"");
 		MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), value.c_str());
 	}
 	void setPropertyAndDefault(std::wstring key, std::wstring value, std::wstring old_value) {
@@ -125,7 +127,7 @@ public:
 		MsiSetProperty(hInstall_, (key + KEY_DEF).c_str(), old_value.c_str());
 	}
 	void setPropertyAndDefaultBool(std::wstring key, bool value) {
-		std::wstring v = value ? L"1" : L"0";
+		std::wstring v = value ? L"1" : L"";
 		setPropertyAndDefault(key, v);
 	}
 	void setProperty(std::wstring key, std::wstring value) {

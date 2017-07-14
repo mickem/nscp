@@ -309,6 +309,8 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 			h.setProperty(KEY_CONFIGURATION_TYPE, L"registry://HKEY_LOCAL_MACHINE/software/NSClient++");
 			h.setFeatureLocal(L"OP5Montoring");
 		} else if (tool == L"GENERIC") {
+			h.setPropertyAndDefault(KEY_ALLOWED_HOSTS, L"127.0.0.1", L"");
+
 			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, genpwd(16), L"");
 			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1", L"");
 			h.setPropertyAndDefault(KEY_CONF_NRPE, L"1", L"");
@@ -454,6 +456,23 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 		settings_manager::destroy_settings();
 
 
+		h.applyProperty(KEY_ALLOWED_HOSTS, ALLOWED_HOSTS);
+		h.applyProperty(KEY_NSCLIENT_PWD, NSCLIENT_PWD);
+		h.applyProperty(KEY_NSCLIENT_PWD_DEFAULT, NSCLIENT_PWD_DEFAULT);
+		h.applyProperty(KEY_CONF_SCHEDULER, CONF_SCHEDULER);
+		h.applyProperty(KEY_CONF_CHECKS, CONF_CHECKS);
+		h.applyProperty(KEY_CONF_NRPE, CONF_NRPE);
+		h.applyProperty(KEY_CONF_NSCA, CONF_NSCA);
+		h.applyProperty(KEY_CONF_WEB, CONF_WEB);
+		h.applyProperty(KEY_CONF_NSCLIENT, CONF_NSCLIENT);
+		h.applyProperty(KEY_NRPEMODE, NRPEMODE);
+
+		h.applyProperty(KEY_CONFIGURATION_TYPE, CONFIGURATION_TYPE);
+		h.applyProperty(KEY_CONF_INCLUDES, CONF_INCLUDES);
+		h.applyProperty(KEY_INSTALL_SAMPLE_CONFIG, INSTALL_SAMPLE_CONFIG);
+		h.applyProperty(KEY_GENERATE_SAMPLE_CONFIG, GENERATE_SAMPLE_CONFIG);
+
+
 		dump_config(h, L"After ImportConfig");
 
 	} catch (installer_exception e) {
@@ -476,6 +495,23 @@ extern "C" UINT __stdcall ImportConfig(MSIHANDLE hInstall) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 bool write_config(msi_helper &h, std::wstring path, std::wstring file);
 
+void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
+	data.write_int(mode);
+	data.write_string(path);
+	data.write_string(key);
+	data.write_string(val);
+	h.logMessage(L"write_key: " + path + L"." + key + L"=" + val);
+}
+
+void write_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring key, std::wstring val) {
+	std::wstring path = utf8::cvt<std::wstring>(MAIN_MODULES_SECTION);
+	if (val == L"1") {
+		write_key(h, data, mode, path, key, L"enabled");
+	} else {
+		write_key(h, data, mode, path, key, L"disabled");
+	}
+}
+
 
 void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring path, std::wstring key) {
 	std::wstring val = h.getPropery(prop);
@@ -484,19 +520,19 @@ void write_changed_key(msi_helper &h, msi_helper::custom_action_data_w &data, st
 		return;
 	}
 	h.logMessage(L"write_changed_key: " + prop + L"; " + path + L"." + key + L"=" + val);
-	data.write_int(1);
-	data.write_string(path);
-	data.write_string(key);
-	data.write_string(val);
+	write_key(h, data, 1, path, key, val);
 }
 
-void write_key(msi_helper &h, msi_helper::custom_action_data_w &data, int mode, std::wstring path, std::wstring key, std::wstring val) {
-	data.write_int(mode);
-	data.write_string(path);
-	data.write_string(key);
-	data.write_string(val);
-	h.logMessage(L"write_key: " + path + L"." + key + L"=" + val);
+void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data, std::wstring prop, std::wstring key) {
+	std::wstring val = h.getPropery(prop);
+	if (!h.propertyNotDefault(prop)) {
+		h.logMessage(L"write_changed_key_mod: IGNORING property not changed: " + prop + L"; <modules>." + key + L"=" + val);
+		return;
+	}
+	h.logMessage(L"write_changed_key_mod: " + prop + L"; <modules>." + key + L"=" + val);
+	write_key_mod(h, data, 1, key, val);
 }
+
 
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, L"ScheduleWriteConfig");
@@ -543,22 +579,26 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			}
 		}
 
-		std::wstring modpath = utf8::cvt<std::wstring>(MAIN_MODULES_SECTION);
-		write_changed_key(h, data, KEY_CONF_NRPE, modpath, L"NRPEServer");
-		write_changed_key(h, data, KEY_CONF_SCHEDULER, modpath, L"Scheduler");
-		write_changed_key(h, data, KEY_CONF_NSCA, modpath, L"NSCAClient");
-		write_changed_key(h, data, KEY_CONF_NSCLIENT, modpath, L"NSClientServer");
-		write_changed_key(h, data, L"CONF_WMI", modpath, L"CheckWMI");
-		write_changed_key(h, data, KEY_CONF_WEB, modpath, L"WEBServer");
+		write_changed_key_mod(h, data, KEY_CONF_NRPE, L"NRPEServer");
+		write_changed_key_mod(h, data, KEY_CONF_SCHEDULER, L"Scheduler");
+		write_changed_key_mod(h, data, KEY_CONF_NSCA, L"NSCAClient");
+		write_changed_key_mod(h, data, KEY_CONF_NSCLIENT, L"NSClientServer");
+		write_changed_key_mod(h, data, L"CONF_WMI", L"CheckWMI");
+		write_changed_key_mod(h, data, KEY_CONF_WEB, L"WEBServer");
 
 		if (h.propertyNotDefault(KEY_CONF_CHECKS)) {
 			std::wstring modval = h.getPropery(KEY_CONF_CHECKS);
-			write_key(h, data, 1, modpath, L"CheckSystem", modval);
-			write_key(h, data, 1, modpath, L"CheckDisk", modval);
-			write_key(h, data, 1, modpath, L"CheckEventLog", modval);
-			write_key(h, data, 1, modpath, L"CheckHelpers", modval);
-			write_key(h, data, 1, modpath, L"CheckExternalScripts", modval);
-			write_key(h, data, 1, modpath, L"CheckNSCP", modval);
+			if (modval == L"1") {
+				modval = L"enabled";
+			} else {
+				modval = L"disabled";
+			}
+			write_key_mod(h, data, 1, L"CheckSystem", modval);
+			write_key_mod(h, data, 1, L"CheckDisk", modval);
+			write_key_mod(h, data, 1, L"CheckEventLog", modval);
+			write_key_mod(h, data, 1, L"CheckHelpers", modval);
+			write_key_mod(h, data, 1, L"CheckExternalScripts", modval);
+			write_key_mod(h, data, 1, L"CheckNSCP", modval);
 		}
 		if (h.getPropery(KEY_CONF_NRPE) == L"1") {
 			if (h.propertyNotDefault(KEY_NRPEMODE)) {
