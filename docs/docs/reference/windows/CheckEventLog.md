@@ -56,6 +56,7 @@ A list of all available queries (check commands)
 | [/settings/eventlog/real-time/filters/default](#/settings/eventlog/real-time/filters/default) | [perf config](#/settings/eventlog/real-time/filters/default_perf config) | PERF CONFIG |
 | [/settings/eventlog/real-time/filters/default](#/settings/eventlog/real-time/filters/default) | [source id](#/settings/eventlog/real-time/filters/default_source id)     | SOURCE ID   |
 | [/settings/eventlog/real-time/filters/default](#/settings/eventlog/real-time/filters/default) | [target id](#/settings/eventlog/real-time/filters/default_target id)     | TARGET ID   |
+| [/settings/eventlog/real-time/filters/default](#/settings/eventlog/real-time/filters/default) | [truncate](#/settings/eventlog/real-time/filters/default_truncate)       | Truncate    |
 
 ### Sample keys
 
@@ -80,6 +81,7 @@ A list of all available queries (check commands)
 | [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) | [target](#/settings/eventlog/real-time/filters/sample_target)               | DESTINATION     |
 | [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) | [target id](#/settings/eventlog/real-time/filters/sample_target id)         | TARGET ID       |
 | [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) | [top syntax](#/settings/eventlog/real-time/filters/sample_top syntax)       | SYNTAX          |
+| [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) | [truncate](#/settings/eventlog/real-time/filters/sample_truncate)           | Truncate        |
 | [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) | [warning](#/settings/eventlog/real-time/filters/sample_warning)             | WARNING FILTER  |
 
 
@@ -1202,6 +1204,7 @@ maximum age=5m
 | [target](#/settings/eventlog/real-time/filters/default_target)               |                           | DESTINATION     |
 | [target id](#/settings/eventlog/real-time/filters/default_target id)         |                           | TARGET ID       |
 | [top syntax](#/settings/eventlog/real-time/filters/default_top syntax)       |                           | SYNTAX          |
+| [truncate](#/settings/eventlog/real-time/filters/default_truncate)           |                           | Truncate        |
 | [warning](#/settings/eventlog/real-time/filters/default_warning)             |                           | WARNING FILTER  |
 
 
@@ -1744,6 +1747,35 @@ top syntax=
 ```
 
 
+<a name="/settings/eventlog/real-time/filters/default_truncate"/>
+### truncate
+
+**Truncate**
+
+Truncate the eventlog messages, if set to 0 (default) messages will not be truncated
+
+
+
+
+
+| Key            | Description                                                                                   |
+|----------------|-----------------------------------------------------------------------------------------------|
+| Path:          | [/settings/eventlog/real-time/filters/default](#/settings/eventlog/real-time/filters/default) |
+| Key:           | truncate                                                                                      |
+| Advanced:      | Yes (means it is not commonly used)                                                           |
+| Default value: | _N/A_                                                                                         |
+| Used by:       | CheckEventLog                                                                                 |
+
+
+#### Sample
+
+```
+[/settings/eventlog/real-time/filters/default]
+# Truncate
+truncate=
+```
+
+
 <a name="/settings/eventlog/real-time/filters/default_warning"/>
 ### warning
 
@@ -1807,6 +1839,7 @@ maximum age=5m
 | [target](#/settings/eventlog/real-time/filters/sample_target)               |                           | DESTINATION     |
 | [target id](#/settings/eventlog/real-time/filters/sample_target id)         |                           | TARGET ID       |
 | [top syntax](#/settings/eventlog/real-time/filters/sample_top syntax)       |                           | SYNTAX          |
+| [truncate](#/settings/eventlog/real-time/filters/sample_truncate)           |                           | Truncate        |
 | [warning](#/settings/eventlog/real-time/filters/sample_warning)             |                           | WARNING FILTER  |
 
 
@@ -2372,6 +2405,36 @@ Format string for dates
 [/settings/eventlog/real-time/filters/sample]
 # SYNTAX
 top syntax=
+```
+
+
+<a name="/settings/eventlog/real-time/filters/sample_truncate"/>
+### truncate
+
+**Truncate**
+
+Truncate the eventlog messages, if set to 0 (default) messages will not be truncated
+
+
+
+
+
+| Key            | Description                                                                                 |
+|----------------|---------------------------------------------------------------------------------------------|
+| Path:          | [/settings/eventlog/real-time/filters/sample](#/settings/eventlog/real-time/filters/sample) |
+| Key:           | truncate                                                                                    |
+| Advanced:      | Yes (means it is not commonly used)                                                         |
+| Default value: | _N/A_                                                                                       |
+| Sample key:    | Yes (This section is only to show how this key is used)                                     |
+| Used by:       | CheckEventLog                                                                               |
+
+
+#### Sample
+
+```
+[/settings/eventlog/real-time/filters/sample]
+# Truncate
+truncate=
 ```
 
 

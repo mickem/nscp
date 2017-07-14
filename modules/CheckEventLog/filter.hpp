@@ -63,6 +63,7 @@ namespace eventlog_filter {
 		virtual std::string get_keyword() = 0;
 		virtual std::string get_el_type_s() const = 0;
 		virtual long long get_severity() const = 0;
+		virtual void set_truncate(int truncate) = 0;
 		virtual std::string get_message() = 0;
 		virtual std::string get_strings() = 0;
 		virtual std::string get_log() const = 0;
@@ -82,7 +83,7 @@ namespace eventlog_filter {
 
 	struct old_filter_obj : filter_obj {
 		EventLogRecord record;
-		const int truncate_message;
+		int truncate_message;
 
 		old_filter_obj(unsigned long long now, std::string file, const EVENTLOGRECORD *pevlr, const int truncate_message)
 			: filter_obj(now)
@@ -110,6 +111,9 @@ namespace eventlog_filter {
 		std::string get_el_type_s() const;
 		long long get_severity() const {
 			return record.severity();
+		}
+		void set_truncate(int truncate) {
+			truncate_message = truncate;
 		}
 		std::string get_message() {
 			return utf8::cvt<std::string>(record.render_message(truncate_message));
@@ -153,7 +157,7 @@ namespace eventlog_filter {
 		const std::string logfile;
 		eventlog::evt_handle hEvent;
 		hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer;
-		const int truncate_message;
+		int truncate_message;
 		eventlog::evt_handle hProviderMetadataHandle;
 
 		new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message);
@@ -173,6 +177,9 @@ namespace eventlog_filter {
 			return 0;
 		}
 		std::string get_message();
+		void set_truncate(int truncate) {
+			truncate_message = truncate;
+		}
 		std::string get_strings() {
 			return get_message();
 		}

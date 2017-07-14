@@ -142,6 +142,9 @@ namespace eventlog_filter {
 			("logs", sh::string_fun_key(boost::bind(&filter_config_object::set_files, this, _1)),
 				"FILES", "The eventlog record to filter on (if set to 'all' means all enabled logs)", true)
 
+			("truncate", sh::int_fun_key(boost::bind(&filter_config_object::set_truncate, this, _1)),
+				"Truncate", "Truncate the eventlog messages, if set to 0 (default) messages will not be truncated", true)
+
 			;
 
 		filter.read_object(root_path, is_default);

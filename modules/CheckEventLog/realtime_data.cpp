@@ -43,5 +43,6 @@ void runtime_data::add_file(const std::string &file) {
 }
 
 modern_filter::match_result runtime_data::process_item(filter_type &filter, transient_data_type record) {
+	record->set_truncate(truncate_);
 	return filter.match(record);
 }

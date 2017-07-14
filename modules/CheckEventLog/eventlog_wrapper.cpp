@@ -121,7 +121,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
 		else if (status != ERROR_SUCCESS)
 			return eventlog_filter::filter::object_type();
 	}
-	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(ltime, name, hEvents[0], hContext, 512));
+	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(ltime, name, hEvents[0], hContext, 0));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -248,7 +248,7 @@ eventlog_filter::filter::object_type eventlog_wrapper_old::read_record(HANDLE &h
 	if (pevlr == NULL)
 		return eventlog_filter::filter::object_type();
 	nextBufferPosition += pevlr->Length;
-	return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(ltime, get_name(), pevlr, 512));
+	return eventlog_filter::filter::object_type(new eventlog_filter::old_filter_obj(ltime, get_name(), pevlr, 0));
 }
 
 

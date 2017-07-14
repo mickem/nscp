@@ -41,10 +41,12 @@ namespace eventlog_filter {
 		filter_config_object(std::string alias, std::string path)
 			: parent(alias, path)
 			, filter("${file}: ${count} (${list})", "${level}: ${message}", "NSCA")
-			, dwLang(0) {}
+			, dwLang(0)
+			, truncate_(0) {}
 
 		nscapi::settings_filters::filter_object filter;
 		DWORD dwLang;
+		int truncate_;
 		std::list<std::string> files;
 
 		std::string to_string() const;
@@ -67,6 +69,12 @@ namespace eventlog_filter {
 			files.push_back(file_string);
 		}
 
+		void set_truncate(int truncate) {
+			truncate_ = truncate;
+		}
+		int get_truncate() {
+			return truncate_;
+		}
 		void set_language(std::string lang) {
 			WORD wLang = get_language(lang);
 			if (wLang == LANG_NEUTRAL)

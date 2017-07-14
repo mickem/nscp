@@ -47,7 +47,7 @@ void real_time_thread::thread_proc() {
 	}
 
 	BOOST_FOREACH(boost::shared_ptr<eventlog_filter::filter_config_object> object, filters_.get_object_list()) {
-		runtime_data data;
+		runtime_data data(object->get_truncate());
 		BOOST_FOREACH(const std::string &f, object->files) {
 			if (f != "any" && f != "all") {
 				logs.push_back(f);
