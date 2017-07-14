@@ -84,8 +84,9 @@ namespace eventlog {
 				if (!eventlog::EvtFormatMessage(PublisherMetadata, Event, MessageId, ValueCount, Values, Flags, static_cast<DWORD>(message_buffer.size()), message_buffer.get(), &dwBufferSize)) {
 					return GetLastError();
 				}
+			} else {
+				return status;
 			}
-			return status;
 		}
 		str = utf8::cvt<std::string>((wchar_t*)message_buffer);
 		return ERROR_SUCCESS;
