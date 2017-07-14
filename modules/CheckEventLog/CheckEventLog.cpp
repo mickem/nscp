@@ -479,8 +479,11 @@ bool CheckEventLog::commandLineExec(const int target_mode, const Plugin::Execute
 	} else if (command == "list-providers" || command == "list") {
 		list_providers(request, response);
 		return true;
+	} else if (command == "add") {
+		add_filter(request, response);
+		return true;
 	} else if (target_mode == NSCAPI::target_module) {
-		nscapi::protobuf::functions::set_response_good(*response, "Usage: nscp eventlog [list|insert] --help");
+		nscapi::protobuf::functions::set_response_good(*response, "Usage: nscp eventlog [list|insert|add] --help");
 		return true;
 	}
 	return false;
@@ -683,6 +686,57 @@ void CheckEventLog::list_providers(const Plugin::ExecuteRequestMessage::Request 
 		}
 
 		nscapi::protobuf::functions::set_response_good(*response, ss.str());
+
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
+		return nscapi::protobuf::functions::set_response_bad(*response, "Error");
+	}
+}
+
+void CheckEventLog::add_filter(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	try {
+		namespace po = boost::program_options;
+		po::variables_map vm;
+		po::options_description desc("Allowed options");
+		bool help = false;
+		std::string alias, filter, target, log;
+		desc.add_options()
+			("help,h", po::bool_switch(&help), "Show help screen")
+			("alias", po::value(&alias), "The alias of the new filter")
+			("filter", po::value(&filter)->default_value("level = 'error'"), "The filter of the new filter to add")
+			("target", po::value(&target)->default_value("log"), "Where messages are sent")
+			("log", po::value(&log)->default_value("application"), "The log file to subscribe to")
+			;
+
+
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+		po::parsed_options parsed = cmd.allow_unregistered().run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (alias.empty())
+			help = true;
+		if (help) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return;
+		}
+
+
+		nscapi::protobuf::functions::settings_query s(get_id());
+		s.set("/settings/eventlog/real-time", "enabled", "true");
+		s.set("/settings/eventlog/real-time/filters/" + alias, "filter", filter);
+		s.set("/settings/eventlog/real-time/filters/" + alias, "target", target);
+		s.set("/settings/eventlog/real-time/filters/" + alias, "log", log);
+		s.set("/modules", "CheckEventLog", "enabled");
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return;
+		}
+
+		nscapi::protobuf::functions::set_response_good(*response, "FIlter " + alias + " added");
 
 	} catch (const std::exception &e) {
 		NSC_LOG_ERROR_EXR("Failed to parse command line: ", e);
