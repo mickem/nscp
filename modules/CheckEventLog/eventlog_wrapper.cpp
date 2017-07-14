@@ -190,7 +190,7 @@ bool eventlog_wrapper_old::notify(HANDLE &handle) {
 }
 
 bool eventlog_wrapper_old::un_notify(HANDLE &handle) {
-	return CloseHandle(handle);
+	return CloseHandle(handle) == TRUE;
 }
 
 void eventlog_wrapper_old::reset_event(HANDLE &handle) {
