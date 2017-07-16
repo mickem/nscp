@@ -41,7 +41,6 @@ cli_parser::cli_parser(NSClient* core)
 	, settings("Settings options")
 	, service("Service Options")
 	, client("Client Options")
-	, unittest("Unit-test Options")
 	, help(false)
 	, version(false)
 	, log_debug(false)
@@ -101,12 +100,6 @@ cli_parser::cli_parser(NSClient* core)
 		("submit,s", po::value<std::string>(), "Submit passive check result")
 		("module,M", po::value<std::string>(), "Load specific module (in other words do not auto detect module)")
 		("argument,a", po::value<std::vector<std::string> >(), "List of arguments (arguments gets -- prefixed automatically (--argument foo=bar is the same as setting \"--foo bar\")")
-		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
-		;
-
-	unittest.add_options()
-		("language,l", po::value<std::string>()->implicit_value(""), "Language tests are written in")
-		("argument,a", po::value<std::vector<std::string> >(), "List of arguments (gets -- prefixed automatically)")
 		("raw-argument", po::value<std::vector<std::string> >(), "List of arguments (does not get -- prefixed)")
 		;
 
@@ -241,7 +234,7 @@ po::basic_parsed_options<char> cli_parser::do_parse(int argc, char* argv[], po::
 void cli_parser::display_help() {
 	try {
 		po::options_description all("Allowed options");
-		all.add(common_light).add(common).add(service).add(settings).add(client).add(test).add(unittest);
+		all.add(common_light).add(common).add(service).add(settings).add(client).add(test);
 		std::cout << all << std::endl;
 
 		std::cout << "First argument has to be one of the following: ";
@@ -607,6 +600,15 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		client_arguments args;
 		settings_store = "dummy";
 		po::options_description all("Allowed options (client)");
+		std::string lang;
+		std::vector<std::string> kvp_args;
+
+		po::options_description unittest("Unit-test Options");
+		unittest.add_options()
+			("language,l", po::value<std::string>(&lang)->default_value("python"), "Language tests are written in")
+			("argument,a", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (gets -- prefixed automatically)")
+			("raw-argument", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (does not get -- prefixed)")
+			;
 		all.add(common_light).add(common).add(unittest);
 
 		po::positional_options_description p;
@@ -619,32 +621,20 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		if (process_common_options("unitest", all))
 			return 1;
 
-		if (vm.count("language")) {
-			std::string lang = vm["language"].as<std::string>();
-			if (lang == "python" || lang == "py") {
-				args.command = "python-script";
-				args.combined_query = "py_unittest";
-				args.mode = client_arguments::combined;
-				args.module = "PythonScript";
-			} else if (lang == "lua") {
-				args.command = "lua-script";
-				args.combined_query = "lua_unittest";
-				args.mode = client_arguments::combined;
-				args.module = "LUAScript";
-			} else {
-				std::cerr << "Unknown language: " << lang << std::endl;
-				return 1;
-			}
-		} else {
+		if (lang == "python" || lang == "py") {
 			args.command = "python-script";
 			args.combined_query = "py_unittest";
 			args.mode = client_arguments::combined;
 			args.module = "PythonScript";
+		} else if (lang == "lua") {
+			args.command = "lua-script";
+			args.combined_query = "lua_unittest";
+			args.mode = client_arguments::combined;
+			args.module = "LUAScript";
+		} else {
+			std::cerr << "Unknown language: " << lang << std::endl;
+			return 1;
 		}
-
-		std::vector<std::string> kvp_args;
-		if (vm.count("argument"))
-			kvp_args = vm["argument"].as<std::vector<std::string> >();
 
 		BOOST_FOREACH(const std::string &ws, unknown_options) {
 			std::string s = utf8::cvt<std::string>(ws);
@@ -662,8 +652,6 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 			}
 		}
 
-		if (vm.count("raw-argument"))
-			kvp_args = vm["raw-argument"].as<std::vector<std::string> >();
 		BOOST_FOREACH(std::string ws, kvp_args) {
 			std::string s = utf8::cvt<std::string>(ws);
 			std::string::size_type pos = s.find('=');
