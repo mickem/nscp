@@ -271,11 +271,12 @@ namespace process_helper {
 				throw nsclient::nsclient_exception("Failed to find name for: " + str::xtos(pid) + ": " + error::lookup::last_error());
 			} else {
 				std::wstring path = buffer;
+				entry.filename = utf8::cvt<std::string>(path);
 				std::wstring::size_type pos = path.find_last_of(_T("\\"));
 				if (pos != std::wstring::npos) {
 					path = path.substr(++pos);
 				}
-				entry.filename = utf8::cvt<std::string>(path);
+				entry.exe = utf8::cvt<std::string>(path);
 			}
 		}
 		return entry;

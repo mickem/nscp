@@ -151,6 +151,8 @@ bool NRPEServer::unloadModule() {
 	return true;
 }
 
+
+
 std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	std::list<nrpe::packet> packets;
 	str::utils::token cmd = str::utils::getToken(p.getPayload(), '!');
@@ -178,11 +180,16 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 	NSCAPI::nagiosReturn ret = -3;
 	nscapi::core_helper ch(get_core(), get_id());
 	try {
+		const unsigned int max_len = p.get_payload_length() - 1;
+		std::string wcmd, wargs;
 		if (encoding_.empty()) {
-			ret = ch.simple_query_from_nrpe(utf8::cvt<std::string>(utf8::to_unicode(cmd.first)), utf8::cvt<std::string>(utf8::to_unicode(cmd.second)), wmsg, wperf);
+			wcmd = utf8::cvt<std::string>(utf8::to_unicode(cmd.first));
+			wargs = utf8::cvt<std::string>(utf8::to_unicode(cmd.second));
 		} else {
-			ret = ch.simple_query_from_nrpe(utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_)), utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_)), wmsg, wperf);
+			wcmd = utf8::cvt<std::string>(utf8::from_encoding(cmd.first, encoding_));
+			wargs = utf8::cvt<std::string>(utf8::from_encoding(cmd.second, encoding_));
 		}
+		ret = ch.simple_query_from_nrpe(wcmd, wargs, wmsg, wperf, multiple_packets_?-1:max_len);
 		switch (ret) {
 		case NSCAPI::query_return_codes::returnOK:
 		case NSCAPI::query_return_codes::returnWARN:
@@ -200,9 +207,12 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 			msg = utf8::to_encoding(utf8::cvt<std::wstring>(wmsg), encoding_);
 			perf = utf8::to_encoding(utf8::cvt<std::wstring>(wperf), encoding_);
 		}
-		const unsigned int max_len = p.get_payload_length() - 1;
-		if (multiple_packets_) {
+		if (perf.empty() || noPerfData_) {
+			data = msg;
+		} else {
 			data = msg + "|" + perf;
+		}
+		if (multiple_packets_) {
 			std::size_t data_len = data.size();
 			for (std::size_t i = 0; i < data_len; i += max_len) {
 				if (data_len - i <= max_len)
@@ -211,14 +221,8 @@ std::list<nrpe::packet> NRPEServer::handle(nrpe::packet p) {
 					packets.push_back(nrpe::packet::create_more_response(ret, data.substr(i, max_len), p.get_payload_length()));
 			}
 		} else {
-			if (msg.length() >= max_len) {
-				data = msg.substr(0, max_len);
-			} else if (perf.empty() || noPerfData_) {
-				data = msg;
-			} else if (msg.length() + perf.length() + 1 > max_len) {
-				data = msg;
-			} else {
-				data = msg + "|" + perf;
+			if (data.length() >= max_len) {
+				data = data.substr(0, max_len);
 			}
 			packets.push_back(nrpe::packet::create_response(ret, data, p.get_payload_length()));
 		}

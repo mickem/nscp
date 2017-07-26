@@ -1,3 +1,11 @@
+2017-07-26 Michael Medin
+ * NRPE: Improved NRPE server truncation of performance data
+ * check_process: Fixed #423 %(filename) variable should contain path
+ * Fixed unittest --language option not working
+ * CheckLogFile: Fixed crash in on linux
+ * Added workaround for boost 1.58 bug (Fixes #442 )
+ * Added docker files for building on linux
+
 2017-07-14 Michael Medin
  * Eventlog: Added command line for adding real time filter:
    nscp eventlog add --alias foo --log application --target log

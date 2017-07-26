@@ -31,7 +31,6 @@ class cli_parser : public boost::noncopyable {
 	po::options_description settings;
 	po::options_description service;
 	po::options_description client;
-	po::options_description unittest;
 	po::options_description test;
 
 	bool help;

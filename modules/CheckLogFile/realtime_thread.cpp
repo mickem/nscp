@@ -183,6 +183,8 @@ bool real_time_thread::start() {
 	return true;
 }
 bool real_time_thread::stop() {
+	if (!enabled_)
+		return true;
 #ifdef WIN32
 	SetEvent(stop_event_);
 #else

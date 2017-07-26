@@ -137,7 +137,7 @@ namespace nsca_client {
 				if (alias.empty())
 					alias = payload.command();
 				packet.code = nscapi::protobuf::functions::gbp_to_nagios_status(payload.result());
-				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload);
+				packet.result = nscapi::protobuf::functions::query_data_to_nagios_string(payload, len);
 				if (alias != "host_check")
 					packet.service = alias;
 				NSC_TRACE_ENABLED() {

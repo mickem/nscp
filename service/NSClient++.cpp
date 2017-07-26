@@ -967,7 +967,7 @@ int NSClientT::simple_query(std::string module, std::string command, std::vector
 	ret = plugin->handleCommand(request, response);
 	try {
 		std::string msg, perf;
-		ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
+		ret = nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
 		resp.push_back(msg + "|" + perf);
 	} catch (std::exception &e) {
 		resp.push_back("Failed to extract return message: " + utf8::utf8_from_native(e.what()));
@@ -1066,7 +1066,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
 			for (int i = 0; i < msg.payload_size(); i++) {
-				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i)));
+				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), -1));
 			}
 			found = true;
 			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);

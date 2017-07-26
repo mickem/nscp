@@ -184,6 +184,20 @@ bool python_script::callFunction(const std::string& functionName, unsigned int i
 		return false;
 	}
 }
+
+#if BOOST_VERSION == 105800
+py::object fix_for_broken_exec_file(char const *filename, py::object global, py::object local) {
+	char *f = const_cast<char *>(filename);
+	PyObject *pyfile = PyFile_FromString(f, const_cast<char*>("r"));
+	if (!pyfile) throw std::invalid_argument(std::string(filename) + " : no such file");
+	py::handle<> file(pyfile);
+	FILE *fs = PyFile_AsFile(file.get());
+	PyObject* result = PyRun_File(fs, f, Py_file_input, global.ptr(), local.ptr());
+	if (!result) py::throw_error_already_set();
+	return py::object(py::detail::new_reference(result));
+}
+#endif
+
 void python_script::_exec(const std::string &scriptfile) {
 	try {
 		script_wrapper::thread_locker locker;
@@ -216,7 +230,11 @@ void python_script::_exec(const std::string &scriptfile) {
 				return;
 			}
 
+#if BOOST_VERSION == 105800
+			py::object ignored = fix_for_broken_exec_file(scriptfile.c_str(), localDict, localDict);
+#else
 			py::object ignored = exec_file(scriptfile.c_str(), localDict, localDict);
+#endif
 		} catch (py::error_already_set e) {
 			NSC_LOG_ERROR("Failed to load script: " + scriptfile);
 			script_wrapper::log_exception();
@@ -688,7 +706,7 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 	}
 	if (inst->has_simple_message_handler(channel)) {
 		BOOST_FOREACH(::Plugin::QueryResponseMessage_Response_Line line, request.lines()) {
-			std::string perf = nscapi::protobuf::functions::build_performance_data(line);
+			std::string perf = nscapi::protobuf::functions::build_performance_data(line, -1);
 			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::api_return_codes::isSuccess)
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
 		}

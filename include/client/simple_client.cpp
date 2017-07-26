@@ -275,7 +275,7 @@ namespace client {
 				std::string cmd = args.front(); args.pop_front();
 				std::string msg, perf;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
-				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, msg, perf);
+				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, msg, perf, -1);
 				handler->output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
 				if (!perf.empty())
 					handler->output_message(" Performance data: " + perf);
