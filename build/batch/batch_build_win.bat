@@ -23,6 +23,50 @@ if not exist "%ROOT%\%ENV%\dist" mkdir %ROOT%\%ENV%\dist
 ENDLOCAL
 GOTO :EOF
 
+:git_pull
+SETLOCAL
+ECHO Fetching code from server
+title Fetching code from server
+cd /D %SOURCE%
+git checkout master installers/common/re-generate.bat
+if %ERRORLEVEL% == 1 goto :error
+git pull
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
+:git_push
+SETLOCAL
+ECHO Pushing code to server
+title Pushing code to server
+cd /D %SOURCE%
+ECHO "+ Restore invalid files"
+git checkout master installers/common/re-generate.bat
+del docs\samples\index.rst
+if %ERRORLEVEL% == 1 goto :error
+ECHO "+ Add version.txt"
+git add version.txt
+if %ERRORLEVEL% == 1 goto :error
+ECHO "+ Committing..."
+git commit -m "Bumped version"
+ECHO "+ Updating docs"
+git add docs/*
+if %ERRORLEVEL% == 1 goto :error
+ECHO "+ Committing..."
+git commit -m "Updated docs"
+ECHO "+ Pushing..."
+git push
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
+git checkout master installers\common\re-generate.bat
+if %ERRORLEVEL% == 1 goto :error
+git pull
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
 :bump_version
 SETLOCAL
 SET ENV=%1
@@ -90,6 +134,10 @@ IF "%1"=="post" GOTO post_build
 IF "%1"=="build" GOTO only_build
 IF "%1"=="same" GOTO no_bump
 
+IF "%1"=="nogit" GOTO :no_git_1
+call :git_pull || GOTO :error
+:no_git_1
+
 call :bump_version x64 "Visual Studio 11 Win64" || GOTO :error
 :no_bump
 
@@ -99,6 +147,10 @@ call :configure w32 "Visual Studio 11" || GOTO :error
 :only_build
 call :build x64 x64 || GOTO :error
 call :build w32 Win32 || GOTO :error
+
+IF "%1"=="nogit" GOTO :no_git_2
+call :git_push || GOTO :error
+:no_git_2
 
 :post_build
 call :post_build x64 || GOTO :error
