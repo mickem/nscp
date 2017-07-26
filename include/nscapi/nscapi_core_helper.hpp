@@ -39,10 +39,10 @@ namespace nscapi {
 		void register_event(const std::string event);
 		void register_channel(const std::string channel);
 
-		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf);
+		NSCAPI::nagiosReturn simple_query(const std::string command, const std::list<std::string> & argument, std::string & message, std::string & perf, std::size_t max_length);
 		bool simple_query(const std::string command, const std::list<std::string> & argument, std::string & result);
 		bool simple_query(const std::string command, const std::vector<std::string> & argument, std::string & result);
-		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf);
+		NSCAPI::nagiosReturn simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf, std::size_t max_length);
 
 		NSCAPI::nagiosReturn exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result);
 		bool submit_simple_message(const std::string channel, const std::string source_id, const std::string target_id, const std::string command, const NSCAPI::nagiosReturn code, const std::string & message, const std::string & perf, std::string & response);

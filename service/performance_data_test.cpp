@@ -26,10 +26,10 @@
 
 #include <gtest/gtest.h>
 
-std::string do_parse(std::string str) {
+std::string do_parse(std::string str, std::size_t max_length = -1) {
 	Plugin::QueryResponseMessage::Response::Line r;
 	nscapi::protobuf::functions::parse_performance_data(&r, str);
-	return nscapi::protobuf::functions::build_performance_data(r);
+	return nscapi::protobuf::functions::build_performance_data(r, max_length);
 }
 
 TEST(PerfDataTest, fractions) {
@@ -118,6 +118,16 @@ TEST(PerfDataTest, value_various_reparse) {
 		EXPECT_EQ(s.c_str(), do_parse(s));
 	}
 }
+
+TEST(PerfDataTest, truncation) {
+	std::string s = "'abcdefghijklmnopqrstuv'=1g;0;4;2;5 'abcdefghijklmnopqrstuv'=1g;0;4;2;5";
+	EXPECT_EQ(s.c_str(), do_parse(s, -1));
+	EXPECT_EQ(s.c_str(), do_parse(s, 71));
+	EXPECT_EQ("'abcdefghijklmnopqrstuv'=1g;0;4;2;5", do_parse(s, 70));
+	EXPECT_EQ("'abcdefghijklmnopqrstuv'=1g;0;4;2;5", do_parse(s, 35));
+	EXPECT_EQ("", do_parse(s, 34));
+}
+
 
 TEST(PerfDataTest, unit_conversion_b) {
 	double d = str::format::convert_to_byte_units(1234567890, "B");

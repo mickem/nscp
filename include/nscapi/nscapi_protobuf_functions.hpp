@@ -94,8 +94,8 @@ namespace nscapi {
 				void reload();
 			};
 
-			NSCAPI_EXPORT std::string query_data_to_nagios_string(const Plugin::QueryResponseMessage &message);
-			NSCAPI_EXPORT std::string query_data_to_nagios_string(const Plugin::QueryResponseMessage_Response &p);
+			NSCAPI_EXPORT std::string query_data_to_nagios_string(const Plugin::QueryResponseMessage &message, std::size_t max_length);
+			NSCAPI_EXPORT std::string query_data_to_nagios_string(const Plugin::QueryResponseMessage_Response &p, std::size_t max_length);
 
 			NSCAPI_EXPORT void set_response_good(::Plugin::QueryResponseMessage_Response &response, std::string message);
 			NSCAPI_EXPORT void set_response_good(::Plugin::ExecuteResponseMessage_Response &response, std::string message);
@@ -116,7 +116,6 @@ namespace nscapi {
 			NSCAPI_EXPORT void make_query_from_exec(std::string &data);
 			NSCAPI_EXPORT void make_query_from_submit(std::string &data);
 			NSCAPI_EXPORT void make_exec_from_submit(std::string &data);
-			NSCAPI_EXPORT void make_exec_from_query(std::string &data);
 			NSCAPI_EXPORT void make_return_header(::Plugin::Common_Header *target, const ::Plugin::Common_Header &source);
 
 			NSCAPI_EXPORT void create_simple_query_request(std::string command, std::list<std::string> arguments, std::string &buffer);
@@ -132,7 +131,7 @@ namespace nscapi {
 			NSCAPI_EXPORT void append_simple_query_request_payload(Plugin::QueryRequestMessage_Request *payload, std::string command, std::vector<std::string> arguments);
 			NSCAPI_EXPORT void append_simple_exec_request_payload(Plugin::ExecuteRequestMessage_Request *payload, std::string command, std::vector<std::string> arguments);
 			NSCAPI_EXPORT void parse_simple_query_request(std::list<std::string> &args, const std::string &request);
-			NSCAPI_EXPORT int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf);
+			NSCAPI_EXPORT int parse_simple_query_response(const std::string &response, std::string &msg, std::string &perf, std::size_t max_length);
 			NSCAPI_EXPORT void create_simple_exec_request(const std::string &module, const std::string &command, const std::list<std::string> & args, std::string &request);
 			NSCAPI_EXPORT void create_simple_exec_request(const std::string &module, const std::string &command, const std::vector<std::string> & args, std::string &request);
 			NSCAPI_EXPORT int parse_simple_exec_response(const std::string &response, std::list<std::string> &result);
@@ -141,7 +140,7 @@ namespace nscapi {
 			NSCAPI_EXPORT int create_simple_exec_response_unknown(std::string command, std::string result, std::string &response);
 
 			NSCAPI_EXPORT void parse_performance_data(Plugin::QueryResponseMessage_Response_Line *payload, const std::string &perf);
-			NSCAPI_EXPORT std::string build_performance_data(Plugin::QueryResponseMessage_Response_Line const &payload);
+			NSCAPI_EXPORT std::string build_performance_data(Plugin::QueryResponseMessage_Response_Line const &payload, std::size_t max_length);
 
 			NSCAPI_EXPORT std::string extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf);
 			NSCAPI_EXPORT long long extract_perf_value_as_int(const ::Plugin::Common_PerformanceData &perf);

@@ -171,12 +171,12 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 * @param perf The return performance data buffer
 * @return The return of the command
 */
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf) {
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query(const std::string command, const std::list<std::string> & argument, std::string & msg, std::string & perf, std::size_t max_length) {
 	std::string response;
 	simple_query(command, argument, response);
 	if (!response.empty()) {
 		try {
-			return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
+			return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, max_length);
 		} catch (std::exception &e) {
 			CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
 			return NSCAPI::query_return_codes::returnUNKNOWN;
@@ -206,12 +206,23 @@ bool nscapi::core_helper::simple_query(const std::string command, const std::vec
 	return get_core()->query(request, result);
 }
 
-NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf) {
+NSCAPI::nagiosReturn nscapi::core_helper::simple_query_from_nrpe(const std::string command, const std::string & buffer, std::string & message, std::string & perf, std::size_t max_length) {
 	boost::tokenizer<boost::char_separator<char>, std::string::const_iterator, std::string > tok(buffer, boost::char_separator<char>("!"));
 	std::list<std::string> arglist;
 	BOOST_FOREACH(std::string s, tok)
 		arglist.push_back(s);
-	return simple_query(command, arglist, message, perf);
+
+	std::string response;
+	simple_query(command, arglist, response);
+	if (!response.empty()) {
+		try {
+			return nscapi::protobuf::functions::parse_simple_query_response(response, message, perf, max_length);
+		} catch (std::exception &e) {
+			CORE_LOG_ERROR_EXR("Failed to extract return message: ", e);
+			return NSCAPI::query_return_codes::returnUNKNOWN;
+		}
+	}
+	return NSCAPI::query_return_codes::returnUNKNOWN;
 }
 
 NSCAPI::nagiosReturn nscapi::core_helper::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {

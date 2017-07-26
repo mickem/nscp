@@ -805,7 +805,7 @@ py::tuple script_wrapper::command_wrapper::simple_query(std::string command, py:
 	int ret = 0;
 	{
 		thread_unlocker unlocker;
-		ret = ch.simple_query(command, arguments, msg, perf);
+		ret = ch.simple_query(command, arguments, msg, perf, -1);
 	}
 	return py::make_tuple(nagios_return_to_py(ret), msg, perf);
 }

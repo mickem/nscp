@@ -139,7 +139,7 @@ namespace syslog_client {
 				std::string date = str::format::format_date(now, "%b %e %H:%M:%S");
 				std::string tag = con.tag_syntax;
 				std::string message = con.message_syntax;
-				std::string nagios_msg = nscapi::protobuf::functions::query_data_to_nagios_string(p);
+				std::string nagios_msg = nscapi::protobuf::functions::query_data_to_nagios_string(p, -1);
 				str::utils::replace(message, "%message%", nagios_msg);
 				str::utils::replace(tag, "%message%", nagios_msg);
 

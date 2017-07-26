@@ -81,13 +81,15 @@ bool scripts::nscp::core_provider_impl::submit_simple_message(const std::string 
 	return ret;
 }
 
-bool scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf) {
-	std::string request, response;
-	nscapi::protobuf::functions::create_simple_query_request(command, argument, request);
-	bool ret = core_->query(request, response);
-	nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf);
-	return ret;
-}
+NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::string &command, const std::list<std::string> & argument, std::string & msg, std::string & perf) {
+ 	std::string request, response;
+ 	nscapi::protobuf::functions::create_simple_query_request(command, argument, request);
+	if (!core_->query(request, response)) {
+		msg = "Command failed.";
+		return NSCAPI::query_return_codes::returnUNKNOWN;
+	}
+ 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
+ }
 
 bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {
 	std::string request, response;
