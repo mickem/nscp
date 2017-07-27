@@ -109,9 +109,14 @@ ELSE (LUA_FOUND)
 ENDIF (LUA_FOUND)
 ENDMACRO(add_nscp_lua_test)
 macro(NSCP_ADD_TEST name target)
-	MESSAGE(STATUS "Adding test: ${name} as ${BUILD_TARGET_ROOT_PATH}/${target}")
-	ADD_TEST(NAME ${name}
-			COMMAND ${BUILD_TARGET_ROOT_PATH}/${target})
+	IF(WIN32)
+		ADD_TEST(NAME ${name}
+				COMMAND ${BUILD_TARGET_ROOT_PATH}/${target})
+	ELSE()
+		ADD_TEST(NAME ${name}
+				COMMAND ${target})
+	ENDIF()
+
 endmacro(NSCP_ADD_TEST)
 
 MACRO(CREATE_MODULE _SRCS _SOURCE _TARGET)
@@ -247,7 +252,6 @@ MACRO(NSCP_MAKE_EXE _TARGET _SRCS _FOLDER)
 ENDMACRO()
 
 MACRO(NSCP_MAKE_EXE_TEST _TARGET _SRCS)
-	MESSAGE(STATUS "Presumably adding test: ${_TARGET} as ${BUILD_TARGET_ROOT_PATH}/${_TARGET}")
 	ADD_EXECUTABLE(${_TARGET} ${_SRCS})
 	IF(WIN32)
 		INSTALL(TARGETS ${_TARGET} 
@@ -307,7 +311,6 @@ ENDMACRO()
 macro(sign_file PROJNAME _FILENAME)
     if (WIN32)
         if (EXISTS ${SIGN_CERTIFICATE})
-            message("-- ${_FILENAME} will be signed with ${SIGN_CERTIFICATE}")
             GET_FILENAME_COMPONENT(WINSDK_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH CACHE)
             GET_FILENAME_COMPONENT(WINKIT_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot]" REALPATH CACHE)
             find_program(SIGNTOOL signtool
