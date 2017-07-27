@@ -57,41 +57,40 @@ class Win32SchedTaskTest(BasicTest):
             result.add(self.check_ts_query(state, code))
         return result
 
-    def install(self, arguments):
+    def setup(self, plugin_id, prefix):
         t = datetime.datetime.fromtimestamp(time.mktime(time.localtime()))
         t = t + datetime.timedelta(seconds=60)
         tm = time.strftime("%H:%M", t.timetuple())
         folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         log("Adding scheduled tasks")
         for state in ['OK', 'WARN', 'CRIT', 'LONG']:
-            cmd = "SchTasks /Create /SC DAILY /TN NSCPSample_%s /TR \"%s\\check_test.bat %s\" /ST %s /F"%(state, folder, state, tm)
+            cmd = "schtasks.exe /Create /SC DAILY /TN NSCPSample_%s /TR \"%s\\check_test.bat %s\" /ST %s /F"%(state, folder, state, tm)
             log_debug(cmd)
             check_output(cmd)
         log("Waiting 1 minute (for tasks to run)")
         time.sleep(60)
         
+    def install(self, arguments):
         conf = self.conf
         conf.set_string('/modules', 'test_tsch', 'CheckTaskSched')
         conf.set_string('/modules', 'pytest', 'PythonScript')
         conf.set_string('/settings/pytest/scripts', 'test_w32_tsch', __file__)
         conf.save()
 
-    def uninstall(self):
-        log("Removing scheduled tasks")
+    def teardown(self):
         for state in ['OK', 'WARN', 'CRIT', 'LONG']:
-            log_debug("SchTasks /Delete /TN NSCPSample_%s /F"%state)
-            check_output("SchTasks /Delete /TN NSCPSample_%s /F"%state)
+            log_debug("schtasks.exe /Delete /TN NSCPSample_%s /F"%state)
+            check_output("schtasks.exe /Delete /TN NSCPSample_%s /F"%state)
 
     def help(self):
         None
 
     def init(self, plugin_id, prefix):
+        self.plugin_id = plugin_id
         self.reg = Registry.get(plugin_id)
         self.core = Core.get(plugin_id)
         self.conf = Settings.get(plugin_id)
 
-    def shutdown(self):
-        None
 
 setup_singleton(Win32SchedTaskTest)
 
