@@ -95,7 +95,11 @@ TEST(PerfDataTest, float_value_rounding_1) {
 	EXPECT_EQ("'aaa'=1.01g;1.02;1.03;1.04;1.05", do_parse("aaa=1.01g;1.02;1.03;1.04;1.05"));
 }
 TEST(PerfDataTest, float_value_rounding_2) {
+#if (_MSC_VER == 1700)
+	EXPECT_EQ("'aaa'=1.0001g;1.02;1.03;1.04;1.05", do_parse("aaa=1.0001g;1.02;1.03;1.04;1.05"));
+#else
 	EXPECT_EQ("'aaa'=1.00009g;1.02;1.03;1.04;1.05", do_parse("aaa=1.0001g;1.02;1.03;1.04;1.05"));
+#endif
 }
 
 TEST(PerfDataTest, problem_701_001) {

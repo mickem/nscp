@@ -51,7 +51,7 @@ TEST(format, format_byte_units_units) {
 
 	EXPECT_EQ(str::format::format_byte_units(-1ULL), "16384PB");
 	EXPECT_EQ(str::format::format_byte_units(-1024ULL), "16384PB");
-	EXPECT_EQ(str::format::format_byte_units(-1024 * 1024 * 1024 * 1024ULL), "16383.999PB");
+	EXPECT_EQ(str::format::format_byte_units(-1024ULL * 1024ULL * 1024ULL * 1024ULL), "16383.999PB");
 }
 
 TEST(format, format_byte_units_common) {
@@ -81,23 +81,18 @@ TEST(format, strex_s__xtos_non_sci_int) {
 TEST(format, strex_s__xtos_float) {
 	EXPECT_EQ(str::xtos(0.0), "0");
 	EXPECT_EQ(str::xtos(1000.0), "1000");
-#ifdef WIN32
-	EXPECT_EQ(str::xtos(10230000.0), "1.023e+07");
-	EXPECT_EQ(str::xtos(1024000000000.0), "1.024e+12");
-	EXPECT_EQ(str::xtos(1024000000000000000.0), "1.024e+18");
-	EXPECT_EQ(str::xtos(9223.0), "9223");
-	EXPECT_EQ(str::xtos(92233720.0), "9.22337e+07");
-	EXPECT_EQ(str::xtos(922337203685.0), "9.22337e+11");
-	EXPECT_EQ(str::xtos(9223372036854775807.0), "9.22337e+18");
+#if (_MSC_VER == 1700)
+#define ESUF "e+0"
 #else
-	EXPECT_EQ(str::xtos(10230000.0), "1.023e+07");
-	EXPECT_EQ(str::xtos(1024000000000.0), "1.024e+12");
-	EXPECT_EQ(str::xtos(1024000000000000000.0), "1.024e+18");
-	EXPECT_EQ(str::xtos(9223.0), "9223");
-	EXPECT_EQ(str::xtos(92233720.0), "9.22337e+07");
-	EXPECT_EQ(str::xtos(922337203685.0), "9.22337e+11");
-	EXPECT_EQ(str::xtos(9223372036854775807.0), "9.22337e+18");
+#define ESUF "e+"
 #endif
+	EXPECT_EQ(str::xtos(10230000.0), "1.023" ESUF "07");
+	EXPECT_EQ(str::xtos(1024000000000.0), "1.024" ESUF "12");
+	EXPECT_EQ(str::xtos(1024000000000000000.0), "1.024" ESUF "18");
+	EXPECT_EQ(str::xtos(9223.0), "9223");
+	EXPECT_EQ(str::xtos(92233720.0), "9.22337" ESUF "07");
+	EXPECT_EQ(str::xtos(922337203685.0), "9.22337" ESUF "11");
+	EXPECT_EQ(str::xtos(9223372036854775807.0), "9.22337" ESUF "18");
 }
 
 TEST(format, strex_s__xtos_no_sci_int) {
@@ -120,8 +115,8 @@ TEST(format, strex_s__xtos_no_sci_float_0) {
 	EXPECT_EQ(str::xtos_non_sci(9223.0), "9223");
 	EXPECT_EQ(str::xtos_non_sci(92233720.0), "92233720");
 	EXPECT_EQ(str::xtos_non_sci(922337203685.0), "922337203685");
-#ifdef WIN32
-	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.0), "9223372036854775808");
+#if (_MSC_VER == 1700)
+	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.0), "9223372036854775800");
 #else
 	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.0), "9223372036854775808");
 #endif
@@ -130,8 +125,8 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
 	EXPECT_EQ(str::xtos_non_sci(0.339), "0.339");
 	EXPECT_EQ(str::xtos_non_sci(1000.344585858585858585858585585), "1000.34458");
 	EXPECT_EQ(str::xtos_non_sci(10230000.3333333333333333333333), "10230000.33333");
-#ifdef WIN32
-	EXPECT_EQ(str::xtos_non_sci(1024000000000.13123123123123), "1024000000000.13122");
+#if (_MSC_VER == 1700)
+	EXPECT_EQ(str::xtos_non_sci(1024000000000.13123123123123), "1024000000000.1312");
 #else
 	EXPECT_EQ(str::xtos_non_sci(1024000000000.13123123123123), "1024000000000.13122");
 #endif
@@ -139,8 +134,8 @@ TEST(format, strex_s__xtos_no_sci_float_1) {
 	EXPECT_EQ(str::xtos_non_sci(9223.13123432423423), "9223.13123");
 	EXPECT_EQ(str::xtos_non_sci(92233720.234324234234234), "92233720.23432");
 	EXPECT_EQ(str::xtos_non_sci(922337203685.2423423423423), "922337203685.24231");
-#ifdef WIN32
-	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775808");
+#if (_MSC_VER == 1700)
+	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775800");
 #else
 	EXPECT_EQ(str::xtos_non_sci(9223372036854775807.98798789879887), "9223372036854775808");
 #endif
