@@ -110,6 +110,17 @@ if %ERRORLEVEL% == 1 goto :error
 ENDLOCAL
 GOTO :EOF
 
+:run_test
+SETLOCAL
+SET ENV=%1
+ECHO Running tests %ENV%
+title Running tests %ENV%
+cd /D %ROOT%\%ENV%\dist
+ctest -C RelWithDebInfo --output-on-failure
+if %ERRORLEVEL% == 1 goto :error
+ENDLOCAL
+GOTO :EOF
+
 
 :configure
 SETLOCAL
@@ -130,7 +141,7 @@ GOTO :EOF
 call :mk_dirs x64
 call :mk_dirs w32
 
-IF "%1"=="post" GOTO post_build
+IF "%1"=="post" GOTO do_post_build
 IF "%1"=="build" GOTO only_build
 IF "%1"=="same" GOTO no_bump
 
@@ -152,9 +163,12 @@ IF "%1"=="nogit" GOTO :no_git_2
 call :git_push || GOTO :error
 :no_git_2
 
-:post_build
+:do_post_build
 call :post_build x64 || GOTO :error
 call :post_build w32 Win32 || GOTO :error
+
+call :run_test x64 || GOTO :error
+rem call :run_test w32 || GOTO :error
 
 title Done!
 
