@@ -1269,10 +1269,11 @@ boost::filesystem::path NSClientT::getBasePath(void) {
 	boost::unique_lock<boost::timed_mutex> lock(internalVariables, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!lock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get mutex.");
-		return "";
+		return boost::filesystem::path("/");
 	}
-	if (!basePath.empty())
+	if (!basePath.empty()) {
 		return basePath;
+	}
 	basePath = get_selfpath();
 	try {
 		settings_manager::get_core()->set_base(basePath);
@@ -1396,7 +1397,8 @@ std::string NSClientT::getFolder(std::string key) {
 	paths_type::const_iterator p = paths.find(key);
 	if (p != paths.end())
 		return p->second;
-	std::string default_value = getBasePath().string();
+	boost::filesystem::path base_path = getBasePath();
+	std::string default_value = base_path.string();
 	if (key == "certificate-path") {
 		default_value = CERT_FOLDER;
 	} else if (key == "module-path") {
@@ -1412,11 +1414,11 @@ std::string NSClientT::getFolder(std::string key) {
 	} else if (key == CRASH_ARCHIVE_FOLDER_KEY) {
 		default_value = "${shared-path}/crash-dumps";
 	} else if (key == "base-path") {
-		default_value = getBasePath().string();
+		// Use default;
 	} else if (key == "temp") {
 		default_value = getTempPath().string();
 	} else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
-		default_value = getBasePath().string();
+		// Use default;
 	}
 #ifdef WIN32
 	else if (key == "common-appdata") {
