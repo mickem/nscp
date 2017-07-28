@@ -159,3 +159,35 @@ The default way for NSClient++ to find your settings files is via the boot.ini f
 If you want to override this, for instance you want to use multiple NSClient++ from the same folder, you can do this via the `--settings` option: `nscp test --settings nsclient2.ini`
 
 You can do this for the service as well by editing the service start command.
+
+## Paths
+
+Paths can be used in various places in the settings store to locate files. To facilitate reusable paths there a number of pat variables which ca be used.
+
+Key              | Value (Windows)                 | Value (Linux)          | Comment
+-----------------|---------------------------------|------------------------|-----------------------------------------------------------------------
+certificate-path | ${shared-path}/security         |                        |
+module-path      | ${exe-path}/modules             | ${shared-path}/scripts |
+web-path         | ${shared-path}/web              |                        |
+scripts          | ${exe-path}/scripts             | ${shared-path}/scripts |
+cache-folder     | ${shared-path}/cache            |                        |
+crash-folder     | ${shared-path}/crash-dumps      |                        |
+log-path         | ${shared-path}/log              |                        |
+base-path        | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.
+temp             | The temporary file path         | /tmp                   |
+shared-path      | Path of NSClient++ exe file     |                        | This will in the future change to an actual shared path.
+exe-path         | Path of NSClient++ exe file     |                        |
+common-appdata   | Application data for all users. | N/A                    | The file system directory that contains application data for all users
+appdata          | The user's profile folder.      | N/A                    |
+etc              | N/A                             | /etc                   | Linux only
+
+All paths can also be overridden using the /paths section in the configuration file.
+Please note that that is not always possible for instance overriding shared-path and reading settings from shared path will not work.
+Paths overrides are only available AFTER the configuration has been read.
+
+Example of overriding a path (web root folder).
+
+```
+[/paths]
+web-path=/tmp/foo
+```
