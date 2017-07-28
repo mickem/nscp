@@ -1,3 +1,11 @@
+2017-07-28 Michael Medin
+ * Added information about paths constants to the documentation
+ * Changed default module and script path to be relative of exe instead of shared (no impact currently since shared path is exe)
+ * Fixed unit testcase issues and added them to automatic build pipeline
+
+2017-07-27 Maikuolan
+ * Fixes some typos (sensetive -> sensitive) and removes some excess space.
+
 2017-07-26 Michael Medin
  * NRPE: Improved NRPE server truncation of performance data
  * check_process: Fixed #423 %(filename) variable should contain path
