@@ -20,22 +20,37 @@ You can enable the WEBServer module during the package installation.
 Alternatively you can enable the WEBServer module on the CLI afterwards:
 
 ```
-nscp web install
+nscp web install --password <MY SECRET PASSWORD>
 ```
 
 ### Configuration
 
 Edit the `/settings/WEB/server` section in the `nsclient.ini`
 configuration file.
+The default values `password` and `allowed hosts` (`/settings/default`) are shared by all modules (i.e. NRPEServer and NSClientServer) if you want to have separate values for the WEBServer you can override them under `/settings/WEB/server`.
 
 ```
-[/settings/WEB/server]
+; MODULES - A list of modules.
+[/modules]
+
+; WEBServer - A server that listens for incoming HTTP connection and processes incoming requests. It provides both a WEB UI as well as a REST API in addition to simplifying configuration of WEB Server module.
+WEBServer = enabled
+
+[/settings/default]
+
+; PASSWORD - Password used to authenticate against server
+password = <MY SECRET PASSWORD>
 
 ; ALLOWED HOSTS - A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 allowed hosts = 127.0.0.1,192.168.2.0/24
 
-; PASSWORD - Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
-password = icinga
+[/settings/WEB/server]
+
+; PORT NUMBER - Port to use for WEB server.
+port = 8443s
+
+; CERTIFICATE - Ssl certificate to use for the ssl server
+certificate = ${certificate-path}/certificate.pem
 ```
 
 Restart the `nscp` service afterwards.
@@ -45,12 +60,10 @@ net stop nscp
 net start nscp
 ```
 
-You can also specify global settings in the `/settings/default` section.
-
-Alternatively you can specify the password on the shell:
+You can change the password from the command line using the following command:
 
 ```
-nscp web password - -set icinga
+nscp web password --set icinga
 ```
 
 The next chapter provides a quick overview of how you can use the API.

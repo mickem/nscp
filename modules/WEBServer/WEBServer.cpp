@@ -897,11 +897,12 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string allowed_hosts, cert, key, port;
+	std::string allowed_hosts, cert, key, port, password;
 	const std::string path = "/settings/WEB/server";
 
 	pf::settings_query q(get_id());
 	q.get("/settings/default", "allowed hosts", "127.0.0.1");
+	q.get("/settings/default", "password", "");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
 	q.get(path, "certificate key", "");
 	q.get(path, "port", "8443s");
@@ -914,6 +915,8 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
 		if (val.matches("/settings/default", "allowed hosts"))
 			allowed_hosts = val.get_string();
+		else if (val.matches("/settings/default", "password"))
+			password = val.get_string();
 		else if (val.matches(path, "certificate"))
 			cert = val.get_string();
 		else if (val.matches(path, "certificate key"))
@@ -935,7 +938,10 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 			"Client certificate to use")
 
 		("port", po::value<std::string>(&port)->default_value(port),
-			"Port to use suffix with s for ssl")
+		"Port to use suffix with s for ssl")
+
+		("password", po::value<std::string>(&password)->default_value(password),
+		"Password to use to authenticate")
 
 		;
 
@@ -974,6 +980,8 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		if (https)
 			result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
 		result << "Point your browser to http://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
+		result << "Login using:" << password << std::endl;
+		s.set("/settings/default", "password", password);
 		s.set(path, "port", port);
 		s.save();
 		get_core()->settings_query(s.request(), s.response());
