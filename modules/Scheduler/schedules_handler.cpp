@@ -53,11 +53,11 @@ namespace schedules {
 	void scheduler::add_task(const target_object target) {
 		unsigned int id = 0;
 		if (target->duration)
-			id = tasks.add_task(target->get_alias(), *target->duration);
+			id = tasks.add_task(target->get_alias(), *target->duration, target->randomness);
 		else if (target->schedule)
 			id = tasks.add_task(target->get_alias(), cron_parser::parse(*target->schedule));
 		else
-			id = tasks.add_task(target->get_alias(), parse_interval("5m"));
+			id = tasks.add_task(target->get_alias(), parse_interval("5m"), 0.1);
 		{
 			boost::mutex::scoped_lock l(tasks.get_mutex());
 			metadata[id] = target;

@@ -46,11 +46,12 @@ namespace simple_scheduler {
 		cron_parser::schedule schedule;
 		bool has_duration;
 		bool has_schedule;
+		double randomeness;
 
 	public:
-		task() : id(0), duration(boost::posix_time::seconds(0)), has_duration(false), has_schedule(false){}
-		task(std::string tag, boost::posix_time::time_duration duration) : id(0), tag(tag), duration(duration), has_duration(true), has_schedule(false){}
-		task(std::string tag, cron_parser::schedule schedule) : id(0), tag(tag), schedule(schedule), has_duration(false), has_schedule(true) {}
+		task() : id(0), duration(boost::posix_time::seconds(0)), has_duration(false), has_schedule(false), randomeness(0.0) {}
+		task(std::string tag, boost::posix_time::time_duration duration, double randomeness) : id(0), tag(tag), duration(duration), has_duration(true), has_schedule(false), randomeness(randomeness) {}
+		task(std::string tag, cron_parser::schedule schedule) : id(0), tag(tag), schedule(schedule), has_duration(false), has_schedule(true), randomeness(0.0) {}
 
 		bool is_disabled() const {
 			return !has_duration && !has_schedule;
@@ -59,7 +60,7 @@ namespace simple_scheduler {
 			std::stringstream ss;
 			ss << id << "[" << tag << "] = ";
 			if (has_duration)
-				ss << duration.total_seconds();
+				ss << duration.total_seconds() << " " << (randomeness*100) << "% randomness";
 			else if (has_schedule)
 				ss << schedule.to_string();
 			else
@@ -68,7 +69,13 @@ namespace simple_scheduler {
 		}
 		boost::posix_time::ptime get_next(boost::posix_time::ptime now_time) const {
 			if (has_duration && duration.total_seconds() > 0) {
-				return now_time + boost::posix_time::seconds(rand() % duration.total_seconds());
+				double total_delay = duration.total_seconds();
+				double val = (total_delay * randomeness) * (static_cast<double>(rand()) / static_cast<double>(RAND_MAX));
+				double time_to_wait = (total_delay * (1.0 - randomeness)) + val;
+				if (time_to_wait < 1.0) {
+					time_to_wait = 1.0;
+				}
+				return now_time + boost::posix_time::seconds(time_to_wait);
 			} else if (has_duration) {
 				return now_time;
 			}
@@ -184,7 +191,7 @@ namespace simple_scheduler {
 		std::size_t get_metric_ql();
 		bool has_metrics() const;
 
-		int add_task(std::string tag, boost::posix_time::time_duration duration);
+		int add_task(std::string tag, boost::posix_time::time_duration duration, double randomness);
 		int add_task(std::string tag, cron_parser::schedule schedule);
 		void remove_task(int id);
 		op_task_object get_task(int id);

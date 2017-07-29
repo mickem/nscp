@@ -96,8 +96,8 @@ namespace simple_scheduler {
 		log_trace(__FILE__, __LINE__, "Thread pool contains: " + str::xtos(threads_.threadCount()));
 	}
 
-	int scheduler::add_task(std::string tag, boost::posix_time::time_duration duration) {
-		task item(tag, duration);
+	int scheduler::add_task(std::string tag, boost::posix_time::time_duration duration, double randomness) {
+		task item(tag, duration, randomness);
 		{
 			boost::mutex::scoped_lock l(mutex_);
 			item.id = ++schedule_id_;

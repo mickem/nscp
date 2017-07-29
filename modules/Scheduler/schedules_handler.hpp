@@ -45,12 +45,13 @@ namespace schedules {
 	struct schedule_object : public nscapi::settings_objects::object_instance_interface {
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		schedule_object(std::string alias, std::string path) : parent(alias, path), report(0), id(0) {}
+		schedule_object(std::string alias, std::string path) : parent(alias, path), randomness(0.0), report(0), id(0) {}
 		schedule_object(const schedule_object& other)
 			: parent(other)
 			, source_id(other.source_id)
 			, target_id(other.target_id)
 			, duration(other.duration)
+			, randomness(other.randomness)
 			, schedule(other.schedule)
 			, channel(other.channel)
 			, report(other.report)
@@ -61,6 +62,7 @@ namespace schedules {
 		std::string source_id;
 		std::string target_id;
 		boost::optional<boost::posix_time::time_duration> duration;
+		double randomness;
 		boost::optional<std::string> schedule;
 		std::string  channel;
 		unsigned int report;
@@ -70,6 +72,9 @@ namespace schedules {
 		// Others keys (Managed by application)
 		int id;
 
+		void set_randomness(std::string str) {
+			randomness = str::stox<double>(boost::replace_first_copy(str, "%", "")) / 100.0;
+		}
 		void set_report(std::string str) {
 			report = nscapi::report::parse(str);
 		}
@@ -81,6 +86,7 @@ namespace schedules {
 		}
 		void set_command(std::string str) {
 			if (!str.empty()) {
+				arguments.clear();
 				str::utils::parse_command(str, command, arguments);
 			}
 		}
@@ -93,8 +99,9 @@ namespace schedules {
 				<< ", channel: " << channel
 				<< ", source_id: " << source_id
 				<< ", target_id: " << target_id;
-			if (duration)
-				ss << ", duration: " << (*duration).total_seconds() << "s";
+			if (duration) {
+				ss << ", duration: " << (*duration).total_seconds() << "s, " << (randomness * 100) << "% randomness";
+			}
 			if (schedule)
 				ss << ", schedule: " << *schedule;
 			ss << "}";
@@ -136,7 +143,10 @@ namespace schedules {
 						"SCHEDULE CHANNEL", "Channel to send results on")
 
 					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, _1)),
-						"SCHEDULE INTERAVAL", "Time in seconds between each check")
+					"SCHEDULE INTERAVAL", "Time in seconds between each check")
+
+					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, _1)),
+						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
 
 					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, _1)),
 						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")
@@ -152,6 +162,9 @@ namespace schedules {
 
 					("interval", sh::string_fun_key(boost::bind(&schedule_object::set_duration, this, _1)),
 						"SCHEDULE INTERAVAL", "Time in seconds between each check", true)
+
+					("randomness", sh::string_fun_key(boost::bind(&schedule_object::set_randomness, this, _1)),
+						"RANDOMNESS", "% of the interval which should be random to prevent overloading server resources")
 
 					("schedule", sh::string_fun_key(boost::bind(&schedule_object::set_schedule, this, _1)),
 						"SCHEDULE", "Cron-like statement for when a task is run. Currently limited to only one number i.e. 1 * * * * or * * 1 * * but not 1 1 * * *")

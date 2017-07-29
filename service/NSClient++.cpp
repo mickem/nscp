@@ -1049,7 +1049,7 @@ NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_
 NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::string &request, std::string &response) {
 	boost::shared_lock<boost::shared_mutex> readLock(m_mutexRW, boost::get_system_time() + boost::posix_time::milliseconds(5000));
 	if (!readLock.owns_lock()) {
-		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex.");
+		LOG_ERROR_CORE("FATAL ERROR: Could not get read-mutex for sending notification.");
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 
