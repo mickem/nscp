@@ -53,7 +53,7 @@ namespace nsclient {
 						} else if (data.size() > SET_CONFIG_MESSAGE.size() && data.substr(0, SET_CONFIG_MESSAGE.size()) == SET_CONFIG_MESSAGE) {
 							background_logger_->set_config(data.substr(SET_CONFIG_MESSAGE.size()));
 						} else {
-							if (background_logger_->is_console()) {
+							if (!background_logger_ || background_logger_->is_console()) {
 								std::pair<bool, std::string> m = logger_helper::render_console_message(is_oneline(), data);
 								if (!is_no_std_err() && m.first)
 									std::cerr << m.second;
