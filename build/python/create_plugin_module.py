@@ -231,11 +231,13 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		}
 {% endif %}
 	} catch (const std::exception &e) {
+        response_message.clear_payload();
         ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
         payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
         payload->add_lines()->set_message(std::string("Failed to process command : ") + utf8::utf8_from_native(e.what()));
 	} catch (...) {
+        response_message.clear_payload();
         ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
         payload->set_command("");
         payload->set_result(Plugin::Common_ResultCode_UNKNOWN);
