@@ -41,6 +41,7 @@ def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
 		reg.simple_cmdline('run_python_test', run_tests)
 
 		reg.simple_function('py_unittest', run_tests, 'Run python unit test suite')
+		reg.simple_function('py_unittest_show_ok', set_show_ok, 'Run python unit test suite')
 	
 	return test_manager
 	
@@ -58,7 +59,11 @@ def install_tests(arguments = []):
 
 def run_tests(arguments = []):
 	result = get_test_manager().run(arguments)
-	return result.return_nagios()
+	return result.return_nagios(get_test_manager().show_all)
+
+def set_show_ok(arguments = []):
+	get_test_manager().set_show_ok()
+	return (status.OK, 'Done')
 
 def display_help(arguments = []):
 	return (status.OK, 'TODO')
@@ -143,8 +148,10 @@ class TestResultEntry:
 		self.desc = desc
 		self.error = error
 
-	def log(self, prefix = '', indent = 0):
+	def log(self, show_all = False, prefix = '', indent = 0):
 		if self.status:
+			if show_all:
+				log('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
 			log_debug('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
 		else:
 			log_error('%s%s%s'%(prefix, ''.rjust(indent, ' '), self))
@@ -179,14 +186,16 @@ class TestResultCollection(TestResultEntry):
 		if list:
 			self.extend(list)
 
-	def log(self, prefix = '', indent = 0):
+	def log(self, show_all = False, prefix = '', indent = 0):
 		start = '%s%s'%(prefix, ''.rjust(indent, ' '))
 		if self.status:
+			if show_all:
+				log('%s%s'%(start, self))
 			log_debug('%s%s'%(start, self))
 		else:
 			log_error('%s%s'%(start, self))
 		for c in self.children:
-			c.log(prefix, indent+1)
+			c.log(show_all, prefix, indent+1)
 	
 	def is_ok(self):
 		return self.status
@@ -285,10 +294,9 @@ class TestResult(TestResultCollection):
 	def add(self, result):
 		self.extend(result)
 
-	def return_nagios(self):
+	def return_nagios(self, show_all = False):
 		(total, ok) = self.count()
-		log_debug(' | Test result log (only summary will be returned to query)')
-		self.log(' | ')
+		self.log(show_all, ' | ')
 		if total == ok:
 			return (status.OK, "OK: %d test(s) successfull"%(total))
 		else:
@@ -301,7 +309,8 @@ class TestManager:
 	plugin_id = None
 	plugin_alias = None
 	script_alias = None
-	
+	show_all = False
+
 	def __init__(self, plugin_id = 0, plugin_alias = '', script_alias = ''):
 		if script_alias:
 			self.prefix = '%s_'%script_alias
@@ -309,7 +318,11 @@ class TestManager:
 		self.plugin_alias = plugin_alias
 		self.script_alias = script_alias
 		self.suites = []
+		self.show_all = False
 	
+	def set_show_ok(self):
+		self.show_all = True
+		
 	def add(self, suite):
 		if isinstance(suite, list):
 			for s in suite:

@@ -405,8 +405,9 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 }
 
 struct client_arguments {
-	std::string command, combined_query, module;
+	std::string command, module;
 	std::vector<std::string> arguments;
+	std::vector<std::string> combined_query;
 	enum modes { exec, query, submit, none, combined };
 	modes mode;
 	bool boot;
@@ -417,7 +418,9 @@ struct client_arguments {
 		if (core_->get_logger()->should_debug()) {
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Module: " + module);
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Command: " + command);
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra Query: " + combined_query);
+			BOOST_FOREACH(const std::string &s, combined_query) {
+				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra queries: " + s);
+			}
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Mode: " + str::xtos(mode));
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Boot: " + str::xtos(boot));
 			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Load All: " + str::xtos(load_all));
@@ -481,7 +484,10 @@ struct client_arguments {
 				} else if (mode == client_arguments::combined) {
 					if (ret == NSCAPI::exec_return_codes::returnOK) {
 						core_->reload("instant,service");
-						ret = core_->simple_query(module, combined_query, arguments, resp);
+						BOOST_FOREACH(const std::string &s, combined_query) {
+							std::vector<std::string> qargs;
+							ret = core_->simple_query(module, s, qargs, resp);
+						}
 					} else {
 						std::cerr << "Failed to execute command, will not attempt query" << std::endl;
 					}
@@ -538,7 +544,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 			args.command = vm["exec"].as<std::string>();
 			args.mode = client_arguments::exec;
 			if (vm.count("query")) {
-				args.combined_query = vm["query"].as<std::string>();
+				args.combined_query.push_back(vm["query"].as<std::string>());
 				args.mode = client_arguments::combined;
 			}
 		} else if (vm.count("query")) {
@@ -602,10 +608,12 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		po::options_description all("Allowed options (client)");
 		std::string lang;
 		std::vector<std::string> kvp_args;
+		bool show_all = false;
 
 		po::options_description unittest("Unit-test Options");
 		unittest.add_options()
 			("language,l", po::value<std::string>(&lang)->default_value("python"), "Language tests are written in")
+			("show-all", po::bool_switch(&show_all), "Show all results (not just errors)")
 			("argument,a", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (gets -- prefixed automatically)")
 			("raw-argument", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (does not get -- prefixed)")
 			;
@@ -623,12 +631,15 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 
 		if (lang == "python" || lang == "py") {
 			args.command = "python-script";
-			args.combined_query = "py_unittest";
+			if (show_all) {
+				args.combined_query.push_back("py_unittest_show_ok");
+			}
+			args.combined_query.push_back("py_unittest");
 			args.mode = client_arguments::combined;
 			args.module = "PythonScript";
 		} else if (lang == "lua") {
 			args.command = "lua-script";
-			args.combined_query = "lua_unittest";
+			args.combined_query.push_back("lua_unittest");
 			args.mode = client_arguments::combined;
 			args.module = "LUAScript";
 		} else {
