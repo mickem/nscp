@@ -734,7 +734,7 @@ void CheckSystem::checkServiceState(Plugin::QueryRequestMessage::Request &reques
 
 	BOOST_FOREACH(const std::string &s, excludes) {
 		if (!s.empty())
-			str::format::append_list(filter, "name != '" + s + "'", " AND ");
+			request.add_arguments("exclude=" + s);
 	}
 	if (!crit.empty())
 		request.add_arguments("crit=" + crit);
