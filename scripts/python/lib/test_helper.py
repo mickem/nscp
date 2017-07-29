@@ -272,6 +272,11 @@ class TestResult(TestResultCollection):
 	def assert_equals(self, s1, s2, msg):
 		self.add_message(s1 == s2, msg, '"%s" != "%s"'%(s1, s2))
 		
+	def assert_gt(self, v1, v2, msg):
+		self.add_message(v1 > v2, msg, '%d should be greater then %d'%(v1, v2))
+	def assert_lt(self, v1, v2, msg):
+		self.add_message(v1 < v2, msg, '%d should be less then %d'%(v1, v2))
+
 	def assert_contains(self, s1, s2, msg):
 		if s1 == s2:
 			self.add_message(s1 in s2 or s2 in s1, msg, '"%s" (contains) "%s"'%(s1, s2))
