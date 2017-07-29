@@ -226,20 +226,23 @@ namespace schedules {
 		void add_task(const target_object target);
 
 		bool handle_schedule(simple_scheduler::task item) {
-			if (handler_) {
-				if (!handler_->handle_schedule(get(item.id)))
+			task_handler *tmp = handler_;
+			if (tmp) {
+				if (!tmp->handle_schedule(get(item.id)))
 					tasks.remove_task(item.id);
 
 			}
 			return true;
 		}
 		void on_error(const char* file, int line, std::string error) {
-			if (handler_)
-				handler_->on_error(file, line, error);
+			task_handler *tmp = handler_;
+			if (tmp)
+				tmp->on_error(file, line, error);
 		}
 		void on_trace(const char* file, int line, std::string error) {
-			if (handler_)
-				handler_->on_trace(file, line, error);
+			task_handler *tmp = handler_;
+			if (tmp)
+				tmp->on_trace(file, line, error);
 		}
 	};
 
