@@ -43,7 +43,7 @@ bool nscapi::core_helper::load_module(std::string name, std::string alias) {
 	payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
 	payload->mutable_control()->set_name(name);
 	if (!alias.empty()) {
-		payload->mutable_control()->set_alias(name);
+		payload->mutable_control()->set_alias(alias);
 	}
 	std::string buffer;
 	get_core()->registry_query(rrm.SerializeAsString(), buffer);
