@@ -1,4 +1,13 @@
 2017-07-29 Michael Medin
+ * Fixed error handling when checks crash
+ * Added unit test for scheduler
+ * python unittest helper lib: Added assert_gt and asser_lt to check values
+ * Added --show-all to nscp unit to show all results of the testcase (not just failed ones)
+ * Fixed rare crash when logger shuts down
+ * Fixed rare crash when scheduler shuts down
+ * Fixed scheduler interval being off
+ * Added randomness to the scheduler to dictate how much randomness you want (default is 0)
+ * core: Fixed loading module with alias via API
  * Fixed exclude parsing when converting CheckServiceState commands (much faster now)
 
 2017-07-28 Michael Medin
