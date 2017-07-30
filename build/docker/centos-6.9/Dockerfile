@@ -13,8 +13,19 @@ RUN mkdir /usr/lib/python2.6/site-packages/google/protobuf/compiler || true
 ADD build/docker/files/plugin_pb2.py /usr/lib/python2.6/site-packages/google/protobuf/compiler/plugin_pb2.py
 RUN touch /usr/lib/python2.6/site-packages/google/protobuf/compiler/__init__.py
 
-RUN pip install jinja2 mkdocs
+ENV GH_TOKEN=UPDATE_ME
+
+# Workaround for python and outdated ssl libs
+#RUN yum install -y libffi-devel
+#RUN pip install urllib3[secure]
+
+
+RUN pip install jinja2 mkdocs github3.py
 
 RUN mkdir -p /src/build
+RUN mkdir -p /src/packages
 
+VOLUME /src/packages
+
+CMD /src/nscp/build/sh/build-centos.sh
 
