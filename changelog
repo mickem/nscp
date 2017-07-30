@@ -1,3 +1,11 @@
+2017-07-30 Michael Medin
+ * Fixed wrong unit test command for lua scripts
+ * (Re)added --case command line option to unit test command
+ * Removed arguments for unit test as they are not used.
+ * Disabled docs if python is missing (or less then 2.6)
+ * Switched to regular find python cmake module
+ * Added whats new for 0.5.1
+
 2017-07-29 Michael Medin
  * Fixed error handling when checks crash
  * Added unit test for scheduler
