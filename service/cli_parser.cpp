@@ -679,7 +679,7 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 			}
 		}
 		if (ret == 0) {
-			ret = args.run_query(core_, "py_unittest", empty, resp);
+			ret = args.run_query(core_, lang + "_unittest", empty, resp);
 		}
 		args.run_post(core_);
 		BOOST_FOREACH(std::string r, resp) {
