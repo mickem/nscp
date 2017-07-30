@@ -41,7 +41,8 @@ def create_test_manager(plugin_id = 0, plugin_alias = '', script_alias = ''):
         reg.simple_cmdline('run_python_test', run_tests)
 
         reg.simple_function('py_unittest', run_tests, 'Run python unit test suite')
-        reg.simple_function('py_unittest_show_ok', set_show_ok, 'Run python unit test suite')
+        reg.simple_function('py_unittest_show_ok', set_show_ok, 'Set verbouse log')
+        reg.simple_function('py_unittest_add_case', add_case, 'Set which cases to run')
     
     return test_manager
     
@@ -63,6 +64,10 @@ def run_tests(arguments = []):
 
 def set_show_ok(arguments = []):
     get_test_manager().set_show_ok()
+    return (status.OK, 'Done')
+
+def add_case(arguments = []):
+    get_test_manager().add_case(arguments)
     return (status.OK, 'Done')
 
 def display_help(arguments = []):
@@ -315,6 +320,7 @@ class TestManager:
     plugin_alias = None
     script_alias = None
     show_all = False
+    cases = []
 
     def __init__(self, plugin_id = 0, plugin_alias = '', script_alias = ''):
         if script_alias:
@@ -324,10 +330,14 @@ class TestManager:
         self.script_alias = script_alias
         self.suites = []
         self.show_all = False
+        self.cases = []
     
     def set_show_ok(self):
         self.show_all = True
-        
+
+    def add_case(self, cases):
+        self.cases.extend(cases)
+    
     def add(self, suite):
         if isinstance(suite, list):
             for s in suite:
@@ -343,23 +353,13 @@ class TestManager:
         return result
         
     def run(self, arguments = []):
-        cases = []
-        try:
-            parser = ThrowingArgumentParser(prog='nscp')
-            parser.add_argument("--script", help="The script to run (sort of ignored)", action='store')
-            parser.add_argument("--case", help="Which test case to run", action='append')
-            args = parser.parse_args(arguments)
-            cases = args.case
-        except Exception as e:
-            log_error('Failed to parse command line: %s'%e)
-            
         result = TestResult('Test result for %d suites'%len(self.suites))
         for suite in self.suites:
             instance = suite.getInstance()
             instance.setup(self.plugin_id, self.prefix)
             suite_result = TestResult('Running suite: %s'%instance.title())
-            if cases:
-                suite_result.append(instance.run_test(cases))
+            if self.cases:
+                suite_result.append(instance.run_test(self.cases))
             else:
                 suite_result.append(instance.run_test())
             result.append(suite_result)

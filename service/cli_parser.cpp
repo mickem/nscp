@@ -405,39 +405,15 @@ int cli_parser::parse_service(int argc, char* argv[]) {
 }
 
 struct client_arguments {
-	std::string command, module;
-	std::vector<std::string> arguments;
-	std::vector<std::string> combined_query;
-	enum modes { exec, query, submit, none, combined };
-	modes mode;
+	std::string module;
 	bool boot;
 	bool load_all;
-	client_arguments() : mode(none), boot(false), load_all(false) {}
+	client_arguments() : boot(false), load_all(false) {}
 
-	void debug(NSClient* core_) {
-		if (core_->get_logger()->should_debug()) {
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Module: " + module);
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Command: " + command);
-			BOOST_FOREACH(const std::string &s, combined_query) {
-				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Extra queries: " + s);
-			}
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Mode: " + str::xtos(mode));
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Boot: " + str::xtos(boot));
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Load All: " + str::xtos(load_all));
-			if (!module.empty() && boot)
-				core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Warning module and boot specified only THAT module will be loaded");
-			std::string args;
-			BOOST_FOREACH(std::string s, arguments)
-				str::format::append_list(args, s, ", ");
-			core_->get_logger()->info(LOG_MODULE, __FILE__, __LINE__, "Arguments: " + args);
-		}
-	}
-
-	int exec_client_mode(NSClient* core_, const std::vector<std::string> &defines) {
+	bool run_pre(NSClient* core_, const std::vector<std::string> &defines) {
 		try {
 			if (module == "CommandClient")
 				boot = true;
-			debug(core_);
 
 			core_->boot_init(true);
 			BOOST_FOREACH(const std::string &s, defines) {
@@ -460,49 +436,23 @@ struct client_arguments {
 			else
 				core_->boot_load_plugin(module);
 			core_->boot_start_plugins(boot);
+			return true;
+		} catch (const std::exception & e) {
+			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
+			return false;
+		} catch (...) {
+			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
+			return false;
+		}
+	}
+	int run_exec(NSClient* core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
+		try {
 			int ret = 0;
-			std::list<std::string> resp;
-			if (mode == client_arguments::none) {
-				mode = client_arguments::exec;
-			}
-			if (mode == client_arguments::query) {
-				ret = core_->simple_query(module, command, arguments, resp);
-				if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
-					resp.push_back("Command not found: " + command);
-					std::string commands;
-					BOOST_FOREACH(const std::string &c, core_->list_commands()) {
-						str::format::append_list(commands, c);
-					}
-					resp.push_back("Available commands: " + commands);
-				}
-			} else if (mode == client_arguments::exec || mode == client_arguments::combined) {
-				ret = core_->simple_exec(module + "." + command, arguments, resp);
-				if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
-					ret = 1;
-					resp.push_back("Command not found: " + command);
-					core_->simple_exec(module + ".help", arguments, resp);
-				} else if (mode == client_arguments::combined) {
-					if (ret == NSCAPI::exec_return_codes::returnOK) {
-						core_->reload("instant,service");
-						BOOST_FOREACH(const std::string &s, combined_query) {
-							std::vector<std::string> qargs;
-							ret = core_->simple_query(module, s, qargs, resp);
-						}
-					} else {
-						std::cerr << "Failed to execute command, will not attempt query" << std::endl;
-					}
-				}
-			} else if (mode == client_arguments::submit) {
-				std::cerr << "--submit is currently not supported" << std::endl;
-			} else {
-				std::cerr << "Need to specify one of --exec, --query or --submit" << std::endl;
-			}
-			core_->stop_unload_plugins_pre();
-			core_->stop_exit_pre();
-			core_->stop_exit_post();
-
-			BOOST_FOREACH(std::string r, resp) {
-				std::cout << utf8::to_encoding(r, "") << std::endl;
+			ret = core_->simple_exec(module + "." + command, arguments, result);
+			if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
+				ret = 1;
+				result.push_back("Command not found: " + command);
+				core_->simple_exec(module + ".help", arguments, result);
 			}
 			return ret;
 		} catch (const std::exception & e) {
@@ -513,6 +463,56 @@ struct client_arguments {
 			return NSCAPI::exec_return_codes::returnERROR;
 		}
 	}
+
+	bool run_reload(NSClient* core_) {
+		try {
+			core_->reload("instant,service");
+			return true;
+		} catch (const std::exception & e) {
+			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
+			return false;
+		} catch (...) {
+			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
+			return false;
+		}
+	}
+
+	int run_query(NSClient* core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
+		try {
+			int ret = 0;
+			ret = core_->simple_query(module, command, arguments, result);
+			if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
+				result.push_back("Command not found: " + command);
+				std::string commands;
+				BOOST_FOREACH(const std::string &c, core_->list_commands()) {
+					str::format::append_list(commands, c);
+				}
+				result.push_back("Available commands: " + commands);
+			}
+			return ret;
+		} catch (const std::exception & e) {
+			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
+			return NSCAPI::exec_return_codes::returnERROR;
+		} catch (...) {
+			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
+			return NSCAPI::exec_return_codes::returnERROR;
+		}
+	}
+	bool run_post(NSClient* core_) {
+		try {
+			core_->stop_unload_plugins_pre();
+			core_->stop_exit_pre();
+			core_->stop_exit_post();
+			return true;
+		} catch (const std::exception & e) {
+			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
+			return false;
+		} catch (...) {
+			std::cerr << "Client: Unable to parse command line: UNKNOWN" << std::endl;
+			return false;
+		}
+	}
+
 };
 
 int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
@@ -540,21 +540,6 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		if (process_common_options("client", all))
 			return 1;
 
-		if (vm.count("exec")) {
-			args.command = vm["exec"].as<std::string>();
-			args.mode = client_arguments::exec;
-			if (vm.count("query")) {
-				args.combined_query.push_back(vm["query"].as<std::string>());
-				args.mode = client_arguments::combined;
-			}
-		} else if (vm.count("query")) {
-			args.command = vm["query"].as<std::string>();
-			args.mode = client_arguments::query;
-		} else if (vm.count("submit")) {
-			args.command = vm["submit"].as<std::string>();
-			args.mode = client_arguments::submit;
-		}
-
 		args.load_all = vm.count("load-all") == 1;
 
 		if (vm.count("module"))
@@ -567,16 +552,17 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		if (vm.count("argument"))
 			kvp_args = vm["argument"].as<std::vector<std::string> >();
 
+		std::vector<std::string> arguments;
 		BOOST_FOREACH(const std::string &a, unknown_options)
-			args.arguments.push_back(utf8::cvt<std::string>(a));
+			arguments.push_back(utf8::cvt<std::string>(a));
 
 		BOOST_FOREACH(std::string s, kvp_args) {
 			std::string::size_type pos = s.find('=');
 			if (pos == std::string::npos)
-				args.arguments.push_back("--" + s);
+				arguments.push_back("--" + s);
 			else {
-				args.arguments.push_back("--" + s.substr(0, pos));
-				args.arguments.push_back(s.substr(pos + 1));
+				arguments.push_back("--" + s.substr(0, pos));
+				arguments.push_back(s.substr(pos + 1));
 			}
 		}
 
@@ -585,13 +571,31 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		BOOST_FOREACH(std::string s, kvp_args) {
 			std::string::size_type pos = s.find('=');
 			if (pos == std::string::npos)
-				args.arguments.push_back(s);
+				arguments.push_back(s);
 			else {
-				args.arguments.push_back(s.substr(0, pos));
-				args.arguments.push_back(s.substr(pos + 1));
+				arguments.push_back(s.substr(0, pos));
+				arguments.push_back(s.substr(pos + 1));
 			}
 		}
-		return args.exec_client_mode(core_, defines);
+		if (!args.run_pre(core_, defines)) {
+			return NSCAPI::exec_return_codes::returnERROR;
+		}
+		int ret = 0;
+
+		std::list<std::string> resp;
+		if (vm.count("exec")) {
+			ret = args.run_exec(core_, vm["exec"].as<std::string>(), arguments, resp);
+		}
+		if (vm.count("query")) {
+			ret = args.run_query(core_, vm["query"].as<std::string>(), arguments, resp);
+		}
+
+
+		BOOST_FOREACH(std::string r, resp) {
+			std::cout << utf8::to_encoding(r, "") << std::endl;
+		}
+		return ret;
+
 	} catch (const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
@@ -606,16 +610,16 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		client_arguments args;
 		settings_store = "dummy";
 		po::options_description all("Allowed options (client)");
-		std::string lang;
-		std::vector<std::string> kvp_args;
+		std::string lang, script;
+		std::vector<std::string> cases;
 		bool show_all = false;
 
 		po::options_description unittest("Unit-test Options");
 		unittest.add_options()
 			("language,l", po::value<std::string>(&lang)->default_value("python"), "Language tests are written in")
+			("script", po::value<std::string>(&script), "The script to test")
 			("show-all", po::bool_switch(&show_all), "Show all results (not just errors)")
-			("argument,a", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (gets -- prefixed automatically)")
-			("raw-argument", po::value<std::vector<std::string> >(&kvp_args), "List of arguments (does not get -- prefixed)")
+			("case,c", po::value<std::vector<std::string> >(&cases), "A list of expressions matching cases to run.")
 			;
 		all.add(common_light).add(common).add(unittest);
 
@@ -626,54 +630,63 @@ int cli_parser::parse_unittest(int argc, char* argv[]) {
 		po::store(do_parse(argc, argv, all), vm);
 		po::notify(vm);
 
+
 		if (process_common_options("unitest", all))
 			return 1;
 
 		if (lang == "python" || lang == "py") {
-			args.command = "python-script";
-			if (show_all) {
-				args.combined_query.push_back("py_unittest_show_ok");
-			}
-			args.combined_query.push_back("py_unittest");
-			args.mode = client_arguments::combined;
+			lang = "py";
 			args.module = "PythonScript";
 		} else if (lang == "lua") {
-			args.command = "lua-script";
-			args.combined_query.push_back("lua_unittest");
-			args.mode = client_arguments::combined;
 			args.module = "LUAScript";
 		} else {
 			std::cerr << "Unknown language: " << lang << std::endl;
 			return 1;
 		}
 
-		BOOST_FOREACH(const std::string &ws, unknown_options) {
-			std::string s = utf8::cvt<std::string>(ws);
-			args.arguments.push_back(s);
+		std::vector<std::string> install_args;
+		install_args.push_back("--script");
+		install_args.push_back(script);
+		std::list<std::string> resp;
+		if (!args.run_pre(core_, defines)) {
+			return NSCAPI::exec_return_codes::returnERROR;
 		}
-
-		BOOST_FOREACH(const std::string &ws, kvp_args) {
-			std::string s = utf8::cvt<std::string>(ws);
-			std::string::size_type pos = s.find('=');
-			if (pos == std::string::npos)
-				args.arguments.push_back("--" + s);
-			else {
-				args.arguments.push_back("--" + s.substr(0, pos));
-				args.arguments.push_back(s.substr(pos + 1));
+		int ret = 0;
+		if (lang == "py") {
+			ret = args.run_exec(core_, "python-script", install_args, resp);
+		} else {
+			ret = args.run_exec(core_, "lua-script", install_args, resp);
+		}
+		if (ret != 0) {
+			std::cerr << "Failed to setup unit test" << std::endl;
+		}
+		if (ret == 0) {
+			if (!args.run_reload(core_)) {
+				std::cerr << "Failed to reload configuration" << std::endl;
+				ret = NSCAPI::exec_return_codes::returnERROR;
 			}
 		}
 
-		BOOST_FOREACH(std::string ws, kvp_args) {
-			std::string s = utf8::cvt<std::string>(ws);
-			std::string::size_type pos = s.find('=');
-			if (pos == std::string::npos)
-				args.arguments.push_back(s);
-			else {
-				args.arguments.push_back(s.substr(0, pos));
-				args.arguments.push_back(s.substr(pos + 1));
+		std::vector<std::string> empty;
+		if (ret == 0) {
+			if (show_all) {
+				ret = args.run_query(core_, lang + "_unittest_show_ok", empty, resp);
 			}
 		}
-		return args.exec_client_mode(core_, defines);
+		if (ret == 0) {
+			if (!cases.empty()) {
+				ret = args.run_query(core_, lang + "_unittest_add_case", cases, resp);
+			}
+		}
+		if (ret == 0) {
+			ret = args.run_query(core_, "py_unittest", empty, resp);
+		}
+		args.run_post(core_);
+		BOOST_FOREACH(std::string r, resp) {
+			std::cout << utf8::to_encoding(r, "") << std::endl;
+		}
+		return ret;
+
 	} catch (const std::exception & e) {
 		std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;
 		return 1;
