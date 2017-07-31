@@ -7,7 +7,6 @@ make package_source || exit 1
 VERSION=`/src/nscp/build/python/version.py -f /src/nscp/version.txt -d`
 cp nscp-$VERSION-Source.tar.gz /root/rpmbuild/SOURCES/
 rpmbuild -ba SPECS/nscp.spec || exit 1
-popd
 
 if cat /etc/redhat-release | grep -q 'release 6' ; then
   OSVERSION=el6
