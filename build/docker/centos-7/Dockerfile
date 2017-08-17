@@ -24,5 +24,5 @@ RUN mkdir -p /src/packages
 
 VOLUME /src/packages
 
-#CMD /src/nscp/build/sh/build-centos.sh
+CMD /src/nscp/build/sh/build-centos.sh
 
