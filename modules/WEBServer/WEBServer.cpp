@@ -60,20 +60,20 @@ class token_store {
 	typedef boost::unordered_set<std::string> token_set;
 
 	token_set tokens;
-	std::string seed_token(int len) {
+public:
+	static std::string generate_token(int len) {
 		std::string ret;
 		for (int i = 0; i < len; i++)
 			ret += alphanum[rand() % (sizeof(alphanum) - 1)];
 		return ret;
 	}
 
-public:
 	bool validate(const std::string &token) {
 		return tokens.find(token) != tokens.end();
 	}
 
 	std::string generate() {
-		std::string token = seed_token(32);
+		std::string token = generate_token(32);
 		tokens.emplace(token);
 		return token;
 	}
@@ -699,7 +699,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 		;
 	settings.alias().add_key_to_settings()
-		("port", sh::string_key(&port, "8443s"),
+		("port", sh::string_key(&port, "8443"),
 			"PORT NUMBER", "Port to use for WEB server.")
 		;
 	settings.alias().add_key_to_settings()
@@ -737,15 +737,18 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		socket_helpers::validate_certificate(certificate, errors);
 		NSC_LOG_ERROR_LISTS(errors);
 		std::string path = get_core()->expand_path("${web-path}");
-		if (!boost::filesystem::is_regular_file(certificate) && port == "8443s")
+		if (!boost::filesystem::is_regular_file(certificate) && port == "8443")
 			port = "8080";
+		if (boost::ends_with(port, "s")) {
+			port = port.substr(0, port.length() - 1);
+		}
 
 		server.reset(new Mongoose::Server(port.c_str(), path.c_str()));
 		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
-			server->setOption("ssl_certificate", certificate);
+			server->setSsl(certificate.c_str());
 		}
 		server->registerController(new BaseController(password, get_core(), get_id()));
 		server->registerController(new RESTController(password, get_core()));
@@ -941,7 +944,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		"Port to use suffix with s for ssl")
 
 		("password", po::value<std::string>(&password)->default_value(password),
-		"Password to use to authenticate")
+		"Password to use to authenticate (if none a generated password will be set)")
 
 		;
 
@@ -959,9 +962,14 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		}
 		std::stringstream result;
 
+		if (password == "") {
+			result << "WARNING: No password specified using a generated password" << std::endl;
+			password = token_store::generate_token(32);
+		}
+
 		bool https = false;
 		nscapi::protobuf::functions::settings_query s(get_id());
-		result << "Enabling WEB from (currently not supported): " << allowed_hosts << std::endl;
+		result << "Enabling WEB access from " << allowed_hosts << std::endl;
 		s.set("/settings/default", "allowed hosts", allowed_hosts);
 		s.set("/modules", "WEBServer", "enabled");
 		if (port.find('s') != std::string::npos) {
@@ -980,7 +988,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		if (https)
 			result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
 		result << "Point your browser to http://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
-		result << "Login using:" << password << std::endl;
+		result << "Login using this password " << password << std::endl;
 		s.set("/settings/default", "password", password);
 		s.set(path, "port", port);
 		s.save();
