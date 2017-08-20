@@ -444,6 +444,7 @@ namespace services_helper {
 		info.start_type = data2->dwStartType;
 		info.binary_path = utf8::cvt<std::string>(data2->lpBinaryPathName);
 		info.error_control = data2->dwErrorControl;
+		info.displayname = utf8::cvt<std::string>(data2->lpDisplayName);
 
 		fetch_delayed(hService, info);
 		fetch_triggers(hService, info);
