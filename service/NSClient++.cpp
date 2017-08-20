@@ -461,9 +461,12 @@ bool NSClientT::boot_start_plugins(bool boot) {
 		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance interval", settings::settings_core::key_string, "Maintenance interval", "How often settings shall reload config if it has changed", "5m", true, false);
 		std::string smi = settings_manager::get_settings()->get_string("/settings/core", "settings maintenance interval", "5m");
 		scheduler_.add_task(task_scheduler::schedule_metadata::SETTINGS, smi);
-		settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", settings::settings_core::key_string, "Maintenance interval", "How often to fetch metrics from modules", "5s", true, false);
-		smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "5s");
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "metrics interval", settings::settings_core::key_string, "Maintenance interval", "How often to fetch metrics from modules", "10s", true, false);
+		smi = settings_manager::get_settings()->get_string("/settings/core", "metrics interval", "10s");
 		scheduler_.add_task(task_scheduler::schedule_metadata::METRICS, smi);
+		settings_manager::get_core()->register_key(0xffff, "/settings/core", "settings maintenance threads", settings::settings_core::key_integer, "Maintenance thread count", "How many threads will run in the background to maintain the various core helper tasks.", "1", true, false);
+		int count = settings_manager::get_settings()->get_int("/settings/core", "settings maintenance threads", 1);
+		scheduler_.set_threads(count);
 		scheduler_.start();
 	}
 	LOG_DEBUG_CORE(utf8::cvt<std::string>(APPLICATION_NAME " - " CURRENT_SERVICE_VERSION " Started!"));

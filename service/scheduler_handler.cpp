@@ -99,4 +99,9 @@ namespace task_scheduler {
 	void scheduler::on_trace(const char* file, int line, std::string error) {
 		mainClient->get_logger()->trace("core::scheduler", file, line, error);
 	}
+
+	void scheduler::set_threads(int count) {
+		tasks.set_threads(count);
+	}
+
 }

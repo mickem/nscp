@@ -60,5 +60,6 @@ namespace task_scheduler {
 		bool handle_schedule(simple_scheduler::task item);
 		virtual void on_error(const char* file, int line, std::string error);
 		virtual void on_trace(const char* file, int line, std::string error);
+		void set_threads(int count);
 	};
 }
