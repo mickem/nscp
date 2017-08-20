@@ -116,7 +116,7 @@ The gist of it is: `msiexec /quiet /i <MSI FILE> PROPERTY=PropertyValue ...`
 For instance Installing (with log) NSClient++ into c:\foobar using registry as configuration and not installing the Python script binaries.
 
 ```
-msiexec /qn /l* log.txt /i NSCP-0.4.3.50-x64.msi INSTALLLOCATION=c:\FooBar CONFIGURATION_TYPE=registry://HKEY_LOCAL_MACHINE/software/NSClient++ ADDDEFAULT=ALL REMOVE=PythonScript
+msiexec /qn /l* log.txt /i NSCP-0.4.3.50-x64.msi INSTALLLOCATION=c:\FooBar CONFIGURATION_TYPE=registry://HKEY_LOCAL_MACHINE/software/NSClient++ ADDLOCAL=ALL REMOVE=PythonScript
 ```
 
 ### Using Silent install in 0.4.4 and 0.5.0
