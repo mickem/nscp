@@ -592,6 +592,7 @@ int cli_parser::parse_client(int argc, char* argv[], std::string module_) {
 		if (!vm.count("exec") &&  !vm.count("query")) {
 			ret = args.run_exec(core_, "", arguments, resp);
 		}
+		args.run_post(core_);
 
 
 		BOOST_FOREACH(std::string r, resp) {
