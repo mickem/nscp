@@ -48,7 +48,9 @@ void nsclient::logging::impl::nsclient_logger::set_backend(std::string backend) 
 	}
 	tmp->startup();
 	backend_.swap(tmp);
-	backend_->do_log(log_message_factory::create_debug("log", __FILE__, __LINE__, "Creating logger: " + backend));
+	if (backend_) {
+		backend_->do_log(log_message_factory::create_debug("log", __FILE__, __LINE__, "Creating logger: " + backend));
+	}
 }
 
 nsclient::logging::impl::nsclient_logger::nsclient_logger() {
@@ -71,17 +73,27 @@ void nsclient::logging::impl::nsclient_logger::clear_subscribers() {
 	subscribers_.clear();
 }
 bool nsclient::logging::impl::nsclient_logger::startup() {
-	return backend_->startup();
+	if (backend_) {
+		return backend_->startup();
+	} else {
+		return false;
+	}
 }
 bool nsclient::logging::impl::nsclient_logger::shutdown() {
-	return backend_->shutdown();
+	if (backend_) {
+		return backend_->shutdown();
+	}
 }
 void nsclient::logging::impl::nsclient_logger::configure() {
-	backend_->synch_configure();
-	backend_->asynch_configure();
+	if (backend_) {
+		backend_->synch_configure();
+		backend_->asynch_configure();
+	}
 }
 
 void nsclient::logging::impl::nsclient_logger::do_log(const std::string data) {
-	backend_->do_log(data);
+	if (backend_) {
+		backend_->do_log(data);
+	}
 }
 

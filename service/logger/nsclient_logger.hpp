@@ -74,7 +74,9 @@ namespace nsclient {
 
 				virtual void set_log_level(const std::string level) {
 					if (level == "console") {
-						backend_->set_config(level);
+						if (backend_) {
+							backend_->set_config(level);
+						}
 					} else {
 						nsclient::logging::logger_impl::set_log_level(level);
 					}
