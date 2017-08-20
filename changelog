@@ -1,3 +1,16 @@
+2017-08-20 Michael Medin
+ * Fixed #455 documentation about msiexec was wrong
+ * Fixed test mode crash
+ * Fixed check_service missing descriptions (#456)
+ * Fixed potential logger crash
+ * Added option to configure maintenance threads as well as changed metrics interval to every 10 seconds
+
+2017-08-17 Michael Medin
+ * Added script to build linux images with docker and fixed centos 7
+ * Added some more docker builds
+ * Fixed commandline invocations
+ * Added docker for building centos 7 (and removed unused vagrant builders)
+
 2017-07-30 Michael Medin
  * Fixed wrong unit test command for lua scripts
  * (Re)added --case command line option to unit test command
