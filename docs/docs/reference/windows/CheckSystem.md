@@ -55,15 +55,16 @@ A list of all short hand aliases for queries (check commands)
 
 ### Advanced keys
 
-| Path / Section                                                                          | Key                                                                   | Description   |
-|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------|---------------|
-| [/settings/system/windows](#/settings/system/windows)                                   | [subsystem](#/settings/system/windows_subsystem)                      | PDH SUBSYSTEM |
-| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [alias](#/settings/system/windows/counters/default_alias)             | ALIAS         |
-| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [is template](#/settings/system/windows/counters/default_is template) | IS TEMPLATE   |
-| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [parent](#/settings/system/windows/counters/default_parent)           | PARENT        |
-| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [alias](#/settings/system/windows/counters/sample_alias)              | ALIAS         |
-| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [is template](#/settings/system/windows/counters/sample_is template)  | IS TEMPLATE   |
-| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [parent](#/settings/system/windows/counters/sample_parent)            | PARENT        |
+| Path / Section                                                                          | Key                                                                   | Description    |
+|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------|----------------|
+| [/settings/system/windows](#/settings/system/windows)                                   | [disable](#/settings/system/windows_disable)                          | DISABLE CHECKS |
+| [/settings/system/windows](#/settings/system/windows)                                   | [subsystem](#/settings/system/windows_subsystem)                      | PDH SUBSYSTEM  |
+| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [alias](#/settings/system/windows/counters/default_alias)             | ALIAS          |
+| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [is template](#/settings/system/windows/counters/default_is template) | IS TEMPLATE    |
+| [/settings/system/windows/counters/default](#/settings/system/windows/counters/default) | [parent](#/settings/system/windows/counters/default_parent)           | PARENT         |
+| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [alias](#/settings/system/windows/counters/sample_alias)              | ALIAS          |
+| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [is template](#/settings/system/windows/counters/sample_is template)  | IS TEMPLATE    |
+| [/settings/system/windows/counters/sample](#/settings/system/windows/counters/sample)   | [parent](#/settings/system/windows/counters/sample_parent)            | PARENT         |
 
 ### Sample keys
 
@@ -4942,6 +4943,7 @@ subsystem=default
 | Key                                                                      | Default Value | Description    |
 |--------------------------------------------------------------------------|---------------|----------------|
 | [default buffer length](#/settings/system/windows_default buffer length) | 1h            | DEFAULT LENGTH |
+| [disable](#/settings/system/windows_disable)                             |               | DISABLE CHECKS |
 | [subsystem](#/settings/system/windows_subsystem)                         | default       | PDH SUBSYSTEM  |
 
 
@@ -4971,6 +4973,35 @@ Used to define the default interval for range buffer checks (ie. CPU).
 [/settings/system/windows]
 # DEFAULT LENGTH
 default buffer length=1h
+```
+
+
+<a name="/settings/system/windows_disable"/>
+### disable
+
+**DISABLE CHECKS**
+
+A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/system/windows](#/settings/system/windows) |
+| Key:           | disable                                               |
+| Advanced:      | Yes (means it is not commonly used)                   |
+| Default value: | _N/A_                                                 |
+| Used by:       | CheckSystem                                           |
+
+
+#### Sample
+
+```
+[/settings/system/windows]
+# DISABLE CHECKS
+disable=
 ```
 
 

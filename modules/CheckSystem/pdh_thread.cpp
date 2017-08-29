@@ -234,24 +234,58 @@ void pdh_thread::thread_proc() {
 
 	if (!check_pdh)
 		NSC_LOG_MESSAGE("Not checking PDH data");
+	if (has_realtime)
+		NSC_DEBUG_MSG("Real time checks enabled");
 
 	mutex_.unlock();
 
+	bool disable_network = disable_.find("network") != std::string::npos;
+	if (disable_network) {
+		NSC_LOG_MESSAGE("WARNING: network checking is disabled");
+	}
+	bool disable_handles = disable_.find("handles") != std::string::npos;
+	if (disable_handles) {
+		NSC_LOG_MESSAGE("WARNING: handle checking is disabled");
+	}
+	bool disable_cpu = disable_.find("cpu") != std::string::npos;
+	if (disable_cpu) {
+		NSC_LOG_MESSAGE("WARNING: cpu checking is disabled");
+	}
+	bool disable_metrics = disable_.find("metrics") != std::string::npos;
+	if (disable_metrics) {
+		NSC_LOG_MESSAGE("WARNING: metrics writing is disabled");
+	}
+	bool disable_pdh = disable_.find("pdh") != std::string::npos;
+	if (disable_pdh) {
+		check_pdh = false;
+		NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
+	}
 	do {
 		std::list<std::string>	errors;
 		{
 
-			spi_container handles = fetch_spi(errors);
-			windows::system_info::cpu_load load;
-			try {
-				load = windows::system_info::get_cpu_load();
-			} catch (...) {
-				errors.push_back("Failed to get cpu load");
+			spi_container handles;
+			if (!disable_handles) {
+				try {
+					handles = fetch_spi(errors);
+				} catch (...) {
+					errors.push_back("Failed to get handles");
+				}
 			}
-			write_metrics(handles, load, check_pdh?&pdh:NULL, errors);
+			windows::system_info::cpu_load load;
+			if (!disable_cpu) {
+				try {
+					load = windows::system_info::get_cpu_load();
+				} catch (...) {
+					errors.push_back("Failed to get cpu load");
+				}
+			}
+			if (!disable_metrics) {
+				write_metrics(handles, load, check_pdh ? &pdh : NULL, errors);
+			}
 		}
 		try {
-			if (i == 0)
+			if (i == 0 && !disable_network)
 				network.fetch();
 		} catch (const nsclient::nsclient_exception &e) {
 			errors.push_back("Failed to get network metrics: " + e.reason());

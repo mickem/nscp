@@ -72,6 +72,7 @@ private:
 public:
 
 	std::string subsystem;
+	std::string disable_;
 	std::string default_buffer_size;
 
 public:

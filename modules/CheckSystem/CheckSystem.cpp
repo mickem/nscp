@@ -178,7 +178,11 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		("subsystem", sh::string_key(&collector->subsystem, "default"),
 			"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
+
+		("disable", sh::string_key(&collector->disable_, ""),
+		"DISABLE CHECKS", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
 		;
+	;
 
 	settings.alias().add_templates()
 		("counters", "plus", "Add a new counters",
