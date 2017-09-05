@@ -677,6 +677,8 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 	record->plattform = info->dwPlatformId;
 	record->version_s = windows::system_info::get_version_string();
 	record->version_i = windows::system_info::get_version();
+	std::vector<std::string> suites = windows::system_info::get_suite_list();
+	record->suite = str::format::join(suites, ",");
 
 	filter.match(record);
 

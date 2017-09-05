@@ -115,6 +115,8 @@ namespace windows {
 		static unsigned long get_version();
 		static OSVERSIONINFOEX* get_versioninfo();
 		static long get_numberOfProcessorscores();
+		static std::vector<std::string> get_suite_list();
+		static long long get_suite_i();
 
 		static cpu_load get_cpu_load();
 		static memory_usage get_memory();

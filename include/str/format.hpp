@@ -113,6 +113,15 @@ namespace str {
 			}
 			return ret;
 		}
+		inline std::string join(std::vector<std::string> lst, std::string key) {
+			std::string ret;
+			BOOST_FOREACH(const std::string &s, lst) {
+				if (!ret.empty())
+					ret += key;
+				ret += s;
+			}
+			return ret;
+		}
 
 		//
 		// Date

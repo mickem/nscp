@@ -309,6 +309,47 @@ namespace windows {
 		else
 			return "Post Windows 10";
 	}
+	std::vector<std::string> system_info::get_suite_list() {
+		if (!g_hasVersion) {
+			GetVersion();
+			g_hasVersion = true;
+		}
+		std::vector<std::string> ret;
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_BACKOFFICE) == VER_SUITE_BACKOFFICE)
+			ret.push_back("Microsoft BackOffice");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_BLADE) == VER_SUITE_BLADE)
+			ret.push_back("Web Edition");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_COMPUTE_SERVER) == VER_SUITE_COMPUTE_SERVER)
+			ret.push_back("Compute Cluster Edition");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_DATACENTER) == VER_SUITE_DATACENTER)
+			ret.push_back("Datacenter Edition");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_ENTERPRISE) == VER_SUITE_ENTERPRISE)
+			ret.push_back("Enterprise Edition");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_EMBEDDEDNT) == VER_SUITE_EMBEDDEDNT)
+			ret.push_back("Embedded");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_PERSONAL) == VER_SUITE_PERSONAL)
+			ret.push_back("Home Edition");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_SINGLEUSERTS) == VER_SUITE_SINGLEUSERTS)
+			ret.push_back("Remote Desktop Support");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_SMALLBUSINESS) == VER_SUITE_SMALLBUSINESS)
+			ret.push_back("Small Business Server");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_STORAGE_SERVER) == VER_SUITE_STORAGE_SERVER)
+			ret.push_back("Storage Server");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_TERMINAL) == VER_SUITE_TERMINAL)
+			ret.push_back("Terminal Services");
+		if ((g_versionInfo.wSuiteMask&VER_SUITE_WH_SERVER) == VER_SUITE_WH_SERVER)
+			ret.push_back("Home Server");
+		return ret;
+	}
+
+	long long system_info::get_suite_i() {
+		if (!g_hasVersion) {
+			GetVersion();
+			g_hasVersion = true;
+		}
+		return g_versionInfo.wSuiteMask;
+	}
+
 
 	long system_info::get_numberOfProcessorscores() {
 		if (!g_hasBasicInfo) {

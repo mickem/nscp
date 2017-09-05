@@ -1472,25 +1472,26 @@ Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 Available options : 
 
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| build         | Build version number                                                                                          |
-| major         | Major version number                                                                                          |
-| minor         | Minor version number                                                                                          |
-| version       | The system version                                                                                            |
+| Key           | Value                                                                                                                                                                                                                                                                 |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter. Common option for all checks.                                                                                                                                                                                                    |
+| total         |  Total number of items. Common option for all checks.                                                                                                                                                                                                                 |
+| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                                                                                                                                                                               |
+| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                                                                                                                                                                          |
+| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                                                                                                                                                                         |
+| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                                                                                                                                                                           |
+| list          |  A list of all items which matched the filter. Common option for all checks.                                                                                                                                                                                          |
+| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                                                                                                                                                                                     |
+| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                                                                                                                                                                                |
+| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                                                                                                                                                                               |
+| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks.                                                                                                                                                         |
+| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                                                                                                                                                                             |
+| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                                                                                                                                                                            |
+| build         | Build version number                                                                                                                                                                                                                                                  |
+| major         | Major version number                                                                                                                                                                                                                                                  |
+| minor         | Minor version number                                                                                                                                                                                                                                                  |
+| suite         | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version       | The system version                                                                                                                                                                                                                                                    |
 
 
 
@@ -1509,25 +1510,26 @@ Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 Available options : 
 
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| build         | Build version number                                                                                          |
-| major         | Major version number                                                                                          |
-| minor         | Minor version number                                                                                          |
-| version       | The system version                                                                                            |
+| Key           | Value                                                                                                                                                                                                                                                                 |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter. Common option for all checks.                                                                                                                                                                                                    |
+| total         |  Total number of items. Common option for all checks.                                                                                                                                                                                                                 |
+| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                                                                                                                                                                               |
+| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                                                                                                                                                                          |
+| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                                                                                                                                                                         |
+| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                                                                                                                                                                           |
+| list          |  A list of all items which matched the filter. Common option for all checks.                                                                                                                                                                                          |
+| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                                                                                                                                                                                     |
+| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                                                                                                                                                                                |
+| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                                                                                                                                                                               |
+| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks.                                                                                                                                                         |
+| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                                                                                                                                                                             |
+| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                                                                                                                                                                            |
+| build         | Build version number                                                                                                                                                                                                                                                  |
+| major         | Major version number                                                                                                                                                                                                                                                  |
+| minor         | Minor version number                                                                                                                                                                                                                                                  |
+| suite         | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version       | The system version                                                                                                                                                                                                                                                    |
 
 
 
@@ -1554,25 +1556,26 @@ Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 Available options : 
 
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| build         | Build version number                                                                                          |
-| major         | Major version number                                                                                          |
-| minor         | Minor version number                                                                                          |
-| version       | The system version                                                                                            |
+| Key           | Value                                                                                                                                                                                                                                                                 |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter. Common option for all checks.                                                                                                                                                                                                    |
+| total         |  Total number of items. Common option for all checks.                                                                                                                                                                                                                 |
+| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                                                                                                                                                                               |
+| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                                                                                                                                                                          |
+| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                                                                                                                                                                         |
+| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                                                                                                                                                                           |
+| list          |  A list of all items which matched the filter. Common option for all checks.                                                                                                                                                                                          |
+| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                                                                                                                                                                                     |
+| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                                                                                                                                                                                |
+| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                                                                                                                                                                               |
+| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks.                                                                                                                                                         |
+| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                                                                                                                                                                             |
+| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                                                                                                                                                                            |
+| build         | Build version number                                                                                                                                                                                                                                                  |
+| major         | Major version number                                                                                                                                                                                                                                                  |
+| minor         | Minor version number                                                                                                                                                                                                                                                  |
+| suite         | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version       | The system version                                                                                                                                                                                                                                                    |
 
 
 
@@ -1598,25 +1601,26 @@ Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 Available options : 
 
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| build         | Build version number                                                                                          |
-| major         | Major version number                                                                                          |
-| minor         | Minor version number                                                                                          |
-| version       | The system version                                                                                            |
+| Key           | Value                                                                                                                                                                                                                                                                 |
+|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| count         | Number of items matching the filter. Common option for all checks.                                                                                                                                                                                                    |
+| total         |  Total number of items. Common option for all checks.                                                                                                                                                                                                                 |
+| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                                                                                                                                                                               |
+| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                                                                                                                                                                          |
+| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                                                                                                                                                                         |
+| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                                                                                                                                                                           |
+| list          |  A list of all items which matched the filter. Common option for all checks.                                                                                                                                                                                          |
+| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                                                                                                                                                                                     |
+| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                                                                                                                                                                                |
+| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                                                                                                                                                                               |
+| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks.                                                                                                                                                         |
+| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                                                                                                                                                                             |
+| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                                                                                                                                                                            |
+| build         | Build version number                                                                                                                                                                                                                                                  |
+| major         | Major version number                                                                                                                                                                                                                                                  |
+| minor         | Minor version number                                                                                                                                                                                                                                                  |
+| suite         | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version       | The system version                                                                                                                                                                                                                                                    |
 
 
 
@@ -1786,12 +1790,13 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 The available keywords are: 
 
-| Key     | Value                |
-|---------|----------------------|
-| build   | Build version number |
-| major   | Major version number |
-| minor   | Minor version number |
-| version | The system version   |
+| Key     | Value                                                                                                                                                                                                                                                                 |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| build   | Build version number                                                                                                                                                                                                                                                  |
+| major   | Major version number                                                                                                                                                                                                                                                  |
+| minor   | Minor version number                                                                                                                                                                                                                                                  |
+| suite   | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version | The system version                                                                                                                                                                                                                                                    |
 
 
 
@@ -1809,12 +1814,13 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 Possible values are: 
 
-| Key     | Value                |
-|---------|----------------------|
-| build   | Build version number |
-| major   | Major version number |
-| minor   | Minor version number |
-| version | The system version   |
+| Key     | Value                                                                                                                                                                                                                                                                 |
+|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| build   | Build version number                                                                                                                                                                                                                                                  |
+| major   | Major version number                                                                                                                                                                                                                                                  |
+| minor   | Minor version number                                                                                                                                                                                                                                                  |
+| suite   | Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server) |
+| version | The system version                                                                                                                                                                                                                                                    |
 
 
 

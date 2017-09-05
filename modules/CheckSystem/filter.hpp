@@ -169,6 +169,7 @@ namespace os_version_filter {
 		long long plattform;
 		std::string version_s;
 		long long version_i;
+		std::string suite;
 
 		filter_obj() : major_version(0), minor_version(0), build(0), plattform(0), version_i(0) {}
 
@@ -189,6 +190,9 @@ namespace os_version_filter {
 		}
 		long long get_version_i() const {
 			return version_i;
+		}
+		std::string get_suite_string() const {
+			return suite;
 		}
 	};
 	typedef parsers::where::filter_handler_impl<boost::shared_ptr<filter_obj> > native_context;

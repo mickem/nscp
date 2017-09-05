@@ -249,5 +249,8 @@ namespace os_version_filter {
 			("minor", boost::bind(&filter_obj::get_minor, _1), "Minor version number").add_perf("")
 			("build", boost::bind(&filter_obj::get_build, _1), "Build version number").add_perf("")
 			;
+ 		registry_.add_string()
+ 			("suite", boost::bind(&filter_obj::get_suite_string, _1), "Which suites are installed on the machine (Microsoft BackOffice, Web Edition, Compute Cluster Edition, Datacenter Edition, Enterprise Edition, Embedded, Home Edition, Remote Desktop Support, Small Business Server, Storage Server, Terminal Services, Home Server)")
+ 			;
 	}
 }
