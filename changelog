@@ -1,3 +1,7 @@
+2017-09-05 Michael Medin
+ * Fixed name of Windows 2016 server
+ * check_os_version: Added %(suite) to show wich suite is installed.
+
 2017-08-29 Michael Medin
  * Added option to disable background checks in CheckSystem (this is not useful as it breaks things, so only use if you have issues)
 
