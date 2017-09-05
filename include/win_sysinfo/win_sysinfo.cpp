@@ -301,7 +301,7 @@ namespace windows {
 		else if (majorVersion == 6 && minorVersion == 3)
 			return "Windows 8.1";
 		else if (majorVersion == 10 && minorVersion == 0 && type != VER_NT_WORKSTATION)
-			return "Windows Server 2016 Technical Preview";
+			return "Windows Server 2016";
 		else if (majorVersion == 10 && minorVersion == 0)
 			return "Windows 10";
 		else if (type != VER_NT_WORKSTATION)
