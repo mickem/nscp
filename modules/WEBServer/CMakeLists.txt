@@ -17,23 +17,36 @@ ENDIF(JSON_SPIRIT_FOUND)
 
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
+  
+  legacy_rest_controller.cpp
+  protobuf_controller.cpp
+  static_controller.cpp
+  token_store.cpp
+  session_manager_interface.cpp
+  metrics_handler.cpp
+  error_handler.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp
+  
+  
 
 	${NSCP_INCLUDEDIR}/metrics/metrics_store_map.cpp
 
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
+add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
+add_definitions(-DMG_ENABLE_BROADCAST)
+#add_definitions(-DMG_ENABLE_THREADS=0)
+add_definitions(-DMG_ENABLE_SSL=1)
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(OPENSSL_FOUND)
 	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
 	ADD_DEFINITIONS(-DUSE_SSL)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
 ENDIF(OPENSSL_FOUND)
-INCLUDE_DIRECTORIES(${MONGOOSE_INCLUDE_DIR})
-SET(EXTRA_LIBS ${EXTRA_LIBS} ${MONGOOSE_LIBRARY})
+INCLUDE_DIRECTORIES(../../libs/mongoose-cpp)
 
 IF(WIN32)
 	SET(SRCS ${SRCS}
@@ -51,10 +64,11 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
-	${Boost_THREAD_LIBRARY}
+	#${Boost_THREAD_LIBRARY}
 	${Boost_DATE_TIME_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
 	${JSON_LIB}
+	_mongoose
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)
