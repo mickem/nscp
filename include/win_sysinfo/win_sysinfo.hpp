@@ -120,7 +120,7 @@ namespace windows {
 
 		static cpu_load get_cpu_load();
 		static memory_usage get_memory();
-		static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> get_system_process_information(int size = 0x4000);
+		static hlp::buffer<BYTE, windows::winapi::SYSTEM_PROCESS_INFORMATION*> get_system_process_information(int size = 0x32000);
 	};
 
 	namespace winapi {
