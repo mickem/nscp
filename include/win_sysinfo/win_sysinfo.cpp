@@ -366,7 +366,7 @@ namespace windows {
 		if (r == 0)
 			return buffer;
 		if (r == STATUS_INFO_LENGTH_MISMATCH)
-			return get_system_process_information(bufferSize + 4000);
+			return get_system_process_information(bufferSize * 10);
 		if (r == STATUS_ACCESS_VIOLATION)
 			throw nsclient::nsclient_exception("Access violation");
 		throw nsclient::nsclient_exception("Failed to enumerate processes: unknown error");
