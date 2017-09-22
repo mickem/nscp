@@ -17,55 +17,18 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/shared_ptr.hpp>
 
-#include <socket/socket_helpers.hpp>
-
-//#define MONGOOSE_NO_FILESYSTEM
-#define MONGOOSE_NO_AUTH
-#define MONGOOSE_NO_CGI
-#define MONGOOSE_NO_SSI
+#include "session_manager_interface.hpp"
+#include "error_handler_interface.hpp"
 
 #include <mongoose/Server.h>
-#include <mongoose/WebController.h>
-#include <mongoose/StreamResponse.h>
+
+#include <client/simple_client.hpp>
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/plugin.hpp>
 
-struct error_handler {
-	struct status {
-		status() : error_count(0) {}
-		std::string last_error;
-		unsigned int error_count;
-	};
-	struct log_entry {
-		int line;
-		std::string type;
-		std::string file;
-		std::string message;
-		std::string date;
-	};
-	typedef std::vector<log_entry> log_list;
-	error_handler() : error_count_(0) {}
-	void add_message(bool is_error, const log_entry &message);
-	void reset();
-	status get_status();
-	log_list get_errors(std::size_t &position);
-private:
-	boost::timed_mutex mutex_;
-	log_list log_entries;
-	std::string last_error_;
-	unsigned int error_count_;
-};
-
-struct metrics_handler {
-	void set(const std::string &metrics);
-	std::string get();
-private:
-	std::string metrics_;
-	boost::timed_mutex mutex_;
-};
+#include <boost/shared_ptr.hpp>
 
 class WEBServer : public nscapi::impl::simple_plugin {
 public:
@@ -81,5 +44,8 @@ public:
 	bool password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 private:
 
+	boost::shared_ptr<error_handler_interface> log_handler;
+	boost::shared_ptr<client::cli_client> client;
+	boost::shared_ptr<session_manager_interface> session;
 	boost::shared_ptr<Mongoose::Server> server;
 };

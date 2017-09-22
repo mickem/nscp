@@ -68,7 +68,7 @@ namespace modern_filter {
 			return entries.empty();
 		}
 		bool parse(boost::shared_ptr<Tfactory> context, const std::string str, error_handler error) {
-			if (str.empty())
+			if (str.empty() || str == "none")
 				return true;
 			parsers::simple_expression::result_type keys;
 			parsers::simple_expression expr;

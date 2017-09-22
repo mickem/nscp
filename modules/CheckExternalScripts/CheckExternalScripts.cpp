@@ -229,7 +229,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		nscapi::core_helper core(get_core(), get_id());
 		BOOST_FOREACH(const boost::shared_ptr<commands::command_object> &o, commands_.get_object_list()) {
-			core.register_alias(o->get_alias(), "External script: " + o->command);
+			core.register_command(o->get_alias(), "External script: " + o->command);
 		}
 		BOOST_FOREACH(const boost::shared_ptr<alias::command_object> &o, aliases_.get_object_list()) {
 			core.register_alias(o->get_alias(), "Alias for: " + o->command);

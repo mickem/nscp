@@ -8,7 +8,7 @@
 FIND_PATH(MONGOOSE_INCLUDE_DIR
 	NAMES mongoose/Server.h
 	PATHS
-		${CMAKE_SOURCE_DIR}/ext/mongoose-cpp
+		${CMAKE_SOURCE_DIR}/libs/mongoose-cpp
 		${MONGOOSE_DIR}
 		${MONGOOSE_INCLUDE_DIR}
 		${NSCP_INCLUDEDIR}
