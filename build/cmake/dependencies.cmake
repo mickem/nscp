@@ -41,7 +41,6 @@ FIND_PACKAGE(Boost COMPONENTS system filesystem thread regex date_time program_o
 ENDIF()
 FIND_PACKAGE(Json_Spirit)
 FIND_PACKAGE(Mkdocs)
-FIND_PACKAGE(Mongoose)
 FIND_PACKAGE(CSharp)
 
 IF(WIN32)

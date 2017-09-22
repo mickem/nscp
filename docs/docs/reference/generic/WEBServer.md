@@ -23,6 +23,7 @@ A server that listens for incoming HTTP connection and processes incoming reques
 | [/settings/default](#/settings/default)       | [timeout](#/settings/default_timeout)                         | TIMEOUT             |
 | [/settings/WEB/server](#/settings/WEB/server) | [certificate](#/settings/WEB/server_certificate)              | CERTIFICATE         |
 | [/settings/WEB/server](#/settings/WEB/server) | [port](#/settings/WEB/server_port)                            | PORT NUMBER         |
+| [/settings/WEB/server](#/settings/WEB/server) | [threads](#/settings/WEB/server_threads)                      | NUMBER OF THREADS   |
 
 ### Advanced keys
 
@@ -335,7 +336,8 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 allowed hosts=127.0.0.1
 cache allowed hosts=true
 certificate=${certificate-path}/certificate.pem
-port=8443s
+port=8443
+threads=10
 
 ```
 
@@ -346,7 +348,8 @@ port=8443s
 | [cache allowed hosts](#/settings/WEB/server_cache allowed hosts) | true                                | CACHE ALLOWED HOSTS |
 | [certificate](#/settings/WEB/server_certificate)                 | ${certificate-path}/certificate.pem | CERTIFICATE         |
 | [password](#/settings/WEB/server_password)                       |                                     | PASSWORD            |
-| [port](#/settings/WEB/server_port)                               | 8443s                               | PORT NUMBER         |
+| [port](#/settings/WEB/server_port)                               | 8443                                | PORT NUMBER         |
+| [threads](#/settings/WEB/server_threads)                         | 10                                  | NUMBER OF THREADS   |
 
 
 
@@ -477,7 +480,7 @@ Port to use for WEB server.
 |----------------|-----------------------------------------------|
 | Path:          | [/settings/WEB/server](#/settings/WEB/server) |
 | Key:           | port                                          |
-| Default value: | `8443s`                                       |
+| Default value: | `8443`                                        |
 | Used by:       | WEBServer                                     |
 
 
@@ -486,7 +489,34 @@ Port to use for WEB server.
 ```
 [/settings/WEB/server]
 # PORT NUMBER
-port=8443s
+port=8443
+```
+
+
+<a name="/settings/WEB/server_threads"/>
+### threads
+
+**NUMBER OF THREADS**
+
+The number of threads in the sever response pool.
+
+
+
+
+| Key            | Description                                   |
+|----------------|-----------------------------------------------|
+| Path:          | [/settings/WEB/server](#/settings/WEB/server) |
+| Key:           | threads                                       |
+| Default value: | `10`                                          |
+| Used by:       | WEBServer                                     |
+
+
+#### Sample
+
+```
+[/settings/WEB/server]
+# NUMBER OF THREADS
+threads=10
 ```
 
 

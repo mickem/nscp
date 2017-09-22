@@ -260,12 +260,11 @@ void pdh_thread::thread_proc() {
 		check_pdh = false;
 		NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
 	}
+	spi_container handles;
 	do {
 		std::list<std::string>	errors;
 		{
-
-			spi_container handles;
-			if (!disable_handles) {
+			if (!disable_handles && i == 0) {
 				try {
 					handles = fetch_spi(errors);
 				} catch (...) {
