@@ -2,7 +2,7 @@
 
 #include "session_manager_interface.hpp"
 
-#include <mongoose/Controller.h>
+#include <Controller.h>
 
 #include <boost/filesystem/operations.hpp>
 

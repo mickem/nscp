@@ -46,7 +46,7 @@ namespace Mongoose
         StreamResponse *response = new StreamResponse;
 
         response->setCode(HTTP_SERVER_ERROR);
-        *response << "[500] Server internal error: " << message;
+        response->append("[500] Server internal error: " + message);
 
         return response;
     }

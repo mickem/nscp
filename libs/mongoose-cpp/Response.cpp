@@ -1,5 +1,6 @@
-#include <sstream>
 #include "Response.h"
+
+#include <sstream>
 
 using namespace std;
 

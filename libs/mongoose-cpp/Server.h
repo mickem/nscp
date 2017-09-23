@@ -1,17 +1,20 @@
 #pragma once
 
-#include <vector>
-#include <iostream>
-
-#include <boost/thread.hpp>
-
 #include "Request.h"
 #include "Response.h"
 #include "Controller.h"
-#include <mongoose.h>
+
+#include "ext/mongoose.h"
 
 #include <has-threads.hpp>
 #include <threads/queue.hpp>
+
+#include "dll_defines.hpp"
+
+#include <boost/thread.hpp>
+
+#include <vector>
+#include <iostream>
 
 /**
  * Wrapper for the Mongoose server
@@ -58,7 +61,7 @@ namespace Mongoose
 	};
 
 
-    class Server
+    class NSCAPI_EXPORT Server
     {
         public:
             /**

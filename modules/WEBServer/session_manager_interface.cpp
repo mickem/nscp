@@ -20,7 +20,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 // 		}
 		//NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
 		response.setCode(HTTP_FORBIDDEN);
-		response << "403 Your not allowed";
+		response.append("403 Your not allowed");
 		return false;
 	}
 
@@ -41,7 +41,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 // 		NSC_LOG_ERROR("Invalid password/token from: " + request.getRemoteIp() + ": " + password);
 		if (respond) {
 			response.setCode(HTTP_FORBIDDEN);
-			response << "403 Please login first";
+			response.append("403 Please login first");
 		}
 		return false;
 	}

@@ -37,13 +37,12 @@ SET(SRCS ${SRCS}
 )
 
 add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
-add_definitions(-DMG_ENABLE_BROADCAST)
-#add_definitions(-DMG_ENABLE_THREADS=0)
-add_definitions(-DMG_ENABLE_SSL=1)
+add_definitions(-DMG_ENABLE_BROADCAST=1)
 ADD_DEFINITIONS(${NSCP_GLOBAL_DEFINES})
 IF(OPENSSL_FOUND)
 	INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DUSE_SSL)
+	add_definitions(-DMG_ENABLE_SSL=1)
+	add_definitions(-DMG_DISABLE_PFS=1)
 	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
 ENDIF(OPENSSL_FOUND)
 INCLUDE_DIRECTORIES(../../libs/mongoose-cpp)
@@ -69,6 +68,6 @@ target_link_libraries(${TARGET}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
 	${JSON_LIB}
-	_mongoose
+	lib-mongoose
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

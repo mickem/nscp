@@ -30,7 +30,7 @@ void RESTController::handle_query(std::string obj, Mongoose::Request &request, M
   std::string pb_response, json_response;
   core->query(rm.SerializeAsString(), pb_response);
   core->protobuf_to_json("QueryResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 
 void RESTController::handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -57,7 +57,7 @@ void RESTController::handle_exec(std::string obj, Mongoose::Request &request, Mo
   std::string pb_response, json_response;
   core->exec_command(target, rm.SerializeAsString(), pb_response);
   core->protobuf_to_json("ExecuteResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 
 Mongoose::Response* RESTController::handleRequest(Mongoose::Request &request) {
@@ -69,7 +69,7 @@ Mongoose::Response* RESTController::handleRequest(Mongoose::Request &request) {
     handle_exec(url.substr(6), request, *response);
   } else {
     response->setCode(HTTP_SERVER_ERROR);
-    (*response) << "Unknown REST node: " << url;
+    response->append("Unknown REST node: " + url);
   }
   return response;
 }

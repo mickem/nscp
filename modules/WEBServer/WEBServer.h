@@ -21,7 +21,7 @@
 #include "session_manager_interface.hpp"
 #include "error_handler_interface.hpp"
 
-#include <mongoose/Server.h>
+#include <Server.h>
 
 #include <client/simple_client.hpp>
 

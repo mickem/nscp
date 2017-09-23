@@ -6,6 +6,8 @@
 #include "RequestHandler.h"
 #include "StreamResponse.h"
 
+#include "dll_defines.hpp"
+
 #include <map>
 #include <vector>
 #include <string>
@@ -20,7 +22,7 @@ namespace Mongoose
 {
     class Server;
 
-    class Controller
+    class NSCAPI_EXPORT Controller
     {
         public:
             Controller();

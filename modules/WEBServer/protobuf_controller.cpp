@@ -66,7 +66,7 @@ void BaseController::console_exec(Mongoose::Request &request, Mongoose::StreamRe
   std::string command = request.get("command", "help");
 
   client->handle_command(command);
-  response << "{\"status\" : \"ok\"}";
+  response.append("{\"status\" : \"ok\"}");
 }
 void BaseController::registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -90,13 +90,13 @@ void BaseController::registry_inventory(Mongoose::Request &request, Mongoose::St
     payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_ALL);
   else {
     response.setCode(HTTP_SERVER_ERROR);
-    response << "500 Invalid type. Possible types are: query, command, plugin, query-alias, all";
+    response.append("500 Invalid type. Possible types are: query, command, plugin, query-alias, all");
     return;
   }
   std::string pb_response, json_response;
   core->registry_query(rrm.SerializeAsString(), pb_response);
   core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 void BaseController::registry_control_module_load(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -112,7 +112,7 @@ void BaseController::registry_control_module_load(Mongoose::Request &request, Mo
   std::string pb_response, json_response;
   core->registry_query(rrm.SerializeAsString(), pb_response);
   core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 void BaseController::registry_control_module_unload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -128,7 +128,7 @@ void BaseController::registry_control_module_unload(Mongoose::Request &request, 
   std::string pb_response, json_response;
   core->registry_query(rrm.SerializeAsString(), pb_response);
   core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 void BaseController::registry_inventory_modules(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -144,7 +144,7 @@ void BaseController::registry_inventory_modules(Mongoose::Request &request, Mong
   std::string pb_response, json_response;
   core->registry_query(rrm.SerializeAsString(), pb_response);
   core->protobuf_to_json("RegistryResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 
 void BaseController::settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
@@ -178,7 +178,7 @@ void BaseController::settings_inventory(Mongoose::Request &request, Mongoose::St
   std::string pb_response, json_response;
   core->settings_query(rm.SerializeAsString(), pb_response);
   core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 void BaseController::settings_query_json(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -186,12 +186,12 @@ void BaseController::settings_query_json(Mongoose::Request &request, Mongoose::S
   std::string request_pb, response_pb, response_json;
   if (!core->json_to_protobuf(request.getData(), request_pb)) {
 	  response.setCode(HTTP_SERVER_ERROR);
-	  response << "500 INvapid request";
+	  response.append("500 INvapid request");
     return;
   }
   core->settings_query(request_pb, response_pb);
   core->protobuf_to_json("SettingsResponseMessage", response_pb, response_json);
-  response << response_json;
+  response.append(response_json);
 }
 void BaseController::settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -199,10 +199,10 @@ void BaseController::settings_query_pb(Mongoose::Request &request, Mongoose::Str
   std::string response_pb;
   if (!core->settings_query(request.getData(), response_pb)) {
     response.setCode(HTTP_SERVER_ERROR);
-    response << "500 QUery failed";
+    response.append("500 QUery failed");
     return;
   }
-  response << response_pb;
+  response.append(response_pb);
 }
 void BaseController::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -210,10 +210,10 @@ void BaseController::run_query_pb(Mongoose::Request &request, Mongoose::StreamRe
   std::string response_pb;
   if (!core->query(request.getData(), response_pb)) {
     response.setCode(HTTP_SERVER_ERROR);
-    response << "500 QUery failed";
+    response.append("500 QUery failed");
     return;
   }
-  response << response_pb;
+  response .append(response_pb);
 }
 void BaseController::run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -221,7 +221,7 @@ void BaseController::run_exec_pb(Mongoose::Request &request, Mongoose::StreamRes
   std::string response_pb;
   if (!core->exec_command("*", request.getData(), response_pb))
     return;
-  response << response_pb;
+  response.append(response_pb);
 }
 void BaseController::settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -234,31 +234,31 @@ void BaseController::settings_status(Mongoose::Request &request, Mongoose::Strea
   std::string pb_response, json_response;
   core->settings_query(rm.SerializeAsString(), pb_response);
   core->protobuf_to_json("SettingsResponseMessage", pb_response, json_response);
-  response << json_response;
+  response.append(json_response);
 }
 
 void BaseController::auth_token(Mongoose::Request &request, Mongoose::StreamResponse &response) {
 
   if (!session->is_allowed(request.getRemoteIp())) {
     response.setCode(HTTP_FORBIDDEN);
-    response << "403 Your not allowed";
+    response.append("403 Your not allowed");
     return;
   }
 
   if (!session->validate_password(request.get("password"))) {
     response.setCode(HTTP_FORBIDDEN);
-    response << "403 Invalid password";
+    response.append("403 Invalid password");
   } else {
     std::string token = session->generate_token();
     response.setHeader("__TOKEN", token);
-    response << "{ \"status\" : \"ok\", \"auth token\": \"" << token << "\" }";
+    response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
   }
 }
 void BaseController::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   std::string token = request.get("token");
   session->revoke_token(token);
   response.setHeader("__TOKEN", "");
-  response << "{ \"status\" : \"ok\", \"auth token\": \"\" }";
+  response.append("{ \"status\" : \"ok\", \"auth token\": \"\" }");
 }
 
 void BaseController::redirect_index(Mongoose::Request&, Mongoose::StreamResponse &response) {
@@ -272,7 +272,7 @@ void BaseController::log_status(Mongoose::Request &request, Mongoose::StreamResp
   error_handler_interface::status status = session->get_log_data()->get_status();
   std::string tmp = status.last_error;
   boost::replace_all(tmp, "\\", "/");
-  response << "{ \"status\" : { \"count\" : " << status.error_count << ", \"error\" : \"" << tmp << "\"} }";
+  response.append("{ \"status\" : { \"count\" : " + str::xtos(status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
 }
 void BaseController::log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
@@ -294,26 +294,26 @@ void BaseController::log_messages(Mongoose::Request &request, Mongoose::StreamRe
   log.insert(json_spirit::Object::value_type("data", data));
   log.insert(json_spirit::Object::value_type("pos", pos));
   root.insert(json_spirit::Object::value_type("log", log));
-  response << json_spirit::write(root);
+  response.append(json_spirit::write(root));
 }
 void BaseController::get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
-  response << session->get_metrics();
+  response.append(session->get_metrics());
 }
 void BaseController::log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
   session->reset_log();
-  response << "{\"status\" : \"ok\"}";
+  response.append("{\"status\" : \"ok\"}");
 }
 void BaseController::reload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
   core->reload("delayed,service");
   set_status("reload");
-  response << "{\"status\" : \"reload\"}";
+  response.append("{\"status\" : \"reload\"}");
 }
 void BaseController::alive(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  response << "{\"status\" : \"" + get_status() + "\"}";
+  response.append("{\"status\" : \"" + get_status() + "\"}");
 }

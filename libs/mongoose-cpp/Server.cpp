@@ -1,11 +1,13 @@
-#include <string>
 #include "Server.h"
+
 #include "Utils.h"
 #include "StreamResponse.h"
 
 #include <boost/foreach.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
+
+#include <string>
 
 using namespace std;
 using namespace Mongoose;
@@ -193,7 +195,7 @@ namespace Mongoose
 	void Server::sendStockResponse(struct mg_connection *connection, int code, std::string msg) {
 		StreamResponse response;
 		response.setCode(code);
-		response << msg;
+		response.append(msg);
 		std::string buffer = response.getData();
 		mg_send(connection, buffer.c_str(), buffer.size());
 		connection->user_data = NULL;
@@ -255,7 +257,7 @@ namespace Mongoose
 			} else {
 				StreamResponse response;
 				response.setCode(HTTP_SERVER_ERROR);
-				response << "No response from command";
+				response.append("No response from command");
 				server->request_reply_async(id, response.getData());
 			}
 		}
@@ -264,7 +266,7 @@ namespace Mongoose
 	void request_job::toLate() {
 		StreamResponse response;
 		response.setCode(HTTP_SERVICE_UNAVALIBLE);
-		response << "Server is overloaded, please try later";
+		response.append("Server is overloaded, please try later");
 		server->request_reply_async(id, response.getData());
 	}
 

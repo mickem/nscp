@@ -5,8 +5,8 @@
 #include "token_store.hpp"
 #include "metrics_handler.hpp"
 
-#include <mongoose/StreamResponse.h>
-#include <mongoose/Request.h>
+#include <StreamResponse.h>
+#include <Request.h>
 
 #include <socket/socket_helpers.hpp>
 

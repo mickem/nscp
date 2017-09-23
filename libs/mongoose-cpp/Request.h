@@ -1,11 +1,16 @@
 #ifndef _MONGOOSE_REQUEST_H
 #define _MONGOOSE_REQUEST_H
 
+#include "Response.h"
+
+#include "ext/mongoose.h"
+
+#include "dll_defines.hpp"
+
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include <mongoose.h>
-#include "Response.h"
+
 
 using namespace std;
 
@@ -14,7 +19,7 @@ using namespace std;
  */
 namespace Mongoose
 {
-    class Request
+    class NSCAPI_EXPORT Request
     {
         public:
             Request(struct mg_connection *connection, struct http_message *message);

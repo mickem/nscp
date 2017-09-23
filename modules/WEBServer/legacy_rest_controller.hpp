@@ -3,8 +3,8 @@
 #include "session_manager_interface.hpp"
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <mongoose/Controller.h>
-#include <mongoose/StreamResponse.h>
+#include <Controller.h>
+#include <StreamResponse.h>
 
 #include <string>
 

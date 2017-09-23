@@ -1,37 +1,35 @@
 cmake_minimum_required (VERSION 2.6)
-project (mongoose)
+project (lib-mongoose)
 
 set (SOURCES
-    mongoose.c
+    Controller.cpp
+    Request.cpp
+    Response.cpp
+    Server.cpp
+    StreamResponse.cpp
+	
+    ${NSCP_INCLUDEDIR}/has-threads.cpp
+
+    ext/mongoose.c
+	
     )
 
-set (MONGOOSE_CPP "${PROJECT_SOURCE_DIR}/mongoose")
+IF(USE_STATIC_RUNTIME)
+	ADD_DEFINITIONS(-Dlib_mongoose_NOLIB)
+ELSE(USE_STATIC_RUNTIME)
+	ADD_DEFINITIONS(-Dlib_mongoose_EXPORTS)
+ENDIF(USE_STATIC_RUNTIME)
 
-include_directories ("${PROJECT_SOURCE_DIR}")
+add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
+add_definitions(-DMG_ENABLE_BROADCAST=1)
+add_definitions(${NSCP_GLOBAL_DEFINES})
 
 if (OPENSSL_FOUND)
     include_directories("${OPENSSL_INCLUDE_DIR}")
-    add_definitions("-DNS_ENABLE_SSL")
-    add_definitions("-DMG_ENABLE_SSL")
+    add_definitions(-DMG_ENABLE_SSL=1)
+	add_definitions(-DMG_DISABLE_PFS=1)
+	SET(EXTRA_LIBS ${EXTRA_LIBS} ${OPENSSL_LIBRARIES})
 endif (OPENSSL_FOUND)
-
-set (SOURCES
-    ${SOURCES}
-
-    ${NSCP_INCLUDEDIR}/has-threads.cpp
-
-    ${MONGOOSE_CPP}/Controller.cpp
-    ${MONGOOSE_CPP}/Request.cpp
-    ${MONGOOSE_CPP}/Response.cpp
-    ${MONGOOSE_CPP}/Server.cpp
-    ${MONGOOSE_CPP}/StreamResponse.cpp
-    )
-
-add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
-add_definitions(-DMG_ENABLE_BROADCAST)
-#add_definitions(-DMG_ENABLE_THREADS=0)
-add_definitions(-DMG_ENABLE_SSL=1)
-add_definitions(${NSCP_GLOBAL_DEFINES})
 
 # Adding dl
 if (NOT WIN32)
@@ -44,11 +42,12 @@ if (WIN32)
 endif (WIN32)
 
 # Compiling library
-ADD_LIBRARY(_mongoose STATIC ${SOURCES})
-SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
+NSCP_MAKE_LIBRARY(lib-mongoose "${SOURCES}")
+#SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
 
-target_link_libraries (_mongoose 
+target_link_libraries(lib-mongoose 
   ${EXTRA_LIBS} 
+  ${Boost_SYSTEM_LIBRARY}
   ${Boost_THREAD_LIBRARY}
   )
 

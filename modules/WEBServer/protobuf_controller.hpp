@@ -6,8 +6,8 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <mongoose/Controller.h>
-#include <mongoose/StreamResponse.h>
+#include <Controller.h>
+#include <StreamResponse.h>
 
 #include <boost/thread/shared_mutex.hpp>
 
