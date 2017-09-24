@@ -1,6 +1,5 @@
 #include "Server.h"
 
-#include "Utils.h"
 #include "StreamResponse.h"
 
 #include <boost/foreach.hpp>

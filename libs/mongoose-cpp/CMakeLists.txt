@@ -22,6 +22,7 @@ ENDIF(USE_STATIC_RUNTIME)
 
 add_definitions(-DMG_ENABLE_HTTP_WEBSOCKET=0)
 add_definitions(-DMG_ENABLE_BROADCAST=1)
+add_definitions(-DMG_ENABLE_THREADS)
 add_definitions(${NSCP_GLOBAL_DEFINES})
 
 if (OPENSSL_FOUND)

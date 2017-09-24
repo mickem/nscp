@@ -2,6 +2,7 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <fstream>
 
 #define BUF_SIZE 4096
 
