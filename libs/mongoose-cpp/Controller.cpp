@@ -2,52 +2,23 @@
 
 #include "StreamResponse.h"
 
-#include <boost/foreach.hpp>
-
 namespace Mongoose
 {
-    Controller::Controller() 
-        : prefix("")
-    {
-    }
 
-    Controller::~Controller() {
-		BOOST_FOREACH(handler_map::value_type &handler, routes) {
-            delete handler.second;
-        }
-        routes.clear();
-    }
-            
-    bool Controller::handles(std::string method, std::string url) {
-		std::string key = method + ":" + url;
+	Response* Controller::serverInternalError(std::string message) {
+		StreamResponse *response = new StreamResponse;
 
-        return (routes.find(key) != routes.end());
-    }
+		response->setCode(HTTP_SERVER_ERROR);
+		response->append("[500] Server internal error: " + message);
 
-    Response *Controller::handleRequest(Request &request) {
-		Response *response = NULL;
-		std::string key = request.getMethod() + ":" + request.getUrl();
-		if (routes.find(key) != routes.end()) {
-			response = routes[key]->process(request);
-		}
 		return response;
-    }
+	}
+	Response* Controller::documentMissing(std::string message) {
+		StreamResponse *response = new StreamResponse;
 
-    void Controller::setPrefix(std::string prefix_) {
-        prefix = prefix_;
-    }
-            
-    void Controller::registerRoute(std::string httpMethod, std::string route, RequestHandlerBase *handler) {
-		std::string key = httpMethod + ":" + prefix + route;
-        routes[key] = handler;
-    }
+		response->setCode(HTTP_NOT_FOUND);
+		response->append("[500] Document not found: " + message);
 
-    Response *Controller::serverInternalError(std::string message) {
-        StreamResponse *response = new StreamResponse;
-
-        response->setCode(HTTP_SERVER_ERROR);
-        response->append("[500] Server internal error: " + message);
-
-        return response;
-    }
+		return response;
+	}
 }

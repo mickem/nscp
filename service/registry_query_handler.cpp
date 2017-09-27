@@ -132,8 +132,12 @@ namespace nsclient {
 					boost::unordered_set<std::string> cache;
 					tme.start("enumerating loaded");
 					BOOST_FOREACH(const nsclient::core::plugin_cache_item &plugin, core_->get_plugin_cache()->get_list()) {
-						Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						cache.emplace(plugin.dll);
+						if (q.has_name() && q.name() != plugin.dll) {
+							continue;
+						}
+
+						Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						rpp->set_name(plugin.dll);
 						rpp->set_type(Plugin::Registry_ItemType_MODULE);
 						rpp->set_id(plugin.alias);
@@ -145,7 +149,7 @@ namespace nsclient {
 						kvp->set_value(str::xtos(plugin.id));
 						kvp = rpp->mutable_info()->add_metadata();
 						kvp->set_key("loaded");
-						kvp->set_value(plugin.is_loaded?"true":"false");
+						kvp->set_value(plugin.is_loaded ? "true" : "false");
 					}
 					tme.end();
 					if (!core_->get_plugin_cache()->has_all()) {
@@ -177,6 +181,9 @@ namespace nsclient {
 											continue;
 										}
 										if (!itm.name.empty()) {
+											if (q.has_name() && q.name() != itm.name) {
+												continue;
+											}
 											Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 											rpp->set_name(itm.name);
 											rpp->set_type(Plugin::Registry_ItemType_MODULE);

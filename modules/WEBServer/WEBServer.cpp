@@ -23,6 +23,8 @@
 #include "token_store.hpp"
 #include "protobuf_controller.hpp"
 #include "static_controller.hpp"
+#include "modules_controller.hpp"
+#include "query_controller.hpp"
 #include "legacy_rest_controller.hpp"
 
 #include "error_handler.hpp"
@@ -128,6 +130,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new BaseController(session, get_core(), get_id(), client));
 		server->registerController(new RESTController(session, get_core()));
 		server->registerController(new StaticController(session, path));
+		server->registerController(new modules_controller(session, get_core(), get_id()));
+		server->registerController(new query_controller(session, get_core(), get_id()));
 
 		try {
 			server->start(threads);

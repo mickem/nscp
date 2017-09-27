@@ -3,6 +3,8 @@ project (lib-mongoose)
 
 set (SOURCES
     Controller.cpp
+    MatchController.cpp
+    RegexController.cpp
     Request.cpp
     Response.cpp
     Server.cpp
@@ -50,6 +52,7 @@ target_link_libraries(lib-mongoose
   ${EXTRA_LIBS} 
   ${Boost_SYSTEM_LIBRARY}
   ${Boost_THREAD_LIBRARY}
+  ${Boost_REGEX_LIBRARY}
   )
 
 

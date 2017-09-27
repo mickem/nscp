@@ -6,7 +6,7 @@
 
 #include <nscapi/nscapi_core_wrapper.hpp>
 
-#include <Controller.h>
+#include <MatchController.h>
 #include <StreamResponse.h>
 
 #include <boost/thread/shared_mutex.hpp>
@@ -14,7 +14,7 @@
 #include <string>
 
 
-class BaseController : public Mongoose::Controller {
+class BaseController : public Mongoose::MatchController {
 	boost::shared_ptr<session_manager_interface> session;
 	const nscapi::core_wrapper* core;
 	const unsigned int plugin_id;

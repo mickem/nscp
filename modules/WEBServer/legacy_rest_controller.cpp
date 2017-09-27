@@ -20,11 +20,11 @@ void RESTController::handle_query(std::string obj, Mongoose::Request &request, M
   payload->set_command(obj);
   Mongoose::Request::arg_vector args = request.getVariablesVector();
 
-  BOOST_FOREACH(const Mongoose::Request::arg_entry &e, args) {
-    if (e.second.empty())
-      payload->add_arguments(e.first);
-    else
-      payload->add_arguments(e.first + "=" + e.second);
+  BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+	  if (e.second.empty())
+		  payload->add_arguments(e.first);
+	  else
+		  payload->add_arguments(e.first + "=" + e.second);
   }
 
   std::string pb_response, json_response;

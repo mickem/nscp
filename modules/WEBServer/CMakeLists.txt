@@ -25,6 +25,8 @@ SET(SRCS ${SRCS}
   session_manager_interface.cpp
   metrics_handler.cpp
   error_handler.cpp
+  modules_controller.cpp
+  query_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp
@@ -67,6 +69,7 @@ target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	#${Boost_THREAD_LIBRARY}
 	${Boost_DATE_TIME_LIBRARY}
+	${Boost_REGEX_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
 	${JSON_LIB}

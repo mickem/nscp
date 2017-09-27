@@ -75,7 +75,7 @@ namespace Mongoose
 
 
 			typedef pair<string,string> arg_entry;
-			typedef vector<arg_entry> arg_vector;
+			typedef std::vector<arg_entry> arg_vector;
 			typedef map<string,string> arg_map;
 			arg_vector getVariablesVector();
 
