@@ -19,13 +19,12 @@ query_controller::query_controller(boost::shared_ptr<session_manager_interface> 
   , plugin_id(plugin_id)
   , RegexpController("/api/v1/queries")
 {
-	addRoute("GET", "/?$", this, &query_controller::get_modules);
-	addRoute("GET", "/([^/]+)/?$", this, &query_controller::get_module);
-	addRoute("PUT", "/([^/]*)/?$", this, &query_controller::post_module);
-	addRoute("GET", "/([^/]+)/commands/([^/]*)/?$", this, &query_controller::module_command);
+	addRoute("GET", "/?$", this, &query_controller::get_queries);
+	addRoute("GET", "/([^/]+)/?$", this, &query_controller::get_query);
+	addRoute("GET", "/([^/]+)/commands/([^/]*)/?$", this, &query_controller::query_command);
 }
 
-void query_controller::get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+void query_controller::get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
 
@@ -58,7 +57,7 @@ void query_controller::get_modules(Mongoose::Request &request, boost::smatch &wh
   response.append(json_spirit::write(root));
 }
 
-void query_controller::get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+void query_controller::get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin(request, response))
 		return;
 
@@ -96,7 +95,7 @@ void query_controller::get_module(Mongoose::Request &request, boost::smatch &wha
 	response.append(json_spirit::write(node));
 }
 
-void query_controller::module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+void query_controller::query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (what.size() != 3) {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("Invalid request");
@@ -105,9 +104,13 @@ void query_controller::module_command(Mongoose::Request &request, boost::smatch 
 	std::string command = what.str(2);
 
 	if (command == "execute") {
-
-		
-		load_module(module, request.getVariablesVector(), response);
+		if (request.readHeader("Accept") == "text/plain") {
+			execute_query_text(module, request.getVariablesVector(), response);
+		} else {
+			execute_query(module, request.getVariablesVector(), response);
+		}
+	} else if (command == "execute_nagios") {
+		execute_query_nagios(module, request.getVariablesVector(), response);
 	} else {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("unknown command: " + command);
@@ -116,7 +119,71 @@ void query_controller::module_command(Mongoose::Request &request, boost::smatch 
 
 
 
-void query_controller::load_module(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
+void query_controller::execute_query(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
+	Plugin::QueryRequestMessage qrm;
+	Plugin::QueryRequestMessage::Request *payload = qrm.add_payload();
+
+	payload->set_command(module);
+	BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+		if (e.second.empty())
+			payload->add_arguments(e.first);
+		else
+			payload->add_arguments(e.first + "=" + e.second);
+	}
+	std::string pb_response, json_response;
+	core->query(qrm.SerializeAsString(), pb_response);
+	Plugin::QueryResponseMessage response;
+	response.ParseFromString(pb_response);
+
+	json_spirit::Object node;
+	BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &r, response.payload()) {
+		node["command"] = r.command();
+		node["result"] = r.result();
+		json_spirit::Array lines;
+		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
+			json_spirit::Object line;
+			line["message"] = l.message();
+
+
+			json_spirit::Object perf;
+			BOOST_FOREACH(const Plugin::Common::PerformanceData &p, l.perf()) {
+				json_spirit::Object pdata;
+
+				if (p.has_int_value()) {
+					pdata["value"] = p.int_value().value();
+					pdata["minimum"] = p.int_value().minimum();
+					pdata["maximum"] = p.int_value().maximum();
+					pdata["warning"] = p.int_value().warning();
+					pdata["critical"] = p.int_value().critical();
+					pdata["unit"] = p.int_value().unit();
+				}
+				if (p.has_float_value()) {
+					pdata["value"] = p.float_value().value();
+					pdata["minimum"] = p.float_value().minimum();
+					pdata["maximum"] = p.float_value().maximum();
+					pdata["warning"] = p.float_value().warning();
+					pdata["critical"] = p.float_value().critical();
+					pdata["unit"] = p.float_value().unit();
+				}
+				if (p.has_bool_value()) {
+					pdata["value"] = p.bool_value().value();
+				}
+				if (p.has_string_value()) {
+					pdata["value"] = p.string_value().value();
+				}
+				perf[p.alias()] = pdata;
+			}
+			line["perf"] = perf;
+			lines.push_back(line);
+		}
+		node["lines"] = lines;
+		break;
+	}
+	http_response.setCode(HTTP_OK);
+	http_response.append(json_spirit::write(node));
+}
+
+void query_controller::execute_query_nagios(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
 	Plugin::QueryRequestMessage qrm;
 	Plugin::QueryRequestMessage::Request *payload = qrm.add_payload();
 
@@ -151,10 +218,38 @@ void query_controller::load_module(std::string module, arg_vector args, Mongoose
 }
 
 
-void query_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
+void query_controller::execute_query_text(std::string module, arg_vector args, Mongoose::StreamResponse &http_response) {
+	Plugin::QueryRequestMessage qrm;
+	Plugin::QueryRequestMessage::Request *payload = qrm.add_payload();
 
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid request ");
+	payload->set_command(module);
+	BOOST_FOREACH(const Mongoose::Request::arg_vector::value_type &e, args) {
+		if (e.second.empty())
+			payload->add_arguments(e.first);
+		else
+			payload->add_arguments(e.first + "=" + e.second);
+	}
+	std::string pb_response, json_response;
+	core->query(qrm.SerializeAsString(), pb_response);
+	Plugin::QueryResponseMessage response;
+	response.ParseFromString(pb_response);
+
+	int code = 200;
+	BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &r, response.payload()) {
+		if (r.result() == Plugin::Common_ResultCode_CRITICAL) {
+			code = HTTP_SERVER_ERROR;
+		} else if (r.result() == Plugin::Common_ResultCode_UNKNOWN) {
+			code = 503;
+		} else if (r.result() == Plugin::Common_ResultCode_UNKNOWN) {
+			code = 202;
+		}
+		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
+			http_response.append(l.message());
+			if (l.perf_size() > 0) {
+				http_response.append("|" + nscapi::protobuf::functions::build_performance_data(l, -1));
+			}
+			http_response.append("\n");
+		}
+	}
+	http_response.setCode(code);
 }

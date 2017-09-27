@@ -25,12 +25,11 @@ public:
 
 	query_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
-	void get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void load_module(std::string module, arg_vector args, Mongoose::StreamResponse &response);
-
-
+	void get_queries(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void execute_query(std::string module, arg_vector args, Mongoose::StreamResponse &response);
+	void execute_query_nagios(std::string module, arg_vector args, Mongoose::StreamResponse &response);
+	void execute_query_text(std::string module, arg_vector args, Mongoose::StreamResponse &response);
 
 };
