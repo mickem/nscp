@@ -66,6 +66,7 @@ A list of all short hand aliases for queries (check commands)
 | [/settings/external scripts](#/settings/external scripts)                                 | [allow arguments](#/settings/external scripts_allow arguments)                   | Allow arguments when executing external scripts             |
 | [/settings/external scripts](#/settings/external scripts)                                 | [allow nasty characters](#/settings/external scripts_allow nasty characters)     | Allow certain potentially dangerous characters in arguments |
 | [/settings/external scripts](#/settings/external scripts)                                 | [script path](#/settings/external scripts_script path)                           | Load all scripts in a given folder                          |
+| [/settings/external scripts](#/settings/external scripts)                                 | [script root](#/settings/external scripts_script root)                           | Script root folder                                          |
 | [/settings/external scripts](#/settings/external scripts)                                 | [timeout](#/settings/external scripts_timeout)                                   | Command timeout                                             |
 | [/settings/external scripts/alias](#/settings/external scripts/alias)                     | [alias_cpu](#/settings/external scripts/alias_alias_cpu)                         | alias_cpu                                                   |
 | [/settings/external scripts/alias](#/settings/external scripts/alias)                     | [alias_cpu_ex](#/settings/external scripts/alias_alias_cpu_ex)                   | alias_cpu_ex                                                |
@@ -242,6 +243,7 @@ General settings for the external scripts module (CheckExternalScripts).
 [/settings/external scripts]
 allow arguments=false
 allow nasty characters=false
+script root=${scripts}
 timeout=60
 
 ```
@@ -252,6 +254,7 @@ timeout=60
 | [allow arguments](#/settings/external scripts_allow arguments)               | false         | Allow arguments when executing external scripts             |
 | [allow nasty characters](#/settings/external scripts_allow nasty characters) | false         | Allow certain potentially dangerous characters in arguments |
 | [script path](#/settings/external scripts_script path)                       |               | Load all scripts in a given folder                          |
+| [script root](#/settings/external scripts_script root)                       | ${scripts}    | Script root folder                                          |
 | [timeout](#/settings/external scripts_timeout)                               | 60            | Command timeout                                             |
 
 
@@ -336,6 +339,33 @@ Load all scripts in a given directory and use them as commands.
 [/settings/external scripts]
 # Load all scripts in a given folder
 script path=
+```
+
+
+<a name="/settings/external scripts_script root"/>
+### script root
+
+**Script root folder**
+
+Root path where all scripts are contained (You can not upload/download scripts outside this folder).
+
+
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/external scripts](#/settings/external scripts) |
+| Key:           | script root                                               |
+| Default value: | `${scripts}`                                              |
+| Used by:       | CheckExternalScripts                                      |
+
+
+#### Sample
+
+```
+[/settings/external scripts]
+# Script root folder
+script root=${scripts}
 ```
 
 
