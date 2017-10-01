@@ -329,7 +329,7 @@ namespace nsclient {
 
 
 		void settings_query_handler::parse_update(const Plugin::SettingsRequestMessage::Request::Update &p, Plugin::SettingsResponseMessage::Response* rp) {
-		rp->mutable_update();
+			rp->mutable_update();
 			if (p.has_value() && p.value().has_string_data()) {
 				settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
 			} else if (p.has_value() && p.value().has_bool_data()) {
@@ -337,7 +337,11 @@ namespace nsclient {
 			} else if (p.has_value() && p.value().has_int_data()) {
 				settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
 			} else {
-				settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());
+				if (p.node().has_key()) {
+					settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());
+				} else {
+					settings_manager::get_settings()->remove_path(p.node().path());
+				}
 			}
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}

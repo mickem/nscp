@@ -207,8 +207,6 @@ namespace Mongoose
 				data->job_id = job_index;
 				struct http_message *message = (struct http_message *) ev_data;
 				data->server->onHttpRequest(connection, message, data->job_id);
-			} else {
-				std::cout << ev << std::endl;
 			}
 		}
 	}
