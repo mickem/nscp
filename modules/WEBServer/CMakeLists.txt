@@ -27,6 +27,7 @@ SET(SRCS ${SRCS}
   error_handler.cpp
   modules_controller.cpp
   query_controller.cpp
+  scripts_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp

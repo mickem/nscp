@@ -53,7 +53,7 @@ namespace nscapi {
 		core_wrapper();
 		~core_wrapper();
 
-		std::string expand_path(std::string value);
+		std::string expand_path(std::string value) const;
 
 		NSCAPI::errorReturn settings_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		bool settings_query(const std::string request, std::string &response) const;
