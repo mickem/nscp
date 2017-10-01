@@ -100,7 +100,7 @@ namespace Mongoose
 			 */
 			static void event_handler(struct mg_connection *connection, int ev, void *ev_data);
 
-			void onHttpRequest(struct mg_connection *connection, struct http_message *message);
+			void onHttpRequest(struct mg_connection *connection, struct http_message *message, job_id job_id);
 
 
             /**
