@@ -178,6 +178,9 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 			("script path", sh::string_key(&scriptDirectory_),
 				"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
+
+			("script root", sh::path_key(&scriptRoot, "${scripts}"),
+			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
 			;
 
 
@@ -260,8 +263,10 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::
 			configure(request, response);
 		else if (command == "list")
 			list(request, response);
+		else if (command == "show")
+			show(request, response);
 		else if (command == "help") {
-			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|install] --help");
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|show|install] --help");
 		} else
 			return false;
 		return true;
@@ -358,6 +363,71 @@ void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &re
 
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
+
+void CheckExternalScripts::show(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string script;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("script", po::value<std::string>(&script),
+		"Script to show.")
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+
+
+	commands::command_object_instance command_def = commands_.find_object(script);
+	if (command_def) {
+		nscapi::protobuf::functions::set_response_good(*response, command_def->command);
+	} else {
+		boost::filesystem::path pscript = script;
+		bool found = boost::filesystem::is_regular_file(pscript);
+		if (!found) {
+			pscript = get_core()->expand_path("${base-path}/" + script);
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#ifdef WIN32
+		if (!found) {
+			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#endif
+		if (found) {
+			if (!file_helpers::checks::path_contains_file(scriptRoot, pscript)) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + scriptRoot.string());
+				return;
+			}
+				
+			std::ifstream t(pscript.string());
+			std::string str((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+
+			nscapi::protobuf::functions::set_response_good(*response, str);
+		} else {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
+		}
+	}
+}
+
 void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
