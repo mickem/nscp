@@ -42,7 +42,8 @@
 
 #include <time.h>
 #include <string>
-
+#include <fstream>
+#include <streambuf>
 
 namespace sh = nscapi::settings_helper;
 
@@ -177,7 +178,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				"Allow certain potentially dangerous characters in arguments", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
 			("script path", sh::string_key(&scriptDirectory_),
-				"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
+			"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
 
 			("script root", sh::path_key(&scriptRoot, "${scripts}"),
 			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
@@ -433,8 +434,8 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string script, arguments, alias;
-	bool wrapped = false, list = false;
+	std::string script, arguments, alias, import_script;
+	bool wrapped = false, list = false, replace = false;
 
 	desc.add_options()
 		("help", "Show help.")
@@ -454,6 +455,12 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		("wrapped", po::bool_switch(&wrapped),
 			"Add this to add a wrapped script such as ps1, vbs or similar..")
 
+		("import", po::value<std::string>(&import_script),
+		"Import (copy to script folder) a script.")
+
+		("replace", po::bool_switch(&replace),
+		"Used when importing to specify that the script will be overwritten.")
+
 		;
 
 	try {
@@ -472,8 +479,32 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		return;
 	}
 	boost::filesystem::path file = get_core()->expand_path(script);
+
+	if (!import_script.empty()) {
+		boost::filesystem::path target = scriptRoot / file.filename();
+		if (boost::filesystem::exists(target)) {
+			if (replace) {
+				boost::filesystem::remove(target);
+			} else {
+				nscapi::protobuf::functions::set_response_bad(*response, "Script already exists specify --overwrite to replace the script");
+			}
+		}
+		boost::system::error_code ec;
+		boost::filesystem::copy_file(import_script, target, ec);
+		if (ec) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + ec.message());
+			return;
+		}
+	}
+
+
 	if (!wrapped) {
-		if (!boost::filesystem::is_regular(file)) {
+		bool found = boost::filesystem::is_regular(file);
+		if (!found) {
+			file = file = get_core()->expand_path("${shared-path}/" + file.string());
+			found = boost::filesystem::is_regular(file);
+		}
+		if (!found) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
 			return;
 		}
@@ -497,6 +528,11 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	std::string actual = "";
 	if (wrapped)
 		actual = "\nActual command is: " + generate_wrapped_command(script + " " + arguments);
+	else {
+		add_command(alias, script);
+		nscapi::core_helper core(get_core(), get_id());
+		core.register_command(alias, "Alias for: " + script);
+	}
 	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
 
@@ -527,7 +563,7 @@ void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Reques
 		("help", "Show help.")
 
 		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
-			"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
 
 		;
 
