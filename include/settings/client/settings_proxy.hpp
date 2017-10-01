@@ -83,6 +83,14 @@ namespace settings_client {
 			return get_handler()->expand_path(key);
 		}
 
+		virtual void remove_key(std::string path, std::string key) {
+			return get_impl()->remove_key(path, key);
+		}
+		virtual void remove_path(std::string path) {
+			return get_impl()->remove_path(path);
+		}
+
+
 		virtual void err(const char* file, int line, std::string message) {
 			get_core()->get_logger()->error("settings",file, line, message);
 		}

@@ -278,3 +278,32 @@ void nscapi::settings_proxy::save(const std::string context) {
 	response.ParseFromString(response_string);
 	report_errors(response, core_, "save " + context);
 }
+
+void nscapi::settings_proxy::remove_key(std::string path, std::string key) {
+	Plugin::SettingsRequestMessage request;
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
+	item->mutable_node()->set_key(key);
+	item->mutable_node()->set_path(path);
+
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+	report_errors(response, core_, "delete " + path + "." + key);
+}
+
+void nscapi::settings_proxy::remove_path(std::string path) {
+	Plugin::SettingsRequestMessage request;
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Update *item = payload->mutable_update();
+	item->mutable_node()->set_path(path);
+
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	response.ParseFromString(response_string);
+	report_errors(response, core_, "delete " + path);
+}

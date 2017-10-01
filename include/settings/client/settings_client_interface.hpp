@@ -146,6 +146,10 @@ namespace nscapi {
 
 			virtual std::string expand_path(std::string key) = 0;
 
+
+			virtual void remove_key(std::string path, std::string key) = 0;
+			virtual void remove_path(std::string path) = 0;
+
 			//////////////////////////////////////////////////////////////////////////
 			/// Log an ERROR message.
 			///
