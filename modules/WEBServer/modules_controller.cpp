@@ -27,7 +27,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
   if (!session->is_loggedin(request, response))
     return;
 
-  std::string fetch_all = request.get("all", "true");
+  std::string fetch_all = request.get("all", "false");
   Plugin::RegistryRequestMessage rrm;
   Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
   payload->mutable_inventory()->set_fetch_all(fetch_all == "true");

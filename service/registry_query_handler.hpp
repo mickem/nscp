@@ -10,6 +10,8 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nsclient/logger/logger.hpp>
 
+#include <boost/unordered_set.hpp>
+
 
 namespace nsclient {
 
@@ -32,6 +34,10 @@ namespace nsclient {
 			void parse_registration(const Plugin::RegistryRequestMessage::Request::Registration &q, Plugin::RegistryResponseMessage &response);
 			void parse_control(const Plugin::RegistryRequestMessage::Request::Control &q, Plugin::RegistryResponseMessage &response);
 
+
+			void inventory_queries(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp);
+			void inventory_modules(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp);
+			void find_plugins_on_disk(boost::unordered_set<std::string> &unique_instances, const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp);
 
 			nsclient::logging::logger_instance get_logger() const {
 				return logger_;
