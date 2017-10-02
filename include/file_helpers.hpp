@@ -38,8 +38,8 @@ namespace file_helpers {
 			if (dir.filename() == ".")
 				dir.remove_filename();
 			file.remove_filename();
-			auto dir_len = std::distance(dir.begin(), dir.end());
-			auto file_len = std::distance(file.begin(), file.end());
+			std::size_t dir_len = std::distance(dir.begin(), dir.end());
+			std::size_t file_len = std::distance(file.begin(), file.end());
 			if (dir_len > file_len)
 				return false;
 			return std::equal(dir.begin(), dir.end(), file.begin());

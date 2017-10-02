@@ -2,6 +2,8 @@
 
 #include <nscapi/nscapi_protobuf.hpp>
 
+#include <file_helpers.hpp>
+
 #include <str/xtos.hpp>
 
 #include <json_spirit.h>
@@ -46,10 +48,10 @@ bool validate_response(const Plugin::ExecuteResponseMessage &resp, Mongoose::Str
 }
 
 scripts_controller::scripts_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
-	: session(session)
+	: RegexpController("/api/v1/scripts")
+	, session(session)
 	, core(core)
-	, plugin_id(plugin_id)
-	, RegexpController("/api/v1/scripts") {
+	, plugin_id(plugin_id) {
 	addRoute("GET", "/?$", this, &scripts_controller::get_runtimes);
 	addRoute("GET", "/([^/]+)/?$", this, &scripts_controller::get_scripts);
 	addRoute("GET", "/([^/]+)/(.+)/?$", this, &scripts_controller::get_script);
@@ -171,8 +173,8 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 	std::string script = what.str(2);
 
 	boost::filesystem::path name = script;
-	boost::filesystem::path file = core->expand_path("${temp}/" + name.filename().string());
-	std::ofstream ofs(file.string(), std::ios::binary);
+	boost::filesystem::path file = core->expand_path("${temp}/" + file_helpers::meta::get_filename(name));
+	std::ofstream ofs(file.string().c_str(), std::ios::binary);
 	ofs << request.getData();
 	ofs.close();
 

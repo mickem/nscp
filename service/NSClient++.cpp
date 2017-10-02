@@ -1069,7 +1069,7 @@ NSCAPI::errorReturn NSClientT::send_notification(const char* channel, std::strin
 			Plugin::SubmitRequestMessage msg;
 			msg.ParseFromString(request);
 			for (int i = 0; i < msg.payload_size(); i++) {
-				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), -1));
+				LOG_INFO_CORE("Notification " + str::xtos(msg.payload(i).result()) + ": " + nscapi::protobuf::functions::query_data_to_nagios_string(msg.payload(i), nscapi::protobuf::functions::no_truncation));
 			}
 			found = true;
 			nscapi::protobuf::functions::create_simple_submit_response_ok(cur_chan, "TODO", "seems ok", response);

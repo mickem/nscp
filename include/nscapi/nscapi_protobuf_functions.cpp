@@ -980,7 +980,7 @@ namespace nscapi {
 				target->set_result(gbp_status_to_gbp_nagios(source.result().code()));
 			}
 			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
-				target->set_message(query_data_to_nagios_string(source, -1));
+				target->set_message(query_data_to_nagios_string(source, no_truncation));
 				target->set_command(source.command());
 				target->set_result(source.result());
 			}
