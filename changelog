@@ -1,3 +1,24 @@
+2017-10-01 Michael Medin
+ * implemented DELETE for /api/v1/scripts/ext/scripts to delete commands and scripts.
+ * Added delete to CHeckExternalScritpts to delete scripts: nscp ext delete --script <alias> will delete the alias and nscp ext delete --script <script> will delete the script.
+ * Added  scripts controller /api/v1/scripts/ext/scripts to add/remove(not yet) and update scripts.
+ * modules rest API now by default shows loaded modules not available modules.
+ * Future prooofed the mongoose wrapper a bit by adding an internal structure to userdata
+ * Added --import to import a script (copy) to the scripts folder
+ * Added new commandline show to show script in external scripts module: "nscp ext show --script <alias>" will show the actual command execute and "nscp ext show --script <script>" will show the content of the script.
+
+2017-09-27 Michael Medin
+ * added text query and regular query to the new API
+ * Added new REST API https://localhost:8443/api/v1/modules and https://localhost:8443/api/v1/queries please note this is all a work in progress so use with care
+
+2017-09-25 Michael Medin
+ * Brand new web server with multi thread support.
+ * Attached remnants of mongoose-cpp to the local code-base and heavily modified to support multiple threads and modern moongose effectively fixing #444 please note that since this is rather big changes please use with care as bugs might be remote exploitable if you enable the WebServer...
+ * Fixed external scripts not showing in command list
+ * Fixed #403 reduced cpuload on some servers by only collecting handle information every 10x instead of every iteration
+ * Reduced CPU load of checking handles for systems with large number of processes
+ * Added syntax=none to remove default values from various top/empty/* syntaxes
+
 2017-09-05 Michael Medin
  * Fixed name of Windows 2016 server
  * check_os_version: Added %(suite) to show wich suite is installed.
