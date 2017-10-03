@@ -643,7 +643,7 @@ namespace nscapi {
 					parse_int_perf_value(ss, perfData.int_value());
 				}
 				std::string tmp = ss.str();
-				if (len == -1 || ret.length() + tmp.length() <= len) {
+				if (len == no_truncation || ret.length() + tmp.length() <= len) {
 					ret += tmp;
 				}
 			}

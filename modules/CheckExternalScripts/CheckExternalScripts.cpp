@@ -420,7 +420,7 @@ void CheckExternalScripts::show(const Plugin::ExecuteRequestMessage::Request &re
 				return;
 			}
 				
-			std::ifstream t(pscript.string());
+			std::ifstream t(pscript.string().c_str());
 			std::string str((std::istreambuf_iterator<char>(t)),
 				std::istreambuf_iterator<char>());
 
@@ -552,8 +552,8 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	boost::filesystem::path file = get_core()->expand_path(script);
 
 	if (!import_script.empty()) {
-		file = scriptRoot / file.filename();
-		script = "scripts\\" + file.filename().string();
+		file = scriptRoot / file_helpers::meta::get_filename(file);
+		script = "scripts\\" + file_helpers::meta::get_filename(file);
 		if (boost::filesystem::exists(file)) {
 			if (replace) {
 				boost::filesystem::remove(file);
@@ -562,10 +562,10 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 				return;
 			}
 		}
-		boost::system::error_code ec;
-		boost::filesystem::copy_file(import_script, file, ec);
-		if (ec) {
-			nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + ec.message());
+		try {
+			boost::filesystem::copy_file(import_script, file);
+		} catch (const std::exception &e) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));
 			return;
 		}
 	}
