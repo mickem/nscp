@@ -68,12 +68,11 @@ OPENSSL_LINK_FIX(${TARGET})
 
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
-	#${Boost_THREAD_LIBRARY}
 	${Boost_DATE_TIME_LIBRARY}
 	${Boost_REGEX_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${EXTRA_LIBS}
 	${JSON_LIB}
-	lib-mongoose
+	nscp_mongoose
 )
 INCLUDE(${BUILD_CMAKE_FOLDER}/module.cmake)

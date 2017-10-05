@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (lib-mongoose)
+project (nscp_mongoose)
 
 set (SOURCES
     Controller.cpp
@@ -45,10 +45,10 @@ if (WIN32)
 endif (WIN32)
 
 # Compiling library
-NSCP_MAKE_LIBRARY(lib-mongoose "${SOURCES}")
+NSCP_MAKE_LIBRARY(nscp_mongoose "${SOURCES}")
 #SET_TARGET_PROPERTIES(${TARGET} PROPERTIES FOLDER "libraries")
 
-target_link_libraries(lib-mongoose 
+target_link_libraries(nscp_mongoose 
   ${EXTRA_LIBS} 
   ${Boost_SYSTEM_LIBRARY}
   ${Boost_THREAD_LIBRARY}
