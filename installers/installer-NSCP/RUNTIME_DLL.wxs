@@ -25,7 +25,7 @@
 				<File Id="lua.dll" Name="lua.dll" DiskId="1" Source="$(var.Source)/lua.dll" Vital="no" />
 			</Component>
       <Component Id="MongooseLibs" Guid="146BDF2F-9895-41CF-9A7D-156F33493FB6">
-        <File Id="libMongoose.dll" Name="nscp_mongoose.dll" DiskId="1" Source="$(var.Source)/lib-mongoose.dll" Vital="no" />
+        <File Id="libMongoose.dll" Name="nscp_mongoose.dll" DiskId="1" Source="$(var.Source)/nscp_mongoose.dll" Vital="no" />
       </Component>
     </DirectoryRef>
 		</Fragment>
