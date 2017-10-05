@@ -1,3 +1,3 @@
 version=0.5.2
-build=4
-date=2017-10-03
+build=5
+date=2017-10-05
