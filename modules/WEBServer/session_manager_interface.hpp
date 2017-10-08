@@ -46,4 +46,6 @@ public:
 
 	std::list<std::string> boot();
 	bool validate_password(string password);
+	bool validate_user(const std::string user, const std::string &password);
+	void setup_token(Mongoose::StreamResponse & response);
 };

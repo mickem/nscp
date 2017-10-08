@@ -33,14 +33,19 @@ bool validate_arguments(std::size_t count, boost::smatch &what, Mongoose::Stream
 }
 
 bool validate_response(const Plugin::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
+	if (resp.payload_size() == 0) {
+		response.setCode(HTTP_SERVER_ERROR);
+		response.append("No response from module, is the module loaded?");
+		return false;
+	}
 	if (resp.payload_size() != 1) {
 		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid request, check server-log for details");
+		response.append("Invalid response from module");
 		return false;
 	}
 	if (resp.payload(0).result() != ::Plugin::Common_ResultCode_OK) {
 		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid request, check server-log for details");
+		response.append("Command returned errors: " + resp.payload(0).message());
 		return false;
 	}
 

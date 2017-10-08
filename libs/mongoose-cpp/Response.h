@@ -14,6 +14,8 @@
 #define HTTP_SERVER_ERROR 500
 #define HTTP_SERVICE_UNAVALIBLE 503
 
+
+#define HTTP_HDR_AUTH "Authorization"
 /**
  * A response to a request
  */

@@ -3,6 +3,7 @@ project (nscp_mongoose)
 
 set (SOURCES
     Controller.cpp
+    Helpers.cpp
     MatchController.cpp
     RegexController.cpp
     Request.cpp

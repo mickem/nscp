@@ -35,16 +35,21 @@ namespace hlp {
 		}
 	};
 
-	class char_buffer : public buffer<char> {
+	template<class T=char>
+	class generic_char_buffer : public buffer<T> {
 	public:
-		char_buffer(std::string str) : buffer<char>(str.length()+2) {
-			strncpy(get(), str.c_str(), str.length());
+		generic_char_buffer(std::string str) : buffer<T>(str.length()+2) {
+			strncpy(get_t<char*>(), str.c_str(), str.length());
 		}
-		char_buffer(unsigned int len) : buffer<char>(len) {}
+		generic_char_buffer(unsigned int len) : buffer<T>(len) {}
 		void zero() {
 			if (size() > 1)
 				memset(get(), 0, size());
 		}
+		std::string str() const {
+			return std::string(get(), size());
+		}
 	};
+	typedef generic_char_buffer<> char_buffer;
 
 }
