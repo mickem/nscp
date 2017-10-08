@@ -3,12 +3,19 @@
 #include "StreamResponse.h"
 
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
 
 namespace Mongoose
 {
 	MatchController::MatchController()
     {
     }
+
+	MatchController::MatchController(std::string prefix) 
+	: prefix(prefix)
+	{
+
+	}
 
 	MatchController::~MatchController() {
 		BOOST_FOREACH(handler_map::value_type &handler, routes) {
@@ -19,6 +26,12 @@ namespace Mongoose
             
     bool MatchController::handles(std::string method, std::string url) {
 		std::string key = method + ":" + url;
+		if (!prefix.empty()) {
+			if (!boost::algorithm::starts_with(url, prefix)) {
+				return false;
+			}
+			key = method + ":" + url.substr(prefix.size());
+		}
 
         return (routes.find(key) != routes.end());
     }

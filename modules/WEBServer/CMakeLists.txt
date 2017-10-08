@@ -18,8 +18,6 @@ ENDIF(JSON_SPIRIT_FOUND)
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
   
-  legacy_rest_controller.cpp
-  protobuf_controller.cpp
   static_controller.cpp
   token_store.cpp
   session_manager_interface.cpp
@@ -28,6 +26,8 @@ SET(SRCS ${SRCS}
   modules_controller.cpp
   query_controller.cpp
   scripts_controller.cpp
+  legacy_command_controller.cpp
+  legacy_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp

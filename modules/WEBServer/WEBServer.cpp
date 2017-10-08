@@ -21,12 +21,13 @@
 
 #include "web_cli_handler.hpp"
 #include "token_store.hpp"
-#include "protobuf_controller.hpp"
+
 #include "static_controller.hpp"
 #include "modules_controller.hpp"
 #include "query_controller.hpp"
 #include "scripts_controller.hpp"
-#include "legacy_rest_controller.hpp"
+#include "legacy_command_controller.hpp"
+#include "legacy_controller.hpp"
 
 #include "error_handler.hpp"
 
@@ -128,12 +129,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
 			server->setSsl(certificate.c_str());
 		}
-		server->registerController(new BaseController(session, get_core(), get_id(), client));
-		server->registerController(new RESTController(session, get_core()));
 		server->registerController(new StaticController(session, path));
 		server->registerController(new modules_controller(session, get_core(), get_id()));
 		server->registerController(new query_controller(session, get_core(), get_id()));
 		server->registerController(new scripts_controller(session, get_core(), get_id()));
+
+		server->registerController(new legacy_command_controller(session, get_core()));
+		server->registerController(new legacy_controller(session, get_core(), get_id(), client));
 
 		try {
 			server->start(threads);
