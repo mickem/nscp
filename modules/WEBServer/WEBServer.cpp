@@ -74,6 +74,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string port;
 	std::string password;
 	std::string certificate;
+	std::string admin_password;
 	int threads;
 
 	settings.alias().add_path_to_settings()
@@ -99,7 +100,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, _1), true),
 			"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
 
-		("password", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_password, session, _1)),
+		("password", nscapi::settings_helper::string_key(&admin_password),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
@@ -121,6 +122,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		if (boost::ends_with(port, "s")) {
 			port = port.substr(0, port.length() - 1);
 		}
+
+		session->add_user("admin", "legacy", admin_password);
+		session->add_grant("legacy", "*");
 
 		server.reset(new Mongoose::Server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {

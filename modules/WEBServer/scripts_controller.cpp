@@ -68,6 +68,10 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 	if (!session->is_loggedin(request, response))
 		return;
 
+	if (!session->can("scripts.list.runtimes", request, response))
+		return;
+
+
 	Plugin::RegistryRequestMessage rrm;
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	payload->mutable_inventory()->set_fetch_all(false);
@@ -115,6 +119,9 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 
 	std::string fetch_all = request.get("all", "false");
 
+	if (!session->can("scripts.lists." + runtime, request, response))
+		return;
+
 	Plugin::ExecuteRequestMessage rm;
 	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
@@ -147,6 +154,9 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 	std::string runtime = get_runtime(what.str(1));
 	std::string script = what.str(2);
 
+	if (!session->can("scripts.get." + runtime, request, response))
+		return;
+
 	Plugin::ExecuteRequestMessage rm;
 	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
 
@@ -176,6 +186,9 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 	}
 	std::string runtime = get_runtime(what.str(1));
 	std::string script = what.str(2);
+
+	if (!session->can("scripts.add." + runtime, request, response))
+		return;
 
 	boost::filesystem::path name = script;
 	boost::filesystem::path file = core->expand_path("${temp}/" + file_helpers::meta::get_filename(name));
@@ -217,6 +230,9 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
 	}
 	std::string runtime = get_runtime(what.str(1));
 	std::string script = what.str(2);
+
+	if (!session->can("scripts.delete." + runtime, request, response))
+		return;
 
 	Plugin::ExecuteRequestMessage rm;
 	Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();

@@ -20,9 +20,11 @@ SET(SRCS ${SRCS}
   
   static_controller.cpp
   token_store.cpp
+  grant_store.cpp
   session_manager_interface.cpp
   metrics_handler.cpp
   error_handler.cpp
+
   modules_controller.cpp
   query_controller.cpp
   scripts_controller.cpp

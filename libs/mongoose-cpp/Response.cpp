@@ -1,5 +1,7 @@
 #include "Response.h"
 
+#include <boost/foreach.hpp>
+
 #include <sstream>
 
 using namespace std;
@@ -38,9 +40,12 @@ namespace Mongoose
         }
 
         map<string, string>::iterator it;
-        for (it=headers.begin(); it!=headers.end(); it++) {
-            data << (*it).first << ": " << (*it).second << "\r\n";
+        BOOST_FOREACH(const kvp::value_type &v, headers) {
+            data << v.first << ": " << v.second << "\r\n";
         }
+		BOOST_FOREACH(const kvp::value_type &v, cookies) {
+			data << "Set-cookie=" << v.first << "=" << v.second << "; path=/\r\n";
+		}
 
         data << "\r\n";
 
@@ -51,14 +56,16 @@ namespace Mongoose
 
     void Response::setCookie(string key, string value)
     {
-        ostringstream definition;
-        definition << key << "=" << value << "; path=/";
-
-        setHeader("Set-cookie", definition.str());
+		cookies[key] = value;
     }
 
     void Response::setCode(int code_)
     {
         code = code_;
     }
+
+	std::string Response::getCookie(std::string key) {
+		return cookies[key];
+	}
+
 }

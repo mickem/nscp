@@ -74,10 +74,18 @@ namespace Mongoose
              */
             virtual void setCode(int code);
 
+			/**
+			* Get a cookie from the cookie list.
+			* @param string the key of the cookie
+			*/
+			virtual std::string getCookie(std::string key);
+
         protected:
             int code;
-            std::map<std::string, std::string> headers;
-    };
+			typedef std::map<std::string, std::string> kvp;
+			kvp headers;
+			kvp cookies;
+	};
 }
 
 #endif

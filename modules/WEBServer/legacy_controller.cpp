@@ -244,13 +244,13 @@ void legacy_controller::auth_token(Mongoose::Request &request, Mongoose::StreamR
 		return;
 	}
 
-	if (!session->validate_password(request.get("password"))) {
-		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Invalid password");
-	} else {
-		std::string token = session->generate_token();
+	if (session->validate_user("admin", request.get("password"))) {
+		std::string token = session->generate_token("admin");
 		response.setHeader("__TOKEN", token);
 		response.append("{ \"status\" : \"ok\", \"auth token\": \"" + token + "\" }");
+	} else {
+		response.setCode(HTTP_FORBIDDEN);
+		response.append("403 Invalid password");
 	}
 }
 void legacy_controller::auth_logout(Mongoose::Request &request, Mongoose::StreamResponse &response) {
