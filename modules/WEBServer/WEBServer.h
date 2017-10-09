@@ -18,6 +18,8 @@
  */
 
 
+#include "user_config.hpp"
+
 #include "session_manager_interface.hpp"
 #include "error_handler_interface.hpp"
 
@@ -44,8 +46,13 @@ public:
 	bool password(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 private:
 
+	void add_user(std::string key, std::string arg);
+
 	boost::shared_ptr<error_handler_interface> log_handler;
 	boost::shared_ptr<client::cli_client> client;
 	boost::shared_ptr<session_manager_interface> session;
 	boost::shared_ptr<Mongoose::Server> server;
+
+	web_server::user_config users_;
+
 };

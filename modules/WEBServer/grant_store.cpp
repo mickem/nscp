@@ -5,7 +5,9 @@
 #include <boost/foreach.hpp>
 
 void grant_store::add_role(std::string &role, std::string &grant) {
-	roles[role].rules.push_back(grant);
+	BOOST_FOREACH(const std::string &g, str::utils::split<std::list<std::string> >(grant, ",")) {
+		roles[role].rules.push_back(g);
+	}
 }
 
 void grant_store::add_user(std::string &user, std::string &role) {
@@ -55,6 +57,8 @@ bool grant_store::validate_grants(std::list<std::string> &grant, std::list<std::
 		if (*cn != *cg) {
 			return false;
 		}
+		cg++;
+		cn++;
 	}
 	return true;
 }

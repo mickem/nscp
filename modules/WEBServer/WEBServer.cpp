@@ -77,8 +77,22 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string admin_password;
 	int threads;
 
+	typedef std::map<std::string, std::string> role_map;
+	role_map roles;
+
+	users_.set_path(settings.alias().get_settings_path("users"));
+
 	settings.alias().add_path_to_settings()
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+
+		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, _1, _2)),
+		"USERS", "Users which can access the REST API",
+		"REST USER", "")
+
+		("roles", sh::string_map_path(&roles)
+		, "Roles", "A list of roles and with coma separated list of access rights.",
+		"Role", "A coma separated list of privileges")
+
 		;
 	settings.alias().add_key_to_settings()
 		("port", sh::string_key(&port, "8443"),
@@ -113,6 +127,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors = session->boot();
 		//NSC_DEBUG_MSG_STD("Allowed hosts definition: " + allowed_hosts.to_string());
+
+		BOOST_FOREACH(const web_server::user_config_instance &o, users_.get_object_list()) {
+			session->add_user(o->username, o->role, o->password);
+		}
+		BOOST_FOREACH(const role_map::value_type &v, roles) {
+			session->add_grant(v.first, v.second);
+		}
 
 		socket_helpers::validate_certificate(certificate, errors);
 		NSC_LOG_ERROR_LISTS(errors);
@@ -441,4 +462,14 @@ void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
 	session->set_metrics(json_spirit::write(metrics));
 	client->push_metrics(response);
 
+}
+
+void WEBServer::add_user(std::string key, std::string arg) {
+	try {
+		users_.add(get_settings_proxy(), key, arg);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to add user: " + key);
+	}
 }
