@@ -21,6 +21,7 @@
 
 #include <buffer.hpp>
 #include <string>
+#include <string.h>
 
 namespace hlp {
 	class tchar_buffer : public hlp::buffer<wchar_t> {
@@ -28,20 +29,19 @@ namespace hlp {
 		tchar_buffer(std::wstring str) : hlp::buffer<wchar_t>(str.length()+2) {
 			wcsncpy(get(), str.c_str(), str.length());
 		}
-		tchar_buffer(std::size_t len) : buffer<wchar_t>(len) {}
+		tchar_buffer(std::size_t len) : hlp::buffer<wchar_t>(len) {}
 		void zero() {
 			if (size() > 1)
 				memset(get(), 0, size());
 		}
 	};
 
-	template<class T=char>
-	class generic_char_buffer : public buffer<T> {
+	class char_buffer : public hlp::buffer<char> {
 	public:
-		generic_char_buffer(std::string str) : buffer<T>(str.length()+2) {
-			strncpy(get_t<char*>(), str.c_str(), str.length());
+		char_buffer(std::string str) : hlp::buffer<char>(str.length()+2) {
+			strncpy(get(), str.c_str(), str.length());
 		}
-		generic_char_buffer(unsigned int len) : buffer<T>(len) {}
+		char_buffer(unsigned int len) : hlp::buffer<char>(len) {}
 		void zero() {
 			if (size() > 1)
 				memset(get(), 0, size());
@@ -50,6 +50,5 @@ namespace hlp {
 			return std::string(get(), size());
 		}
 	};
-	typedef generic_char_buffer<> char_buffer;
 
 }
