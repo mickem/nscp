@@ -5,6 +5,10 @@ be enabled with the [WEBServer module](../reference/generic/WEBServer.md#WEBServ
 
 The [protocol buffer API used by plugins](plugin.md) is documented separately.
 
+The new API is described in separate pages (on per object):
+
+* [Scripts](scripts.md)
+
 ## Setup
 
 ### Enable the WEBServer module
