@@ -65,8 +65,8 @@ The API lists all avalible commands/scripts for a given runtime.
 Key       | Value
 ----------|----------------------
 Verb      | GET
-Address   | /api/v1/scripts/<runtime>
-Privilege | scripts.lists.<runtime>
+Address   | /api/v1/scripts/:runtime
+Privilege | scripts.lists.:runtime
 
 ### Parameters
 
@@ -130,8 +130,8 @@ Fetch the script definition (ext) and/or the actual script.
 Key       | Value
 ----------|-----------------------------------
 Verb      | GET
-Address   | /api/v1/scripts/<runtime>/<script>
-Privilege | scripts.get.<runtime>
+Address   | /api/v1/scripts/:runtime/:script
+Privilege | scripts.get.:runtime
 
 ### Request
 
@@ -173,8 +173,8 @@ So for instance you cannot set arguments for scripts via this API.
 Key       | Value
 ----------|-----------------------------------
 Verb      | PUT
-Address   | /api/v1/scripts/<runtime>/<script>
-Privilege | scripts.add.<runtime>
+Address   | /api/v1/scripts/:runtime/:script
+Privilege | scripts.add.:runtime
 
 ### Request
 
@@ -212,8 +212,8 @@ Delete both script defenitions and actual script files from disk.
 Key       | Value
 ----------|-----------------------------------
 Verb      | DELETE
-Address   | /api/v1/scripts/<runtime>/<script>
-Privilege | scripts.delete.<runtime>
+Address   | /api/v1/scripts/:runtime/:script
+Privilege | scripts.delete.:runtime
 
 ### Request
 
