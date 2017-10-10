@@ -50,7 +50,11 @@ GET /api/v1/scripts
 ### Response
 ```
 [
-  {"module":"CheckExternalScripts","name":"ext","title":"CheckExternalScripts"}
+  {
+    "module":"CheckExternalScripts",
+    "name":"ext",
+    "title":"CheckExternalScripts"
+  }
 ]
 ```
 
