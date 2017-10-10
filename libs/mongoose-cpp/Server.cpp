@@ -222,12 +222,13 @@ namespace Mongoose
 
     void Server::onHttpRequest(struct mg_connection *connection, struct http_message *message, job_id job_id) {
 
+		bool is_ssl = (connection->flags&MG_F_SSL) == MG_F_SSL;
 		std::string url = std::string(message->uri.p, message->uri.len);
 		std::string method = std::string(message->method.p, message->method.len);
 
 		BOOST_FOREACH(Controller *ctrl, controllers) {
 			if (ctrl->handles(method, url)) {
-				Request request(connection, message);
+				Request request(connection, message, is_ssl);
 				request_job job(this, ctrl, request, now(), job_id);
 
 				if (!job_queue_.push(job)) {
