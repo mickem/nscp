@@ -2,11 +2,11 @@
 
 The scripts API can be used to read view and modify the scripts which NSClient++ can run.
 
-* [List runtimes](#ListRuntimes)
-* [List scripts](#ListScripts)
-* [Fetch Script](#FetchScript)
-* [Add script](#AddScript)
-* [Delete Script](#DeleteScript)
+* [List runtimes](#list-runtimes)
+* [List scripts](#list-scripts)
+* [Fetch Script](#fetch-script)
+* [Add script](#add-script)
+* [Delete Script](#delete-script)
 
 ## Runtimes
 
@@ -66,9 +66,9 @@ Privilege | scripts.lists.<runtime>
 
 ### Parameters
 
-Key | Value | Description |
-----|-------|-------------|-----------------------------------------------------
-all | true  | false       | If all scripts should be listed (not activeted ones)
+Key | Value        | Description
+----|--------------|-----------------------------------------------------
+all | true / false | If all scripts should be listed (not activated ones)
 
 
 ### Request
