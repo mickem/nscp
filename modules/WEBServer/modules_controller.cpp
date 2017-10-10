@@ -209,7 +209,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 			}
 		}
 	} catch (const json_spirit::ParseError &e) {
-		response.setCode(HTTP_SERVER_ERROR);
-		response.append("Invalid request " + e.reason_);
+		response.setCode(HTTP_BAD_REQUEST);
+		response.append("Problems parsing JSON");
 	}
 }

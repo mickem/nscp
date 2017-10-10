@@ -3,11 +3,10 @@
 NSClient++ provides its own HTTP API which can
 be enabled with the [WEBServer module](../reference/generic/WEBServer.md#WEBServer).
 
-The [protocol buffer API used by plugins](plugin.md) is documented separately.
-
 The new API is described in separate pages (on per object):
 
 * [Scripts](scripts.md)
+* [Legacy API](legacy.md)
 
 ## Setup
 
@@ -74,124 +73,109 @@ The next chapter provides a quick overview of how you can use the API.
 
 ## Introduction
 
-### Requests
+### Parameters
 
-Any tool capable of making HTTP requests can communicate with
-the API, for example [curl](https://curl.haxx.se/).
-
-Requests are only allowed to use the HTTPS protocol so that
-traffic remains encrypted.
-
-By default the NSClient++ API listens on port `8443`. The port can
-be changed by setting the `port` attribute in the `/settings/WEB/server`
-section in the `nsclient.ini` configuration file.
+Many API methods take optional parameters.
+For GET requests, any parameters not specified as a segment in the path can be passed as an HTTP query string parameter:
 
 ```
-[/settings/WEB/server]
-
-; PORT NUMBER - Port to use for WEB server.
-port = 8443s
+curl -k -i -u admin https://localhost:8443/api/v1/scripts/ext?all=true
 ```
-
-Restart the `nscp` service afterwards.
-
-```
-net stop nscp
-net start nscp
-```
-
-Supported request methods:
-
-  Method | Usage
-  -------|--------
-  GET    | Retrieve information and execute queries.
+In this example, the `ext` value is provided for the `:runtime` parameter in the path while `true` is passed in the query string for the `:all` parameter.
+Reserved characters by the HTTP protocol must be [URL-encoded](https://en.wikipedia.org/wiki/Percent-encoding) as query string, e.g. a space character becomes `%20`.
 
 
-### Responses
-
-Successful requests will send back a response body which contains
-a hash with the keys `header` and `payload`.
-Depending on the query, the `payload` hash may contain different
-keys.
-
-> **Note**
->
-> Some requests don't return a body, i.e. `/core/reload`.
-> Ensure to check the HTTP status code at first glance.
-
-The output will be sent back as a JSON object:
+For `POST`, `PUT`, and `DELETE` requests, parameters not included in the URL should be encoded as JSON with a `Content-Type of 'application/json'`:
 
 ```
+curl -k -i -u admin -X PUT https://localhost:8443/api/v1/modules -d "{\"loaded\":true,\"name\":\"CheckSystem\"}"
+```
+
+### Root Endpoint
+
+You can issue a `GET` request to the root endpoint to get all the supported versions of the systems.
+From each version you can further issue a `GET` to get a list of all endpoint categories that the REST API supports:
+
+```
+curl -k -i -u admin https://localhost:8443/api
 {
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_drivesize",
-            "lines": [
-                {
-                    "message": "OK All 1 drive(s) are ok",
-                    "perf": [
-                        {
-                            "alias": "C: used",
-                            "float_value": {
-                                "critical": 49.95878562889993,
-                                "maximum": 55.509761810302734,
-                                "minimum": 0.0,
-                                "unit": "GB",
-                                "value": 41.377288818359375,
-                                "warning": 44.40780944749713
-                            }
-                        },
-                        {
-                            "alias": "C: used %",
-                            "float_value": {
-                                "critical": 90.0,
-                                "maximum": 100.0,
-                                "minimum": 0.0,
-                                "unit": "%",
-                                "value": 75.0,
-                                "warning": 80.0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "OK"
-        }
-    ]
+  "legacy_api":"https://localhost:8443/api/v1"
+  "current_api":"https://localhost:8443/api/v1",
+  "beta_api":"https://localhost:8443/api/v1",
 }
 ```
 
-Tip: If you are working on the CLI with curl you can also use [jq](https://stedolan.github.io/jq/)
-to format the returned JSON output in a readable manner. The documentation
-prefers `python -m json.tool` as Python is available nearly everywhere.
+```
+curl -k -i -u admin https://localhost:8443/api/v1
+{
+  "modules_url":"https://localhost:8443/api/v1/modules",
+  "queries_url":"https://localhost:8443/api/v1/queries",
+  "scripts_url":"https://localhost:8443/api/v1/scripts"
+}
+```
 
-> **Note**
->
-> Future versions of NSClient++ might set additional fields. Your application
-> should gracefully handle fields it is not familiar with, for example by
-> ignoring them.
-
-### HTTP Statuses
+### Response codes
 
 The API will return standard [HTTP statuses](https://www.ietf.org/rfc/rfc2616.txt)
 including error codes.
 
-When an error occurs, the response body will contain additional information
-about the problem and its source.
+When an error occurs, the response body will sometimes contain additional information about the problem and its source.
 
-A status code between 200 and 299 generally means that the request was
-successful.
+#### 2xx: Success
 
-Return codes within the 400 range indicate that there was a problem with the
-request. Either you did not authenticate correctly, you are missing the authorization
-for your requested action, the requested URL does not exist or the request
-was malformed.
+A status code between 200 and 299 generally means that the request was successful.
+
+#### 4xx: Client Errors
+
+**Authentication failure**
+
+Attempting to access a protected resource or using invalid credentials will always result in a `403 Forbidden`.
+
+```
+curl -k -i -u nimda https://localhost:8443/api/
+HTTP/1.1 403
+
+403 Forbidden
+```
+
+In addition to authentication issues there are two possible types of client errors on API calls that receive request bodies:
+
+**Invalid JSON**
+
+Sending invalid JSON will result in a `400 Bad Request` response.
+
+```
+curl -k -u admin -X PUT https://localhost:8443/api/v1/modules -d "{\"loaded\":true,\"name\":\"
+HTTP/1.1 400 Bad Request
+Content-Length: 21
+
+Problems parsing JSON
+```
+
+**Invalid fields**
+
+Sending invalid fields will result in a `422 Unprocessable Entity` response.
+**Please note** only fields used are read thus sending unused fields will most likely be ignored.
+Also many times values are only checked for a given value with all other input resulting in a default value.
+
+**TODO** Add example here.
+
+#### 5xx: Server errors
 
 A status in the range of 500 generally means that there was a server-side problem
-and NSClient++ is unable to process your request.
+and NSClient++ is unable to process your request. The reason for this can be many and the best option to diagnose is to review the NSClient++ log file.
+In general a 500 should be reported as a bug in the NSClient++ issue tracker: https://github.com/mickem/nscp/issues
+
+### HTTP Verbs
+
+Where possible, the API strives to use appropriate HTTP verbs for each action.
+
+Verb     | Description
+---------|---------------------------------------------
+`GET`    | Used for retrieving resources.
+`POST`   | Used for creating resources.
+`PUT`    | Used for replacing resources or collections.
+`DELETE` | Used for deleting resources.
 
 ### Allowed Hosts
 
@@ -200,8 +184,8 @@ necessary.
 
 > **Note**
 >
-> Keep in mind that the web interface allows you to modify the
-> client configuration -- use with care on remote access!
+> Keep in mind that the web interface (depending on how it is configured) allows
+> you to modify the client configuration -- use with care on remote access!
 
 Edit the `/settings/WEB/server` section in the `nsclient.ini`
 configuration file.
@@ -223,585 +207,61 @@ net start nscp
 
 ### Authentication
 
-The authentication is possible via basic auth and a `password` token sent
-inside the HTTP request header.
+There are two ways to authenticate through the API.
+Note that most requests (notable exception is static resources) require authentication and will blankly return `403 Forbidden` regardless of if the request is valid or not.
 
-You can test authentication by sending a GET request to the API:
-
-```
-curl -k -v -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/'
-```
-
-The `password` setting is specified inside the `/settings/WEB/server`
-configuration section.
+#### Basic Authentication
 
 ```
-[/settings/WEB/server]
-
-; PASSWORD - Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
-password = icinga
+curl -k -i -u admin https://localhost:8443/api
 ```
 
-Restart the `nscp` service afterwards.
+#### Barer token Authentication
+
+**TODO** This is not implemented yet (ish).
+
+
+### Hypermedia
+
+All resources may have one or more `*_url` properties linking to other resources.
+These are meant to provide explicit URLs so that proper API clients don't need to construct URLs on their own.
+
+**TODO** This is not implemented yet (ish).
+
+### Tips and tricks
+
+#### Formatting json
+
+Since the JSON returned from the APIs are not pretty printed a good idea is to use the python json.tool to make sure the result is readable.
+
+Compare the following two examples:
+```
+C:\source\tools>curl -k -u admin https://localhost:8443/api/v1
+{"modules_url":"https://localhost:8443/api/v1/modules","queries_url":"https://localhost:8443/api/v1/queries","scripts_url":"https://localhost:8443/api/v1/scripts"}
+```
 
 ```
-net stop nscp
-net start nscp
-```
-
-### Parameters
-
-Query strings must be passed as URL parameter.
-
-Reserved characters by the HTTP protocol must be [URL-encoded](https://en.wikipedia.org/wiki/Percent-encoding)
-as query string, e.g. a space character becomes `%20`.
-
-## Query Endpoint
-
-Queries are mostly based on modules. You can test-drive them through
-the API web interface and then add your own calls.
-
-You can use any query available by the check modules.
-
-> **Note**
->
-> Some query URL endpoints might not be available. This will be logged and is
-> available in the web interface `Log` menu.
->
-> Ensure to enable the corresponding module and test-drive the query from the
-> web interface.
-
-This documentation compiles a list of the most common query URL endpoints
-and their usage examples. Explore and add more from known check commands.
-
-### Arguments
-
-Arguments can be passed to the URL as already known from check\_nt/check\_nrpe command calls.
-
-```
-curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_cpu?show-all&warning=load>1&critical=load>20' | python -m json.tool
+C:\source\tools>curl -k -u admin https://localhost:8443/api/v1 |python -m json.tool
 {
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_cpu",
-            "lines": [
-                {
-                    "message": "WARNING: warning(5m: 2%, 1m: 2%, 5s: 2%)",
-                    "perf": [
-                        {
-                            "alias": "total 5m",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 2,
-                                "warning": 1
-                            }
-                        },
-                        {
-                            "alias": "total 1m",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 2,
-                                "warning": 1
-                            }
-                        },
-                        {
-                            "alias": "total 5s",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 2,
-                                "warning": 1
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "WARNING"
-        }
-    ]
+    "modules_url": "https://localhost:8443/api/v1/modules",
+    "queries_url": "https://localhost:8443/api/v1/queries",
+    "scripts_url": "https://localhost:8443/api/v1/scripts"
 }
 ```
 
-### CheckDisk Module
+Another option to is to use [jq](https://stedolan.github.io/jq/) to format the returned JSON output in a readable manner.
+The documentation prefers `python -m json.tool` as Python is available nearly everywhere.
 
-#### /query/check_drivesize
+#### Fields
 
-Check the disk drive on Windows.
-
-```
-curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_drivesize?drive=C:' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_drivesize",
-            "lines": [
-                {
-                    "message": "OK All 1 drive(s) are ok",
-                    "perf": [
-                        {
-                            "alias": "C: used",
-                            "float_value": {
-                                "critical": 49.95878562889993,
-                                "maximum": 55.509761810302734,
-                                "minimum": 0.0,
-                                "unit": "GB",
-                                "value": 41.377288818359375,
-                                "warning": 44.40780944749713
-                            }
-                        },
-                        {
-                            "alias": "C: used %",
-                            "float_value": {
-                                "critical": 90.0,
-                                "maximum": 100.0,
-                                "minimum": 0.0,
-                                "unit": "%",
-                                "value": 75.0,
-                                "warning": 80.0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "OK"
-        }
-    ]
-}
-```
-
-### CheckEventLog
-
-#### /query/check_eventlog
-
-Check for specific Windows event log entries, e.g. in the last 10 hours. Add the message to the final output. Note: You need to URL encode the parameters. `${message}` becomes `%24%7Bmessage%7D`.
-
-```
-curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_eventlog?show-all&file=system&detail-syntax=%24%7Bmessage%7D&scan-range=-600m' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_eventlog",
-            "lines": [
-                {
-                    "message": "WARNING: 5 message(s) warning(The network driver detected that its hardware has stopped responding to commands. ...."
-                    "perf": [
-                        {
-                            "alias": "problem_count",
-                            "int_value": {
-                                "critical": 0,
-                                "value": 5,
-                                "warning": 0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "WARNING"
-        }
-    ]
-}
-```
-
-### CheckHelpers Module
-
-#### /query/check_version
-
-Print the NSClient++ version.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_version' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_version",
-            "lines": [
-                {
-                    "message": "0.5.0.62 2016-09-14"
-                }
-            ],
-            "result": "OK"
-        }
-    ]
-}
-```
+Future versions of NSClient++ might set additional fields.
+Your application should gracefully handle fields it is not familiar with, for example by ignoring them.
 
 
-### CheckNSCP Module
+## Legacy API
 
-#### /query/check_nscp
-
-Retrieve the current status and possible errors.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_nscp' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_nscp",
-            "lines": [
-                {
-                    "message": "0 crash(es), 5 error(s), last error: Failed to execute command on log, uptime 01:10:40.901063"
-                }
-            ],
-            "result": "CRITICAL"
-        }
-    ]
-}
-```
-
-### CheckSystem Module
-
-#### /query/check_cpu
-
-Check for CPU usage on Windows.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_cpu?show-all&warning=load>1&critical=load>20' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_cpu",
-            "lines": [
-                {
-                    "message": "WARNING: warning(5m: 3%, 1m: 2%, 5s: 2%)",
-                    "perf": [
-                        {
-                            "alias": "total 5m",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 3,
-                                "warning": 1
-                            }
-                        },
-                        {
-                            "alias": "total 1m",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 2,
-                                "warning": 1
-                            }
-                        },
-                        {
-                            "alias": "total 5s",
-                            "int_value": {
-                                "critical": 20,
-                                "unit": "%",
-                                "value": 2,
-                                "warning": 1
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "WARNING"
-        }
-    ]
-}
-```
-
-#### /query/memory
-
-Check memory usage on Windows.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_memory' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_memory",
-            "lines": [
-                {
-                    "message": "WARNING: committed = 2.849GB, physical = 1.669GB",
-                    "perf": [
-                        {
-                            "alias": "committed",
-                            "float_value": {
-                                "critical": 3.1644229888916016,
-                                "maximum": 3.5160255432128906,
-                                "minimum": 0.0,
-                                "unit": "GB",
-                                "value": 2.8489990234375,
-                                "warning": 2.8128204345703125
-                            }
-                        },
-                        {
-                            "alias": "committed %",
-                            "float_value": {
-                                "critical": 90.0,
-                                "maximum": 100.0,
-                                "minimum": 0.0,
-                                "unit": "%",
-                                "value": 81.0,
-                                "warning": 80.0
-                            }
-                        },
-                        {
-                            "alias": "physical",
-                            "float_value": {
-                                "critical": 1.799591445364058,
-                                "maximum": 1.9995460510253906,
-                                "minimum": 0.0,
-                                "unit": "GB",
-                                "value": 1.6694755554199219,
-                                "warning": 1.599636840634048
-                            }
-                        },
-                        {
-                            "alias": "physical %",
-                            "float_value": {
-                                "critical": 90.0,
-                                "maximum": 100.0,
-                                "minimum": 0.0,
-                                "unit": "%",
-                                "value": 83.0,
-                                "warning": 80.0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "WARNING"
-        }
-    ]
-}
-```
-
-#### /query/check_network
-
-Check network usage.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_network' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_network",
-            "lines": [
-                {
-                    "message": ": VirtualBox Host-Only Ethernet Adapter #2 >790273982464 <790273982464 bps, VirtualBox Host-Only Ethernet Adapter >790273982464 <790273982464 bps, Intel(R) PRO/1000 MT Network Connection >790273982464 <790273982464 bps",
-                    "perf": [
-                        {
-                            "alias": "Intel(R) PRO/1000 MT Network Connection_total",
-                            "int_value": {
-                                "critical": 100000,
-                                "value": 790273982464,
-                                "warning": 10000
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "CRITICAL"
-        }
-    ]
-}
-```
-
-#### /query/check_os_version
-
-Retrieve the Operating System version.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_os_version' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_os_version",
-            "lines": [
-                {
-                    "message": "OK: Windows 10 (10.0.10586)",
-                    "perf": [
-                        {
-                            "alias": "version",
-                            "int_value": {
-                                "critical": 50,
-                                "value": 100,
-                                "warning": 50
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "OK"
-        }
-    ]
-}
-```
-
-#### /query/check_pdh
-
-Check a specific performance counter. Note: `counter=\Processor(_total)\% Processor Time`
-has been URL encoded to `counter%3D%5CProcessor%28_total%29%5C%25%20Processor%20Time`.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_pdh?counter%3D%5CProcessor%28_total%29%5C%25%20Processor%20Time' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_pdh",
-            "lines": [
-                {
-                    "message": "OK: \\Processor(_total)\\% Processor Time = 49",
-                    "perf": [
-                        {
-                            "alias": "\\Processor(_total)\\% Processor Time_value",
-                            "float_value": {
-                                "critical": 0.0,
-                                "value": 49.0,
-                                "warning": 0.0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "OK"
-        }
-    ]
-}
-```
-
-#### /query/check_service
-
-Check if a specific service is started. `wscsvc` checks the Windows Security Center service.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_service?service=wscsvc' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_service",
-            "lines": [
-                {
-                    "message": "OK: All 1 service(s) are ok.",
-                    "perf": [
-                        {
-                            "alias": "wscsvc",
-                            "int_value": {
-                                "critical": 0,
-                                "value": 4,
-                                "warning": 0
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "OK"
-        }
-    ]
-}
-```
-
-
-#### /query/check_uptime
-
-
-Check the host's uptime.
-
-```
-$ curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/query/check_uptime' | python -m json.tool
-{
-    "header": {
-        "source_id": ""
-    },
-    "payload": [
-        {
-            "command": "check_uptime",
-            "lines": [
-                {
-                    "message": "CRITICAL: uptime: 10:6h, boot: 2017-06-14 10:56:38 (UTC)",
-                    "perf": [
-                        {
-                            "alias": "uptime",
-                            "int_value": {
-                                "critical": 86400,
-                                "unit": "s",
-                                "value": 36370,
-                                "warning": 172800
-                            }
-                        }
-                    ]
-                }
-            ],
-            "result": "CRITICAL"
-        }
-    ]
-}
-```
-
-
-
-## Settings Endpoint
-
-### /settings/status
-
-Determine whether settings need to be stored.
-
-```
-curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/settings/status' | python -m json.tool
-{
-    "header": {},
-    "payload": [
-        {
-            "result": {
-                "code": "STATUS_OK"
-            },
-            "status": {
-                "context": "ini://${shared-path}/nsclient.ini",
-                "has_changed": false,
-                "type": "ini"
-            }
-        }
-    ]
-}
-```
-
-## Core Endpoint
-
-### /core/reload
-
-Reload the NSClient++ service.
-
-```
-curl -k -s -H 'password: icinga' 'https://nsclient1.localdomain:8443/core/reload'
-```
-
+The current stable version of NSClient++ does not yet have the new API which is describe in this page.
+So for details on that please review the [legacy API](legacy.md).
 
 ## Web Interface
 
