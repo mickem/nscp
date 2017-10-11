@@ -85,9 +85,12 @@ pages:
       - PythonScript: reference/generic/PythonScript.md
       - LUAScript: reference/generic/LUAScript.md
       - DotnetPlugins: reference/windows/DotnetPlugins.md
-    - API:
+    - REST API:
       - API: api/index.md
-      - Plugin: api/plugin.md
+      - Scripts: api/scripts.md
+      - Legacy API: api/legacy.md
+    - Plugin API:
+      - Plugin Plugin: api/plugin.md
 
 markdown_extensions:
   - admonition

@@ -1,3 +1,15 @@
+2017-10-10 Michael Medin
+ * Updated the API documentation
+ * Added /api and /api/v1 endpoints to provide information about API
+ * Added API documentation for scripts
+ * Added configuration for grants and roles #448 #449
+ * Added privilege system for API #448 and #449
+ * Added support for basic auth (#448)
+
+2017-10-05 Michael Medin
+ * Fixed installer issue
+ * Renamed the moongose lib so it wont clash with other thing on linux
+
 2017-10-01 Michael Medin
  * implemented DELETE for /api/v1/scripts/ext/scripts to delete commands and scripts.
  * Added delete to CHeckExternalScritpts to delete scripts: nscp ext delete --script <alias> will delete the alias and nscp ext delete --script <script> will delete the script.
