@@ -333,6 +333,7 @@ Reload the NSClient++ service after configuration changes.
 ### Check Plugins
 
 - [check_nscp_api](https://github.com/Icinga/icinga2/pull/5239) included in Icinga 2 v2.7.
+- [check_nsc_web](https://github.com/m-kraus/check_nsc_web) standalone Plugin written in Go, suitable for all comaptible cores (Naemon, Icinga 1/2, etc).
 
 ## References
 
