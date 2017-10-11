@@ -7,14 +7,6 @@
 #include <boost/regex.hpp>
 #include <boost/filesystem/path.hpp>
 
-std::string get_host(Mongoose::Request &request) {
-	if (request.hasVariable("Host")) {
-		std::string proto = request.is_ssl() ? "https://" : "http://";
-		return proto + request.readHeader("Host");
-	}
-	return "";
-}
-
 api_controller::api_controller(boost::shared_ptr<session_manager_interface> session)
 	: RegexpController("/api")
 	, session(session)
@@ -27,7 +19,7 @@ void api_controller::get_versions(Mongoose::Request &request, boost::smatch &wha
 	if (!session->is_loggedin(request, response))
 		return;
 
-	std::string host = get_host(request);
+	std::string host = request.get_host();
 
 	json_spirit::Object root;
 	root["current_api"] = host + "/api/v1";
@@ -40,7 +32,7 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
 	if (!session->is_loggedin(request, response))
 		return;
 
-	std::string host = get_host(request);
+	std::string host = request.get_host();
 
 	json_spirit::Object root;
 	root["scripts_url"] = host + "/api/v1/scripts";

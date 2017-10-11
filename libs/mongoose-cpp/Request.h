@@ -82,6 +82,7 @@ namespace Mongoose
 			std::string readHeader(const std::string key);
             bool readVariable(const struct mg_str data, string key, string &output);
 
+			std::string get_host();
 			bool is_ssl() {
 				return  is_ssl_;
 			}

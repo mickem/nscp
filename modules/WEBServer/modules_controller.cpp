@@ -11,6 +11,7 @@
 #include <boost/regex.hpp>
 
 
+
 modules_controller::modules_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
   : session(session)
   , core(core)
@@ -26,6 +27,9 @@ modules_controller::modules_controller(boost::shared_ptr<session_manager_interfa
 void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
+
+  if (!session->can("modules.list", request, response))
+	  return;
 
   std::string fetch_all = request.get("all", "false");
   Plugin::RegistryRequestMessage rrm;
@@ -64,6 +68,9 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 
 void modules_controller::get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!session->can("modules.get", request, response))
 		return;
 
 	if (what.size() != 2) {
@@ -106,16 +113,22 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 }
 
 void modules_controller::module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (what.size() != 3) {
-		response.setCode(HTTP_NOT_FOUND);
-		response.append("Invalid request");
+	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!validate_arguments(2, what, response)) {
+		return;
 	}
 	std::string module = what.str(1);
 	std::string command = what.str(2);
 
 	if (command == "load") {
+		if (!session->can("modules.load", request, response))
+			return;
 		load_module(module, response);
 	} else if (command == "unload") {
+		if (!session->can("modules.unload", request, response))
+			return;
 		unload_module(module, response);
 	} else {
 		response.setCode(HTTP_NOT_FOUND);
@@ -160,6 +173,15 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 	if (!session->is_loggedin(request, response))
 		return;
 
+	if (!validate_arguments(1, what, response)) {
+		return;
+	}
+	std::string module = what.str(1);
+
+
+	if (!session->can("modules.get", request, response))
+		return;
+
 	try {
 
 		json_spirit::Value root;
@@ -167,7 +189,6 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 		json_spirit::read_or_throw(data, root);
 		std::string object_type;
 		json_spirit::Object o = root.getObject();
-		std::string module = o["name"].getString();
 		bool target_is_loaded = o["loaded"].getBool();
 
 		Plugin::RegistryRequestMessage rrm;
@@ -194,9 +215,13 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 					}
 					if (target_is_loaded != is_loaded) {
 						if (target_is_loaded) {
+							if (!session->can("modules.load", request, response))
+								return;
 							load_module(module, response);
 							return;
 						} else {
+							if (!session->can("modules.unload", request, response))
+								return;
 							unload_module(module, response);
 							return;
 						}

@@ -68,6 +68,8 @@ namespace Mongoose
 
             virtual bool handles(std::string method, std::string url);
 
+			bool validate_arguments(std::size_t count, boost::smatch &what, Mongoose::StreamResponse &response);
+
         protected:
           typedef std::list<route_info> routes_type;
           routes_type routes;

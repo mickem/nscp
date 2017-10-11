@@ -213,7 +213,15 @@ namespace Mongoose
     }
 
 
-    string Request::get(string key, string fallback)
+	std::string Request::get_host() {
+		if (hasVariable("Host")) {
+			std::string proto = is_ssl() ? "https://" : "http://";
+			return proto + readHeader("Host");
+		}
+		return "";
+	}
+
+	string Request::get(string key, string fallback)
     {
         string output;
         // Looking on the query string

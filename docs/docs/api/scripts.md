@@ -58,9 +58,27 @@ GET /api/v1/scripts
 ]
 ```
 
+### Example
+
+Fetch a list of all runtimes with curl
+
+```
+curl -s -k -u admin https://localhost:8443/api/v1/scripts |python -m json.tool
+[
+    {
+        "ext_url": "https://localhost:8443/api/v1/scripts/ext",
+        "module": "CheckExternalScripts",
+        "name": "ext",
+        "title": "CheckExternalScripts"
+    }
+]
+```
+
+
+
 ## List Scripts
 
-The API lists all avalible commands/scripts for a given runtime.
+The API lists all available commands/scripts for a given runtime.
 
 Key       | Value
 ----------|----------------------
@@ -89,37 +107,43 @@ GET /api/v1/scripts/ext
 ]
 ```
 
-### Listing all scripts
+### Example 1: Listing active script
+
+Fetch all active (currently enabled) scripts from `CheckExternalScripts`.
+
+```
+curl -s -k -u admin https://localhost:8443/api/v1/scripts/ext |python -m json.tool
+[
+    "check_ok"
+]
+```
+
+### Example 2: Listing all scripts
 
 #### Request
 
 ```
-GET /api/v1/scripts/ext?all=true
-```
-
-#### Response
-
-```
+curl -s -k -u admin https://localhost:8443/api/v1/scripts/ext?all=true |python -m json.tool
 [
-  "scripts\\check_60s.bat",
-  "scripts\\check_battery.vbs",
-  "scripts\\check_files.vbs",
-  "scripts\\check_long.bat",
-  "scripts\\check_no_rdp.bat",
-  "scripts\\check_ok.bat",
-  "scripts\\check_ping.bat",
-  "scripts\\check_printer.vbs",
-  "scripts\\check_test.bat",
-  "scripts\\check_test.ps1",
-  "scripts\\check_test.vbs",
-  "scripts\\check_updates.vbs",
-  "scripts\\lua\\check_cpu_ex.lua",
-  "scripts\\lua\\default_check_mk.lua",
-  "scripts\\lua\\noperf.lua",
-  "scripts\\lua\\test.lua",
-  "scripts\\lua\\test_ext_script.lua",
-  "scripts\\lua\\test_nrpe.lua",
-  "scripts\\powershell.ps1"
+    "scripts\\check_60s.bat",
+    "scripts\\check_battery.vbs",
+    "scripts\\check_files.vbs",
+    "scripts\\check_long.bat",
+    "scripts\\check_no_rdp.bat",
+    "scripts\\check_ok.bat",
+    "scripts\\check_ping.bat",
+    "scripts\\check_printer.vbs",
+    "scripts\\check_test.bat",
+    "scripts\\check_test.ps1",
+    "scripts\\check_test.vbs",
+    "scripts\\check_updates.vbs",
+    "scripts\\lua\\check_cpu_ex.lua",
+    "scripts\\lua\\default_check_mk.lua",
+    "scripts\\lua\\noperf.lua",
+    "scripts\\lua\\test.lua",
+    "scripts\\lua\\test_ext_script.lua",
+    "scripts\\lua\\test_nrpe.lua",
+    "scripts\\powershell.ps1"
 ]
 ```
 
@@ -145,20 +169,24 @@ GET /api/v1/scripts/ext/check_ok
 scripts\check_ok.bat "Everything will be fine"
 ```
 
-### Listing the actual script
+### Example 1: Show command definitions
+
+Show the commands definitions i.e. the configured command  which will be executed when the check is executed.
+
+```
+curl -s -k -u admin https://localhost:8443/api/v1/scripts/ext/check_ok
+scripts\check_ok.bat "The world is always fine..."
+```
+
+### Example 2: Listing the actual script
 
 Please note that since script definitions are really commands
 there is no automated way to go from a script definition and its script.
-
-#### Request
-
-```
-GET /api/v1/scripts/ext/scripts\check_ok.bat
-```
-
-#### Response
+But given the above definition we can discern that the script is called `scripts\check_ok.bat`.
+We can use either `/` or `\` as path separator here.
 
 ```
+curl -s -k -u admin https://localhost:8443/api/v1/scripts/ext/scripts/check_ok.bat
 @echo OK: %1
 @exit 0
 ```
@@ -182,7 +210,10 @@ Privilege | scripts.add.:runtime
 PUT /api/v1/scripts/ext/scripts\check_new.bat
 ```
 
-### Example
+### The posted payload
+
+The payload we post is the actual script such as:
+
 ```
 @echo OK: %1
 @exit 0
@@ -191,6 +222,22 @@ PUT /api/v1/scripts/ext/scripts\check_new.bat
 ### Response
 
 ```
+Added check_new as scripts\check_new.bat
+```
+
+### Example
+
+Given a file called `check_new.bat` which contains the following:
+
+```
+@echo OK: %1
+@exit 0
+```
+
+We can use the following curl call to upload that as check_new.
+
+```
+curl -s -k -u admin -X PUT https://localhost:8443/api/v1/scripts/ext/scripts/check_new.bat --data-binary @check_new.bat
 Added check_new as scripts\check_new.bat
 ```
 
@@ -207,7 +254,7 @@ check_new = scripts\check_new.bat
 
 ## Delete Script
 
-Delete both script defenitions and actual script files from disk.
+Delete both script definitions and actual script files from disk.
 
 Key       | Value
 ----------|-----------------------------------
@@ -227,18 +274,21 @@ DELETE /api/v1/scripts/ext/scripts\check_new.bat
 Script file was removed
 ```
 
-### Deleting a script defintion
+### Example 1: Delete the script definition
 
-You can also via the same API delete any script definitions.
-
-#### Request
-
-```
-GET /api/v1/scripts/ext/check_ok
-```
-
-#### Response
+If we have created a script for check_new (see adding script above) we can remove it via the API as well.
+Please note this will **ONLY** remove the script definition not the actual script file (to remove the script see below).
 
 ```
-Script definition has been removed don't forget to delete any artifact for: scripts\check_new.bat
+curl -s -k -u admin -X DELETE https://localhost:8443/api/v1/scripts/ext/check_new
+Script definition has been removed don't forget to delete any artifact for: scripts\check_new
+```
+
+### Example 2: Deleting the script file
+
+To delete the script file we use the same trick as when we showed it above i.e. we specify the script file instead of the command name.
+
+```
+curl -s -k -u admin -X DELETE https://localhost:8443/api/v1/scripts/ext/scripts/check_new.bat
+Script file was removed
 ```

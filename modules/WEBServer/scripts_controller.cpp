@@ -23,15 +23,6 @@ std::string get_runtime(const std::string &runtime) {
 	return runtime;
 }
 
-bool validate_arguments(std::size_t count, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (what.size() != count) {
-		response.setCode(HTTP_BAD_REQUEST);
-		response.append("Invalid request");
-		return false;
-	}
-	return true;
-}
-
 bool validate_response(const Plugin::ExecuteResponseMessage &resp, Mongoose::StreamResponse &response) {
 	if (resp.payload_size() == 0) {
 		response.setCode(HTTP_SERVER_ERROR);
@@ -71,6 +62,7 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 	if (!session->can("scripts.list.runtimes", request, response))
 		return;
 
+	std::string host = request.get_host();
 
 	Plugin::RegistryRequestMessage rrm;
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -89,17 +81,20 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 				|| i.name() == "CheckExternalScripts"
 				|| i.name() == "LUAScript") {
 				json_spirit::Object node;
+				std::string name = i.name();
 				if (i.name() == "CheckPython") {
-					node["name"] = "py";
+					name = "py";
 				} else if (i.name() == "CheckExternalScripts") {
-					node["name"] = "ext";
+					name = "ext";
 				} else if (i.name() == "LUAScript") {
-					node["name"] = "lua";
+					name = "lua";
 				} else {
-					node["name"] = i.name();
+					name = i.name();
 				}
+				node["name"] = name;
 				node["module"] = i.name();
 				node["title"] = i.info().title();
+				node[name + "_url"] = host + "/api/v1/scripts/" + name;
 
 				root.push_back(node);
 			}
@@ -112,7 +107,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 	if (!session->is_loggedin(request, response))
 		return;
 
-	if (!validate_arguments(2, what, response)) {
+	if (!validate_arguments(1, what, response)) {
 		return;
 	}
 	std::string runtime = get_runtime(what.str(1));
@@ -148,7 +143,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 	if (!session->is_loggedin(request, response))
 		return;
 
-	if (!validate_arguments(3, what, response)) {
+	if (!validate_arguments(2, what, response)) {
 		return;
 	}
 	std::string runtime = get_runtime(what.str(1));
@@ -181,7 +176,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 	if (!session->is_loggedin(request, response))
 		return;
 
-	if (!validate_arguments(3, what, response)) {
+	if (!validate_arguments(2, what, response)) {
 		return;
 	}
 	std::string runtime = get_runtime(what.str(1));
@@ -225,7 +220,7 @@ void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch
 	if (!session->is_loggedin(request, response))
 		return;
 
-	if (!validate_arguments(3, what, response)) {
+	if (!validate_arguments(2, what, response)) {
 		return;
 	}
 	std::string runtime = get_runtime(what.str(1));
