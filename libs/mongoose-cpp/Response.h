@@ -8,11 +8,14 @@
 #include <iostream>
 
 #define HTTP_OK 200
+#define HTTP_BAD_REQUEST 400
 #define HTTP_NOT_FOUND 404
 #define HTTP_FORBIDDEN 403
 #define HTTP_SERVER_ERROR 500
 #define HTTP_SERVICE_UNAVALIBLE 503
 
+
+#define HTTP_HDR_AUTH "Authorization"
 /**
  * A response to a request
  */
@@ -71,10 +74,18 @@ namespace Mongoose
              */
             virtual void setCode(int code);
 
+			/**
+			* Get a cookie from the cookie list.
+			* @param string the key of the cookie
+			*/
+			virtual std::string getCookie(std::string key);
+
         protected:
             int code;
-            std::map<std::string, std::string> headers;
-    };
+			typedef std::map<std::string, std::string> kvp;
+			kvp headers;
+			kvp cookies;
+	};
 }
 
 #endif

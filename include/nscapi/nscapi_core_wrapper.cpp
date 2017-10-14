@@ -212,7 +212,7 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::exec_command(const char* target, cons
 	return fNSAPIExecCommand(target, request, request_len, response, response_len);
 }
 
-std::string nscapi::core_wrapper::expand_path(std::string value) {
+std::string nscapi::core_wrapper::expand_path(std::string value) const {
 	if (!fNSAPIExpandPath)
 		throw nsclient::nsclient_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;

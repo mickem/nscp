@@ -8,13 +8,13 @@
 
 #include <string>
 
-class RESTController : public Mongoose::Controller {
+class legacy_command_controller : public Mongoose::Controller {
 	boost::shared_ptr<session_manager_interface> session;
 	const nscapi::core_wrapper* core;
 
 public:
 
-	RESTController(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core);
+	legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core);
 
 	void handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);
 	void handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response);

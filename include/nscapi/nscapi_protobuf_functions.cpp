@@ -643,7 +643,7 @@ namespace nscapi {
 					parse_int_perf_value(ss, perfData.int_value());
 				}
 				std::string tmp = ss.str();
-				if (len == -1 || ret.length() + tmp.length() <= len) {
+				if (len == no_truncation || ret.length() + tmp.length() <= len) {
 					ret += tmp;
 				}
 			}
@@ -980,7 +980,7 @@ namespace nscapi {
 				target->set_result(gbp_status_to_gbp_nagios(source.result().code()));
 			}
 			void copy_response(const std::string command, ::Plugin::ExecuteResponseMessage::Response* target, const ::Plugin::QueryResponseMessage::Response source) {
-				target->set_message(query_data_to_nagios_string(source, -1));
+				target->set_message(query_data_to_nagios_string(source, no_truncation));
 				target->set_command(source.command());
 				target->set_result(source.result());
 			}

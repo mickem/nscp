@@ -323,6 +323,25 @@ namespace nscapi {
 				ensure_default();
 			}
 
+			bool remove(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias) {
+				proxy->remove_path(make_obj_path(path, alias));
+				proxy->remove_key(path, alias);
+				return remove(alias);
+			}
+			bool remove(const std::string alias) {
+				typename object_map::const_iterator cit = objects.find(alias);
+				if (cit != objects.end()) {
+					objects.erase(cit);
+					return true;
+				}
+				cit = templates.find(alias);
+				if (cit != templates.end()) {
+					templates.erase(cit);
+					return true;
+				}
+				return false;
+			}
+
 			object_instance find_object(const std::string alias) const {
 				typename object_map::const_iterator cit = objects.find(alias);
 				if (cit != objects.end())

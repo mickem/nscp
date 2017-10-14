@@ -22,7 +22,7 @@ namespace Mongoose
     class NSCAPI_EXPORT Request
     {
         public:
-            Request(struct mg_connection *connection, struct http_message *message);
+            Request(struct mg_connection *connection, struct http_message *message, bool is_ssl);
 
             /**
              * Sends a given response to the client
@@ -82,9 +82,14 @@ namespace Mongoose
 			std::string readHeader(const std::string key);
             bool readVariable(const struct mg_str data, string key, string &output);
 
+			std::string get_host();
+			bool is_ssl() {
+				return  is_ssl_;
+			}
         protected:
             string method;
 			string url;
+			bool is_ssl_;
 			string query;
 			string data;
 			std::string ip;

@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
 		ret = nscapi::plugin_helper::maxState(ret, nscapi::protobuf::functions::gbp_to_nagios_status(response.result()));
 		BOOST_FOREACH(const ::Plugin::QueryResponseMessage_Response_Line &line, response.lines()) {
 			std::cout << line.message();
-			std::string tmp = nscapi::protobuf::functions::build_performance_data(line, -1);
+			std::string tmp = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (!tmp.empty())
 				std::cout << '|' << tmp;
 		}

@@ -11,12 +11,28 @@
 using namespace std;
 using namespace Mongoose;
 
-
 struct oubound_frame {
 	job_id id;
 	Server *server;
 	char *data;
 	int len;
+};
+
+struct udt {
+	Server *server;
+	unsigned long job_id;
+	unsigned long magic;
+
+	udt(Server *server)
+		: server(server)
+		, job_id(0)
+		, magic(123456789) 
+	{}
+	~udt() {
+		server = NULL;
+		job_id = 0;
+		magic = 0;
+	}
 };
 
 void on_wake_up(struct mg_connection *connection, int ev, void *ev_data) {
@@ -112,9 +128,8 @@ namespace Mongoose
 	bool Server::execute_reply_async(job_id id, const void *buf, int len) {
 		struct mg_connection *c;
 		for (c = mg_next(&mgr, NULL); c != NULL; c = mg_next(&mgr, c)) {
-			if (c->user_data != NULL && (job_id)c->user_data == id) {
+			if (c->user_data != NULL && ((udt*)c->user_data)->job_id == id) {
 				mg_send(c, buf, len);
-				c->user_data = NULL;
 				c->flags |= MG_F_SEND_AND_CLOSE;
 				return true;
 			}
@@ -173,20 +188,25 @@ namespace Mongoose
         controllers.push_back(controller);
     }
 
-
-
 	void Server::event_handler(struct mg_connection *connection, int ev, void *ev_data) {
 		if (connection->user_data != NULL) {
-			if (ev == MG_EV_HTTP_REQUEST) {
-				Server *server = (Server *)connection->user_data;
+			if (ev == MG_EV_CLOSE) {
+				udt *data = (udt*)connection->user_data;
+				connection->user_data = NULL;
+				if (data->magic == 123456789) {
+					delete data;
+				}
+			} else if (ev == MG_EV_HTTP_REQUEST) {
+				udt *data = new udt((Server*)connection->user_data);
+				connection->user_data = data;
 				if (job_index < 100 || job_index > 1000000) {
 					job_index = 100;
 				} else {
 					job_index++;
 				}
-				connection->user_data = (void *)job_index;
+				data->job_id = job_index;
 				struct http_message *message = (struct http_message *) ev_data;
-				server->onHttpRequest(connection, message);
+				data->server->onHttpRequest(connection, message, data->job_id);
 			}
 		}
 	}
@@ -197,20 +217,19 @@ namespace Mongoose
 		response.append(msg);
 		std::string buffer = response.getData();
 		mg_send(connection, buffer.c_str(), buffer.size());
-		connection->user_data = NULL;
 		connection->flags |= MG_F_SEND_AND_CLOSE;
 	}
 
-    void Server::onHttpRequest(struct mg_connection *connection, struct http_message *message) {
+    void Server::onHttpRequest(struct mg_connection *connection, struct http_message *message, job_id job_id) {
 
+		bool is_ssl = (connection->flags&MG_F_SSL) == MG_F_SSL;
 		std::string url = std::string(message->uri.p, message->uri.len);
 		std::string method = std::string(message->method.p, message->method.len);
 
 		BOOST_FOREACH(Controller *ctrl, controllers) {
 			if (ctrl->handles(method, url)) {
-				Request request(connection, message);
-				job_id id = (job_id)connection->user_data;
-				request_job job(this, ctrl, request, now(), id);
+				Request request(connection, message, is_ssl);
+				request_job job(this, ctrl, request, now(), job_id);
 
 				if (!job_queue_.push(job)) {
 					sendStockResponse(connection, HTTP_SERVER_ERROR, "Failed to process request");
@@ -222,25 +241,6 @@ namespace Mongoose
 		sendStockResponse(connection, HTTP_NOT_FOUND, "Document not found");
     }
 
-    bool Server::handles(string method, string url) {
-		BOOST_FOREACH(Controller* c, controllers) {
-            if (c->handles(method, url)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-	Response *Server::handleRequest(Request &request) {
-		BOOST_FOREACH(Controller* c, controllers) {
-			Response *response = c->handleRequest(request);
-            if (response != NULL) {
-                return response;
-            }
-        }
-        return NULL;
-    }
 
 	bool request_job::is_late(boost::posix_time::ptime now) {
 		boost::posix_time::time_duration off = now - time;

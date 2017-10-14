@@ -24,7 +24,8 @@ namespace Mongoose
     {
         public:
 			MatchController();
-            virtual ~MatchController();
+			MatchController(std::string prefix);
+			virtual ~MatchController();
             
             /**
              * Handle a request, this will try to match the request, if this

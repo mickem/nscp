@@ -32,6 +32,7 @@ private:
 	//std::string commands_path;
 	//std::string aliases_path;
 	std::string scriptDirectory_;
+	boost::filesystem::path scriptRoot;
 	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
@@ -59,4 +60,6 @@ private:
 	std::string generate_wrapped_command(std::string command);
 	void configure(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 	void list(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
+	void show(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
+	void delete_script(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 };

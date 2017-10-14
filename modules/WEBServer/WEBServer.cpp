@@ -21,11 +21,14 @@
 
 #include "web_cli_handler.hpp"
 #include "token_store.hpp"
-#include "protobuf_controller.hpp"
+
 #include "static_controller.hpp"
 #include "modules_controller.hpp"
 #include "query_controller.hpp"
-#include "legacy_rest_controller.hpp"
+#include "scripts_controller.hpp"
+#include "legacy_command_controller.hpp"
+#include "legacy_controller.hpp"
+#include "api_controller.hpp"
 
 #include "error_handler.hpp"
 
@@ -72,10 +75,25 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string port;
 	std::string password;
 	std::string certificate;
+	std::string admin_password;
 	int threads;
+
+	typedef std::map<std::string, std::string> role_map;
+	role_map roles;
+
+	users_.set_path(settings.alias().get_settings_path("users"));
 
 	settings.alias().add_path_to_settings()
 		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+
+		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, _1, _2)),
+		"USERS", "Users which can access the REST API",
+		"REST USER", "")
+
+		("roles", sh::string_map_path(&roles)
+		, "Roles", "A list of roles and with coma separated list of access rights.",
+		"Role", "A coma separated list of privileges")
+
 		;
 	settings.alias().add_key_to_settings()
 		("port", sh::string_key(&port, "8443"),
@@ -97,7 +115,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, _1), true),
 			"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
 
-		("password", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_password, session, _1)),
+		("password", nscapi::settings_helper::string_key(&admin_password),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
 
 		;
@@ -111,6 +129,13 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		std::list<std::string> errors = session->boot();
 		//NSC_DEBUG_MSG_STD("Allowed hosts definition: " + allowed_hosts.to_string());
 
+		BOOST_FOREACH(const web_server::user_config_instance &o, users_.get_object_list()) {
+			session->add_user(o->username, o->role, o->password);
+		}
+		BOOST_FOREACH(const role_map::value_type &v, roles) {
+			session->add_grant(v.first, v.second);
+		}
+
 		socket_helpers::validate_certificate(certificate, errors);
 		NSC_LOG_ERROR_LISTS(errors);
 		std::string path = get_core()->expand_path("${web-path}");
@@ -120,6 +145,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			port = port.substr(0, port.length() - 1);
 		}
 
+		session->add_user("admin", "legacy", admin_password);
+		session->add_grant("legacy", "*");
+
 		server.reset(new Mongoose::Server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
@@ -127,11 +155,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
 			server->setSsl(certificate.c_str());
 		}
-		server->registerController(new BaseController(session, get_core(), get_id(), client));
-		server->registerController(new RESTController(session, get_core()));
 		server->registerController(new StaticController(session, path));
 		server->registerController(new modules_controller(session, get_core(), get_id()));
 		server->registerController(new query_controller(session, get_core(), get_id()));
+		server->registerController(new scripts_controller(session, get_core(), get_id()));
+		server->registerController(new api_controller(session));
+
+		server->registerController(new legacy_command_controller(session, get_core()));
+		server->registerController(new legacy_controller(session, get_core(), get_id(), client));
 
 		try {
 			server->start(threads);
@@ -433,4 +464,14 @@ void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
 	session->set_metrics(json_spirit::write(metrics));
 	client->push_metrics(response);
 
+}
+
+void WEBServer::add_user(std::string key, std::string arg) {
+	try {
+		users_.add(get_settings_proxy(), key, arg);
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
+	} catch (...) {
+		NSC_LOG_ERROR_EX("Failed to add user: " + key);
+	}
 }

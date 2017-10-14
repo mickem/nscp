@@ -706,7 +706,7 @@ void PythonScript::handleNotification(const std::string &channel, const Plugin::
 	}
 	if (inst->has_simple_message_handler(channel)) {
 		BOOST_FOREACH(::Plugin::QueryResponseMessage_Response_Line line, request.lines()) {
-			std::string perf = nscapi::protobuf::functions::build_performance_data(line, -1);
+			std::string perf = nscapi::protobuf::functions::build_performance_data(line, nscapi::protobuf::functions::no_truncation);
 			if (inst->handle_simple_message(channel, request.source(), request.command(), request.result(), line.message(), perf) != NSCAPI::api_return_codes::isSuccess)
 				return nscapi::protobuf::functions::set_response_bad(*response, "Invalid response: " + channel);
 		}

@@ -360,8 +360,8 @@ namespace socket_helpers {
 				timer.cancel();
 			}
 
-			void start_timer(boost::posix_time::time_duration duration) {
-				timer.expires_from_now(duration);
+			void start_timer(boost::posix_time::time_duration duration_) {
+				timer.expires_from_now(duration_);
 				timer.async_wait(boost::bind(&timed_reader::set_result, shared_from_this(), &timer_result, _1));
 			}
 			void stop_timer() {

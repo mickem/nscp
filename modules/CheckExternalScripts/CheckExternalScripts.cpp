@@ -42,7 +42,8 @@
 
 #include <time.h>
 #include <string>
-
+#include <fstream>
+#include <streambuf>
 
 namespace sh = nscapi::settings_helper;
 
@@ -177,7 +178,10 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 				"Allow certain potentially dangerous characters in arguments", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
 			("script path", sh::string_key(&scriptDirectory_),
-				"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
+			"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
+
+			("script root", sh::path_key(&scriptRoot, "${scripts}"),
+			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
 			;
 
 
@@ -260,8 +264,12 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::
 			configure(request, response);
 		else if (command == "list")
 			list(request, response);
+		else if (command == "show")
+			show(request, response);
+		else if (command == "delete")
+			delete_script(request, response);
 		else if (command == "help") {
-			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|install] --help");
+			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|show|install|delete] --help");
 		} else
 			return false;
 		return true;
@@ -358,13 +366,147 @@ void CheckExternalScripts::list(const Plugin::ExecuteRequestMessage::Request &re
 
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
+
+void CheckExternalScripts::show(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string script;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("script", po::value<std::string>(&script),
+		"Script to show.")
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+
+
+	commands::command_object_instance command_def = commands_.find_object(script);
+	if (command_def) {
+		nscapi::protobuf::functions::set_response_good(*response, command_def->command);
+	} else {
+		boost::filesystem::path pscript = script;
+		bool found = boost::filesystem::is_regular_file(pscript);
+		if (!found) {
+			pscript = get_core()->expand_path("${base-path}/" + script);
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#ifdef WIN32
+		if (!found) {
+			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#endif
+		if (found) {
+			if (!file_helpers::checks::path_contains_file(scriptRoot, pscript)) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + scriptRoot.string());
+				return;
+			}
+				
+			std::ifstream t(pscript.string().c_str());
+			std::string str((std::istreambuf_iterator<char>(t)),
+				std::istreambuf_iterator<char>());
+
+			nscapi::protobuf::functions::set_response_good(*response, str);
+		} else {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
+		}
+	}
+}
+
+void CheckExternalScripts::delete_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string script;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("script", po::value<std::string>(&script),
+		"Script to delete.")
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+	} catch (const std::exception &e) {
+		return nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+	}
+
+	if (vm.count("help")) {
+		nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+		return;
+	}
+
+
+	commands::command_object_instance command_def = commands_.find_object(script);
+	if (command_def) {
+		commands_.remove(get_settings_proxy(), script);
+
+		nscapi::protobuf::functions::settings_query s(get_id());
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, "Script definition has been removed don't forget to delete any artifact for: " + command_def->command);
+	} else {
+		boost::filesystem::path pscript = script;
+		bool found = boost::filesystem::is_regular_file(pscript);
+		if (!found) {
+			pscript = get_core()->expand_path("${base-path}/" + script);
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#ifdef WIN32
+		if (!found) {
+			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
+			found = boost::filesystem::is_regular_file(pscript);
+		}
+#endif
+		if (found) {
+			if (!file_helpers::checks::path_contains_file(scriptRoot, pscript)) {
+				nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + scriptRoot.string());
+				return;
+			}
+			boost::filesystem::remove(pscript);
+			nscapi::protobuf::functions::set_response_good(*response, "Script file was removed");
+		} else {
+			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
+		}
+	}
+}
+
 void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;
 	po::variables_map vm;
 	po::options_description desc;
-	std::string script, arguments, alias;
-	bool wrapped = false, list = false;
+	std::string script, arguments, alias, import_script;
+	bool wrapped = false, list = false, replace = false;
 
 	desc.add_options()
 		("help", "Show help.")
@@ -384,6 +526,12 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		("wrapped", po::bool_switch(&wrapped),
 			"Add this to add a wrapped script such as ps1, vbs or similar..")
 
+		("import", po::value<std::string>(&import_script),
+		"Import (copy to script folder) a script.")
+
+		("replace", po::bool_switch(&replace),
+		"Used when importing to specify that the script will be overwritten.")
+
 		;
 
 	try {
@@ -402,8 +550,34 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		return;
 	}
 	boost::filesystem::path file = get_core()->expand_path(script);
+
+	if (!import_script.empty()) {
+		file = scriptRoot / file_helpers::meta::get_filename(file);
+		script = "scripts\\" + file_helpers::meta::get_filename(file);
+		if (boost::filesystem::exists(file)) {
+			if (replace) {
+				boost::filesystem::remove(file);
+			} else {
+				nscapi::protobuf::functions::set_response_bad(*response, "Script already exists specify --overwrite to replace the script");
+				return;
+			}
+		}
+		try {
+			boost::filesystem::copy_file(import_script, file);
+		} catch (const std::exception &e) {
+			nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));
+			return;
+		}
+	}
+
+
 	if (!wrapped) {
-		if (!boost::filesystem::is_regular(file)) {
+		bool found = boost::filesystem::is_regular(file);
+		if (!found) {
+			file = file = get_core()->expand_path("${shared-path}/" + file.string());
+			found = boost::filesystem::is_regular(file);
+		}
+		if (!found) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
 			return;
 		}
@@ -427,6 +601,11 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	std::string actual = "";
 	if (wrapped)
 		actual = "\nActual command is: " + generate_wrapped_command(script + " " + arguments);
+	else {
+		add_command(alias, script);
+		nscapi::core_helper core(get_core(), get_id());
+		core.register_command(alias, "Alias for: " + script);
+	}
 	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
 }
 
@@ -457,7 +636,7 @@ void CheckExternalScripts::configure(const Plugin::ExecuteRequestMessage::Reques
 		("help", "Show help.")
 
 		("arguments", po::value<std::string>(&arguments)->default_value(arguments)->implicit_value("safe"),
-			"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
+		"Allow arguments. false=don't allow, safe=allow non escape chars, all=allow all arguments.")
 
 		;
 

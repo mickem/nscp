@@ -52,6 +52,9 @@ namespace nscapi {
 		virtual string_list get_keys(std::string path);
 		virtual std::string expand_path(std::string key);
 
+		virtual void remove_key(std::string path, std::string key);
+		virtual void remove_path(std::string path);
+
 		virtual void err(const char* file, int line, std::string message);
 		virtual void warn(const char* file, int line, std::string message);
 		virtual void info(const char* file, int line, std::string message);

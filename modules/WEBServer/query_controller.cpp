@@ -207,7 +207,7 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
 			json_spirit::Object line;
 			line["message"] = l.message();
-			line["perf"] = nscapi::protobuf::functions::build_performance_data(l, -1);
+			line["perf"] = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
 			lines.push_back(line);
 		}
 		node["lines"] = lines;
@@ -246,7 +246,7 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
 			http_response.append(l.message());
 			if (l.perf_size() > 0) {
-				http_response.append("|" + nscapi::protobuf::functions::build_performance_data(l, -1));
+				http_response.append("|" + nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation));
 			}
 			http_response.append("\n");
 		}

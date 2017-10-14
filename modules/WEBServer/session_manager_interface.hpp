@@ -17,11 +17,11 @@ struct session_manager_interface {
 
 private:
 	error_handler_interface* log_data;
-	std::string password_;
 
 	metrics_handler metrics_store;
 	token_store tokens;
 	socket_helpers::allowed_hosts_manager allowed_hosts;
+	boost::unordered_map<std::string, std::string> users;
 public:
 	session_manager_interface();
 
@@ -31,7 +31,7 @@ public:
 
 	bool validate_token(std::string token);
 	void revoke_token(std::string token);
-	std::string generate_token();
+	std::string generate_token(std::string user);
 
 	std::string get_metrics();
 	void set_metrics(std::string metrics);
@@ -42,8 +42,11 @@ public:
 
 	void set_allowed_hosts(std::string host);
 	void set_allowed_hosts_cache(bool value);
-	void set_password(std::string password);
 
 	std::list<std::string> boot();
-	bool validate_password(string password);
+	bool validate_user(const std::string user, const std::string &password);
+	void setup_token(std::string &user, Mongoose::StreamResponse & response);
+	bool can(std::string grant, Mongoose::Request & request, Mongoose::StreamResponse & response);
+	void add_user(std::string user, std::string role, std::string password);
+	void add_grant(std::string role, std::string grant);
 };

@@ -520,3 +520,35 @@ threads=10
 ```
 
 
+<a name="/settings/WEB/server/roles"/>
+## Roles
+
+A list of roles and with coma separated list of access rights.
+
+```ini
+# A list of roles and with coma separated list of access rights.
+[/settings/WEB/server/roles]
+
+```
+
+
+
+
+
+
+<a name="/settings/WEB/server/users"/>
+## USERS
+
+Users which can access the REST API
+
+```ini
+# Users which can access the REST API
+[/settings/WEB/server/users]
+
+```
+
+
+
+
+
+

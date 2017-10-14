@@ -1,16 +1,16 @@
-#include "legacy_rest_controller.hpp"
+#include "legacy_command_controller.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>
 
 #include <boost/foreach.hpp>
 #include <boost/algorithm/string.hpp>
 
-RESTController::RESTController(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core)
+legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core)
 	: session(session)
 	, core(core) 
 {}
 
-void RESTController::handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+void legacy_command_controller::handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
 
@@ -33,7 +33,7 @@ void RESTController::handle_query(std::string obj, Mongoose::Request &request, M
   response.append(json_response);
 }
 
-void RESTController::handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
+void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
   if (!session->is_loggedin(request, response))
     return;
   std::size_t pos = obj.find("/");
@@ -60,7 +60,7 @@ void RESTController::handle_exec(std::string obj, Mongoose::Request &request, Mo
   response.append(json_response);
 }
 
-Mongoose::Response* RESTController::handleRequest(Mongoose::Request &request) {
+Mongoose::Response* legacy_command_controller::handleRequest(Mongoose::Request &request) {
   Mongoose::StreamResponse *response = new Mongoose::StreamResponse();
   std::string url = request.getUrl();
   if (boost::algorithm::starts_with(url, "/query/")) {
@@ -73,6 +73,6 @@ Mongoose::Response* RESTController::handleRequest(Mongoose::Request &request) {
   }
   return response;
 }
-bool RESTController::handles(string method, string url) {
+bool legacy_command_controller::handles(string method, string url) {
   return boost::algorithm::starts_with(url, "/query/") || boost::algorithm::starts_with(url, "/exec/");
 }

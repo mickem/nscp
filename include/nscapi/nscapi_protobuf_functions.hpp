@@ -140,6 +140,7 @@ namespace nscapi {
 			NSCAPI_EXPORT int create_simple_exec_response_unknown(std::string command, std::string result, std::string &response);
 
 			NSCAPI_EXPORT void parse_performance_data(Plugin::QueryResponseMessage_Response_Line *payload, const std::string &perf);
+			static const std::size_t no_truncation = 0;
 			NSCAPI_EXPORT std::string build_performance_data(Plugin::QueryResponseMessage_Response_Line const &payload, std::size_t max_length);
 
 			NSCAPI_EXPORT std::string extract_perf_value_as_string(const ::Plugin::Common_PerformanceData &perf);
