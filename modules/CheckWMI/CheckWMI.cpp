@@ -45,7 +45,7 @@ void target_helper::add_target(nscapi::settings_helper::settings_impl_interface_
 			target.hostname = alias;
 
 		settings.add_path_to_settings()
-			(target.hostname, "TARGET LIST SECTION", "A list of available remote target systems")
+			(target.hostname, "Targets", "A list of available remote target systems")
 
 			;
 
@@ -86,6 +86,7 @@ bool CheckWMI::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode) {
 
 	settings.register_all();
 	settings.notify();
+
 	return true;
 }
 bool CheckWMI::unloadModule() {
@@ -141,7 +142,7 @@ void CheckWMI::check_wmi(const Plugin::QueryRequestMessage::Request &request, Pl
 
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${list}", filter.get_filter_syntax(), "%(line)", "", "", "");
+	filter_helper.add_syntax("${list}", "%(line)", "", "", "");
 	filter_helper.get_desc().add_options()
 		("target", po::value<std::string>(&given_target), "The target to check (for checking remote machines).")
 		("user", po::value<std::string>(&target_info.username), "Remote username when checking remote machines.")

@@ -469,18 +469,30 @@ namespace nscapi {
 			key_type path;
 			description_container description;
 			description_container subkey_description;
+			bool is_subkey;
 			bool is_sample;
 
-			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_sample(false) {}
-			path_info(std::string path_name, key_type path, description_container description, description_container subkey_description) : path_name(path_name), path(path), description(description), subkey_description(subkey_description), is_sample(false) {}
+			path_info(std::string path_name, description_container description) : path_name(path_name), description(description), is_subkey(false), is_sample(false) {}
+			path_info(std::string path_name, key_type path, description_container description)
+				: path_name(path_name)
+				, path(path), description(description)
+				, is_subkey(false)
+				, is_sample(false) {}
+			path_info(std::string path_name, key_type path, description_container description, description_container subkey_description)
+				: path_name(path_name)
+				, path(path), description(description)
+				, subkey_description(subkey_description)
+				, is_subkey(true)
+				, is_sample(false) {}
 
-			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_sample(obj.is_sample) {}
+			path_info(const path_info& obj) : path_name(obj.path_name), path(obj.path), description(obj.description), is_subkey(obj.is_subkey), is_sample(obj.is_sample) {}
 			virtual path_info& operator=(const path_info& obj) {
 				path_name = obj.path_name;
 				path = obj.path;
 				description = obj.description;
 				subkey_description = obj.subkey_description;
 				is_sample = obj.is_sample;
+				is_subkey = obj.is_subkey;
 				return *this;
 			}
 		};
@@ -564,6 +576,14 @@ namespace nscapi {
 			return *this;
 		}
 
+		settings_paths_easy_init& settings_paths_easy_init::operator()(std::string path, key_type value, std::string title, std::string description) {
+			if (!path_.empty())
+				path = path_ + "/" + path;
+			boost::shared_ptr<path_info> d(new path_info(path, value, description_container(title, description)));
+			add(d);
+			return *this;
+		}
+
 		void settings_paths_easy_init::add(boost::shared_ptr<path_info> d) {
 			if (is_sample)
 				d->is_sample = true;
@@ -621,9 +641,8 @@ namespace nscapi {
 			}
 			BOOST_FOREACH(path_list::value_type v, paths_) {
 				core_->register_path(v->path_name, v->description.title, v->description.description, v->description.advanced, v->is_sample);
-				if (!v->subkey_description.title.empty()) {
-					BOOST_FOREACH(const std::string &s, core_->get_keys(v->path_name))
-						core_->register_key(v->path_name, s, NSCAPI::key_string, v->subkey_description.title, v->subkey_description.description, "", v->description.advanced, v->is_sample);
+				if (v->is_subkey) {
+					core_->register_subkey(v->path_name, v->subkey_description.title, v->subkey_description.description, v->subkey_description.advanced, true);
 				}
 			}
 			BOOST_FOREACH(tpl_list_type::value_type v, tpl_) {

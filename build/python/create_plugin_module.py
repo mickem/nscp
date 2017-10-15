@@ -252,11 +252,27 @@ void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_p
 	registry.command()
 {% for cmd in module.commands %}
 {% if cmd.alias and cmd.alias|length == 1 %}
-		("{{cmd.name}}", "{{cmd.alias[0]}}",
-		"{{cmd.description}}")
+        (
+            "{{cmd.name}}", "{{cmd.alias[0]}}",
+            "{{cmd.description}}"
+{% if "query" in cmd.types %}
+            "\\n\\n"
+            "The {{cmd.name}} command is a query based command which means it has a filter where you can use a filter expression with filter keywords to define which rows are relevant to the check.\\n"
+            "The filter is written using the filter query language and in it you can use various filter keywords to define the filtering logic.\\n"
+            "The filter keywords can also be used to create the bound expressions for the warning and critical which defines when a check returns warning or critical."
+{% endif %}
+        )
 {% else %}
-		("{{cmd.name}}",
-		"{{cmd.description}}")
+        (
+            "{{cmd.name}}",
+            "{{cmd.description}}"
+{% if "query" in cmd.types %}
+            "\\n\\n"
+            "The {{cmd.name}} command is a query based command which means it has a filter where you can use a filter expression with filter keywords to define which rows are relevant to the check.\\n"
+            "The filter is written using the filter query language and in it you can use various filter keywords to define the filtering logic.\\n"
+            "The filter keywords can also be used to create the bound expressions for the warning and critical which defines when a check returns warning or critical."
+{% endif %}
+        )
 {% endif %}
 {% endfor %}
 		;
@@ -805,10 +821,11 @@ class Command:
 	raw_mapping = False
 	nagios = False
 
-	def __init__(self, name, description, alias = []):
+	def __init__(self, name, description, types = [], alias = []):
 		self.name = name
 		self.description = description
 		self.alias = alias
+		self.types = types
 		self.legacy = False
 		self.request = False
 		self.no_mapping = False
@@ -831,6 +848,7 @@ def parse_commands(data):
 			no_mapping = False
 			raw_mapping = False
 			nagios = False
+			types = ""
 			if key == "fallback" and value:
 				command_fallback = True
 			if key == "fallback" and value == 'raw':
@@ -841,6 +859,8 @@ def parse_commands(data):
 					desc = value['desc']
 				elif 'description' in value:
 					desc = value['description']
+				if 'type' in value:
+					types = value['type']
 				if 'legacy' in value and value['legacy']:
 					legacy = True
 				if 'request' in value and value['request']:
@@ -862,7 +882,7 @@ def parse_commands(data):
 			else:
 				desc = value
 			if not key == "fallback":
-				cmd = Command(key, desc, alias)
+				cmd = Command(key, desc, types.split(","), alias)
 				if legacy:
 					cmd.legacy = True
 				if nagios:

@@ -8,27 +8,40 @@ Use this to schedule check commands and jobs in conjunction with for instance pa
 
 
 
-## List of Configuration
-
-
-### Common Keys
-
-| Path / Section                              | Key                                     | Description  |
-|---------------------------------------------|-----------------------------------------|--------------|
-| [/settings/scheduler](#/settings/scheduler) | [threads](#/settings/scheduler_threads) | THREAD COUNT |
+**Configuration Keys:**
 
 
 
+    
+    
+| Path / Section                              | Key                                     | Description |
+|---------------------------------------------|-----------------------------------------|-------------|
+| [/settings/scheduler](#/settings/scheduler) | [threads](#/settings/scheduler_threads) | Threads     |
+
+
+| Path / Section                                                  | Description |
+|-----------------------------------------------------------------|-------------|
+| [/settings/scheduler/schedules](#/settings/scheduler/schedules) | Schedules   |
 
 
 
 
-# Configuration
+
+## Configuration
 
 <a name="/settings/scheduler"/>
-## SCHEDULER SECTION
+### Scheduler
 
 Section for the Scheduler module.
+
+
+
+
+| Key                                     | Default Value | Description |
+|-----------------------------------------|---------------|-------------|
+| [threads](#/settings/scheduler_threads) | 5             | Threads     |
+
+
 
 ```ini
 # Section for the Scheduler module.
@@ -38,19 +51,14 @@ threads=5
 ```
 
 
-| Key                                     | Default Value | Description  |
-|-----------------------------------------|---------------|--------------|
-| [threads](#/settings/scheduler_threads) | 5             | THREAD COUNT |
-
-
 
 
 <a name="/settings/scheduler_threads"/>
-### threads
 
-**THREAD COUNT**
+**Threads**
 
 Number of threads to use.
+
 
 
 
@@ -63,23 +71,58 @@ Number of threads to use.
 | Used by:       | Scheduler                                   |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/scheduler]
-# THREAD COUNT
+# Threads
 threads=5
 ```
 
 
 <a name="/settings/scheduler/schedules"/>
-## SCHEDULER SECTION
+### Schedules
 
 Section for the Scheduler module.
 
+
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+
+
+**Keys:**
+
+
+| Key         | Default Value | Description        |
+|-------------|---------------|--------------------|
+| alias       |               | ALIAS              |
+| channel     |               | SCHEDULE CHANNEL   |
+| command     |               | SCHEDULE COMMAND   |
+| interval    |               | SCHEDULE INTERAVAL |
+| is template | false         | IS TEMPLATE        |
+| parent      | default       | PARENT             |
+| randomness  |               | RANDOMNESS         |
+| report      |               | REPORT MODE        |
+| schedule    |               | SCHEDULE           |
+| source      |               | SOURCE             |
+| target      |               | TARGET             |
+
+
+**Sample:**
+
 ```ini
-# Section for the Scheduler module.
-[/settings/scheduler/schedules]
+# An example of a Schedules section
+[/settings/scheduler/schedules/sample]
+#alias=...
+#channel=...
+#command=...
+#interval=...
+is template=false
+parent=default
+#randomness=...
+#report=...
+#schedule=...
+#source=...
+#target=...
 
 ```
 

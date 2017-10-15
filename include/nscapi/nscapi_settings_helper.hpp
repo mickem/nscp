@@ -117,6 +117,7 @@ namespace nscapi {
 			settings_paths_easy_init& operator()(key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
 			settings_paths_easy_init& operator()(std::string title, std::string description);
 			settings_paths_easy_init& operator()(std::string path, std::string title, std::string description);
+			settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description);
 			settings_paths_easy_init& operator()(std::string path, key_type value, std::string title, std::string description, std::string subkeytitle, std::string subkeydescription);
 
 		private:

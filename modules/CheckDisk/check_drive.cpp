@@ -755,7 +755,7 @@ void check_drive::check(const Plugin::QueryRequestMessage::Request &request, Plu
 
 	filter_type filter;
 	filter_helper.add_options("used > 80%", "used > 90%", "mounted = 1", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status} ${problem_list}", filter.get_filter_syntax(), "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
+	filter_helper.add_syntax("${status} ${problem_list}", "${drive_or_name}: ${used}/${size} used", "${drive_or_id}", "%(status): No drives found", "%(status) All %(count) drive(s) are ok");
 	filter_helper.get_desc().add_options()
 		("drive", po::value<std::vector<std::string>>(&drives),
 			"The drives to check.\nMultiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives")

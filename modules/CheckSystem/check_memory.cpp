@@ -235,7 +235,7 @@ namespace memory_checks {
 
 			filter_type filter;
 			filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
-			filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${type} = ${used}", "${type}", "", "");
+			filter_helper.add_syntax("${status}: ${list}", "${type} = ${used}", "${type}", "", "");
 			filter_helper.get_desc().add_options()
 				("type", po::value<std::vector<std::string>>(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
 				;

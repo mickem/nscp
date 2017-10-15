@@ -84,15 +84,14 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	users_.set_path(settings.alias().get_settings_path("users"));
 
 	settings.alias().add_path_to_settings()
-		("WEB SERVER SECTION", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
+		("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 
 		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, _1, _2)),
-		"USERS", "Users which can access the REST API",
+		"Users", "Users which can access the REST API",
 		"REST USER", "")
 
 		("roles", sh::string_map_path(&roles)
-		, "Roles", "A list of roles and with coma separated list of access rights.",
-		"Role", "A coma separated list of privileges")
+		, "Roles", "A list of roles and with coma separated list of access rights.")
 
 		;
 	settings.alias().add_key_to_settings()
@@ -124,6 +123,8 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 	certificate = get_core()->expand_path(certificate);
+
+	users_.add_samples(get_settings_proxy());
 
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors = session->boot();

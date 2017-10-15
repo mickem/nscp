@@ -111,11 +111,30 @@ namespace settings {
 				plugins.insert(plugin_id);
 			}
 		};
+
+		struct subkey_description {
+			bool is_subkey;
+			std::string title;
+			std::string description;
+			bool advanced;
+			bool is_sample;
+			subkey_description(std::string title_, std::string description_, bool advanced_, bool is_sample_) : is_subkey(true), title(title_), description(description_), advanced(advanced_), is_sample(is_sample_) {
+			}
+			subkey_description() : is_subkey(false), advanced(false), is_sample(false) {}
+			void update(std::string title_, std::string description_, bool advanced_, bool is_sample_) {
+				is_subkey = true;
+				title = title_;
+				description = description_;
+				advanced = advanced_;
+				is_sample = is_sample_;
+			}
+		};
 		struct path_description {
 			std::string title;
 			std::string description;
 			bool advanced;
 			bool is_sample;
+			subkey_description subkey;
 			typedef std::map<std::string, key_description> keys_type;
 			keys_type keys;
 			std::set<unsigned int> plugins;
@@ -173,6 +192,8 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void register_path(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) = 0;
+
+		virtual void register_subkey(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing = true) = 0;
 
 		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.

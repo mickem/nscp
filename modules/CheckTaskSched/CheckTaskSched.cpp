@@ -136,7 +136,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 
 	filter_type filter;
 	filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "warning");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_filter_syntax(), "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found", "%(status): All tasks are ok");
+	filter_helper.add_syntax("${status}: ${problem_list}", "${folder}/${title}: ${exit_code} != 0", "${title}", "%(status): No tasks found", "%(status): All tasks are ok");
 	filter_helper.get_desc().add_options()
 		("force-old", po::bool_switch(&old), "The name of the computer that you want to connect to.")
 		("computer", po::value<std::string>(&computer), "The name of the computer that you want to connect to.")

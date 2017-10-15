@@ -43,6 +43,8 @@
 namespace nscapi {
 	namespace program_options {
 
+		typedef std::map<std::string, std::string> field_map;
+
 		namespace po = boost::program_options;
 
 		class program_options_exception : public std::exception {
@@ -66,11 +68,11 @@ namespace nscapi {
 		};
 
 
-		static std::vector<boost::program_options::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
-			std::vector<boost::program_options::option> result;
+		static std::vector<po::option> option_parser_kvp(std::vector<std::string> &args, const std::string &break_at) {
+			std::vector<po::option> result;
 			std::vector<std::string>::iterator it;
 			for (it = args.begin(); it != args.end(); ++it) {
-				boost::program_options::option opt;
+				po::option opt;
 				opt.original_tokens.push_back(*it);
 				std::string::size_type pos = (*it).find('=');
 				if (pos == std::string::npos) {
@@ -93,7 +95,7 @@ namespace nscapi {
 			return result;
 		}
 
-		class basic_command_line_parser : public boost::program_options::basic_command_line_parser<char> {
+		class basic_command_line_parser : public po::basic_command_line_parser<char> {
 		public:
 
 
@@ -120,16 +122,16 @@ namespace nscapi {
 				return result;
 			}
 			basic_command_line_parser(const Plugin::QueryRequestMessage::Request &request) 
-				: boost::program_options::basic_command_line_parser<char>(make_vector(request))
+				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
 			basic_command_line_parser(const Plugin::ExecuteRequestMessage::Request &request) 
-				: boost::program_options::basic_command_line_parser<char>(make_vector(request))
+				: po::basic_command_line_parser<char>(make_vector(request))
 			{}
 			basic_command_line_parser(const std::string &arguments) 
-				: boost::program_options::basic_command_line_parser<char>(make_vector(arguments))
+				: po::basic_command_line_parser<char>(make_vector(arguments))
 			{}
 			basic_command_line_parser(const std::vector<std::string> &arguments) 
-				: boost::program_options::basic_command_line_parser<char>(arguments)
+				: po::basic_command_line_parser<char>(arguments)
 			{}
 		};
 
@@ -186,7 +188,7 @@ namespace nscapi {
 
                 // only one tab per paragraph allowed
                 if (count(par.begin(), par.end(), '\t') > 1)
-                    boost::throw_exception(boost::program_options::error(
+                    boost::throw_exception(po::error(
                         "Only one tab per paragraph is allowed in the options description"));
           
                 // erase tab from string
@@ -351,16 +353,16 @@ namespace nscapi {
 			}
 		}
 
-		static std::string help(const boost::program_options::options_description &desc, const std::string &extra_info = "") {
+		static std::string help(const po::options_description &desc, const std::string &extra_info = "") {
 			std::stringstream main_stream;
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 23;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 			}
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				std::stringstream ss;
 				ss << "  " << op->long_name();
 				bool hasargs = op->semantic()->max_tokens() != 0;
@@ -391,12 +393,12 @@ namespace nscapi {
 			return main_stream.str();
 		}
 
-		static std::string help_short(const boost::program_options::options_description &desc, const std::string &extra_info = "") {
+		static std::string help_short(const po::options_description &desc, const std::string &extra_info = "") {
 			std::stringstream main_stream;
 			if (!extra_info.empty())
 				main_stream << extra_info  << std::endl;
 			std::string::size_type opwidth = 0;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				if (op->long_name().size() > opwidth)
 					opwidth = op->long_name().size();
 				if (op->semantic()->max_tokens() != 0) {
@@ -406,7 +408,7 @@ namespace nscapi {
 				}
 			}
 			opwidth++;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				std::stringstream ss;
 				ss << op->long_name();
 				if (op->semantic()->max_tokens() != 0)
@@ -426,7 +428,7 @@ namespace nscapi {
 		}
 
 		template<class T>
-		void invalid_syntax(const boost::program_options::options_description &desc, const std::string &, const std::string &error, T &response) {
+		void invalid_syntax(const po::options_description &desc, const std::string &, const std::string &error, T &response) {
 			nscapi::protobuf::functions::set_response_bad(response, help_short(desc, error));
 		}
 		static std::string make_csv(const std::string s) {
@@ -438,9 +440,9 @@ namespace nscapi {
 			}
 			return ret;
 		}
-		inline std::string help_csv(const boost::program_options::options_description &desc, const std::string &) {
+		inline std::string help_csv(const po::options_description &desc, const std::string &) {
 			std::stringstream main_stream;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				main_stream << make_csv(op->long_name()) << ",";
 				bool hasargs = op->semantic()->max_tokens() != 0;
 				if (hasargs)
@@ -453,9 +455,9 @@ namespace nscapi {
 		}
 
 
-		inline std::string help_pb(const boost::program_options::options_description &desc) {
+		inline std::string help_pb(const po::options_description &desc, const field_map &fields) {
 			::Plugin::Registry::ParameterDetails details;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				::Plugin::Registry::ParameterDetail *detail = details.add_parameter();
 				detail->set_name(op->long_name());
 				bool hasargs = op->semantic()->max_tokens() != 0;
@@ -472,12 +474,22 @@ namespace nscapi {
 					detail->set_short_description(desc.substr(0, pos));
 				detail->set_long_description(desc);
 			}
+			BOOST_FOREACH(const field_map::value_type &v, fields) {
+				::Plugin::Registry::FieldDetail *field= details.add_fields();
+				field->set_name(v.first);
+				field->set_long_description(v.second);
+			}
 			return details.SerializeAsString();
 		}
 
-		inline std::string help_show_default(const boost::program_options::options_description &desc) {
+		inline std::string help_pb(const po::options_description &desc) {
+			return help_pb(desc, field_map());
+		}
+
+
+		inline std::string help_show_default(const po::options_description &desc) {
 			std::stringstream ret;
-			BOOST_FOREACH(const boost::shared_ptr<boost::program_options::option_description> op, desc.options()) {
+			BOOST_FOREACH(const boost::shared_ptr<po::option_description> op, desc.options()) {
 				std::string param = strip_default_value(op->format_parameter());
 				if (param.empty())
 					continue;
@@ -489,8 +501,51 @@ namespace nscapi {
 
 		typedef std::vector<std::string> unrecognized_map;
 		
+
+
+		template<class U>
+		bool du_parse(po::variables_map &vm, const po::options_description &desc, U &response) {
+			if (vm.count("show-default")) {
+				nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+				return false;
+			}
+			if (vm.count("help-pb")) {
+				nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
+				return false;
+			}
+			if (vm.count("help-short")) {
+				nscapi::protobuf::functions::set_response_good(response, help_short(desc));
+				return false;
+			}
+			if (vm.count("help")) {
+				nscapi::protobuf::functions::set_response_good(response, help(desc));
+				return false;
+			}
+			return true;
+		}
+		template<class U>
+		bool du_parse(po::variables_map &vm, const po::options_description &desc, const field_map &fields, U &response) {
+			if (vm.count("show-default")) {
+				nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+				return false;
+			}
+			if (vm.count("help-pb")) {
+				nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc, fields));
+				return false;
+			}
+			if (vm.count("help-short")) {
+				nscapi::protobuf::functions::set_response_good(response, help_short(desc));
+				return false;
+			}
+			if (vm.count("help")) {
+				nscapi::protobuf::functions::set_response_good(response, help(desc));
+				return false;
+			}
+			return true;
+		}
+
 		template<class T, class U>
-		bool process_arguments_unrecognized(boost::program_options::variables_map &vm, unrecognized_map &unrecognized, const boost::program_options::options_description &desc, const T &request, U &response) {
+		bool process_arguments_unrecognized(po::variables_map &vm, unrecognized_map &unrecognized, const po::options_description &desc, const T &request, U &response) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
@@ -506,26 +561,14 @@ namespace nscapi {
 				unrecognized_map un = po::collect_unrecognized(parsed.options, po::include_positional);
 				unrecognized.insert(unrecognized.end(), un.begin(), un.end());
 
-				if (vm.count("help-pb")) {
-					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
-					return false;
-				}
-				if (vm.count("help-short")) {
-					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
-					return false;
-				}
-				if (vm.count("help")) {
-					nscapi::protobuf::functions::set_response_good(response, help(desc));
-					return false;
-				}
-				return true;
+				return du_parse<U>(vm, desc, response);
 			} catch (const std::exception &e) {
 				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
 				return false;
 			}
 		}
 		template<class T, class U>
-		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response) {
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const T &request, U &response) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
@@ -539,23 +582,7 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("show-default")) {
-					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
-					return false;
-				}
-				if (vm.count("help-pb")) {
-					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
-					return false;
-				}
-				if (vm.count("help-short")) {
-					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
-					return false;
-				}
-				if (vm.count("help")) {
-					nscapi::protobuf::functions::set_response_good(response, help(desc));
-					return false;
-				}
-				return true;
+				return du_parse<U>(vm, desc, response);
 			} catch (const std::exception &e) {
 				nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), response);
 				return false;
@@ -563,7 +590,29 @@ namespace nscapi {
 		}
 
 		template<class T, class U>
-		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, boost::program_options::positional_options_description p) {
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const field_map fields, const T &request, U &response) {
+			try {
+				basic_command_line_parser cmd(request);
+				cmd.options(desc);
+				if (request.arguments_size() > 0) {
+					std::string a = request.arguments(0);
+					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
+				}
+
+				po::parsed_options parsed = cmd.run();
+				po::store(parsed, vm);
+				po::notify(vm);
+
+				return du_parse<U>(vm, desc, fields, response);
+			} catch (const std::exception &e) {
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), response);
+				return false;
+			}
+		}
+
+		template<class T, class U>
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const T &request, U &response, po::positional_options_description p) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
@@ -579,30 +628,39 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("show-default")) {
-					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
-					return false;
-				}
-				if (vm.count("help-pb")) {
-					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
-					return false;
-				}
-				if (vm.count("help-short")) {
-					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
-					return false;
-				}
-				if (vm.count("help")) {
-					nscapi::protobuf::functions::set_response_good(response, help(desc));
-					return false;
-				}
-				return true;
+				return du_parse<U>(vm, desc, response);
 			} catch (const std::exception &e) {
 				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
 				return false;
 			}
 		}
+
 		template<class T, class U>
-		bool process_arguments_from_request(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const T &request, U &response, bool allow_unknown, std::vector<std::string> &extra) {
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const field_map &fields, const T &request, U &response, po::positional_options_description p) {
+			try {
+				basic_command_line_parser cmd(request);
+				cmd.options(desc);
+				cmd.positional(p);
+
+				if (request.arguments_size() > 0) {
+					std::string a = request.arguments(0);
+					if (a.size() < 2 || (a[0] != '-'))
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, p.name_for_position(0)));
+				}
+
+				po::parsed_options parsed = cmd.run();
+				po::store(parsed, vm);
+				po::notify(vm);
+
+				return du_parse<U>(vm, desc, fields, response);
+			} catch (const std::exception &e) {
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
+				return false;
+			}
+		}
+
+		template<class T, class U>
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const T &request, U &response, bool allow_unknown, std::vector<std::string> &extra) {
 			try {
 				basic_command_line_parser cmd(request);
 				cmd.options(desc);
@@ -619,20 +677,38 @@ namespace nscapi {
 				po::store(parsed, vm);
 				po::notify(vm);
 
-				if (vm.count("show-default")) {
-					nscapi::protobuf::functions::set_response_good(response, help_show_default(desc));
+				if (!du_parse<U>(vm, desc, response)) {
 					return false;
 				}
-				if (vm.count("help-pb")) {
-					nscapi::protobuf::functions::set_response_good_wdata(response, help_pb(desc));
-					return false;
+				if (allow_unknown) {
+					std::vector<std::string> extra2 = po::collect_unrecognized(parsed.options, po::include_positional);
+					extra.insert(extra.begin(), extra2.begin(), extra2.end());
 				}
-				if (vm.count("help-short")) {
-					nscapi::protobuf::functions::set_response_good(response, help_short(desc));
-					return false;
+				return true;
+			} catch (const std::exception &e) {
+				nscapi::program_options::invalid_syntax(desc, request.command(), "Failed to parse command line re-run with help to get help: " + utf8::utf8_from_native(e.what()), response);
+				return false;
+			}
+		}
+		template<class T, class U>
+		bool process_arguments_from_request(po::variables_map &vm, const po::options_description &desc, const field_map &fields, const T &request, U &response, bool allow_unknown, std::vector<std::string> &extra) {
+			try {
+				basic_command_line_parser cmd(request);
+				cmd.options(desc);
+				if (allow_unknown)
+					cmd.allow_unregistered();
+
+				if (request.arguments_size() > 0) {
+					std::string a = request.arguments(0);
+					if (a.size() <= 2 || (a[0] != '-' && a[1] != '-'))
+						cmd.extra_style_parser(boost::bind(nscapi::program_options::option_parser_kvp, _1, ""));
 				}
-				if (vm.count("help")) {
-					nscapi::protobuf::functions::set_response_good(response, help(desc));
+
+				po::parsed_options parsed = cmd.run();
+				po::store(parsed, vm);
+				po::notify(vm);
+
+				if (!du_parse<U>(vm, desc, fields, response)) {
 					return false;
 				}
 				if (allow_unknown) {
@@ -646,7 +722,7 @@ namespace nscapi {
 			}
 		}
 		template<class T>
-		bool process_arguments_from_vector(boost::program_options::variables_map &vm, const boost::program_options::options_description &desc, const std::string &command, const std::vector<std::string> &arguments, T &response) {
+		bool process_arguments_from_vector(po::variables_map &vm, const po::options_description &desc, const std::string &command, const std::vector<std::string> &arguments, T &response) {
 			try {
 				basic_command_line_parser cmd(arguments);
 				cmd.options(desc);

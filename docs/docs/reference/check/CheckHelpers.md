@@ -4,7 +4,7 @@ Various helper function to extend other checks.
 
 
 
-## List of commands
+**List of commands:**
 
 A list of all available queries (check commands)
 
@@ -26,7 +26,7 @@ A list of all available queries (check commands)
 | [xform_perf](#xform_perf)                       | Run a check and transform the performance data in various (currently one) way.      |
 
 
-## List of command aliases
+**List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
@@ -48,1352 +48,798 @@ A list of all short hand aliases for queries (check commands)
 
 
 
-# Queries
+## Queries
 
 A quick reference for all available queries (check commands) in the CheckHelpers module.
 
-## check_always_critical
+### check_always_critical
 
 Run another check and regardless of its return code return CRITICAL.
 
 
-### Usage
+* [Command-line Arguments](#check_always_critical_options)
 
 
-| Option                                              | Default Value | Description                                   |
-|-----------------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_always_critical_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_always_critical_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_always_critical_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_always_critical_help-short)     | N/A           | Show help screen (short format).              |
+
 
 
 <a name="check_always_critical_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_always_critical_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_always_critical_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_always_critical_help-short"/>
-### help-short
+
+<a name="check_always_critical_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
-## check_always_ok
+### check_always_ok
 
 Run another check and regardless of its return code return OK.
 
 
-### Usage
+* [Command-line Arguments](#check_always_ok_options)
 
 
-| Option                                        | Default Value | Description                                   |
-|-----------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_always_ok_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_always_ok_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_always_ok_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_always_ok_help-short)     | N/A           | Show help screen (short format).              |
+
 
 
 <a name="check_always_ok_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_always_ok_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_always_ok_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_always_ok_help-short"/>
-### help-short
+
+<a name="check_always_ok_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
-## check_always_warning
+### check_always_warning
 
 Run another check and regardless of its return code return WARNING.
 
 
-### Usage
+* [Command-line Arguments](#check_always_warning_options)
 
 
-| Option                                             | Default Value | Description                                   |
-|----------------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_always_warning_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_always_warning_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_always_warning_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_always_warning_help-short)     | N/A           | Show help screen (short format).              |
+
 
 
 <a name="check_always_warning_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_always_warning_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_always_warning_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_always_warning_help-short"/>
-### help-short
+
+<a name="check_always_warning_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
-## check_and_forward
+### check_and_forward
 
 Run a check and forward the result as a passive check.
 
 
-### Usage
+* [Command-line Arguments](#check_and_forward_options)
 
 
-| Option                                          | Default Value | Description                                   |
-|-------------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_and_forward_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_and_forward_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_and_forward_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_and_forward_help-short)     | N/A           | Show help screen (short format).              |
-| [target](#check_and_forward_target)             |               | Commands to run (can be used multiple times)  |
-| [command](#check_and_forward_command)           |               | Commands to run (can be used multiple times)  |
-| [arguments](#check_and_forward_arguments)       |               | List of arguments (for wrapped command)       |
+
 
 
 <a name="check_and_forward_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_and_forward_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_and_forward_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_and_forward_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="check_and_forward_target"/>
-### target
-
-
-
-**Description:**
-Commands to run (can be used multiple times)
 
 <a name="check_and_forward_command"/>
-### command
-
-
-
-**Description:**
-Commands to run (can be used multiple times)
 
 <a name="check_and_forward_arguments"/>
-### arguments
+
+<a name="check_and_forward_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
+| target       |               | Commands to run (can be used multiple times)  |
+| command      |               | Commands to run (can be used multiple times)  |
+| arguments    |               | List of arguments (for wrapped command)       |
 
 
 
-**Description:**
-List of arguments (for wrapped command)
 
-## check_critical
+### check_critical
 
 Just return CRITICAL (anything passed along will be used as a message).
 
 
-### Usage
+* [Command-line Arguments](#check_critical_options)
 
 
-| Option                                       | Default Value | Description                                   |
-|----------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_critical_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_critical_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_critical_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_critical_help-short)     | N/A           | Show help screen (short format).              |
-| [message](#check_critical_message)           | No message    | Message to return                             |
+
 
 
 <a name="check_critical_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_critical_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_critical_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_critical_help-short"/>
-### help-short
+
+<a name="check_critical_options"/>
+#### Command-line Arguments
 
 
+| Option                             | Default Value | Description                                   |
+|------------------------------------|---------------|-----------------------------------------------|
+| help                               | N/A           | Show help screen (this screen)                |
+| help-pb                            | N/A           | Show help screen as a protocol buffer payload |
+| show-default                       | N/A           | Show default values for a given command       |
+| help-short                         | N/A           | Show help screen (short format).              |
+| [message](#check_critical_message) | No message    | Message to return                             |
 
-**Description:**
-Show help screen (short format).
+
 
 <a name="check_critical_message"/>
-### message
+**message:**
 
-
-**Deafult Value:** No message
-
-**Description:**
 Message to return
 
-## check_multi
+
+*Deafult Value:* | `No message`
+
+
+
+
+### check_multi
 
 Run more then one check and return the worst state.
 
 
-### Usage
+* [Command-line Arguments](#check_multi_options)
 
 
-| Option                                    | Default Value | Description                                   |
-|-------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_multi_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_multi_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_multi_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_multi_help-short)     | N/A           | Show help screen (short format).              |
-| [command](#check_multi_command)           |               | Commands to run (can be used multiple times)  |
-| [arguments](#check_multi_arguments)       |               | Deprecated alias for command                  |
-| [separator](#check_multi_separator)       | ,             | Separator between messages                    |
-| [prefix](#check_multi_prefix)             |               | Message prefix                                |
-| [suffix](#check_multi_suffix)             |               | Message suffix                                |
+
 
 
 <a name="check_multi_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_multi_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_multi_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_multi_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="check_multi_command"/>
-### command
-
-
-
-**Description:**
-Commands to run (can be used multiple times)
 
 <a name="check_multi_arguments"/>
-### arguments
-
-
-
-**Description:**
-Deprecated alias for command
-
-<a name="check_multi_separator"/>
-### separator
-
-
-**Deafult Value:** , 
-
-**Description:**
-Separator between messages
 
 <a name="check_multi_prefix"/>
-### prefix
-
-
-
-**Description:**
-Message prefix
 
 <a name="check_multi_suffix"/>
-### suffix
+
+<a name="check_multi_options"/>
+#### Command-line Arguments
+
+
+| Option                              | Default Value | Description                                   |
+|-------------------------------------|---------------|-----------------------------------------------|
+| help                                | N/A           | Show help screen (this screen)                |
+| help-pb                             | N/A           | Show help screen as a protocol buffer payload |
+| show-default                        | N/A           | Show default values for a given command       |
+| help-short                          | N/A           | Show help screen (short format).              |
+| command                             |               | Commands to run (can be used multiple times)  |
+| arguments                           |               | Deprecated alias for command                  |
+| [separator](#check_multi_separator) | ,             | Separator between messages                    |
+| prefix                              |               | Message prefix                                |
+| suffix                              |               | Message suffix                                |
 
 
 
-**Description:**
-Message suffix
+<a name="check_multi_separator"/>
+**separator:**
 
-## check_negate
+Separator between messages
+
+
+*Deafult Value:* | `, `
+
+
+
+
+### check_negate
 
 Run a check and alter the return status codes according to arguments.
 
 
-### Usage
+* [Command-line Arguments](#check_negate_options)
 
 
-| Option                                     | Default Value | Description                                   |
-|--------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_negate_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_negate_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_negate_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_negate_help-short)     | N/A           | Show help screen (short format).              |
-| [ok](#check_negate_ok)                     |               | The state to return instead of OK             |
-| [warning](#check_negate_warning)           |               | The state to return instead of WARNING        |
-| [critical](#check_negate_critical)         |               | The state to return instead of CRITICAL       |
-| [unknown](#check_negate_unknown)           |               | The state to return instead of UNKNOWN        |
-| [command](#check_negate_command)           |               | Wrapped command to execute                    |
-| [arguments](#check_negate_arguments)       |               | List of arguments (for wrapped command)       |
+
 
 
 <a name="check_negate_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_negate_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_negate_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_negate_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="check_negate_ok"/>
-### ok
-
-
-
-**Description:**
-The state to return instead of OK
 
 <a name="check_negate_warning"/>
-### warning
-
-
-
-**Description:**
-The state to return instead of WARNING
 
 <a name="check_negate_critical"/>
-### critical
-
-
-
-**Description:**
-The state to return instead of CRITICAL
 
 <a name="check_negate_unknown"/>
-### unknown
-
-
-
-**Description:**
-The state to return instead of UNKNOWN
 
 <a name="check_negate_command"/>
-### command
-
-
-
-**Description:**
-Wrapped command to execute
 
 <a name="check_negate_arguments"/>
-### arguments
+
+<a name="check_negate_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
+| ok           |               | The state to return instead of OK             |
+| warning      |               | The state to return instead of WARNING        |
+| critical     |               | The state to return instead of CRITICAL       |
+| unknown      |               | The state to return instead of UNKNOWN        |
+| command      |               | Wrapped command to execute                    |
+| arguments    |               | List of arguments (for wrapped command)       |
 
 
 
-**Description:**
-List of arguments (for wrapped command)
 
-## check_ok
+### check_ok
 
 Just return OK (anything passed along will be used as a message).
 
 
-### Usage
+* [Command-line Arguments](#check_ok_options)
 
 
-| Option                                 | Default Value | Description                                   |
-|----------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_ok_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_ok_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_ok_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_ok_help-short)     | N/A           | Show help screen (short format).              |
-| [message](#check_ok_message)           | No message    | Message to return                             |
+
 
 
 <a name="check_ok_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_ok_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_ok_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_ok_help-short"/>
-### help-short
+
+<a name="check_ok_options"/>
+#### Command-line Arguments
 
 
+| Option                       | Default Value | Description                                   |
+|------------------------------|---------------|-----------------------------------------------|
+| help                         | N/A           | Show help screen (this screen)                |
+| help-pb                      | N/A           | Show help screen as a protocol buffer payload |
+| show-default                 | N/A           | Show default values for a given command       |
+| help-short                   | N/A           | Show help screen (short format).              |
+| [message](#check_ok_message) | No message    | Message to return                             |
 
-**Description:**
-Show help screen (short format).
+
 
 <a name="check_ok_message"/>
-### message
+**message:**
 
-
-**Deafult Value:** No message
-
-**Description:**
 Message to return
 
-## check_timeout
+
+*Deafult Value:* | `No message`
+
+
+
+
+### check_timeout
 
 Run a check and timeout after a given amount of time if the check has not returned.
 
 
-### Usage
+* [Command-line Arguments](#check_timeout_options)
 
 
-| Option                                      | Default Value | Description                                   |
-|---------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_timeout_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_timeout_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_timeout_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_timeout_help-short)     | N/A           | Show help screen (short format).              |
-| [timeout](#check_timeout_timeout)           |               | The timeout value                             |
-| [command](#check_timeout_command)           |               | Wrapped command to execute                    |
-| [arguments](#check_timeout_arguments)       |               | List of arguments (for wrapped command)       |
-| [return](#check_timeout_return)             |               | The return status                             |
+
 
 
 <a name="check_timeout_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_timeout_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_timeout_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_timeout_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="check_timeout_timeout"/>
-### timeout
-
-
-
-**Description:**
-The timeout value
 
 <a name="check_timeout_command"/>
-### command
-
-
-
-**Description:**
-Wrapped command to execute
 
 <a name="check_timeout_arguments"/>
-### arguments
-
-
-
-**Description:**
-List of arguments (for wrapped command)
 
 <a name="check_timeout_return"/>
-### return
+
+<a name="check_timeout_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
+| timeout      |               | The timeout value                             |
+| command      |               | Wrapped command to execute                    |
+| arguments    |               | List of arguments (for wrapped command)       |
+| return       |               | The return status                             |
 
 
 
-**Description:**
-The return status
 
-## check_version
+### check_version
 
 Just return the NSClient++ version.
 
 
-### Usage
+* [Command-line Arguments](#check_version_options)
 
 
-| Option                                      | Default Value | Description                                   |
-|---------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_version_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_version_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_version_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_version_help-short)     | N/A           | Show help screen (short format).              |
+
 
 
 <a name="check_version_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_version_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_version_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_version_help-short"/>
-### help-short
+
+<a name="check_version_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
-## check_warning
+### check_warning
 
 Just return WARNING (anything passed along will be used as a message).
 
 
-### Usage
+* [Command-line Arguments](#check_warning_options)
 
 
-| Option                                      | Default Value | Description                                   |
-|---------------------------------------------|---------------|-----------------------------------------------|
-| [help](#check_warning_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#check_warning_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#check_warning_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#check_warning_help-short)     | N/A           | Show help screen (short format).              |
-| [message](#check_warning_message)           | No message    | Message to return                             |
+
 
 
 <a name="check_warning_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="check_warning_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="check_warning_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="check_warning_help-short"/>
-### help-short
+
+<a name="check_warning_options"/>
+#### Command-line Arguments
 
 
+| Option                            | Default Value | Description                                   |
+|-----------------------------------|---------------|-----------------------------------------------|
+| help                              | N/A           | Show help screen (this screen)                |
+| help-pb                           | N/A           | Show help screen as a protocol buffer payload |
+| show-default                      | N/A           | Show default values for a given command       |
+| help-short                        | N/A           | Show help screen (short format).              |
+| [message](#check_warning_message) | No message    | Message to return                             |
 
-**Description:**
-Show help screen (short format).
+
 
 <a name="check_warning_message"/>
-### message
+**message:**
 
-
-**Deafult Value:** No message
-
-**Description:**
 Message to return
 
-## filter_perf
+
+*Deafult Value:* | `No message`
+
+
+
+
+### filter_perf
 
 Run a check and filter performance data.
 
 
-### Usage
+* [Command-line Arguments](#filter_perf_options)
 
 
-| Option                                    | Default Value | Description                                                 |
-|-------------------------------------------|---------------|-------------------------------------------------------------|
-| [help](#filter_perf_help)                 | N/A           | Show help screen (this screen)                              |
-| [help-pb](#filter_perf_help-pb)           | N/A           | Show help screen as a protocol buffer payload               |
-| [show-default](#filter_perf_show-default) | N/A           | Show default values for a given command                     |
-| [help-short](#filter_perf_help-short)     | N/A           | Show help screen (short format).                            |
-| [sort](#filter_perf_sort)                 | none          | The sort order to use: none, normal or reversed             |
-| [limit](#filter_perf_limit)               | 0             | The maximum number of items to return (0 returns all items) |
-| [command](#filter_perf_command)           |               | Wrapped command to execute                                  |
-| [arguments](#filter_perf_arguments)       |               | List of arguments (for wrapped command)                     |
+
 
 
 <a name="filter_perf_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="filter_perf_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="filter_perf_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="filter_perf_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
-
-<a name="filter_perf_sort"/>
-### sort
-
-
-**Deafult Value:** none
-
-**Description:**
-The sort order to use: none, normal or reversed
-
-<a name="filter_perf_limit"/>
-### limit
-
-
-**Deafult Value:** 0
-
-**Description:**
-The maximum number of items to return (0 returns all items)
 
 <a name="filter_perf_command"/>
-### command
-
-
-
-**Description:**
-Wrapped command to execute
 
 <a name="filter_perf_arguments"/>
-### arguments
+
+<a name="filter_perf_options"/>
+#### Command-line Arguments
+
+
+| Option                      | Default Value | Description                                                 |
+|-----------------------------|---------------|-------------------------------------------------------------|
+| help                        | N/A           | Show help screen (this screen)                              |
+| help-pb                     | N/A           | Show help screen as a protocol buffer payload               |
+| show-default                | N/A           | Show default values for a given command                     |
+| help-short                  | N/A           | Show help screen (short format).                            |
+| [sort](#filter_perf_sort)   | none          | The sort order to use: none, normal or reversed             |
+| [limit](#filter_perf_limit) | 0             | The maximum number of items to return (0 returns all items) |
+| command                     |               | Wrapped command to execute                                  |
+| arguments                   |               | List of arguments (for wrapped command)                     |
 
 
 
-**Description:**
-List of arguments (for wrapped command)
+<a name="filter_perf_sort"/>
+**sort:**
 
-## render_perf
+The sort order to use: none, normal or reversed
+
+
+*Deafult Value:* | `none`
+
+
+
+<a name="filter_perf_limit"/>
+**limit:**
+
+The maximum number of items to return (0 returns all items)
+
+
+*Deafult Value:* | `0`
+
+
+
+
+### render_perf
 
 Run a check and render the performance data as output message.
 
 
-### Usage
-
-
-| Option                                      | Default Value                                          | Description                                                                                                      |
-|---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#render_perf_filter)               |                                                        | Filter which marks interesting items.                                                                            |
-| [warning](#render_perf_warning)             |                                                        | Filter which marks items which generates a warning state.                                                        |
-| [warn](#render_perf_warn)                   |                                                        | Short alias for warning                                                                                          |
-| [critical](#render_perf_critical)           |                                                        | Filter which marks items which generates a critical state.                                                       |
-| [crit](#render_perf_crit)                   |                                                        | Short alias for critical.                                                                                        |
-| [ok](#render_perf_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
-| [debug](#render_perf_debug)                 | N/A                                                    | Show debugging information in the log                                                                            |
-| [show-all](#render_perf_show-all)           | N/A                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#render_perf_empty-state)     | unknown                                                | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#render_perf_perf-config)     |                                                        | Performance data generation configuration                                                                        |
-| [escape-html](#render_perf_escape-html)     | N/A                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
-| [help](#render_perf_help)                   | N/A                                                    | Show help screen (this screen)                                                                                   |
-| [help-pb](#render_perf_help-pb)             | N/A                                                    | Show help screen as a protocol buffer payload                                                                    |
-| [show-default](#render_perf_show-default)   | N/A                                                    | Show default values for a given command                                                                          |
-| [help-short](#render_perf_help-short)       | N/A                                                    | Show help screen (short format).                                                                                 |
-| [top-syntax](#render_perf_top-syntax)       | %(status): %(message) %(list)                          | Top level syntax.                                                                                                |
-| [ok-syntax](#render_perf_ok-syntax)         |                                                        | ok syntax.                                                                                                       |
-| [empty-syntax](#render_perf_empty-syntax)   |                                                        | Empty syntax.                                                                                                    |
-| [detail-syntax](#render_perf_detail-syntax) | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
- | Detail level syntax.                                                                                             |
-| [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
-| [command](#render_perf_command)             |                                                        | Wrapped command to execute                                                                                       |
-| [arguments](#render_perf_arguments)         |                                                        | List of arguments (for wrapped command)                                                                          |
-| [remove-perf](#render_perf_remove-perf)     | N/A                                                    | List of arguments (for wrapped command)                                                                          |
-
-
-<a name="render_perf_filter"/>
-### filter
-
-
-
-**Description:**
-Filter which marks interesting items.
-Interesting items are items which will be included in the check.
-They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
-Available options : 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| crit          | Major version number                                                                                          |
-| key           | Major version number                                                                                          |
-| max           | Major version number                                                                                          |
-| message       | Major version number                                                                                          |
-| min           | Major version number                                                                                          |
-| unit          | Major version number                                                                                          |
-| value         | Major version number                                                                                          |
-| warn          | Major version number                                                                                          |
-
-
-
-
-
-
-
-<a name="render_perf_warning"/>
-### warning
-
-
-
-**Description:**
-Filter which marks items which generates a warning state.
-If anything matches this filter the return status will be escalated to warning.
-Available options : 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| crit          | Major version number                                                                                          |
-| key           | Major version number                                                                                          |
-| max           | Major version number                                                                                          |
-| message       | Major version number                                                                                          |
-| min           | Major version number                                                                                          |
-| unit          | Major version number                                                                                          |
-| value         | Major version number                                                                                          |
-| warn          | Major version number                                                                                          |
-
-
+* [Command-line Arguments](#render_perf_options)
+* [Filter keywords](#render_perf_filter_keys)
 
 
 
 
 
 <a name="render_perf_warn"/>
-### warn
-
-
-
-**Description:**
-Short alias for warning
-
-<a name="render_perf_critical"/>
-### critical
-
-
-
-**Description:**
-Filter which marks items which generates a critical state.
-If anything matches this filter the return status will be escalated to critical.
-Available options : 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| crit          | Major version number                                                                                          |
-| key           | Major version number                                                                                          |
-| max           | Major version number                                                                                          |
-| message       | Major version number                                                                                          |
-| min           | Major version number                                                                                          |
-| unit          | Major version number                                                                                          |
-| value         | Major version number                                                                                          |
-| warn          | Major version number                                                                                          |
-
-
-
-
-
-
 
 <a name="render_perf_crit"/>
-### crit
-
-
-
-**Description:**
-Short alias for critical.
-
-<a name="render_perf_ok"/>
-### ok
-
-
-
-**Description:**
-Filter which marks items which generates an ok state.
-If anything matches this any previous state for this item will be reset to ok.
-Available options : 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| crit          | Major version number                                                                                          |
-| key           | Major version number                                                                                          |
-| max           | Major version number                                                                                          |
-| message       | Major version number                                                                                          |
-| min           | Major version number                                                                                          |
-| unit          | Major version number                                                                                          |
-| value         | Major version number                                                                                          |
-| warn          | Major version number                                                                                          |
-
-
-
-
-
-
 
 <a name="render_perf_debug"/>
-### debug
-
-
-
-**Description:**
-Show debugging information in the log
 
 <a name="render_perf_show-all"/>
-### show-all
+
+<a name="render_perf_escape-html"/>
+
+<a name="render_perf_help"/>
+
+<a name="render_perf_help-pb"/>
+
+<a name="render_perf_show-default"/>
+
+<a name="render_perf_help-short"/>
+
+<a name="render_perf_command"/>
+
+<a name="render_perf_arguments"/>
+
+<a name="render_perf_remove-perf"/>
+
+<a name="render_perf_options"/>
+#### Command-line Arguments
+
+
+| Option                                      | Default Value                                          | Description                                                                                                      |
+|---------------------------------------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#render_perf_filter)               |                                                        | Filter which marks interesting items.                                                                            |
+| [warning](#render_perf_warning)             |                                                        | Filter which marks items which generates a warning state.                                                        |
+| warn                                        |                                                        | Short alias for warning                                                                                          |
+| [critical](#render_perf_critical)           |                                                        | Filter which marks items which generates a critical state.                                                       |
+| crit                                        |                                                        | Short alias for critical.                                                                                        |
+| [ok](#render_perf_ok)                       |                                                        | Filter which marks items which generates an ok state.                                                            |
+| debug                                       | N/A                                                    | Show debugging information in the log                                                                            |
+| show-all                                    | N/A                                                    | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#render_perf_empty-state)     | unknown                                                | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#render_perf_perf-config)     |                                                        | Performance data generation configuration                                                                        |
+| escape-html                                 | N/A                                                    | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                        | N/A                                                    | Show help screen (this screen)                                                                                   |
+| help-pb                                     | N/A                                                    | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                | N/A                                                    | Show default values for a given command                                                                          |
+| help-short                                  | N/A                                                    | Show help screen (short format).                                                                                 |
+| [top-syntax](#render_perf_top-syntax)       | %(status): %(message) %(list)                          | Top level syntax.                                                                                                |
+| [ok-syntax](#render_perf_ok-syntax)         |                                                        | ok syntax.                                                                                                       |
+| [empty-syntax](#render_perf_empty-syntax)   |                                                        | Empty syntax.                                                                                                    |
+| [detail-syntax](#render_perf_detail-syntax) | %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+ | Detail level syntax.                                                                                             |
+| [perf-syntax](#render_perf_perf-syntax)     | %(key)                                                 | Performance alias syntax.                                                                                        |
+| command                                     |                                                        | Wrapped command to execute                                                                                       |
+| arguments                                   |                                                        | List of arguments (for wrapped command)                                                                          |
+| remove-perf                                 | N/A                                                    | List of arguments (for wrapped command)                                                                          |
 
 
 
-**Description:**
-Show details for all matches regardless of status (normally details are only showed for warnings and criticals).
+<a name="render_perf_filter"/>
+**filter:**
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+
+
+
+<a name="render_perf_warning"/>
+**warning:**
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+
+
+
+<a name="render_perf_critical"/>
+**critical:**
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+
+
+
+
+<a name="render_perf_ok"/>
+**ok:**
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+
+
+
 
 <a name="render_perf_empty-state"/>
-### empty-state
+**empty-state:**
 
-
-**Deafult Value:** unknown
-
-**Description:**
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+
+*Deafult Value:* | `unknown`
+
+
+
 <a name="render_perf_perf-config"/>
-### perf-config
+**perf-config:**
 
-
-
-**Description:**
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
-<a name="render_perf_escape-html"/>
-### escape-html
 
 
 
-**Description:**
-Escape any < and > characters to prevent HTML encoding
-
-<a name="render_perf_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
-
-<a name="render_perf_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
-
-<a name="render_perf_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
-
-<a name="render_perf_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="render_perf_top-syntax"/>
-### top-syntax
+**top-syntax:**
 
-
-**Deafult Value:** %(status): %(message) %(list)
-
-**Description:**
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
-The available keywords are: 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
 
 
-
+*Deafult Value:* | `%(status): %(message) %(list)`
 
 
 
 <a name="render_perf_ok-syntax"/>
-### ok-syntax
+**ok-syntax:**
 
-
-
-**Description:**
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
+
+
+
+
 <a name="render_perf_empty-syntax"/>
-### empty-syntax
+**empty-syntax:**
 
-
-
-**Description:**
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
-Possible values are: 
-
-| Key           | Value                                                                                                         |
-|---------------|---------------------------------------------------------------------------------------------------------------|
-| count         | Number of items matching the filter. Common option for all checks.                                            |
-| total         |  Total number of items. Common option for all checks.                                                         |
-| ok_count      |  Number of items matched the ok criteria. Common option for all checks.                                       |
-| warn_count    |  Number of items matched the warning criteria. Common option for all checks.                                  |
-| crit_count    |  Number of items matched the critical criteria. Common option for all checks.                                 |
-| problem_count |  Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| list          |  A list of all items which matched the filter. Common option for all checks.                                  |
-| ok_list       |  A list of all items which matched the ok criteria. Common option for all checks.                             |
-| warn_list     |  A list of all items which matched the warning criteria. Common option for all checks.                        |
-| crit_list     |  A list of all items which matched the critical criteria. Common option for all checks.                       |
-| problem_list  |  A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| detail_list   |  A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| status        |  The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-
 
 
 
 
 
 <a name="render_perf_detail-syntax"/>
-### detail-syntax
+**detail-syntax:**
 
-
-**Deafult Value:** %(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
-
-
-**Description:**
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
-The available keywords are: 
-
-| Key     | Value                |
-|---------|----------------------|
-| crit    | Major version number |
-| key     | Major version number |
-| max     | Major version number |
-| message | Major version number |
-| min     | Major version number |
-| unit    | Major version number |
-| value   | Major version number |
-| warn    | Major version number |
 
 
-
+*Deafult Value:* | `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+`
 
 
 
 <a name="render_perf_perf-syntax"/>
-### perf-syntax
+**perf-syntax:**
 
-
-**Deafult Value:** %(key)
-
-**Description:**
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
-Possible values are: 
 
-| Key     | Value                |
-|---------|----------------------|
-| crit    | Major version number |
-| key     | Major version number |
-| max     | Major version number |
-| message | Major version number |
-| min     | Major version number |
-| unit    | Major version number |
-| value   | Major version number |
-| warn    | Major version number |
+
+*Deafult Value:* | `%(key)`
 
 
 
 
+<a name="render_perf_filter_keys"/>
+#### Filter keywords
 
 
-<a name="render_perf_command"/>
-### command
+| Option                                      | Description                                                                                                  |
+|---------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [count](#render_perf_count)                 | Number of items matching the filter. Common option for all checks.                                           |
+| [crit](#render_perf_crit)                   | Major version number                                                                                         |
+| [crit_count](#render_perf_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
+| [crit_list](#render_perf_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| [detail_list](#render_perf_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| [key](#render_perf_key)                     | Major version number                                                                                         |
+| [list](#render_perf_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
+| [max](#render_perf_max)                     | Major version number                                                                                         |
+| [message](#render_perf_message)             | Major version number                                                                                         |
+| [min](#render_perf_min)                     | Major version number                                                                                         |
+| [ok_count](#render_perf_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
+| [ok_list](#render_perf_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| [problem_count](#render_perf_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| [problem_list](#render_perf_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| [status](#render_perf_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| [total](#render_perf_total)                 | Total number of items. Common option for all checks.                                                         |
+| [unit](#render_perf_unit)                   | Major version number                                                                                         |
+| [value](#render_perf_value)                 | Major version number                                                                                         |
+| [warn](#render_perf_warn)                   | Major version number                                                                                         |
+| [warn_count](#render_perf_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
+| [warn_list](#render_perf_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
 
 
-
-**Description:**
-Wrapped command to execute
-
-<a name="render_perf_arguments"/>
-### arguments
-
-
-
-**Description:**
-List of arguments (for wrapped command)
-
-<a name="render_perf_remove-perf"/>
-### remove-perf
-
-
-
-**Description:**
-List of arguments (for wrapped command)
-
-## xform_perf
+### xform_perf
 
 Run a check and transform the performance data in various (currently one) way.
 
 
-### Usage
+* [Command-line Arguments](#xform_perf_options)
 
 
-| Option                                   | Default Value | Description                                                                 |
-|------------------------------------------|---------------|-----------------------------------------------------------------------------|
-| [help](#xform_perf_help)                 | N/A           | Show help screen (this screen)                                              |
-| [help-pb](#xform_perf_help-pb)           | N/A           | Show help screen as a protocol buffer payload                               |
-| [show-default](#xform_perf_show-default) | N/A           | Show default values for a given command                                     |
-| [help-short](#xform_perf_help-short)     | N/A           | Show help screen (short format).                                            |
-| [command](#xform_perf_command)           |               | Wrapped command to execute                                                  |
-| [arguments](#xform_perf_arguments)       |               | List of arguments (for wrapped command)                                     |
-| [mode](#xform_perf_mode)                 |               | Transformation mode: extract to fetch data or minmax to add missing min/max |
-| [field](#xform_perf_field)               |               | Field to work with (value, warn, crit, max, min)                            |
-| [replace](#xform_perf_replace)           |               | Replace expression for the alias                                            |
+
 
 
 <a name="xform_perf_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="xform_perf_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="xform_perf_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="xform_perf_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
 
 <a name="xform_perf_command"/>
-### command
-
-
-
-**Description:**
-Wrapped command to execute
 
 <a name="xform_perf_arguments"/>
-### arguments
-
-
-
-**Description:**
-List of arguments (for wrapped command)
 
 <a name="xform_perf_mode"/>
-### mode
-
-
-
-**Description:**
-Transformation mode: extract to fetch data or minmax to add missing min/max
 
 <a name="xform_perf_field"/>
-### field
-
-
-
-**Description:**
-Field to work with (value, warn, crit, max, min)
 
 <a name="xform_perf_replace"/>
-### replace
+
+<a name="xform_perf_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                                                 |
+|--------------|---------------|-----------------------------------------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                                              |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload                               |
+| show-default | N/A           | Show default values for a given command                                     |
+| help-short   | N/A           | Show help screen (short format).                                            |
+| command      |               | Wrapped command to execute                                                  |
+| arguments    |               | List of arguments (for wrapped command)                                     |
+| mode         |               | Transformation mode: extract to fetch data or minmax to add missing min/max |
+| field        |               | Field to work with (value, warn, crit, max, min)                            |
+| replace      |               | Replace expression for the alias                                            |
 
 
 
-**Description:**
-Replace expression for the alias
 
 
 

@@ -41,12 +41,11 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	thread_->filters_.set_path(settings.alias().get_settings_path("real-time/checks"));
 
 	settings.alias().add_path_to_settings()
-		("LOG FILE SECTION", "Section for log file checker")
 
-		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
+		("real-time", "Real-time filtering", "A set of options to configure the real time checks")
 
 		("real-time/checks", sh::fun_values_path(boost::bind(&real_time_thread::add_realtime_filter, thread_, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Real-time filters", "A set of filters to use in real-time mode",
 			"REALTIME FILTER DEFENTION", "For more configuration options add a dedicated section"
 			)
 		;
@@ -54,15 +53,15 @@ bool CheckLogFile::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 	settings.alias().add_key_to_settings("real-time")
 
 		("enabled", sh::bool_fun_key(boost::bind(&real_time_thread::set_enabled, thread_, _1), false),
-			"REAL TIME CHECKING", "Spawns a background thread which waits for file changes.")
+			"Real time", "Spawns a background thread which waits for file changes.")
 
 		;
 
 	settings.register_all();
 	settings.notify();
 
-	//filters::filter_config_handler::add_samples(get_settings_proxy(), thread_->filters_path_);
 
+	thread_->filters_.add_samples(get_settings_proxy());
 	if (mode == NSCAPI::normalStart) {
 		if (!thread_->start())
 			NSC_LOG_ERROR_STD("Failed to start collection thread");
@@ -86,7 +85,7 @@ void CheckLogFile::check_logfile(const Plugin::QueryRequestMessage::Request &req
 
 	filter_type filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax());
-	filter_helper.add_syntax("${count}/${total} (${problem_list})", filter.get_filter_syntax(), "${column1}", "${column1}", "%(status): Nothing found", "");
+	filter_helper.add_syntax("${count}/${total} (${problem_list})", "${column1}", "${column1}", "%(status): Nothing found", "");
 	filter_helper.get_desc().add_options()
 		//		("regexp", po::value<std::string>(&regexp),					"Lookup a numeric value in the PDH index table")
 		("line-split", po::value<std::string>(&line_split)->default_value("\\n"),

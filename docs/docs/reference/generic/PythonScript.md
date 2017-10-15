@@ -8,44 +8,25 @@ Loads and processes internal Python scripts
 
 
 
-## List of Configuration
+**Configuration Keys:**
+
+
+
+    
 
 
 
 
 
-
-
-
-
-# Configuration
-
-<a name="/settings/python"/>
-## LUA SCRIPT SECTION
-
-Section for the PythonScripts module.
-
-```ini
-# Section for the PythonScripts module.
-[/settings/python]
-
-```
-
-
-
-
-
+## Configuration
 
 <a name="/settings/python/scripts"/>
-## PYTHON SCRIPTS SECTION
+### Python scripts
 
 A list of scripts available to run from the PythonScript module.
 
-```ini
-# A list of scripts available to run from the PythonScript module.
-[/settings/python/scripts]
 
-```
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
 

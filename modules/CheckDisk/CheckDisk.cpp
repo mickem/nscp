@@ -196,7 +196,7 @@ void CheckDisk::check_files(const Plugin::QueryRequestMessage::Request &request,
 
 	file_filter::filter filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", filter.get_filter_syntax(), "${name}", "${name}", "No files found", "%(status): All %(count) files are ok");
+	filter_helper.add_syntax("${status}: ${problem_count}/${count} files (${problem_list})", "${name}", "${name}", "No files found", "%(status): All %(count) files are ok");
 	filter_helper.get_desc().add_options()
 		("path", po::value<std::vector<std::string> >(&file_list), "The path to search for files under.\nNotice that specifying multiple path will create an aggregate set you will not check each path individually."
 			"In other words if one path contains an error the entire check will result in error.")

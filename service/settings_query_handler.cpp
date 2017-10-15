@@ -164,6 +164,7 @@ namespace nsclient {
 							rpp->mutable_info()->set_description(desc.description);
 							rpp->mutable_info()->set_advanced(desc.advanced);
 							rpp->mutable_info()->set_sample(desc.is_sample);
+							rpp->mutable_info()->set_subkey(desc.subkey.is_subkey);
 							settings_add_plugin_data(desc.plugins, rpp->mutable_info());
 						}
 					}
@@ -322,7 +323,11 @@ namespace nsclient {
 					defValue = nscapi::settings::settings_value::make_bool(q.info().default_value().bool_data());
 				settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), defValue, q.info().advanced(), q.info().sample());
 			} else {
-				settings_manager::get_core()->register_path(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
+				if (q.info().subkey()) {
+					settings_manager::get_core()->register_subkey(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
+				} else {
+					settings_manager::get_core()->register_path(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
+				}
 			}
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}

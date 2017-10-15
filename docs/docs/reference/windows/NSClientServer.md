@@ -8,27 +8,23 @@ A server that listens for incoming check_nt connection and processes incoming re
 
 
 
-## List of Configuration
+**Configuration Keys:**
 
 
-### Common Keys
 
-| Path / Section                                          | Key                                                             | Description           |
-|---------------------------------------------------------|-----------------------------------------------------------------|-----------------------|
-| [/settings/default](#/settings/default)                 | [allowed hosts](#/settings/default_allowed hosts)               | ALLOWED HOSTS         |
-| [/settings/default](#/settings/default)                 | [bind to](#/settings/default_bind to)                           | BIND TO ADDRESS       |
-| [/settings/default](#/settings/default)                 | [cache allowed hosts](#/settings/default_cache allowed hosts)   | CACHE ALLOWED HOSTS   |
-| [/settings/default](#/settings/default)                 | [inbox](#/settings/default_inbox)                               | INBOX                 |
-| [/settings/default](#/settings/default)                 | [password](#/settings/default_password)                         | PASSWORD              |
-| [/settings/default](#/settings/default)                 | [timeout](#/settings/default_timeout)                           | TIMEOUT               |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [performance data](#/settings/NSClient/server_performance data) | PERFORMANCE DATA      |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [port](#/settings/NSClient/server_port)                         | PORT NUMBER           |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [use ssl](#/settings/NSClient/server_use ssl)                   | ENABLE SSL ENCRYPTION |
-
-### Advanced keys
-
+    
+    
 | Path / Section                                          | Key                                                                   | Description           |
 |---------------------------------------------------------|-----------------------------------------------------------------------|-----------------------|
+| [/settings/default](#/settings/default)                 | [allowed hosts](#/settings/default_allowed hosts)                     | ALLOWED HOSTS         |
+| [/settings/default](#/settings/default)                 | [bind to](#/settings/default_bind to)                                 | BIND TO ADDRESS       |
+| [/settings/default](#/settings/default)                 | [cache allowed hosts](#/settings/default_cache allowed hosts)         | CACHE ALLOWED HOSTS   |
+| [/settings/default](#/settings/default)                 | [inbox](#/settings/default_inbox)                                     | INBOX                 |
+| [/settings/default](#/settings/default)                 | [password](#/settings/default_password)                               | PASSWORD              |
+| [/settings/default](#/settings/default)                 | [timeout](#/settings/default_timeout)                                 | TIMEOUT               |
+| [/settings/NSClient/server](#/settings/NSClient/server) | [performance data](#/settings/NSClient/server_performance data)       | PERFORMANCE DATA      |
+| [/settings/NSClient/server](#/settings/NSClient/server) | [port](#/settings/NSClient/server_port)                               | PORT NUMBER           |
+| [/settings/NSClient/server](#/settings/NSClient/server) | [use ssl](#/settings/NSClient/server_use ssl)                         | ENABLE SSL ENCRYPTION |
 | [/settings/default](#/settings/default)                 | [encoding](#/settings/default_encoding)                               | NRPE PAYLOAD ENCODING |
 | [/settings/default](#/settings/default)                 | [socket queue size](#/settings/default_socket queue size)             | LISTEN QUEUE          |
 | [/settings/default](#/settings/default)                 | [thread pool](#/settings/default_thread pool)                         | THREAD POOL           |
@@ -53,24 +49,15 @@ A server that listens for incoming check_nt connection and processes incoming re
 
 
 
-# Configuration
+
+## Configuration
 
 <a name="/settings/default"/>
-## 
+### /settings/default
 
 
 
-```ini
-# 
-[/settings/default]
-allowed hosts=127.0.0.1
-cache allowed hosts=true
-inbox=inbox
-socket queue size=0
-thread pool=10
-timeout=30
 
-```
 
 
 | Key                                                           | Default Value | Description           |
@@ -87,13 +74,27 @@ timeout=30
 
 
 
+```ini
+# 
+[/settings/default]
+allowed hosts=127.0.0.1
+cache allowed hosts=true
+inbox=inbox
+socket queue size=0
+thread pool=10
+timeout=30
+
+```
+
+
+
 
 <a name="/settings/default_allowed hosts"/>
-### allowed hosts
 
 **ALLOWED HOSTS**
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
+
 
 
 
@@ -106,7 +107,7 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -116,11 +117,11 @@ allowed hosts=127.0.0.1
 
 
 <a name="/settings/default_bind to"/>
-### bind to
 
 **BIND TO ADDRESS**
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
+
 
 
 
@@ -134,7 +135,7 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -144,11 +145,11 @@ bind to=
 
 
 <a name="/settings/default_cache allowed hosts"/>
-### cache allowed hosts
 
 **CACHE ALLOWED HOSTS**
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
+
 
 
 
@@ -161,7 +162,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -171,9 +172,9 @@ cache allowed hosts=true
 
 
 <a name="/settings/default_encoding"/>
-### encoding
 
 **NRPE PAYLOAD ENCODING**
+
 
 
 
@@ -190,7 +191,7 @@ cache allowed hosts=true
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -200,11 +201,11 @@ encoding=
 
 
 <a name="/settings/default_inbox"/>
-### inbox
 
 **INBOX**
 
 The default channel to post incoming messages on
+
 
 
 
@@ -217,7 +218,7 @@ The default channel to post incoming messages on
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -227,11 +228,11 @@ inbox=inbox
 
 
 <a name="/settings/default_password"/>
-### password
 
 **PASSWORD**
 
 Password used to authenticate against server
+
 
 
 
@@ -245,7 +246,7 @@ Password used to authenticate against server
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -255,11 +256,11 @@ password=
 
 
 <a name="/settings/default_socket queue size"/>
-### socket queue size
 
 **LISTEN QUEUE**
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
+
 
 
 
@@ -273,7 +274,7 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -283,9 +284,9 @@ socket queue size=0
 
 
 <a name="/settings/default_thread pool"/>
-### thread pool
 
 **THREAD POOL**
+
 
 
 
@@ -301,7 +302,7 @@ socket queue size=0
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -311,11 +312,11 @@ thread pool=10
 
 
 <a name="/settings/default_timeout"/>
-### timeout
 
 **TIMEOUT**
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
+
 
 
 
@@ -328,7 +329,7 @@ Timeout when reading packets on incoming sockets. If the data has not arrived wi
 | Used by:       | CheckMKServer, NRPEServer, NSCAServer, NSClientServer, WEBServer |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/default]
@@ -338,29 +339,11 @@ timeout=30
 
 
 <a name="/settings/NSClient/server"/>
-## NSCLIENT SERVER SECTION
+### NSCLIENT SERVER SECTION
 
 Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 
-```ini
-# Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
-[/settings/NSClient/server]
-allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
-allowed hosts=127.0.0.1
-ca=${certificate-path}/ca.pem
-cache allowed hosts=true
-certificate=${certificate-path}/certificate.pem
-certificate format=PEM
-dh=${certificate-path}/nrpe_dh_512.pem
-performance data=true
-port=12489
-socket queue size=0
-thread pool=10
-timeout=30
-use ssl=false
-verify mode=none
 
-```
 
 
 | Key                                                                   | Default Value                       | Description           |
@@ -386,14 +369,36 @@ verify mode=none
 
 
 
+```ini
+# Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
+[/settings/NSClient/server]
+allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
+allowed hosts=127.0.0.1
+ca=${certificate-path}/ca.pem
+cache allowed hosts=true
+certificate=${certificate-path}/certificate.pem
+certificate format=PEM
+dh=${certificate-path}/nrpe_dh_512.pem
+performance data=true
+port=12489
+socket queue size=0
+thread pool=10
+timeout=30
+use ssl=false
+verify mode=none
+
+```
+
+
+
 
 <a name="/settings/NSClient/server_allowed ciphers"/>
-### allowed ciphers
 
 **ALLOWED CIPHERS**
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
+
 
 
 
@@ -407,7 +412,7 @@ The default here will differ is used in "insecure" mode or not. check_nrpe uses 
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -417,11 +422,11 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 
 
 <a name="/settings/NSClient/server_allowed hosts"/>
-### allowed hosts
 
 **ALLOWED HOSTS**
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -435,7 +440,7 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -445,11 +450,11 @@ allowed hosts=127.0.0.1
 
 
 <a name="/settings/NSClient/server_bind to"/>
-### bind to
 
 **BIND TO ADDRESS**
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -464,7 +469,7 @@ Allows you to bind server to a specific local address. This has to be a dotted i
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -474,9 +479,9 @@ bind to=
 
 
 <a name="/settings/NSClient/server_ca"/>
-### ca
 
 **CA**
+
 
 
 
@@ -492,7 +497,7 @@ bind to=
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -502,11 +507,11 @@ ca=${certificate-path}/ca.pem
 
 
 <a name="/settings/NSClient/server_cache allowed hosts"/>
-### cache allowed hosts
 
 **CACHE ALLOWED HOSTS**
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -520,7 +525,7 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -530,9 +535,9 @@ cache allowed hosts=true
 
 
 <a name="/settings/NSClient/server_certificate"/>
-### certificate
 
 **SSL CERTIFICATE**
+
 
 
 
@@ -548,7 +553,7 @@ cache allowed hosts=true
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -558,9 +563,9 @@ certificate=${certificate-path}/certificate.pem
 
 
 <a name="/settings/NSClient/server_certificate format"/>
-### certificate format
 
 **CERTIFICATE FORMAT**
+
 
 
 
@@ -576,7 +581,7 @@ certificate=${certificate-path}/certificate.pem
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -586,9 +591,9 @@ certificate format=PEM
 
 
 <a name="/settings/NSClient/server_certificate key"/>
-### certificate key
 
 **SSL CERTIFICATE**
+
 
 
 
@@ -605,7 +610,7 @@ certificate format=PEM
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -615,9 +620,9 @@ certificate key=
 
 
 <a name="/settings/NSClient/server_dh"/>
-### dh
 
 **DH KEY**
+
 
 
 
@@ -633,7 +638,7 @@ certificate key=
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -643,11 +648,11 @@ dh=${certificate-path}/nrpe_dh_512.pem
 
 
 <a name="/settings/NSClient/server_password"/>
-### password
 
 **PASSWORD**
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -662,7 +667,7 @@ Password used to authenticate against server parent for this key is found under:
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -672,11 +677,11 @@ password=
 
 
 <a name="/settings/NSClient/server_performance data"/>
-### performance data
 
 **PERFORMANCE DATA**
 
 Send performance data back to Nagios (set this to 0 to remove all performance data).
+
 
 
 
@@ -689,7 +694,7 @@ Send performance data back to Nagios (set this to 0 to remove all performance da
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -699,11 +704,11 @@ performance data=true
 
 
 <a name="/settings/NSClient/server_port"/>
-### port
 
 **PORT NUMBER**
 
 Port to use for check_nt.
+
 
 
 
@@ -716,7 +721,7 @@ Port to use for check_nt.
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -726,11 +731,11 @@ port=12489
 
 
 <a name="/settings/NSClient/server_socket queue size"/>
-### socket queue size
 
 **LISTEN QUEUE**
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -744,7 +749,7 @@ Number of sockets to queue before starting to refuse new incoming connections. T
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -754,20 +759,16 @@ socket queue size=0
 
 
 <a name="/settings/NSClient/server_ssl options"/>
-### ssl options
 
 **VERIFY MODE**
 
 Comma separated list of verification flags to set on the SSL socket.
 
-| default-workarounds | Various workarounds for what I understand to be broken ssl implementations                                                                                                                                                          |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| no-sslv2            | Do not use the SSLv2 protocol.                                                                                                                                                                                                      |
-| no-sslv3            | Do not use the SSLv3 protocol.                                                                                                                                                                                                      |
-| no-tlsv1            | Do not use the TLSv1 protocol.                                                                                                                                                                                                      |
-| single-dh-use       | Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters). |
-
-
+default-workarounds	Various workarounds for what I understand to be broken ssl implementations
+no-sslv2	Do not use the SSLv2 protocol.
+no-sslv3	Do not use the SSLv3 protocol.
+no-tlsv1	Do not use the TLSv1 protocol.
+single-dh-use	Always create a new key when using temporary/ephemeral DH parameters. This option must be used to prevent small subgroup attacks, when the DH parameters were not generated using "strong" primes (e.g. when using DSA-parameters).
 
 
 
@@ -786,7 +787,7 @@ Comma separated list of verification flags to set on the SSL socket.
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -796,11 +797,11 @@ ssl options=
 
 
 <a name="/settings/NSClient/server_thread pool"/>
-### thread pool
 
 **THREAD POOL**
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -814,7 +815,7 @@ ssl options=
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -824,11 +825,11 @@ thread pool=10
 
 
 <a name="/settings/NSClient/server_timeout"/>
-### timeout
 
 **TIMEOUT**
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+
 
 
 
@@ -842,7 +843,7 @@ Timeout when reading packets on incoming sockets. If the data has not arrived wi
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -852,11 +853,11 @@ timeout=30
 
 
 <a name="/settings/NSClient/server_use ssl"/>
-### use ssl
 
 **ENABLE SSL ENCRYPTION**
 
 This option controls if SSL should be enabled.
+
 
 
 
@@ -869,7 +870,7 @@ This option controls if SSL should be enabled.
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]
@@ -879,22 +880,18 @@ use ssl=false
 
 
 <a name="/settings/NSClient/server_verify mode"/>
-### verify mode
 
 **VERIFY MODE**
 
 Comma separated list of verification flags to set on the SSL socket.
 
-| none            | The server will not send a client certificate request to the client, so the client will not send a certificate.                         |
-|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------|
-| peer            | The server sends a client certificate request to the client and the certificate returned (if any) is checked.                           |
-| fail-if-no-cert | if the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together with peer. |
-| peer-cert       | Alias for peer and fail-if-no-cert.                                                                                                     |
-| workarounds     | Various bug workarounds.                                                                                                                |
-| single          | Always create a new key when using tmp_dh parameters.                                                                                   |
-| client-once     | Only request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer                    |
-
-
+none	The server will not send a client certificate request to the client, so the client will not send a certificate.
+peer	The server sends a client certificate request to the client and the certificate returned (if any) is checked.
+fail-if-no-cert	if the client did not return a certificate, the TLS/SSL handshake is immediately terminated. This flag must be used together with peer.
+peer-cert	Alias for peer and fail-if-no-cert.
+workarounds	Various bug workarounds.
+single	Always create a new key when using tmp_dh parameters.
+client-once	Only request a client certificate on the initial TLS/SSL handshake. This flag must be used together with verify-peer
 
 
 
@@ -912,7 +909,7 @@ Comma separated list of verification flags to set on the SSL socket.
 | Used by:       | NSClientServer                                          |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/NSClient/server]

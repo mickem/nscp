@@ -21,7 +21,7 @@ module_template = u"""# {{module.key}}
 
 {% if module.queries -%}
 
-## List of commands
+**List of commands:**
 
 A list of all available queries (check commands)
 {% set table = [] -%}
@@ -40,7 +40,7 @@ A list of all available queries (check commands)
 {%- endif %}
 
 {% if module.aliases -%}
-## List of command aliases
+**List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
@@ -60,109 +60,182 @@ A list of all short hand aliases for queries (check commands)
 {%- endif %}
 
 {% if module.paths -%}
-## List of Configuration
+**Configuration Keys:**
 
 {% set table = [] -%}
-{% set table_adv = [] -%}
-{% set table_sam = [] -%}
-{% for k,path in module.paths|dictsort  -%}
+{% set has_paths = [] -%}
+{% set paths = [] -%}
+{% for pk,path in module.paths|dictsort  -%}
     {% set pkey = path.key|md_self_link -%}
     {% for k,key in path.keys|dictsort  -%}
         {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
         {% if key.info.sample -%}
-            {% do table_sam.append([pkey, kkey, key.info.title|firstline]) -%}
         {%- elif key.info.advanced -%}
-            {% do table_adv.append([pkey, kkey, key.info.title|firstline]) -%}
         {%- else -%}
+            {% do has_paths.append(pk) -%}
             {% do table.append([pkey, kkey, key.info.title|firstline]) -%}
         {%- endif %}
     {%- endfor %}
 {%- endfor %}
+{% for pk,path in module.paths|dictsort  -%}
+    {% set pkey = path.key|md_self_link -%}
+    {% for k,key in path.keys|dictsort  -%}
+        {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
+        {% if key.info.sample -%}
+        {%- elif key.info.advanced -%}
+            {% do has_paths.append(pk) -%}
+            {% do table.append([pkey, kkey, key.info.title|firstline]) -%}
+        {%- else -%}
+        {%- endif %}
+    {%- endfor %}
+    {% if pk not in has_paths -%}
+        {% do paths.append([pkey, path.info.title|firstline]) -%}
+    {%- endif %}
+{%- endfor %}
 {% if table -%}
-### Common Keys
 
 {{table|rst_table('Path / Section', 'Key', 'Description')}}
-{%- endif %}
-{% if table_adv -%}
-### Advanced keys
 
-{{table_adv|rst_table('Path / Section', 'Key', 'Description')}}
-{%- endif %}
-{% if table_sam -%}
-### Sample keys
+{{paths|rst_table('Path / Section', 'Description')}}
 
-{{table_sam|rst_table('Path / Section', 'Key', 'Description')}}
 {%- endif %}
 {%- endif %}
 
 {% if module.sample %}
-# Usage
+## Samples
 
-_To edit the usage section please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{module.sample_source}})_
+_Feel free to add more samples [on this page](https://github.com/mickem/docs/blob/master/docs/{{module.sample_source}})_
 
 {{module.sample}}
 
 {%- endif %}
 {% if module.queries -%}
 
-# Queries
+## Queries
 
 A quick reference for all available queries (check commands) in the {{module.key}} module.
 
 {% for k,query in module.queries|dictsort -%}
 
-## {{query.key}}
+### {{query.key}}
 
 {{query.info.description}}
 
 {% if query.sample -%}
-### Usage
+* [Samples](#{{"samples"|md_prefix_lnk(query.key)}})
+{% endif %}
+* [Command-line Arguments](#{{"options"|md_prefix_lnk(query.key)}})
+{% if query.fields -%}
+* [Filter keywords](#{{"filter_keys"|md_prefix_lnk(query.key)}})
+{% endif %}
+
+{% if query.sample -%}
+<a name="{{"samples"|md_prefix_lnk(query.key)}}"/>
+#### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/{{query.sample_source}})_
 
 {{query.sample}}
 {%- endif %}
-### Usage
+
+{% for help in query.params -%}{%- if help.is_simple %}
+<a name="{{help.name|md_prefix_lnk(query.key)}}"/>
+{% endif %}{%- endfor %}
+<a name="{{"options"|md_prefix_lnk(query.key)}}"/>
+#### Command-line Arguments
 
 {% set table = [] -%}
-{% for help in query.params -%}{% if help.content_type == 4 -%}
-    {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),'N/A', help.long_description|firstline]) %}{% else -%}
-    {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),help.default_value, help.long_description|firstline]) %}{%- endif %}
+{% for help in query.params -%}
+    {%- if help.is_simple %}{% if help.content_type == 4 -%}
+        {% do table.append([help.name, 'N/A', help.long_description|firstline]) %}{% else -%}
+        {% do table.append([help.name, help.default_value, help.long_description|firstline]) %}{%- endif %}
+    {%- else %}{% if help.content_type == 4 -%}
+        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), 'N/A', help.long_description|firstline]) %}{% else -%}
+        {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name), help.default_value, help.long_description|firstline]) %}{%- endif %}
+    {%- endif %}
 {%- endfor %}
 {{table|rst_table('Option', 'Default Value', 'Description')}}
 
-{% for help in query.params -%}
+{% for help in query.params -%}{%- if not help.is_simple %}
 <a name="{{help.name|md_prefix_lnk(query.key)}}"/>
-### {{help.name}}
+**{{help.name}}:**
+
+{{help.long_description}}
 
 {% if help.default_value %}
-**Deafult Value:** {{help.default_value}}
+*Deafult Value:* | `{{help.default_value}}`
 {%- endif %}
 
-**Description:**
-{%if help.ext -%}
-{{help.ext.head}}
-
-{{help.ext.data|rst_table}}
-
-{{help.ext.tail}}
-
-{% else -%}
-{{help.long_description}}
-{%- endif %}
 {{'\n'}}
+{%- endif %}{%- endfor %}
+
+{% if query.fields -%}
+<a name="{{"filter_keys"|md_prefix_lnk(query.key)}}"/>
+#### Filter keywords
+
+{% set table = [] -%}
+{% for help in query.fields -%}
+    {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),help.long_description|firstline]) %}
 {%- endfor %}
+{{table|rst_table('Option', 'Description')}}
+{{'\n'}}
+{%- endif %}
+
 {%- endfor %}
 {%- endif %}
 
 {% if module.paths -%}
-# Configuration
+## Configuration
 
 {% for pkey,path in module.paths|dictsort -%}
 <a name="{{path.key}}"/>
-## {{path.info.title}}
+### {% if path.info.title %}{{path.info.title}}{%else%}{{pkey}}{%endif%}
 
 {{path.info.description}}
+
+{% if path.info.subkey %}
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
+{% if path.sample %}
+
+**Keys:**
+
+{% set tbl = [] -%}
+{% for k,key in path.sample.keys|dictsort  -%}
+    {% do tbl.append([k, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+{%- endfor %}
+{{tbl|rst_table('Key', 'Default Value', 'Description')}}
+
+**Sample:**
+
+```ini
+# An example of a {{path.info.title}} section
+[{{path.key}}/sample]
+{% for kkey,key in path.sample.keys|dictsort -%}
+{% if key.info.default_value|extract_value %}{{kkey}}={{key.info.default_value|extract_value}}
+{% else %}#{{kkey}}=...
+{% endif %}
+{%- endfor %}
+```
+{% endif %}
+
+{% if path.objects %}
+**Known instances:**
+
+{% for k in path.objects %}*  {{k}}
+{% endfor %}
+
+
+{% endif %}
+{% else %}
+
+{% set tbl = [] -%}
+{% set pkey = path.key|md_self_link -%}
+{% for k,key in path.keys|dictsort  -%}
+    {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
+    {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+{%- endfor %}
+{{tbl|rst_table('Key', 'Default Value', 'Description')}}
+
 
 ```ini
 # {{path.info.description|firstline}}
@@ -174,31 +247,15 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endfor %}
 ```
 
-{% set tbl = [] -%}
-{% set pkey = path.key|md_self_link -%}
-{% for k,key in path.keys|dictsort  -%}
-    {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
-    {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
-{%- endfor %}
-{{tbl|rst_table('Key', 'Default Value', 'Description')}}
-
+{% endif %}
 
 {% for kkey,key in path.keys|dictsort %}
 <a name="{{kkey|md_prefix_lnk(path.key)}}"/>
-### {{kkey}}
 
 **{{key.info.title|as_text}}**
 
-{%if key.ext -%}
-{{key.ext.head}}
-
-{{key.ext.data|rst_table}}
-
-{{key.ext.tail}}
-
-{% else -%}
 {{key.info.description|as_text}}
-{%- endif %}
+
 
 {% set table = [] -%}
 {% do table.append(['Path:', path.key|md_self_link(path.key)]) -%}
@@ -217,7 +274,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {% do table.append(['Used by:', ', '.join(path.info.plugin|sort)]) -%}
 {{table|rst_table('Key', 'Description')}}
 
-#### Sample
+**Sample:**
 
 ```
 [{{path.key}}]
@@ -316,6 +373,7 @@ def split_argllist(name, desc):
 
 class root_container(object):
     paths = {}
+    subkeys = {}
     commands = {}
     aliases = {}
     plugins = {}
@@ -330,6 +388,7 @@ class root_container(object):
         self.commands = {}
         self.aliases = {}
         self.plugins = {}
+        self.subkeys = {}
 
     def append_key(self, info):
         path = info.node.path
@@ -340,10 +399,29 @@ class root_container(object):
             p.append_key(info)
             self.paths[path] = p
         
+    def process_paths(self):
+        for k in self.subkeys.keys():
+            log("Subkey: %s"%k)
+            self.paths[k].objects = self.paths[k].keys
+            self.paths[k].keys = {}
+            for pk in self.paths.keys():
+                if pk in self.subkeys.keys():
+                    continue
+                if pk.startswith(k):
+                    if pk[len(k)+1:] == "sample":
+                        self.paths[k].sample = self.paths[pk]
+                    if pk[len(k)+1:] == "default":
+                        self.paths[k].default = self.paths[pk]
+                    log("::: %s"%pk[len(k)+1:])
+                    del self.paths[pk]
+
     def append_path(self, info):
         path = info.node.path
         if not path in self.paths:
             self.paths[path] = path_container(info)
+        if info.info.subkey:
+            if path not in self.subkeys.keys():
+                self.subkeys[path] = self.paths[path]
 
     def append_command(self, info):
         name = info.name
@@ -400,17 +478,12 @@ class path_container(object):
     def __init__(self, info = None):
         self.keys = {}
         self.info = info.info
+        self.default = None
+        self.sample = None
+        self.objects = {}
         
     def append_key(self, info):
-        extdata = split_argllist(info.node.key, info.info.description)
-        if extdata:
-            ninfo = {}
-            ninfo['info'] = info.info
-            ninfo['node'] = info.node
-            ninfo['ext'] = extdata
-            self.keys[info.node.key] = ninfo
-        else:
-            self.keys[info.node.key] = info
+        self.keys[info.node.key] = info
 
 class command_container(object):
     info = None
@@ -418,6 +491,21 @@ class command_container(object):
     def __init__(self, info = None):
         self.info = info.info
         self.parameters = info.parameters
+
+class param_container:
+    
+    def __init__(self, info):
+        self.name = info.name;
+        self.default_value = info.default_value;
+        self.short_description = info.short_description;
+        self.long_description = info.long_description;
+        self.required = info.required;
+        self.repeatable = info.repeatable;
+        self.content_type = info.content_type;
+        self.keyword = info.keyword;
+        self.is_simple = True
+        if info.default_value or '\n' in info.long_description:
+            self.is_simple = False
 
 class plugin_container(object):
     info = None
@@ -447,6 +535,8 @@ def make_md_code(name):
     return '`%s`'%name
 def make_md_prefix_lnk(value, prefix):
     return '%s_%s'%(prefix, value)
+def make_md_filter_lnk(value, prefix):
+    return '%s_flt_%s'%(prefix, value)
 
 def largest_value(a,b):
     return map(lambda n: n[0] if len(n[0])>len(n[1]) else n[1], zip(a, b))
@@ -645,6 +735,7 @@ class DocumentationHelper(object):
             root.append_path(p)
             for k in self.get_keys(p.node.path):
                 root.append_key(k)
+        root.process_paths()
         for p in self.get_queries():
             root.append_command(p)
         for p in self.get_query_aliases():
@@ -655,20 +746,10 @@ class DocumentationHelper(object):
     def fetch_command(self, module, minfo, command, cinfo):
         if command in self.command_cache:
             return self.command_cache[command]
-        params = []
+        cinfo.fields = cinfo.parameters.fields
+        cinfo.params = []
         for p in cinfo.parameters.parameter:
-            extdata = split_argllist(p.name, p.long_description)
-            if extdata:
-                np = {}
-                np['long_description'] = p.long_description
-                np['default_value'] = p.default_value
-                np['name'] = p.name
-                np['ext'] = extdata
-                np['content_type'] = p.content_type
-                params.append(np)
-            else:
-                params.append(p)
-        cinfo.params = params
+            cinfo.params.append(param_container(p))
         spath = '%s/samples/%s_%s_samples.md'%(self.folder, module, command)
         cinfo.sample = ''
         if os.path.exists(spath):
@@ -687,6 +768,7 @@ class DocumentationHelper(object):
         env.filters['rst_link'] = make_rst_link
         env.filters['md_link'] = make_md_link
         env.filters['md_prefix_lnk'] = make_md_prefix_lnk
+        env.filters['md_filter_lnk'] = make_md_filter_lnk
         env.filters['md_self_link'] = make_md_self_link
         env.filters['md_code'] = make_md_code
         env.filters['rst_table'] = render_rst_table

@@ -788,6 +788,27 @@ Full name: `Plugin.Registry.ParameterDetail`
 
 
 
+<a name=".Plugin.Registry.FieldDetail"/>
+
+## FieldDetail
+
+
+Full name: `Plugin.Registry.FieldDetail`
+
+
+
+
+
+| Modifier | Type | Key    | Description                |
+| -------- | -----| ------ | -------------------- |
+| optional             | string | name |  |
+| optional             | string | short_description |  |
+| optional             | string | long_description |  |
+
+
+
+
+
 <a name=".Plugin.Registry.ParameterDetails"/>
 
 ## ParameterDetails
@@ -802,6 +823,7 @@ Full name: `Plugin.Registry.ParameterDetails`
 | Modifier | Type | Key    | Description                |
 | -------- | -----| ------ | -------------------- |
 | repeated             | [ParameterDetail](#.Plugin.Registry.ParameterDetail) | parameter |  |
+| repeated             | [FieldDetail](#.Plugin.Registry.FieldDetail) | fields |  |
 
 
 
@@ -1177,6 +1199,7 @@ Full name: `Plugin.Settings.Information`
 | optional             | bool | is_template |  |
 | optional             | string | sample_usage |  |
 | repeated             | string | plugin |  |
+| optional             | bool | subkey |  |
 
 
 

@@ -172,6 +172,34 @@ namespace settings {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
+		/// Register a path with the settings module.
+		/// A registered key or path will be nicely documented in some of the settings files when converted.
+		///
+		/// @param path The path to register
+		/// @param type The type of value
+		/// @param title The title to use
+		/// @param description the description to use
+		/// @param defValue the default value
+		/// @param advanced advanced options will only be included if they are changed
+		///
+		/// @author mickem
+		void register_subkey(unsigned int plugin_id, std::string path, std::string title, std::string description, bool advanced, bool is_sample, bool update_existing) {
+			boost::unique_lock<boost::shared_mutex> writeLock(registry_mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
+			if (!writeLock.owns_lock()) {
+				throw settings_exception(__FILE__, __LINE__, "Failed to lock registry mutex: " + path);
+			}
+			reg_paths_type::iterator it = registred_paths_.find(path);
+			if (it == registred_paths_.end()) {
+				registred_paths_[path] = path_description(plugin_id, title, description, advanced, is_sample);
+				registred_paths_[path].subkey = subkey_description(title, description, advanced, is_sample);
+			} else {
+				if (!registred_paths_[path].subkey.is_subkey || update_existing) {
+					registred_paths_[path].subkey = subkey_description(title, description, advanced, is_sample);
+				}
+			}
+		}
+
+		//////////////////////////////////////////////////////////////////////////
 		/// Register a key with the settings module.
 		/// A registered key or path will be nicely documented in some of the settings files when converted.
 		///

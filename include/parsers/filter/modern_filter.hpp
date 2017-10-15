@@ -308,8 +308,13 @@ namespace modern_filter {
 			context->set_summary(&summary);
 		}
 
-		boost::tuple<std::string, std::string> get_filter_syntax() const {
-			return boost::make_tuple(summary.get_filter_syntax(), context->get_filter_syntax());
+		std::map<std::string, std::string> get_filter_syntax() const {
+			std::map<std::string, std::string> ret;
+			std::map<std::string, std::string> m1 = summary.get_filter_syntax();
+			std::map<std::string, std::string> m2 = context->get_filter_syntax();
+			ret.insert(m1.begin(), m1.end());
+			ret.insert(m2.begin(), m2.end());
+			return ret;
 		}
 		bool build_index(const std::string &unqie, std::string &gerror) {
 			std::string lerror;

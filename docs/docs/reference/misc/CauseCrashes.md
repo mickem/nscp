@@ -4,7 +4,7 @@
 
 
 
-## List of commands
+**List of commands:**
 
 A list of all available queries (check commands)
 
@@ -13,7 +13,7 @@ A list of all available queries (check commands)
 | [crash_client](#crash_client) | Raise a fatal exception (zero pointer reference) and cause NSClient++ crash. |
 
 
-## List of command aliases
+**List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
@@ -26,15 +26,21 @@ A list of all short hand aliases for queries (check commands)
 
 
 
-# Queries
+## Queries
 
 A quick reference for all available queries (check commands) in the CauseCrashes module.
 
-## crash_client
+### crash_client
 
 Raise a fatal exception (zero pointer reference) and cause NSClient++ crash.
 
-### Usage
+* [Samples](#crash_client_samples)
+
+* [Command-line Arguments](#crash_client_options)
+
+
+<a name="crash_client_samples"/>
+#### Sample Commands
 
 _To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CauseCrashes_crash_client_samples.md)_
 
@@ -64,48 +70,29 @@ crashclient
 ```
 
 This will cause NSClient++ to crash so please dont do this.
-### Usage
-
-
-| Option                                     | Default Value | Description                                   |
-|--------------------------------------------|---------------|-----------------------------------------------|
-| [help](#crash_client_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#crash_client_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#crash_client_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#crash_client_help-short)     | N/A           | Show help screen (short format).              |
 
 
 <a name="crash_client_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="crash_client_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="crash_client_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="crash_client_help-short"/>
-### help-short
+
+<a name="crash_client_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
 
 

@@ -35,6 +35,26 @@ void nscapi::settings_proxy::register_path(std::string path, std::string title, 
 	regitem->mutable_info()->set_description(description);
 	regitem->mutable_info()->set_advanced(advanced);
 	regitem->mutable_info()->set_sample(sample);
+	regitem->mutable_info()->set_subkey(false);
+	std::string response_string;
+	core_->settings_query(request.SerializeAsString(), response_string);
+	Plugin::SettingsResponseMessage response;
+	if (!response.ParseFromString(response_string)) {
+		core_->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to de-serialize the payload for " + path);
+	}
+	report_errors(response, core_, "register" + path);
+}
+void nscapi::settings_proxy::register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) {
+	Plugin::SettingsRequestMessage request;
+	Plugin::SettingsRequestMessage::Request *payload = request.add_payload();
+	payload->set_plugin_id(plugin_id_);
+	Plugin::SettingsRequestMessage::Request::Registration *regitem = payload->mutable_registration();
+	regitem->mutable_node()->set_path(path);
+	regitem->mutable_info()->set_title(title);
+	regitem->mutable_info()->set_description(description);
+	regitem->mutable_info()->set_advanced(advanced);
+	regitem->mutable_info()->set_sample(sample);
+	regitem->mutable_info()->set_subkey(true);
 	std::string response_string;
 	core_->settings_query(request.SerializeAsString(), response_string);
 	Plugin::SettingsResponseMessage response;

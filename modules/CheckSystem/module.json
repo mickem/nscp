@@ -14,6 +14,7 @@
 	"commands" : {
 		"check_cpu" : { 
 			"description" : "Check that the load of the CPU(s) are within bounds.",
+			"type": "query",
 			"metadata"	: { "guide" : "http://nsclient.org/nscp/wiki/doc/usage/nagios/nsca" }
 			},
 		"check_uptime"		: "Check time since last server re-boot." ,

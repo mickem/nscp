@@ -325,6 +325,13 @@ void pdh_thread::thread_proc() {
 	}
 }
 
+void pdh_thread::add_samples(boost::shared_ptr<nscapi::settings_proxy> settings) {
+	mem_filters_.add_samples(settings);
+	cpu_filters_.add_samples(settings);
+	proc_filters_.add_samples(settings);
+	legacy_filters_.add_samples(settings);
+}
+
 std::map<std::string, long long> pdh_thread::get_int_value(std::string counter) {
 	std::map<std::string, long long> ret;
 	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));

@@ -8,44 +8,25 @@ Loads and processes internal Lua scripts
 
 
 
-## List of Configuration
+**Configuration Keys:**
+
+
+
+    
 
 
 
 
 
-
-
-
-
-# Configuration
-
-<a name="/settings/lua"/>
-## LUA SCRIPT SECTION
-
-Section for the LUAScripts module.
-
-```ini
-# Section for the LUAScripts module.
-[/settings/lua]
-
-```
-
-
-
-
-
+## Configuration
 
 <a name="/settings/lua/scripts"/>
-## LUA SCRIPTS SECTION
+### Lua scripts
 
 A list of scripts available to run from the LuaSCript module.
 
-```ini
-# A list of scripts available to run from the LuaSCript module.
-[/settings/lua/scripts]
 
-```
+This is a section of objects. This means that you will create objects below this point by adding sections which all look the same.
 
 
 

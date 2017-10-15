@@ -4,7 +4,7 @@ Stores status updates and allows for active checks to retrieve them
 
 
 
-## List of commands
+**List of commands:**
 
 A list of all available queries (check commands)
 
@@ -14,7 +14,7 @@ A list of all available queries (check commands)
 | [list_cache](#list_cache)   | List all keys in the cache.   |
 
 
-## List of command aliases
+**List of command aliases:**
 
 A list of all short hand aliases for queries (check commands)
 
@@ -24,11 +24,11 @@ A list of all short hand aliases for queries (check commands)
 | checkcache | Alias for: :query:`check_cache` |
 
 
-## List of Configuration
+**Configuration Keys:**
 
 
-### Common Keys
 
+    
 | Path / Section                      | Key                                             | Description         |
 |-------------------------------------|-------------------------------------------------|---------------------|
 | [/settings/cache](#/settings/cache) | [channel](#/settings/cache_channel)             | CHANNEL             |
@@ -38,179 +38,131 @@ A list of all short hand aliases for queries (check commands)
 
 
 
-# Queries
+## Queries
 
 A quick reference for all available queries (check commands) in the SimpleCache module.
 
-## check_cache
+### check_cache
 
 Fetch results from the cache.
 
 
-### Usage
+* [Command-line Arguments](#check_cache_options)
+
+
+
+
+
+<a name="check_cache_help"/>
+
+<a name="check_cache_help-pb"/>
+
+<a name="check_cache_show-default"/>
+
+<a name="check_cache_help-short"/>
+
+<a name="check_cache_key"/>
+
+<a name="check_cache_host"/>
+
+<a name="check_cache_command"/>
+
+<a name="check_cache_channel"/>
+
+<a name="check_cache_alias"/>
+
+<a name="check_cache_options"/>
+#### Command-line Arguments
 
 
 | Option                                        | Default Value   | Description                                             |
 |-----------------------------------------------|-----------------|---------------------------------------------------------|
-| [help](#check_cache_help)                     | N/A             | Show help screen (this screen)                          |
-| [help-pb](#check_cache_help-pb)               | N/A             | Show help screen as a protocol buffer payload           |
-| [show-default](#check_cache_show-default)     | N/A             | Show default values for a given command                 |
-| [help-short](#check_cache_help-short)         | N/A             | Show help screen (short format).                        |
-| [key](#check_cache_key)                       |                 | The key (will not be parsed)                            |
-| [host](#check_cache_host)                     |                 | The host to look for (translates into the key)          |
-| [command](#check_cache_command)               |                 | The command to look for (translates into the key)       |
-| [channel](#check_cache_channel)               |                 | The channel to look for (translates into the key)       |
-| [alias](#check_cache_alias)                   |                 | The alias to look for (translates into the key)         |
+| help                                          | N/A             | Show help screen (this screen)                          |
+| help-pb                                       | N/A             | Show help screen as a protocol buffer payload           |
+| show-default                                  | N/A             | Show default values for a given command                 |
+| help-short                                    | N/A             | Show help screen (short format).                        |
+| key                                           |                 | The key (will not be parsed)                            |
+| host                                          |                 | The host to look for (translates into the key)          |
+| command                                       |                 | The command to look for (translates into the key)       |
+| channel                                       |                 | The channel to look for (translates into the key)       |
+| alias                                         |                 | The alias to look for (translates into the key)         |
 | [not-found-msg](#check_cache_not-found-msg)   | Entry not found | The message to display when a message is not found      |
 | [not-found-code](#check_cache_not-found-code) | unknown         | The return status to return when a message is not found |
 
 
-<a name="check_cache_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
-
-<a name="check_cache_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
-
-<a name="check_cache_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
-
-<a name="check_cache_help-short"/>
-### help-short
-
-
-
-**Description:**
-Show help screen (short format).
-
-<a name="check_cache_key"/>
-### key
-
-
-
-**Description:**
-The key (will not be parsed)
-
-<a name="check_cache_host"/>
-### host
-
-
-
-**Description:**
-The host to look for (translates into the key)
-
-<a name="check_cache_command"/>
-### command
-
-
-
-**Description:**
-The command to look for (translates into the key)
-
-<a name="check_cache_channel"/>
-### channel
-
-
-
-**Description:**
-The channel to look for (translates into the key)
-
-<a name="check_cache_alias"/>
-### alias
-
-
-
-**Description:**
-The alias to look for (translates into the key)
 
 <a name="check_cache_not-found-msg"/>
-### not-found-msg
+**not-found-msg:**
 
-
-**Deafult Value:** Entry not found
-
-**Description:**
 The message to display when a message is not found
 
+
+*Deafult Value:* | `Entry not found`
+
+
+
 <a name="check_cache_not-found-code"/>
-### not-found-code
+**not-found-code:**
 
-
-**Deafult Value:** unknown
-
-**Description:**
 The return status to return when a message is not found
 
-## list_cache
+
+*Deafult Value:* | `unknown`
+
+
+
+
+### list_cache
 
 List all keys in the cache.
 
 
-### Usage
+* [Command-line Arguments](#list_cache_options)
 
 
-| Option                                   | Default Value | Description                                   |
-|------------------------------------------|---------------|-----------------------------------------------|
-| [help](#list_cache_help)                 | N/A           | Show help screen (this screen)                |
-| [help-pb](#list_cache_help-pb)           | N/A           | Show help screen as a protocol buffer payload |
-| [show-default](#list_cache_show-default) | N/A           | Show default values for a given command       |
-| [help-short](#list_cache_help-short)     | N/A           | Show help screen (short format).              |
+
 
 
 <a name="list_cache_help"/>
-### help
-
-
-
-**Description:**
-Show help screen (this screen)
 
 <a name="list_cache_help-pb"/>
-### help-pb
-
-
-
-**Description:**
-Show help screen as a protocol buffer payload
 
 <a name="list_cache_show-default"/>
-### show-default
-
-
-
-**Description:**
-Show default values for a given command
 
 <a name="list_cache_help-short"/>
-### help-short
+
+<a name="list_cache_options"/>
+#### Command-line Arguments
+
+
+| Option       | Default Value | Description                                   |
+|--------------|---------------|-----------------------------------------------|
+| help         | N/A           | Show help screen (this screen)                |
+| help-pb      | N/A           | Show help screen as a protocol buffer payload |
+| show-default | N/A           | Show default values for a given command       |
+| help-short   | N/A           | Show help screen (short format).              |
 
 
 
-**Description:**
-Show help screen (short format).
 
 
 
-# Configuration
+## Configuration
 
 <a name="/settings/cache"/>
-## CACHE
+### CACHE
 
 Section for simple cache module (SimpleCache.dll).
+
+
+
+
+| Key                                             | Default Value       | Description         |
+|-------------------------------------------------|---------------------|---------------------|
+| [channel](#/settings/cache_channel)             | CACHE               | CHANNEL             |
+| [primary index](#/settings/cache_primary index) | ${alias-or-command} | PRIMARY CACHE INDEX |
+
+
 
 ```ini
 # Section for simple cache module (SimpleCache.dll).
@@ -221,20 +173,14 @@ primary index=${alias-or-command}
 ```
 
 
-| Key                                             | Default Value       | Description         |
-|-------------------------------------------------|---------------------|---------------------|
-| [channel](#/settings/cache_channel)             | CACHE               | CHANNEL             |
-| [primary index](#/settings/cache_primary index) | ${alias-or-command} | PRIMARY CACHE INDEX |
-
-
 
 
 <a name="/settings/cache_channel"/>
-### channel
 
 **CHANNEL**
 
 The channel to listen to.
+
 
 
 
@@ -247,7 +193,7 @@ The channel to listen to.
 | Used by:       | SimpleCache                         |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/cache]
@@ -257,12 +203,12 @@ channel=CACHE
 
 
 <a name="/settings/cache_primary index"/>
-### primary index
 
 **PRIMARY CACHE INDEX**
 
 Set this to the value you want to use as unique key for the cache.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).
+
 
 
 
@@ -275,7 +221,7 @@ Can be any arbitrary string as well as include any of the following special keyw
 | Used by:       | SimpleCache                         |
 
 
-#### Sample
+**Sample:**
 
 ```
 [/settings/cache]

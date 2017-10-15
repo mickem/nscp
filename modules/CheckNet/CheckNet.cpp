@@ -47,7 +47,7 @@ void CheckNet::check_ping(const Plugin::QueryRequestMessage::Request &request, P
 
 	ping_filter::filter filter;
 	filter_helper.add_options("time > 60 or loss > 5%", "time > 100 or loss > 10%", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", filter.get_filter_syntax(), "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found", "%(status): All %(count) hosts are ok");
+	filter_helper.add_syntax("${status}: ${ok_count}/${count} (${problem_list})", "${ip} Packet loss = ${loss}%, RTA = ${time}ms", "${host}", "No hosts found", "%(status): All %(count) hosts are ok");
 	filter_helper.get_desc().add_options()
 		("host", po::value<std::vector<std::string> >(&hosts),
 			"The host to check (or multiple hosts).")

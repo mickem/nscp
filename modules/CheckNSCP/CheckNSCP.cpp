@@ -191,7 +191,7 @@ namespace check_nscp_version {
 
 		filter_type filter;
 		filter_helper.add_options("", "", "", filter.get_filter_syntax(), "ignored");
-		filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${release}.${major}.${minor}.${build} (${date})", "version", "", "");
+		filter_helper.add_syntax("${status}: ${list}", "${release}.${major}.${minor}.${build} (${date})", "version", "", "");
 
 		if (!filter_helper.parse_options())
 			return;

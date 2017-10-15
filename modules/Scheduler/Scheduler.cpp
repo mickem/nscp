@@ -42,18 +42,18 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	schedules_.set_path(settings.alias().get_settings_path("schedules"));
 
 	settings.alias().add_path_to_settings()
-		("SCHEDULER SECTION", "Section for the Scheduler module.")
+		("Scheduler", "Section for the Scheduler module.")
 
 		;
 
 	settings.alias().add_key_to_settings()
 		("threads", sh::int_fun_key(boost::bind(&schedules::scheduler::set_threads, &scheduler_, _1), 5),
-			"THREAD COUNT", "Number of threads to use.")
+			"Threads", "Number of threads to use.")
 		;
 
 	settings.alias().add_path_to_settings()
 		("schedules", sh::fun_values_path(boost::bind(&Scheduler::add_schedule, this, _1, _2)),
-			"SCHEDULER SECTION", "Section for the Scheduler module.",
+			"Schedules", "Section for the Scheduler module.",
 			"SCHEDULE", "For more configuration options add a dedicated section")
 		;
 
@@ -76,6 +76,7 @@ bool Scheduler::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.notify();
 
 	schedules_.ensure_default();
+	schedules_.add_samples(get_settings_proxy());
 
 	BOOST_FOREACH(const schedules::schedule_handler::object_list_type::value_type &o, schedules_.get_object_list()) {
 		if (o->duration && (*o->duration).total_seconds() == 0) {

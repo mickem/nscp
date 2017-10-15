@@ -1,0 +1,27 @@
+{% extends "partials/header.html" %}
+
+{% macro show_link(nav, page, title) -%}
+  {% if nav.title == page %}
+    <span class="md-header-nav__parent">
+      <a href="{{nav.url}}">{{title}}</a>
+    </span>
+  {% endif %}
+  {% for c in nav.children %}
+    {{ show_link(c, page, title) }}
+  {% endfor %}
+{%- endmacro %}
+{% block site_name %}
+  {%- if config.extra.root_menu %}
+    {% for n in nav %}
+      {{ show_link(n, config.extra.root_menu.page, config.extra.root_menu.title) }}
+    {% endfor %}
+  {%- endif %}
+  {% if page %}
+    {% for parent in page.ancestors %}
+      <span class="md-header-nav__parent">
+        {{ parent.title }}
+      </span>
+    {% endfor %}
+  {% endif %}
+  {{ page.title | default(config.site_name, true) }}
+{% endblock %}

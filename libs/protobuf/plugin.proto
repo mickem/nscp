@@ -415,8 +415,14 @@ message Registry {
 		optional string long_description = 7;
 		repeated KeyWordDescription keyword = 8;
 	};
+	message FieldDetail {
+		optional string name = 1;
+		optional string short_description = 2;
+		optional string long_description = 3;
+	};
 	message ParameterDetails {
 		repeated ParameterDetail parameter = 1;
+		repeated FieldDetail fields = 2;
 	}
 
 	message Schedule {
@@ -543,6 +549,7 @@ message Settings {
 		optional bool is_template = 11;
 		optional string sample_usage = 8;
 		repeated string plugin = 9;
+		optional bool subkey = 12;
 	};
 	enum Command {
 		LOAD	= 1;

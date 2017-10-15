@@ -60,7 +60,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.notify();
 
 	settings.alias().add_path_to_settings()
-		("NRPE SERVER SECTION", "Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.")
+		("NRPE Server", "Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.")
 		;
 
 	settings.alias().add_key_to_settings()

@@ -499,7 +499,7 @@ void CheckHelpers::render_perf(const Plugin::QueryRequestMessage::Request &reque
 	po::options_description desc = nscapi::program_options::create_desc(request);
 	perf_filter::filter filter;
 	filter_helper.add_options("", "", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("%(status): %(message) %(list)", filter.get_filter_syntax(), "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
+	filter_helper.add_syntax("%(status): %(message) %(list)", "%(key)\t%(value)\t%(unit)\t%(warn)\t%(crit)\t%(min)\t%(max)\n", "%(key)", "", "");
 	filter_helper.get_desc().add_options()
 		("command", po::value<std::string>(&command), "Wrapped command to execute")
 		("arguments", po::value<std::vector<std::string> >(&arguments), "List of arguments (for wrapped command)")

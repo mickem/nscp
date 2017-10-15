@@ -8,30 +8,34 @@ Plugin to load and manage plugins written in dot net.
 
 
 
-## List of Configuration
+**Configuration Keys:**
+
+
+
+    
 
 
 
 
 
-
-
-
-
-# Configuration
+## Configuration
 
 <a name="/modules/dotnet"/>
-## DOT NET MODULES
+### DOT NET MODULES
 
 Modules written in dotnet/CLR
+
+
+
+
+
+
 
 ```ini
 # Modules written in dotnet/CLR
 [/modules/dotnet]
 
 ```
-
-
 
 
 

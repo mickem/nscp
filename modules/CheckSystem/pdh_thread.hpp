@@ -99,6 +99,8 @@ public:
 	void add_realtime_proc_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 	void add_realtime_legacy_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query);
 
+	void add_samples(boost::shared_ptr<nscapi::settings_proxy> settings);
+
 	std::string to_string() const { return "pdh";  }
 
 private:

@@ -144,43 +144,39 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		);
 
 	settings.alias().add_path_to_settings()
-		("WINDOWS CHECK SYSTEM", "Section for system checks and system settings")
-
-		("service mapping", "SERVICE MAPPING SECTION", "Configure which services has to be in which state")
+		("Windows system", "Section for system checks and system settings")
 
 		("counters", sh::fun_values_path(boost::bind(&CheckSystem::add_counter, this, _1, _2)),
-			"COUNTERS", "Add counters to check",
+			"PDH Counters", "Add counters to check",
 			"COUNTER", "For more configuration options add a dedicated section")
 
-		("real-time", "CONFIGURE REALTIME CHECKING", "A set of options to configure the real time checks")
-
 		("real-time/memory", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_mem_filter, collector, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Realtime memory filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
 		("real-time/cpu", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_cpu_filter, collector, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Realtime cpu filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
 		("real-time/process", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_proc_filter, collector, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Realtime process filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
 		("real-time/checks", sh::fun_values_path(boost::bind(&pdh_thread::add_realtime_legacy_filter, collector, get_settings_proxy(), _1, _2)),
-			"REALTIME FILTERS", "A set of filters to use in real-time mode",
+			"Legacy generic filters", "A set of filters to use in real-time mode",
 			"FILTER", "For more configuration options add a dedicated section")
 
 		;
 
 	settings.alias().add_key_to_settings()
 		("default buffer length", sh::string_key(&collector->default_buffer_size, "1h"),
-			"DEFAULT LENGTH", "Used to define the default interval for range buffer checks (ie. CPU).")
+			"Default buffer time", "Used to define the default size of range buffer checks (ie. CPU).")
 
 		("subsystem", sh::string_key(&collector->subsystem, "default"),
-			"PDH SUBSYSTEM", "Set which pdh subsystem to use.", true)
+			"PDH subsystem", "Set which pdh subsystem to use.\nCurrently default and thread-safe are supported where thread-safe is slower but required if you have some problematic counters.", true)
 
 		("disable", sh::string_key(&collector->disable_, ""),
-		"DISABLE CHECKS", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
+		"Disable automatic checks", "A comma separated list of checks to disable in the collector: cpu,handles,network,metrics,pdh. Please note disabling these will mean part of NSClient++ will no longer function as expected.", true)
 		;
 	;
 
@@ -204,12 +200,14 @@ bool CheckSystem::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.register_all();
 	settings.notify();
 
+	collector->add_samples(get_settings_proxy());
+	pdh_checker.counters_.add_samples(get_settings_proxy());
+
 	if (!pdh_checker.counters_.has_object("disk_queue_length"))
 		add_counter("disk_queue_length", "\\PhysicalDisk($INSTANCE$)\\% Disk Time");
 
-	pdh_checker.counters_.add_samples(get_settings_proxy());
-
 	if (mode == NSCAPI::normalStart) {
+
 		BOOST_FOREACH(const check_pdh::counter_config_handler::object_instance object, pdh_checker.counters_.get_object_list()) {
 			try {
 				PDH::pdh_object counter;
@@ -553,7 +551,7 @@ void CheckSystem::check_cpu(const Plugin::QueryRequestMessage::Request &request,
 
 	filter_type filter;
 	filter_helper.add_options("load > 80", "load > 90", "core = 'total'", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${problem_list}", filter.get_filter_syntax(), "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
+	filter_helper.add_syntax("${status}: ${problem_list}", "${time}: ${load}%", "${core} ${time}", "", "%(status): CPU load is ok.");
 	filter_helper.get_desc().add_options()
 		("time", po::value<std::vector<std::string>>(&times), "The time to check")
 		;
@@ -630,7 +628,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -661,7 +659,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter_type filter;
 	filter_helper.add_options("version <= 50", "version <= 50", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${version} (${major}.${minor}.${build})", "version", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "${version} (${major}.${minor}.${build})", "version", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -763,7 +761,7 @@ void CheckSystem::check_service(const Plugin::QueryRequestMessage::Request &requ
 
 	filter_type filter;
 	filter_helper.add_options("not state_is_perfect()", "not state_is_ok()", "", filter.get_filter_syntax(), "unknown");
-	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", filter.get_filter_syntax(), "${name}=${state} (${start_type})", "${name}", "%(status): No services found", "%(status): All %(count) service(s) are ok.");
+	filter_helper.add_syntax("${status}: ${crit_list}, delayed (${warn_list})", "${name}=${state} (${start_type})", "${name}", "%(status): No services found", "%(status): All %(count) service(s) are ok.");
 	filter_helper.get_desc().add_options()
 		("computer", po::value<std::string>(&computer), "The name of the remote computer to check")
 		("service", po::value<std::vector<std::string>>(&services), "The service to check, set this to * to check all services")
@@ -834,7 +832,7 @@ void CheckSystem::check_pagefile(const Plugin::QueryRequestMessage::Request &req
 
 	filter_type filter;
 	filter_helper.add_options("used > 60%", "used > 80%", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${name} ${used} (${size})", "${name}", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "${name} ${used} (${size})", "${name}", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
