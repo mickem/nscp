@@ -115,8 +115,8 @@ namespace network_check {
 		std::string get_Speed() const { return Speed; }
 
 		long long getBytesReceivedPersec() const { return BytesReceivedPersec; }
-		long long getBytesSentPersec() const { return BytesReceivedPersec; }
-		long long getBytesTotalPersec() const { return BytesReceivedPersec; }
+		long long getBytesSentPersec() const { return BytesSentPersec; }
+		long long getBytesTotalPersec() const { return BytesTotalPersec; }
 
 	};
 
