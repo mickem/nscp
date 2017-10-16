@@ -17,8 +17,7 @@ before_install:
   - sudo apt-get install -y libgtest-dev
 install:
   - pip install jinja2
-  - pip install --user mkdocs
-  - pip install sphinx
+  - pip install --user mkdocs mkdocs-material
 script: 
   - mkdir -p tmp
   - pushd tmp 

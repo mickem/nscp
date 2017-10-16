@@ -102,7 +102,7 @@ void CheckSystem::check_uptime(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options("uptime < 2d", "uptime < 1d", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "uptime: ${uptime}h, boot: ${boot} (UTC)", "uptime", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -134,7 +134,7 @@ void CheckSystem::check_os_version(const Plugin::QueryRequestMessage::Request &r
 
 	filter_type filter;
 	filter_helper.add_options("version > 50", "version > 50", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${version} (${major}.${minor}.${build})", "version", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "${version} (${major}.${minor}.${build})", "version", "", "");
 
 	if (!filter_helper.parse_options())
 		return;
@@ -222,7 +222,7 @@ void CheckSystem::check_memory(const Plugin::QueryRequestMessage::Request &reque
 
 	filter_type filter;
 	filter_helper.add_options("used > 80%", "used > 90%", "", filter.get_filter_syntax(), "ignored");
-	filter_helper.add_syntax("${status}: ${list}", filter.get_filter_syntax(), "${type} = ${used}", "${type}", "", "");
+	filter_helper.add_syntax("${status}: ${list}", "${type} = ${used}", "${type}", "", "");
 	filter_helper.get_desc().add_options()
 		("type", po::value<std::vector<std::string> >(&types), "The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)")
 		;

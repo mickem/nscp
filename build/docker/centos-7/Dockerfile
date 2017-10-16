@@ -17,7 +17,7 @@ ENV GH_TOKEN=UPDATE_ME
 #RUN pip install urllib3[secure]
 
 
-RUN pip install jinja2 mkdocs github3.py
+RUN pip install jinja2 mkdocs mkdocs-material github3.py
 
 RUN mkdir -p /src/build
 RUN mkdir -p /src/packages
