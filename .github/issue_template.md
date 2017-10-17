@@ -18,12 +18,12 @@ Tell us what happens instead.
 
 * NSClient++ version: 0.5.2
 * OS and Version: Windows Server 2012
-* Checking from: Icinga, OP5, Centreon, ...
+* Checking from: Centreon, Icinga, OP5, ...
 * Checking with: check_nrpe, check_nt, ...
 
 ### Additional Details
 
 NSClient++ log:
 ```
-PASTE LOG HERE
+PLEASE PASTE LOG HERE
 ```
