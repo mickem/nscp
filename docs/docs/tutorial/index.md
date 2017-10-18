@@ -236,7 +236,6 @@ A less restrictive configuration is shown here where we have **allowed** all kin
 [/settings/NRPE/server]
 allow arguments = true
 allow nasty characters = true
-allow arguments=true
 ;allowed hosts = IP.OF.YOUR.MONITORING.HOST
 ;port = 5666</p>
 ```
