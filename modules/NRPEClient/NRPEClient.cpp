@@ -28,7 +28,7 @@
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>
-#include <settings/config.hpp>
+#include <config.h>
 
 #include "nrpe_client.hpp"
 #include "nrpe_handler.hpp"

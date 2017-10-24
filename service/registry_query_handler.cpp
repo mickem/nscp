@@ -5,6 +5,7 @@
 
 #include <boost/foreach.hpp>
 
+
 #ifdef WIN32
 #include <shellapi.h>
 #endif
@@ -41,10 +42,12 @@ namespace nsclient {
 	namespace core {
 
 
-		registry_query_handler::registry_query_handler(nsclient::core::core_interface *core, const Plugin::RegistryRequestMessage &request)
-			: logger_(core->get_logger())
+		registry_query_handler::registry_query_handler(nsclient::core::path_instance path_, nsclient::core::plugin_mgr_instance plugins_, nsclient::logging::logger_instance logger_, const Plugin::RegistryRequestMessage &request)
+			: path_(path_)
+			, plugins_(plugins_)
+			, logger_(logger_)
 			, request_(request)
-			, core_(core) {}
+		{}
 
 
 
@@ -66,12 +69,12 @@ namespace nsclient {
 
 		void registry_query_handler::inventory_queries(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
 			if (q.has_name()) {
-				nsclient::commands::command_info info = core_->get_commands()->describe(q.name());
+				nsclient::commands::command_info info = plugins_->get_commands()->describe(q.name());
 				if (!info.name.empty()) {
 					Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->set_name(q.name());
 					rpp->set_type(Plugin::Registry_ItemType_COMMAND);
-					rpp->mutable_info()->add_plugin(core_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
+					rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 					rpp->mutable_info()->set_title(info.name);
 					rpp->mutable_info()->set_description(info.description);
 					if (q.has_fetch_all() && q.fetch_all()) {
@@ -79,7 +82,7 @@ namespace nsclient {
 						Plugin::QueryRequestMessage::Request * p = req.add_payload();
 						p->set_command(q.name());
 						p->add_arguments("help-pb");
-						Plugin::QueryResponseMessage res = core_->execute_query(req);
+						Plugin::QueryResponseMessage res = plugins_->execute_query(req);
 						for (int i = 0; i < res.payload_size(); i++) {
 							const Plugin::QueryResponseMessage::Response p = res.payload(i);
 							rpp->mutable_parameters()->ParseFromString(p.data());
@@ -87,12 +90,12 @@ namespace nsclient {
 					}
 				}
 			} else {
-				BOOST_FOREACH(const std::string &command, core_->get_commands()->list_commands()) {
-					nsclient::commands::command_info info = core_->get_commands()->describe(command);
+				BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_commands()) {
+					nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
 					Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 					rpp->set_name(command);
 					rpp->set_type(Plugin::Registry_ItemType_COMMAND);
-					rpp->mutable_info()->add_plugin(core_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
+					rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 					rpp->mutable_info()->set_title(info.name);
 					rpp->mutable_info()->set_description(info.description);
 					if (q.has_fetch_all() && q.fetch_all()) {
@@ -101,7 +104,7 @@ namespace nsclient {
 						Plugin::QueryRequestMessage::Request * p = req.add_payload();
 						p->set_command(command);
 						p->add_arguments("help-pb");
-						Plugin::QueryResponseMessage res = core_->execute_query(req);
+						Plugin::QueryResponseMessage res = plugins_->execute_query(req);
 						for (int i = 0; i < res.payload_size(); i++) {
 							const Plugin::QueryResponseMessage::Response p = res.payload(i);
 							rpp->mutable_parameters()->ParseFromString(p.data());
@@ -114,14 +117,14 @@ namespace nsclient {
 
 		void registry_query_handler::find_plugins_on_disk(boost::unordered_set<std::string> &unique_instances, const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
 			nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
-			boost::filesystem::path pluginPath = core_->expand_path("${module-path}");
+			boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
 			boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
 			for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
 				if (!is_directory(itr->status())) {
 					boost::filesystem::path file = itr->path().filename();
 					if (NSCPlugin::is_module(pluginPath / file)) {
 						const std::string module = NSCPlugin::file_to_module(file);
-						if (!core_->get_plugin_cache()->has_module(module)) {
+						if (!plugins_->get_plugin_cache()->has_module(module)) {
 							plugin_cache_item itm;
 							try {
 								boost::filesystem::path p = (pluginPath / file).normalize();
@@ -165,12 +168,12 @@ namespace nsclient {
 					}
 				}
 			}
-			core_->get_plugin_cache()->add_plugins(tmp_list);
+			plugins_->get_plugin_cache()->add_plugins(tmp_list);
 		}
 
 		void registry_query_handler::inventory_modules(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
 			boost::unordered_set<std::string> unique_instances;
-			BOOST_FOREACH(const nsclient::core::plugin_cache_item &plugin, core_->get_plugin_cache()->get_list()) {
+			BOOST_FOREACH(const nsclient::core::plugin_cache_item &plugin, plugins_->get_plugin_cache()->get_list()) {
 				std::string key = plugin.dll + "::" + plugin.alias;
 				if (unique_instances.find(key) != unique_instances.end()) {
 					continue;
@@ -194,7 +197,7 @@ namespace nsclient {
 				kvp->set_key("loaded");
 				kvp->set_value(plugin.is_loaded ? "true" : "false");
 			}
-			if (!core_->get_plugin_cache()->has_all() && q.fetch_all()) {
+			if (!plugins_->get_plugin_cache()->has_all() && q.fetch_all()) {
 				find_plugins_on_disk(unique_instances, q, rp);
 			}
 		}
@@ -207,12 +210,12 @@ namespace nsclient {
 					inventory_queries(q, rp);
 				}
 				if (type == Plugin::Registry_ItemType_QUERY_ALIAS || type == Plugin::Registry_ItemType_ALL) {
-					BOOST_FOREACH(const std::string &command, core_->get_commands()->list_aliases()) {
-						nsclient::commands::command_info info = core_->get_commands()->describe(command);
+					BOOST_FOREACH(const std::string &command, plugins_->get_commands()->list_aliases()) {
+						nsclient::commands::command_info info = plugins_->get_commands()->describe(command);
 						Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 						rpp->set_name(command);
 						rpp->set_type(Plugin::Registry_ItemType_QUERY_ALIAS);
-						rpp->mutable_info()->add_plugin(core_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
+						rpp->mutable_info()->add_plugin(plugins_->get_plugin_cache()->find_plugin_alias(info.plugin_id));
 						rpp->mutable_info()->set_title(info.name);
 						rpp->mutable_info()->set_description(info.description);
 					}
@@ -228,27 +231,27 @@ namespace nsclient {
 			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 			if (registration.type() == Plugin::Registry_ItemType_QUERY) {
 				if (registration.unregister()) {
-					core_->get_commands()->unregister_command(registration.plugin_id(), registration.name());
+					plugins_->get_commands()->unregister_command(registration.plugin_id(), registration.name());
 					BOOST_FOREACH(const std::string &alias, registration.alias())
-						core_->get_commands()->unregister_command(registration.plugin_id(), alias);
+						plugins_->get_commands()->unregister_command(registration.plugin_id(), alias);
 				} else {
-					core_->get_commands()->register_command(registration.plugin_id(), registration.name(), registration.info().description());
+					plugins_->get_commands()->register_command(registration.plugin_id(), registration.name(), registration.info().description());
 					std::string description = "Alternative name for: " + registration.name();
 					BOOST_FOREACH(const std::string &alias, registration.alias())
-						core_->get_commands()->register_alias(registration.plugin_id(), alias, description);
+						plugins_->get_commands()->register_alias(registration.plugin_id(), alias, description);
 				}
 			} else if (registration.type() == Plugin::Registry_ItemType_QUERY_ALIAS) {
-				core_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description());
+				plugins_->get_commands()->register_alias(registration.plugin_id(), registration.name(), registration.info().description());
 				for (int i = 0; i < registration.alias_size(); i++) {
-					core_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
+					plugins_->get_commands()->register_alias(registration.plugin_id(), registration.alias(i), registration.info().description());
 				}
 			} else if (registration.type() == Plugin::Registry_ItemType_HANDLER) {
-				core_->get_channels()->register_listener(registration.plugin_id(), registration.name());
+				plugins_->get_channels()->register_listener(registration.plugin_id(), registration.name());
 			} else if (registration.type() == Plugin::Registry_ItemType_EVENT) {
-				core_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
+				plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
 			} else if (registration.type() == Plugin::Registry_ItemType_MODULE) {
 				Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
-				unsigned int new_id = core_->add_plugin(registration.plugin_id());
+				unsigned int new_id = plugins_->add_plugin(registration.plugin_id());
 				if (new_id != -1) {
 					rpp->set_item_id(new_id);
 				}
@@ -263,7 +266,7 @@ namespace nsclient {
 			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 			if (control.type() == Plugin::Registry_ItemType_MODULE) {
 				if (control.command() == Plugin::Registry_Command_LOAD) {
-					boost::filesystem::path pluginPath = core_->expand_path("${module-path}");
+					boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
 					boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath, NSCPlugin::get_plugin_file(control.name()));
 					if (!module)
 						module = locateFileICase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(control.name()));
@@ -271,11 +274,10 @@ namespace nsclient {
 						LOG_ERROR_CORE("Failed to find: " + control.name());
 					} else {
 						LOG_DEBUG_CORE_STD("Module name: " + module->string());
-
-						core_->load_plugin(*module, control.alias());
+						plugins_->load_plugin(*module, control.alias());
 					}
 				} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
-					core_->remove_plugin(control.name());
+					plugins_->remove_plugin(control.name());
 				} else {
 					LOG_ERROR_CORE("Registration query: Invalid command");
 				}

@@ -64,3 +64,8 @@
 #define LOG_FOLDER			"@CONFIG_LOG_FOLDER@"
 
 #define NASTY_METACHARS         "|`&><'\"\\[]{}"        /* This may need to be modified for windows directory seperator */
+
+#define MAIN_MODULES_SECTION "/modules"
+#define NS_HKEY_ROOT HKEY_LOCAL_MACHINE
+#define NS_REG_ROOT L"SOFTWARE\\NSClient++"
+#define CONFIG_PATHS "/paths"

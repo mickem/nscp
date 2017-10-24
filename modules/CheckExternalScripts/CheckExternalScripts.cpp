@@ -28,8 +28,6 @@
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 
-#include <settings/config.hpp>
-#include <settings/config.hpp>
 #include <config.h>
 #include <str/utils.hpp>
 #include <str/format.hpp>

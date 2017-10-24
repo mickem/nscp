@@ -20,18 +20,12 @@
 #pragma once
 
 #include "nsclient_core_interface.hpp"
-
-#include <service/system_service.hpp>
-
-#include "NSCPlugin.h"
-#include "commands.hpp"
-#include "channels.hpp"
-#include "routers.hpp"
-#include <nsclient/logger/logger.hpp>
 #include "scheduler_handler.hpp"
 #include "plugin_cache.hpp"
+#include "plugin_manager.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
+#include <nsclient/logger/logger.hpp>
+#include <service/system_service.hpp>
 
 class NSClientT;
 typedef service_helper::impl<NSClientT>::system_service NSClient;
@@ -68,24 +62,14 @@ public:
 	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 private:
 
-	typedef std::vector<plugin_type> pluginList;
-	pluginList plugins_;
-	boost::filesystem::path basePath;
-	boost::filesystem::path tempPath;
 	boost::timed_mutex internalVariables;
-	boost::shared_mutex m_mutexRW;
 
 	std::string context_;
 
-	unsigned int next_plugin_id_;
 	std::string service_name_;
 	nsclient::logging::logger_instance log_instance_;
-	nsclient::commands commands_;
-	nsclient::channels channels_;
-	nsclient::simple_plugins_list metricsFetchers;
-	nsclient::simple_plugins_list metricsSubmitetrs;
-	nsclient::core::plugin_cache plugin_cache_;
-	nsclient::event_subscribers event_subscribers_;
+	nsclient::core::path_instance path_;
+	nsclient::core::plugin_mgr_instance plugins_;
 
 	task_scheduler::scheduler scheduler_;
 
@@ -105,7 +89,6 @@ public:
 	bool stop_exit_pre();
 	bool stop_exit_post();
 	void set_settings_context(std::string context) { context_ = context; }
-	//void service_on_session_changed(DWORD dwSessionId, bool logon, DWORD dwEventType);
 
 	// Service API
 	static NSClient* get_global_instance();
@@ -118,43 +101,23 @@ public:
 
 	void ownMetricsFetcher(Plugin::MetricsMessage::Response *response);
 
-	// Member functions
-	boost::filesystem::path getBasePath();
-	boost::filesystem::path getTempPath();
-
 	nsclient::logging::logger_instance get_logger() {
 		return log_instance_;
 	}
+	nsclient::core::plugin_mgr_instance get_plugin_manager() {
+		return plugins_;
+	}
+	nsclient::core::path_instance get_path() {
+		return path_;
+	}
 
-	NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
-	NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
-	::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
-	std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-	int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-	int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-	NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
 	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
-	NSCAPI::nagiosReturn emit_event(const std::string &request);
 
 	NSCAPI::errorReturn reload(const std::string module);
 	bool do_reload(const std::string module);
 
-
-	void register_command_alias(unsigned long id, std::string cmd, std::string desc) {
-		commands_.register_alias(id, cmd, desc);
-	}
 	nsclient::core::plugin_cache* get_plugin_cache() {
-		return &plugin_cache_;
-	}
-
-	nsclient::commands* get_commands() {
-		return &commands_;
-	}
-	nsclient::channels* get_channels() {
-		return &channels_;
-	}
-	nsclient::event_subscribers* get_event_subscribers() {
-		return &event_subscribers_;
+		return plugins_->get_plugin_cache();
 	}
 
 
@@ -176,41 +139,19 @@ public:
 
 	service_controller get_service_control();
 
-	//plugin_type loadPlugin(const boost::filesystem::path plugin, std::wstring alias);
-	void loadPlugins(NSCAPI::moduleLoadMode mode);
 	void reloadPlugins();
 	void unloadPlugins();
 	std::string describeCommand(std::string command);
 	std::list<std::string> getAllCommandNames();
 	void registerCommand(unsigned int id, std::string cmd, std::string desc);
-	//void startTrayIcons();
-	//void startTrayIcon(DWORD dwSessionId);
 
-	void listPlugins();
-	plugin_type find_plugin(const unsigned int plugin_id);
-	plugin_type find_plugin(const std::string plugin_id);
-	void remove_plugin(const std::string name);
+ 	plugin_type find_plugin(const unsigned int plugin_id);
 	void load_plugin(const boost::filesystem::path &file, std::string alias);
-	unsigned int add_plugin(unsigned int plugin_id);
-	std::string get_plugin_module_name(unsigned int plugin_id);
-	plugin_alias_list_type find_all_plugins(bool active);
-	std::list<std::string> list_commands();
 
-	std::string getFolder(std::string key);
-	std::string expand_path(std::string file);
 
 	void process_metrics();
 
-	typedef boost::function<int(plugin_type)> run_function;
-	int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
-	std::list<plugin_type> get_plugins_c();
-
-
-
-public:
 	void preboot_load_all_plugin_files();
 
-private:
-	plugin_type addPlugin(boost::filesystem::path file, std::string alias);
 };
 

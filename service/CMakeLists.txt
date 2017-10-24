@@ -19,6 +19,9 @@ SET(service_SRCS
 	NSClient++.cpp
 	NSCPlugin.cpp
 	core_api.cpp
+	plugin_manager.cpp
+	master_plugin_list.cpp
+	path_manager.cpp
 
 	#logger
 	logger/nsclient_logger.cpp
@@ -69,6 +72,10 @@ IF(WIN32)
 		cli_parser.hpp
 		${NSCP_INCLUDEDIR}/scheduler/simple_scheduler.hpp
 		scheduler_handler.hpp
+		plugin_manager.hpp
+		master_plugin_list.hpp
+		path_manager.hpp
+
 		
 		plugin_list.hpp
 		commands.hpp

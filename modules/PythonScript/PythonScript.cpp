@@ -27,10 +27,10 @@
 #include <nscapi/nscapi_protobuf_nagios.hpp>
 #include <nscapi/macros.hpp>
 
+#include <config.h>
+
 #include <str/utils.hpp>
 #include <file_helpers.hpp>
-
-#include <settings/config.hpp>
 
 #include <json_spirit.h>
 

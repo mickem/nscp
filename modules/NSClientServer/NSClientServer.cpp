@@ -29,7 +29,6 @@
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_common_options.hpp>
 
-#include <settings/config.hpp>
 #include <str/utils.hpp>
 #include <time.h>
 
@@ -155,7 +154,7 @@ void split_to_list(std::list<std::string> &list, const std::string str, const st
 
 void log_bad_command(const std::string &cmd) {
 	if (cmd == "check_cpu" || cmd == "check_uptime" || cmd == "check_memory") {
-		NSC_LOG_ERROR(cmd + std::string(" failed to execute have you loaded CheckSystem? ([" MAIN_MODULES_SECTION "] CheckSystem=enabled)"));
+		NSC_LOG_ERROR(cmd + std::string(" failed to execute have you loaded CheckSystem? (CheckSystem=enabled under modules)"));
 	} else {
 		NSC_LOG_ERROR("Unknown command: " + cmd);
 	}

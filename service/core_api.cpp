@@ -43,7 +43,7 @@
 extern NSClient *mainClient;	// Global core instance forward declaration.
 
 NSCAPI::errorReturn NSAPIExpandPath(const char* key, char* buffer, unsigned int bufLen) {
-	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->expand_path(key), NSCAPI::api_return_codes::isSuccess);
+	return nscapi::plugin_helper::wrapReturnString(buffer, bufLen, mainClient->get_path()->expand_path(key), NSCAPI::api_return_codes::isSuccess);
 }
 
 NSCAPI::errorReturn NSAPIGetApplicationName(char *buffer, unsigned int bufLen) {
@@ -78,7 +78,7 @@ void NSAPIStopServer(void) {
 }
 NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request(request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient->execute_query(request, response);
+	NSCAPI::nagiosReturn ret = mainClient->get_plugin_manager()->execute_query(request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
@@ -91,7 +91,7 @@ NSCAPI::nagiosReturn NSAPIInject(const char *request_buffer, const unsigned int 
 
 NSCAPI::nagiosReturn NSAPIExecCommand(const char* target, const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
 	std::string request(request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient->exec_command(target, request, response);
+	NSCAPI::nagiosReturn ret = mainClient->get_plugin_manager()->exec_command(target, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
@@ -147,7 +147,7 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 		Plugin::RegistryRequestMessage request;
 		Plugin::RegistryResponseMessage response;
 		request.ParseFromArray(request_buffer, request_buffer_len);
-		nsclient::core::registry_query_handler rqh(mainClient, request);
+		nsclient::core::registry_query_handler rqh(mainClient->get_path(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
 		rqh.parse(response);
 
 		*response_buffer_len = response.ByteSize();
@@ -164,13 +164,6 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 		return NSCAPI::api_return_codes::hasFailed;
 	}
 	return NSCAPI::api_return_codes::isSuccess;
-}
-
-wchar_t* copyString(const std::wstring &str) {
-	std::size_t sz = str.size();
-	wchar_t *tc = new wchar_t[sz + 2];
-	wcsncpy(tc, str.c_str(), sz);
-	return tc;
 }
 
 NSCAPI::errorReturn NSAPIReload(const char *module) {
@@ -218,7 +211,7 @@ nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 
 NSCAPI::errorReturn NSAPINotify(const char* channel, const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	std::string request(request_buffer, request_buffer_len), response;
-	NSCAPI::nagiosReturn ret = mainClient->send_notification(channel, request, response);
+	NSCAPI::nagiosReturn ret = mainClient->get_plugin_manager()->send_notification(channel, request, response);
 	*response_buffer_len = static_cast<unsigned int>(response.size());
 	if (response.empty())
 		*response_buffer = NULL;
@@ -346,5 +339,5 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 
 NSCAPI::errorReturn NSCAPIEmitEvent(const char* request_buffer, unsigned int request_buffer_len) {
 	std::string request(request_buffer, request_buffer_len);
-	return mainClient->emit_event(request);
+	return mainClient->get_plugin_manager()->emit_event(request);
 }

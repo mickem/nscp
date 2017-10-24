@@ -25,7 +25,7 @@
 
 #include "../libs/settings_manager/settings_manager_impl.h"
 
-#include <settings/config.hpp>
+#include <config.h>
 
 settings::settings_core* nsclient_core::settings_client::get_core() const {
 	return settings_manager::get_core();

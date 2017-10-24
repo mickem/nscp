@@ -20,7 +20,7 @@
 #pragma once
 
 #include <settings/settings_core.hpp>
-#include <settings/config.hpp>
+#include <config.h>
 
 #include <error/error.hpp>
 

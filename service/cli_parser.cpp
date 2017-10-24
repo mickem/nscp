@@ -448,11 +448,11 @@ struct client_arguments {
 	int run_exec(NSClient* core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
 		try {
 			int ret = 0;
-			ret = core_->simple_exec(module + "." + command, arguments, result);
+			ret = core_->get_plugin_manager()->simple_exec(module + "." + command, arguments, result);
 			if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 				ret = 1;
 				result.push_back("Command not found: " + command);
-				core_->simple_exec(module + ".help", arguments, result);
+				core_->get_plugin_manager()->simple_exec(module + ".help", arguments, result);
 			}
 			return ret;
 		} catch (const std::exception & e) {
@@ -480,11 +480,11 @@ struct client_arguments {
 	int run_query(NSClient* core_, std::string command, std::vector<std::string> arguments, std::list<std::string> &result) {
 		try {
 			int ret = 0;
-			ret = core_->simple_query(module, command, arguments, result);
+			ret = core_->get_plugin_manager()->simple_query(module, command, arguments, result);
 			if (ret == NSCAPI::cmd_return_codes::returnIgnored) {
 				result.push_back("Command not found: " + command);
 				std::string commands;
-				BOOST_FOREACH(const std::string &c, core_->list_commands()) {
+				BOOST_FOREACH(const std::string &c, core_->get_plugin_manager()->get_commands()->list_commands()) {
 					str::format::append_list(commands, c);
 				}
 				result.push_back("Available commands: " + commands);
