@@ -22,3 +22,6 @@
 [submodule "ext/md-protobuf"]
 	path = ext/md-protobuf
 	url = https://github.com/mickem/md-protobuf.git
+[submodule "ext/minizip"]
+	path = ext/minizip
+	url = https://github.com/nmoinvaz/minizip.git
