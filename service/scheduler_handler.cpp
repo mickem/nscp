@@ -34,7 +34,7 @@ namespace task_scheduler {
 		return metadata[id];
 	}
 	void scheduler::handle_plugin(const schedule_metadata &data) {
-		NSClientT::plugin_type plugin = mainClient->find_plugin(data.plugin_id);
+		NSClientT::plugin_type plugin = mainClient->get_plugin_manager()->find_plugin(data.plugin_id);
 		plugin->handle_schedule("");
 	}
 	void scheduler::handle_reload(const schedule_metadata &data) {

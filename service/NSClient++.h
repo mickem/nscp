@@ -79,16 +79,19 @@ public:
 	NSClientT();
 	virtual ~NSClientT();
 
-	// Service helper functions
-	bool boot_init(const bool override_log = false);
-	bool boot_load_all_plugins();
-	bool boot_load_plugin(std::string plugin, bool boot = false);
+	// Startup/Shutdown
+	bool load_configuration(const bool override_log = false);
+	bool boot_load_active_plugins();
+	void boot_load_all_plugin_files();
+	bool boot_load_single_plugin(std::string plugin);
 	bool boot_start_plugins(bool boot);
 
-	bool stop_unload_plugins_pre();
-	bool stop_exit_pre();
-	bool stop_exit_post();
+	bool stop_nsclient();
 	void set_settings_context(std::string context) { context_ = context; }
+
+
+	NSCAPI::errorReturn reload(const std::string module);
+	bool do_reload(const std::string module);
 
 	// Service API
 	static NSClient* get_global_instance();
@@ -99,8 +102,8 @@ public:
 #endif
 
 
-	void ownMetricsFetcher(Plugin::MetricsMessage::Response *response);
 
+	// Core API interface (get modules)
 	nsclient::logging::logger_instance get_logger() {
 		return log_instance_;
 	}
@@ -110,16 +113,9 @@ public:
 	nsclient::core::path_instance get_path() {
 		return path_;
 	}
-
-	NSCAPI::errorReturn register_submission_listener(unsigned int plugin_id, const char* channel);
-
-	NSCAPI::errorReturn reload(const std::string module);
-	bool do_reload(const std::string module);
-
 	nsclient::core::plugin_cache* get_plugin_cache() {
 		return plugins_->get_plugin_cache();
 	}
-
 
 	struct service_controller {
 		std::string service;
@@ -139,19 +135,13 @@ public:
 
 	service_controller get_service_control();
 
-	void reloadPlugins();
-	void unloadPlugins();
-	std::string describeCommand(std::string command);
-	std::list<std::string> getAllCommandNames();
-	void registerCommand(unsigned int id, std::string cmd, std::string desc);
-
- 	plugin_type find_plugin(const unsigned int plugin_id);
-	void load_plugin(const boost::filesystem::path &file, std::string alias);
-
-
 	void process_metrics();
 
-	void preboot_load_all_plugin_files();
+private:
+	void reloadPlugins();
+	void unloadPlugins();
+
+	Plugin::Common::MetricsBundle ownMetricsFetcher();
 
 };
 

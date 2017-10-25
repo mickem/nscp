@@ -19,10 +19,16 @@
 
 #pragma once
 
+#include <utf8.hpp>
+
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
-#include <utf8.hpp>
+#include <boost/optional.hpp>
+
+#ifdef WIN32
+#include <shellapi.h>
+#endif
 
 namespace file_helpers {
 	namespace fs = boost::filesystem;
@@ -104,4 +110,33 @@ namespace file_helpers {
 			return mask;
 		}
 	}; // END patterns
+
+	struct finder {
+		static boost::optional<boost::filesystem::path> locate_file_icase(const boost::filesystem::path path, const std::string filename) {
+			boost::filesystem::path fullpath = path / filename;
+#ifdef WIN32
+			std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
+			SHFILEINFOW sfi = { 0 };
+			boost::replace_all(tmp, "/", "\\");
+			HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
+			if (SUCCEEDED(hr)) {
+				tmp = sfi.szDisplayName;
+				boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
+				return rpath;
+			}
+#else
+			if (boost::filesystem::is_regular_file(fullpath))
+				return fullpath;
+			boost::filesystem::directory_iterator it(path), eod;
+			std::string tmp = boost::algorithm::to_lower_copy(filename);
+			BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
+				if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
+					return p;
+				}
+			}
+#endif
+			return boost::optional<boost::filesystem::path>();
+		}
+
+	};
 }

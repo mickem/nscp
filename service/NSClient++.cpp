@@ -131,32 +131,6 @@ NSClientT::~NSClientT() {
 }
 
 
-void NSClientT::preboot_load_all_plugin_files() {
-	boost::filesystem::path pluginPath;
-	{
-		try {
-			pluginPath = path_->expand_path("${module-path}");
-		} catch (std::exception &e) {
-			LOG_CRITICAL_CORE(std::string("Failed to load plugins: ") + e.what() + " for " + path_->expand_path("${module-path}"));
-			return;
-		}
-		BOOST_FOREACH(plugin_alias_list_type::value_type v, plugins_->find_all_plugins(settings_manager::get_settings(), pluginPath)) {
-			if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
-				continue;
-			try {
-				plugins_->addPlugin(pluginPath / v.second, v.first);
-			} catch (const NSPluginException &e) {
-				if (e.file().find("FileLogger") != std::string::npos) {
-					LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
-				} else {
-					LOG_ERROR_CORE("Failed to register plugin " + v.second + ": " + e.reason());
-				}
-			} catch (...) {
-				LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
-			}
-		}
-	}
-}
 
 namespace sh = nscapi::settings_helper;
 
@@ -167,7 +141,7 @@ namespace sh = nscapi::settings_helper;
  * @return success
  * @author mickem
  */
-bool NSClientT::boot_init(const bool override_log) {
+bool NSClientT::load_configuration(const bool override_log) {
 #ifdef WIN32
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
@@ -276,38 +250,21 @@ bool NSClientT::boot_init(const bool override_log) {
 		return false;
 	}
 #endif
+
+	boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
+	if (!boost::filesystem::is_directory(pluginPath)) {
+		LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
+		return false;
+	}
+	plugins_->set_path(pluginPath);
+
 	return true;
 }
-bool NSClientT::boot_load_all_plugins() {
-	LOG_DEBUG_CORE("booting::loading plugins");
+bool NSClientT::boot_load_active_plugins() {
 	try {
-		boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-		if (!boost::filesystem::is_directory(pluginPath)) {
-			LOG_ERROR_CORE("Failed to find modules folder: " + pluginPath.string());
-			return false;
-		}
-		BOOST_FOREACH(const plugin_alias_list_type::value_type &v, plugins_->find_all_active_plugins(settings_manager::get_settings())) {
-			std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
-			std::string alias = v.first;
-			boost::filesystem::path module = pluginPath / file;
-			try {
-				plugins_->addPlugin(module, alias);
-			} catch (const NSPluginException& e) {
-				if (e.file().find("FileLogger") != std::string::npos) {
-					LOG_DEBUG_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
-				} else {
-					LOG_ERROR_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
-				}
-			} catch (const std::exception &e) {
-				LOG_ERROR_CORE_STD("exception loading plugin: " + file + utf8::utf8_from_native(e.what()));
-				return false;
-			} catch (...) {
-				LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + file);
-				return false;
-			}
-		}
-	} catch (const settings::settings_exception &e) {
-		LOG_ERROR_CORE_STD("Settings exception when loading modules: " + e.reason());
+		plugins_->load_active_plugins();
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE_STD("Exception loading modules: " + utf8::utf8_from_native(e.what()));
 		return false;
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception when loading plugins");
@@ -316,54 +273,30 @@ bool NSClientT::boot_load_all_plugins() {
 	return true;
 }
 
-bool NSClientT::boot_load_plugin(std::string plugin, bool boot) {
+void NSClientT::boot_load_all_plugin_files() {
 	try {
-		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
-			plugin = plugin.substr(0, plugin.length() - 4);
-
-		std::string plugin_file = NSCPlugin::get_plugin_file(plugin);
-		boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-		boost::filesystem::path file = pluginPath / plugin_file;
-		plugin_type instance;
-		if (boost::filesystem::is_regular(file)) {
-			instance = plugins_->addPlugin(file, "");
-		} else {
-			if (plugin_file == "CheckTaskSched1.dll" || plugin_file == "CheckTaskSched2.dll") {
-				LOG_ERROR_CORE_STD("Your loading the CheckTaskSched1/2 which has been renamed into CheckTaskSched, please update your config");
-				plugin_file = "CheckTaskSched.dll";
-				boost::filesystem::path file = pluginPath / plugin_file;
-				if (boost::filesystem::is_regular(file)) {
-					instance = plugins_->addPlugin(file, "");
-				}
-			} else {
-				LOG_ERROR_CORE_STD("Failed to load: " + plugin + "File not found: " + file.string());
-				return false;
-			}
-		}
-		if (boot) {
-			try {
-				if (!instance->load_plugin(NSCAPI::normalStart)) {
-					LOG_ERROR_CORE_STD("Plugin refused to load: " + instance->get_description());
-				}
-			} catch (NSPluginException e) {
-				LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
-			} catch (...) {
-				LOG_ERROR_CORE_STD("Could not load plugin: " + instance->get_description());
-			}
-		}
-		return true;
-	} catch (const NSPluginException &e) {
-		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
+		plugins_->load_all_plugins();
 	} catch (const std::exception &e) {
-		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
+		LOG_ERROR_CORE_STD("Exception loading modules: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
-		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found...");
+		LOG_ERROR_CORE("Unknown exception when loading plugins");
 	}
-	return false;
 }
+
+bool NSClientT::boot_load_single_plugin(std::string plugin) {
+	try {
+		return plugins_->load_single_plugin(plugin);
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE_STD("Exception loading modules: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		LOG_ERROR_CORE("Unknown exception when loading plugins");
+	}
+}
+
+
 bool NSClientT::boot_start_plugins(bool boot) {
 	try {
-		plugins_->loadPlugins(boot ? NSCAPI::normalStart : NSCAPI::dontStart);
+		plugins_->start_plugins(boot ? NSCAPI::normalStart : NSCAPI::dontStart);
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception loading plugins");
 		return false;
@@ -384,7 +317,7 @@ bool NSClientT::boot_start_plugins(bool boot) {
 	return true;
 }
 
-bool NSClientT::stop_unload_plugins_pre() {
+bool NSClientT::stop_nsclient() {
 	scheduler_.stop();
 	LOG_DEBUG_CORE("Attempting to stop all plugins");
 	try {
@@ -395,9 +328,6 @@ bool NSClientT::stop_unload_plugins_pre() {
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception raised when unloading non msg plugins");
 	}
-	return true;
-}
-bool NSClientT::stop_exit_pre() {
 #ifdef WIN32
 	LOG_DEBUG_CORE("Stopping: COM helper");
 	try {
@@ -411,8 +341,6 @@ bool NSClientT::stop_exit_pre() {
 	LOG_DEBUG_CORE("Stopping: Settings instance");
 	settings_manager::destroy_settings();
 	return true;
-}
-bool NSClientT::stop_exit_post() {
 	try {
 		log_instance_->shutdown();
 		google::protobuf::ShutdownProtobufLibrary();
@@ -421,17 +349,19 @@ bool NSClientT::stop_exit_post() {
 	}
 	return true;
 }
+
+
 //////////////////////////////////////////////////////////////////////////
 // Member functions
 
 void NSClientT::unloadPlugins() {
 	log_instance_->clear_subscribers();
-	plugins_->unloadPlugins();
+	plugins_->stop_plugins();
 }
 void NSClientT::reloadPlugins() {
-	plugins_->loadPlugins(NSCAPI::reloadStart);
-	boot_load_all_plugins();
-	plugins_->loadPlugins(NSCAPI::normalStart);
+	plugins_->start_plugins(NSCAPI::reloadStart);
+	boot_load_active_plugins();
+	plugins_->start_plugins(NSCAPI::normalStart);
 	// TODO: Figure out changed set and remove/add delete/added modules.
 	settings_manager::get_core()->set_reload(false);
 }
@@ -497,63 +427,20 @@ NSCAPI::errorReturn NSClientT::reload(const std::string module) {
 }
 
 
-
-std::string NSClientT::describeCommand(std::string command) {
-	return plugins_->describeCommand(command);
-}
-std::list<std::string> NSClientT::getAllCommandNames() {
-	return plugins_->getAllCommandNames();
-}
-void NSClientT::registerCommand(unsigned int id, std::string cmd, std::string desc) {
-	return plugins_->registerCommand(id, cmd, desc);
-}
-
-NSCAPI::errorReturn NSClientT::register_submission_listener(unsigned int plugin_id, const char* channel) {
-	plugins_->register_submission_listener(plugin_id, channel);
-	return NSCAPI::api_return_codes::isSuccess;
-}
-
-void NSClientT::load_plugin(const boost::filesystem::path &file, std::string alias) {
-	try {
-		plugin_type instance = plugins_->addPlugin(file, alias);
-		if (!instance) {
-			LOG_DEBUG_CORE_STD("Failed to load " + file.string());
-			return;
-		}
-		instance->load_plugin(NSCAPI::normalStart);
-	} catch (const NSPluginException& e) {
-		if (e.file().find("FileLogger") != std::string::npos) {
-			LOG_DEBUG_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
-		} else {
-			LOG_ERROR_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
-		}
-	}
-}
-
-
 // Service API
 NSClient* NSClientT::get_global_instance() {
 	return mainClient;
 }
 void NSClientT::handle_startup(std::string service_name) {
-	LOG_DEBUG_CORE("Starting: " + utf8::cvt<std::string>(service_name));
+	LOG_DEBUG_CORE("Starting: " + service_name);
 	service_name_ = service_name;
-	boot_init();
-	boot_load_all_plugins();
+	load_configuration();
+	boot_load_active_plugins();
 	boot_start_plugins(true);
 	LOG_DEBUG_CORE("Starting: DONE");
-	/*
-		DWORD dwSessionId = remote_processes::getActiveSessionId();
-		if (dwSessionId != 0xFFFFFFFF)
-			tray_starter::start(dwSessionId);
-		else
-			LOG_ERROR_STD(_T("Failed to start tray helper:" ) + error::lookup::last_error());
-			*/
 }
 void NSClientT::handle_shutdown(std::string service_name) {
-	stop_unload_plugins_pre();
-	stop_exit_pre();
-	stop_exit_post();
+	stop_nsclient();
 }
 
 NSClientT::service_controller NSClientT::get_service_control() {
@@ -583,76 +470,38 @@ bool NSClientT::service_controller::is_started() {
 	return false;
 }
 
-struct metrics_fetcher {
-	Plugin::MetricsMessage result;
-	std::string buffer;
-	metrics_fetcher() {
-		result.add_payload();
-	}
-
-	Plugin::MetricsMessage::Response* get_root() {
-		return result.mutable_payload(0);
-	}
-	void add_bundle(const Plugin::Common::MetricsBundle &b) {
-		get_root()->add_bundles()->CopyFrom(b);
-	}
-	void fetch(nsclient::plugin_type p) {
-		std::string buffer;
-		p->fetchMetrics(buffer);
-		Plugin::MetricsMessage payload;
-		payload.ParseFromString(buffer);
-		BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, payload.payload()) {
-			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
-				add_bundle(b);
-			}
-		}
-	}
-	void render() {
-		get_root()->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
-		buffer = result.SerializeAsString();
-	}
-	void digest(nsclient::plugin_type p) {
-		p->submitMetrics(buffer);
-	}
-};
-
-void NSClientT::ownMetricsFetcher(Plugin::MetricsMessage::Response *response) {
-	Plugin::Common::MetricsBundle *bundle = response->add_bundles();
-	bundle->set_key("workers");
+Plugin::Common::MetricsBundle NSClientT::ownMetricsFetcher() {
+	Plugin::Common::MetricsBundle bundle;
+	bundle.set_key("workers");
 	if (scheduler_.get_scheduler().has_metrics()) {
 		boost::uint64_t taskes__ = scheduler_.get_scheduler().get_metric_executed();
 		boost::uint64_t submitted__ = scheduler_.get_scheduler().get_metric_compleated();
 		boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
 		boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
 
-		Plugin::Common::Metric *m = bundle->add_value();
+		Plugin::Common::Metric *m = bundle.add_value();
 		m->set_key("jobs");
 		m->mutable_value()->set_int_data(taskes__);
-		m = bundle->add_value();
+		m = bundle.add_value();
 		m->set_key("submitted");
 		m->mutable_value()->set_int_data(submitted__);
-		m = bundle->add_value();
+		m = bundle.add_value();
 		m->set_key("errors");
 		m->mutable_value()->set_int_data(errors__);
-		m = bundle->add_value();
+		m = bundle.add_value();
 		m->set_key("threads");
 		m->mutable_value()->set_int_data(threads);
 	} else {
-		Plugin::Common::Metric *m = bundle->add_value();
+		Plugin::Common::Metric *m = bundle.add_value();
 		m->set_key("metrics.available");
 		m->mutable_value()->set_string_data("false");
 	}
+	return bundle;
 }
 void NSClientT::process_metrics() {
-	plugins_->process_metrics();
-	//ownMetricsFetcher(f.get_root());
+	plugins_->process_metrics(ownMetricsFetcher());
 }
 
 #ifdef _WIN32
 void NSClientT::handle_session_change(unsigned long dwSessionId, bool logon) {}
-
-NSClientT::plugin_type NSClientT::find_plugin(const unsigned int plugin_id) {
-	return plugins_->find_plugin(plugin_id);
-}
-
 #endif

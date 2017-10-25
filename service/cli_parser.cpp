@@ -415,7 +415,7 @@ struct client_arguments {
 			if (module == "CommandClient")
 				boot = true;
 
-			core_->boot_init(true);
+			core_->load_configuration(true);
 			BOOST_FOREACH(const std::string &s, defines) {
 				std::string::size_type p1 = s.find(":");
 				if (p1 == std::string::npos) {
@@ -430,11 +430,11 @@ struct client_arguments {
 				settings_manager::get_settings()->set_string(s.substr(0, p1), s.substr(p1 + 1, p2 - p1 - 1), s.substr(p2 + 1));
 			}
 			if (load_all)
-				core_->preboot_load_all_plugin_files();
+				core_->boot_load_all_plugin_files();
 			if (module.empty() || module == "CommandClient")
-				core_->boot_load_all_plugins();
+				core_->boot_load_active_plugins();
 			else
-				core_->boot_load_plugin(module);
+				core_->boot_load_single_plugin(module);
 			core_->boot_start_plugins(boot);
 			return true;
 		} catch (const std::exception & e) {
@@ -500,9 +500,7 @@ struct client_arguments {
 	}
 	bool run_post(NSClient* core_) {
 		try {
-			core_->stop_unload_plugins_pre();
-			core_->stop_exit_pre();
-			core_->stop_exit_post();
+			core_->stop_nsclient();
 			return true;
 		} catch (const std::exception & e) {
 			std::cerr << "Client: Unable to parse command line: " << utf8::utf8_from_native(e.what()) << std::endl;

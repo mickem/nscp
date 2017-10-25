@@ -62,49 +62,43 @@
 
 namespace nsclient {
 	namespace core {
+
+		class core_exception : public std::exception {
+			std::string what_;
+		public:
+			core_exception(std::string error) throw() : what_(error.c_str()) {}
+			virtual ~core_exception() throw() {};
+
+			virtual const char* what() const throw() {
+				return what_.c_str();
+			}
+		};
+
+
 		class plugin_manager {
 		public:
 			typedef boost::shared_ptr<NSCPlugin> plugin_type;
 		private:
 
-			boost::filesystem::path basePath;
+			boost::filesystem::path plugin_path_;
+
 			nsclient::logging::logger_instance log_instance_;
 			nsclient::commands commands_;
 			nsclient::channels channels_;
-			nsclient::simple_plugins_list metricsFetchers;
-			nsclient::simple_plugins_list metricsSubmitetrs;
+			nsclient::simple_plugins_list metrics_fetchers_;
+			nsclient::simple_plugins_list metrics_submitetrs_;
 			nsclient::core::plugin_cache plugin_cache_;
 			nsclient::event_subscribers event_subscribers_;
-
 			nsclient::core::master_plugin_list plugin_list_;
 			nsclient::core::path_instance path_;
 
 		public:
-			typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 			plugin_manager(nsclient::core::path_instance path_, nsclient::logging::logger_instance log_instance);
 			virtual ~plugin_manager();
 
-			NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
-			NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
-			::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
-			std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
-			int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-			int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
-			NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
-			void register_submission_listener(unsigned int plugin_id, const char* channel);
-			NSCAPI::nagiosReturn emit_event(const std::string &request);
-
-			NSCAPI::errorReturn reload(const std::string module);
-			bool do_reload(const std::string module);
-
-
-			void register_command_alias(unsigned long id, std::string cmd, std::string desc) {
-				commands_.register_alias(id, cmd, desc);
-			}
 			nsclient::core::plugin_cache* get_plugin_cache() {
 				return &plugin_cache_;
 			}
-
 			nsclient::commands* get_commands() {
 				return &commands_;
 			}
@@ -115,34 +109,47 @@ namespace nsclient {
 				return &event_subscribers_;
 			}
 
-			void loadPlugins(NSCAPI::moduleLoadMode mode);
-			void unloadPlugins();
-			std::string describeCommand(std::string command);
-			std::list<std::string> getAllCommandNames();
-			void registerCommand(unsigned int id, std::string cmd, std::string desc);
+			void set_path(boost::filesystem::path path) {
+				plugin_path_ = path;
+			}
+
+			void load_active_plugins();
+			void load_all_plugins();
+			bool load_single_plugin(std::string plugin, std::string alias = "", bool start = false);
+			void start_plugins(NSCAPI::moduleLoadMode mode);
+			void stop_plugins();
+
 
 			plugin_type find_plugin(const unsigned int plugin_id);
 			void remove_plugin(const std::string name);
-			void load_plugin(const boost::filesystem::path &file, std::string alias);
 			unsigned int add_plugin(unsigned int plugin_id);
-			std::string get_plugin_module_name(unsigned int plugin_id);
-			plugin_alias_list_type find_all_plugins(settings::instance_ptr settings, boost::filesystem::path pluginPath);
-			plugin_alias_list_type find_all_active_plugins(settings::instance_ptr settings);
+			bool reload_plugin(const std::string module);
 
-
-			bool boot_load_plugin(std::string plugin, bool boot = false);
-
-			std::list<std::string> list_commands();
-
-			void process_metrics();
 
 			typedef boost::function<int(plugin_type)> run_function;
 			int load_and_run(std::string module, run_function fun, std::list<std::string> &errors);
-			plugin_type addPlugin(boost::filesystem::path file, std::string alias);
+			NSCAPI::errorReturn send_notification(const char* channel, std::string &request, std::string &response);
+			NSCAPI::nagiosReturn execute_query(const std::string &request, std::string &response);
+			::Plugin::QueryResponseMessage execute_query(const ::Plugin::QueryRequestMessage &);
+			std::wstring execute(std::wstring password, std::wstring cmd, std::list<std::wstring> args);
+			int simple_exec(std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+			int simple_query(std::string module, std::string command, std::vector<std::string> arguments, std::list<std::string> &resp);
+			NSCAPI::nagiosReturn exec_command(const char* target, std::string request, std::string &response);
+			void register_submission_listener(unsigned int plugin_id, const char* channel);
+			NSCAPI::nagiosReturn emit_event(const std::string &request);
 
-			bool reload_plugin(const std::string module);
+			void process_metrics(Plugin::Common::MetricsBundle bundle);
 
 		private:
+			typedef std::multimap<std::string, std::string> plugin_alias_list_type;
+
+			bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
+			std::string get_plugin_module_name(unsigned int plugin_id);
+
+			plugin_type addPlugin(boost::filesystem::path file, std::string alias);
+
+			plugin_alias_list_type find_all_plugins();
+			plugin_alias_list_type find_all_active_plugins();
 			nsclient::logging::logger_instance get_logger() {
 				return log_instance_;
 			}
@@ -150,6 +157,8 @@ namespace nsclient {
 		};
 
 		typedef boost::shared_ptr<plugin_manager> plugin_mgr_instance;
+
+
 	}
 }
 

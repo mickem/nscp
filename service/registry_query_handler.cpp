@@ -5,38 +5,6 @@
 
 #include <boost/foreach.hpp>
 
-
-#ifdef WIN32
-#include <shellapi.h>
-#endif
-
-
-boost::optional<boost::filesystem::path> locateFileICase(const boost::filesystem::path path, const std::string filename) {
-	boost::filesystem::path fullpath = path / filename;
-#ifdef WIN32
-	std::wstring tmp = utf8::cvt<std::wstring>(fullpath.string());
-	SHFILEINFOW sfi = { 0 };
-	boost::replace_all(tmp, "/", "\\");
-	HRESULT hr = SHGetFileInfo(tmp.c_str(), 0, &sfi, sizeof(sfi), SHGFI_DISPLAYNAME);
-	if (SUCCEEDED(hr)) {
-		tmp = sfi.szDisplayName;
-		boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
-		return rpath;
-	}
-#else
-	if (boost::filesystem::is_regular_file(fullpath))
-		return fullpath;
-	boost::filesystem::directory_iterator it(path), eod;
-	std::string tmp = boost::algorithm::to_lower_copy(filename);
-	BOOST_FOREACH(boost::filesystem::path const &p, std::make_pair(it, eod)) {
-		if (boost::filesystem::is_regular_file(p) && boost::algorithm::to_lower_copy(file_helpers::meta::get_filename(p)) == tmp) {
-			return p;
-		}
-	}
-#endif
-	return boost::optional<boost::filesystem::path>();
-}
-
 namespace nsclient {
 
 	namespace core {
@@ -266,15 +234,8 @@ namespace nsclient {
 			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
 			if (control.type() == Plugin::Registry_ItemType_MODULE) {
 				if (control.command() == Plugin::Registry_Command_LOAD) {
-					boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-					boost::optional<boost::filesystem::path> module = locateFileICase(pluginPath, NSCPlugin::get_plugin_file(control.name()));
-					if (!module)
-						module = locateFileICase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(control.name()));
-					if (!module) {
+					if (!plugins_->load_single_plugin(control.name(), control.alias(), true)) {
 						LOG_ERROR_CORE("Failed to find: " + control.name());
-					} else {
-						LOG_DEBUG_CORE_STD("Module name: " + module->string());
-						plugins_->load_plugin(*module, control.alias());
 					}
 				} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
 					plugins_->remove_plugin(control.name());

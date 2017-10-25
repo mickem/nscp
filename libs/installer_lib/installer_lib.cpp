@@ -3,7 +3,7 @@
 #include "installer_helper.hpp"
 
 #include "../settings_manager/settings_manager_impl.h"
-#include <settings/config.hpp>
+#include <config.h>
 
 #include <file_helpers.hpp>
 

@@ -43,14 +43,14 @@ nsclient_core::settings_client::~settings_client() {
 void nsclient_core::settings_client::startup() {
 	if (started_)
 		return;
-	if (!core_->boot_init(true)) {
+	if (!core_->load_configuration(true)) {
 		std::cout << "boot::init failed" << std::endl;
 		return;
 	}
 	if (load_all_)
-		core_->preboot_load_all_plugin_files();
+		core_->boot_load_all_plugin_files();
 
-	if (!core_->boot_load_all_plugins()) {
+	if (!core_->boot_load_active_plugins()) {
 		std::cout << "boot::load_all_plugins failed!" << std::endl;
 		return;
 	}
@@ -74,9 +74,7 @@ std::string nsclient_core::settings_client::expand_context(const std::string &ke
 void nsclient_core::settings_client::terminate() {
 	if (!started_)
 		return;
-	core_->stop_unload_plugins_pre();
-	core_->stop_exit_pre();
-	core_->stop_exit_post();
+	core_->stop_nsclient();
 	started_ = false;
 }
 
@@ -212,7 +210,7 @@ void nsclient_core::settings_client::list_settings_info() {
 	list_settings_context_info(2, settings_manager::get_settings());
 }
 void nsclient_core::settings_client::activate(const std::string &module) {
-	if (!core_->boot_load_plugin(module)) {
+	if (!core_->boot_load_single_plugin(module)) {
 		std::cerr << "Failed to load module (Wont activate): " << module << std::endl;
 	}
 	core_->boot_start_plugins(false);

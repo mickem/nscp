@@ -20,6 +20,7 @@
 #include "plugin_manager.hpp"
 
 #include <str/format.hpp>
+#include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
 #include <config.h>
 #include "../libs/settings_manager/settings_manager_impl.h"
@@ -28,12 +29,12 @@
 
 #include <boost/unordered_map.hpp>
 
+struct command_chunk {
+	nsclient::commands::plugin_type plugin;
+	Plugin::QueryRequestMessage request;
+};
 
-std::list<std::string> nsclient::core::plugin_manager::list_commands() {
-	return commands_.list_all();
-}
-
-bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
+bool nsclient::core::plugin_manager::contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin) {
 	std::pair<std::string, std::string> v;
 	BOOST_FOREACH(v, ret.equal_range(alias)) {
 		if (v.second == plugin)
@@ -48,8 +49,8 @@ nsclient::core::plugin_manager::plugin_manager(nsclient::core::path_instance pat
 	, plugin_list_(log_instance_)
 	, commands_(log_instance_)
 	, channels_(log_instance_)
-	, metricsFetchers(log_instance_)
-	, metricsSubmitetrs(log_instance_)
+	, metrics_fetchers_(log_instance_)
+	, metrics_submitetrs_(log_instance_)
 	, plugin_cache_(log_instance_)
 	, event_subscribers_(log_instance_)
 {
@@ -58,14 +59,14 @@ nsclient::core::plugin_manager::plugin_manager(nsclient::core::path_instance pat
 nsclient::core::plugin_manager::~plugin_manager() {
 }
 
-nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_plugins(settings::instance_ptr settings, boost::filesystem::path pluginPath) {
+nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_plugins() {
 	plugin_alias_list_type ret;
 
-	settings::settings_interface::string_list list = settings->get_keys(MAIN_MODULES_SECTION);
+	settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 	BOOST_FOREACH(std::string plugin, list) {
 		std::string alias;
 		try {
-			alias = settings->get_string(MAIN_MODULES_SECTION, plugin, "");
+			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
 		} catch (settings::settings_exception e) {
 			LOG_ERROR_CORE_STD("Exception looking for module: " + e.reason());
 		}
@@ -95,10 +96,10 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
 	}
 	boost::filesystem::directory_iterator end_itr; // default construction yields past-the-end
-	for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
+	for (boost::filesystem::directory_iterator itr(plugin_path_); itr != end_itr; ++itr) {
 		if (!is_directory(itr->status())) {
 			boost::filesystem::path file = itr->path().filename();
-			if (NSCPlugin::is_module(pluginPath / file)) {
+			if (NSCPlugin::is_module(plugin_path_ / file)) {
 				const std::string module = NSCPlugin::file_to_module(file);
 				if (!contains_plugin(ret, "", module))
 					ret.insert(plugin_alias_list_type::value_type("", module));
@@ -108,14 +109,14 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	return ret;
 }
 
-nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins(settings::instance_ptr settings) {
+nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins() {
 	plugin_alias_list_type ret;
 
-	settings::settings_interface::string_list list = settings->get_keys(MAIN_MODULES_SECTION);
+	settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
 	BOOST_FOREACH(std::string plugin, list) {
 		std::string alias;
 		try {
-			alias = settings->get_string(MAIN_MODULES_SECTION, plugin, "");
+			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
 		} catch (settings::settings_exception e) {
 			LOG_DEBUG_CORE_STD("Exception looking for module: " + e.reason());
 		}
@@ -153,40 +154,69 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	return ret;
 }
 
-bool nsclient::core::plugin_manager::boot_load_plugin(std::string plugin, bool boot) {
+
+void nsclient::core::plugin_manager::load_active_plugins() {
+	if (plugin_path_.empty()) {
+		throw core_exception("Please configure plugin_manager first");
+	}
+	BOOST_FOREACH(const plugin_alias_list_type::value_type &v, find_all_active_plugins()) {
+		std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
+		std::string alias = v.first;
+		boost::filesystem::path module = plugin_path_ / file;
+		try {
+			addPlugin(module, alias);
+		} catch (const NSPluginException& e) {
+			if (e.file().find("FileLogger") != std::string::npos) {
+				LOG_DEBUG_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
+			} else {
+				LOG_ERROR_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
+			}
+		} catch (const std::exception &e) {
+			LOG_ERROR_CORE_STD("exception loading plugin: " + file + utf8::utf8_from_native(e.what()));
+		} catch (...) {
+			LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + file);
+		}
+	}
+}
+
+void nsclient::core::plugin_manager::load_all_plugins() {
+	BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins()) {
+		if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
+			continue;
+		try {
+			addPlugin(plugin_path_ / v.second, v.first);
+		} catch (const NSPluginException &e) {
+			if (e.file().find("FileLogger") != std::string::npos) {
+				LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
+			} else {
+				LOG_ERROR_CORE("Failed to register plugin " + v.second + ": " + e.reason());
+			}
+		} catch (...) {
+			LOG_CRITICAL_CORE_STD("Failed to register plugin key: " + v.second);
+		}
+	}
+}
+
+bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std::string alias, bool start) {
 	try {
 		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
 			plugin = plugin.substr(0, plugin.length() - 4);
 
-		std::string plugin_file = NSCPlugin::get_plugin_file(plugin);
-		boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-		boost::filesystem::path file = pluginPath / plugin_file;
-		nsclient::core::plugin_manager::plugin_type instance;
-		if (boost::filesystem::is_regular(file)) {
-			instance = addPlugin(file, "");
-		} else {
-			if (plugin_file == "CheckTaskSched1.dll" || plugin_file == "CheckTaskSched2.dll") {
-				LOG_ERROR_CORE_STD("Your loading the CheckTaskSched1/2 which has been renamed into CheckTaskSched, please update your config");
-				plugin_file = "CheckTaskSched.dll";
-				boost::filesystem::path file = pluginPath / plugin_file;
-				if (boost::filesystem::is_regular(file)) {
-					instance = addPlugin(file, "");
-				}
-			} else {
-				LOG_ERROR_CORE_STD("Failed to load: " + plugin + "File not found: " + file.string());
-				return false;
-			}
+		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, NSCPlugin::get_plugin_file(plugin));
+		if (!module)
+			module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(plugin));
+		if (!module) {
+			LOG_ERROR_CORE("Failed to find: " + plugin);
+			return false;
+		} 
+		LOG_DEBUG_CORE_STD("Module name: " + module->string());
+		plugin_type instance = addPlugin(*module, alias);
+		if (!instance) {
+			LOG_ERROR_CORE("Failed to load: " + plugin);
+			return false;
 		}
-		if (boot) {
-			try {
-				if (!instance->load_plugin(NSCAPI::normalStart)) {
-					LOG_ERROR_CORE_STD("Plugin refused to load: " + instance->get_description());
-				}
-			} catch (NSPluginException e) {
-				LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
-			} catch (...) {
-				LOG_ERROR_CORE_STD("Could not load plugin: " + instance->get_description());
-			}
+		if (start) {
+			instance->load_plugin(NSCAPI::normalStart);
 		}
 		return true;
 	} catch (const NSPluginException &e) {
@@ -199,28 +229,7 @@ bool nsclient::core::plugin_manager::boot_load_plugin(std::string plugin, bool b
 	return false;
 }
 
-/**
- * Unload all plug-ins (in reversed order)
- */
-void nsclient::core::plugin_manager::unloadPlugins() {
-	commands_.remove_all();
-	channels_.remove_all();
-	BOOST_FOREACH(plugin_type p, plugin_list_.get_plugins()) {
-		try {
-			if (p) {
-				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
-				p->unload_plugin();
-			}
-		} catch (const NSPluginException &e) {
-			LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
-		} catch (...) {
-			LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
-		}
-	}
-	plugin_list_.clear();
-}
-
-void nsclient::core::plugin_manager::loadPlugins(NSCAPI::moduleLoadMode mode) {
+void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
 	std::set<long> broken;
 	BOOST_FOREACH(plugin_type plugin, plugin_list_.get_plugins()) {
 		LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_description());
@@ -244,6 +253,28 @@ void nsclient::core::plugin_manager::loadPlugins(NSCAPI::moduleLoadMode mode) {
 		plugin_list_.remove(id);
 	}
 }
+/**
+ * Unload all plug-ins
+ */
+void nsclient::core::plugin_manager::stop_plugins() {
+	commands_.remove_all();
+	channels_.remove_all();
+	std::list<plugin_type> tmp = plugin_list_.get_plugins();
+	plugin_list_.clear();
+	BOOST_FOREACH(plugin_type p, tmp) {
+		try {
+			if (p) {
+				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
+				p->unload_plugin();
+			}
+		} catch (const NSPluginException &e) {
+			LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
+		} catch (...) {
+			LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
+		}
+	}
+}
+
 /**
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the
@@ -271,10 +302,10 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::addP
 		channels_.add_plugin(plugin);
 	}
 	if (plugin->hasMetricsFetcher()) {
-		metricsFetchers.add_plugin(plugin);
+		metrics_fetchers_.add_plugin(plugin);
 	}
 	if (plugin->hasMetricsSubmitter()) {
-		metricsSubmitetrs.add_plugin(plugin);
+		metrics_submitetrs_.add_plugin(plugin);
 	}
 	if (plugin->hasMessageHandler()) {
 		log_instance_->add_subscriber(plugin);
@@ -298,25 +329,45 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
 }
 
 
-std::string nsclient::core::plugin_manager::describeCommand(std::string command) {
-	return commands_.describe(command).description;
+
+void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
+	plugin_type plugin = plugin_list_.find_by_module(name);
+	if (!plugin) {
+		LOG_ERROR_CORE("Module " + name + " was not found.");
+		return;
+	}
+	unsigned int plugin_id = plugin->get_id();
+	plugin_list_.remove(plugin_id);
+	commands_.remove_plugin(plugin_id);
+	metrics_fetchers_.remove_plugin(plugin_id);
+	metrics_submitetrs_.remove_plugin(plugin_id);
+	plugin->unload_plugin();
+	plugin->unload_dll();
 }
-std::list<std::string> nsclient::core::plugin_manager::getAllCommandNames() {
-	return commands_.list_all();
+
+unsigned int nsclient::core::plugin_manager::add_plugin(unsigned int plugin_id) {
+	plugin_type match = plugin_list_.find_by_id(plugin_id);
+	if (match) {
+		int new_id = plugin_list_.get_next_id();
+		commands_.add_plugin(new_id, match);
+		return new_id;
+	} else {
+		LOG_ERROR_CORE("Plugin not found.");
+		return -1;
+	}
 }
-void nsclient::core::plugin_manager::registerCommand(unsigned int id, std::string cmd, std::string desc) {
-	return commands_.register_command(id, cmd, desc);
+
+std::string nsclient::core::plugin_manager::get_plugin_module_name(unsigned int plugin_id) {
+	plugin_type plugin = plugin_list_.find_by_id(plugin_id);
+	if (!plugin)
+		return "";
+	return plugin->get_alias_or_name();
 }
+
 
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::find_plugin(const unsigned int plugin_id) {
 	return plugin_list_.find_by_id(plugin_id);
 }
-
-struct command_chunk {
-	nsclient::commands::plugin_type plugin;
-	Plugin::QueryRequestMessage request;
-};
-
 
 ::Plugin::QueryResponseMessage nsclient::core::plugin_manager::execute_query(const ::Plugin::QueryRequestMessage &req) {
 	::Plugin::QueryResponseMessage resp;
@@ -672,55 +723,6 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
 	return NSCAPI::api_return_codes::isSuccess;
 }
 
-void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
-	plugin_type plugin = plugin_list_.find_by_module(name);
-	if (!plugin) {
-		LOG_ERROR_CORE("Module " + name + " was not found.");
-		return;
-	}
-	unsigned int plugin_id = plugin->get_id();
-	plugin_list_.remove(plugin_id);
-	commands_.remove_plugin(plugin_id);
-	metricsFetchers.remove_plugin(plugin_id);
-	metricsSubmitetrs.remove_plugin(plugin_id);
-	plugin->unload_plugin();
-	plugin->unload_dll();
-}
-void nsclient::core::plugin_manager::load_plugin(const boost::filesystem::path &file, std::string alias) {
-	try {
-		plugin_type instance = addPlugin(file, alias);
-		if (!instance) {
-			LOG_DEBUG_CORE_STD("Failed to load " + file.string());
-			return;
-		}
-		instance->load_plugin(NSCAPI::normalStart);
-	} catch (const NSPluginException& e) {
-		if (e.file().find("FileLogger") != std::string::npos) {
-			LOG_DEBUG_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
-		} else {
-			LOG_ERROR_CORE_STD("Failed to load " + file.string() + ": " + e.reason());
-		}
-	}
-}
-unsigned int nsclient::core::plugin_manager::add_plugin(unsigned int plugin_id) {
-	plugin_type match = plugin_list_.find_by_id(plugin_id);
-	if (match) {
-		int new_id = plugin_list_.get_next_id();
-		commands_.add_plugin(new_id, match);
-		return new_id;
-	} else {
-		LOG_ERROR_CORE("Plugin not found.");
-		return -1;
-	}
-}
-
-std::string nsclient::core::plugin_manager::get_plugin_module_name(unsigned int plugin_id) {
-	plugin_type plugin = plugin_list_.find_by_id(plugin_id);
-	if (!plugin)
-		return "";
-	return plugin->get_alias_or_name();
-}
-
 struct metrics_fetcher {
 	Plugin::MetricsMessage result;
 	std::string buffer;
@@ -754,11 +756,10 @@ struct metrics_fetcher {
 	}
 };
 
-void nsclient::core::plugin_manager::process_metrics() {
+void nsclient::core::plugin_manager::process_metrics(Plugin::Common::MetricsBundle bundle) {
 	metrics_fetcher f;
-
-	metricsFetchers.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
-	//ownMetricsFetcher(f.get_root());
+	metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
+	f.get_root()->add_bundles()->CopyFrom(bundle);
 	f.render();
-	metricsSubmitetrs.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
+	metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
 }
