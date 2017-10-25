@@ -31,6 +31,7 @@ SET(SRCS ${SRCS}
   legacy_command_controller.cpp
   legacy_controller.cpp
   api_controller.cpp
+  log_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp

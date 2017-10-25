@@ -29,6 +29,7 @@
 #include "legacy_command_controller.hpp"
 #include "legacy_controller.hpp"
 #include "api_controller.hpp"
+#include "log_controller.hpp"
 
 #include "error_handler.hpp"
 
@@ -160,6 +161,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		server->registerController(new modules_controller(session, get_core(), get_id()));
 		server->registerController(new query_controller(session, get_core(), get_id()));
 		server->registerController(new scripts_controller(session, get_core(), get_id()));
+		server->registerController(new log_controller(session, get_core(), get_id()));
 		server->registerController(new api_controller(session));
 
 		server->registerController(new legacy_command_controller(session, get_core()));

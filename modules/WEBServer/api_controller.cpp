@@ -23,7 +23,7 @@ void api_controller::get_versions(Mongoose::Request &request, boost::smatch &wha
 
 	json_spirit::Object root;
 	root["current_api"] = host + "/api/v1";
-	root["legacy_api"] = host + "/api/v1";
+	root["legacy_api"] = host + "/";
 	root["beta_api"] = host + "/api/v1";
 	response.append(json_spirit::write(root));
 }
@@ -38,5 +38,6 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
 	root["scripts_url"] = host + "/api/v1/scripts";
 	root["modules_url"] = host + "/api/v1/modules";
 	root["queries_url"] = host + "/api/v1/queries";
+	root["logs_url"] = host + "/api/v1/logs";
 	response.append(json_spirit::write(root));
 }
