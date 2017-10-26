@@ -17,11 +17,11 @@ LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 SET(service_SRCS
 	NSClient++.cpp
-	NSCPlugin.cpp
 	core_api.cpp
 	plugin_manager.cpp
 	master_plugin_list.cpp
 	path_manager.cpp
+	dll_plugin.cpp
 
 	#logger
 	logger/nsclient_logger.cpp
@@ -66,7 +66,6 @@ IF(WIN32)
 	SET(service_SRCS ${service_SRCS}
 		NSClient++.h
 		NSClient++.rc
-		NSCPlugin.h
 		core_api.h
 		settings_client.hpp
 		cli_parser.hpp
@@ -75,6 +74,8 @@ IF(WIN32)
 		plugin_manager.hpp
 		master_plugin_list.hpp
 		path_manager.hpp
+		dll_plugin.h
+		plugin_interface.hpp
 
 		
 		plugin_list.hpp

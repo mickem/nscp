@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "NSCPlugin.h"
+#include "plugin_interface.hpp"
 
 #include <nsclient/logger/logger.hpp>
 
@@ -31,7 +31,7 @@ namespace nsclient {
 	namespace core {
 		class master_plugin_list {
 		public:
-			typedef boost::shared_ptr<NSCPlugin> plugin_type;
+			typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 		private:
 
 			typedef std::vector<plugin_type> pluginList;

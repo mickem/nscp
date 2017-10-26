@@ -122,7 +122,8 @@ namespace file_helpers {
 			if (SUCCEEDED(hr)) {
 				tmp = sfi.szDisplayName;
 				boost::filesystem::path rpath = path / utf8::cvt<std::string>(tmp);
-				return rpath;
+				if (boost::filesystem::is_regular_file(rpath))
+					return rpath;
 			}
 #else
 			if (boost::filesystem::is_regular_file(fullpath))

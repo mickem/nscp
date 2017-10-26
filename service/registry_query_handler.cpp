@@ -1,5 +1,7 @@
 #include "registry_query_handler.hpp"
 
+#include "dll_plugin.h"
+
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
 
@@ -90,15 +92,14 @@ namespace nsclient {
 			for (boost::filesystem::directory_iterator itr(pluginPath); itr != end_itr; ++itr) {
 				if (!is_directory(itr->status())) {
 					boost::filesystem::path file = itr->path().filename();
-					if (NSCPlugin::is_module(pluginPath / file)) {
-						const std::string module = NSCPlugin::file_to_module(file);
+					if (nsclient::core::plugin_manager::is_module(pluginPath / file)) {
+						const std::string module = nsclient::core::plugin_manager::file_to_module(file);
 						if (!plugins_->get_plugin_cache()->has_module(module)) {
 							plugin_cache_item itm;
 							try {
 								boost::filesystem::path p = (pluginPath / file).normalize();
 								LOG_DEBUG_CORE("Loading " + p.string());
-								plugin_type plugin = plugin_type(new NSCPlugin(-1, p, ""));
-								plugin->load_dll();
+								plugin_type plugin = plugin_type(new nsclient::core::dll_plugin(-1, p, ""));
 								itm.dll = plugin->getModule();
 								itm.alias = itm.dll;
 								itm.name = plugin->getName();
@@ -106,7 +107,6 @@ namespace nsclient {
 								itm.id = plugin->get_id();
 								itm.is_loaded = false;
 								tmp_list.push_back(itm);
-								plugin->unload_dll();
 							} catch (const std::exception &e) {
 								LOG_DEBUG_CORE("Failed to load " + file.string() + ": " + utf8::utf8_from_native(e.what()));
 								continue;
@@ -219,7 +219,7 @@ namespace nsclient {
 				plugins_->get_event_subscribers()->register_listener(registration.plugin_id(), registration.name());
 			} else if (registration.type() == Plugin::Registry_ItemType_MODULE) {
 				Plugin::RegistryResponseMessage::Response::Registration *rpp = rp->mutable_registration();
-				unsigned int new_id = plugins_->add_plugin(registration.plugin_id());
+				unsigned int new_id = plugins_->clone_plugin(registration.plugin_id());
 				if (new_id != -1) {
 					rpp->set_item_id(new_id);
 				}

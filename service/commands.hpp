@@ -19,16 +19,17 @@
 
 #pragma once
 
-#include "NSCPlugin.h"
+#include "plugin_interface.hpp"
 
 #include <nsclient/logger/logger.hpp>
 
 #include <str/xtos.hpp>
-//#include <strEx.h>
+#include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 namespace nsclient {
 	class commands : boost::noncopyable {
@@ -50,7 +51,7 @@ namespace nsclient {
 			std::string name;
 		};
 
-		typedef boost::shared_ptr<NSCPlugin> plugin_type;
+		typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 		typedef std::map<unsigned long, plugin_type> plugin_list_type;
 		typedef std::map<std::string, command_info> description_list_type;
 		typedef std::map<std::string, plugin_type> command_list_type;
@@ -182,7 +183,7 @@ namespace nsclient {
 			std::string ret;
 			std::pair<unsigned long, plugin_type> cit;
 			BOOST_FOREACH(cit, plugins_) {
-				ret += str::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getFilename()) + "), ";
+				ret += str::xtos(cit.first) + "(" + utf8::cvt<std::string>(cit.second->getModule()) + "), ";
 			}
 			return ret;
 		}

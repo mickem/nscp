@@ -29,6 +29,7 @@
 #include <config.h>
 
 #include <boost/unordered_set.hpp>
+#include <boost/filesystem/operations.hpp>
 
 
 #ifdef WIN32
@@ -323,7 +324,7 @@ bool NSClientT::stop_nsclient() {
 	try {
 		LOG_DEBUG_CORE("Stopping all plugins");
 		unloadPlugins();
-	} catch (NSPluginException e) {
+	} catch (nsclient::core::plugin_exception e) {
 		LOG_ERROR_CORE_STD("Exception raised when unloading non msg plguins: " + e.reason() + " in module: " + e.file());
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception raised when unloading non msg plugins");

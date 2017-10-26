@@ -24,6 +24,8 @@
 #include <boost/thread/mutex.hpp>
 
 #include <sysinfo.h>
+#include <error/error.hpp>
+
 #ifndef _T
 #define _T(x) L ## x
 #endif

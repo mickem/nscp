@@ -1,6 +1,6 @@
 #pragma once
 
-#include "NSCPlugin.h"
+#include "plugin_interface.hpp"
 
 #include <nsclient/logger/logger.hpp>
 
@@ -13,7 +13,7 @@
 namespace nsclient {
 	namespace core {
 
-		typedef boost::shared_ptr<NSCPlugin> plugin_type;
+		typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 
 		struct plugin_cache_item {
 			unsigned int id;

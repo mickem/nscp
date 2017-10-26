@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include "NSCPlugin.h"
 #include "plugin_list.hpp"
 
 namespace nsclient {

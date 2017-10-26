@@ -33,6 +33,9 @@
 #include <settings/settings_core.hpp>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/optional.hpp>
+#include <boost/algorithm/string.hpp>
 
 /**
  * @ingroup NSClient++
@@ -77,7 +80,7 @@ namespace nsclient {
 
 		class plugin_manager {
 		public:
-			typedef boost::shared_ptr<NSCPlugin> plugin_type;
+			typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 		private:
 
 			boost::filesystem::path plugin_path_;
@@ -122,7 +125,7 @@ namespace nsclient {
 
 			plugin_type find_plugin(const unsigned int plugin_id);
 			void remove_plugin(const std::string name);
-			unsigned int add_plugin(unsigned int plugin_id);
+			unsigned int clone_plugin(unsigned int plugin_id);
 			bool reload_plugin(const std::string module);
 
 
@@ -143,10 +146,11 @@ namespace nsclient {
 		private:
 			typedef std::multimap<std::string, std::string> plugin_alias_list_type;
 
+			boost::optional<boost::filesystem::path> find_file(std::string file_name);
 			bool contains_plugin(nsclient::core::plugin_manager::plugin_alias_list_type &ret, std::string alias, std::string plugin);
 			std::string get_plugin_module_name(unsigned int plugin_id);
 
-			plugin_type addPlugin(boost::filesystem::path file, std::string alias);
+			plugin_type add_plugin(std::string file_name, std::string alias);
 
 			plugin_alias_list_type find_all_plugins();
 			plugin_alias_list_type find_all_active_plugins();
@@ -154,6 +158,35 @@ namespace nsclient {
 				return log_instance_;
 			}
 
+
+
+			static std::string get_plugin_file(std::string key) {
+#ifdef WIN32
+				return key + ".dll";
+#else
+				return "lib" + key + ".so";
+#endif
+			}
+		public:
+			static bool is_module(const boost::filesystem::path file) {
+#ifdef WIN32
+				return boost::ends_with(file.string(), ".dll");
+#else
+				return boost::ends_with(file.string(), ".so");
+#endif
+			}
+			static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
+			static std::string file_to_module(const boost::filesystem::path &file) {
+				const std::string str = file.string();
+#ifdef WIN32
+				if (boost::ends_with(str, ".dll"))
+					return str.substr(0, str.size() - 4);
+#else
+				if (boost::ends_with(file.string(), ".so"))
+					return str.substr(0, str.size() - 3);
+#endif
+				return str;
+			}
 		};
 
 		typedef boost::shared_ptr<plugin_manager> plugin_mgr_instance;

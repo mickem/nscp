@@ -58,8 +58,6 @@ typedef service_helper::impl<NSClientT>::system_service NSClient;
 
 
 class NSClientT : public nsclient::core::core_interface {
-public:
-	typedef boost::shared_ptr<NSCPlugin> plugin_type;
 private:
 
 	boost::timed_mutex internalVariables;

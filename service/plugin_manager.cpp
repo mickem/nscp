@@ -19,6 +19,7 @@
 
 #include "plugin_manager.hpp"
 
+#include "dll_plugin.h"
 #include <str/format.hpp>
 #include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
@@ -99,8 +100,8 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	for (boost::filesystem::directory_iterator itr(plugin_path_); itr != end_itr; ++itr) {
 		if (!is_directory(itr->status())) {
 			boost::filesystem::path file = itr->path().filename();
-			if (NSCPlugin::is_module(plugin_path_ / file)) {
-				const std::string module = NSCPlugin::file_to_module(file);
+			if (is_module(plugin_path_ / file)) {
+				const std::string module = file_to_module(file);
 				if (!contains_plugin(ret, "", module))
 					ret.insert(plugin_alias_list_type::value_type("", module));
 			}
@@ -160,21 +161,20 @@ void nsclient::core::plugin_manager::load_active_plugins() {
 		throw core_exception("Please configure plugin_manager first");
 	}
 	BOOST_FOREACH(const plugin_alias_list_type::value_type &v, find_all_active_plugins()) {
-		std::string file = utf8::cvt<std::string>(NSCPlugin::get_plugin_file(v.second));
+		std::string module = v.first;
 		std::string alias = v.first;
-		boost::filesystem::path module = plugin_path_ / file;
 		try {
-			addPlugin(module, alias);
-		} catch (const NSPluginException& e) {
+			add_plugin(v.second, v.first);
+		} catch (const plugin_exception& e) {
 			if (e.file().find("FileLogger") != std::string::npos) {
-				LOG_DEBUG_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
+				LOG_DEBUG_CORE_STD("Failed to load " + module + ": " + e.reason());
 			} else {
-				LOG_ERROR_CORE_STD("Failed to load " + module.string() + ": " + e.reason());
+				LOG_ERROR_CORE_STD("Failed to load " + module + ": " + e.reason());
 			}
 		} catch (const std::exception &e) {
-			LOG_ERROR_CORE_STD("exception loading plugin: " + file + utf8::utf8_from_native(e.what()));
+			LOG_ERROR_CORE_STD("exception loading plugin: " + module + utf8::utf8_from_native(e.what()));
 		} catch (...) {
-			LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + file);
+			LOG_ERROR_CORE_STD("Unknown exception loading plugin: " + module);
 		}
 	}
 }
@@ -184,8 +184,8 @@ void nsclient::core::plugin_manager::load_all_plugins() {
 		if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
 			continue;
 		try {
-			addPlugin(plugin_path_ / v.second, v.first);
-		} catch (const NSPluginException &e) {
+			add_plugin(v.second, v.first);
+		} catch (const plugin_exception &e) {
 			if (e.file().find("FileLogger") != std::string::npos) {
 				LOG_DEBUG_CORE_STD("Failed to register plugin: " + e.reason());
 			} else {
@@ -199,18 +199,7 @@ void nsclient::core::plugin_manager::load_all_plugins() {
 
 bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std::string alias, bool start) {
 	try {
-		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
-			plugin = plugin.substr(0, plugin.length() - 4);
-
-		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, NSCPlugin::get_plugin_file(plugin));
-		if (!module)
-			module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), NSCPlugin::get_plugin_file(plugin));
-		if (!module) {
-			LOG_ERROR_CORE("Failed to find: " + plugin);
-			return false;
-		} 
-		LOG_DEBUG_CORE_STD("Module name: " + module->string());
-		plugin_type instance = addPlugin(*module, alias);
+		plugin_type instance = add_plugin(plugin, alias);
 		if (!instance) {
 			LOG_ERROR_CORE("Failed to load: " + plugin);
 			return false;
@@ -219,7 +208,7 @@ bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std:
 			instance->load_plugin(NSCAPI::normalStart);
 		}
 		return true;
-	} catch (const NSPluginException &e) {
+	} catch (const plugin_exception &e) {
 		LOG_ERROR_CORE_STD("Module (" + e.file() + ") was not found: " + e.reason());
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE_STD("Module (" + plugin + ") was not found: " + utf8::utf8_from_native(e.what()));
@@ -232,13 +221,13 @@ bool nsclient::core::plugin_manager::load_single_plugin(std::string plugin, std:
 void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) {
 	std::set<long> broken;
 	BOOST_FOREACH(plugin_type plugin, plugin_list_.get_plugins()) {
-		LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_description());
+		LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->getModule())
 		try {
 			if (!plugin->load_plugin(mode)) {
-				LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->get_description());
+				LOG_ERROR_CORE_STD("Plugin refused to load: " + plugin->getModule());
 				broken.insert(plugin->get_id());
 			}
-		} catch (const NSPluginException &e) {
+		} catch (const plugin_exception &e) {
 			broken.insert(plugin->get_id());
 			LOG_ERROR_CORE_STD("Could not load plugin: " + e.reason() + ": " + e.file());
 		} catch (const std::exception &e) {
@@ -246,7 +235,7 @@ void nsclient::core::plugin_manager::start_plugins(NSCAPI::moduleLoadMode mode) 
 			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_alias() + ": " + e.what());
 		} catch (...) {
 			broken.insert(plugin->get_id());
-			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->get_description());
+			LOG_ERROR_CORE_STD("Could not load plugin: " + plugin->getModule());
 		}
 	}
 	BOOST_FOREACH(const long &id, broken) {
@@ -267,7 +256,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
 				LOG_DEBUG_CORE_STD("Unloading plugin: " + p->get_alias_or_name() + "...");
 				p->unload_plugin();
 			}
-		} catch (const NSPluginException &e) {
+		} catch (const plugin_exception &e) {
 			LOG_ERROR_CORE_STD("Exception raised when unloading plugin: " + e.reason() + " in module: " + e.file());
 		} catch (...) {
 			LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
@@ -275,25 +264,54 @@ void nsclient::core::plugin_manager::stop_plugins() {
 	}
 }
 
+boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(std::string file_name) {
+	std::string name = file_name;
+	boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
+	if (module) {
+		return module;
+	}
+	module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
+	if (module) {
+		return module;
+	}
+
+	if (name.length() > 4 && name.substr(name.length() - 4) == ".dll") {
+		name = name.substr(0, name.length() - 4);
+	}
+	name = get_plugin_file(name);
+	module = file_helpers::finder::locate_file_icase(plugin_path_, name);
+	if (module) {
+		return module;
+	}
+	module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
+	if (module) {
+		return module;
+	}
+
+	LOG_ERROR_CORE("Failed to find plugin: " + name);
+	return boost::optional<boost::filesystem::path>();
+}
 /**
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
-nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::addPlugin(boost::filesystem::path file, std::string alias) {
-	LOG_DEBUG_CORE_STD(NSCPlugin::get_plugin_file(file.string()));
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(std::string file_name, std::string alias) {
+
+	boost::optional<boost::filesystem::path> real_file = find_file(file_name);
+	if (!real_file) {
+		return nsclient::core::plugin_manager::plugin_type();
+	}
 	if (alias.empty()) {
-		LOG_DEBUG_CORE_STD("adding " + file.string());
+		LOG_DEBUG_CORE_STD("adding " + real_file->string());
 	} else {
-		LOG_DEBUG_CORE_STD("adding " + file.string() + " (" + alias + ")");
+		LOG_DEBUG_CORE_STD("adding " + real_file->string() + " (" + alias + ")");
 	}
 	// Check if this is a duplicate plugin (if so return that instance)
-	plugin_type dup = plugin_list_.find_duplicate(file, alias);
+	plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
 	if (dup) {
 		return dup;
 	}
-
-	plugin_type plugin(new NSCPlugin(plugin_list_.get_next_id(), file.normalize(), alias));
-	plugin->load_dll();
+	plugin_type plugin(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
 	plugin_list_.append_plugin(plugin);
 	if (plugin->hasCommandHandler()) {
 		commands_.add_plugin(plugin);
@@ -342,10 +360,9 @@ void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
 	metrics_fetchers_.remove_plugin(plugin_id);
 	metrics_submitetrs_.remove_plugin(plugin_id);
 	plugin->unload_plugin();
-	plugin->unload_dll();
 }
 
-unsigned int nsclient::core::plugin_manager::add_plugin(unsigned int plugin_id) {
+unsigned int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
 	plugin_type match = plugin_list_.find_by_id(plugin_id);
 	if (match) {
 		int new_id = plugin_list_.get_next_id();
@@ -471,33 +488,22 @@ int nsclient::core::plugin_manager::load_and_run(std::string module, run_functio
 			LOG_DEBUG_CORE_STD("Found module: " + match->get_alias_or_name() + "...");
 			try {
 				return fun(match);
-			} catch (const NSPluginException &e) {
+			} catch (const plugin_exception &e) {
 				errors.push_back("Could not execute command: " + e.reason() + " in " + e.file());
 				return 1;
 			}
 		}
 		try {
-			boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-			boost::filesystem::path file = NSCPlugin::get_filename(pluginPath, module);
-			if (!boost::filesystem::is_regular(file)) {
-				file = NSCPlugin::get_filename("./modules", module);
-				LOG_DEBUG_CORE_STD("Found local plugin");
-			}
-			if (boost::filesystem::is_regular(file)) {
-				plugin_type plugin = addPlugin(file, "");
-				if (plugin) {
-					LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_alias_or_name() + "...");
-					plugin->load_plugin(NSCAPI::dontStart);
-					return fun(plugin);
-				} else {
-					errors.push_back("Failed to load: " + file.string());
-					return 1;
-				}
+			plugin_type plugin = add_plugin(module, "");
+			if (plugin) {
+				LOG_DEBUG_CORE_STD("Loading plugin: " + plugin->get_alias_or_name() + "...");
+				plugin->load_plugin(NSCAPI::dontStart);
+				return fun(plugin);
 			} else {
-				errors.push_back("File not found: " + file.string());
+				errors.push_back("Failed to load: " + module);
 				return 1;
 			}
-		} catch (const NSPluginException &e) {
+		} catch (const plugin_exception &e) {
 			errors.push_back("Module (" + e.file() + ") was not found: " + utf8::utf8_from_native(e.what()));
 		} catch (const std::exception &e) {
 			errors.push_back(std::string("Module (") + module + ") was not found: " + utf8::utf8_from_native(e.what()));
@@ -623,7 +629,7 @@ NSCAPI::nagiosReturn nsclient::core::plugin_manager::exec_command(const char* ra
 						responses.push_back(respbuffer);
 					}
 				}
-			} catch (NSPluginException e) {
+			} catch (plugin_exception e) {
 				LOG_ERROR_CORE_STD("Could not execute command: " + e.reason() + " in " + e.file());
 			}
 		}
@@ -762,4 +768,8 @@ void nsclient::core::plugin_manager::process_metrics(Plugin::Common::MetricsBund
 	f.get_root()->add_bundles()->CopyFrom(bundle);
 	f.render();
 	metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
+}
+
+boost::filesystem::path nsclient::core::plugin_manager::get_filename(boost::filesystem::path folder, std::string module) {
+	return dll::dll_impl::fix_module_name(folder / module);
 }

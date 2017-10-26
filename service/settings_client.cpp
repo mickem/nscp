@@ -130,8 +130,8 @@ int nsclient_core::settings_client::generate(std::string target) {
 	} catch (settings::settings_exception e) {
 		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
 		return 1;
-	} catch (NSPluginException &e) {
-		error_msg(__FILE__, __LINE__, "Failed to load plugins: " + utf8::utf8_from_native(e.what()));
+	} catch (nsclient::core::plugin_exception &e) {
+		error_msg(__FILE__, __LINE__, "Failed to load plugins: " + e.reason());
 		return 1;
 	} catch (std::exception &e) {
 		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
