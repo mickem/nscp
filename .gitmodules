@@ -19,3 +19,6 @@
 [submodule "ext/md-protobuf"]
 	path = ext/md-protobuf
 	url = https://github.com/mickem/md-protobuf.git
+[submodule "ext/miniz"]
+	path = ext/miniz
+	url = https://github.com/richgel999/miniz.git
