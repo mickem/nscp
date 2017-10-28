@@ -11,13 +11,12 @@ before_install:
   - sudo apt-get install -y libssl-dev 
   - sudo apt-get install -y libboost-all-dev
   - sudo apt-get install -y protobuf-compiler python-protobuf libprotobuf-dev
-  - sudo apt-get install -y python-sphinx python-jinja2
   - sudo apt-get install -y libcrypto++-dev
   - sudo apt-get install -y liblua5.1-0-dev
   - sudo apt-get install -y libgtest-dev
 install:
   - pip install jinja2
-  - pip install --user mkdocs mkdocs-material
+  - pip install --user 'mkdocs>=0.17.0' mkdocs-material
 script: 
   - mkdir -p tmp
   - pushd tmp 
