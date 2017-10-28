@@ -504,7 +504,7 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 	po::variables_map vm;
 	po::options_description desc;
 	std::string script, arguments, alias, import_script;
-	bool wrapped = false, list = false, replace = false;
+	bool wrapped = false, list = false, replace = false, no_config = false;
 
 	desc.add_options()
 		("help", "Show help.")
@@ -529,6 +529,9 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 
 		("replace", po::bool_switch(&replace),
 		"Used when importing to specify that the script will be overwritten.")
+
+		("no-config", po::bool_switch(&no_config),
+		"Do not write the updated configuration (i.e. changes are only transient).")
 
 		;
 
@@ -584,17 +587,19 @@ void CheckExternalScripts::add_script(const Plugin::ExecuteRequestMessage::Reque
 		alias = boost::filesystem::basename(file.filename());
 	}
 
-	nscapi::protobuf::functions::settings_query s(get_id());
-	if (!wrapped)
-		s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
-	else
-		s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
-	s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
-	s.save();
-	get_core()->settings_query(s.request(), s.response());
-	if (!s.validate_response()) {
-		nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
-		return;
+	if (!no_config) {
+		nscapi::protobuf::functions::settings_query s(get_id());
+		if (!wrapped)
+			s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
+		else
+			s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
+		s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return;
+		}
 	}
 	std::string actual = "";
 	if (wrapped)
