@@ -18,7 +18,6 @@
  */
 
 #include "realtime_thread.hpp"
-#include "settings.hpp"
 
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/macros.hpp>

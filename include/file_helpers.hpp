@@ -24,6 +24,8 @@
 #include <boost/version.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
 #ifdef WIN32
