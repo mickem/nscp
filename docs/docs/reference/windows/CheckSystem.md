@@ -369,6 +369,17 @@ Default check **via NRPE**::
 check_nrpe --host 192.168.56.103 --command check_memory
 OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'=530G;1;1;0;1 'physical %'=25%;79;89;0;100
 ```
+**Overriding the unit:**
+
+Most "byte" checks such as memory have an auto scaling feature which means values wqill go from 800M to 1.2G between checks.
+Some graphing systems does not honor the units in performance data in which case you can get unexpected large values (such as 800G).
+To remedy this you can lock the unit by adding `perf-config=*(unit:G)`
+
+```
+check_memory perf-config=*(unit:G)
+page = 8.05G, physical = 7.85G
+'page free'=15G;4;2 'page free %'=66%;19;9 'physical free'=4G;2;1 'physical free %'=34%;19;9
+```
 
 
 
@@ -1951,6 +1962,30 @@ AdobeActiveFileMonitor10.0:running, AdobeARMservice:running, AdobeFlashPlayerUpd
 check_service "filter=start_type = 'auto' and name not in ('Bonjour Service', 'Net Driver HPZ12')"
 AdobeActiveFileMonitor10.0: running, AdobeARMservice: running, AMD External Events Utility: running,  ... wuauserv: running
 ```
+
+**Exclude versus filter**::
+
+You can use both exclude and filter to exclude services the befnefit of exclude is that it is faster with the obvious drawback that it only works on the service name.
+The upside to filters are that they are richer in terms of functionality i.e. substring matching (as below).
+
+Regular check
+```
+check_service
+L        cli CRITICAL: CRITICAL: nfoo=stopped (auto), nscp=stopped (auto), nscp2=stopped (auto), ...
+```
+
+Excluding nfoo service with exclude:
+```
+check_service exclude=nfoo
+L        cli CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
+```
+
+Excluding nscp2 with substring like mathcing filter:
+```
+check_service exclude=nfoo "filter=name not like 'nscp'"
+L        cli CRITICAL: CRITICAL: ...
+```
+
 
 Default check **via NRPE**::
 
