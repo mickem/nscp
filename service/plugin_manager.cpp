@@ -20,6 +20,8 @@
 #include "plugin_manager.hpp"
 
 #include "dll_plugin.h"
+#include "zip_plugin.h"
+
 #include <str/format.hpp>
 #include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
@@ -311,7 +313,12 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
 	if (dup) {
 		return dup;
 	}
-	plugin_type plugin(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+	plugin_type plugin;
+	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
+		plugin = plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, log_instance_));
+	} else {
+		plugin = plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+	}
 	plugin_list_.append_plugin(plugin);
 	if (plugin->hasCommandHandler()) {
 		commands_.add_plugin(plugin);

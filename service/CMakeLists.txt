@@ -22,6 +22,8 @@ SET(service_SRCS
 	master_plugin_list.cpp
 	path_manager.cpp
 	dll_plugin.cpp
+  zip_plugin.cpp
+
 
 	#logger
 	logger/nsclient_logger.cpp
@@ -75,6 +77,7 @@ IF(WIN32)
 		master_plugin_list.hpp
 		path_manager.hpp
 		dll_plugin.h
+    zip_plugin.h
 		plugin_interface.hpp
 
 		
@@ -185,5 +188,6 @@ IF(GTEST_FOUND)
 		${EXTRA_LIBS}
 		${Boost_DATE_TIME_LIBRARY}
 		settings_manager
+    nscp_miniz
 	)
 ENDIF(GTEST_FOUND)
