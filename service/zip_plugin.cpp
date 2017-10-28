@@ -22,11 +22,46 @@
 #include "core_api.h"
 #include "NSCAPI.h"
 
+#include <nscapi/nscapi_core_helper.hpp>
 #include <file_helpers.hpp>
 #include <zip/miniz.hpp>
 #include <str/xtos.hpp>
 
 #include <json_spirit.h>
+
+
+struct zip_archive {
+
+	mz_zip_archive handle_;
+	zip_archive() {
+		memset(&handle_, 0, sizeof(handle_));
+	}
+	zip_archive(std::string file) {
+		memset(&handle_, 0, sizeof(handle_));
+		read(file);
+	}
+	~zip_archive() {
+		mz_zip_reader_end(&handle_);
+	}
+
+	bool read(std::string file) {
+		return mz_zip_reader_init_file(&handle_, file.c_str(), 0);
+	}
+	unsigned int get_numfiles() {
+		return mz_zip_reader_get_num_files(&handle_);
+	}
+	bool file_stat(unsigned int id, mz_zip_archive_file_stat &file_stat) {
+		return mz_zip_reader_file_stat(&handle_, id, &file_stat);
+	}
+	const char* extract_file_to_heap(const char* filename, std::size_t &size) {
+		return reinterpret_cast<char*>(mz_zip_reader_extract_file_to_heap(&handle_, filename, &size, 0));
+	}
+	bool extract_file_to_file(const char* filename, const char* dst_file) {
+		return mz_zip_reader_extract_file_to_file(&handle_, filename, dst_file, 0);
+	}
+
+	
+};
 
 /**
  * Default c-tor
@@ -35,9 +70,11 @@
  *
  * @param file The file (DLL) to load as a NSC plug in.
  */
-nsclient::core::zip_plugin::zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::logging::logger_instance logger)
+nsclient::core::zip_plugin::zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths, nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger)
 	: plugin_interface(id, alias)
 	, file_(file)
+	, paths_(paths)
+	, plugins_(plugins)
 	, logger_(logger)
 {
 	read_metadata();
@@ -61,45 +98,108 @@ std::string nsclient::core::zip_plugin::getDescription() {
 	return description_;
 }
 
+
+nsclient::core::script_def read_script_def(const json_spirit::Value & s) {
+	nsclient::core::script_def def;
+	def.provider = s.getString("provider");
+	def.script = s.getString("script");
+	def.alias = s.getString("alias");
+	def.command = s.getString("command");
+	return def;
+}
+
+
 void nsclient::core::zip_plugin::read_metadata() {
-	mz_zip_archive zip_archive;
-	memset(&zip_archive, 0, sizeof(zip_archive));
-	mz_bool status = mz_zip_reader_init_file(&zip_archive, file_.string().c_str(), 0);
-	if (!status) {
+	zip_archive archive;
+	if (!archive.read(file_.string())) {
 		throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
 	}
 
-	for (int i = 0; i < (int)mz_zip_reader_get_num_files(&zip_archive); i++) {
-		LOG_ERROR_CORE("...");
+	for (unsigned int i = 0; i < archive.get_numfiles(); i++) {
 		mz_zip_archive_file_stat file_stat;
-		if (!mz_zip_reader_file_stat(&zip_archive, i, &file_stat)) {
-			mz_zip_reader_end(&zip_archive);
+		if (!archive.file_stat(i, file_stat)) {
 			throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
 		}
 
 		if (std::string(file_stat.m_filename) == "module.json") {
-			size_t uncomp_size;
-			void *p = mz_zip_reader_extract_file_to_heap(&zip_archive, file_stat.m_filename, &uncomp_size, 0);
+			std::size_t uncomp_size;
+			const char *p = archive.extract_file_to_heap(file_stat.m_filename, uncomp_size);
 			if (!p) {
-				mz_zip_reader_end(&zip_archive);
 				throw plugin_exception(get_alias_or_name(), "Failed to read:" + file_.string());
 			}
-			read_metadata(std::string((const char *)p));
+			read_metadata(std::string(p));
 			return;
 		}
 	}
 	throw plugin_exception(get_alias_or_name(), "Failed to find module.json in " + file_.string());
 }
 void nsclient::core::zip_plugin::read_metadata(std::string data) {
-	json_spirit::Value root;
-	json_spirit::read_or_throw(data, root);
-	name_ = root.getString("name");
-	description_ = root.getString("description");
+	try {
+		json_spirit::Value root;
+		json_spirit::read_or_throw(data, root);
+		name_ = root.getString("name");
+		description_ = root.getString("description");
+
+		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("scripts")) {
+			script_def def = read_script_def(s);
+			if (modules_.find(def.provider) == modules_.end()) {
+				modules_.emplace(def.provider);
+			}
+			scripts_.push_back(def);
+		}
+	} catch (const json_spirit::ParseError &e) {
+		throw plugin_exception(get_alias_or_name(), "Failed to parse module.json " + e.reason_ + " at line " + str::xtos(e.line_));
+	}
 }
 
 bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
+	boost::filesystem::path scripts_folder = boost::filesystem::path(paths_->expand_path("${scripts}")) / "tmp";
+	boost::filesystem::path target_path = scripts_folder / getModule();
+	boost::filesystem::create_directory(scripts_folder);
+	boost::filesystem::create_directory(target_path);
+	BOOST_FOREACH(const std::string &plugin, modules_) {
+		plugins_->load_single_plugin(plugin, "", true);
+	}
+	zip_archive archive(file_.string());
+
+	BOOST_FOREACH(const script_def &script, scripts_) {
+		boost::filesystem::path target = target_path / file_helpers::meta::get_filename(boost::filesystem::path(script.script));
+		if (!archive.extract_file_to_file(script.script.c_str(), target.string().c_str())) {
+			LOG_ERROR_CORE("Failed to add script " + script.script);
+			continue;
+		}
+		std::list<std::string> ret;
+		std::vector<std::string> args;
+		args.push_back("--script");
+		args.push_back(target.string());
+		args.push_back("--alias");
+		args.push_back(script.alias);
+		args.push_back("--no-config");
+		plugins_->simple_exec(script.provider + ".add", args, ret);
+		BOOST_FOREACH(const std::string &s, ret) {
+			LOG_DEBUG_CORE(" : " + s);
+		}
+	}
+
 	return true;
 }
+
+
+/**
+* Unload the plug in
+* @throws NSPluginException if the module is not loaded and/or cannot be unloaded (plug in remains loaded if so).
+*/
+void nsclient::core::zip_plugin::unload_plugin() {
+	boost::filesystem::path scripts_folder = boost::filesystem::path(paths_->expand_path("${scripts}")) / "tmp";
+	boost::filesystem::path target_path = scripts_folder / getModule();
+	BOOST_FOREACH(const script_def &script, scripts_) {
+		boost::filesystem::path target = target_path / file_helpers::meta::get_filename(boost::filesystem::path(script.script));
+		boost::filesystem::remove(target);
+	}
+	boost::filesystem::remove(target_path);
+	boost::filesystem::remove(scripts_folder);
+}
+
 
 NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleCommand(const std::string request, std::string &reply) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
@@ -127,13 +227,6 @@ NSCAPI::nagiosReturn nsclient::core::zip_plugin::submitMetrics(const std::string
 
 void nsclient::core::zip_plugin::handleMessage(const char * data, unsigned int len) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
-}
-
-/**
- * Unload the plug in
- * @throws NSPluginException if the module is not loaded and/or cannot be unloaded (plug in remains loaded if so).
- */
-void nsclient::core::zip_plugin::unload_plugin() {
 }
 
 int nsclient::core::zip_plugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "plugin_interface.hpp"
+#include "plugin_manager.hpp"
 
 #include <utf8.hpp>
 
@@ -29,6 +30,9 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <string>
+#include <list>
+#include <set>
 
 /**
  * @ingroup NSClient++
@@ -59,15 +63,28 @@
  */
 namespace nsclient {
 	namespace core {
+
+		struct script_def {
+			std::string provider;
+			std::string script;
+			std::string alias;
+			std::string command;
+		};
+
 		class zip_plugin : public boost::noncopyable, public nsclient::core::plugin_interface {
 
 			boost::filesystem::path file_;
+			nsclient::core::path_instance paths_;
+			nsclient::core::plugin_mgr_instance plugins_;
 			nsclient::logging::logger_instance logger_;
 			std::string name_;
 			std::string description_;
 
+			std::list<script_def> scripts_;
+			std::set<std::string> modules_;
+
 		public:
-			zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::logging::logger_instance logger);
+			zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths, nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger);
 			virtual ~zip_plugin();
 
 			bool load_plugin(NSCAPI::moduleLoadMode mode);

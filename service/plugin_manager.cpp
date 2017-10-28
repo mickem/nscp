@@ -298,49 +298,57 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(std::string file_name, std::string alias) {
-
-	boost::optional<boost::filesystem::path> real_file = find_file(file_name);
-	if (!real_file) {
+	try {
+		boost::optional<boost::filesystem::path> real_file = find_file(file_name);
+		if (!real_file) {
+			return nsclient::core::plugin_manager::plugin_type();
+		}
+		if (alias.empty()) {
+			LOG_DEBUG_CORE_STD("adding " + real_file->string());
+		} else {
+			LOG_DEBUG_CORE_STD("adding " + real_file->string() + " (" + alias + ")");
+		}
+		// Check if this is a duplicate plugin (if so return that instance)
+		plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
+		if (dup) {
+			return dup;
+		}
+		plugin_type plugin;
+		if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
+			plugin = plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
+		} else {
+			plugin = plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+		}
+		plugin_list_.append_plugin(plugin);
+		if (plugin->hasCommandHandler()) {
+			commands_.add_plugin(plugin);
+		}
+		if (plugin->hasNotificationHandler()) {
+			channels_.add_plugin(plugin);
+		}
+		if (plugin->hasMetricsFetcher()) {
+			metrics_fetchers_.add_plugin(plugin);
+		}
+		if (plugin->hasMetricsSubmitter()) {
+			metrics_submitetrs_.add_plugin(plugin);
+		}
+		if (plugin->hasMessageHandler()) {
+			log_instance_->add_subscriber(plugin);
+		}
+		if (plugin->has_on_event()) {
+			event_subscribers_.add_plugin(plugin);
+		}
+		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
+		plugin_cache_.add_plugin(plugin);
+		return plugin;
+	} catch (const std::exception &e) {
+		LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
+		return nsclient::core::plugin_manager::plugin_type();
+	} catch (...) {
+		LOG_ERROR_CORE("Failed to load plugin " + file_name);
 		return nsclient::core::plugin_manager::plugin_type();
 	}
-	if (alias.empty()) {
-		LOG_DEBUG_CORE_STD("adding " + real_file->string());
-	} else {
-		LOG_DEBUG_CORE_STD("adding " + real_file->string() + " (" + alias + ")");
-	}
-	// Check if this is a duplicate plugin (if so return that instance)
-	plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
-	if (dup) {
-		return dup;
-	}
-	plugin_type plugin;
-	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-		plugin = plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, log_instance_));
-	} else {
-		plugin = plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
-	}
-	plugin_list_.append_plugin(plugin);
-	if (plugin->hasCommandHandler()) {
-		commands_.add_plugin(plugin);
-	}
-	if (plugin->hasNotificationHandler()) {
-		channels_.add_plugin(plugin);
-	}
-	if (plugin->hasMetricsFetcher()) {
-		metrics_fetchers_.add_plugin(plugin);
-	}
-	if (plugin->hasMetricsSubmitter()) {
-		metrics_submitetrs_.add_plugin(plugin);
-	}
-	if (plugin->hasMessageHandler()) {
-		log_instance_->add_subscriber(plugin);
-	}
-	if (plugin->has_on_event()) {
-		event_subscribers_.add_plugin(plugin);
-	}
-	settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
-	plugin_cache_.add_plugin(plugin);
-	return plugin;
+
 }
 
 bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {

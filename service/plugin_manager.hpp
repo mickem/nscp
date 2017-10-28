@@ -36,6 +36,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/enable_shared_from_this.hpp>
 
 /**
  * @ingroup NSClient++
@@ -78,7 +79,7 @@ namespace nsclient {
 		};
 
 
-		class plugin_manager {
+		class plugin_manager : public boost::enable_shared_from_this<plugin_manager> {
 		public:
 			typedef boost::shared_ptr<nsclient::core::plugin_interface> plugin_type;
 		private:
