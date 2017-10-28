@@ -23,6 +23,7 @@
 #include "NSCAPI.h"
 
 #include <file_helpers.hpp>
+#include <zip/miniz.hpp>
 #include <str/xtos.hpp>
 
 #include <json_spirit.h>
@@ -59,9 +60,6 @@ std::string nsclient::core::zip_plugin::getName() {
 std::string nsclient::core::zip_plugin::getDescription() {
 	return description_;
 }
-
-#include "../ext/miniz/miniz.h"
-#include "../ext/miniz/miniz_zip.h"
 
 void nsclient::core::zip_plugin::read_metadata() {
 	mz_zip_archive zip_archive;

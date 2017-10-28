@@ -161,6 +161,7 @@ TARGET_LINK_LIBRARIES(${TARGET}
 	nscp_protobuf
 	settings_manager
 	expression_parser
+  nscp_miniz
 )
 
 SOURCE_GROUP("NSCP API" REGULAR_EXPRESSION .*include/nscapi/.*)
@@ -188,6 +189,5 @@ IF(GTEST_FOUND)
 		${EXTRA_LIBS}
 		${Boost_DATE_TIME_LIBRARY}
 		settings_manager
-    nscp_miniz
 	)
 ENDIF(GTEST_FOUND)
