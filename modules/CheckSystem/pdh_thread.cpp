@@ -61,7 +61,7 @@ spi_container pdh_thread::fetch_spi(error_list &errors) {
 
 bool first = true;
 
-void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors) {
+void pdh_thread::write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, error_list &errors) {
 	boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!writeLock.owns_lock()) {
 		errors.push_back("Failed to get mutex for writing");
@@ -69,8 +69,8 @@ void pdh_thread::write_metrics(const spi_container &handles, const windows::syst
 	}
 	try {
 		cpu.push(load);
-		if (pdh != NULL)
-			pdh->gatherData();
+		if (live_pdh_.size() > 0)
+			live_pdh_.gatherData();
 
 		BOOST_FOREACH(const lookup_type::value_type &e, lookups_) {
 			if (e.second->has_instances()) {
@@ -150,44 +150,35 @@ void pdh_thread::thread_proc() {
 		}
 	}
 
-	PDH::PDHQuery pdh;
-
-	bool check_pdh = !counters_.empty();
-
-	if (check_pdh) {
-		SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
-		// 		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(10));
-		// 		if (!writeLock.owns_lock()) {
-		// 			NSC_LOG_ERROR_STD("Failed to get mutex when trying to start thread.");
-		// 			return;
-		// 		}
-		pdh.removeAllCounters();
+	SetThreadLocale(MAKELCID(MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), SORT_DEFAULT));
+	if (!counters_.empty()) {
+		//live_pdh_.removeAllCounters();
 		BOOST_FOREACH(PDH::pdh_instance c, counters_) {
 			try {
 				if (c->has_instances()) {
 					BOOST_FOREACH(PDH::pdh_instance sc, c->get_instances()) {
 						NSC_DEBUG_MSG("Loading counter: " + sc->get_name() + " = " + sc->get_counter());
-						pdh.addCounter(sc);
+						live_pdh_.addCounter(sc);
 					}
 				} else {
 					NSC_DEBUG_MSG("Loading counter: " + c->get_name() + " = " + c->get_counter());
-					pdh.addCounter(c);
+					live_pdh_.addCounter(c);
 				}
 			} catch (...) {
 				NSC_LOG_ERROR_WA("EXCEPTION: Failed to load counter: " + c->get_name() + " = ", c->get_counter());
 			}
 		}
 		try {
-			pdh.open();
+			live_pdh_.open();
 		} catch (const std::exception &e) {
+			live_pdh_.removeAllCounters();
 			NSC_LOG_ERROR_EXR("Failed to open counters (performance counters disabled)", e);
-			check_pdh = false;
 		}
 		try {
-			pdh.collect();
+			live_pdh_.collect();
 		} catch (const std::exception &e) {
+			live_pdh_.removeAllCounters();
 			NSC_LOG_ERROR_EXR("Failed to collect counters (performance counters disabled): ", e);
-			check_pdh = false;
 		}
 	}
 
@@ -232,8 +223,6 @@ void pdh_thread::thread_proc() {
 	DWORD waitStatus = 0;
 	int i = 0;
 
-	if (!check_pdh)
-		NSC_LOG_MESSAGE("Not checking PDH data");
 	if (has_realtime)
 		NSC_DEBUG_MSG("Real time checks enabled");
 
@@ -257,7 +246,7 @@ void pdh_thread::thread_proc() {
 	}
 	bool disable_pdh = disable_.find("pdh") != std::string::npos;
 	if (disable_pdh) {
-		check_pdh = false;
+		live_pdh_.removeAllCounters();
 		NSC_LOG_MESSAGE("WARNING: pdh writing is disabled");
 	}
 	spi_container handles;
@@ -280,7 +269,7 @@ void pdh_thread::thread_proc() {
 				}
 			}
 			if (!disable_metrics) {
-				write_metrics(handles, load, check_pdh ? &pdh : NULL, errors);
+				write_metrics(handles, load, errors);
 			}
 		}
 		try {
@@ -312,16 +301,14 @@ void pdh_thread::thread_proc() {
 		return;
 	}
 
-	if (check_pdh) {
-		boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
-		if (!writeLock.owns_lock()) {
-			NSC_LOG_ERROR("Failed to get Mute when closing thread!");
-		}
-		try {
-			pdh.close();
-		} catch (const std::exception &e) {
-			NSC_LOG_ERROR_EXR("Failed to close performance counters: ", e);
-		}
+	boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!writeLock.owns_lock()) {
+		NSC_LOG_ERROR("Failed to get Mute when closing thread!");
+	}
+	try {
+		live_pdh_.close();
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to close performance counters: ", e);
 	}
 }
 
@@ -456,6 +443,11 @@ void pdh_thread::set_path(const std::string mem_path, const std::string cpu_path
 
 void pdh_thread::add_counter(const PDH::pdh_object &counter) {
 	configs_.push_back(counter);
+}
+
+void pdh_thread::add_live_counter(const PDH::pdh_instance counter) {
+	lookups_["test"] = counter;
+	live_pdh_.addCounter(counter);
 }
 
 void pdh_thread::add_realtime_mem_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {

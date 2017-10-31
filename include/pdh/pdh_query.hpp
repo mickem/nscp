@@ -60,5 +60,6 @@ namespace PDH {
 		inline void collect();
 
 		PDH::PDH_HQUERY getQueryHandle() const;
+		std::size_t size();
 	};
 }

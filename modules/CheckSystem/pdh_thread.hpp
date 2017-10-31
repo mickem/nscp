@@ -82,6 +82,8 @@ public:
 	}
 	void add_counter(const PDH::pdh_object &counter);
 
+	void add_live_counter(const PDH::pdh_instance counter);
+
 	std::map<std::string, double> get_value(std::string counter);
 	std::map<std::string, double> get_average(std::string counter, long seconds);
 	std::map<std::string, long long> get_int_value(std::string counter);
@@ -104,8 +106,9 @@ public:
 	std::string to_string() const { return "pdh";  }
 
 private:
+	PDH::PDHQuery live_pdh_;
 	spi_container fetch_spi(error_list &errors);
-	void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, PDH::PDHQuery *pdh, error_list &errors);
+	void write_metrics(const spi_container &handles, const windows::system_info::cpu_load &load, error_list &errors);
 
 	filters::mem::filter_config_handler mem_filters_;
 	filters::cpu::filter_config_handler cpu_filters_;

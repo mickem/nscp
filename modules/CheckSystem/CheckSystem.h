@@ -75,4 +75,5 @@ public:
 	void checkServiceState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void checkProcState(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
 	void checkCounter(Plugin::QueryRequestMessage::Request &request, Plugin::QueryResponseMessage::Response *response);
+	NSCAPI::nagiosReturn add_live_counter(const std::list<std::string> & arguments, std::string & result);
 };

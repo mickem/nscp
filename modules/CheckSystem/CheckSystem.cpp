@@ -344,7 +344,9 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 }
 
 int CheckSystem::commandLineExec(const int target_mode, const std::string &command, const std::list<std::string> &arguments, std::string &result) {
-	if (command == "pdh" || command == "help" || command.empty()) {
+	if (command == "add") {
+		return add_live_counter(arguments, result);
+	} else if (command == "pdh" || command == "help" || command.empty()) {
 		namespace po = boost::program_options;
 
 		std::string lookup, counter, list_string, computer, username, password;
@@ -1131,4 +1133,9 @@ void CheckSystem::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		}
 
 	}
+}
+
+NSCAPI::nagiosReturn CheckSystem::add_live_counter(const std::list<std::string> & arguments, std::string & result) {
+	PDH::pdh_instance counter = PDH::factory::create(arguments.front());
+	collector->add_live_counter(counter);
 }

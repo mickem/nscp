@@ -117,4 +117,9 @@ namespace PDH {
 	PDH::PDH_HQUERY PDHQuery::getQueryHandle() const {
 		return hQuery_;
 	}
+
+	std::size_t PDHQuery::size() {
+		return counters_.size();
+	}
+
 }
