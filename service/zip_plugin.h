@@ -82,6 +82,7 @@ namespace nsclient {
 
 			std::list<script_def> scripts_;
 			std::set<std::string> modules_;
+			std::list<std::string> on_start_;
 
 		public:
 			zip_plugin(const unsigned int id, const boost::filesystem::path file, std::string alias, nsclient::core::path_instance paths, nsclient::core::plugin_mgr_instance plugins, nsclient::logging::logger_instance logger);

@@ -26,6 +26,7 @@
 #include <file_helpers.hpp>
 #include <zip/miniz.hpp>
 #include <str/xtos.hpp>
+#include <str/nscp_string.hpp>
 
 #include <json_spirit.h>
 
@@ -147,6 +148,17 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 			}
 			scripts_.push_back(def);
 		}
+		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("modules")) {
+			std::string module = s.getString();
+			if (modules_.find(module) == modules_.end()) {
+				modules_.emplace(module);
+			}
+		}
+		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("on_start")) {
+			on_start_.push_back(s.getString());
+		}
+
+		
 	} catch (const json_spirit::ParseError &e) {
 		throw plugin_exception(get_alias_or_name(), "Failed to parse module.json " + e.reason_ + " at line " + str::xtos(e.line_));
 	}
@@ -176,6 +188,23 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 		args.push_back(script.alias);
 		args.push_back("--no-config");
 		plugins_->simple_exec(script.provider + ".add", args, ret);
+		BOOST_FOREACH(const std::string &s, ret) {
+			LOG_DEBUG_CORE(" : " + s);
+		}
+	}
+	BOOST_FOREACH(const std::string &cmd, on_start_) {
+		std::list<std::string> ret;
+		std::vector<std::string> args;
+		try {
+			strEx::s::parse_command(cmd, args);
+		} catch (const std::exception &e) {
+			LOG_ERROR_CORE("Failed to parse \"" + cmd + "\": " + utf8::utf8_from_native(e.what()));
+			continue;
+		}
+
+		std::string command = args.front();
+		args.erase(args.begin());
+		plugins_->simple_exec(command, args, ret);
 		BOOST_FOREACH(const std::string &s, ret) {
 			LOG_DEBUG_CORE(" : " + s);
 		}
