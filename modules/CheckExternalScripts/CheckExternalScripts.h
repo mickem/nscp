@@ -17,26 +17,24 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "script_interface.hpp"
+
 #include "commands.hpp"
 #include "alias.hpp"
 
 #include <nscapi/nscapi_plugin_impl.hpp>
 
-#include <map>
+#include <string>
 
 class CheckExternalScripts : public nscapi::impl::simple_plugin {
 private:
-	commands::command_handler commands_;
+	boost::shared_ptr<script_provider_interface> provider_;
 	alias::command_handler aliases_;
 	unsigned int timeout;
-	//std::string commands_path;
-	//std::string aliases_path;
 	std::string scriptDirectory_;
-	boost::filesystem::path scriptRoot;
 	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
-	std::map<std::string, std::string> wrappings_;
 
 public:
 	CheckExternalScripts();
@@ -49,17 +47,10 @@ public:
 
 private:
 
-	void add_script(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
-
 	void handle_command(const commands::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage_Response *response);
 	void handle_alias(const alias::command_object &cd, const std::list<std::string> &args, Plugin::QueryResponseMessage_Response *response);
 	void addAllScriptsFrom(std::string path);
 	void add_command(std::string key, std::string arg);
 	void add_alias(std::string key, std::string command);
 	void add_wrapping(std::string key, std::string command);
-	std::string generate_wrapped_command(std::string command);
-	void configure(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
-	void list(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
-	void show(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
-	void delete_script(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 };
