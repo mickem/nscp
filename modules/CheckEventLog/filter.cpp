@@ -178,41 +178,63 @@ namespace eventlog_filter {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemTask].Type)
 			return "";
 		int id = buffer.get()[eventlog::api::EvtSystemTask].Int16Val;
-		op_str os = task_cache_.get_cached(get_source(), id);
+		std::string provider = get_provider();
+		op_str os = task_cache_.get_cached(provider, id);
 		if (os)
 			return *os;
-		os = task_cache_.get(get_provider_handle(), get_source(), id);
+		os = task_cache_.get(get_provider_handle(provider), provider, id);
 		if (os)
 			return *os;
 		return "";
 	}
+	#define WINLOG_KEYWORD_AUDITFAILURE 0x0010000000000000
+	#define WINLOG_KEYWORD_AUDITSUCCESS 0x0020000000000000
+	#define WINLOG_KEYWORD_RESERVED     0x00FFFFFFFFFFFFFF
+
 	std::string new_filter_obj::get_keyword() {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemKeywords].Type)
 			return "";
 		long long id = buffer.get()[eventlog::api::EvtSystemKeywords].Int64Val;
-		op_str os = keyword_cache_.apply_cached(get_source(), id);
-		if (os)
-			return *os;
-		os = keyword_cache_.apply(get_provider_handle(), get_source(), id);
-		if (os)
-			return *os;
-		return "";
+		id = id & WINLOG_KEYWORD_RESERVED;
+		if (id == 0) {
+			return "";
+		}
+		std::string provider = get_provider();
+		std::string ret = "";
+		if ((id & WINLOG_KEYWORD_AUDITFAILURE) == WINLOG_KEYWORD_AUDITFAILURE) {
+			id = id & ~WINLOG_KEYWORD_AUDITFAILURE;
+			str::format::append_list(ret, "Audit Failure");
+		}
+		if ((id & WINLOG_KEYWORD_AUDITSUCCESS) == WINLOG_KEYWORD_AUDITSUCCESS) {
+			id = id & ~WINLOG_KEYWORD_AUDITSUCCESS;
+			str::format::append_list(ret, "Audit Success");
+		}
+		if (id != 0) {
+			op_str os = keyword_cache_.apply_cached(provider, id);
+			if (!os) {
+				os = keyword_cache_.apply(get_provider_handle(provider), provider, id);
+			}
+			if (os) {
+				str::format::append_list(ret, *os);
+			}
+		}
+		return ret;
 	}
 
-	eventlog::evt_handle& new_filter_obj::get_provider_handle() {
-		if (!hProviderMetadataHandle) {
-			std::string provider = get_source();
-			hProviderMetadataHandle = eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(provider).c_str(), NULL, 0, 0);
-			if (!hProviderMetadataHandle)
+	eventlog::evt_handle& new_filter_obj::get_provider_handle(const std::string provider) {
+		if (providers_.find(provider) == providers_.end()) {
+			eventlog::api::EVT_HANDLE tmp = eventlog::EvtOpenPublisherMetadata(NULL, utf8::cvt<std::wstring>(provider).c_str(), NULL, 0, 0);
+			if (!tmp)
 				throw nsclient::nsclient_exception("EvtOpenPublisherMetadata failed for '" + provider + "': " + error::lookup::last_error());
+			providers_[provider] = tmp;
 		}
-		return hProviderMetadataHandle;
+		return providers_[provider];
 	}
 
 	std::string new_filter_obj::get_message() {
 		try {
 			std::string msg;
-			int status = eventlog::EvtFormatMessage(get_provider_handle(), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
+			int status = eventlog::EvtFormatMessage(get_provider_handle(get_provider()), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageEvent, msg);
 			if (status != ERROR_SUCCESS) {
 				NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + str::xtos(get_id()) + ": " + error::format::from_system(status));
 				if (status == ERROR_INVALID_PARAMETER)
@@ -237,7 +259,7 @@ namespace eventlog_filter {
 		}
 	}
 
-	std::string new_filter_obj::get_source() const {
+	std::string new_filter_obj::get_provider() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderName].Type)
 			return "";
 		return utf8::cvt<std::string>(buffer.get()[eventlog::api::EvtSystemProviderName].StringVal);
@@ -331,13 +353,13 @@ namespace eventlog_filter {
 
 	filter_obj_handler::filter_obj_handler() {
 		registry_.add_string()
-			("source", boost::bind(&filter_obj::get_source, _1), "Source system.")
+			("source", boost::bind(&filter_obj::get_provider, _1), "Source system.")
 			("message", boost::bind(&filter_obj::get_message, _1), "The message rendered as a string.")
 			("computer", boost::bind(&filter_obj::get_computer, _1), "Which computer generated the message")
 			("log", boost::bind(&filter_obj::get_log, _1), "alias for file")
 			("file", boost::bind(&filter_obj::get_log, _1), "The logfile name")
 			("guid", boost::bind(&filter_obj::get_guid, _1), "The logfile name")
-			("provider", boost::bind(&filter_obj::get_source, _1), "Source system.")
+			("provider", boost::bind(&filter_obj::get_provider, _1), "Source system.")
 			("task", boost::bind(&filter_obj::get_task, _1), "The type of event (task)")
 			("keyword", boost::bind(&filter_obj::get_keyword, _1), "The keyword associated with this event")
 			;

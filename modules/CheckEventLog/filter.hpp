@@ -55,7 +55,7 @@ namespace eventlog_filter {
 		virtual ~filter_obj() {}
 
 		virtual long long get_id() const = 0;
-		virtual std::string get_source() const = 0;
+		virtual std::string get_provider() const = 0;
 		virtual std::string get_guid() const = 0;
 		virtual std::string get_computer() const = 0;
 		virtual long long get_el_type() const = 0;
@@ -93,7 +93,7 @@ namespace eventlog_filter {
 		long long get_id() const {
 			return record.eventID();
 		}
-		std::string get_source() const {
+		std::string get_provider() const {
 			return utf8::cvt<std::string>(record.get_source());
 		}
 		std::string get_computer() const {
@@ -158,7 +158,7 @@ namespace eventlog_filter {
 		eventlog::evt_handle hEvent;
 		hlp::buffer<wchar_t, eventlog::api::PEVT_VARIANT> buffer;
 		int truncate_message;
-		eventlog::evt_handle hProviderMetadataHandle;
+		std::map<std::string, eventlog::evt_handle> providers_;
 
 		new_filter_obj(unsigned long long now, const std::string &logfile, eventlog::api::EVT_HANDLE hEvent, eventlog::evt_handle &hContext, const int truncate_message);
 		virtual ~new_filter_obj() {}
@@ -166,7 +166,7 @@ namespace eventlog_filter {
 		long long get_id() const {
 			return buffer.get()[eventlog::api::EvtSystemEventID].UInt16Val;
 		}
-		std::string get_source() const;
+		std::string get_provider() const;
 		std::string get_guid() const;
 		std::string get_computer() const;
 		long long get_el_type() const;
@@ -199,7 +199,7 @@ namespace eventlog_filter {
 			return 0;
 		}
 		bool is_modern() const { return true; }
-		eventlog::evt_handle& get_provider_handle();
+		eventlog::evt_handle& get_provider_handle(const std::string provider);
 		virtual std::string to_string() const { return logfile + ":" + str::xtos(get_id()) + "=" + get_el_type_s(); }
 	};
 
