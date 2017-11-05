@@ -158,14 +158,14 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("scripts")) {
 			script_def def = read_script_def(s);
 			if (modules_.find(def.provider) == modules_.end()) {
-				modules_.emplace(def.provider);
+				modules_.insert(def.provider);
 			}
 			scripts_.push_back(def);
 		}
 		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("modules")) {
 			std::string module = s.getString();
 			if (modules_.find(module) == modules_.end()) {
-				modules_.emplace(module);
+				modules_.insert(module);
 			}
 		}
 		BOOST_FOREACH(const json_spirit::Value &s, root.getArray("on_start")) {
