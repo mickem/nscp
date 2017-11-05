@@ -16,7 +16,10 @@ ELSE(JSON_SPIRIT_FOUND)
 ENDIF(JSON_SPIRIT_FOUND)
 SET(SRCS ${SRCS}
 	"${TARGET}.cpp"
+	python_script.cpp
 	script_wrapper.cpp
+	extscr_cli.cpp
+	script_provider.cpp
 	${NSCP_DEF_PLUGIN_CPP}
 )
 
@@ -26,6 +29,10 @@ IF(WIN32)
 	SET(SRCS ${SRCS}
 		script_wrapper.hpp
 		"${TARGET}.h"
+		extscr_cli.h
+		script_interface.hpp
+		python_script.hpp
+		script_provider.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)
