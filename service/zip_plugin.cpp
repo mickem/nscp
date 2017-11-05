@@ -102,10 +102,24 @@ std::string nsclient::core::zip_plugin::getDescription() {
 
 nsclient::core::script_def read_script_def(const json_spirit::Value & s) {
 	nsclient::core::script_def def;
-	def.provider = s.getString("provider");
-	def.script = s.getString("script");
-	def.alias = s.getString("alias");
-	def.command = s.getString("command");
+	if (s.isString()) {
+		def.script = s.getString();
+		std::string name = file_helpers::meta::get_filename(boost::filesystem::path(def.script));
+		if (boost::algorithm::ends_with(name, ".py")) {
+			def.provider = "PythonScript";
+			def.alias = name.substr(0, name.length()-3);
+			def.command = name;
+		} else {
+			def.provider = "CheckExternalScripts";
+			def.alias = def.script;
+			def.command = def.script;
+		}
+	} else {
+		def.provider = s.getString("provider");
+		def.script = s.getString("script");
+		def.alias = s.getString("alias");
+		def.command = s.getString("command");
+	}
 	return def;
 }
 
