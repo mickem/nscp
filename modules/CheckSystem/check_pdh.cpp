@@ -119,6 +119,7 @@ namespace check_pdh {
 		bool reload = false;
 		bool check_average = false;
 		bool expand_instance = false;
+		bool ignore_errors = false;
 		std::string flags;
 		std::string type;
 
@@ -134,6 +135,7 @@ namespace check_pdh {
 			("time", po::value<std::vector<std::string>>(&times), "Timeframe to use for named rrd counters")
 			("flags", po::value<std::string>(&flags), "Extra flags to configure the counter (nocap100, 1000, noscale)")
 			("type", po::value<std::string>(&type)->default_value("large"), "Format of value (double, long, large)")
+			("ignore-errors", po::bool_switch(&ignore_errors), "If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors")
 			;
 
 		std::vector<std::string> extra;
@@ -220,8 +222,12 @@ namespace check_pdh {
 					has_counter = true;
 				}
 			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+				if (!ignore_errors) {
+					NSC_LOG_ERROR_EXR("Failed to poll counter", e);
+					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+				} else {
+					NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
+				}
 			}
 		}
 		if (!free_counters.empty()) {
@@ -231,12 +237,15 @@ namespace check_pdh {
 					pdh.collect();
 					Sleep(1000);
 				}
-				//pdh.collect();
 				pdh.gatherData(expand_instance);
 				pdh.close();
 			} catch (const PDH::pdh_exception &e) {
-				NSC_LOG_ERROR_EXR("Failed to poll counter", e);
-				return nscapi::protobuf::functions::set_response_bad(*response, "Failed to poll counter: " + utf8::utf8_from_native(e.what()));
+				if (!ignore_errors) {
+					NSC_LOG_ERROR_EXR("Failed to poll counter", e);
+					return nscapi::protobuf::functions::set_response_bad(*response, "Failed to add counter: " + utf8::utf8_from_native(e.what()));
+				} else {
+					NSC_DEBUG_MSG_STD("Ignoring counter failure: " + utf8::utf8_from_native(e.what()));
+				}
 			}
 		}
 		BOOST_FOREACH(const counter_list::value_type &vc, named_counters) {

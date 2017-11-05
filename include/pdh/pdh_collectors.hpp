@@ -149,7 +149,7 @@ namespace PDH {
 			boost::shared_mutex mutex_;
 			T value;
 		public:
-			value_collector(pdh_object config) : base_collector<T>(config) {}
+			value_collector(pdh_object config) : base_collector<T>(config), value(0) {}
 			virtual double get_average(long) {
 				boost::shared_lock<boost::shared_mutex> lock(mutex_);
 				if (!lock.owns_lock())

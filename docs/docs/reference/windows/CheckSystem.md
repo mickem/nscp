@@ -1412,40 +1412,43 @@ L     client OK: \\MIME-LAPTOP\Processor(0)\% processortid = 100, \\MIME-LAPTOP\
 
 <a name="check_pdh_flags"/>
 
+<a name="check_pdh_ignore-errors"/>
+
 <a name="check_pdh_options"/>
 #### Command-line Arguments
 
 
-| Option                                    | Default Value       | Description                                                                                                      |
-|-------------------------------------------|---------------------|------------------------------------------------------------------------------------------------------------------|
-| [filter](#check_pdh_filter)               |                     | Filter which marks interesting items.                                                                            |
-| [warning](#check_pdh_warning)             |                     | Filter which marks items which generates a warning state.                                                        |
-| warn                                      |                     | Short alias for warning                                                                                          |
-| [critical](#check_pdh_critical)           |                     | Filter which marks items which generates a critical state.                                                       |
-| crit                                      |                     | Short alias for critical.                                                                                        |
-| [ok](#check_pdh_ok)                       |                     | Filter which marks items which generates an ok state.                                                            |
-| debug                                     | N/A                 | Show debugging information in the log                                                                            |
-| show-all                                  | N/A                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
-| [empty-state](#check_pdh_empty-state)     | unknown             | Return status to use when nothing matched filter.                                                                |
-| [perf-config](#check_pdh_perf-config)     |                     | Performance data generation configuration                                                                        |
-| escape-html                               | N/A                 | Escape any < and > characters to prevent HTML encoding                                                           |
-| help                                      | N/A                 | Show help screen (this screen)                                                                                   |
-| help-pb                                   | N/A                 | Show help screen as a protocol buffer payload                                                                    |
-| show-default                              | N/A                 | Show default values for a given command                                                                          |
-| help-short                                | N/A                 | Show help screen (short format).                                                                                 |
-| [top-syntax](#check_pdh_top-syntax)       | ${status}: ${list}  | Top level syntax.                                                                                                |
-| [ok-syntax](#check_pdh_ok-syntax)         |                     | ok syntax.                                                                                                       |
-| [empty-syntax](#check_pdh_empty-syntax)   |                     | Empty syntax.                                                                                                    |
-| [detail-syntax](#check_pdh_detail-syntax) | ${alias} = ${value} | Detail level syntax.                                                                                             |
-| [perf-syntax](#check_pdh_perf-syntax)     | ${alias}            | Performance alias syntax.                                                                                        |
-| counter                                   |                     | Performance counter to check                                                                                     |
-| expand-index                              | N/A                 | Expand indexes in counter strings                                                                                |
-| instances                                 | N/A                 | Expand wildcards and fetch all instances                                                                         |
-| reload                                    | N/A                 | Reload counters on errors (useful to check counters which are not added at boot)                                 |
-| averages                                  | N/A                 | Check average values (ie. wait for 1 second to collecting two samples)                                           |
-| time                                      |                     | Timeframe to use for named rrd counters                                                                          |
-| flags                                     |                     | Extra flags to configure the counter (nocap100, 1000, noscale)                                                   |
-| [type](#check_pdh_type)                   | large               | Format of value (double, long, large)                                                                            |
+| Option                                    | Default Value       | Description                                                                                                                          |
+|-------------------------------------------|---------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_pdh_filter)               |                     | Filter which marks interesting items.                                                                                                |
+| [warning](#check_pdh_warning)             |                     | Filter which marks items which generates a warning state.                                                                            |
+| warn                                      |                     | Short alias for warning                                                                                                              |
+| [critical](#check_pdh_critical)           |                     | Filter which marks items which generates a critical state.                                                                           |
+| crit                                      |                     | Short alias for critical.                                                                                                            |
+| [ok](#check_pdh_ok)                       |                     | Filter which marks items which generates an ok state.                                                                                |
+| debug                                     | N/A                 | Show debugging information in the log                                                                                                |
+| show-all                                  | N/A                 | Show details for all matches regardless of status (normally details are only showed for warnings and criticals).                     |
+| [empty-state](#check_pdh_empty-state)     | unknown             | Return status to use when nothing matched filter.                                                                                    |
+| [perf-config](#check_pdh_perf-config)     |                     | Performance data generation configuration                                                                                            |
+| escape-html                               | N/A                 | Escape any < and > characters to prevent HTML encoding                                                                               |
+| help                                      | N/A                 | Show help screen (this screen)                                                                                                       |
+| help-pb                                   | N/A                 | Show help screen as a protocol buffer payload                                                                                        |
+| show-default                              | N/A                 | Show default values for a given command                                                                                              |
+| help-short                                | N/A                 | Show help screen (short format).                                                                                                     |
+| [top-syntax](#check_pdh_top-syntax)       | ${status}: ${list}  | Top level syntax.                                                                                                                    |
+| [ok-syntax](#check_pdh_ok-syntax)         |                     | ok syntax.                                                                                                                           |
+| [empty-syntax](#check_pdh_empty-syntax)   |                     | Empty syntax.                                                                                                                        |
+| [detail-syntax](#check_pdh_detail-syntax) | ${alias} = ${value} | Detail level syntax.                                                                                                                 |
+| [perf-syntax](#check_pdh_perf-syntax)     | ${alias}            | Performance alias syntax.                                                                                                            |
+| counter                                   |                     | Performance counter to check                                                                                                         |
+| expand-index                              | N/A                 | Expand indexes in counter strings                                                                                                    |
+| instances                                 | N/A                 | Expand wildcards and fetch all instances                                                                                             |
+| reload                                    | N/A                 | Reload counters on errors (useful to check counters which are not added at boot)                                                     |
+| averages                                  | N/A                 | Check average values (ie. wait for 1 second to collecting two samples)                                                               |
+| time                                      |                     | Timeframe to use for named rrd counters                                                                                              |
+| flags                                     |                     | Extra flags to configure the counter (nocap100, 1000, noscale)                                                                       |
+| [type](#check_pdh_type)                   | large               | Format of value (double, long, large)                                                                                                |
+| ignore-errors                             | N/A                 | If we should ignore errors when checking counters, for instance missing counters or invalid counters will return 0 instead of errors |
 
 
 
