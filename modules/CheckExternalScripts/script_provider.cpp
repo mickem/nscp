@@ -48,11 +48,6 @@ std::string script_provider::generate_wrapped_command(std::string command) {
 void script_provider::setup_commands() {
 	commands_.add_samples(get_settings_proxy());
 	commands_.add_missing(get_settings_proxy(), "default", "");
-
-	nscapi::core_helper core(get_core(), get_id());
-	BOOST_FOREACH(const boost::shared_ptr<commands::command_object> &o, commands_.get_object_list()) {
-		core.register_command(o->get_alias(), "External script: " + o->command);
-	}
 }
 
 void script_provider::add_command(std::string alias, std::string script) {
@@ -62,6 +57,9 @@ void script_provider::add_command(std::string alias, std::string script) {
 		return;
 	}
 	commands_.add(get_settings_proxy(), alias, script);
+	nscapi::core_helper core(get_core(), get_id());
+	core.register_command(alias, "External script: " + script);
+
 }
 
 commands::command_object_instance script_provider::find_command(std::string alias) {

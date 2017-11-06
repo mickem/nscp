@@ -149,19 +149,6 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			//			add_alias("alias_updates", "check_updates -warning 0 -critical 0");
 		}
 
-		settings.alias().add_path_to_settings()
-			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
-
-			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
-				"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
-				"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
-
-			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)),
-				"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
-				"WRAPPED SCRIPT", "A wrapped script definitions")
-
-			;
-
 		settings.alias().add_key_to_settings()
 			("timeout", sh::uint_key(&timeout, 60),
 				"Command timeout", "The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.")
@@ -177,6 +164,26 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 			("script root", sh::path_key(&scriptRoot, "${scripts}"),
 			"Script root folder", "Root path where all scripts are contained (You can not upload/download scripts outside this folder).")
+			;
+
+		settings.register_all();
+		settings.notify();
+		settings.clear();
+		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
+
+
+		settings.alias().add_path_to_settings()
+
+			("External script settings", "General settings for the external scripts module (CheckExternalScripts).")
+
+			("scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_command, this, _1, _2)),
+			"External scripts", "A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`",
+			"SCRIPT", "For more configuration options add a dedicated section (if you add a new section you can customize the user and various other advanced features)")
+
+			("wrapped scripts", sh::fun_values_path(boost::bind(&CheckExternalScripts::add_wrapping, this, _1, _2)),
+			"Wrapped scripts", "A list of wrapped scripts (ie. script using a template mechanism).\nThe template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.",
+			"WRAPPED SCRIPT", "A wrapped script definitions")
+
 			;
 
 
@@ -215,8 +222,6 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		if (!scriptDirectory_.empty()) {
 			addAllScriptsFrom(scriptDirectory_);
 		}
-
-		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_settings_path("scripts"), scriptRoot, wrappings));
 
 		aliases_.add_samples(get_settings_proxy());
 		aliases_.add_missing(get_settings_proxy(), "default", "");
@@ -267,7 +272,7 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::
 void CheckExternalScripts::add_command(std::string key, std::string arg) {
 	try {
 		if (!provider_) {
-			NSC_LOG_ERROR("Failed to add: " + key);
+			NSC_LOG_ERROR("Failed to add (no provider): " + key);
 			return;
 		}
 		provider_->add_command(key, arg);
