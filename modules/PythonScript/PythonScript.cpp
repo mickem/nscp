@@ -61,6 +61,8 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias(alias, "python");
 
+		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
+
 		settings.alias().add_path_to_settings()
 
 			("scripts", sh::fun_values_path(boost::bind(&PythonScript::loadScript, this, _1, _2)),
@@ -87,7 +89,6 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 		settings.register_all();
 		settings.notify();
 
-		provider_.reset(new script_provider(get_id(), get_core(), settings.alias().get_path(), root_));
 		python_script::init();
 	} catch (...) {
 		NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
@@ -98,7 +99,7 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 void PythonScript::loadScript(std::string alias, std::string file) {
 	if (!provider_) {
-		NSC_LOG_ERROR_STD("Could not find script: (Unknown exception) " + file);
+		NSC_LOG_ERROR_STD("Could not find script: no provider " + file);
 	} else {
 		provider_->add_command(alias, file);
 	}
@@ -123,7 +124,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 		if (command == "help") {
 			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp py [add|execute|list|install|delete] --help");
 			return true;
-		} else if (command == "execute") {
+		} else if (command == "execute" || command == "python-script") {
 			execute_script(request, response);
 			return true;
 		}
