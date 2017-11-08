@@ -6,6 +6,9 @@ be enabled with the [WEBServer module](../reference/generic/WEBServer.md#WEBServ
 The new API is described in separate pages (on per object):
 
 * [Scripts](scripts.md)
+* [Modules](modules.md)
+* [Logs](logs.md)
+* [Info](info.md)
 * [Legacy API](legacy.md)
 
 ## Setup
@@ -222,6 +225,54 @@ curl -k -i -u admin https://localhost:8443/api
 
 **TODO** This is not implemented yet (ish).
 
+### Authorization
+
+The rest API is secured using a series of privilages required (one for each API call) which are connect to roles chich you can assign users.
+The default user (root) will, by default, recive unlimited privelages so it can do anything.
+This means you most likely want to create seprate users when using the REST API so you can lock down the privelages.
+
+#### Privelages
+
+Privelages can be found net to each API Call in the documnetation. They are dot-separated strings.
+For instance the `/api/v1/modules/:module/commands/load` requires the `modules.load` pribvelage.
+To hand this out to a role you would lie the string under the roles like so:
+
+```
+[/settings/web/roles]
+my_role=modules.load
+```
+
+This can easily become cumbersome and thus you can add a star (*) to add multiple privelages to a role like so:
+
+```
+[/settings/web/roles]
+my_role=modules.*
+```
+
+This gives the role `my_role` not only `modules.load` but also all other `mdoules.:something` commands such as `modules.list`
+This is infact how the legacy role is created:
+
+```
+[/settings/web/roles]
+legacy=*
+```
+#### Adding users
+
+**TODO**
+
+```
+[/settings/web/users/my_user]
+username=hello
+password=foobar
+role=legacy
+```
+
+
+#### Assigning roles to users
+
+Once we have defined a role we can assign it to user by adding adding the user to that role:
+
+**TODO**
 
 ### Hypermedia
 
