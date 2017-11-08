@@ -59,8 +59,8 @@ namespace nscapi {
 		bool settings_query(const std::string request, std::string &response) const;
 
 		// Helper functions for calling into the core
-		std::string getApplicationName(void);
-		std::string getApplicationVersionString(void);
+		std::string getApplicationName(void) const;
+		std::string getApplicationVersionString(void) const;
 
 		void log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string message) const;
 		void log(std::string message) const;

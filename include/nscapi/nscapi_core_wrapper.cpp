@@ -296,7 +296,7 @@ NSCAPI::errorReturn nscapi::core_wrapper::json_to_protobuf(const char *request, 
 * @return A string representing the application name.
 * @throws nsclient::nsclient_exception When core pointer set is unavailable or an unexpected error occurs.
 */
-std::string nscapi::core_wrapper::getApplicationName() {
+std::string nscapi::core_wrapper::getApplicationName() const {
 	if (!fNSAPIGetApplicationName)
 		throw nsclient::nsclient_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;
@@ -320,7 +320,7 @@ bool nscapi::core_wrapper::checkLogMessages(int type) {
 * @return A string representing the application version.
 * @throws nsclient::nsclient_exception When core pointer set is unavailable.
 */
-std::string nscapi::core_wrapper::getApplicationVersionString() {
+std::string nscapi::core_wrapper::getApplicationVersionString() const {
 	if (!fNSAPIGetApplicationVersionStr)
 		throw nsclient::nsclient_exception("NSCore has not been initiated...");
 	unsigned int buf_len = LEGACY_BUFFER_LENGTH;

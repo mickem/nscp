@@ -32,6 +32,7 @@ SET(SRCS ${SRCS}
   legacy_controller.cpp
   api_controller.cpp
   log_controller.cpp
+  info_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp
@@ -62,6 +63,8 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/client/simple_client.hpp
 		${NSCP_INCLUDEDIR}/metrics/metrics_store_map.hpp
 		${NSCP_INCLUDEDIR}/socket/socket_helpers.hpp
+
+		info_controller.hpp
 
 		${NSCP_DEF_PLUGIN_HPP}
 	)

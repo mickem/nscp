@@ -39,5 +39,6 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
 	root["modules_url"] = host + "/api/v1/modules";
 	root["queries_url"] = host + "/api/v1/queries";
 	root["logs_url"] = host + "/api/v1/logs";
+	root["info_url"] = host + "/api/v1/info";
 	response.append(json_spirit::write(root));
 }
