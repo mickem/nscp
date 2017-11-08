@@ -178,13 +178,15 @@ namespace nsclient {
 			}
 			static boost::filesystem::path get_filename(boost::filesystem::path folder, std::string module);
 			static std::string file_to_module(const boost::filesystem::path &file) {
-				const std::string str = file.string();
+				std::string str = file.string();
 #ifdef WIN32
 				if (boost::ends_with(str, ".dll"))
-					return str.substr(0, str.size() - 4);
+					str = str.substr(0, str.size() - 4);
 #else
-				if (boost::ends_with(file.string(), ".so"))
-					return str.substr(0, str.size() - 3);
+				if (boost::ends_with(str, ".so"))
+					str = str.substr(0, str.size() - 3);
+				if (boost::starts_with(str, "lib"))
+					str = str.substr(3);
 #endif
 				return str;
 			}
