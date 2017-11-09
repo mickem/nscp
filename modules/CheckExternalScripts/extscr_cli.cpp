@@ -397,7 +397,7 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 			s.set("/settings/external scripts/scripts", alias, script + " " + arguments);
 		else
 			s.set("/settings/external scripts/wrapped scripts", alias, script + " " + arguments);
-		s.set(MAIN_MODULES_SECTION, "extscr_cli", "enabled");
+		s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
 		s.save();
 		provider_->get_core()->settings_query(s.request(), s.response());
 		if (!s.validate_response()) {
@@ -463,7 +463,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 	std::stringstream result;
 
 	nscapi::protobuf::functions::settings_query s(provider_->get_id());
-	s.set(MAIN_MODULES_SECTION, "extscr_cli", "enabled");
+	s.set(MAIN_MODULES_SECTION, "CheckExternalScripts", "enabled");
 	if (arguments == "all" || arguments == "unsafe") {
 		result << "UNSAFE Arguments are allowed." << std::endl;
 		s.set(path, "allow arguments", "true");
