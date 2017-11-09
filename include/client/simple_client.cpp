@@ -70,15 +70,14 @@ std::string render_query(const ::Plugin::RegistryResponseMessage::Response::Inve
 
 static std::string render_list(const Plugin::RegistryResponseMessage &response_message, boost::function<std::string(const ::Plugin::RegistryResponseMessage::Response::Inventory&)> renderer) {
 	std::string list;
-	for (int i = 0; i < response_message.payload_size(); i++) {
-		const ::Plugin::RegistryResponseMessage::Response &pl = response_message.payload(i);
-		for (int j = 0; j < pl.inventory_size(); j++) {
+	BOOST_FOREACH(const ::Plugin::RegistryResponseMessage::Response &pl, response_message.payload()) {
+		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory& i, pl.inventory()) {
 			if (!list.empty())
 				list += "\n";
-			list += renderer(pl.inventory(j)); // .name() + "\t-" + pl.inventory(j).info().description();
+			list += renderer(i);
 		}
 		if (pl.result().code() != ::Plugin::Common_Result_StatusCodeType_STATUS_OK) {
-			return "Error: " + response_message.payload(i).result().message();
+			return "Error: " + pl.result().message();
 		}
 	}
 	return list;
@@ -275,10 +274,27 @@ namespace client {
 				std::string cmd = args.front(); args.pop_front();
 				std::string msg, perf;
 				nscapi::core_helper helper(handler->get_core(), handler->get_plugin_id());
-				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, msg, perf, -1);
-				handler->output_message(nscapi::plugin_helper::translateReturn(ret) + ": " + msg);
-				if (!perf.empty())
-					handler->output_message(" Performance data: " + perf);
+				std::string response;
+				NSCAPI::nagiosReturn ret = helper.simple_query(cmd, args, response);
+				if (!response.empty()) {
+					try {
+						Plugin::QueryResponseMessage message;
+						message.ParseFromString(response);
+
+						BOOST_FOREACH(const Plugin::QueryResponseMessage::Response payload, message.payload()) {
+							BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, payload.lines()) {
+								std::string msg = nscapi::plugin_helper::translateReturn(payload.result()) + ": " + l.message();
+								handler->output_message(msg);
+								std::string perf = nscapi::protobuf::functions::build_performance_data(l, nscapi::protobuf::functions::no_truncation);
+								handler->output_message(" Performance data: " + perf);
+							}
+							//return gbp_to_nagios_status(payload.result());
+						}
+					} catch (std::exception &e) {
+						std::string msg = "Failed to extract return message: " + utf8::utf8_from_native(e.what());
+						handler->output_message(msg);
+					}
+				}
 			} catch (const std::exception &e) {
 				handler->output_message("Exception: " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
