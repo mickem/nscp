@@ -58,4 +58,8 @@ namespace Mongoose
 		return true;
 	}
 
+	std::string RegexpController::get_base(Request &request) {
+		return request.get_host() + prefix;
+	}
+
 }

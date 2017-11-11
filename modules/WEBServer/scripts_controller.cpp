@@ -62,8 +62,6 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 	if (!session->can("scripts.list.runtimes", request, response))
 		return;
 
-	std::string host = request.get_host();
-
 	Plugin::RegistryRequestMessage rrm;
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
 	payload->mutable_inventory()->set_fetch_all(false);
@@ -94,8 +92,7 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 				node["name"] = name;
 				node["module"] = i.name();
 				node["title"] = i.info().title();
-				node[name + "_url"] = host + "/api/v1/scripts/" + name;
-
+				node["runtime_url"] = get_base(request) + "/" + name;
 				root.push_back(node);
 			}
 		}

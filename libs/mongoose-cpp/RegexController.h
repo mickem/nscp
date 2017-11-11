@@ -70,6 +70,7 @@ namespace Mongoose
 
 			bool validate_arguments(std::size_t count, boost::smatch &what, Mongoose::StreamResponse &response);
 
+			std::string get_base(Request &request);
         protected:
           typedef std::list<route_info> routes_type;
           routes_type routes;

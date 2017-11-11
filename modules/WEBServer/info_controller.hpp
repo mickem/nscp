@@ -25,7 +25,7 @@ public:
 
 	info_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
-	void get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void get_info(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void get_version(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 
 };

@@ -50,6 +50,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 		  node["id"] = i.id();
 		  node["title"] = i.info().title();
 		  node["loaded"] = false;
+		  node["module_url"] = request.get_host() + "/api/v1/modules/" + i.name() + "/";
 		  json_spirit::Object keys;
 		  BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
 			  if (kvp.key() == "loaded") {

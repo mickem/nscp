@@ -32,27 +32,37 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 	if (!session->can("logs.list", request, response))
 		return;
 
-	json_spirit::Object root, log;
-	json_spirit::Array data;
+	json_spirit::Array root;
 
 	std::list<std::string> levels;
 	str::utils::split(levels, request.get("level", ""), ",");
-	std::string str_position = request.get("pos", "0");
-	std::size_t pos = str::stox<std::size_t>(str_position, 0);
-	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_errors(pos)) {
-		if (!levels.empty() && std::find(levels.begin(), levels.end(), e.type) == levels.end()) {
-			continue;
-		}
+	std::size_t count = 0;
+	std::size_t page = str::stox<std::size_t>(request.get("page", "1"), 1);
+	std::size_t ipp = str::stox<std::size_t>(request.get("per_page", "10"), 10);
+	if (ipp < 2 || ipp > 100 || page < 0) {
+		response.setCode(HTTP_BAD_REQUEST);
+		response.append("Invalid request");
+		return;
+	}
+	std::size_t pos = (page-1)*ipp;
+	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_messages(levels, pos, ipp, count)) {
 		json_spirit::Object node;
 		node.insert(json_spirit::Object::value_type("file", e.file));
 		node.insert(json_spirit::Object::value_type("line", e.line));
 		node.insert(json_spirit::Object::value_type("level", e.type));
 		node.insert(json_spirit::Object::value_type("date", e.date));
 		node.insert(json_spirit::Object::value_type("message", e.message));
-		data.push_back(node);
+		root.push_back(node);
 	}
-	log.insert(json_spirit::Object::value_type("data", data));
-	log.insert(json_spirit::Object::value_type("pos", pos));
-	root.insert(json_spirit::Object::value_type("log", log));
+	std::string base = request.get_host() + "/api/v1/logs?page=";
+	std::string tail = "&per_page=" + str::xtos(ipp);
+	if (!levels.empty()) {
+		tail += "&level=" + str::utils::joinEx(levels, ",");
+	}
+	std::string next = "";
+	if ((page*ipp) < count) {
+		next = "<" + base + str::xtos(page + 1) + tail + ">; rel=\"next\", ";
+	}
+	response.setHeader("Link", next + "<" + base + str::xtos(count / ipp) + tail + ">; rel=\"last\"");
 	response.append(json_spirit::write(root));
 }

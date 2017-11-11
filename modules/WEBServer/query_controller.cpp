@@ -1,6 +1,7 @@
 #include "query_controller.hpp"
 #include "helpers.hpp"
 
+#include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
@@ -44,6 +45,7 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 	  BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 		  json_spirit::Object node;
 		  node["name"] = i.name();
+		  node["query_url"] = get_base(request) + "/" + i.name() + "/";
 		  node["title"] = i.info().title();
 		  json_spirit::Object keys;
 		  BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
@@ -83,6 +85,8 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 			node["name"] = i.name();
 			node["title"] = i.info().title();
+			node["execute_url"] = get_base(request) + "/" + i.name() + "/commands/execute";
+			node["execute_nagios_url"] = get_base(request) + "/" + i.name() + "/commands/execute_nagios";
 			json_spirit::Object keys;
 			BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
 				keys[kvp.key()] = kvp.value();
@@ -202,7 +206,7 @@ void query_controller::execute_query_nagios(std::string module, arg_vector args,
 	json_spirit::Object node;
 	BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &r, response.payload()) {
 		node["command"] = r.command();
-		node["result"] = r.result();
+		node["result"] = nscapi::plugin_helper::translateReturn(r.result());
 		json_spirit::Array lines;
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
 			json_spirit::Object line;

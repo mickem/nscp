@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <list>
 
 struct error_handler_interface {
  
@@ -23,7 +24,7 @@ struct error_handler_interface {
   
 	virtual void add_message(bool is_error, const log_entry &message) = 0;
 	virtual void reset() = 0;
-	virtual log_list get_errors(std::size_t &position) = 0;
+	virtual log_list get_messages(std::list<std::string> levels, std::size_t &position, std::size_t &ipp, std::size_t &count) = 0;
 	virtual status get_status() = 0;
 
 };

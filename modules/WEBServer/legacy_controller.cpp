@@ -281,7 +281,10 @@ void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::Strea
 
 	std::string str_position = request.get("pos", "0");
 	std::size_t pos = str::stox<std::size_t>(str_position);
-	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_errors(pos)) {
+	std::size_t ipp = 100000;
+	std::size_t count = 0;
+	std::list<std::string> levels;
+	BOOST_FOREACH(const error_handler_interface::log_entry &e, session->get_log_data()->get_messages(levels, pos, ipp, count)) {
 		json_spirit::Object node;
 		node.insert(json_spirit::Object::value_type("file", e.file));
 		node.insert(json_spirit::Object::value_type("line", e.line));
