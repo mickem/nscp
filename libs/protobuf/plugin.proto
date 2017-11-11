@@ -503,14 +503,13 @@ message RegistryResponseMessage {
 	repeated Response payload = 2;
 };
 
-// // // // // // // // // // // // // // // // // // // // // // // //
 //
 // Schedule Notification commands
 // Used when a schedule is executed
 //
-// // // // // // // // // // // // // // // // // // // // // // // //
-
 message ScheduleNotificationMessage {
+
+	// A request message of a schule notification
 	message Request {
 		optional int64 id = 1;
 		required int32 plugin_id = 3;
