@@ -66,6 +66,25 @@ The plugin id is an internal id of the plugin instance which is used in many API
 The plugin and script aliases can be used to differentiate between which instance is loaded.
 The idea is that you can load a script multiple times in multiple modules and they should then have seprate config.
 
+```
+from NSCP import log
+def init(plugin_id, plugin_alias, script_alias):
+    log("*** plugin_id: %d, plugin_alias: %s, script_alias: %s"%(plugin_id, plugin_alias, script_alias))
+```
+
+The result of running this script from NSClient++:
+```
+...
+D     python boot python
+D     python Prepare python
+D     python init python
+D     python Adding script: osmc (c:\source\build\x64\dev\scripts\python\osmc.py)
+D     python Loading python script: c:\source\build\x64\dev\scripts\python\osmc.py
+D     python Lib path: c:\source\build\x64\dev\scripts\python\lib
+L     python *** plugin_id: 0, plugin_alias: python, script_alias: my_script
+...
+```
+
 ### plugin_alias versus script_alias
 
 Consider the following example:
@@ -100,3 +119,29 @@ At the same time it is discouraged from using the alias concept to load a script
 But in complicated sceraios it can be very usefull but it causes a lot of complexity.
 
 ### shutdown
+
+The shutdown function is called whenver NSClient++ is shutting down or the PythonScript odule is unloaded.
+The function takes no arguments.
+
+```
+from NSCP import log
+def shutdown(args):
+    log("Good bye")
+```
+
+## API
+
+NSClient++ provides a rich API where you can do just about anything that can be done with NSCLient++.
+THis includes loading modules, accessing settings, provind command line interfaces etc etc.
+While most of it has a simple wrappers which you can use directly some things might require you to use the underlaying protobuf Api.
+
+The API is split three modules.
+ - Settings
+ - Registry
+ - Core
+
+There is also an enum: `status` as well as a some direct functions:
+ - log
+ - log_error
+ - log_debug
+ - sleep
