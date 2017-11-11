@@ -35,7 +35,6 @@
 #include <boost/python.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/make_shared.hpp>
 
 
 namespace sh = nscapi::settings_helper;
@@ -87,9 +86,10 @@ bool PythonScript::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) 
 
 
 		settings.register_all();
-		settings.notify();
 
 		python_script::init();
+
+		settings.notify();
 	} catch (...) {
 		NSC_LOG_ERROR_STD("Exception caught: <UNKNOWN EXCEPTION>");
 		return false;
@@ -101,7 +101,7 @@ void PythonScript::loadScript(std::string alias, std::string file) {
 	if (!provider_) {
 		NSC_LOG_ERROR_STD("Could not find script: no provider " + file);
 	} else {
-		provider_->add_command(alias, file);
+		provider_->add_command(alias, file, alias_);
 	}
 }
 
@@ -128,7 +128,7 @@ bool PythonScript::commandLineExec(const int target_mode, const Plugin::ExecuteR
 			execute_script(request, response);
 			return true;
 		}
-		extscr_cli client(provider_);
+		extscr_cli client(provider_, alias_);
 		if (client.run(command, request, response)) {
 			return true;
 		}
@@ -203,7 +203,8 @@ void PythonScript::execute_script(const Plugin::ExecuteRequestMessage::Request &
 		nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file);
 		return;
 	}
-	python_script script(get_id(), root_.string(), "", "", *ofile);
+	std::string script_file = ofile->string();
+	python_script script(get_id(), root_.string(), "", "", script_file);
 	std::list<std::string> ops(script_options.begin(), script_options.end());
 	if (!script.callFunction("__main__", ops)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Failed to execute __main__");

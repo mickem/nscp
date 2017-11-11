@@ -30,6 +30,7 @@
 #include <json_spirit.h>
 
 #include <boost/regex.hpp>
+#include <boost/optional.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -42,11 +43,16 @@ namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 namespace pf = nscapi::protobuf::functions;
 namespace npo = nscapi::program_options;
+namespace fs = boost::filesystem;
+
+#define SCRIPT_PATH "/settings/python/scripts"
+#define MODULE_NAME "PythonScript"
+#define REL_SCRIPT_PATH "scripts\\python\\"
 
 
-
-extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider)
+extscr_cli::extscr_cli(boost::shared_ptr<script_provider_interface> provider, std::string alias_)
 	: provider_(provider)
+	, alias_(alias_)
 {
 }
 
@@ -67,8 +73,8 @@ bool extscr_cli::run(std::string cmd, const Plugin::ExecuteRequestMessage_Reques
 	return true;
 }
 
-bool extscr_cli::validate_sandbox(boost::filesystem::path pscript, Plugin::ExecuteResponseMessage::Response *response) {
-	boost::filesystem::path path = provider_->get_root();
+bool extscr_cli::validate_sandbox(fs::path pscript, Plugin::ExecuteResponseMessage::Response *response) {
+	fs::path path = provider_->get_root();
 	if (!file_helpers::checks::path_contains_file(path, pscript)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Not allowed outside: " + path.string());
 		return false;
@@ -131,10 +137,10 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 			}
 		}
 	} else {
-		boost::filesystem::path dir = provider_->get_core()->expand_path("${scripts}/python");
-		boost::filesystem::path rel = provider_->get_core()->expand_path("${base-path}/python");
-		boost::filesystem::recursive_directory_iterator iter(dir), eod;
-		BOOST_FOREACH(boost::filesystem::path const& i, std::make_pair(iter, eod)) {
+		fs::path dir = provider_->get_core()->expand_path("${scripts}/python");
+		fs::path rel = provider_->get_core()->expand_path("${base-path}/python");
+		fs::recursive_directory_iterator iter(dir), eod;
+		BOOST_FOREACH(fs::path const& i, std::make_pair(iter, eod)) {
 			std::string s = i.string();
 			if (boost::algorithm::starts_with(s, rel.string()))
 				s = s.substr(rel.string().size());
@@ -142,8 +148,8 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 				continue;
 			if (s[0] == '\\' || s[0] == '/')
 				s = s.substr(1);
-			boost::filesystem::path clone = i.parent_path();
-			if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
+			fs::path clone = i.parent_path();
+			if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
 				if (json) {
 					json_spirit::Value v = s;
 					data.push_back(v);
@@ -195,16 +201,16 @@ void extscr_cli::show(const Plugin::ExecuteRequestMessage::Request &request, Plu
 // 	if (command_def) {
 // 		nscapi::protobuf::functions::set_response_good(*response, command_def->command);
 // 	} else {
-// 		boost::filesystem::path pscript = script;
-// 		bool found = boost::filesystem::is_regular_file(pscript);
+// 		fs::path pscript = script;
+// 		bool found = fs::is_regular_file(pscript);
 // 		if (!found) {
 // 			pscript = provider_->get_core()->expand_path("${base-path}/" + script);
-// 			found = boost::filesystem::is_regular_file(pscript);
+// 			found = fs::is_regular_file(pscript);
 // 		}
 // #ifdef WIN32
 // 		if (!found) {
 // 			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-// 			found = boost::filesystem::is_regular_file(pscript);
+// 			found = fs::is_regular_file(pscript);
 // 		}
 // #endif
 // 		if (found) {
@@ -267,23 +273,23 @@ void extscr_cli::delete_script(const Plugin::ExecuteRequestMessage::Request &req
 // 		}
 // 		nscapi::protobuf::functions::set_response_good(*response, "Script definition has been removed don't forget to delete any artifact for: " + command_def->command);
 // 	} else {
-// 		boost::filesystem::path pscript = script;
-// 		bool found = boost::filesystem::is_regular_file(pscript);
+// 		fs::path pscript = script;
+// 		bool found = fs::is_regular_file(pscript);
 // 		if (!found) {
 // 			pscript = provider_->get_core()->expand_path("${base-path}/" + script);
-// 			found = boost::filesystem::is_regular_file(pscript);
+// 			found = fs::is_regular_file(pscript);
 // 		}
 // #ifdef WIN32
 // 		if (!found) {
 // 			pscript = boost::algorithm::replace_all_copy(script, "/", "\\");
-// 			found = boost::filesystem::is_regular_file(pscript);
+// 			found = fs::is_regular_file(pscript);
 // 		}
 // #endif
 // 		if (found) {
 // 			if (!validate_sandbox(pscript, response)) {
 // 				return;
 // 			}
-// 			boost::filesystem::remove(pscript);
+// 			fs::remove(pscript);
 // 			nscapi::protobuf::functions::set_response_good(*response, "Script file was removed");
 // 		} else {
 // 			nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + script);
@@ -340,22 +346,22 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 		nscapi::protobuf::functions::set_response_good(*response, npo::help(desc));
 		return;
 	}
-	boost::filesystem::path file = provider_->get_core()->expand_path(script);
-	boost::filesystem::path script_root= provider_->get_root();
+	fs::path file = provider_->get_core()->expand_path(script);
+	fs::path script_root= provider_->get_root();
 
 	if (!import_script.empty()) {
 		file = script_root / file_helpers::meta::get_filename(file);
-		script = "scripts\\" + file_helpers::meta::get_filename(file);
-		if (boost::filesystem::exists(file)) {
+		script = REL_SCRIPT_PATH + file_helpers::meta::get_filename(file);
+		if (fs::exists(file)) {
 			if (replace) {
-				boost::filesystem::remove(file);
+				fs::remove(file);
 			} else {
 				nscapi::protobuf::functions::set_response_bad(*response, "Script already exists specify --overwrite to replace the script");
 				return;
 			}
 		}
 		try {
-			boost::filesystem::copy_file(import_script, file);
+			fs::copy_file(import_script, file);
 		} catch (const std::exception &e) {
 			nscapi::protobuf::functions::set_response_bad(*response, "Failed to import script: " + utf8::utf8_from_native(e.what()));
 			return;
@@ -363,23 +369,26 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 	}
 
 
-	bool found = boost::filesystem::is_regular(file);
+	bool found = fs::is_regular(file);
 	if (!found) {
-		file = file = provider_->get_core()->expand_path("${shared-path}/" + file.string());
-		found = boost::filesystem::is_regular(file);
+		boost::optional<fs::path> path = provider_->find_file(file.string());
+		if (path) {
+			file = *path;
+			found = fs::is_regular(file);
+		}
 	}
 	if (!found) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Script not found: " + file.string());
 		return;
 	}
 	if (alias.empty()) {
-		alias = boost::filesystem::basename(file.filename());
+		alias = fs::basename(file.filename());
 	}
 
 	if (!no_config) {
 		nscapi::protobuf::functions::settings_query s(provider_->get_id());
-		s.set("/settings/external scripts/scripts", alias, script);
-		s.set(MAIN_MODULES_SECTION, "PythonScript", "enabled");
+		s.set(SCRIPT_PATH, alias, script);
+		s.set(MAIN_MODULES_SECTION, MODULE_NAME, "enabled");
 		s.save();
 		provider_->get_core()->settings_query(s.request(), s.response());
 		if (!s.validate_response()) {
@@ -388,7 +397,7 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 		}
 	}
 	std::string actual = "";
-	provider_->add_command(alias, script);
+	provider_->add_command(alias, script, alias_);
 	nscapi::core_helper core(provider_->get_core(), provider_->get_id());
 	core.register_command(alias, "Alias for: " + script);
 	nscapi::protobuf::functions::set_response_good(*response, "Added " + alias + " as " + script + actual);
@@ -405,8 +414,8 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 	bool module = false;
 
 	pf::settings_query q(provider_->get_id());
-	q.list("/settings/python/scripts");
-	q.get(MAIN_MODULES_SECTION, "PythonScript", "");
+	q.list(SCRIPT_PATH);
+	q.get(MAIN_MODULES_SECTION, MODULE_NAME, "");
 
 	provider_->get_core()->settings_query(q.request(), q.response());
 	if (!q.validate_response()) {
@@ -414,9 +423,9 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 		return;
 	}
 	BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
-		if (val.matches(MAIN_MODULES_SECTION, "PythonScript") && val.get_bool())
+		if (val.matches(MAIN_MODULES_SECTION, MODULE_NAME) && val.get_bool())
 			module = true;
-		else if (val.matches("/settings/python/scripts"))
+		else if (val.matches(SCRIPT_PATH))
 			scripts[val.get_string()] = val.key();
 	}
 	desc.add_options()
@@ -445,14 +454,14 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 
 	nscapi::protobuf::functions::settings_query sq(provider_->get_id());
 	if (!module) {
-		sq.set(MAIN_MODULES_SECTION, "PythonScript", "enabled");
+		sq.set(MAIN_MODULES_SECTION, MODULE_NAME, "enabled");
 	}
 	BOOST_FOREACH(const std::string &s, to_add) {
 		if (!provider_->find_file(s)) {
 			result << "Failed to find: " << s << std::endl;
 		} else {
 			if (scripts.find(s) == scripts.end()) {
-				sq.set("/settings/python/scripts", s, s);
+				sq.set(SCRIPT_PATH, s, s);
 				scripts[s] = s;
 			} else {
 				result << "Failed to add duplicate script: " << s << std::endl;
@@ -462,7 +471,7 @@ void extscr_cli::configure(const Plugin::ExecuteRequestMessage::Request &request
 	BOOST_FOREACH(const std::string &s, to_remove) {
 		const script_map_type::const_iterator v = scripts.find(s);
 		if (v != scripts.end()) {
-			sq.erase("/settings/python/scripts", v->second);
+			sq.erase(SCRIPT_PATH, v->second);
 			scripts.erase(s);
 		} else {
 			result << "Failed to remove nonexisting script: " << s << std::endl;

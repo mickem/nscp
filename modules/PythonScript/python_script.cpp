@@ -126,13 +126,13 @@ void python_script::init() {
 	}
 }
 
-python_script::python_script(unsigned int plugin_id, const std::string base_path, const std::string plugin_alias, const std::string script_alias, const boost::filesystem::path script)
-	: alias(alias)
-	, base_path(base_path)
+python_script::python_script(unsigned int plugin_id, const std::string base_path, const std::string plugin_alias, const std::string script_alias, const std::string script)
+	: base_path(base_path)
 	, plugin_id(plugin_id) {
-	NSC_DEBUG_MSG_STD("Loading python script: " + script.string());
-	_exec(script.string());
-	callFunction("init", plugin_id, plugin_alias, utf8::cvt<std::string>(script_alias));
+	NSC_DEBUG_MSG_STD("Loading python script: " + script);
+	_exec(script);
+	NSC_DEBUG_MSG_STD("Initializing script: " + script);
+	callFunction("init", plugin_id, plugin_alias, script_alias);
 }
 python_script::~python_script() {
 	callFunction("shutdown");

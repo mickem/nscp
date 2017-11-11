@@ -29,7 +29,7 @@ public:
 	boost::filesystem::path get_root();
 	boost::optional<boost::filesystem::path> find_file(std::string file);
 
-	void add_command(std::string alias, std::string script);
+	void add_command(std::string script_alias, std::string script, std::string plugin_alias);
 	//commands::command_object_instance find_command(std::string alias);
 	void remove_command(std::string alias);
 	void clear();

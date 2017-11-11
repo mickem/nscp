@@ -47,27 +47,28 @@ boost::optional<boost::filesystem::path> script_provider::find_file(std::string 
 	return boost::optional<boost::filesystem::path>();
 }
 
-void script_provider::add_command(std::string alias, std::string file) {
+void script_provider::add_command(std::string script_alias, std::string script, std::string plugin_alias) {
 	boost::unique_lock<boost::shared_mutex> writeLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(30));
 	if (!writeLock.owns_lock()) {
 		get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to get mutex: add_command");
 		return;
 	}
 	try {
-		if (file.empty()) {
-			file = alias;
-			alias = "";
+		if (script.empty()) {
+			script = script_alias;
+			script_alias = "";
 		}
-		boost::optional<boost::filesystem::path> ofile = find_file(file);
+		boost::optional<boost::filesystem::path> ofile = find_file(script);
 		if (!ofile) {
-			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to find script: " + file);
+			get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to find script: " + script);
 			return;
 		}
-		get_core()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Adding script: " + alias + " (" + ofile->string() + ")");
+		std::string script_file = ofile->string();
+		get_core()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Adding script: " + script_alias + " (" + script_file + ")");
 
-		instances_.push_back(boost::make_shared<python_script>(get_id(), root_.string(), alias, alias, *ofile));
+		instances_.push_back(boost::make_shared<python_script>(get_id(), root_.string(), plugin_alias, script_alias, script_file));
 	} catch (...) {
-		get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to add script: " + file);
+		get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to add script: " + script);
 	}
 }
 

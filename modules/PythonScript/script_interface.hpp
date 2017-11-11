@@ -16,7 +16,7 @@ struct script_provider_interface {
 	virtual boost::filesystem::path get_root() = 0;
 	virtual boost::optional<boost::filesystem::path> find_file(std::string file) = 0;
 
-	virtual void add_command(std::string alias, std::string script) = 0;
+	virtual void add_command(std::string script_alias, std::string script, std::string plugin_alias) = 0;
 	//virtual commands::command_object_instance find_command(std::string alias) = 0;
 	virtual void remove_command(std::string alias) = 0;
 	virtual void clear() = 0;

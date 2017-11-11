@@ -22,9 +22,10 @@
 class extscr_cli {
 private:
 	boost::shared_ptr<script_provider_interface> provider_;
+	std::string alias_;
 public:
 
-	extscr_cli(boost::shared_ptr<script_provider_interface> provider_);
+	extscr_cli(boost::shared_ptr<script_provider_interface> provider_, std::string alias_);
 
 	bool run(std::string cmd, const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
 	void add_script(const Plugin::ExecuteRequestMessage_Request &request, Plugin::ExecuteResponseMessage_Response *response);
