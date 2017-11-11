@@ -101,7 +101,7 @@ pages:
   - Extending:
     - Overview: extending/index.md
     - Python Scripts: extending/python.md
-    - Zip Modules: extending/zip.modules.md
+    - Zip Modules: extending/zip-modules.md
   - API:
     - REST:
       - Introduction: api/rest.md

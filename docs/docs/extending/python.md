@@ -145,3 +145,149 @@ There is also an enum: `status` as well as a some direct functions:
  - log_error
  - log_debug
  - sleep
+
+### Functions
+
+#### log
+
+`log(message)`
+
+Used to send log messages to NSClient++.
+These log messages will be visible on the command line as well as the any configure log file.
+THe log message wil lbe logge don the `info` level.
+
+```
+from NSCP import log
+
+log("This is a log message")
+```
+
+#### log_error
+
+`log_error(message)`
+
+Used to send log messages to NSClient++.
+These log messages will be visible on the command line as well as the any configure log file.
+THe log message wil lbe logge don the `error` level.
+
+```
+from NSCP import log_error
+
+log_error("This is an error message")
+```
+
+#### log_debug
+
+`log_debug(message)`
+
+Used to send log messages to NSClient++.
+These log messages will be visible on the command line as well as the any configure log file.
+THe log message wil lbe logge don the `debug` level.
+
+```
+from NSCP import log_debug
+
+log_debug("This is a debug message")
+```
+
+#### sleep
+
+`sleep(milli_seconds)`
+
+Used to sleep for a given number of milliseconds.
+The reason this functione exists is that python is inherently single threaded and whenever you are executing python code your are essentially locking any other code from executing in python. This means that sleepiing or delaying inside python will prevent any other script to run. Thus if you need to wait please use this function as it will wait outide the locks and allow other script to run.
+
+```
+from NSCP import sleep, log_debug
+
+log_debug("Waiting for 1 second")
+sleep(1000)
+log_debug("It is now one second later")
+```
+
+### Registry
+
+#### get
+
+Create an instance of the registry object.
+
+#### Registry.function
+
+#### Registry.simple_function
+
+#### Registry.cmdline
+
+#### Registry.simple_cmdline
+
+#### Registry.subscription
+
+#### Registry.simple_subscription
+
+#### Registry.submit_metrics
+
+#### Registry.fetch_metrics
+
+#### Registry.event_pb
+
+#### Registry.event
+
+#### Registry.query
+
+### Core
+
+#### Core.get
+
+#### Core.simple_query
+
+#### Core.query
+
+#### Core.simple_exec
+
+#### Core.exec
+
+#### Core.simple_submit
+
+#### Core.submit
+
+#### Core.reload
+
+#### Core.load_module
+
+#### Core.unload_module
+
+#### Core.expand_path
+
+### Settings
+
+#### Settings.get
+
+#### Settings.get_section
+
+#### Settings.get_string
+
+#### Settings.set_string
+
+#### Settings.get_bool
+
+#### Settings.set_bool
+
+#### Settings.get_int
+
+#### Settings.set_int
+
+#### Settings.save
+
+#### Settings.register_path
+
+#### Settings.register_key
+
+#### Settings.query
+
+### status
+
+Key      | Value | Description
+-------- | ----- | ----------------------------
+UNKNOWN  | 3     | Unknown nagios status code
+CRITICAL | 2     | Critical nagios status code
+WARNING  | 1     | Warning nagios status code
+OK       | 0     | Ok nagios status code
