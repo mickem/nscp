@@ -98,6 +98,10 @@ pages:
       - PythonScript: reference/generic/PythonScript.md
       - LUAScript: reference/generic/LUAScript.md
       - DotnetPlugins: reference/windows/DotnetPlugins.md
+  - Extending:
+    - Overview: extending/index.md
+    - Python Scripts: extending/python.md
+    - Zip Modules: extending/zip.modules.md
   - API:
     - REST:
       - Introduction: api/rest.md

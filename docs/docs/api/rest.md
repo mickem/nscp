@@ -274,6 +274,13 @@ Once we have defined a role we can assign it to user by adding adding the user t
 
 **TODO**
 
+```
+[/settings/web/users/my_user]
+username=hello
+password=foobar
+role=legacy
+```
+
 ### Hypermedia
 
 All resources may have one or more `*_url` properties linking to other resources.

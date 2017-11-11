@@ -1,1119 +1,695 @@
-<dl>
-  <dt>.. module :  : CheckSystemUnix</dt>
-  <dd>:synopsis: Various system related checks, such as CPU load, process state and memory.</dd>
-</dl>
-# :module:`CheckSystemUnix` --- CheckSystem #
+# CheckSystemUnix
 
 Various system related checks, such as CPU load, process state and memory.
 
-**Queries (Overview)**:
 
-1. list of all available queries (check commands)
-   
 
-<dl>
-  <dt> : class : contentstable </dt>
-  <dd>
-    <p>:class: contentstable</p>
-    <p>:delim: |</p>
-    <p>:header: "Command", "Description"</p>
-    <p>:query:`check_memory` | Check free/used memory on the system.</p>
-    <p>:query:`check_os_version` | Check the version of the underlaying OS.</p>
-    <p>:query:`check_uptime` | Check time since last server re-boot.</p>
-  </dd>
-</dl>
-**Commands (Overview)**: 
+**List of commands:**
 
-**TODO:** Add a list of all external commands (this is not check commands)
+A list of all available queries (check commands)
 
-## Queries ##
+| Command                               | Description                              |
+|---------------------------------------|------------------------------------------|
+| [check_memory](#check_memory)         | Check free/used memory on the system.    |
+| [check_os_version](#check_os_version) | Check the version of the underlaying OS. |
+| [check_uptime](#check_uptime)         | Check time since last server re-boot.    |
 
-1. quick reference for all available queries (check commands) in the CheckSystemUnix module.
-   
 
-### :query:`check_memory` ###
 
-    :synopsis: Check free/used memory on the system.
 
-**Usage:**
 
-<dl>
-  <dt> : class : contentstable </dt>
-  <dd>
-    <p>:class: contentstable</p>
-    <p>:delim: |</p>
-    <p>:header: "Option", "Default Value", "Description"</p>
-    <p>:option:`help` | N/A | Show help screen (this screen)</p>
-    <p>:option:`help-pb` | N/A | Show help screen as a protocol buffer payload</p>
-    <p>:option:`show-default` | N/A | Show default values for a given command</p>
-    <p>:option:`help-short` | N/A | Show help screen (short format).</p>
-    <p>:option:`debug` | N/A | Show debugging information in the log</p>
-    <p>:option:`show-all` | N/A | Show debugging information in the log</p>
-    <p>:option:`filter` |  | Filter which marks interesting items.</p>
-    <p>:option:`warning` | used > 80% | Filter which marks items which generates a warning state.</p>
-    <p>:option:`warn` |  | Short alias for warning</p>
-    <p>:option:`critical` | used > 90% | Filter which marks items which generates a critical state.</p>
-    <p>:option:`crit` |  | Short alias for critical.</p>
-    <p>:option:`ok` |  | Filter which marks items which generates an ok state.</p>
-    <p>:option:`empty-state` | ignored | Return status to use when nothing matched filter.</p>
-    <p>:option:`perf-config` |  | Performance data generation configuration</p>
-    <p>:option:`top-syntax` | ${status}: ${list} | Top level syntax.</p>
-    <p>:option:`ok-syntax` |  | ok syntax.</p>
-    <p>:option:`empty-syntax` |  | Empty syntax.</p>
-    <p>:option:`detail-syntax` | ${type} = ${used} | Detail level syntax.</p>
-    <p>:option:`perf-syntax` | ${type} | Performance alias syntax.</p>
-    <p>:option:`type` |  | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)</p>
-  </dd>
-</dl>
-#### Samples ####
 
-Arguments
-*********
-<dl>
-  <dt> : synopsis : Show help screen (this screen)</dt>
-  <dd>
-    <p>:synopsis: Show help screen (this screen)</p>
-    <p>| Show help screen (this screen)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen as a protocol buffer payload</dt>
-  <dd>
-    <p>:synopsis: Show help screen as a protocol buffer payload</p>
-    <p>| Show help screen as a protocol buffer payload</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show default values for a given command</dt>
-  <dd>
-    <p>:synopsis: Show default values for a given command</p>
-    <p>| Show default values for a given command</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen (short format).</dt>
-  <dd>
-    <p>:synopsis: Show help screen (short format).</p>
-    <p>| Show help screen (short format).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks interesting items.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks interesting items.</p>
-    <p>| Filter which marks interesting items.</p>
-    <p>| Interesting items are items which will be included in the check.</p>
-    <p>| They do not denote warning or critical state but they are checked use this to filter out unwanted items.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>free           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>size           Total size of memory</p>
-    <p>type           The type of memory to check</p>
-    <p>used           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a warning state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a warning state.</p>
-    <p>| Filter which marks items which generates a warning state.</p>
-    <p>| If anything matches this filter the return status will be escalated to warning.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>free           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>size           Total size of memory</p>
-    <p>type           The type of memory to check</p>
-    <p>used           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for warning</dt>
-  <dd>
-    <p>:synopsis: Short alias for warning</p>
-    <p>| Short alias for warning</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a critical state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a critical state.</p>
-    <p>| Filter which marks items which generates a critical state.</p>
-    <p>| If anything matches this filter the return status will be escalated to critical.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>free           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>size           Total size of memory</p>
-    <p>type           The type of memory to check</p>
-    <p>used           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for critical.</dt>
-  <dd>
-    <p>:synopsis: Short alias for critical.</p>
-    <p>| Short alias for critical.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates an ok state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates an ok state.</p>
-    <p>| Filter which marks items which generates an ok state.</p>
-    <p>| If anything matches this any previous state for this item will be reset to ok.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>free           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>size           Total size of memory</p>
-    <p>type           The type of memory to check</p>
-    <p>used           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Return status to use when nothing matched filter.</dt>
-  <dd>
-    <p>:synopsis: Return status to use when nothing matched filter.</p>
-    <p>| Return status to use when nothing matched filter.</p>
-    <p>| If no filter is specified this will never happen unless the file is empty.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance data generation configuration</dt>
-  <dd>
-    <p>:synopsis: Performance data generation configuration</p>
-    <p>| Performance data generation configuration</p>
-    <p>| TODO: obj ( key: value; key: value) obj (key:valuer;key:value)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Top level syntax.</dt>
-  <dd>
-    <p>:synopsis: Top level syntax.</p>
-    <p>| Top level syntax.</p>
-    <p>| Used to format the message to return can include strings as well as special keywords such as:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(free)           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>%(size)           Total size of memory</p>
-    <p>%(type)           The type of memory to check</p>
-    <p>%(used)           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : ok syntax.</dt>
-  <dd>
-    <p>:synopsis: ok syntax.</p>
-    <p>| ok syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when an ok result is returned.</p>
-    <p>| This value will not be used if your syntax contains %(list) or %(count).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Empty syntax.</dt>
-  <dd>
-    <p>:synopsis: Empty syntax.</p>
-    <p>| Empty syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when nothing matches the filter.</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(free)           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>%(size)           Total size of memory</p>
-    <p>%(type)           The type of memory to check</p>
-    <p>%(used)           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Detail level syntax.</dt>
-  <dd>
-    <p>:synopsis: Detail level syntax.</p>
-    <p>| Detail level syntax.</p>
-    <p>| This is the syntax of each item in the list of top-syntax (see above).</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(free)           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>%(size)           Total size of memory</p>
-    <p>%(type)           The type of memory to check</p>
-    <p>%(used)           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance alias syntax.</dt>
-  <dd>
-    <p>:synopsis: Performance alias syntax.</p>
-    <p>| Performance alias syntax.</p>
-    <p>| This is the syntax for the base names of the performance data.</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(free)           Free memory in bytes (g,m,k,b) or percentages %</p>
-    <p>%(size)           Total size of memory</p>
-    <p>%(type)           The type of memory to check</p>
-    <p>%(used)           Used memory in bytes (g,m,k,b) or percentages %</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)</dt>
-  <dd>
-    <p>:synopsis: The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)</p>
-    <p>| The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)</p>
-  </dd>
-</dl>
-### :query:`check_os_version` ###
 
-    :synopsis: Check the version of the underlaying OS.
+## Queries
 
-**Usage:**
+A quick reference for all available queries (check commands) in the CheckSystemUnix module.
 
-<dl>
-  <dt> : class : contentstable </dt>
-  <dd>
-    <p>:class: contentstable</p>
-    <p>:delim: |</p>
-    <p>:header: "Option", "Default Value", "Description"</p>
-    <p>:option:`help` | N/A | Show help screen (this screen)</p>
-    <p>:option:`help-pb` | N/A | Show help screen as a protocol buffer payload</p>
-    <p>:option:`show-default` | N/A | Show default values for a given command</p>
-    <p>:option:`help-short` | N/A | Show help screen (short format).</p>
-    <p>:option:`debug` | N/A | Show debugging information in the log</p>
-    <p>:option:`show-all` | N/A | Show debugging information in the log</p>
-    <p>:option:`filter` |  | Filter which marks interesting items.</p>
-    <p>:option:`warning` | version > 50 | Filter which marks items which generates a warning state.</p>
-    <p>:option:`warn` |  | Short alias for warning</p>
-    <p>:option:`critical` | version > 50 | Filter which marks items which generates a critical state.</p>
-    <p>:option:`crit` |  | Short alias for critical.</p>
-    <p>:option:`ok` |  | Filter which marks items which generates an ok state.</p>
-    <p>:option:`empty-state` | ignored | Return status to use when nothing matched filter.</p>
-    <p>:option:`perf-config` |  | Performance data generation configuration</p>
-    <p>:option:`top-syntax` | ${status}: ${list} | Top level syntax.</p>
-    <p>:option:`ok-syntax` |  | ok syntax.</p>
-    <p>:option:`empty-syntax` |  | Empty syntax.</p>
-    <p>:option:`detail-syntax` | ${version} (${major}.${minor}.${build}) | Detail level syntax.</p>
-    <p>:option:`perf-syntax` | version | Performance alias syntax.</p>
-  </dd>
-</dl>
-#### Arguments ####
+### check_memory
 
-<dl>
-  <dt> : synopsis : Show help screen (this screen)</dt>
-  <dd>
-    <p>:synopsis: Show help screen (this screen)</p>
-    <p>| Show help screen (this screen)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen as a protocol buffer payload</dt>
-  <dd>
-    <p>:synopsis: Show help screen as a protocol buffer payload</p>
-    <p>| Show help screen as a protocol buffer payload</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show default values for a given command</dt>
-  <dd>
-    <p>:synopsis: Show default values for a given command</p>
-    <p>| Show default values for a given command</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen (short format).</dt>
-  <dd>
-    <p>:synopsis: Show help screen (short format).</p>
-    <p>| Show help screen (short format).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks interesting items.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks interesting items.</p>
-    <p>| Filter which marks interesting items.</p>
-    <p>| Interesting items are items which will be included in the check.</p>
-    <p>| They do not denote warning or critical state but they are checked use this to filter out unwanted items.</p>
-    <p>| Available options:</p>
-    <p>=============== ===============================================================================</p>
-    <p>Key             Value</p>
-    <p>--------------- -------------------------------------------------------------------------------</p>
-    <p>kernel_name     Kernel name</p>
-    <p>kernel_release  Kernel release</p>
-    <p>kernel_version  Kernel version</p>
-    <p>machine         Machine hardware name</p>
-    <p>nodename        Network node hostname</p>
-    <p>os              Operating system</p>
-    <p>processor       Processor type or unknown</p>
-    <p>count           Number of items matching the filter</p>
-    <p>total            Total number of items</p>
-    <p>ok_count         Number of items matched the ok criteria</p>
-    <p>warn_count       Number of items matched the warning criteria</p>
-    <p>crit_count       Number of items matched the critical criteria</p>
-    <p>problem_count    Number of items matched either warning or critical criteria</p>
-    <p>list             A list of all items which matched the filter</p>
-    <p>ok_list          A list of all items which matched the ok criteria</p>
-    <p>warn_list        A list of all items which matched the warning criteria</p>
-    <p>crit_list        A list of all items which matched the critical criteria</p>
-    <p>problem_list     A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list      A special list with critical, then warning and fainally ok</p>
-    <p>status           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>=============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a warning state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a warning state.</p>
-    <p>| Filter which marks items which generates a warning state.</p>
-    <p>| If anything matches this filter the return status will be escalated to warning.</p>
-    <p>| Available options:</p>
-    <p>=============== ===============================================================================</p>
-    <p>Key             Value</p>
-    <p>--------------- -------------------------------------------------------------------------------</p>
-    <p>kernel_name     Kernel name</p>
-    <p>kernel_release  Kernel release</p>
-    <p>kernel_version  Kernel version</p>
-    <p>machine         Machine hardware name</p>
-    <p>nodename        Network node hostname</p>
-    <p>os              Operating system</p>
-    <p>processor       Processor type or unknown</p>
-    <p>count           Number of items matching the filter</p>
-    <p>total            Total number of items</p>
-    <p>ok_count         Number of items matched the ok criteria</p>
-    <p>warn_count       Number of items matched the warning criteria</p>
-    <p>crit_count       Number of items matched the critical criteria</p>
-    <p>problem_count    Number of items matched either warning or critical criteria</p>
-    <p>list             A list of all items which matched the filter</p>
-    <p>ok_list          A list of all items which matched the ok criteria</p>
-    <p>warn_list        A list of all items which matched the warning criteria</p>
-    <p>crit_list        A list of all items which matched the critical criteria</p>
-    <p>problem_list     A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list      A special list with critical, then warning and fainally ok</p>
-    <p>status           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>=============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for warning</dt>
-  <dd>
-    <p>:synopsis: Short alias for warning</p>
-    <p>| Short alias for warning</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a critical state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a critical state.</p>
-    <p>| Filter which marks items which generates a critical state.</p>
-    <p>| If anything matches this filter the return status will be escalated to critical.</p>
-    <p>| Available options:</p>
-    <p>=============== ===============================================================================</p>
-    <p>Key             Value</p>
-    <p>--------------- -------------------------------------------------------------------------------</p>
-    <p>kernel_name     Kernel name</p>
-    <p>kernel_release  Kernel release</p>
-    <p>kernel_version  Kernel version</p>
-    <p>machine         Machine hardware name</p>
-    <p>nodename        Network node hostname</p>
-    <p>os              Operating system</p>
-    <p>processor       Processor type or unknown</p>
-    <p>count           Number of items matching the filter</p>
-    <p>total            Total number of items</p>
-    <p>ok_count         Number of items matched the ok criteria</p>
-    <p>warn_count       Number of items matched the warning criteria</p>
-    <p>crit_count       Number of items matched the critical criteria</p>
-    <p>problem_count    Number of items matched either warning or critical criteria</p>
-    <p>list             A list of all items which matched the filter</p>
-    <p>ok_list          A list of all items which matched the ok criteria</p>
-    <p>warn_list        A list of all items which matched the warning criteria</p>
-    <p>crit_list        A list of all items which matched the critical criteria</p>
-    <p>problem_list     A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list      A special list with critical, then warning and fainally ok</p>
-    <p>status           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>=============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for critical.</dt>
-  <dd>
-    <p>:synopsis: Short alias for critical.</p>
-    <p>| Short alias for critical.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates an ok state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates an ok state.</p>
-    <p>| Filter which marks items which generates an ok state.</p>
-    <p>| If anything matches this any previous state for this item will be reset to ok.</p>
-    <p>| Available options:</p>
-    <p>=============== ===============================================================================</p>
-    <p>Key             Value</p>
-    <p>--------------- -------------------------------------------------------------------------------</p>
-    <p>kernel_name     Kernel name</p>
-    <p>kernel_release  Kernel release</p>
-    <p>kernel_version  Kernel version</p>
-    <p>machine         Machine hardware name</p>
-    <p>nodename        Network node hostname</p>
-    <p>os              Operating system</p>
-    <p>processor       Processor type or unknown</p>
-    <p>count           Number of items matching the filter</p>
-    <p>total            Total number of items</p>
-    <p>ok_count         Number of items matched the ok criteria</p>
-    <p>warn_count       Number of items matched the warning criteria</p>
-    <p>crit_count       Number of items matched the critical criteria</p>
-    <p>problem_count    Number of items matched either warning or critical criteria</p>
-    <p>list             A list of all items which matched the filter</p>
-    <p>ok_list          A list of all items which matched the ok criteria</p>
-    <p>warn_list        A list of all items which matched the warning criteria</p>
-    <p>crit_list        A list of all items which matched the critical criteria</p>
-    <p>problem_list     A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list      A special list with critical, then warning and fainally ok</p>
-    <p>status           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>=============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Return status to use when nothing matched filter.</dt>
-  <dd>
-    <p>:synopsis: Return status to use when nothing matched filter.</p>
-    <p>| Return status to use when nothing matched filter.</p>
-    <p>| If no filter is specified this will never happen unless the file is empty.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance data generation configuration</dt>
-  <dd>
-    <p>:synopsis: Performance data generation configuration</p>
-    <p>| Performance data generation configuration</p>
-    <p>| TODO: obj ( key: value; key: value) obj (key:valuer;key:value)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Top level syntax.</dt>
-  <dd>
-    <p>:synopsis: Top level syntax.</p>
-    <p>| Top level syntax.</p>
-    <p>| Used to format the message to return can include strings as well as special keywords such as:</p>
-    <p>================== ===============================================================================</p>
-    <p>Key                Value</p>
-    <p>------------------ -------------------------------------------------------------------------------</p>
-    <p>%(kernel_name)     Kernel name</p>
-    <p>%(kernel_release)  Kernel release</p>
-    <p>%(kernel_version)  Kernel version</p>
-    <p>%(machine)         Machine hardware name</p>
-    <p>%(nodename)        Network node hostname</p>
-    <p>%(os)              Operating system</p>
-    <p>%(processor)       Processor type or unknown</p>
-    <p>${count}           Number of items matching the filter</p>
-    <p>${total}            Total number of items</p>
-    <p>${ok_count}         Number of items matched the ok criteria</p>
-    <p>${warn_count}       Number of items matched the warning criteria</p>
-    <p>${crit_count}       Number of items matched the critical criteria</p>
-    <p>${problem_count}    Number of items matched either warning or critical criteria</p>
-    <p>${list}             A list of all items which matched the filter</p>
-    <p>${ok_list}          A list of all items which matched the ok criteria</p>
-    <p>${warn_list}        A list of all items which matched the warning criteria</p>
-    <p>${crit_list}        A list of all items which matched the critical criteria</p>
-    <p>${problem_list}     A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}      A special list with critical, then warning and fainally ok</p>
-    <p>${status}           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : ok syntax.</dt>
-  <dd>
-    <p>:synopsis: ok syntax.</p>
-    <p>| ok syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when an ok result is returned.</p>
-    <p>| This value will not be used if your syntax contains %(list) or %(count).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Empty syntax.</dt>
-  <dd>
-    <p>:synopsis: Empty syntax.</p>
-    <p>| Empty syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when nothing matches the filter.</p>
-    <p>| Possible values are:</p>
-    <p>================== ===============================================================================</p>
-    <p>Key                Value</p>
-    <p>------------------ -------------------------------------------------------------------------------</p>
-    <p>%(kernel_name)     Kernel name</p>
-    <p>%(kernel_release)  Kernel release</p>
-    <p>%(kernel_version)  Kernel version</p>
-    <p>%(machine)         Machine hardware name</p>
-    <p>%(nodename)        Network node hostname</p>
-    <p>%(os)              Operating system</p>
-    <p>%(processor)       Processor type or unknown</p>
-    <p>${count}           Number of items matching the filter</p>
-    <p>${total}            Total number of items</p>
-    <p>${ok_count}         Number of items matched the ok criteria</p>
-    <p>${warn_count}       Number of items matched the warning criteria</p>
-    <p>${crit_count}       Number of items matched the critical criteria</p>
-    <p>${problem_count}    Number of items matched either warning or critical criteria</p>
-    <p>${list}             A list of all items which matched the filter</p>
-    <p>${ok_list}          A list of all items which matched the ok criteria</p>
-    <p>${warn_list}        A list of all items which matched the warning criteria</p>
-    <p>${crit_list}        A list of all items which matched the critical criteria</p>
-    <p>${problem_list}     A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}      A special list with critical, then warning and fainally ok</p>
-    <p>${status}           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Detail level syntax.</dt>
-  <dd>
-    <p>:synopsis: Detail level syntax.</p>
-    <p>| Detail level syntax.</p>
-    <p>| This is the syntax of each item in the list of top-syntax (see above).</p>
-    <p>| Possible values are:</p>
-    <p>================== ===============================================================================</p>
-    <p>Key                Value</p>
-    <p>------------------ -------------------------------------------------------------------------------</p>
-    <p>%(kernel_name)     Kernel name</p>
-    <p>%(kernel_release)  Kernel release</p>
-    <p>%(kernel_version)  Kernel version</p>
-    <p>%(machine)         Machine hardware name</p>
-    <p>%(nodename)        Network node hostname</p>
-    <p>%(os)              Operating system</p>
-    <p>%(processor)       Processor type or unknown</p>
-    <p>${count}           Number of items matching the filter</p>
-    <p>${total}            Total number of items</p>
-    <p>${ok_count}         Number of items matched the ok criteria</p>
-    <p>${warn_count}       Number of items matched the warning criteria</p>
-    <p>${crit_count}       Number of items matched the critical criteria</p>
-    <p>${problem_count}    Number of items matched either warning or critical criteria</p>
-    <p>${list}             A list of all items which matched the filter</p>
-    <p>${ok_list}          A list of all items which matched the ok criteria</p>
-    <p>${warn_list}        A list of all items which matched the warning criteria</p>
-    <p>${crit_list}        A list of all items which matched the critical criteria</p>
-    <p>${problem_list}     A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}      A special list with critical, then warning and fainally ok</p>
-    <p>${status}           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance alias syntax.</dt>
-  <dd>
-    <p>:synopsis: Performance alias syntax.</p>
-    <p>| Performance alias syntax.</p>
-    <p>| This is the syntax for the base names of the performance data.</p>
-    <p>| Possible values are:</p>
-    <p>================== ===============================================================================</p>
-    <p>Key                Value</p>
-    <p>------------------ -------------------------------------------------------------------------------</p>
-    <p>%(kernel_name)     Kernel name</p>
-    <p>%(kernel_release)  Kernel release</p>
-    <p>%(kernel_version)  Kernel version</p>
-    <p>%(machine)         Machine hardware name</p>
-    <p>%(nodename)        Network node hostname</p>
-    <p>%(os)              Operating system</p>
-    <p>%(processor)       Processor type or unknown</p>
-    <p>${count}           Number of items matching the filter</p>
-    <p>${total}            Total number of items</p>
-    <p>${ok_count}         Number of items matched the ok criteria</p>
-    <p>${warn_count}       Number of items matched the warning criteria</p>
-    <p>${crit_count}       Number of items matched the critical criteria</p>
-    <p>${problem_count}    Number of items matched either warning or critical criteria</p>
-    <p>${list}             A list of all items which matched the filter</p>
-    <p>${ok_list}          A list of all items which matched the ok criteria</p>
-    <p>${warn_list}        A list of all items which matched the warning criteria</p>
-    <p>${crit_list}        A list of all items which matched the critical criteria</p>
-    <p>${problem_list}     A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}      A special list with critical, then warning and fainally ok</p>
-    <p>${status}           The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================== ===============================================================================</p>
-  </dd>
-</dl>
-### :query:`check_uptime` ###
+Check free/used memory on the system.
 
-    :synopsis: Check time since last server re-boot.
+* [Samples](#check_memory_samples)
 
-**Usage:**
+* [Command-line Arguments](#check_memory_options)
+* [Filter keywords](#check_memory_filter_keys)
 
-<dl>
-  <dt> : class : contentstable </dt>
-  <dd>
-    <p>:class: contentstable</p>
-    <p>:delim: |</p>
-    <p>:header: "Option", "Default Value", "Description"</p>
-    <p>:option:`help` | N/A | Show help screen (this screen)</p>
-    <p>:option:`help-pb` | N/A | Show help screen as a protocol buffer payload</p>
-    <p>:option:`show-default` | N/A | Show default values for a given command</p>
-    <p>:option:`help-short` | N/A | Show help screen (short format).</p>
-    <p>:option:`debug` | N/A | Show debugging information in the log</p>
-    <p>:option:`show-all` | N/A | Show debugging information in the log</p>
-    <p>:option:`filter` |  | Filter which marks interesting items.</p>
-    <p>:option:`warning` | uptime < 2d | Filter which marks items which generates a warning state.</p>
-    <p>:option:`warn` |  | Short alias for warning</p>
-    <p>:option:`critical` | uptime < 1d | Filter which marks items which generates a critical state.</p>
-    <p>:option:`crit` |  | Short alias for critical.</p>
-    <p>:option:`ok` |  | Filter which marks items which generates an ok state.</p>
-    <p>:option:`empty-state` | ignored | Return status to use when nothing matched filter.</p>
-    <p>:option:`perf-config` |  | Performance data generation configuration</p>
-    <p>:option:`top-syntax` | ${status}: ${list} | Top level syntax.</p>
-    <p>:option:`ok-syntax` |  | ok syntax.</p>
-    <p>:option:`empty-syntax` |  | Empty syntax.</p>
-    <p>:option:`detail-syntax` | uptime: ${uptime}h, boot: ${boot} (UTC) | Detail level syntax.</p>
-    <p>:option:`perf-syntax` | uptime | Performance alias syntax.</p>
-  </dd>
-</dl>
-#### Arguments ####
 
-<dl>
-  <dt> : synopsis : Show help screen (this screen)</dt>
-  <dd>
-    <p>:synopsis: Show help screen (this screen)</p>
-    <p>| Show help screen (this screen)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen as a protocol buffer payload</dt>
-  <dd>
-    <p>:synopsis: Show help screen as a protocol buffer payload</p>
-    <p>| Show help screen as a protocol buffer payload</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show default values for a given command</dt>
-  <dd>
-    <p>:synopsis: Show default values for a given command</p>
-    <p>| Show default values for a given command</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show help screen (short format).</dt>
-  <dd>
-    <p>:synopsis: Show help screen (short format).</p>
-    <p>| Show help screen (short format).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Show debugging information in the log</dt>
-  <dd>
-    <p>:synopsis: Show debugging information in the log</p>
-    <p>| Show debugging information in the log</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks interesting items.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks interesting items.</p>
-    <p>| Filter which marks interesting items.</p>
-    <p>| Interesting items are items which will be included in the check.</p>
-    <p>| They do not denote warning or critical state but they are checked use this to filter out unwanted items.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>boot           System boot time</p>
-    <p>uptime         Time since last boot</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a warning state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a warning state.</p>
-    <p>| Filter which marks items which generates a warning state.</p>
-    <p>| If anything matches this filter the return status will be escalated to warning.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>boot           System boot time</p>
-    <p>uptime         Time since last boot</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for warning</dt>
-  <dd>
-    <p>:synopsis: Short alias for warning</p>
-    <p>| Short alias for warning</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates a critical state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates a critical state.</p>
-    <p>| Filter which marks items which generates a critical state.</p>
-    <p>| If anything matches this filter the return status will be escalated to critical.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>boot           System boot time</p>
-    <p>uptime         Time since last boot</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Short alias for critical.</dt>
-  <dd>
-    <p>:synopsis: Short alias for critical.</p>
-    <p>| Short alias for critical.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Filter which marks items which generates an ok state.</dt>
-  <dd>
-    <p>:synopsis: Filter which marks items which generates an ok state.</p>
-    <p>| Filter which marks items which generates an ok state.</p>
-    <p>| If anything matches this any previous state for this item will be reset to ok.</p>
-    <p>| Available options:</p>
-    <p>============== ===============================================================================</p>
-    <p>Key            Value</p>
-    <p>-------------- -------------------------------------------------------------------------------</p>
-    <p>boot           System boot time</p>
-    <p>uptime         Time since last boot</p>
-    <p>count          Number of items matching the filter</p>
-    <p>total           Total number of items</p>
-    <p>ok_count        Number of items matched the ok criteria</p>
-    <p>warn_count      Number of items matched the warning criteria</p>
-    <p>crit_count      Number of items matched the critical criteria</p>
-    <p>problem_count   Number of items matched either warning or critical criteria</p>
-    <p>list            A list of all items which matched the filter</p>
-    <p>ok_list         A list of all items which matched the ok criteria</p>
-    <p>warn_list       A list of all items which matched the warning criteria</p>
-    <p>crit_list       A list of all items which matched the critical criteria</p>
-    <p>problem_list    A list of all items which matched either the critical or the warning criteria</p>
-    <p>detail_list     A special list with critical, then warning and fainally ok</p>
-    <p>status          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>============== ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Return status to use when nothing matched filter.</dt>
-  <dd>
-    <p>:synopsis: Return status to use when nothing matched filter.</p>
-    <p>| Return status to use when nothing matched filter.</p>
-    <p>| If no filter is specified this will never happen unless the file is empty.</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance data generation configuration</dt>
-  <dd>
-    <p>:synopsis: Performance data generation configuration</p>
-    <p>| Performance data generation configuration</p>
-    <p>| TODO: obj ( key: value; key: value) obj (key:valuer;key:value)</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Top level syntax.</dt>
-  <dd>
-    <p>:synopsis: Top level syntax.</p>
-    <p>| Top level syntax.</p>
-    <p>| Used to format the message to return can include strings as well as special keywords such as:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(boot)           System boot time</p>
-    <p>%(uptime)         Time since last boot</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : ok syntax.</dt>
-  <dd>
-    <p>:synopsis: ok syntax.</p>
-    <p>| ok syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when an ok result is returned.</p>
-    <p>| This value will not be used if your syntax contains %(list) or %(count).</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Empty syntax.</dt>
-  <dd>
-    <p>:synopsis: Empty syntax.</p>
-    <p>| Empty syntax.</p>
-    <p>| DEPRECATED! This is the syntax for when nothing matches the filter.</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(boot)           System boot time</p>
-    <p>%(uptime)         Time since last boot</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Detail level syntax.</dt>
-  <dd>
-    <p>:synopsis: Detail level syntax.</p>
-    <p>| Detail level syntax.</p>
-    <p>| This is the syntax of each item in the list of top-syntax (see above).</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(boot)           System boot time</p>
-    <p>%(uptime)         Time since last boot</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
-<dl>
-  <dt> : synopsis : Performance alias syntax.</dt>
-  <dd>
-    <p>:synopsis: Performance alias syntax.</p>
-    <p>| Performance alias syntax.</p>
-    <p>| This is the syntax for the base names of the performance data.</p>
-    <p>| Possible values are:</p>
-    <p>================= ===============================================================================</p>
-    <p>Key               Value</p>
-    <p>----------------- -------------------------------------------------------------------------------</p>
-    <p>%(boot)           System boot time</p>
-    <p>%(uptime)         Time since last boot</p>
-    <p>${count}          Number of items matching the filter</p>
-    <p>${total}           Total number of items</p>
-    <p>${ok_count}        Number of items matched the ok criteria</p>
-    <p>${warn_count}      Number of items matched the warning criteria</p>
-    <p>${crit_count}      Number of items matched the critical criteria</p>
-    <p>${problem_count}   Number of items matched either warning or critical criteria</p>
-    <p>${list}            A list of all items which matched the filter</p>
-    <p>${ok_list}         A list of all items which matched the ok criteria</p>
-    <p>${warn_list}       A list of all items which matched the warning criteria</p>
-    <p>${crit_list}       A list of all items which matched the critical criteria</p>
-    <p>${problem_list}    A list of all items which matched either the critical or the warning criteria</p>
-    <p>${detail_list}     A special list with critical, then warning and fainally ok</p>
-    <p>${status}          The returned status (OK/WARN/CRIT/UNKNOWN)</p>
-    <p>================= ===============================================================================</p>
-  </dd>
-</dl>
+<a name="check_memory_samples"/>
+#### Sample Commands
+
+_To edit these sample please edit [this page](https://github.com/mickem/nscp-docs/blob/master/samples/CheckSystemUnix_check_memory_samples.md)_
+
+**Default check:**
+
+```
+check_memory
+OK memory within bounds.
+'page used'=8G;19;21 'page used %'=33%;79;89 'physical used'=7G;9;10 'physical used %'=65%;79;89
+```
+
+Using --show-all **to show the result**:
+
+
+```
+check_memory "warn=free < 20%" "crit=free < 10G" --show-all
+page = 8.05G, physical = 7.85G
+'page free'=15G;4;2 'page free %'=66%;19;9 'physical free'=4G;2;1 'physical free %'=34%;19;9
+```
+
+Changing the return syntax to include more information::
+
+```
+check_memory "top-syntax=${list}" "detail-syntax=${type} free: ${free} used: ${used} size: ${size}"
+page free: 16G used: 7.98G size: 24G, physical free: 4.18G used: 7.8G size: 12G
+```
+
+Default check **via NRPE**::
+
+```
+check_nrpe --host 192.168.56.103 --command check_memory
+OK memory within bounds.|'page'=531G;3;3;0;3 'page %'=12%;79;89;0;100 'physical'=530G;1;1;0;1 'physical %'=25%;79;89;0;100
+```
+
+
+
+<a name="check_memory_warn"/>
+
+<a name="check_memory_crit"/>
+
+<a name="check_memory_debug"/>
+
+<a name="check_memory_show-all"/>
+
+<a name="check_memory_escape-html"/>
+
+<a name="check_memory_help"/>
+
+<a name="check_memory_help-pb"/>
+
+<a name="check_memory_show-default"/>
+
+<a name="check_memory_help-short"/>
+
+<a name="check_memory_type"/>
+
+<a name="check_memory_options"/>
+#### Command-line Arguments
+
+
+| Option                                       | Default Value      | Description                                                                                                      |
+|----------------------------------------------|--------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_memory_filter)               |                    | Filter which marks interesting items.                                                                            |
+| [warning](#check_memory_warning)             | used > 80%         | Filter which marks items which generates a warning state.                                                        |
+| warn                                         |                    | Short alias for warning                                                                                          |
+| [critical](#check_memory_critical)           | used > 90%         | Filter which marks items which generates a critical state.                                                       |
+| crit                                         |                    | Short alias for critical.                                                                                        |
+| [ok](#check_memory_ok)                       |                    | Filter which marks items which generates an ok state.                                                            |
+| debug                                        | N/A                | Show debugging information in the log                                                                            |
+| show-all                                     | N/A                | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_memory_empty-state)     | ignored            | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_memory_perf-config)     |                    | Performance data generation configuration                                                                        |
+| escape-html                                  | N/A                | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                         | N/A                | Show help screen (this screen)                                                                                   |
+| help-pb                                      | N/A                | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                 | N/A                | Show default values for a given command                                                                          |
+| help-short                                   | N/A                | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_memory_top-syntax)       | ${status}: ${list} | Top level syntax.                                                                                                |
+| [ok-syntax](#check_memory_ok-syntax)         |                    | ok syntax.                                                                                                       |
+| [empty-syntax](#check_memory_empty-syntax)   |                    | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_memory_detail-syntax) | ${type} = ${used}  | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_memory_perf-syntax)     | ${type}            | Performance alias syntax.                                                                                        |
+| type                                         |                    | The type of memory to check (physical = Physical memory (RAM), committed = total memory (RAM+PAGE)               |
+
+
+
+<a name="check_memory_filter"/>
+**filter:**
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+
+
+
+<a name="check_memory_warning"/>
+**warning:**
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+*Deafult Value:* | `used > 80%`
+
+
+
+<a name="check_memory_critical"/>
+**critical:**
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+
+*Deafult Value:* | `used > 90%`
+
+
+
+<a name="check_memory_ok"/>
+**ok:**
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+
+
+
+
+<a name="check_memory_empty-state"/>
+**empty-state:**
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+
+*Deafult Value:* | `ignored`
+
+
+
+<a name="check_memory_perf-config"/>
+**perf-config:**
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+
+
+
+<a name="check_memory_top-syntax"/>
+**top-syntax:**
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `${status}: ${list}`
+
+
+
+<a name="check_memory_ok-syntax"/>
+**ok-syntax:**
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+
+
+
+
+<a name="check_memory_empty-syntax"/>
+**empty-syntax:**
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+
+
+
+<a name="check_memory_detail-syntax"/>
+**detail-syntax:**
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `${type} = ${used}`
+
+
+
+<a name="check_memory_perf-syntax"/>
+**perf-syntax:**
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+
+*Deafult Value:* | `${type}`
+
+
+
+
+<a name="check_memory_filter_keys"/>
+#### Filter keywords
+
+
+| Option                                       | Description                                                                                                  |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [count](#check_memory_count)                 | Number of items matching the filter. Common option for all checks.                                           |
+| [crit_count](#check_memory_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
+| [crit_list](#check_memory_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| [detail_list](#check_memory_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| [free](#check_memory_free)                   | Free memory in bytes (g,m,k,b) or percentages %                                                              |
+| [list](#check_memory_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
+| [ok_count](#check_memory_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
+| [ok_list](#check_memory_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| [problem_count](#check_memory_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| [problem_list](#check_memory_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| [size](#check_memory_size)                   | Total size of memory                                                                                         |
+| [status](#check_memory_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| [total](#check_memory_total)                 | Total number of items. Common option for all checks.                                                         |
+| [type](#check_memory_type)                   | The type of memory to check                                                                                  |
+| [used](#check_memory_used)                   | Used memory in bytes (g,m,k,b) or percentages %                                                              |
+| [warn_count](#check_memory_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
+| [warn_list](#check_memory_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
+
+
+### check_os_version
+
+Check the version of the underlaying OS.
+
+
+* [Command-line Arguments](#check_os_version_options)
+* [Filter keywords](#check_os_version_filter_keys)
+
+
+
+
+
+<a name="check_os_version_warn"/>
+
+<a name="check_os_version_crit"/>
+
+<a name="check_os_version_debug"/>
+
+<a name="check_os_version_show-all"/>
+
+<a name="check_os_version_escape-html"/>
+
+<a name="check_os_version_help"/>
+
+<a name="check_os_version_help-pb"/>
+
+<a name="check_os_version_show-default"/>
+
+<a name="check_os_version_help-short"/>
+
+<a name="check_os_version_options"/>
+#### Command-line Arguments
+
+
+| Option                                           | Default Value                           | Description                                                                                                      |
+|--------------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_os_version_filter)               |                                         | Filter which marks interesting items.                                                                            |
+| [warning](#check_os_version_warning)             | version > 50                            | Filter which marks items which generates a warning state.                                                        |
+| warn                                             |                                         | Short alias for warning                                                                                          |
+| [critical](#check_os_version_critical)           | version > 50                            | Filter which marks items which generates a critical state.                                                       |
+| crit                                             |                                         | Short alias for critical.                                                                                        |
+| [ok](#check_os_version_ok)                       |                                         | Filter which marks items which generates an ok state.                                                            |
+| debug                                            | N/A                                     | Show debugging information in the log                                                                            |
+| show-all                                         | N/A                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_os_version_empty-state)     | ignored                                 | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_os_version_perf-config)     |                                         | Performance data generation configuration                                                                        |
+| escape-html                                      | N/A                                     | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                             | N/A                                     | Show help screen (this screen)                                                                                   |
+| help-pb                                          | N/A                                     | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                     | N/A                                     | Show default values for a given command                                                                          |
+| help-short                                       | N/A                                     | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_os_version_top-syntax)       | ${status}: ${list}                      | Top level syntax.                                                                                                |
+| [ok-syntax](#check_os_version_ok-syntax)         |                                         | ok syntax.                                                                                                       |
+| [empty-syntax](#check_os_version_empty-syntax)   |                                         | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_os_version_detail-syntax) | ${version} (${major}.${minor}.${build}) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_os_version_perf-syntax)     | version                                 | Performance alias syntax.                                                                                        |
+
+
+
+<a name="check_os_version_filter"/>
+**filter:**
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+
+
+
+<a name="check_os_version_warning"/>
+**warning:**
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+*Deafult Value:* | `version > 50`
+
+
+
+<a name="check_os_version_critical"/>
+**critical:**
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+
+*Deafult Value:* | `version > 50`
+
+
+
+<a name="check_os_version_ok"/>
+**ok:**
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+
+
+
+
+<a name="check_os_version_empty-state"/>
+**empty-state:**
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+
+*Deafult Value:* | `ignored`
+
+
+
+<a name="check_os_version_perf-config"/>
+**perf-config:**
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+
+
+
+<a name="check_os_version_top-syntax"/>
+**top-syntax:**
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `${status}: ${list}`
+
+
+
+<a name="check_os_version_ok-syntax"/>
+**ok-syntax:**
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+
+
+
+
+<a name="check_os_version_empty-syntax"/>
+**empty-syntax:**
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+
+
+
+<a name="check_os_version_detail-syntax"/>
+**detail-syntax:**
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `${version} (${major}.${minor}.${build})`
+
+
+
+<a name="check_os_version_perf-syntax"/>
+**perf-syntax:**
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+
+*Deafult Value:* | `version`
+
+
+
+
+<a name="check_os_version_filter_keys"/>
+#### Filter keywords
+
+
+| Option                                             | Description                                                                                                  |
+|----------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [count](#check_os_version_count)                   | Number of items matching the filter. Common option for all checks.                                           |
+| [crit_count](#check_os_version_crit_count)         | Number of items matched the critical criteria. Common option for all checks.                                 |
+| [crit_list](#check_os_version_crit_list)           | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| [detail_list](#check_os_version_detail_list)       | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| [kernel_name](#check_os_version_kernel_name)       | Kernel name                                                                                                  |
+| [kernel_release](#check_os_version_kernel_release) | Kernel release                                                                                               |
+| [kernel_version](#check_os_version_kernel_version) | Kernel version                                                                                               |
+| [list](#check_os_version_list)                     | A list of all items which matched the filter. Common option for all checks.                                  |
+| [machine](#check_os_version_machine)               | Machine hardware name                                                                                        |
+| [nodename](#check_os_version_nodename)             | Network node hostname                                                                                        |
+| [ok_count](#check_os_version_ok_count)             | Number of items matched the ok criteria. Common option for all checks.                                       |
+| [ok_list](#check_os_version_ok_list)               | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| [os](#check_os_version_os)                         | Operating system                                                                                             |
+| [problem_count](#check_os_version_problem_count)   | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| [problem_list](#check_os_version_problem_list)     | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| [processor](#check_os_version_processor)           | Processor type or unknown                                                                                    |
+| [status](#check_os_version_status)                 | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| [total](#check_os_version_total)                   | Total number of items. Common option for all checks.                                                         |
+| [warn_count](#check_os_version_warn_count)         | Number of items matched the warning criteria. Common option for all checks.                                  |
+| [warn_list](#check_os_version_warn_list)           | A list of all items which matched the warning criteria. Common option for all checks.                        |
+
+
+### check_uptime
+
+Check time since last server re-boot.
+
+
+* [Command-line Arguments](#check_uptime_options)
+* [Filter keywords](#check_uptime_filter_keys)
+
+
+
+
+
+<a name="check_uptime_warn"/>
+
+<a name="check_uptime_crit"/>
+
+<a name="check_uptime_debug"/>
+
+<a name="check_uptime_show-all"/>
+
+<a name="check_uptime_escape-html"/>
+
+<a name="check_uptime_help"/>
+
+<a name="check_uptime_help-pb"/>
+
+<a name="check_uptime_show-default"/>
+
+<a name="check_uptime_help-short"/>
+
+<a name="check_uptime_options"/>
+#### Command-line Arguments
+
+
+| Option                                       | Default Value                           | Description                                                                                                      |
+|----------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| [filter](#check_uptime_filter)               |                                         | Filter which marks interesting items.                                                                            |
+| [warning](#check_uptime_warning)             | uptime < 2d                             | Filter which marks items which generates a warning state.                                                        |
+| warn                                         |                                         | Short alias for warning                                                                                          |
+| [critical](#check_uptime_critical)           | uptime < 1d                             | Filter which marks items which generates a critical state.                                                       |
+| crit                                         |                                         | Short alias for critical.                                                                                        |
+| [ok](#check_uptime_ok)                       |                                         | Filter which marks items which generates an ok state.                                                            |
+| debug                                        | N/A                                     | Show debugging information in the log                                                                            |
+| show-all                                     | N/A                                     | Show details for all matches regardless of status (normally details are only showed for warnings and criticals). |
+| [empty-state](#check_uptime_empty-state)     | ignored                                 | Return status to use when nothing matched filter.                                                                |
+| [perf-config](#check_uptime_perf-config)     |                                         | Performance data generation configuration                                                                        |
+| escape-html                                  | N/A                                     | Escape any < and > characters to prevent HTML encoding                                                           |
+| help                                         | N/A                                     | Show help screen (this screen)                                                                                   |
+| help-pb                                      | N/A                                     | Show help screen as a protocol buffer payload                                                                    |
+| show-default                                 | N/A                                     | Show default values for a given command                                                                          |
+| help-short                                   | N/A                                     | Show help screen (short format).                                                                                 |
+| [top-syntax](#check_uptime_top-syntax)       | ${status}: ${list}                      | Top level syntax.                                                                                                |
+| [ok-syntax](#check_uptime_ok-syntax)         |                                         | ok syntax.                                                                                                       |
+| [empty-syntax](#check_uptime_empty-syntax)   |                                         | Empty syntax.                                                                                                    |
+| [detail-syntax](#check_uptime_detail-syntax) | uptime: ${uptime}h, boot: ${boot} (UTC) | Detail level syntax.                                                                                             |
+| [perf-syntax](#check_uptime_perf-syntax)     | uptime                                  | Performance alias syntax.                                                                                        |
+
+
+
+<a name="check_uptime_filter"/>
+**filter:**
+
+Filter which marks interesting items.
+Interesting items are items which will be included in the check.
+They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
+
+
+
+
+
+<a name="check_uptime_warning"/>
+**warning:**
+
+Filter which marks items which generates a warning state.
+If anything matches this filter the return status will be escalated to warning.
+
+
+
+*Deafult Value:* | `uptime < 2d`
+
+
+
+<a name="check_uptime_critical"/>
+**critical:**
+
+Filter which marks items which generates a critical state.
+If anything matches this filter the return status will be escalated to critical.
+
+
+
+*Deafult Value:* | `uptime < 1d`
+
+
+
+<a name="check_uptime_ok"/>
+**ok:**
+
+Filter which marks items which generates an ok state.
+If anything matches this any previous state for this item will be reset to ok.
+
+
+
+
+
+
+<a name="check_uptime_empty-state"/>
+**empty-state:**
+
+Return status to use when nothing matched filter.
+If no filter is specified this will never happen unless the file is empty.
+
+
+*Deafult Value:* | `ignored`
+
+
+
+<a name="check_uptime_perf-config"/>
+**perf-config:**
+
+Performance data generation configuration
+TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
+
+
+
+
+
+<a name="check_uptime_top-syntax"/>
+**top-syntax:**
+
+Top level syntax.
+Used to format the message to return can include text as well as special keywords which will include information from the checks.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `${status}: ${list}`
+
+
+
+<a name="check_uptime_ok-syntax"/>
+**ok-syntax:**
+
+ok syntax.
+DEPRECATED! This is the syntax for when an ok result is returned.
+This value will not be used if your syntax contains %(list) or %(count).
+
+
+
+
+
+<a name="check_uptime_empty-syntax"/>
+**empty-syntax:**
+
+Empty syntax.
+DEPRECATED! This is the syntax for when nothing matches the filter.
+
+
+
+
+
+<a name="check_uptime_detail-syntax"/>
+**detail-syntax:**
+
+Detail level syntax.
+Used to format each resulting item in the message.
+%(list) will be replaced with all the items formated by this syntax string in the top-syntax.
+To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
+
+
+*Deafult Value:* | `uptime: ${uptime}h, boot: ${boot} (UTC)`
+
+
+
+<a name="check_uptime_perf-syntax"/>
+**perf-syntax:**
+
+Performance alias syntax.
+This is the syntax for the base names of the performance data.
+
+
+*Deafult Value:* | `uptime`
+
+
+
+
+<a name="check_uptime_filter_keys"/>
+#### Filter keywords
+
+
+| Option                                       | Description                                                                                                  |
+|----------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| [boot](#check_uptime_boot)                   | System boot time                                                                                             |
+| [count](#check_uptime_count)                 | Number of items matching the filter. Common option for all checks.                                           |
+| [crit_count](#check_uptime_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
+| [crit_list](#check_uptime_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| [detail_list](#check_uptime_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| [list](#check_uptime_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
+| [ok_count](#check_uptime_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
+| [ok_list](#check_uptime_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| [problem_count](#check_uptime_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| [problem_list](#check_uptime_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| [status](#check_uptime_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| [total](#check_uptime_total)                 | Total number of items. Common option for all checks.                                                         |
+| [uptime](#check_uptime_uptime)               | Time since last boot                                                                                         |
+| [warn_count](#check_uptime_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
+| [warn_list](#check_uptime_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
+
+
+
+
