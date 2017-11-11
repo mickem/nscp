@@ -6,6 +6,8 @@
 | Type    | Module                                                       | Description                                                                                                                                                                                        |
 |---------|--------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | misc    | [CauseCrashes](reference/misc/CauseCrashes)                  | *DO NOT USE* This module is usefull except for debugging purpouses and outright dangerous as it allows someone remotley to crash your client!                                                      |
+| windows | [CheckDisk](reference/windows/CheckDisk)                     | CheckDisk can check various file and disk related things.                                                                                                                                          |
+| windows | [CheckEventLog](reference/windows/CheckEventLog)             | Check for errors and warnings in the event log.                                                                                                                                                    |
 | check   | [CheckExternalScripts](reference/check/CheckExternalScripts) | Module used to execute external scripts                                                                                                                                                            |
 | check   | [CheckHelpers](reference/check/CheckHelpers)                 | Various helper function to extend other checks.                                                                                                                                                    |
 | check   | [CheckLogFile](reference/check/CheckLogFile)                 | File for checking log files and various other forms of updating text files                                                                                                                         |
@@ -13,9 +15,12 @@
 | check   | [CheckMKServer](reference/check/CheckMKServer)               | A server that listens for incoming check_mk connection and processes incoming requests.                                                                                                            |
 | misc    | [CheckNet](reference/misc/CheckNet)                          | Network related check such as check_ping.                                                                                                                                                          |
 | check   | [CheckNSCP](reference/check/CheckNSCP)                       | Use this module to check the healt and status of NSClient++ it self                                                                                                                                |
-| unix    | [CheckSystemUnix](reference/unix/CheckSystemUnix)            | Various system related checks, such as CPU load, process state and memory.                                                                                                                         |
+| windows | [CheckSystem](reference/windows/CheckSystem)                 | Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.                                                                                       |
+| windows | [CheckTaskSched](reference/windows/CheckTaskSched)           | Check status of your scheduled jobs.                                                                                                                                                               |
+| windows | [CheckWMI](reference/windows/CheckWMI)                       | Check status via WMI                                                                                                                                                                               |
 | misc    | [CollectdClient](reference/misc/CollectdClient)              | CollectD client can be used to submit metrics to a collectd server                                                                                                                                 |
 | generic | [CommandClient](reference/generic/CommandClient)             | A command line client, generally not used except with "nscp test".                                                                                                                                 |
+| windows | [DotnetPlugins](reference/windows/DotnetPlugins)             | Plugin to load and manage plugins written in dot net.                                                                                                                                              |
 | client  | [GraphiteClient](reference/client/GraphiteClient)            | Graphite client can be used to submit graph data to a graphite graphing system                                                                                                                     |
 | generic | [LUAScript](reference/generic/LUAScript)                     | Loads and processes internal Lua scripts                                                                                                                                                           |
 | client  | [NRDPClient](reference/client/NRDPClient)                    | NRDP client can be used both from command line and from queries to check remote systes via NRDP                                                                                                    |
@@ -120,9 +125,57 @@
         
         
         
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 | Module             | Command                                                                     | Description                                                                         |
 |--------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | CauseCrashes       | [crash_client](reference/misc/CauseCrashes#crash_client)                    | Raise a fatal exception (zero pointer reference) and cause NSClient++ crash.        |
+| CheckDisk          | [check_drivesize](reference/windows/CheckDisk#check_drivesize)              | Check the size (free-space) of a drive or volume.                                   |
+| CheckDisk          | [check_files](reference/windows/CheckDisk#check_files)                      | Check various aspects of a file and/or folder.                                      |
+| CheckDisk          | [checkdrivesize](reference/windows/CheckDisk#checkdrivesize)                | **Deprecated** please use: :query:`check_drivesize`                                 |
+| CheckDisk          | [checkfiles](reference/windows/CheckDisk#checkfiles)                        | **Deprecated** please use: :query:`check_drivesize`                                 |
+| CheckEventLog      | [check_eventlog](reference/windows/CheckEventLog#check_eventlog)            | Check for errors in the event log.                                                  |
+| CheckEventLog      | [checkeventlog](reference/windows/CheckEventLog#checkeventlog)              | **Deprecated** please use: :query:`check_eventlog`                                  |
 | CheckHelpers       | [check_always_critical](reference/check/CheckHelpers#check_always_critical) | Run another check and regardless of its return code return CRITICAL.                |
 | CheckHelpers       | [check_always_ok](reference/check/CheckHelpers#check_always_ok)             | Run another check and regardless of its return code return OK.                      |
 | CheckHelpers       | [check_always_warning](reference/check/CheckHelpers#check_always_warning)   | Run another check and regardless of its return code return WARNING.                 |
@@ -142,9 +195,24 @@
 | CheckNet           | [check_ping](reference/misc/CheckNet#check_ping)                            | Ping another host and check the result.                                             |
 | CheckNSCP          | [check_nscp](reference/check/CheckNSCP#check_nscp)                          | Check the internal healt of NSClient++.                                             |
 | CheckNSCP          | [check_nscp_version](reference/check/CheckNSCP#check_nscp_version)          | Check the version of NSClient++ which is used.                                      |
-| CheckSystemUnix    | [check_memory](reference/unix/CheckSystemUnix#check_memory)                 | Check free/used memory on the system.                                               |
-| CheckSystemUnix    | [check_os_version](reference/unix/CheckSystemUnix#check_os_version)         | Check the version of the underlaying OS.                                            |
-| CheckSystemUnix    | [check_uptime](reference/unix/CheckSystemUnix#check_uptime)                 | Check time since last server re-boot.                                               |
+| CheckSystem        | [check_cpu](reference/windows/CheckSystem#check_cpu)                        | Check that the load of the CPU(s) are within bounds.                                |
+| CheckSystem        | [check_memory](reference/windows/CheckSystem#check_memory)                  | Check free/used memory on the system.                                               |
+| CheckSystem        | [check_network](reference/windows/CheckSystem#check_network)                | Check network interface status.                                                     |
+| CheckSystem        | [check_os_version](reference/windows/CheckSystem#check_os_version)          | Check the version of the underlaying OS.                                            |
+| CheckSystem        | [check_pagefile](reference/windows/CheckSystem#check_pagefile)              | Check the size of the system pagefile(s).                                           |
+| CheckSystem        | [check_pdh](reference/windows/CheckSystem#check_pdh)                        | Check the value of a performance (PDH) counter on the local or remote system.       |
+| CheckSystem        | [check_process](reference/windows/CheckSystem#check_process)                | Check state/metrics of one or more of the processes running on the computer.        |
+| CheckSystem        | [check_service](reference/windows/CheckSystem#check_service)                | Check the state of one or more of the computer services.                            |
+| CheckSystem        | [check_uptime](reference/windows/CheckSystem#check_uptime)                  | Check time since last server re-boot.                                               |
+| CheckSystem        | [checkcounter](reference/windows/CheckSystem#checkcounter)                  | **Deprecated** please use: :query:`check_pdh`                                       |
+| CheckSystem        | [checkcpu](reference/windows/CheckSystem#checkcpu)                          | **Deprecated** please use: :query:`check_cpu`                                       |
+| CheckSystem        | [checkmem](reference/windows/CheckSystem#checkmem)                          | **Deprecated** please use: :query:`check_mem`                                       |
+| CheckSystem        | [checkprocstate](reference/windows/CheckSystem#checkprocstate)              | **Deprecated** please use: :query:`check_process`                                   |
+| CheckSystem        | [checkservicestate](reference/windows/CheckSystem#checkservicestate)        | **Deprecated** please use: :query:`check_service`                                   |
+| CheckSystem        | [checkuptime](reference/windows/CheckSystem#checkuptime)                    | **Deprecated** please use: :query:`check_uptime`                                    |
+| CheckTaskSched     | [check_tasksched](reference/windows/CheckTaskSched#check_tasksched)         | Check status of scheduled jobs.                                                     |
+| CheckTaskSched     | [checktasksched](reference/windows/CheckTaskSched#checktasksched)           | **Deprecated** please use: :query:`check_tasksched`                                 |
+| CheckWMI           | [check_wmi](reference/windows/CheckWMI#check_wmi)                           | Check a set of WMI values and return rows which are matching criteria.              |
 | GraphiteClient     | [submit_graphite](reference/client/GraphiteClient#submit_graphite)          | Submit information to the remote Graphite server.                                   |
 | NRDPClient         | [submit_nrdp](reference/client/NRDPClient#submit_nrdp)                      | Submit information to the remote NRDP Server.                                       |
 | NRPEClient         | [check_nrpe](reference/client/NRPEClient#check_nrpe)                        | Request remote information via NRPE.                                                |
