@@ -63,6 +63,6 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 	if ((page*ipp) < count) {
 		next = "<" + base + str::xtos(page + 1) + tail + ">; rel=\"next\", ";
 	}
-	response.setHeader("Link", next + "<" + base + str::xtos(count / ipp) + tail + ">; rel=\"last\"");
+	response.setHeader("Link", next + "<" + base + str::xtos((count / ipp) + 1) + tail + ">; rel=\"last\"");
 	response.append(json_spirit::write(root));
 }

@@ -37,18 +37,15 @@ error_handler::log_list error_handler::get_messages(std::list<std::string> level
 	if (!lock.owns_lock())
 		return ret;
 	if (levels.empty()) {
+		count = log_entries.size();
 		if (position >= log_entries.size()) {
-			count = log_entries.size();
 			return ret;
 		}
 		log_list::iterator cit = log_entries.begin() + position;
-		log_list::iterator end = log_entries.end();
+		log_list::iterator end = log_entries.begin() + position + ipp;
 
 		for (; cit != end; ++cit) {
-			if (position < ipp) {
-				ret.push_back(*cit);
-			}
-			position++;
+			ret.push_back(*cit);
 		}
 	} else {
 		int i = 0;
