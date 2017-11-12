@@ -259,6 +259,31 @@ namespace eventlog_filter {
 		}
 	}
 
+	std::string new_filter_obj::get_xml() {
+		try {
+			std::string xml;
+			int status = eventlog::EvtFormatMessage(get_provider_handle(get_provider()), hEvent, 0, 0, NULL, eventlog::api::EvtFormatMessageXml, xml);
+			if (status != ERROR_SUCCESS) {
+				NSC_DEBUG_MSG("Failed to format eventlog record: ID=" + str::xtos(get_id()) + ": " + error::format::from_system(status));
+				if (status == ERROR_INVALID_PARAMETER)
+					return "";
+				else if (status == ERROR_EVT_MESSAGE_NOT_FOUND)
+					return "";
+				else if (status == ERROR_EVT_MESSAGE_ID_NOT_FOUND)
+					return "";
+				else if (status == ERROR_EVT_UNRESOLVED_VALUE_INSERT)
+					throw nsclient::nsclient_exception("Invalidly formatted eventlog message for: " + error::lookup::last_error(status));
+				throw nsclient::nsclient_exception("EvtFormatMessage failed: " + error::lookup::last_error(status));
+			}
+			boost::replace_all(xml, "\n", "&#10;");
+			boost::replace_all(xml, "\r", "&#13;");
+			boost::replace_all(xml, "\t", "  ");
+			return xml;
+		} catch (const nsclient::nsclient_exception &e) {
+			return e.reason();
+		}
+	}
+
 	std::string new_filter_obj::get_provider() const {
 		if (eventlog::api::EvtVarTypeNull == buffer.get()[eventlog::api::EvtSystemProviderName].Type)
 			return "";
@@ -378,6 +403,9 @@ namespace eventlog_filter {
 			("level", boost::bind(&filter_obj::get_el_type_s, _1), "")
 			;
 		if (eventlog::api::supports_modern()) {
+			registry_.add_string()
+				("xml", boost::bind(&filter_obj::get_xml, _1), "Get event as XML message.")
+				;
 			registry_.add_converter()
 				(type_custom_type, &fun_convert_new_type)
 				;

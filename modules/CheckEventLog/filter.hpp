@@ -65,6 +65,7 @@ namespace eventlog_filter {
 		virtual long long get_severity() const = 0;
 		virtual void set_truncate(int truncate) = 0;
 		virtual std::string get_message() = 0;
+		virtual std::string get_xml() = 0;
 		virtual std::string get_strings() = 0;
 		virtual std::string get_log() const = 0;
 		virtual long long get_written() const = 0;
@@ -117,6 +118,9 @@ namespace eventlog_filter {
 		}
 		std::string get_message() {
 			return utf8::cvt<std::string>(record.render_message(truncate_message));
+		}
+		std::string get_xml() {
+			return "";
 		}
 		std::string get_strings() {
 			return utf8::cvt<std::string>(record.enumStrings());
@@ -177,6 +181,7 @@ namespace eventlog_filter {
 			return 0;
 		}
 		std::string get_message();
+		std::string get_xml();
 		void set_truncate(int truncate) {
 			truncate_message = truncate;
 		}

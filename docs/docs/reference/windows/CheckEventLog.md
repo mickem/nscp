@@ -512,6 +512,7 @@ Shorthand for setting default unique index: ${log}-${source}-${id}.
 | [warn_count](#check_eventlog_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
 | [warn_list](#check_eventlog_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
 | [written](#check_eventlog_written)             | When the message was written to file                                                                         |
+| [xml](#check_eventlog_xml)                     | Get event as XML message.                                                                                    |
 
 
 ### checkeventlog
