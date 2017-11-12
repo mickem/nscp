@@ -109,9 +109,9 @@ This will load the same script four times with the following arguments:
 plugin_id | plugin_alias | script_alias
 ----------|--------------|-------------
 1         | ps1          | ms1
-2         | ps1          | ms2
-3         | ps2          | ms1
-4         | ps2          | ms2
+1         | ps1          | ms2
+2         | ps2          | ms1
+2         | ps2          | ms2
 
 Thus when loading configuration it is recomended to place it under the following pseudo key `/settings/:script_name/:plugin_alias/:script_alias/` to allow for users loading a script multiple times.
 

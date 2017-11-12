@@ -21,14 +21,18 @@ You can enable the WEBServer module during the package installation.
 >
 > Please ensure to specify a secure password (default).
 
-XXX
 ![API WEBServer setup](images/api_nscp_setup_webserver.png)
-XXX
+
+If you wish to do this with a silent installer you can use the following command:
+
+```
+msiexec /i NSCP-<VERSION>-x64.msi /q CONF_WEB=1 NSCLIENT_PWD=<my secure API key>
+```
 
 Alternatively you can enable the WEBServer module on the CLI afterwards:
 
 ```
-nscp web install --password <MY SECRET PASSWORD>
+nscp web install --password <MY SECURE API KEY>
 ```
 
 ### Configuration
@@ -47,7 +51,7 @@ WEBServer = enabled
 [/settings/default]
 
 ; PASSWORD - Password used to authenticate against server
-password = <MY SECRET PASSWORD>
+password = <MY SECURE API KEY>
 
 ; ALLOWED HOSTS - A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 allowed hosts = 127.0.0.1,192.168.2.0/24
@@ -286,7 +290,40 @@ role=legacy
 All resources may have one or more `*_url` properties linking to other resources.
 These are meant to provide explicit URLs so that proper API clients don't need to construct URLs on their own.
 
-**TODO** This is not implemented yet (ish).
+### Pagination (next page)
+
+Some resource will deliver long lists and then you can use pagination to fetch the next page.
+You can specify further pages with the `?page` parameter.
+For some resources, you can also set a custom page size with the `?per_page` parameter.
+Note that for technical reasons not all endpoints respect the `?per_page` parameter.
+
+```
+curl -i -s -k -u admin "https://localhost:8443/api/v1/logs?page=1&per_page=10"
+```
+
+#### Link Header
+
+> Note: It's important to form calls with Link header values instead of constructing your own URLs.
+
+The Link header includes pagination information:
+
+```
+curl -i -s -k -u admin "https://localhost:8443/api/v1/logs?page=1&per_page=10"
+HTTP/1.1 200
+Content-Length: 1827
+Link: <https://localhost:8443/api/v1/logs?page=2&per_page=10>; rel="next", <https://localhost:8443/api/v1/logs?page=4&per_page=10>; rel="last"
+```
+
+This Link response header contains one or more Hypermedia link relations, some of which may require expansion as URI templates.
+
+The possible rel values are:
+
+Name  | Description
+------|--------------------------------------------------------------
+next  | The link relation for the immediate next page of results.
+last  | The link relation for the last page of results.
+first | The link relation for the first page of results.
+prev  | The link relation for the immediate previous page of results.
 
 ### Tips and tricks
 
