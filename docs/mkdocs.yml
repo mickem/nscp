@@ -104,12 +104,14 @@ pages:
     - Zip Modules: extending/zip-modules.md
   - API:
     - REST:
-      - Introduction: api/rest.md
-      - Scripts: api/scripts.md
-      - Modules: api/modules.md
-      - Legacy API: api/legacy.md
-    - Plugin API:
-      - Plugin Plugin: api/plugin.md
+      - Introduction: api/rest/index.md
+      - Info: api/rest/info.md
+      - Modules: api/rest/modules.md
+      - Queries: api/rest/queries.md
+      - Scripts: api/rest/scripts.md
+      - Logs: api/rest/logs.md
+      - Legacy API: api/rest/legacy.md
+    - Plugin API: api/plugin.md
 
 markdown_extensions:
   - admonition

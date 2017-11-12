@@ -25,11 +25,11 @@ my_script = my_script.py
 
 The skeleton of a script is the following three functions:
 
- - __main__
+ - \_\_main\_\_
  - init
  - shutdown
 
-### __main__
+### \_\_main\_\_
 
 The mainfunction is used when the script is run from the command line.
 For instance when you want to provide an install or helper function to the administrator much like we did when we installed the script:
