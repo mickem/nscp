@@ -79,7 +79,7 @@ void real_time_thread::thread_proc() {
 			}
 #endif
 		}
-		helper.add_item(object, data);
+		helper.add_item(object, data, "logfile");
 	}
 
 	logs.sort();

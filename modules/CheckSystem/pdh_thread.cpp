@@ -207,7 +207,7 @@ void pdh_thread::thread_proc() {
 			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
-			cpu_helper.add_item(boost::shared_ptr<filters::cpu::filter_config_object>(new filters::cpu::filter_config_object(*object)), data);
+			cpu_helper.add_item(boost::shared_ptr<filters::cpu::filter_config_object>(new filters::cpu::filter_config_object(*object)), data, "system.cpu");
 		}
 	}
 	BOOST_FOREACH(boost::shared_ptr<filters::mem::filter_config_object> object, mem_filters_.get_object_list()) {
@@ -218,7 +218,7 @@ void pdh_thread::thread_proc() {
 		BOOST_FOREACH(const std::string &d, object->data) {
 			data.add(d);
 		}
-		cpu_helper.add_item(object, data);
+		cpu_helper.add_item(object, data, "system.cpu");
 	}
 	BOOST_FOREACH(boost::shared_ptr<filters::proc::filter_config_object> object, proc_filters_.get_object_list()) {
 		process_helper.add_obj(object);

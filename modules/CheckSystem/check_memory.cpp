@@ -199,7 +199,7 @@ namespace memory_checks {
 			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
-			memory_helper->helper.add_item(object, data);
+			memory_helper->helper.add_item(object, data, "system.memory");
 
 		}
 

@@ -60,6 +60,7 @@ namespace parsers {
 				boost::posix_time::ptime next_ok_;
 				bool debug;
 				bool escape_html;
+				std::string event_name;
 				container() : debug(false), escape_html(false) {}
 
 				void touch(const boost::posix_time::ptime &now) {
@@ -88,8 +89,9 @@ namespace parsers {
 
 			std::list<container_type> items;
 
-			bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data) {
+			bool add_item(const boost::shared_ptr<config_object> object, const runtime_data &source_data, const std::string event_name) {
 				container_type item(new container);
+				item->event_name = event_name;
 				item->alias = object->get_alias();
 				item->data = source_data;
 				item->target = object->filter.target;
@@ -153,7 +155,7 @@ namespace parsers {
 
 					list_type keys = item->filter.records_;
 					BOOST_FOREACH(hash_type &bundle, keys) {
-						if (!ch.emit_event("CheckSystem", "name", bundle, response)) {
+						if (!ch.emit_event(item->event_name, item->alias, bundle, response)) {
 							NSC_LOG_ERROR("Failed to submit '" + response);
 						}
 					}
@@ -161,7 +163,7 @@ namespace parsers {
 				}
 				if (item->target == "events") {
 					std::list<std::map<std::string, std::string> > keys = item->filter.records_;
-					if (!ch.emit_event("CheckSystem", "name", keys, response)) {
+					if (!ch.emit_event(item->event_name, item->alias, keys, response)) {
 						NSC_LOG_ERROR("Failed to submit '" + response);
 					}
 					return true;

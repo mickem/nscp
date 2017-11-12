@@ -189,7 +189,7 @@ namespace process_checks {
 			BOOST_FOREACH(const std::string &d, object->data) {
 				data.add(d);
 			}
-			proc_helper->helper.add_item(object, data);
+			proc_helper->helper.add_item(object, data, "system.process");
 
 		}
 

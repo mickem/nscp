@@ -54,7 +54,7 @@ void real_time_thread::thread_proc() {
 				data.add_file(f);
 			}
 		}
-		helper.add_item(object, data);
+		helper.add_item(object, data, "eventlog");
 	}
 	logs.sort();
 	logs.unique();

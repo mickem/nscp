@@ -146,7 +146,7 @@ bool nscapi::core_helper::emit_event(const std::string module, const std::string
 
 	Plugin::EventMessage::Request *payload = request_message.add_payload();
 
-	payload->set_event(event);
+	payload->set_event(module + ":" + event);
 	BOOST_FOREACH(const hash_type::value_type &e, data) {
 		Plugin::Common::KeyValue *kv = payload->mutable_data()->Add();
 		kv->set_key(e.first);
