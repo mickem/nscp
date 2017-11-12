@@ -29,6 +29,9 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
   if (!session->is_loggedin(request, response))
     return;
 
+  if (!session->can("queries.list", request, response))
+	  return;
+
   std::string fetch_all = request.get("all", "true");
   Plugin::RegistryRequestMessage rrm;
   Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
@@ -61,6 +64,9 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 
 void query_controller::get_query(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!session->can("queries.get", request, response))
 		return;
 
 	if (what.size() != 2) {
@@ -100,6 +106,12 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 }
 
 void query_controller::query_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!session->can("queries.execute", request, response))
+		return;
+
 	if (what.size() != 3) {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("Invalid request");
