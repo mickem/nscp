@@ -215,6 +215,25 @@ Create an instance of the registry object.
 
 #### Registry.simple_function
 
+
+`Registry.simple_function(query_name, query_function, description)`
+
+Bind a function to a check query.
+
+**Example:**
+
+```
+from NSCP import log, Registry, status
+
+def my_function(args):
+  log('Got arguments: %s'%args)
+  return (status.OK, "This is the messge", "'count'=123;200;600")
+
+def init(plugin_id, plugin_alias, script_alias):
+  reg = Registry.get(plugin_id)
+  reg.simple_function('check_py_test', my_function, 'This is a sample python function')
+```
+
 #### Registry.cmdline
 
 #### Registry.simple_cmdline
@@ -230,6 +249,23 @@ Create an instance of the registry object.
 #### Registry.event_pb
 
 #### Registry.event
+
+`Registry.event(event_name, event_function)`
+
+Register a function which listens for a given event.
+
+**Example:**
+
+```
+from NSCP import log, Registry
+
+def on_event(event, data):
+  log('Got event: %s'%event)
+
+  def init(plugin_id, plugin_alias, script_alias):
+      reg = Registry.get(plugin_id)
+      reg.event('eventlog:login', on_event)
+```
 
 #### Registry.query
 
