@@ -158,6 +158,7 @@ optional | bool   | critical | The warning critical (if available)
 ### Metric
 
 `Plugin.Common.Metric` 
+
 Modifier | Type        | Key   | Description
 -------- | ----------- | ----- | -----------
 required | string      | key   |            
@@ -169,6 +170,7 @@ optional | string      | desc  |
 ### MetricsBundle
 
 `Plugin.Common.MetricsBundle` 
+
 Modifier | Type          | Key      | Description
 -------- | ------------- | -------- | -----------
 required | string        | key      |            
@@ -181,6 +183,7 @@ optional | string        | desc     |
 ### Result
 
 `Plugin.Common.Result` 
+
 ### StatusCodeType
 
 
@@ -216,6 +219,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.QueryRequestMessage.Request` 
+
 Modifier | Type   | Key       | Description
 -------- | ------ | --------- | -----------
 optional | int32  | id        |            
@@ -242,6 +246,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.QueryResponseMessage.Response` 
+
 Modifier | Type       | Key       | Description
 -------- | ---------- | --------- | -----------
 optional | int32      | id        |            
@@ -257,6 +262,7 @@ optional | bytes      | data      |
 #### Line
 
 `Plugin.QueryResponseMessage.Response.Line` 
+
 Modifier | Type            | Key     | Description
 -------- | --------------- | ------- | -----------
 required | string          | message |            
@@ -280,6 +286,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.ExecuteRequestMessage.Request` 
+
 Modifier | Type   | Key       | Description
 -------- | ------ | --------- | -----------
 optional | int32  | id        |            
@@ -292,6 +299,7 @@ repeated | string | arguments |
 ## ExecuteResponseMessage
 
 `Plugin.ExecuteResponseMessage` 
+
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
 optional | Header   | header  |            
@@ -301,6 +309,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.ExecuteResponseMessage.Response` 
+
 Modifier | Type       | Key       | Description
 -------- | ---------- | --------- | -----------
 optional | int32      | id        |            
@@ -344,6 +353,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.SubmitResponseMessage.Response` 
+
 Modifier | Type   | Key     | Description
 -------- | ------ | ------- | -----------
 optional | int32  | id      |            
@@ -368,6 +378,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.EventMessage.Request` 
+
 Modifier | Type     | Key       | Description
 -------- | -------- | --------- | -----------
 optional | string   | event     |            
@@ -416,6 +427,7 @@ RELOAD          | 3     |
 ### Query
 
 `Plugin.Registry.Query` 
+
 Modifier | Type   | Key        | Description
 -------- | ------ | ---------- | -----------
 optional | string | expression |            
@@ -424,6 +436,7 @@ optional | string | expression |
 ### Information
 
 `Plugin.Registry.Information` 
+
 Modifier | Type     | Key         | Description
 -------- | -------- | ----------- | -----------
 optional | string   | title       |            
@@ -438,6 +451,7 @@ repeated | string   | plugin      |
 ### KeyWordDescription
 
 `Plugin.Registry.KeyWordDescription` 
+
 Modifier | Type   | Key               | Description
 -------- | ------ | ----------------- | -----------
 required | string | parameter         |            
@@ -450,6 +464,7 @@ optional | string | long_description  |
 ### ParameterDetail
 
 `Plugin.Registry.ParameterDetail` 
+
 Modifier | Type               | Key               | Description
 -------- | ------------------ | ----------------- | -----------
 optional | string             | name              |            
@@ -465,6 +480,7 @@ repeated | KeyWordDescription | keyword           |
 ### FieldDetail
 
 `Plugin.Registry.FieldDetail` 
+
 Modifier | Type   | Key               | Description
 -------- | ------ | ----------------- | -----------
 optional | string | name              |            
@@ -475,6 +491,7 @@ optional | string | long_description  |
 ### ParameterDetails
 
 `Plugin.Registry.ParameterDetails` 
+
 Modifier | Type            | Key       | Description
 -------- | --------------- | --------- | -----------
 repeated | ParameterDetail | parameter |            
@@ -484,6 +501,7 @@ repeated | FieldDetail     | fields    |
 ### Schedule
 
 `Plugin.Registry.Schedule` 
+
 Modifier | Type   | Key      | Description
 -------- | ------ | -------- | -----------
 optional | string | id       |            
@@ -496,6 +514,7 @@ optional | string | interval |
 ## RegistryRequestMessage
 
 `Plugin.RegistryRequestMessage` 
+
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
 optional | Header  | header  |            
@@ -505,6 +524,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.RegistryRequestMessage.Request` 
+
 Modifier | Type         | Key          | Description
 -------- | ------------ | ------------ | -----------
 optional | int64        | id           |            
@@ -516,6 +536,7 @@ optional | Control      | control      |
 #### Registration
 
 `Plugin.RegistryRequestMessage.Request.Registration` 
+
 Modifier | Type        | Key        | Description
 -------- | ----------- | ---------- | -----------
 optional | int32       | plugin_id  |            
@@ -530,6 +551,7 @@ repeated | Schedule    | schedule   |
 #### Inventory
 
 `Plugin.RegistryRequestMessage.Request.Inventory` 
+
 Modifier | Type     | Key               | Description
 -------- | -------- | ----------------- | -----------
 optional | string   | plugin            |            
@@ -542,6 +564,7 @@ optional | bool     | fetch_information |
 #### Control
 
 `Plugin.RegistryRequestMessage.Request.Control` 
+
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
 required | Command  | command |            
@@ -555,6 +578,7 @@ optional | string   | alias   |
 ## RegistryResponseMessage
 
 `Plugin.RegistryResponseMessage` 
+
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
 optional | Header   | header  |            
@@ -564,6 +588,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.RegistryResponseMessage.Response` 
+
 Modifier | Type         | Key          | Description
 -------- | ------------ | ------------ | -----------
 optional | int64        | id           |            
@@ -576,6 +601,7 @@ optional | Control      | control      |
 #### Registration
 
 `Plugin.RegistryResponseMessage.Response.Registration` 
+
 Modifier | Type  | Key     | Description
 -------- | ----- | ------- | -----------
 optional | int32 | item_id |            
@@ -584,6 +610,7 @@ optional | int32 | item_id |
 #### Inventory
 
 `Plugin.RegistryResponseMessage.Response.Inventory` 
+
 Modifier | Type             | Key        | Description
 -------- | ---------------- | ---------- | -----------
 repeated | string           | plugin     |            
@@ -598,6 +625,7 @@ repeated | Schedule         | schedule   |
 #### Control
 
 `Plugin.RegistryResponseMessage.Response.Control` 
+
 
 
 
@@ -648,6 +676,7 @@ RELOAD          | 3     |
 ### Node
 
 `Plugin.Settings.Node` 
+
 Modifier | Type   | Key  | Description
 -------- | ------ | ---- | -----------
 required | string | path |            
@@ -657,6 +686,7 @@ optional | string | key  |
 ### Query
 
 `Plugin.Settings.Query` 
+
 Modifier | Type   | Key        | Description
 -------- | ------ | ---------- | -----------
 optional | string | expression |            
@@ -665,6 +695,7 @@ optional | string | expression |
 ### Information
 
 `Plugin.Settings.Information` 
+
 Modifier | Type        | Key           | Description
 -------- | ----------- | ------------- | -----------
 optional | string      | title         |            
@@ -686,6 +717,7 @@ optional | bool        | subkey        |
 ## SettingsRequestMessage
 
 `Plugin.SettingsRequestMessage` 
+
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
 optional | Header  | header  |            
@@ -695,6 +727,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.SettingsRequestMessage.Request` 
+
 Modifier | Type         | Key          | Description
 -------- | ------------ | ------------ | -----------
 optional | int64        | id           |            
@@ -710,6 +743,7 @@ optional | Status       | status       |
 #### Registration
 
 `Plugin.SettingsRequestMessage.Request.Registration` 
+
 Modifier | Type        | Key    | Description
 -------- | ----------- | ------ | -----------
 optional | Node        | node   |            
@@ -720,6 +754,7 @@ optional | string      | fields |
 #### Query
 
 `Plugin.SettingsRequestMessage.Request.Query` 
+
 Modifier | Type        | Key           | Description
 -------- | ----------- | ------------- | -----------
 optional | Node        | node          |            
@@ -732,6 +767,7 @@ optional | AnyDataType | default_value |
 #### Update
 
 `Plugin.SettingsRequestMessage.Request.Update` 
+
 Modifier | Type        | Key   | Description
 -------- | ----------- | ----- | -----------
 optional | Node        | node  |            
@@ -741,6 +777,7 @@ optional | AnyDataType | value |
 #### Inventory
 
 `Plugin.SettingsRequestMessage.Request.Inventory` 
+
 Modifier | Type   | Key             | Description
 -------- | ------ | --------------- | -----------
 optional | string | plugin          |            
@@ -757,6 +794,7 @@ optional | bool   | descriptions    |
 #### Control
 
 `Plugin.SettingsRequestMessage.Request.Control` 
+
 Modifier | Type    | Key     | Description
 -------- | ------- | ------- | -----------
 required | Command | command |            
@@ -769,10 +807,12 @@ optional | string  | context |
 
 
 
+
 <a name=".Plugin.SettingsResponseMessage"/>
 ## SettingsResponseMessage
 
 `Plugin.SettingsResponseMessage` 
+
 Modifier | Type     | Key     | Description
 -------- | -------- | ------- | -----------
 optional | Header   | header  |            
@@ -782,6 +822,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.SettingsResponseMessage.Response` 
+
 Modifier | Type         | Key          | Description
 -------- | ------------ | ------------ | -----------
 optional | int64        | id           |            
@@ -798,10 +839,12 @@ optional | Status       | status       |
 
 `Plugin.SettingsResponseMessage.Response.Registration` 
 
+
 <a name=".Plugin.SettingsResponseMessage.Response.Query"/>
 #### Query
 
 `Plugin.SettingsResponseMessage.Response.Query` 
+
 Modifier | Type        | Key   | Description
 -------- | ----------- | ----- | -----------
 required | Node        | node  |            
@@ -812,10 +855,12 @@ optional | AnyDataType | value |
 
 `Plugin.SettingsResponseMessage.Response.Update` 
 
+
 <a name=".Plugin.SettingsResponseMessage.Response.Inventory"/>
 #### Inventory
 
 `Plugin.SettingsResponseMessage.Response.Inventory` 
+
 Modifier | Type        | Key   | Description
 -------- | ----------- | ----- | -----------
 required | Node        | node  |            
@@ -827,10 +872,12 @@ optional | AnyDataType | value |
 
 `Plugin.SettingsResponseMessage.Response.Control` 
 
+
 <a name=".Plugin.SettingsResponseMessage.Response.Status"/>
 #### Status
 
 `Plugin.SettingsResponseMessage.Response.Status` 
+
 Modifier | Type   | Key         | Description
 -------- | ------ | ----------- | -----------
 optional | string | context     |            
@@ -852,6 +899,7 @@ repeated | Entry | entry |
 ### Entry
 
 `Plugin.LogEntry.Entry` 
+
 ### Level
 
 
@@ -891,6 +939,7 @@ repeated | Request | payload |
 ### Request
 
 `Plugin.MetricsQueryMessage.Request` 
+
 Modifier | Type   | Key  | Description
 -------- | ------ | ---- | -----------
 optional | int64  | id   |            
@@ -913,6 +962,7 @@ repeated | Response | payload |
 ### Response
 
 `Plugin.MetricsMessage.Response` 
+
 Modifier | Type          | Key     | Description
 -------- | ------------- | ------- | -----------
 optional | int64         | id      |            
