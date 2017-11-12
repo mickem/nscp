@@ -237,7 +237,7 @@ namespace process_checks {
 			filter_helper.add_crit_option("state = 'stopped'", "count = 0");
 
 			filter_helper.add_options(filter.get_filter_syntax(), "unknown");
-			filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "%(status): No processes found", "%(status): all processes are ok.");
+			filter_helper.add_syntax("${status}: ${problem_list}", "${exe}=${state}", "${exe}", "UNKNOWN: No processes found", "%(status): all processes are ok.");
 			filter_helper.get_desc().add_options()
 				("process", po::value<std::vector<std::string>>(&processes), "The service to check, set this to * to check all services")
 				("scan-info", po::value<bool>(&deep_scan), "If all process metrics should be fetched (otherwise only status is fetched)")
