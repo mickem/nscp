@@ -1,4 +1,4 @@
-S# Checking things
+# Checking things
 
 Using NSClient++ is checks is also pretty straight forward in modern NSClient++ versions.
 With version 0.4.3 we switched all old checks for a new check subsystem which is more uniform as well as more powerful then the old.
