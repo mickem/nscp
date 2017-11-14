@@ -75,7 +75,6 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	settings.set_alias("WEB", alias, "server");
 
 	std::string port;
-	std::string password;
 	std::string certificate;
 	std::string admin_password;
 	int threads;
@@ -179,9 +178,6 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			return true;
 		}
 		NSC_DEBUG_MSG("Loading webserver on port: " + port);
-		if (password.empty()) {
-			NSC_LOG_ERROR("No password set please run nscp web --help");
-		}
 	}
 	return true;
 }
