@@ -95,6 +95,11 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 	json_spirit::Object node;
 
 	BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
+		if (r.inventory_size() == 0) {
+			response.setCode(HTTP_NOT_FOUND);
+			response.append("Module not found: " + module);
+			return;
+		}
 		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 			node["name"] = i.name();
 			node["id"] = i.id();

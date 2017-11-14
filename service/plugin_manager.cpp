@@ -293,31 +293,35 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 	LOG_ERROR_CORE("Failed to find plugin: " + name);
 	return boost::optional<boost::filesystem::path>();
 }
+
+nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only_load_module(std::string module, std::string alias, bool &loaded) {
+	loaded = false;
+	boost::optional<boost::filesystem::path> real_file = find_file(module);
+	if (!real_file) {
+		return nsclient::core::plugin_manager::plugin_type();
+	}
+	LOG_DEBUG_CORE_STD("Loading module " + real_file->string() + " (" + alias + ")");
+	plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
+	if (dup) {
+		return dup;
+	}
+	loaded = true;
+	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
+		return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
+	}
+	return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+}
+
 /**
  * Load and add a plugin to various internal structures
  * @param plugin The plug-in instance to load. The pointer is managed by the
  */
 nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_plugin(std::string file_name, std::string alias) {
 	try {
-		boost::optional<boost::filesystem::path> real_file = find_file(file_name);
-		if (!real_file) {
-			return nsclient::core::plugin_manager::plugin_type();
-		}
-		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD("adding " + real_file->string());
-		} else {
-			LOG_DEBUG_CORE_STD("adding " + real_file->string() + " (" + alias + ")");
-		}
-		// Check if this is a duplicate plugin (if so return that instance)
-		plugin_type dup = plugin_list_.find_duplicate(*real_file, alias);
-		if (dup) {
-			return dup;
-		}
-		plugin_type plugin;
-		if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
-			plugin = plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
-		} else {
-			plugin = plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
+		bool loaded = false;
+		plugin_type plugin = only_load_module(file_name, alias, loaded);
+		if (!loaded) {
+			return plugin;
 		}
 		plugin_list_.append_plugin(plugin);
 		if (plugin->hasCommandHandler()) {
@@ -357,7 +361,8 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
 		LOG_DEBUG_CORE_STD(std::string("Reloading: ") + plugin->get_alias_or_name());
 		plugin->load_plugin(NSCAPI::reloadStart);
 		return true;
-	}
+	} 
+	LOG_ERROR_CORE("Failed to reload plugin " + module);
 	return false;
 }
 

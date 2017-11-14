@@ -95,7 +95,7 @@ namespace nsclient {
 					if (nsclient::core::plugin_manager::is_module(pluginPath / file)) {
 						const std::string module = nsclient::core::plugin_manager::file_to_module(file);
 						if (!plugins_->get_plugin_cache()->has_module(module)) {
-							plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, (pluginPath / file).normalize());
+							plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, file.string());
 							if (!itm.dll.empty()) {
 								std::string key = itm.dll + "::" + itm.alias;
 								if (unique_instances.find(key) != unique_instances.end()) {
@@ -153,10 +153,11 @@ namespace nsclient {
 			}
 			if (q.has_name()) {
 				nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
-				boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
-				plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, (pluginPath / q.name()).normalize());
-				add_module(rp, itm);
-				plugins_->get_plugin_cache()->add_plugins(tmp_list);
+				plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, q.name());
+				if (!itm.dll.empty()) {
+					add_module(rp, itm);
+					plugins_->get_plugin_cache()->add_plugins(tmp_list);
+				}
 				return;
 			}
 
@@ -243,11 +244,14 @@ namespace nsclient {
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
 
-		plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, boost::filesystem::path plugin) {
+		plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, std::string plugin) {
 			plugin_cache_item itm;
 			try {
-				LOG_DEBUG_CORE("Loading " + plugin.string());
-				plugin_type instance = plugin_type(new nsclient::core::dll_plugin(-1, plugin, ""));
+				bool loaded = false;
+				plugin_type instance = plugins_->only_load_module(plugin, "", loaded);
+				if (!loaded) {
+					return itm;
+				}
 				itm.dll = instance->getModule();
 				itm.alias = "";
 				itm.desc = instance->getDescription();
@@ -255,9 +259,9 @@ namespace nsclient {
 				itm.is_loaded = false;
 				list.push_back(itm);
 			} catch (const std::exception &e) {
-				LOG_ERROR_CORE("Failed to load " + plugin.string() + ": " + utf8::utf8_from_native(e.what()));
+				LOG_ERROR_CORE("Failed to load " + plugin + ": " + utf8::utf8_from_native(e.what()));
 			} catch (...) {
-				LOG_ERROR_CORE("Failed to load " + plugin.string() + ": UNKNOWN EXCEPTION");
+				LOG_ERROR_CORE("Failed to load " + plugin + ": UNKNOWN EXCEPTION");
 			}
 			return itm;
 		}

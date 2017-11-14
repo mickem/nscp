@@ -108,7 +108,7 @@ nsclient::core::master_plugin_list::plugin_type nsclient::core::master_plugin_li
 		return plugin_type();
 	}
 	BOOST_FOREACH(plugin_type plugin, plugins_) {
-		if (plugin && (plugin->get_alias() == alias)) {
+		if (plugin && (plugin->get_alias_or_name() == alias)) {
 			return plugin;
 		}
 	}
