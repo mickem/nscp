@@ -61,6 +61,8 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 		  }
 		  node["metadata"] = keys;
 		  node["description"] = i.info().description();
+		  node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";;
+		  node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";;
 		  root.push_back(node);
 	  }
   }
@@ -108,6 +110,8 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 			}
 			node["metadata"] = keys;
 			node["description"] = i.info().description();
+			node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";;
+			node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";;
 		}
 	}
 	response.append(json_spirit::write(node));
