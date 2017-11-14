@@ -315,7 +315,7 @@ void extscr_cli::add_script(const Plugin::ExecuteRequestMessage::Request &reques
 			"Script to add")
 
 		("alias", po::value<std::string>(&alias),
-			"Name of command to execute script (defaults to basename of script)")
+			"The alias of the script (defaults to basename of script)")
 
 		("list", po::bool_switch(&list),
 			"List all scripts in the scripts folder.")

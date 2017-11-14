@@ -27,7 +27,7 @@ boost::shared_ptr<nscapi::settings_proxy> script_provider::get_settings_proxy() 
 }
 
 boost::filesystem::path script_provider::get_root() {
-	return root_;
+	return root_ / "scripts" / "python";
 }
 
 boost::optional<boost::filesystem::path> script_provider::find_file(std::string file) {
