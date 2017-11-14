@@ -41,6 +41,23 @@ Since NSClient++ is not very useful alone it also supports a lot of protocols to
 -   Graphite allows you do real-time graphing by sending metrics to graphite.
 -   SMTP allows you to send email directly from NSClient++.
 
+| NSClient++                  | check_nt   | check_nrpe 2.x | check_nscp_nrpe | check_nscp_web | check_nscp |
+|-----------------------------|------------|----------------|-----------------|----------------|------------|
+| 0.2.x                       | X          | X              |                 |                |            |
+| 0.3.x                       | X          | X              |                 |                |            |
+| 0.4.0                       | X          | X              |                 |                |            |
+| 0.4.1                       | X          | X              |                 |                |            |
+| 0.4.2                       | X          | X              |                 |                |            |
+| 0.4.3                       | X          | X              | X               |                |            |
+| 0.4.4                       | X          | X              | X               |                |            |
+| 0.5.0                       | X          | X              | X               | X              |            |
+| 0.5.1                       | X          | X              | X               | X              |            |
+| 0.5.2 (forthcoming version) | X          | X              | X               | X              | X          |
+| 0.5.3 (forthcoming version) | X          | X              | X               | X              | X          |
+| 0.6.0 (forthcoming version) | deprecated | X              | X               | Hopefully      | X          |
+
+In 0.6.0 we will **NOT** remove `check_nt` but mark them as deprecated since there is no real reason to use it anymore.
+
 ## Supported OS/Platform
 
 NSClient++ should run on the following operating systems:
