@@ -213,12 +213,63 @@ Create an instance of the registry object.
 
 #### Registry.function
 
-#### Registry.simple_function
+`Registry.simple_function(query_name, query_function, description)`
 
+Bind a function to a check query. This is similar to the `Registry.simple_function` function but the bound
+function uses a more powerfull syntax which requires you to parse the reques/response using the protobuf API.
+
+Option         | Description
+---------------|----------------------------------------------------
+query_name     | The name of the query (i.e. the check command name)
+query_function | The function to call when the query is executed
+description    | The description of th query.
+
+The bound function should look like this:
+
+```
+def my_function(request):
+  # ...
+  return response_message.SerializeToString()
+```
+
+**Example:**
+
+```
+from NSCP import log, Registry, status
+import plugin_pb2
+
+def my_function(request):
+  request_message = plugin_pb2.QueryRequestMessage()
+  request_message.ParseFromString(request)
+  log('Got command: %s'%request_message.payload[0].command)
+  response_message = plugin_pb2.QueryResponseMessage()
+  return response_message.SerializeToString()
+
+def init(plugin_id, plugin_alias, script_alias):
+  reg = Registry.get(plugin_id)
+  reg.function('check_py_test', my_function, 'This is a sample python function')
+```
+
+#### Registry.simple_function
 
 `Registry.simple_function(query_name, query_function, description)`
 
-Bind a function to a check query.
+Bind a function to a check query. This is similar to the `Registry.function` function but the bound
+function has a simpler syntax so you wont have to deal with the complexity of the protobuf API.
+
+
+Option         | Description
+---------------|----------------------------------------------------
+query_name     | The name of the query (i.e. the check command name)
+query_function | The function to call when the query is executed
+description    | The description of th query.
+
+The bound function should look like this:
+
+```
+def my_function(args):
+  return (status.OK, "This is the messge", "'count'=123;200;600")
+```
 
 **Example:**
 
@@ -236,7 +287,75 @@ def init(plugin_id, plugin_alias, script_alias):
 
 #### Registry.cmdline
 
+`Registry.cmdline(command_name, function)`
+
+Bind a function to a check query. This is similar to the `Registry.simple_cmdline` function but the bound
+function uses a more powerfull syntax which requires you to parse the reques/response using the protobuf API.
+
+
+Option       | Description
+-------------|----------------------------------------------------
+command_name | The name of the command to expose
+function     | The function to call when the command is executed
+
+The bound function should look like this:
+
+```
+def my_function(request):
+  # ...
+  return response_message.SerializeToString()
+```
+
+**Example:**
+
+```
+from NSCP import log, Registry, status
+import plugin_pb2
+
+def my_function(request):
+  request_message = plugin_pb2.ExecuteRequestMessage()
+  request_message.ParseFromString(request)
+  log('Got command: %s'%request_message.payload[0].command)
+  response_message = plugin_pb2.ExecuteResponseMessage()
+  return response_message.SerializeToString()
+
+def init(plugin_id, plugin_alias, script_alias):
+  reg = Registry.get(plugin_id)
+  reg.cmdline('do_foo', my_function)
+```
+
 #### Registry.simple_cmdline
+
+`Registry.simple_cmdline(command_name, function)`
+
+Bind a function to a check query. This is similar to the `Registry.function` function but the bound
+function has a simpler syntax so you wont have to deal with the complexity of the protobuf API.
+
+Option       | Description
+-------------|----------------------------------------------------
+command_name | The name of the command to expose
+function     | The function to call when the command is executed
+
+The bound function should look like this:
+
+```
+def my_function(args):
+  return (0, "This is the messge")
+```
+
+**Example:**
+
+```
+from NSCP import log, Registry, status
+
+def my_function(args):
+  log('Got arguments: %s'%args)
+  return (1, "Everything is awesome")
+
+def init(plugin_id, plugin_alias, script_alias):
+  reg = Registry.get(plugin_id)
+  reg.simple_cmdline('do_something', my_function)
+```
 
 #### Registry.subscription
 
@@ -253,6 +372,18 @@ def init(plugin_id, plugin_alias, script_alias):
 `Registry.event(event_name, event_function)`
 
 Register a function which listens for a given event.
+
+Option         | Description
+---------------|------------------------------------------
+event_name     | The name of the event to subscribe to.
+event_function | The function to call when the event fires
+
+The bound function should look like this:
+
+```
+def my_function(event_name, data):
+  log("This is from the data: %s"%data['key'])
+```
 
 **Example:**
 
@@ -271,9 +402,46 @@ def on_event(event, data):
 
 ### Core
 
+The core is a representation of NSClient++ and exposes functions to interact with NSClient++ it self such as running queries or reloading modules.
+
 #### Core.get
 
+`Core.get()`
+
+
+Get an instance of the core module.
+
+**Example:**
+
+```
+from NSCP import Core
+core = Core.get()
+(code, message, perf) = core.simpler_query("check_cpu")
+```
+
 #### Core.simple_query
+
+`(status, message, perf) = Core.simple_query(query, arguments)`
+
+Execute a check query.
+
+Option    | Description
+----------|-------------------------------------
+query     | The name of the query to execute
+arguments | Arguments for the query
+status    | The nagios status code of the result
+message   | The resulting message
+perf      | The resulting performance data
+
+**Example:**
+
+```
+from NSCP import Core, log
+
+core = Core.get()
+(code, message, perf) = core.simpler_query("check_cpu")
+log(message)
+```
 
 #### Core.query
 
