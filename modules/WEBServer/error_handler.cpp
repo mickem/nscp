@@ -38,8 +38,11 @@ error_handler::log_list error_handler::get_messages(std::list<std::string> level
 		return ret;
 	if (levels.empty()) {
 		count = log_entries.size();
-		if (position >= log_entries.size()) {
+		if (position >= count) {
 			return ret;
+		}
+		if ((position + ipp) >= count) {
+			ipp = count - position;
 		}
 		log_list::iterator cit = log_entries.begin() + position;
 		log_list::iterator end = log_entries.begin() + position + ipp;
