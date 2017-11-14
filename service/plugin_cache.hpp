@@ -19,7 +19,6 @@ namespace nsclient {
 			unsigned int id;
 			std::string dll;
 			std::string alias;
-			std::string name;
 			std::string title;
 			std::string desc;
 			std::string version;
@@ -31,7 +30,6 @@ namespace nsclient {
 				: id(other.id)
 				, dll(other.dll)
 				, alias(other.alias)
-				, name(other.name)
 				, title(other.title)
 				, desc(other.desc)
 				, version(other.version)
@@ -41,7 +39,6 @@ namespace nsclient {
 				dll = other.dll;
 				alias = other.alias;
 				id = other.id;
-				name = other.name;
 				title = other.title;
 				desc = other.desc;
 				version = other.version;
@@ -71,6 +68,7 @@ namespace nsclient {
 
 			std::string find_plugin_alias(unsigned int plugin_id);
 			void add_plugin(plugin_type plugin);
+			void remove_plugin(unsigned int plugin_id);
 
 		private:
 			nsclient::logging::logger_instance get_logger() {

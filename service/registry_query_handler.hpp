@@ -38,7 +38,8 @@ namespace nsclient {
 			nsclient::logging::logger_instance get_logger() const {
 				return logger_;
 			}
-
+			void add_module(Plugin::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin);
+			plugin_cache_item inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, boost::filesystem::path plugin);
 
 		};
 

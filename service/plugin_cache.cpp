@@ -77,23 +77,52 @@ std::string nsclient::core::plugin_cache::find_plugin_alias(unsigned int plugin_
 	if (!info) {
 		return "Failed to find plugin: " + str::xtos(plugin_id);
 	}
-	return info->alias;
+	if (!info->alias.empty()) {
+		return info->alias;
+	}
+	return info->dll;
 }
 
 void nsclient::core::plugin_cache::add_plugin(nsclient::core::plugin_type plugin) {
+	plugin_cache_item item(plugin);
+	{
+		boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!writeLock.owns_lock()) {
+			LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
+			return;
+		}
+		BOOST_FOREACH(plugin_cache_item &i, plugin_cache_) {
+			if (i.dll == item.dll && i.alias == item.alias) {
+				i.is_loaded = item.is_loaded;
+				i.id = item.id;
+				i.title = item.title;
+				i.desc = item.desc;
+				return;
+			}
+		}
+		plugin_cache_.push_back(plugin_cache_item(plugin));
+	}
+}
+
+void nsclient::core::plugin_cache::remove_plugin(unsigned int plugin_id) {
 	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!writeLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");
 		return;
 	}
-	plugin_cache_.push_back(plugin_cache_item(plugin));
+	BOOST_FOREACH(plugin_cache_item &i, plugin_cache_) {
+		if (i.id == plugin_id) {
+			i.is_loaded = false;
+			i.id = -1;
+			return;
+		}
+	}
 }
 
 nsclient::core::plugin_cache_item::plugin_cache_item(const nsclient::core::plugin_type& plugin)
 	: id(plugin->get_id())
 	, dll(plugin->getModule())
-	, alias(plugin->get_alias_or_name())
-	, name(plugin->getModule())
+	, alias(plugin->get_alias())
 	, title(plugin->getName())
 	, desc(plugin->getDescription())
 	, version(plugin->get_version())

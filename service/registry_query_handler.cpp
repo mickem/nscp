@@ -95,48 +95,42 @@ namespace nsclient {
 					if (nsclient::core::plugin_manager::is_module(pluginPath / file)) {
 						const std::string module = nsclient::core::plugin_manager::file_to_module(file);
 						if (!plugins_->get_plugin_cache()->has_module(module)) {
-							plugin_cache_item itm;
-							try {
-								boost::filesystem::path p = (pluginPath / file).normalize();
-								LOG_DEBUG_CORE("Loading " + p.string());
-								plugin_type plugin = plugin_type(new nsclient::core::dll_plugin(-1, p, ""));
-								itm.dll = plugin->getModule();
-								itm.alias = itm.dll;
-								itm.name = plugin->getName();
-								itm.desc = plugin->getDescription();
-								itm.id = plugin->get_id();
-								itm.is_loaded = false;
-								tmp_list.push_back(itm);
-							} catch (const std::exception &e) {
-								LOG_DEBUG_CORE("Failed to load " + file.string() + ": " + utf8::utf8_from_native(e.what()));
-								continue;
-							} catch (...) {
-								LOG_DEBUG_CORE("Failed to load " + file.string() + ": UNKNOWN EXCEPTION");
-								continue;
-							}
-							if (!itm.name.empty()) {
+							plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, (pluginPath / file).normalize());
+							if (!itm.dll.empty()) {
 								std::string key = itm.dll + "::" + itm.alias;
 								if (unique_instances.find(key) != unique_instances.end()) {
 									continue;
 								}
 								unique_instances.emplace(key);
-								if (q.has_name() && q.name() != itm.name) {
+								if (q.has_name() && q.name() != itm.dll && q.name() != itm.alias) {
 									continue;
 								}
-								Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-								rpp->set_name(itm.name);
-								rpp->set_type(Plugin::Registry_ItemType_MODULE);
-								rpp->mutable_info()->set_title(itm.title);
-								rpp->mutable_info()->set_description(itm.desc);
-								Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
-								kvp->set_key("loaded");
-								kvp->set_value("false");
+								add_module(rp, itm);
 							}
 						}
 					}
 				}
 			}
 			plugins_->get_plugin_cache()->add_plugins(tmp_list);
+		}
+
+		void registry_query_handler::add_module(Plugin::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin) {
+			Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
+			rpp->set_name(plugin.dll);
+			rpp->set_type(Plugin::Registry_ItemType_MODULE);
+			rpp->set_id(plugin.alias.empty()?plugin.dll:plugin.alias);
+			rpp->mutable_info()->add_plugin(plugin.dll);
+			rpp->mutable_info()->set_title(plugin.title);
+			rpp->mutable_info()->set_description(plugin.desc);
+			Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
+			kvp->set_key("plugin_id");
+			kvp->set_value(str::xtos(plugin.id));
+			kvp = rpp->mutable_info()->add_metadata();
+			kvp->set_key("loaded");
+			kvp->set_value(plugin.is_loaded ? "true" : "false");
+			kvp = rpp->mutable_info()->add_metadata();
+			kvp->set_key("alias");
+			kvp->set_value(plugin.alias);
 		}
 
 		void registry_query_handler::inventory_modules(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
@@ -151,20 +145,21 @@ namespace nsclient {
 					continue;
 				}
 
-				Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
-				rpp->set_name(plugin.dll);
-				rpp->set_type(Plugin::Registry_ItemType_MODULE);
-				rpp->set_id(plugin.alias);
-				rpp->mutable_info()->add_plugin(plugin.dll);
-				rpp->mutable_info()->set_title(plugin.name);
-				rpp->mutable_info()->set_description(plugin.desc);
-				Plugin::Common::KeyValue *kvp = rpp->mutable_info()->add_metadata();
-				kvp->set_key("plugin_id");
-				kvp->set_value(str::xtos(plugin.id));
-				kvp = rpp->mutable_info()->add_metadata();
-				kvp->set_key("loaded");
-				kvp->set_value(plugin.is_loaded ? "true" : "false");
+				add_module(rp, plugin);
+
+				if (q.has_name() && q.name() == plugin.dll) {
+					return;
+				}
 			}
+			if (q.has_name()) {
+				nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
+				boost::filesystem::path pluginPath = path_->expand_path("${module-path}");
+				plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, (pluginPath / q.name()).normalize());
+				add_module(rp, itm);
+				plugins_->get_plugin_cache()->add_plugins(tmp_list);
+				return;
+			}
+
 			if (!plugins_->get_plugin_cache()->has_all() && q.fetch_all()) {
 				find_plugins_on_disk(unique_instances, q, rp);
 			}
@@ -248,6 +243,24 @@ namespace nsclient {
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
 
+		plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, boost::filesystem::path plugin) {
+			plugin_cache_item itm;
+			try {
+				LOG_DEBUG_CORE("Loading " + plugin.string());
+				plugin_type instance = plugin_type(new nsclient::core::dll_plugin(-1, plugin, ""));
+				itm.dll = instance->getModule();
+				itm.alias = "";
+				itm.desc = instance->getDescription();
+				itm.id = instance->get_id();
+				itm.is_loaded = false;
+				list.push_back(itm);
+			} catch (const std::exception &e) {
+				LOG_ERROR_CORE("Failed to load " + plugin.string() + ": " + utf8::utf8_from_native(e.what()));
+			} catch (...) {
+				LOG_ERROR_CORE("Failed to load " + plugin.string() + ": UNKNOWN EXCEPTION");
+			}
+			return itm;
+		}
 
 	}
 }

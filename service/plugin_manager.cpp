@@ -375,6 +375,7 @@ void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
 	metrics_fetchers_.remove_plugin(plugin_id);
 	metrics_submitetrs_.remove_plugin(plugin_id);
 	plugin->unload_plugin();
+	plugin_cache_.remove_plugin(plugin_id);
 }
 
 unsigned int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
