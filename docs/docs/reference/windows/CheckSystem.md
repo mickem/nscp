@@ -1727,7 +1727,7 @@ OK all processes are ok.|'csrss.exe state'=1;0;0 'svchost.exe state'=1;0;0 'Avas
 | help-short                                    | N/A                              | Show help screen (short format).                                                                                 |
 | [top-syntax](#check_process_top-syntax)       | ${status}: ${problem_list}       | Top level syntax.                                                                                                |
 | [ok-syntax](#check_process_ok-syntax)         | %(status): all processes are ok. | ok syntax.                                                                                                       |
-| [empty-syntax](#check_process_empty-syntax)   | %(status): No processes found    | Empty syntax.                                                                                                    |
+| [empty-syntax](#check_process_empty-syntax)   | UNKNOWN: No processes found      | Empty syntax.                                                                                                    |
 | [detail-syntax](#check_process_detail-syntax) | ${exe}=${state}                  | Detail level syntax.                                                                                             |
 | [perf-syntax](#check_process_perf-syntax)     | ${exe}                           | Performance alias syntax.                                                                                        |
 | process                                       |                                  | The service to check, set this to * to check all services                                                        |
@@ -1838,7 +1838,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `%(status): No processes found`
+*Deafult Value:* | `UNKNOWN: No processes found`
 
 
 
