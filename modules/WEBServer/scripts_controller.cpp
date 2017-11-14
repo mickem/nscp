@@ -16,9 +16,15 @@
 #include <fstream>
 #include <iostream>
 
+#define EXT_SCR "CheckExternalScripts"
+#define PY_SCR "PythonScript"
+
 std::string get_runtime(const std::string &runtime) {
 	if (runtime == "ext") {
-		return "ExternalScripts";
+		return EXT_SCR;
+	}
+	if (runtime == "py") {
+		return PY_SCR;
 	}
 	return runtime;
 }
@@ -75,14 +81,14 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 
 	BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
 		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
-			if (i.name() == "CheckPython"
-				|| i.name() == "CheckExternalScripts"
+			if (i.name() == PY_SCR
+				|| i.name() == EXT_SCR
 				|| i.name() == "LUAScript") {
 				json_spirit::Object node;
 				std::string name = i.name();
-				if (i.name() == "CheckPython") {
+				if (i.name() == PY_SCR) {
 					name = "py";
-				} else if (i.name() == "CheckExternalScripts") {
+				} else if (i.name() == EXT_SCR) {
 					name = "ext";
 				} else if (i.name() == "LUAScript") {
 					name = "lua";
