@@ -445,6 +445,30 @@ log(message)
 
 #### Core.query
 
+`reply = Core.simple_query(request)`
+
+Execute a check query.
+
+Option  | Description
+--------|--------------------------------
+request | A probuf QueryRequestMessage
+reply   | A protobuf QueryResponseMessage
+
+**Example:**
+
+```
+from NSCP import Core, log
+import plugin_pb2
+
+request_message = plugin_pb2.QueryRequestMessage()
+core = Core.get()
+response = core.query(request_message.SerializeToString())
+response_message = plugin_pb2.QueryResponseMessage()
+response_message.ParseFromString(response)
+
+log('Got command: %s'%request_message.payload[0].command)
+```
+
 #### Core.simple_exec
 
 #### Core.exec
@@ -467,15 +491,103 @@ log(message)
 
 #### Settings.get_section
 
+`keys = Settings.get_section(path)`
+
+Fetch all keys under a given section in the settings file.
+
+Option | Description
+-------|----------------------------------------
+path   | The settings path to query all keys for
+keys   | A list of keys under a the section
+
+**Example:**
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  for key in config.get_section("/modules"):
+    log("Module: %s"%key)
+```
+
 #### Settings.get_string
+
+`value = Settings.get_string(path, key, default_value)`
+
+Fetch a string from the settings store given a path and a key.
+
+Option        | Description
+--------------|---------------------------------------------
+path          | The settings path to query all keys for
+key           | The key to lookup
+default_value | The value to return if the key is not found.
+value         | The resulting value.
+
+**Example:**
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  for key in config.get_section("/modules"):
+    value = config.get_string("/modules", key, "unknown")
+    log("THe module %s is %s"%(key, value))
+```
 
 #### Settings.set_string
 
 #### Settings.get_bool
 
+`value = Settings.get_string(path, key, default_value)`
+
+Fetch a boolean from the settings store given a path and a key.
+
+Option        | Description
+--------------|---------------------------------------------
+path          | The settings path to query all keys for
+key           | The key to lookup
+default_value | The value to return if the key is not found.
+value         | The resulting value.
+
+**Example:**
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  for key in config.get_section("/modules"):
+    value = config.get_string("/modules", key, False)
+    log("THe module %s is %s"%(key, value))
+```
+
 #### Settings.set_bool
 
 #### Settings.get_int
+
+`value = Settings.get_string(path, key, default_value)`
+
+Fetch a number from the settings store given a path and a key.
+
+Option        | Description
+--------------|---------------------------------------------
+path          | The settings path to query all keys for
+key           | The key to lookup
+default_value | The value to return if the key is not found.
+value         | The resulting value.
+
+**Example:**
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  port = config.get_int("/settings/NRPE/server", "port", -1)
+  log("NRPE port is: %d"%port)
+```
 
 #### Settings.set_int
 

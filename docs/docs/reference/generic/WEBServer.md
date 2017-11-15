@@ -570,7 +570,6 @@ This is a section of objects. This means that you will create objects below this
 | parent      | default       | PARENT      |
 | password    |               | PASSWORD    |
 | role        |               | ROLE        |
-| username    |               | USERNAME    |
 
 
 **Sample:**
@@ -583,7 +582,6 @@ is template=false
 parent=default
 #password=...
 #role=...
-#username=...
 
 ```
 
