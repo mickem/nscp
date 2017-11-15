@@ -50,6 +50,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/unordered_set.hpp>
+#include <boost/foreach.hpp>
 
 #include <iostream>
 #include <fstream>
@@ -132,7 +133,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		//NSC_DEBUG_MSG_STD("Allowed hosts definition: " + allowed_hosts.to_string());
 
 		BOOST_FOREACH(const web_server::user_config_instance &o, users_.get_object_list()) {
-			session->add_user(o->username, o->role, o->password);
+			session->add_user(o->get_alias(), o->role, o->password);
 		}
 		BOOST_FOREACH(const role_map::value_type &v, roles) {
 			session->add_grant(v.first, v.second);
@@ -147,8 +148,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			port = port.substr(0, port.length() - 1);
 		}
 
-		session->add_user("admin", "legacy", admin_password);
+		session->add_user("admin", "full", admin_password);
 		session->add_grant("legacy", "*");
+		session->add_grant("full", "*");
+		session->add_grant("client", "info.get,info.get.version,queries.list,queries.get,queries.execute");
 
 		server.reset(new Mongoose::Server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {
@@ -237,15 +240,184 @@ bool WEBServer::commandLineExec(const int target_mode, const Plugin::ExecuteRequ
 		command = "help";
 	if (command == "install")
 		return install_server(request, response);
+	if (command == "add-user")
+		return cli_add_user(request, response);
+	if (command == "add-role")
+		return cli_add_role(request, response);
 	else if (command == "password")
 		return password(request, response);
 	else if (target_mode == NSCAPI::target_module) {
-		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password] --help");
+		nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp web [install|password|add-user|add-role] --help");
 		return true;
 	}
 	return false;
 }
 
+bool WEBServer::cli_add_user(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string user, password, role;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("user", po::value<std::string>(&user)->required(),
+		"The username to login as")
+
+		("password", po::value<std::string>(&password),
+		"The password to login with")
+
+		("role", po::value<std::string>(&role),
+		"The role to grant to the user")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+
+		const std::string path = "/settings/WEB/server/users/" + user;
+
+		pf::settings_query q(get_id());
+		q.get(path, "password", "");
+		q.get(path, "role", "");
+
+		get_core()->settings_query(q.request(), q.response());
+		if (!q.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+			return true;
+		}
+		bool old = false;
+		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+			old = true;
+			if (val.matches(path, "password") && password.empty())
+				password = val.get_string();
+			else if (val.matches(path, "role") && role.empty())
+				role = val.get_string();
+		}
+
+		std::stringstream result;
+		if (password == "") {
+			result << "WARNING: No password specified using a generated password" << std::endl;
+			password = token_store::generate_token(32);
+		}
+		if (role == "") {
+			result << "WARNING: No role specified using client" << std::endl;
+			role = "client";
+		}
+
+		nscapi::protobuf::functions::settings_query s(get_id());
+		if (old) {
+			result << "Updating old user " << user << " authenticated by " << password << " as " << role <<std::endl;
+		} else {
+			result << "Creating new user " << user << " authenticated by " << password << " as " << role << std::endl;
+		}
+		s.set(path, "password", password);
+		s.set(path, "role", role);
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return true;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, result.str());
+		return true;
+	} catch (const std::exception &e) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+		return true;
+	} catch (...) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+		return true;
+	}
+}
+
+bool WEBServer::cli_add_role(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
+	namespace po = boost::program_options;
+	namespace pf = nscapi::protobuf::functions;
+	po::variables_map vm;
+	po::options_description desc;
+	std::string role, grant;
+
+	desc.add_options()
+		("help", "Show help.")
+
+		("role", po::value<std::string>(&role),
+		"The role to update grants for")
+
+		("grant", po::value<std::string>(&grant),
+		"The grants to give to the role")
+
+		;
+
+	try {
+		nscapi::program_options::basic_command_line_parser cmd(request);
+		cmd.options(desc);
+
+		po::parsed_options parsed = cmd.run();
+		po::store(parsed, vm);
+		po::notify(vm);
+
+		if (vm.count("help")) {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+
+		if (role == "") {
+			nscapi::protobuf::functions::set_response_good(*response, nscapi::program_options::help(desc));
+			return true;
+		}
+
+		std::stringstream result;
+
+		const std::string path = "/settings/WEB/server/roles";
+
+		pf::settings_query q(get_id());
+		q.get(path, role, "");
+
+		get_core()->settings_query(q.request(), q.response());
+		if (!q.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, q.get_response_error());
+			return true;
+		}
+		BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+			if (val.matches(path, role) && grant.empty()) {
+				grant = val.get_string();
+			}
+		}
+
+		nscapi::protobuf::functions::settings_query s(get_id());
+		result << "Role " << role << std::endl;
+		BOOST_FOREACH(const std::string &g, str::utils::split<std::list<std::string> >(grant, ",")) {
+			result << " " << g << std::endl;
+		}
+		s.set(path, role, grant);
+		s.save();
+		get_core()->settings_query(s.request(), s.response());
+		if (!s.validate_response()) {
+			nscapi::protobuf::functions::set_response_bad(*response, s.get_response_error());
+			return true;
+		}
+		nscapi::protobuf::functions::set_response_good(*response, result.str());
+		return true;
+	} catch (const std::exception &e) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Invalid command line: " + utf8::utf8_from_native(e.what()), *response);
+		return true;
+	} catch (...) {
+		nscapi::program_options::invalid_syntax(desc, request.command(), "Unknown exception", *response);
+		return true;
+	}
+}
 bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response) {
 	namespace po = boost::program_options;
 	namespace pf = nscapi::protobuf::functions;

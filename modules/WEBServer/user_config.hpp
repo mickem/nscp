@@ -29,7 +29,6 @@ namespace web_server {
 	struct user_config_object : public nscapi::settings_objects::object_instance_interface {
 		typedef nscapi::settings_objects::object_instance_interface parent;
 
-		std::string username;
 		std::string password;
 		std::string role;
 
@@ -48,11 +47,8 @@ namespace web_server {
 
 			root_path.add_key()
 
-				("username", sh::string_key(&username),
-					"USERNAME", "The username to use for authentication.")
-
 				("password", sh::string_key(&password),
-					"PASSWORD", "The password to use. Again has to be the same as the server or it wont work at all.")
+					"PASSWORD", "The password to use.")
 
 				("role", sh::string_key(&role),
 					"ROLE", "The role which will grant access to this user")
