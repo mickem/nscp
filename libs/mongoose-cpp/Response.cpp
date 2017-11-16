@@ -44,7 +44,7 @@ namespace Mongoose
             data << v.first << ": " << v.second << "\r\n";
         }
 		BOOST_FOREACH(const kvp::value_type &v, cookies) {
-			data << "Set-cookie=" << v.first << "=" << v.second << "; path=/\r\n";
+			data << "Set-cookie: " << v.first << "=" << v.second << "; path=/\r\n";
 		}
 
         data << "\r\n";

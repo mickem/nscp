@@ -47,31 +47,45 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 			response.append("Invalid authentication scheme");
 			return false;
 		}
-
+	}
+	if (request.hasVariable("Password")) {
+		std::string pwd = request.readHeader("Password");
+		std::string fake_user = "admin";
+		if (!validate_user(fake_user, pwd)) {
+			response.setCode(HTTP_FORBIDDEN);
+			response.append("403 Your not allowed");
+			return false;
+		}
+		setup_token(fake_user, response);
+		return true;
+	}
+	if (request.hasVariable("password")) {
+		std::string pwd = request.readHeader("password");
+		std::string fake_user = "admin";
+		if (!validate_user(fake_user, pwd)) {
+			response.setCode(HTTP_FORBIDDEN);
+			response.append("403 Your not allowed");
+			return false;
+		}
+		setup_token(fake_user, response);
+		return true;
 	}
 
 
 	std::string token = request.readHeader("TOKEN");
 	if (token.empty())
 		token = request.get("__TOKEN", "");
-	bool auth = false;
-	std::string password = request.readHeader("password");
-	if (token.empty()) {
-		if (password.empty())
-			password = request.get("password", "");
-		auth = validate_user("admin", password);
-	} else {
-		auth = tokens.validate(token);
-	}
-	if (!auth) {
-// 		NSC_LOG_ERROR("Invalid password/token from: " + request.getRemoteIp() + ": " + password);
-		if (respond) {
+	if (!token.empty()) {
+		if (!tokens.validate(token)) {
 			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 Please login first");
+			response.append("403 Your not allowed");
+			return false;
 		}
-		return false;
+		return true;
 	}
-	return true;
+	response.setCode(HTTP_FORBIDDEN);
+	response.append("403 Please login first");
+	return false;
 }
 
 
