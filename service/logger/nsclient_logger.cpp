@@ -48,9 +48,6 @@ void nsclient::logging::impl::nsclient_logger::set_backend(std::string backend) 
 	}
 	tmp->startup();
 	backend_.swap(tmp);
-	if (backend_) {
-		backend_->do_log(log_message_factory::create_debug("log", __FILE__, __LINE__, "Creating logger: " + backend));
-	}
 }
 
 nsclient::logging::impl::nsclient_logger::nsclient_logger() {
