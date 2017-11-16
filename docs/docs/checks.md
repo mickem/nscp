@@ -227,6 +227,30 @@ For instance if the CPU load had been above the warning threshold we would have 
 Now show-all is not magical it only modifies the top-syntax replacing `%(problem_list)` with `%(list)`.
 This is something you could have achieved yourself but show-all makes it simpler as well as makes intent much clearer.
 
+
+## Performance data
+
+Performance data is generated based on your query.
+This means that if you do not have any warning or critical expression you will not get any performance data.
+Compare:
+
+```
+check_cpu warning=none critical=none
+L        cli OK: OK: CPU load is ok.
+L        cli  Performance data:
+check_cpu "warning=load > 80" "critical=load > 90"
+L        cli OK: OK: CPU load is ok.
+L        cli  Performance data: 'total 5m'=0%;80;90 'total 1m'=15%;80;90 'total 5s'=24%;80;90
+```
+
+If you want to get performance data for somethign which you are not checking you can use the perf.config option to add in extra Performance data.
+
+```
+check_cpu warning=none critical=none "perf-config=extra(load)"
+L        cli OK: OK: CPU load is ok.
+L        cli  Performance data: 'total 5m'=0%;0;0 'total 1m'=8%;0;0 'total 5s'=21%;0;0
+```
+
 ## Advanced options
 
 ### Performance data configuration
