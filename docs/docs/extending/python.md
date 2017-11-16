@@ -487,7 +487,28 @@ log('Got command: %s'%request_message.payload[0].command)
 
 ### Settings
 
+The `Settings` object wraps the Settings API which allows you to access and modify the NSClient++ configuration file.
+
 #### Settings.get
+
+`Settings.get(plugin_id)`
+
+Option    | Description
+----------|------------------------------------------------------------------
+plugin_id | The plugin id as supplied at module ini (i.e. the init function).
+
+
+Get an instance of the settings module.
+
+**Example:**
+
+```
+from NSCP import Settings
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  (code, message, perf) = config.get_string("/modules", "PythonScript", "disabled")
+```
 
 #### Settings.get_section
 
@@ -538,6 +559,28 @@ def init(plugin_id, plugin_alias, script_alias):
 
 #### Settings.set_string
 
+`Settings.set_string(path, key, value)`
+
+Set a string in the settings store given a path and a key.
+
+**please note** changing the settings will not save so unless you call `Settings.save()` afterwards the settings will never be written to your settings file.
+
+Option | Description
+-------|----------------------------------------
+path   | The settings path to query all keys for
+key    | The key to lookup
+value  | The value to set.
+
+**Example:**
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  config.get_string("/modules", "PythonScript", "enabled")
+```
+
 #### Settings.get_bool
 
 `value = Settings.get_string(path, key, default_value)`
@@ -565,9 +608,31 @@ def init(plugin_id, plugin_alias, script_alias):
 
 #### Settings.set_bool
 
+`Settings.set_bool(path, key, value)`
+
+Set a boolean in the settings store given a path and a key.
+
+**please note** changing the settings will not save so unless you call `Settings.save()` afterwards the settings will never be written to your settings file.
+
+Option | Description
+-------|----------------------------------------
+path   | The settings path to query all keys for
+key    | The key to lookup
+value  | The value to set.
+
+**Example:** Enable a module
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  config.set_bool("/modules", "PythonScript", True)
+```
+
 #### Settings.get_int
 
-`value = Settings.get_string(path, key, default_value)`
+`value = Settings.get_int(path, key, default_value)`
 
 Fetch a number from the settings store given a path and a key.
 
@@ -578,7 +643,7 @@ key           | The key to lookup
 default_value | The value to return if the key is not found.
 value         | The resulting value.
 
-**Example:**
+**Example:** Get the NRPE port
 
 ```
 from NSCP import Settings, log
@@ -591,13 +656,75 @@ def init(plugin_id, plugin_alias, script_alias):
 
 #### Settings.set_int
 
+`Settings.set_int(path, key, value)`
+
+Set a boolean in the settings store given a path and a key.
+
+**please note** changing the settings will not save so unless you call `Settings.save()` afterwards the settings will never be written to your settings file.
+
+Option | Description
+-------|----------------------------------------
+path   | The settings path to query all keys for
+key    | The key to lookup
+value  | The value to set.
+
+**Example:** Change the NRPE port.
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  config.set_int("/settings/NRPE/server", "port", 1234)
+```
+
 #### Settings.save
+
+`Settings.save()`
+
+Save the settings file to disk (or registry depending on where it is stored).
+
+**Example:** Save changed settings
+
+```
+from NSCP import Settings, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+  config.set_int("/settings/NRPE/server", "port", 1234)
+  config.save()
+```
 
 #### Settings.register_path
 
+Used to register a path with the settings handler.
+The idea with registring keys is that this provides documentation inside the settings file and the WEB UI.
+
 #### Settings.register_key
 
+Used to register a key with the settings handler.
+The idea with registring keys is that this provides documentation inside the settings file and the WEB UI.
+
 #### Settings.query
+
+`Settings.query()`
+
+Invoke the RAW settings API with a protobuf message.
+
+**Example:**
+
+```
+from NSCP import Settings, log
+import plugin_pb2
+
+def init(plugin_id, plugin_alias, script_alias):
+  config = Settings.get(plugin_id)
+
+  request_message = plugin_pb2.SettingsRequestMessage()
+  response = config.query(request_message.SerializeToString())
+  response_message = plugin_pb2.SettingsResponseMessage()
+  response_message.ParseFromString(response)
+```
 
 ### status
 
