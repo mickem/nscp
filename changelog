@@ -1,3 +1,88 @@
+2017-11-16 Michael Medin
+ * Added more python API documentation
+ * Fixed #499 Added details about adding performance data to documentation about checks
+ * Fixed #520 removed pointless log message about logger
+ * REST: Fixed #485 check_nscp_web is now supported again, sorry for the delay....
+
+2017-11-15 Michael Medin
+ * Added command line commands to nscp web for adding users and roles: nscp web <add-user|add-role> --help
+ * REST: Added support for python runtime
+
+2017-11-14 Michael Medin
+ * REST: Added support for loading zip modules
+ * REST: Fixed fetching single plugin and plugin load status updates
+ * REST: fixed segv when fetching log records
+ * REST: Added links to modules controller
+ * Fixed python script CLI for loading scripts
+ * Added some more python API docs
+ * Removed erroneous error message bout web password
+ * Added compatibility matrices to documentation (Fixing #482 )
+
+2017-11-12 Michael Medin
+ * check_process: Fixed #494 empty status message
+ * Events: Added proper event names
+ * CheckEventLog added support for fetching xml
+ * REST: added privelages to query controller
+ * Fixed rendering issuein api docs
+
+2017-11-11 Michael Medin
+ * Added skeleton docs for the Python API
+ * Improved the markdown  docs for the plugin API
+ * Various minor rest api fixes (pagination, and links)
+ * Fixed python script issues
+
+2017-11-09 Michael Medin
+ * Fixed accidental renaming of module in ext-scr install command
+ * Fixed so clients (test/web) can show multiple lines in output
+
+2017-11-08 Michael Medin
+ * Added info API to get version
+
+2017-11-06 Michael Medin
+ * Regression fixes for external scripts
+ * Fixed some python script refactoring regression issues
+
+2017-11-05 Michael Medin
+ * check_eventlog: Added support for audit success/failure keyword filtering Fixed #488
+ * zip modules: added support for python script one-liners
+ * PythonScripts: Made python scripts compatible with external scripts cli as well as code refactoring
+ * check_pdh: Added ignore-errors to make counters return 0 instead of errors: #454
+ * Split external script up into chunks
+
+2017-10-31 Michael Medin
+ * ZIP modules: Added modules and on_start to zip modules to load modules and run commands on start
+
+2017-10-28 Michael Medin
+ * Implemented script support for zip plugins
+
+2017-10-28 Michael Medin
+ * CheckExternalScripts added support for not writing the configuration when adding script (--no-config)
+ * Added ZIP plugins
+
+2017-10-18 Thomas Rohlajz
+ * Remove duplicity in tutorial documentation
+
+2017-10-25 Michael Medin
+ * REST: added log api
+ * core: Refactoring
+
+2017-10-17 Michael Medin
+ * Fixed #472 Added sample exclude versus filter
+ * Fixed #471 added sample command with perf-config to check_memory
+
+2017-10-16 Michael Medin
+ * Fixed #413 check_network returning the wrong values
+ * Added example real-time eventlog command to docs
+
+2017-10-15 Michael Medin
+ * Major overhaul of the documentation making the generated bits easier to read...
+
+2017-10-11 Michael Kraus
+ * Add link and information about check_nsc_web
+
+2017-10-11 Michael Medin
+ * Added documentation for REST API and added privs and fixed some issues
+
 2017-10-10 Michael Medin
  * Updated the API documentation
  * Added /api and /api/v1 endpoints to provide information about API
