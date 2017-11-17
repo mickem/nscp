@@ -10,7 +10,7 @@ The scripts API can be used to read view and modify the scripts which NSClient++
 
 ## List modules
 
-The modules API will responde to get with a list of all currently loaded modules.
+The modules API will respond to get with a list of all currently loaded modules.
 You can add `all=true` if you want to show modules which are not loaded as well.
 This is significantly slower as NSClient++ has to inspect all available modules.
 

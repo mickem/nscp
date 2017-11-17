@@ -17,7 +17,7 @@ Key | Runtime              | Description                                        
 ----|----------------------|-------------------------------------------------------------------------|---------
 ext | CheckExternalScripts | Any script which ix executed on command line                            | Complete
 lua | LUAScripts           | Scripts written in the Lua language which is executed inside NSClient++ | Missing
-py  | PythonScripts        | Scripts written in the Python language running inside NSClient++        | Missing
+py  | PythonScripts        | Scripts written in the Python language running inside NSClient++        | Complete
 
 
 ## Security
@@ -33,7 +33,7 @@ script root=${scripts}
 
 ## List Runtimes
 
-The API lists all avalible runtimes.
+The API lists all available runtimes.
 
 Key       | Value
 ----------|----------------------

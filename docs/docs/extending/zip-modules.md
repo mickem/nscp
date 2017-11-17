@@ -1,6 +1,6 @@
 # Zip modules
 
-Zip modules is a way to packge a number of scripts and configuration inside a zip-file to make distributin easier.
+Zip modules is a way to package a number of scripts and configuration inside a zip-file to make distributing them easier.
 The Zip contains shell script or python scripts and some basic configuration instructions.
 
 ## Writing Zip modules.
@@ -42,12 +42,12 @@ on_start    | A list of commands to execute on start
 ### Modules
 
 A list of modules you want to load inside NSClient++.
-These modules will not be added to the config section of NSCLient++ instead they are loaded when the module is loaded.
+These modules will not be added to the config section of NSClient++ instead they are loaded when the module is loaded.
 You can specify any module here including other zip-modules.
 
 ### Scripts
 
-These scriptes, like the modules, are never added to the config instead they are loaded when the module is loaded.
+These scripts, like the modules, are never added to the config instead they are loaded when the module is loaded.
 You can use two syntaxes either the shorthand where you only specify the name of the script and the module and alias will be derived from the script name and extension.
 
 ```
@@ -60,9 +60,9 @@ Another way is to define an object where you can customize the details of the sc
 
 Key      | Description
 ---------|------------------------------------------------------------------------
-provider | The module which provides the funstionality reuired to run this script.
+provider | The module which provides the functionality required to run this script.
 script   | The script file (inside the zip) to load.
-alias    | The lias of the script.
+alias    | The alias of the script.
 command  | The command to execute
 
 ```
@@ -87,4 +87,4 @@ CheckSystem = enabled
 my-zip-module.zip = enabled
 ```
 
-And all the APid for regular modules work with zip-moduled as well.
+And all the APIs for regular modules work with zip-modules as well.

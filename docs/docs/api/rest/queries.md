@@ -9,7 +9,7 @@ The query API can be used to list and execute queries. Queries are check command
 
 ## List queries
 
-The default `GET` operation on the query api is ro fetch a list of all avalible (currently loaded) modules.
+The default `GET` operation on the query API is to fetch a list of all available (currently loaded) modules.
 There is no way to get a list of all possible queries as that is an unknown set.
 
 Key       | Value
@@ -111,7 +111,7 @@ The difference between the two commands are the format of the result of the quer
 
 ## Command: execute
 
-Executes a query and restuns the result.
+Executes a query and returns the result.
 
 Key       | Value
 ----------|-----------------------------------------------
@@ -159,7 +159,7 @@ GET /api/v1/queries/:query/commands/execute
 
 ### Example
 
-An example of excuting check_cpu with a 3 minuter time interval:
+An example of executing check_cpu with a 3 minute time interval:
 
 ```
 curl -s -k -u admin "https://localhost:8443/api/v1/queries/check_cpu/commands/execute?time=3m" | python -m json.tool
@@ -225,10 +225,10 @@ GET /api/v1/queries/:query/commands/execute_nagios
 
 ### Example
 
-An example of excuting check_cpu with a 3 minuter time interval:
+An example of excuting check_cpu with a 3 minutes time interval:
 
 ```
-$ curl -s -k -u admin "https://localhost:8443/api/v1/queries/check_cpu/commands/execute_nagios?time=3m" | python -m json.tool
+curl -s -k -u admin "https://localhost:8443/api/v1/queries/check_cpu/commands/execute_nagios?time=3m" | python -m json.tool
 {
     "command": "check_cpu",
     "lines": [

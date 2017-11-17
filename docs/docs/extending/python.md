@@ -698,12 +698,12 @@ def init(plugin_id, plugin_alias, script_alias):
 #### Settings.register_path
 
 Used to register a path with the settings handler.
-The idea with registring keys is that this provides documentation inside the settings file and the WEB UI.
+The idea with registering keys is that this provides documentation inside the settings file and the WEB UI.
 
 #### Settings.register_key
 
 Used to register a key with the settings handler.
-The idea with registring keys is that this provides documentation inside the settings file and the WEB UI.
+The idea with registering keys is that this provides documentation inside the settings file and the WEB UI.
 
 #### Settings.query
 

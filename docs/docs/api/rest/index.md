@@ -53,7 +53,7 @@ WEBServer = enabled
 ; PASSWORD - Password used to authenticate against server
 password = <MY SECURE API KEY>
 
-; ALLOWED HOSTS - A comaseparated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
+; ALLOWED HOSTS - A coma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 allowed hosts = 127.0.0.1,192.168.2.0/24
 
 [/settings/WEB/server]
@@ -231,14 +231,14 @@ curl -k -i -u admin https://localhost:8443/api
 
 ### Authorization
 
-The rest API is secured using a series of privilages required (one for each API call) which are connect to roles chich you can assign users.
-The default user (root) will, by default, recive unlimited privelages so it can do anything.
-This means you most likely want to create seprate users when using the REST API so you can lock down the privelages.
+The rest API is secured using a series of privileges required (one for each API call) which are connect to roles which you can assign users.
+The default user (root) will, by default, receive unlimited privileges so it can do anything.
+This means you most likely want to create separate users when using the REST API so you can lock down the privileges.
 
-#### Privelages
+#### Privileges
 
-Privelages can be found net to each API Call in the documnetation. They are dot-separated strings.
-For instance the `/api/v1/modules/:module/commands/load` requires the `modules.load` pribvelage.
+Privelages can be found net to each API Call in the documentation. They are dot-separated strings.
+For instance the `/api/v1/modules/:module/commands/load` requires the `modules.load` privilege.
 To hand this out to a role you would lie the string under the roles like so:
 
 ```
@@ -246,43 +246,46 @@ To hand this out to a role you would lie the string under the roles like so:
 my_role=modules.load
 ```
 
-This can easily become cumbersome and thus you can add a star (*) to add multiple privelages to a role like so:
+This can easily become cumbersome and thus you can add a star (*) to add multiple privileges to a role like so:
 
 ```
 [/settings/web/roles]
 my_role=modules.*
 ```
 
-This gives the role `my_role` not only `modules.load` but also all other `mdoules.:something` commands such as `modules.list`
-This is infact how the legacy role is created:
+This gives the role `my_role` not only `modules.load` but also all other `modules.:something` commands such as `modules.list`
+This is in fact how the legacy role is created:
 
 ```
 [/settings/web/roles]
 legacy=*
 ```
+
 #### Adding users
 
-**TODO**
+You can add users either via adding them manually to the config or use the command line syntax.
 
 ```
-[/settings/web/users/my_user]
-username=hello
-password=foobar
-role=legacy
+nscp web add-user --user foo --password foo
 ```
 
+```
+[/settings/web/users/foo]
+password=foo
+role=limited
+```
 
 #### Assigning roles to users
 
-Once we have defined a role we can assign it to user by adding adding the user to that role:
-
-**TODO**
+Once we have defined a role we can assign it to user by adding the user to that role:
 
 ```
-[/settings/web/users/my_user]
-username=hello
-password=foobar
-role=legacy
+nscp web add-role --role limited --grant info.get
+```
+
+```
+[/settings/web/roles]
+limited=info.get
 ```
 
 ### Hypermedia
@@ -365,7 +368,7 @@ So for details on that please review the [legacy API](legacy.md).
 ### Check Plugins
 
 - [check_nscp_api](https://github.com/Icinga/icinga2/pull/5239) included in Icinga 2 v2.7.
-- [check_nsc_web](https://github.com/m-kraus/check_nsc_web) standalone Plugin written in Go, suitable for all comaptible cores (Naemon, Icinga 1/2, etc).
+- [check_nsc_web](https://github.com/m-kraus/check_nsc_web) standalone Plugin written in Go, suitable for all compatible cores (Naemon, Icinga 1/2, etc).
 
 ## References
 
