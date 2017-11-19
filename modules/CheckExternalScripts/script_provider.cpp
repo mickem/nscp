@@ -80,3 +80,12 @@ void script_provider::remove_command(std::string alias) {
 	commands_.remove(alias);
 }
 
+std::list<std::string> script_provider::get_commands() {
+	boost::shared_lock<boost::shared_mutex> readLock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!readLock.owns_lock()) {
+		get_core()->log(NSCAPI::log_level::error, __FILE__, __LINE__, "Failed to get mutex: get_commands");
+		return std::list<std::string>();
+	}
+	return commands_.get_alias_list();
+}
+

@@ -119,22 +119,12 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	json_spirit::Array data;
 
 	if (query) {
-		Plugin::RegistryRequestMessage rrm;
-		Plugin::RegistryResponseMessage response;
-		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
-		payload->mutable_inventory()->set_fetch_all(true);
-		payload->mutable_inventory()->add_type(Plugin::Registry_ItemType_QUERY);
-		std::string pb_response;
-		provider_->get_core()->registry_query(rrm.SerializeAsString(), pb_response);
-		response.ParseFromString(pb_response);
-		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &p, response.payload()) {
-			BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory &i, p.inventory()) {
-				if (json) {
-					json_spirit::Value v = i.name();
-					data.push_back(v);
-				} else {
-					resp += i.name() + "\n";
-				}
+		BOOST_FOREACH(const std::string &cmd, provider_->get_commands()) {
+			if (json) {
+				json_spirit::Value v = cmd;
+				data.push_back(v);
+			} else {
+				resp += cmd + "\n";
 			}
 		}
 	} else {

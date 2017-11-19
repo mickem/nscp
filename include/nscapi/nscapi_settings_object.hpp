@@ -268,6 +268,13 @@ namespace nscapi {
 				}
 				return ret;
 			}
+			std::list<std::string> get_alias_list() const {
+				std::list<std::string> ret;
+				BOOST_FOREACH(const typename object_map::value_type &t, objects) {
+					ret.push_back(t.first);
+				}
+				return ret;
+			}
 			bool has_objects() const {
 				return !objects.empty();
 			}

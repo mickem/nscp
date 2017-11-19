@@ -21,4 +21,5 @@ struct script_provider_interface {
 	virtual void add_command(std::string alias, std::string script) = 0;
 	virtual commands::command_object_instance find_command(std::string alias) = 0;
 	virtual void remove_command(std::string alias) = 0;
+	virtual std::list<std::string> get_commands() = 0;
 };

@@ -31,5 +31,6 @@ public:
 	void add_command(std::string alias, std::string script);
 	commands::command_object_instance find_command(std::string alias);
 	void remove_command(std::string alias);
+	std::list<std::string> get_commands();
 
 };
