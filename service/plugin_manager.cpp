@@ -268,29 +268,25 @@ void nsclient::core::plugin_manager::stop_plugins() {
 
 boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(std::string file_name) {
 	std::string name = file_name;
-	boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
-	if (module) {
-		return module;
-	}
-	module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
-	if (module) {
-		return module;
-	}
-
-	if (name.length() > 4 && name.substr(name.length() - 4) == ".dll") {
+	std::list<std::string> names;
+	names.push_back(file_name);
+	if (name.length() > 4 && (name.substr(name.length() - 4) == ".dll" || name.substr(name.length() - 4) == ".zip")) {
 		name = name.substr(0, name.length() - 4);
 	}
-	name = get_plugin_file(name);
-	module = file_helpers::finder::locate_file_icase(plugin_path_, name);
-	if (module) {
-		return module;
-	}
-	module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
-	if (module) {
-		return module;
-	}
+	names.push_back(get_plugin_file(name));
+	names.push_back(name + ".zip");
 
-	LOG_ERROR_CORE("Failed to find plugin: " + name);
+	BOOST_FOREACH(const std::string &name, names) {
+		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
+		if (module) {
+			return module;
+		}
+		module = file_helpers::finder::locate_file_icase(boost::filesystem::path("./modules"), name);
+		if (module) {
+			return module;
+		}
+	}
+	LOG_ERROR_CORE("Failed to find plugin: " + file_name);
 	return boost::optional<boost::filesystem::path>();
 }
 
