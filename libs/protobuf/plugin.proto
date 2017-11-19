@@ -533,9 +533,6 @@ message Settings {
 		required string path = 1;
 		optional string key = 2;
 	};
-	message Query {
-		optional string expression = 1;
-	};
 	message Information {
 		optional string title = 1;
 		optional string description = 2;
@@ -566,7 +563,6 @@ message SettingsRequestMessage {
 		};
 		message Query {
 			optional Settings.Node node = 1;
-			optional Settings.Query query = 4;
 			optional bool recursive = 2;
 			optional Common.DataType type = 3;
 			optional Common.AnyDataType default_value = 5;
@@ -578,7 +574,6 @@ message SettingsRequestMessage {
 		message Inventory {
 			optional string plugin = 11;
 			optional Settings.Node node = 1;
-			optional Settings.Query query = 10;
 			optional bool recursive_fetch = 2;
 			optional bool fetch_keys = 3;
 			optional bool fetch_paths = 4;

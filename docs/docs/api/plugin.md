@@ -682,15 +682,6 @@ Modifier | Type   | Key  | Description
 required | string | path |            
 optional | string | key  |            
 
-<a name=".Plugin.Settings.Query"/>
-### Query
-
-`Plugin.Settings.Query` 
-
-Modifier | Type   | Key        | Description
--------- | ------ | ---------- | -----------
-optional | string | expression |            
-
 <a name=".Plugin.Settings.Information"/>
 ### Information
 
@@ -758,7 +749,6 @@ optional | string      | fields |
 Modifier | Type        | Key           | Description
 -------- | ----------- | ------------- | -----------
 optional | Node        | node          |            
-optional | Query       | query         |            
 optional | bool        | recursive     |            
 optional | DataType    | type          |            
 optional | AnyDataType | default_value |            
@@ -782,7 +772,6 @@ Modifier | Type   | Key             | Description
 -------- | ------ | --------------- | -----------
 optional | string | plugin          |            
 optional | Node   | node            |            
-optional | Query  | query           |            
 optional | bool   | recursive_fetch |            
 optional | bool   | fetch_keys      |            
 optional | bool   | fetch_paths     |            
