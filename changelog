@@ -1,3 +1,19 @@
+2017-11-19 Michael Medin
+ * REST: Added crude settings API (needs more work before making official)
+ * Fixed #435 added support for overriding http verb with X-HTTP-Method-Override
+ * Improved error message for 404:s
+ * Fixed some issues with enumerating settings keys
+ * Removed query from settings protobuf api as it was never used
+ * CORE: Fixed listing unloaded modules by name
+ * REST: Added POST of modules to upload them
+ * REST: Fixed execute_nagios support for plain text putput and fixed return code
+ * REST: Fixed segv when parsing privileges
+ * WEBServer: Fixed output from nscp web install
+ * zip-modules: fixed loading zip-modules without extensions
+ * REST: GET ...queries/ actually lists scripts not queries
+ * REST: Added putting log messages via REST API.
+ * Spellchecked some docs a bit
+
 2017-11-16 Michael Medin
  * Added more python API documentation
  * Fixed #499 Added details about adding performance data to documentation about checks
