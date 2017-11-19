@@ -126,7 +126,11 @@ void query_controller::query_command(Mongoose::Request &request, boost::smatch &
 			execute_query(module, request.getVariablesVector(), response);
 		}
 	} else if (command == "execute_nagios") {
-		execute_query_nagios(module, request.getVariablesVector(), response);
+		if (request.readHeader("Accept") == "text/plain") {
+			execute_query_text(module, request.getVariablesVector(), response);
+		} else {
+			execute_query_nagios(module, request.getVariablesVector(), response);
+		}
 	} else {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("unknown command: " + command);
@@ -256,7 +260,7 @@ void query_controller::execute_query_text(std::string module, arg_vector args, M
 			code = HTTP_SERVER_ERROR;
 		} else if (r.result() == Plugin::Common_ResultCode_UNKNOWN) {
 			code = 503;
-		} else if (r.result() == Plugin::Common_ResultCode_UNKNOWN) {
+		} else if (r.result() == Plugin::Common_ResultCode_WARNING) {
 			code = 202;
 		}
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
