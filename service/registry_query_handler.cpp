@@ -145,7 +145,9 @@ namespace nsclient {
 					continue;
 				}
 
-				add_module(rp, plugin);
+				if (q.fetch_all() || plugin.is_loaded  || (q.has_name() && q.name() == plugin.dll) ) {
+					add_module(rp, plugin);
+				}
 
 				if (q.has_name() && q.name() == plugin.dll) {
 					return;
