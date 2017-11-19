@@ -113,14 +113,14 @@ plugin_id | plugin_alias | script_alias
 2         | ps2          | ms1
 2         | ps2          | ms2
 
-Thus when loading configuration it is recomended to place it under the following pseudo key `/settings/:script_name/:plugin_alias/:script_alias/` to allow for users loading a script multiple times.
+Thus when loading configuration it is recommended to place it under the following pseudo key `/settings/:script_name/:plugin_alias/:script_alias/` to allow for users loading a script multiple times.
 
-At the same time it is discouraged from using the alias concept to load a script multipel times which is why the command line interfaces does not provide commands for doing so.
-But in complicated sceraios it can be very usefull but it causes a lot of complexity.
+At the same time it is discouraged from using the alias concept to load a script multiple times which is why the command line interfaces does not provide commands for doing so.
+But in complicated scenarios it can be very useful but it causes a lot of complexity.
 
 ### shutdown
 
-The shutdown function is called whenver NSClient++ is shutting down or the PythonScript odule is unloaded.
+The shutdown function is called whenever NSClient++ is shutting down or the PythonScript module is unloaded.
 The function takes no arguments.
 
 ```
@@ -131,9 +131,9 @@ def shutdown(args):
 
 ## API
 
-NSClient++ provides a rich API where you can do just about anything that can be done with NSCLient++.
-THis includes loading modules, accessing settings, provind command line interfaces etc etc.
-While most of it has a simple wrappers which you can use directly some things might require you to use the underlaying protobuf Api.
+NSClient++ provides a rich API where you can do just about anything that can be done with NSClient++.
+This includes loading modules, accessing settings, providing command line interfaces etc etc.
+While most of it has a simple wrappers which you can use directly some things might require you to use the underlying protobuf Api.
 
 The API is split three modules.
  - Settings
@@ -154,7 +154,7 @@ There is also an enum: `status` as well as a some direct functions:
 
 Used to send log messages to NSClient++.
 These log messages will be visible on the command line as well as the any configure log file.
-THe log message wil lbe logge don the `info` level.
+The log message will be logged on the `info` level.
 
 ```
 from NSCP import log
@@ -168,7 +168,7 @@ log("This is a log message")
 
 Used to send log messages to NSClient++.
 These log messages will be visible on the command line as well as the any configure log file.
-THe log message wil lbe logge don the `error` level.
+The log message will be logged on the `error` level.
 
 ```
 from NSCP import log_error
@@ -182,7 +182,7 @@ log_error("This is an error message")
 
 Used to send log messages to NSClient++.
 These log messages will be visible on the command line as well as the any configure log file.
-THe log message wil lbe logge don the `debug` level.
+The log message will be logged on the `debug` level.
 
 ```
 from NSCP import log_debug
@@ -195,7 +195,7 @@ log_debug("This is a debug message")
 `sleep(milli_seconds)`
 
 Used to sleep for a given number of milliseconds.
-The reason this functione exists is that python is inherently single threaded and whenever you are executing python code your are essentially locking any other code from executing in python. This means that sleepiing or delaying inside python will prevent any other script to run. Thus if you need to wait please use this function as it will wait outide the locks and allow other script to run.
+The reason this function exists is that python is inherently single threaded and whenever you are executing python code your are essentially locking any other code from executing in python. This means that sleeping or delaying inside python will prevent any other script to run. Thus if you need to wait please use this function as it will wait outside the locks and allow other script to run.
 
 ```
 from NSCP import sleep, log_debug
@@ -216,13 +216,13 @@ Create an instance of the registry object.
 `Registry.simple_function(query_name, query_function, description)`
 
 Bind a function to a check query. This is similar to the `Registry.simple_function` function but the bound
-function uses a more powerfull syntax which requires you to parse the reques/response using the protobuf API.
+function uses a more powerful syntax which requires you to parse the request/response using the protobuf API.
 
 Option         | Description
 ---------------|----------------------------------------------------
 query_name     | The name of the query (i.e. the check command name)
 query_function | The function to call when the query is executed
-description    | The description of th query.
+description    | The description of the query.
 
 The bound function should look like this:
 
@@ -359,7 +359,90 @@ def init(plugin_id, plugin_alias, script_alias):
 
 #### Registry.subscription
 
+`Registry.subscription(channel, function)`
+
+Bind a function to a notification (think passive checks results). This is similar to the `Registry.simple_subscription` function but the bound
+function has a more powerful syntax with protobuf messages.
+
+Option   | Description
+---------|--------------------------------------------------
+channel  | The channel name to subscribe to
+function | The function to call when the command is executed
+
+The bound function should look like this:
+
+```
+def my_function(channel, message):
+  return True
+```
+
+**Example:**
+
+```
+from NSCP import Registry, Core, log_error
+import plugin_pb2
+
+def on_message(channel, message):
+  message = plugin_pb2.SubmitRequestMessage()
+  message.ParseFromString(request)
+  if len(message.payload) != 1:
+    log_error("Got invalid message on channel: %s"%channel)
+    return False
+
+def init(plugin_id, plugin_alias, script_alias):
+  reg = Registry.get(plugin_id)
+  reg.subscription('test-channel', on_message)
+```
+
 #### Registry.simple_subscription
+
+`Registry.simple_subscription(channel, function)`
+
+Bind a function to a notification (think passive checks results). This is similar to the `Registry.subscription` function but the bound
+function has a simpler syntax so you wont have to deal with the complexity of the protobuf API.
+
+Option   | Description
+---------|--------------------------------------------------
+channel  | The channel name to subscribe to
+function | The function to call when the command is executed
+
+The bound function should look like this:
+
+```
+def my_function(channel, source, command, status, message, perf):
+  return True
+```
+
+**Example:** Filter out repeated NSCA events
+
+```
+from NSCP import Registry, Core
+
+g_last_message = ''
+g_plugin_id = 0
+
+def filter_nsca(channel, source, command, status, message, perf):
+  global g_last_message, g_plugin_id
+  if not message = g_last_message:
+    g_last_message = message
+    core = Core.get(g_plugin_id)
+    core.simple_submit('NSCA', command, status, message, perf)
+
+def init(plugin_id, plugin_alias, script_alias):
+  global g_plugin_id
+  g_plugin_id = plugin_id
+  reg = Registry.get(plugin_id)
+  reg.simple_subscription('filter_nsca', filter_nsca)
+```
+
+To use the above specify `filter_nsca` as your target instead of NSCA like so:
+
+```
+[/settings/eventlog/real-time/filters/login]
+log=Security
+filter=id=4624
+target=filter_nsca
+```
 
 #### Registry.submit_metrics
 
@@ -481,9 +564,66 @@ log('Got command: %s'%request_message.payload[0].command)
 
 #### Core.load_module
 
+`Core.load_module(module, alias)`
+
+Load a module into NSClient++.
+
+Option | Description
+-------|------------------------------------
+module | The name of the module to load
+alias  | A alias (if loading a module twice)
+
+**Example:**
+
+```
+from NSCP import Core, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  core = Core.get(plugin_id)
+  core.load("CheckEventLog", "")
+```
+
 #### Core.unload_module
 
+`Core.load_module(module_or_alias)`
+
+Unload a module from NSClient++.
+
+Option          | Description
+----------------|----------------------------------------------
+module_or_alias | The name or the alias of the module to unload
+
+**Example:**
+
+```
+from NSCP import Core, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  core = Core.get(plugin_id)
+  core.unload("CheckEventLog", "")
+```
+
 #### Core.expand_path
+
+`path = Core.expand_path(path_expression)`
+
+Parse a path expression into a path.
+
+Option          | Description
+----------------|-----------------------------------------------------------------------
+path_expression | A path expression which can contain ${..} keywords such as ${modules}.
+path            | The resulting path
+
+**Example:**
+
+```
+from NSCP import Core, log
+
+def init(plugin_id, plugin_alias, script_alias):
+  core = Core.get(plugin_id)
+  path = core.expand_path("${scripts}/ptython/myscript.py")
+  log('The script path is: %s'%path)
+```
 
 ### Settings
 
