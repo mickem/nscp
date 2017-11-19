@@ -93,11 +93,11 @@ static int mg_get_cookie(const char *cookie_header, const char *var_name,
 
 namespace Mongoose
 {
-    Request::Request(struct mg_connection *connection, struct http_message *message, bool is_ssl)
+    Request::Request(struct mg_connection *connection, struct http_message *message, bool is_ssl, const std::string method)
 		: is_ssl_(is_ssl)
+		, method(method)
     {
         url = std::string(message->uri.p, message->uri.len);
-        method = std::string(message->method.p, message->method.len);
 		ip = std::string(inet_ntoa(connection->sa.sin.sin_addr));
 		if (message->query_string.p != NULL) {
 			query = std::string(message->query_string.p, message->query_string.len);

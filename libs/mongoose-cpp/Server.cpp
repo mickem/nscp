@@ -226,9 +226,16 @@ namespace Mongoose
 		std::string url = std::string(message->uri.p, message->uri.len);
 		std::string method = std::string(message->method.p, message->method.len);
 
+		for (int i = 0; i < ARRAY_SIZE(message->header_names); i++) {
+			if (message->header_names[i].p != NULL && message->header_names[i].len > 0 &&
+				strncmp(message->header_names[i].p, "X-HTTP-Method-Override", message->header_names[i].len) == 0) {
+				method = std::string(message->header_values[i].p, message->header_values[i].len);
+			}
+		}
+
 		BOOST_FOREACH(Controller *ctrl, controllers) {
 			if (ctrl->handles(method, url)) {
-				Request request(connection, message, is_ssl);
+				Request request(connection, message, is_ssl, method);
 				request_job job(this, ctrl, request, now(), job_id);
 
 				if (!job_queue_.push(job)) {
