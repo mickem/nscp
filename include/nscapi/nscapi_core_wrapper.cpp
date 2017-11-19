@@ -98,14 +98,14 @@ void nscapi::core_wrapper::log(std::string message) const {
 * @param message Message in human readable format
 * @throws nsclient::nsclient_exception When core pointer set is unavailable.
 */
-void nscapi::core_wrapper::log(NSCAPI::nagiosReturn msgType, std::string file, int line, std::string logMessage) const {
-	if (!should_log(msgType))
+void nscapi::core_wrapper::log(NSCAPI::log_level::level loglevel, std::string file, int line, std::string logMessage) const {
+	if (!should_log(loglevel))
 		return;
 	if (!fNSAPISimpleMessage) {
 		return;
 	}
 	try {
-		return fNSAPISimpleMessage(pimpl->alias.c_str(), msgType, file.c_str(), line, logMessage.c_str());
+		return fNSAPISimpleMessage(pimpl->alias.c_str(), loglevel, file.c_str(), line, logMessage.c_str());
 	} catch (...) {
 	}
 }

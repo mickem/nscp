@@ -3,6 +3,7 @@
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_functions.hpp>
+#include <nscapi/nscapi_helper.hpp>
 
 #include <str/utils.hpp>
 
@@ -13,6 +14,23 @@
 #include <boost/regex.hpp>
 
 
+std::string get_str_or(const json_spirit::Object &o, const std::string key, const std::string def) {
+	json_spirit::Object::const_iterator cit = o.find(key);
+	if (cit == o.end()) {
+		return def;
+	}
+	return cit->second.getString();
+}
+
+int get_int_or(const json_spirit::Object &o, const std::string key, const int def) {
+	json_spirit::Object::const_iterator cit = o.find(key);
+	if (cit == o.end()) {
+		return def;
+	}
+	return cit->second.getInt();
+}
+
+
 log_controller::log_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
   : session(session)
   , core(core)
@@ -20,6 +38,7 @@ log_controller::log_controller(boost::shared_ptr<session_manager_interface> sess
   , RegexpController("/api/v1/logs")
 {
 	addRoute("GET", "/?$", this, &log_controller::get_log);
+	addRoute("POST", "/?$", this, &log_controller::add_log);
 }
 
 bool is_str_empty(const std::string& m) {
@@ -65,4 +84,30 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 	}
 	response.setHeader("Link", next + "<" + base + str::xtos((count / ipp) + 1) + tail + ">; rel=\"last\"");
 	response.append(json_spirit::write(root));
+}
+
+void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!session->can("logs.put", request, response))
+		return;
+
+
+	try {
+		json_spirit::Value root;
+		std::string data = request.getData();
+		json_spirit::read_or_throw(data, root);
+		std::string object_type;
+		json_spirit::Object o = root.getObject();
+		std::string file = get_str_or(o, "file", "REST");
+		int line = get_int_or(o, "line", 0);
+		NSCAPI::log_level::level level = nscapi::logging::parse(get_str_or(o, "level", "error"));
+		std::string message = get_str_or(o, "message", "no message");
+		core->log(level, file, line, message);
+	} catch (const json_spirit::ParseError &e) {
+		response.setCode(HTTP_BAD_REQUEST);
+		response.append("Problems parsing JSON");
+	}
+	response.setCode(HTTP_OK);
 }
