@@ -50,7 +50,10 @@ grants grant_store::fetch_role(const std::string &uid) {
 bool grant_store::validate_grants(std::list<std::string> &grant, std::list<std::string> &need) {
 	grant_list::const_iterator cg = grant.begin();
 	grant_list::const_iterator cn = need.begin();
-	while (cn != need.end() || cg != grant.end()) {
+	while (cn != need.end()) {
+		if (cg == grant.end()) {
+			return false;
+		}
 		if (*cg == "*") {
 			return true;
 		}
