@@ -260,14 +260,18 @@ namespace nsclient {
 			Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
 			rpp->mutable_node()->CopyFrom(q.node());
 			if (q.node().has_key()) {
-				if (q.type() == Plugin::Common_DataType_STRING)
-					rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), q.default_value().string_data()));
-				else if (q.type() == Plugin::Common_DataType_INT)
-					rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key(), q.default_value().int_data()));
-				else if (q.type() == Plugin::Common_DataType_BOOL)
-					rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key(), q.default_value().bool_data()));
-				else {
-					LOG_ERROR_CORE("Invalid type");
+				if (q.has_type() && q.type() == Plugin::Common_DataType_STRING) {
+					std::string def = q.has_default_value() && q.default_value().has_string_data() ? q.default_value().string_data() : "";
+					rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
+				} else if (q.has_type() && q.type() == Plugin::Common_DataType_INT) {
+					long long def = q.has_default_value() && q.default_value().has_int_data() ? q.default_value().int_data() : 0;
+					rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key(), def));
+				} else if (q.has_type() && q.type() == Plugin::Common_DataType_BOOL) {
+					bool def = q.has_default_value() && q.default_value().has_bool_data() ? q.default_value().bool_data() : false;
+					rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key(), def));
+				} else {
+					std::string def = q.has_default_value() && q.default_value().has_string_data() ? q.default_value().string_data() : "";
+					rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
 				}
 			} else {
 				::Plugin::Common::AnyDataType *value = rpp->mutable_value();

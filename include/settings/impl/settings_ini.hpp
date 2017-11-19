@@ -205,10 +205,14 @@ namespace settings {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
 						std::string::size_type pos = key.find('/', path_len + 1);
-						if (pos == std::string::npos)
+						if (pos == std::string::npos && path_len > 1)
 							key = key.substr(path_len + 1);
-						else
+						else if (pos == std::string::npos)
+							key = key.substr(path_len);
+						else if (path_len > 1)
 							key = key.substr(path_len + 1, pos - path_len - 1);
+						else
+							key = key.substr(path_len, pos - path_len);
 						list.push_back(key);
 					}
 				}
