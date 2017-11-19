@@ -318,11 +318,7 @@ bool WEBServer::cli_add_user(const Plugin::ExecuteRequestMessage::Request &reque
 		}
 
 		nscapi::protobuf::functions::settings_query s(get_id());
-		if (old) {
-			result << "Updating old user " << user << " authenticated by " << password << " as " << role <<std::endl;
-		} else {
-			result << "Creating new user " << user << " authenticated by " << password << " as " << role << std::endl;
-		}
+		result << "User " << user << " authenticated by " << password << " as " << role <<std::endl;
 		s.set(path, "password", password);
 		s.set(path, "role", role);
 		s.save();
@@ -431,7 +427,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 	q.get("/settings/default", "password", "");
 	q.get(path, "certificate", "${certificate-path}/certificate.pem");
 	q.get(path, "certificate key", "");
-	q.get(path, "port", "8443s");
+	q.get(path, "port", "8443");
 
 	get_core()->settings_query(q.request(), q.response());
 	if (!q.validate_response()) {
@@ -464,7 +460,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 			"Client certificate to use")
 
 		("port", po::value<std::string>(&port)->default_value(port),
-		"Port to use suffix with s for ssl")
+		"Port to use")
 
 		("password", po::value<std::string>(&password)->default_value(password),
 		"Password to use to authenticate (if none a generated password will be set)")
@@ -508,9 +504,7 @@ bool WEBServer::install_server(const Plugin::ExecuteRequestMessage::Request &req
 		}
 		s.set(path, "certificate", cert);
 		s.set(path, "certificate key", key);
-		if (https)
-			result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
-		result << "Point your browser to http://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
+		result << "Point your browser to https://localhost:" << boost::replace_all_copy(port, "s", "") << std::endl;
 		result << "Login using this password " << password << std::endl;
 		s.set("/settings/default", "password", password);
 		s.set(path, "port", port);
