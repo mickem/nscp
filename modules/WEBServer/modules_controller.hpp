@@ -26,6 +26,7 @@ public:
 
 	void get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void load_module(std::string module, Mongoose::StreamResponse &response);

@@ -3,12 +3,17 @@
 #include <nscapi/nscapi_protobuf.hpp>
 
 #include <str/xtos.hpp>
+#include <file_helpers.hpp>
 
 #include <json_spirit.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/foreach.hpp>
 #include <boost/regex.hpp>
+#include <boost/filesystem/path.hpp>
+
+#include <fstream>
+#include <iostream>
 
 
 
@@ -19,8 +24,9 @@ modules_controller::modules_controller(boost::shared_ptr<session_manager_interfa
   , RegexpController("/api/v1/modules")
 {
 	addRoute("GET", "/?$", this, &modules_controller::get_modules);
+	addRoute("POST", "/([^/]+)/?$", this, &modules_controller::post_module);
 	addRoute("GET", "/([^/]+)/?$", this, &modules_controller::get_module);
-	addRoute("PUT", "/([^/]*)/?$", this, &modules_controller::post_module);
+	addRoute("PUT", "/([^/]*)/?$", this, &modules_controller::put_module);
 	addRoute("GET", "/([^/]+)/commands/([^/]*)/?$", this, &modules_controller::module_command);
 }
 
@@ -179,7 +185,7 @@ void modules_controller::unload_module(std::string module, Mongoose::StreamRespo
 }
 
 
-void modules_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+void modules_controller::put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin(request, response))
 		return;
 
@@ -189,7 +195,7 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 	std::string module = what.str(1);
 
 
-	if (!session->can("modules.get", request, response))
+	if (!session->can("modules.put", request, response))
 		return;
 
 	try {
@@ -243,6 +249,46 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 				}
 			}
 		}
+	} catch (const json_spirit::ParseError &e) {
+		response.setCode(HTTP_BAD_REQUEST);
+		response.append("Problems parsing JSON");
+	}
+}
+
+
+
+void modules_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
+	if (!session->is_loggedin(request, response))
+		return;
+
+	if (!validate_arguments(1, what, response)) {
+		return;
+	}
+	std::string module = what.str(1);
+
+	if (!session->can("modules.post", request, response))
+		return;
+
+	try {
+
+		boost::filesystem::path name = module;
+		boost::filesystem::path file = core->expand_path("${module-path}/" + file_helpers::meta::get_filename(name) + ".zip");
+		std::ofstream ofs(file.string().c_str(), std::ios::binary);
+		ofs << request.getData();
+		ofs.close();
+
+		Plugin::RegistryRequestMessage rrm;
+		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+
+		payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+		payload->mutable_control()->set_command(Plugin::Registry_Command_LOAD);
+		payload->mutable_control()->set_name(module);
+
+		std::string str_response;
+		core->registry_query(rrm.SerializeAsString(), str_response);
+
+		Plugin::RegistryResponseMessage pb_response;
+		pb_response.ParseFromString(str_response);
 	} catch (const json_spirit::ParseError &e) {
 		response.setCode(HTTP_BAD_REQUEST);
 		response.append("Problems parsing JSON");
