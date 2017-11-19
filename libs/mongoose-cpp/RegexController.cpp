@@ -33,7 +33,7 @@ namespace Mongoose
 				}
 			}
 		}
-		return documentMissing("Module not found");
+		return documentMissing("no handler for \"" + request.getMethod() + ":" + key + "\" in " + prefix);
     }
 
     void RegexpController::setPrefix(std::string prefix_) {
