@@ -271,11 +271,16 @@ void modules_controller::post_module(Mongoose::Request &request, boost::smatch &
 
 	try {
 
-		boost::filesystem::path name = module;
-		boost::filesystem::path file = core->expand_path("${module-path}/" + file_helpers::meta::get_filename(name) + ".zip");
-		std::ofstream ofs(file.string().c_str(), std::ios::binary);
-		ofs << request.getData();
-		ofs.close();
+		try {
+			boost::filesystem::path name = module;
+			boost::filesystem::path file = core->expand_path("${module-path}/" + file_helpers::meta::get_filename(name) + ".zip");
+			std::ofstream ofs(file.string().c_str(), std::ios::binary);
+			ofs << request.getData();
+			ofs.close();
+		} catch (const json_spirit::ParseError &e) {
+			response.setCode(HTTP_BAD_REQUEST);
+			response.append("Failed to upload module");
+		}
 
 		Plugin::RegistryRequestMessage rrm;
 		Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();

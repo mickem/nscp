@@ -277,6 +277,12 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 	names.push_back(name + ".zip");
 
 	BOOST_FOREACH(const std::string &name, names) {
+		boost::filesystem::path tmp = plugin_path_ / name;
+		if (boost::filesystem::is_regular_file(tmp))
+			return tmp;
+	}
+
+	BOOST_FOREACH(const std::string &name, names) {
 		boost::optional<boost::filesystem::path> module = file_helpers::finder::locate_file_icase(plugin_path_, name);
 		if (module) {
 			return module;
@@ -286,7 +292,7 @@ boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_fi
 			return module;
 		}
 	}
-	LOG_ERROR_CORE("Failed to find plugin: " + file_name);
+	LOG_ERROR_CORE("Failed to find plugin: " + file_name + " in " + plugin_path_.string());
 	return boost::optional<boost::filesystem::path>();
 }
 
@@ -789,4 +795,8 @@ void nsclient::core::plugin_manager::process_metrics(Plugin::Common::MetricsBund
 
 boost::filesystem::path nsclient::core::plugin_manager::get_filename(boost::filesystem::path folder, std::string module) {
 	return dll::dll_impl::fix_module_name(folder / module);
+}
+
+void nsclient::core::plugin_manager::set_path(boost::filesystem::path path) {
+	plugin_path_ = path.make_preferred();
 }

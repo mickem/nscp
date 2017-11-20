@@ -113,9 +113,7 @@ namespace nsclient {
 				return &event_subscribers_;
 			}
 
-			void set_path(boost::filesystem::path path) {
-				plugin_path_ = path;
-			}
+			void set_path(boost::filesystem::path path);
 
 			void load_active_plugins();
 			void load_all_plugins();
