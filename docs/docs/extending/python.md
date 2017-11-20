@@ -416,17 +416,20 @@ def my_function(channel, source, command, status, message, perf):
 **Example:** Filter out repeated NSCA events
 
 ```
-from NSCP import Registry, Core
+from NSCP import Registry, Core, status, log
 
 g_last_message = ''
 g_plugin_id = 0
 
 def filter_nsca(channel, source, command, status, message, perf):
   global g_last_message, g_plugin_id
-  if not message = g_last_message:
+  if not message == g_last_message:
     g_last_message = message
+    log("Sending: %s"%message)
     core = Core.get(g_plugin_id)
-    core.simple_submit('NSCA', command, status, message, perf)
+    core.simple_submit('NSCA', command, status.CRITICAL, message.encode('utf-8'), perf)
+  else:
+    log("Supressing duplicte message")
 
 def init(plugin_id, plugin_alias, script_alias):
   global g_plugin_id
@@ -438,10 +441,22 @@ def init(plugin_id, plugin_alias, script_alias):
 To use the above specify `filter_nsca` as your target instead of NSCA like so:
 
 ```
+[/modules]
+PythonScript=enabled
+CheckEventLog=enabled
+NSCAClient=enabled
+
+[/settings/python/scripts]
+filter_nsca=filter_nsca.py
+
+[/settings/eventlog/real-time]
+enabled = true
+
 [/settings/eventlog/real-time/filters/login]
 log=Security
 filter=id=4624
 target=filter_nsca
+detail syntax=%(id)
 ```
 
 #### Registry.submit_metrics
