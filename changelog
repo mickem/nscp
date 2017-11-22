@@ -17,7 +17,7 @@
 2017-11-16 Michael Medin
  * Added more python API documentation
  * Fixed #499 Added details about adding performance data to documentation about checks
- * Fixed #520 removed pointless log message about logger
+ * Fixed #502 removed pointless log message about logger
  * REST: Fixed #485 check_nscp_web is now supported again, sorry for the delay....
 
 2017-11-15 Michael Medin
