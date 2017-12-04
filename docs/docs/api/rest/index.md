@@ -369,6 +369,7 @@ So for details on that please review the [legacy API](legacy.md).
 
 - [check_nscp_api](https://github.com/Icinga/icinga2/pull/5239) included in Icinga 2 v2.7.
 - [check_nsc_web](https://github.com/m-kraus/check_nsc_web) standalone Plugin written in Go, suitable for all compatible cores (Naemon, Icinga 1/2, etc).
+- [centreon_plugins](https://github.com/centreon/centreon-plugins/blob/master/docs/en/user/guide.rst#nsclient) included in centreon plugins project.
 
 ## References
 
