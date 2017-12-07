@@ -154,7 +154,7 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		session->add_grant("full", "*");
 		session->add_grant("client", "info.get,info.get.version,queries.list,queries.get,queries.execute");
 
-		server.reset(new Mongoose::Server(port));
+		server.reset(Mongoose::Server::make_server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {
 			NSC_LOG_ERROR("Certificate not found (disabling SSL): " + certificate);
 		} else {

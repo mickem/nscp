@@ -9,6 +9,7 @@ set (SOURCES
     Request.cpp
     Response.cpp
     Server.cpp
+    ServerImpl.cpp
     StreamResponse.cpp
 	
     ${NSCP_INCLUDEDIR}/has-threads.cpp

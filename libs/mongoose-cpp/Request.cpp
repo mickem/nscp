@@ -1,8 +1,11 @@
-#include <string.h>
+#include "Request.h"
+
+#include "ext/mongoose.h"
+
+#include <boost/thread.hpp>
+
 #include <string>
 #include <iostream>
-#include "Request.h"
-#include <boost/thread.hpp>
 
 using namespace std;
 
@@ -91,29 +94,17 @@ static int mg_get_cookie(const char *cookie_header, const char *var_name,
   return len;
 }
 
-namespace Mongoose
-{
-    Request::Request(struct mg_connection *connection, struct http_message *message, bool is_ssl, const std::string method)
+namespace Mongoose {
+
+	Request::Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data)
 		: is_ssl_(is_ssl)
 		, method(method)
-    {
-        url = std::string(message->uri.p, message->uri.len);
-		ip = std::string(inet_ntoa(connection->sa.sin.sin_addr));
-		if (message->query_string.p != NULL) {
-			query = std::string(message->query_string.p, message->query_string.len);
-		}
-
-		for (int i = 0; i < ARRAY_SIZE(message->header_names); i++) {
-			std::string key = std::string(message->header_names[i].p, message->header_names[i].len);
-			std::string value = std::string(message->header_values[i].p, message->header_values[i].len);
-			headers[key] = value;
-		}
-
-        // Downloading POST data
-        ostringstream postData;
-        postData.write(message->body.p, message->body.len);
-        data = postData.str();
-    }
+		, ip(ip)
+		, url(url)
+		, query(query)
+		, headers(headers)
+		, data(data)
+    {}
 
     string Request::getUrl()
     {
@@ -186,31 +177,6 @@ namespace Mongoose
 
 	}
 
-    bool Request::readVariable(const struct mg_str data, string key, string &output)
-    {
-        int size = 1024, ret;
-        char *buffer = new char[size];
-
-        do {
-            ret = mg_get_http_var(&data, key.c_str(), buffer, size);
-
-            if (ret == -1) {
-				delete[] buffer;
-				return false;
-            }
-
-            if (ret == -2) {
-                size *= 2;
-                delete[] buffer;
-                buffer = new char[size];
-            }
-        } while (ret == -2);
-
-        output = string(buffer);
-        delete[] buffer;
-
-        return true;
-    }
 
 
 	std::string Request::get_host() {
@@ -220,6 +186,32 @@ namespace Mongoose
 		}
 		return "";
 	}
+
+	bool readVariable(const struct mg_str data, string key, string &output) {
+		int size = 1024, ret;
+		char *buffer = new char[size];
+
+		do {
+			ret = mg_get_http_var(&data, key.c_str(), buffer, size);
+
+			if (ret == -1) {
+				delete[] buffer;
+				return false;
+			}
+
+			if (ret == -2) {
+				size *= 2;
+				delete[] buffer;
+				buffer = new char[size];
+			}
+		} while (ret == -2);
+
+		output = string(buffer);
+		delete[] buffer;
+
+		return true;
+	}
+
 
 	string Request::get(string key, string fallback)
     {

@@ -80,11 +80,17 @@ namespace Mongoose
 			*/
 			virtual std::string getCookie(std::string key);
 
+			typedef std::map<std::string, std::string> header_type;
+
+			virtual int get_response_code() const = 0;
+
+			header_type& get_headers() {
+				return headers;
+			}
         protected:
             int code;
-			typedef std::map<std::string, std::string> kvp;
-			kvp headers;
-			kvp cookies;
+			header_type headers;
+			header_type cookies;
 	};
 }
 

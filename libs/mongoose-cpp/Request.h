@@ -3,8 +3,6 @@
 
 #include "Response.h"
 
-#include "ext/mongoose.h"
-
 #include "dll_defines.hpp"
 
 #include <iostream>
@@ -17,12 +15,15 @@ using namespace std;
 /**
  * Request is a wrapper for the clients requests
  */
-namespace Mongoose
-{
-    class NSCAPI_EXPORT Request
-    {
+namespace Mongoose {
+    class NSCAPI_EXPORT Request {
+	public:
+		typedef pair<string, string> arg_entry;
+		typedef std::vector<arg_entry> arg_vector;
+		typedef map<string, string> headers_type;
+
         public:
-            Request(struct mg_connection *connection, struct http_message *message, bool is_ssl, const std::string method);
+            Request(const std::string ip, bool is_ssl, std::string method, std::string url, std::string query, headers_type headers, std::string data);
 
             /**
              * Sends a given response to the client
@@ -74,13 +75,10 @@ namespace Mongoose
             string getRemoteIp();
 
 
-			typedef pair<string,string> arg_entry;
-			typedef std::vector<arg_entry> arg_vector;
-			typedef map<string,string> arg_map;
 			arg_vector getVariablesVector();
 
 			std::string readHeader(const std::string key);
-            bool readVariable(const struct mg_str data, string key, string &output);
+            //bool readVariable(const struct mg_str data, string key, string &output);
 
 			std::string get_host();
 			bool is_ssl() {
@@ -93,7 +91,7 @@ namespace Mongoose
 			string query;
 			string data;
 			std::string ip;
-			std::map<std::string, std::string> headers;
+			headers_type headers;
     };
 }
 

@@ -17,13 +17,24 @@ namespace Mongoose
     class NSCAPI_EXPORT StreamResponse : public Response {
 	private:
 		std::stringstream ss;
+		int response_code;
+
     public:
-        /**
+		StreamResponse() 
+			: response_code(0) 
+		{}
+		StreamResponse(int response_code) 
+			: response_code(response_code) 
+		{}
+		/**
          * Gets the response body
          *
          * @return string the response body
          */
 		virtual std::string getBody();
+		virtual int get_response_code() const {
+			return response_code;
+		}
 		void append(std::string data);
 		void write(const char* buffer, std::size_t len);
     };

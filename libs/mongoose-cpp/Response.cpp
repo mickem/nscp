@@ -40,10 +40,10 @@ namespace Mongoose
         }
 
         map<string, string>::iterator it;
-        BOOST_FOREACH(const kvp::value_type &v, headers) {
+        BOOST_FOREACH(const header_type::value_type &v, headers) {
             data << v.first << ": " << v.second << "\r\n";
         }
-		BOOST_FOREACH(const kvp::value_type &v, cookies) {
+		BOOST_FOREACH(const header_type::value_type &v, cookies) {
 			data << "Set-cookie: " << v.first << "=" << v.second << "; path=/\r\n";
 		}
 
