@@ -50,8 +50,6 @@ namespace nrpe {
 		virtual void connect(std::wstring host, int port) {
 			tcp::resolver resolver(get_io_service());
 			tcp::resolver::query query(to_string(host), to_string(port));
-			//tcp::resolver::query query("www.medin.name", "80");
-			//tcp::resolver::query query("test_server", "80");
 
 			tcp::resolver::iterator endpoint_iterator = resolver.resolve(query);
 			tcp::resolver::iterator end;
