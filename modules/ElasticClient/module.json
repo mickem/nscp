@@ -1,0 +1,21 @@
+{
+	"module"		: {
+		"title"			: "Elastic Client",
+		"description"	: "Elastic sends metrics, events and logs to elastic search",
+		"name"			: "ElasticClient",
+		"alias"			: "elastic",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "elastic/client"
+	},
+
+	"metrics" : "consume",
+
+	"channels" : "raw",
+
+	"log messages" : true,
+
+	"events": true
+}
