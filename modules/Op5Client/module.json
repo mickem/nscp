@@ -1,0 +1,17 @@
+{
+	"module"		: {
+		"title"			: "Op5 Client",
+		"description"	: "Client for connecting nativly to the Op5 Nortbound API",
+		"name"			: "Op5Client",
+		"alias"			: "op5",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "op5/client"
+	},
+
+	"channels" : "raw",
+
+	"command line exec" : "raw"
+}

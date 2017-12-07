@@ -148,6 +148,9 @@
             <Component Id="DotNetPlugins" Guid="E57F4EE3-D5A6-46ED-BC99-018708258154" Win64="$(var.Win64)">
               <File Id="ModDotnetPlugins.dll" Name="DotnetPlugins.dll" DiskId="1" Source="$(var.Source)/modules/DotnetPlugins.dll" Vital="no" />
             </Component>
+            <Component Id="Op5Client" Guid="D8378E84-4785-41FD-8FCD-2409135FBFF4" Win64="$(var.Win64)">
+              <File Id="ModOp5Client.dll" Name="Op5Client.dll" DiskId="1" Source="$(var.Source)/modules/Op5Client.dll" Vital="no" />
+            </Component>
           </Directory>
           <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
             <File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
@@ -214,6 +217,7 @@
       <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />
           <ComponentGroupRef Id="Op5ScriptResources" />
+          <ComponentGroupRef Id="Op5Client" />
       </Feature>
 
       <Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">

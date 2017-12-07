@@ -90,6 +90,7 @@ pages:
       - GraphiteClient: reference/client/GraphiteClient.md
       - SyslogClient: reference/client/SyslogClient.md
       - CollectdClient: reference/misc/CollectdClient.md
+      - Op5Client: reference/misc/Op5Client.md
     - Helper modules:
       - Scheduler: reference/generic/Scheduler.md
       - SimpleFileWriter: reference/generic/SimpleFileWriter.md
