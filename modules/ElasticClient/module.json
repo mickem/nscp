@@ -1,0 +1,31 @@
+{
+	"module"		: {
+		"title"			: "Elastic Client",
+		"description"	: "Elastic sends metrics, events and logs to elastic search",
+		"name"			: "ElasticClient",
+		"alias"			: "elastic",
+		"version"		: "auto"
+	},
+	
+	"settings"		: {
+		"default_alias"	: "elastic/client"
+	},
+
+	"commands" : {
+		"fallback" : "raw",
+		"submit_graphite" : { 
+			"description" : "Submit information to the remote Graphite server.",
+			"mapping"	: false
+		}
+	},
+
+	"metrics" : "consume",
+
+	"channels" : "raw",
+
+	"command line exec" : "raw",
+
+	"log messages" : false,
+
+	"events": true
+}
