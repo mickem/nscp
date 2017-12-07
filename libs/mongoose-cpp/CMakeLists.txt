@@ -10,7 +10,10 @@ set (SOURCES
     Response.cpp
     Server.cpp
     ServerImpl.cpp
+    Client.cpp
     StreamResponse.cpp
+    
+    string_response.cpp
 	
     ${NSCP_INCLUDEDIR}/has-threads.cpp
 

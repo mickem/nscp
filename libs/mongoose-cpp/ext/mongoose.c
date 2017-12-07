@@ -8055,7 +8055,7 @@ out:
 
 struct mg_connection *mg_connect_http_opt(
     struct mg_mgr *mgr, MG_CB(mg_event_handler_t ev_handler, void *user_data),
-    struct mg_connect_opts opts, const char *url, const char *extra_headers,
+    struct mg_connect_opts opts, const char *url, const char *verb, const char *extra_headers,
     const char *post_data) {
   struct mg_str user = MG_NULL_STR, null_str = MG_NULL_STR;
   struct mg_str host = MG_NULL_STR, path = MG_NULL_STR;
@@ -8079,7 +8079,7 @@ struct mg_connection *mg_connect_http_opt(
 
   mg_printf(nc, "%s %.*s HTTP/1.1\r\nHost: %.*s\r\nContent-Length: %" SIZE_T_FMT
                 "\r\n%.*s%s\r\n%s",
-            (post_data[0] == '\0' ? "GET" : "POST"), (int) path.len, path.p,
+            verb, (int) path.len, path.p,
             (int) (path.p - host.p), host.p, strlen(post_data), (int) auth.len,
             (auth.buf == NULL ? "" : auth.buf), extra_headers, post_data);
 
@@ -8089,11 +8089,11 @@ struct mg_connection *mg_connect_http_opt(
 
 struct mg_connection *mg_connect_http(
     struct mg_mgr *mgr, MG_CB(mg_event_handler_t ev_handler, void *user_data),
-    const char *url, const char *extra_headers, const char *post_data) {
+    const char *url, const char* verb, const char *extra_headers, const char *post_data) {
   struct mg_connect_opts opts;
   memset(&opts, 0, sizeof(opts));
   return mg_connect_http_opt(mgr, MG_CB(ev_handler, user_data), opts, url,
-                             extra_headers, post_data);
+                             verb, extra_headers, post_data);
 }
 
 size_t mg_parse_multipart(const char *buf, size_t buf_len, char *var_name,

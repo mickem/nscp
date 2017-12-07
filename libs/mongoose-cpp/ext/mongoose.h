@@ -5097,7 +5097,7 @@ extern "C" {
 struct mg_connection *mg_connect_http(
     struct mg_mgr *mgr,
     MG_CB(mg_event_handler_t event_handler, void *user_data), const char *url,
-    const char *extra_headers, const char *post_data);
+	const char *verb, const char *extra_headers, const char *post_data);
 
 /*
  * Helper function that creates an outbound HTTP connection.
@@ -5108,7 +5108,7 @@ struct mg_connection *mg_connect_http(
  */
 struct mg_connection *mg_connect_http_opt(
     struct mg_mgr *mgr, MG_CB(mg_event_handler_t ev_handler, void *user_data),
-    struct mg_connect_opts opts, const char *url, const char *extra_headers,
+    struct mg_connect_opts opts, const char *url, const char *verb, const char *extra_headers,
     const char *post_data);
 
 /* Creates digest authentication header for a client request. */
