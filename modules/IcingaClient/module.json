@@ -1,0 +1,10 @@
+{
+	"module"		: {
+		"title"			: "Icinga Client",
+		"description"	: "...",
+		"name"			: "IcingaClient",
+		"alias"			: "icinga",
+		"version"		: "auto"
+	}
+	
+}
