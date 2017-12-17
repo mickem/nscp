@@ -18,7 +18,6 @@
  */
 
 #include "Op5Client.h"
-#include "op5_handler.hpp"
 
 #include <json_spirit.h>
 
@@ -83,6 +82,7 @@ std::string get_error(const boost::shared_ptr<Mongoose::Response> &response) {
 
 
 std::string get_my_ip() {
+	namespace bai = boost::asio::ip;
 	boost::asio::io_service io_service;
 	boost::asio::ip::tcp::resolver resolver(io_service);
 
@@ -90,8 +90,8 @@ std::string get_my_ip() {
 	boost::optional<std::string> firstv4;
 	boost::optional<std::string> firstv6;
 
-	tcp::resolver::iterator endpoint_iterator = resolver.resolve(boost::asio::ip::tcp::resolver::query(h, ""));
-	tcp::resolver::iterator end;
+	bai::tcp::resolver::iterator endpoint_iterator = resolver.resolve(boost::asio::ip::tcp::resolver::query(h, ""));
+	bai::tcp::resolver::iterator end;
 
 	for (; endpoint_iterator != end; endpoint_iterator++) {
 		if (endpoint_iterator->endpoint().address().is_v6()) {
@@ -309,13 +309,12 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("op5", alias);
-// 		client_.set_path(settings.alias().get_settings_path("commands"));
 		std::string interval;
 
 		settings.alias().add_path_to_settings()
 			("Op5 Configuration", "Section for the Op5 server")
 
-			("commands", sh::fun_values_path(boost::bind(&Op5Client::add_command, this, _1, _2)),
+			("checks", sh::fun_values_path(boost::bind(&Op5Client::add_check, this, _1, _2)),
 				"Op5 passive Commands", "",
 				"Passive commands", "Passive commands")
 			;
@@ -359,8 +358,6 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		settings.register_all();
 		settings.notify();
 
-		//client_.finalize(get_settings_proxy());
-
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);
 
@@ -403,29 +400,12 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			str::utils::replace(hostname_, "${host_lc}", dn.first);
 			str::utils::replace(hostname_, "${domain_lc}", dn.second);
 		}
-		//client_.set_sender(hostname_);
-
 
 		if (mode == NSCAPI::normalStart) {
-			NSC_DEBUG_MSG("Registring host " + hostname_ + " with op5");
-			register_host(hostname_);
 
-
-			Plugin::ExecuteRequestMessage rm;
-			Plugin::ExecuteRequestMessage::Request *payload = rm.add_payload();
-
-			payload->set_command("add");
-			payload->add_arguments("--interval");
-			payload->add_arguments("5m");
-			payload->add_arguments("--command");
-			payload->add_arguments("check_cpu");
-			payload->add_arguments("--alias");
-			payload->add_arguments("host_check");
-
-			std::string pb_response;
-			get_core()->exec_command("Scheduler", rm.SerializeAsString(), pb_response);
-			Plugin::ExecuteResponseMessage resp;
-			resp.ParseFromString(pb_response);
+			interval_ = str::format::stox_as_time_sec<unsigned long long>(interval, "s");
+			stop_thread_ = false;
+			thread_ = boost::shared_ptr<boost::thread>(new boost::thread(boost::bind(&Op5Client::thread_proc, this)));
 
 		}
 
@@ -460,13 +440,18 @@ void Op5Client::deregister_host(std::string host) {
 	}
 }
 
-void Op5Client::add_command(std::string key, std::string arg) {
+void Op5Client::add_check(std::string key, std::string arg) {
 	try {
-// 		client_.add_target(get_settings_proxy(), key, arg);
+		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+		if (!lock.owns_lock()) {
+			NSC_LOG_ERROR("Failed to add check: " + key);
+			return;
+		}
+		checks_[key] = arg;
 	} catch (const std::exception &e) {
-		NSC_LOG_ERROR_EXR("Failed to add target: " + key, e);
+		NSC_LOG_ERROR_EXR("Failed to add check: " + key, e);
 	} catch (...) {
-		NSC_LOG_ERROR_EX("Failed to add target: " + key);
+		NSC_LOG_ERROR_EX("Failed to add check: " + key);
 	}
 }
 
@@ -476,14 +461,92 @@ void Op5Client::add_command(std::string key, std::string arg) {
  * @return true if successfully, false if not (if not things might be bad)
  */
 bool Op5Client::unloadModule() {
+
+	if (thread_) {
+		stop_thread_ = true;
+		thread_->interrupt();
+		thread_->join();
+	}
+
 	if (deregister) {
 		deregister_host(hostname_);
 	}
 	return true;
 }
 
+void Op5Client::thread_proc() {
+	try {
+		NSC_TRACE_MSG("Registring host " + hostname_ + " with op5");
+		register_host(hostname_);
+
+		while (true) {
+			try {
+				boost::this_thread::sleep(boost::posix_time::seconds(interval_));
+			} catch (const boost::thread_interrupted &e) {
+				if (stop_thread_) {
+					return;
+				}
+			}
+			try {
+				NSC_TRACE_MSG("Running op5 checks...");
+				check_map copy;
+				{
+					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+					if (!lock.owns_lock()) {
+						NSC_LOG_ERROR("Failed to run checks");
+						continue;
+					}
+					copy = checks_;
+				}
+				std::string response;
+				nscapi::core_helper ch(get_core(), get_id());
+				BOOST_FOREACH(check_map::value_type &v, copy) {
+
+					std::string command;
+					std::string alias = v.second;
+					std::list<std::string> arguments;
+					str::utils::parse_command(alias, command, arguments);
+
+					if (ch.simple_query(command, arguments, response)) {
+						Plugin::QueryResponseMessage resp_msg;
+						resp_msg.ParseFromString(response);
+						BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &p, resp_msg.payload()) {
+							std::string message = nscapi::protobuf::functions::query_data_to_nagios_string(p, nscapi::protobuf::functions::no_truncation);
+							int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
+							std::string status;
+							if (!send_a_check(v.first, result, message, status)) {
+								NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + status);
+							}
+						}
+					} else {
+						std::string status;
+						if (!send_a_check(v.first, NSCAPI::query_return_codes::returnUNKNOWN, "Failed to execute command: " + command, status)) {
+							NSC_LOG_ERROR("Failed to submit " + v.first + " result: " + status);
+						}
+					}
+				}
+			} catch (const std::exception &e) {
+				NSC_LOG_ERROR_EX("Failed to submit data: ", e);
+			}
+			if (stop_thread_) {
+				return;
+			}
+		}
+	} catch (...) {
+		NSC_LOG_ERROR("Unknown exception in thread, op5 will not recieve requests");
+	}
+}
+
 bool Op5Client::commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response) {
 	return true;
+}
+
+bool Op5Client::send_a_check(const std::string &alias, int result, std::string message, std::string &status) {
+	if (alias == "host_check" || alias.empty()) {
+		return send_host_check(hostname_, result, message, status);
+	} else {
+		return send_service_check(hostname_, alias, result, message, status);
+	}
 }
 
 void Op5Client::handleNotification(const std::string &, const Plugin::SubmitRequestMessage &request_message, Plugin::SubmitResponseMessage *response_message) {
@@ -494,20 +557,12 @@ void Op5Client::handleNotification(const std::string &, const Plugin::SubmitRequ
 		if (alias.empty())
 			alias = p.command();
 		int result = nscapi::protobuf::functions::gbp_to_nagios_status(p.result());
-		if (alias == "host_check") {
-			std::string status;
-			if (!send_host_check(hostname_, result, msg, status)) {
-				nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), status);
-			} else {
-				nscapi::protobuf::functions::set_response_good(*response_message->add_payload(), status);
-			}
+		std::string status;
+		if (!send_a_check(hostname_, result, msg, status)) {
+			nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), status);
 		} else {
-			std::string status;
-			if (!send_service_check(hostname_, alias, result, msg, status)) {
-				nscapi::protobuf::functions::set_response_bad(*response_message->add_payload(), status);
-			} else {
-				nscapi::protobuf::functions::set_response_good(*response_message->add_payload(), status);
-			}
+			nscapi::protobuf::functions::set_response_good(*response_message->add_payload(), status);
 		}
+
 	}
 }

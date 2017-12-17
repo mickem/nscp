@@ -25,6 +25,8 @@
 
 #include <client/command_line_parser.hpp>
 
+#include <boost/atomic/atomic.hpp>
+
 namespace po = boost::program_options;
 namespace sh = nscapi::settings_helper;
 
@@ -48,11 +50,12 @@ public:
 	void onEvent(const Plugin::EventMessage &request, const std::string &buffer);
 
 private:
-	void add_command(std::string key, std::string args);
+	void add_check(std::string key, std::string args);
 
 	bool has_host(std::string host);
 	bool add_host(std::string host);
 	bool remove_host(std::string host);
+	bool send_a_check(const std::string &alias, int result, std::string message, std::string &status);
 	bool send_host_check(std::string host, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
 	bool send_service_check(std::string host, std::string service, int status_code, std::string msg, std::string &status, bool create_if_missing = true);
 	std::pair<bool, bool> has_service(std::string service, std::string host, std::string &hosts_string);
@@ -63,8 +66,11 @@ private:
 	void register_host(std::string host);
 	void deregister_host(std::string host);
 
+	void thread_proc();
 
 
+	boost::atomic<bool> stop_thread_;
+	unsigned long long interval_;
 	std::string op5_url;
 	std::string op5_username;
 	std::string op5_password;
@@ -72,4 +78,10 @@ private:
 
 	std::string hostgroups_;
 	std::string contactgroups_;
+
+	boost::timed_mutex mutex_;
+	typedef std::map<std::string, std::string> check_map;
+	check_map checks_;
+	boost::shared_ptr<boost::thread> thread_;
+
 };
