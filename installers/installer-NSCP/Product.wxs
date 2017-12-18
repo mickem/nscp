@@ -217,7 +217,7 @@
       <Feature Id="OP5Montoring" Title="OP5 Monitoring system" Description="Configuration and scripts to use NSClien++ with OP5 monitoring solution" Level="1" Absent="allow">
           <ComponentGroupRef Id="Op5ConfigResources" />
           <ComponentGroupRef Id="Op5ScriptResources" />
-          <ComponentGroupRef Id="Op5Client" />
+          <ComponentRef Id="Op5Client" />
       </Feature>
 
       <Feature Id="Plugins" Title="Plugins" Description="Plugins" Level="1" Absent="allow">
