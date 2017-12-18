@@ -1,6 +1,6 @@
 # NRDPClient
 
-NRDP client can be used both from command line and from queries to check remote systes via NRDP
+NRDP client can be used both from command line and from queries to check remote systems via NRDP
 
 
 

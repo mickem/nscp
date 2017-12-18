@@ -1,10 +1,10 @@
 <dl>
   <dt>.. module :  : WEBClient</dt>
-  <dd>:synopsis: WEB client can be used both from command line and from queries to check remote systes via WEB(REST)</dd>
+  <dd>:synopsis: WEB client can be used both from command line and from queries to check remote systems via WEB(REST)</dd>
 </dl>
 # :module:`WEBClient` --- WEBClient #
 
-WEB client can be used both from command line and from queries to check remote systes via WEB(REST)
+WEB client can be used both from command line and from queries to check remote systems via WEB(REST)
 
 **Queries (Overview)**:
 

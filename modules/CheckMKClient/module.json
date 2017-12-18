@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "check_mk Client",
-		"description"	: "check_mk client can be used both from command line and from queries to check remote systes via check_mk",
+		"description"	: "check_mk client can be used both from command line and from queries to check remote systems via check_mk",
 		"name"			: "CheckMKClient",
 		"alias"			: "check_mk",
 		"version"		: "auto"
