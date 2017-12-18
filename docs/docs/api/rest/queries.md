@@ -225,7 +225,7 @@ GET /api/v1/queries/:query/commands/execute_nagios
 
 ### Example
 
-An example of excuting check_cpu with a 3 minutes time interval:
+An example of executing check_cpu with a 3 minutes time interval:
 
 ```
 curl -s -k -u admin "https://localhost:8443/api/v1/queries/check_cpu/commands/execute_nagios?time=3m" | python -m json.tool

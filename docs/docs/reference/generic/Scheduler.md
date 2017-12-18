@@ -158,7 +158,7 @@ This is a section of objects. This means that you will create objects below this
 | alias       |               | ALIAS              |
 | channel     |               | SCHEDULE CHANNEL   |
 | command     |               | SCHEDULE COMMAND   |
-| interval    |               | SCHEDULE INTERAVAL |
+| interval    |               | SCHEDULE INTERVAL  |
 | is template | false         | IS TEMPLATE        |
 | parent      | default       | PARENT             |
 | randomness  |               | RANDOMNESS         |

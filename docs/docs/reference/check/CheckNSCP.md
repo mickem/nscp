@@ -1,6 +1,6 @@
 # CheckNSCP
 
-Use this module to check the healt and status of NSClient++ it self
+Use this module to check the health and status of NSClient++ it self
 
 
 
@@ -15,7 +15,7 @@ A list of all available queries (check commands)
 
 | Command                                   | Description                                    |
 |-------------------------------------------|------------------------------------------------|
-| [check_nscp](#check_nscp)                 | Check the internal healt of NSClient++.        |
+| [check_nscp](#check_nscp)                 | Check the internal health of NSClient++.        |
 | [check_nscp_version](#check_nscp_version) | Check the version of NSClient++ which is used. |
 
 
@@ -23,7 +23,7 @@ A list of all available queries (check commands)
 
 ### check_nscp
 
-Check the internal healt of NSClient++.
+Check the internal health of NSClient++.
 
 
 * [Command-line Arguments](#check_nscp_options)

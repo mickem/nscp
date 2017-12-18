@@ -44,7 +44,7 @@ But you can also extend it with custom scripts:
 
 ### Requirements
 
-To use NSClient++ you need a monitoring system deployed in your network many people use Nagios, Icinga, Neteye or Op5 but stricctly speaking NSClient++ is designed to work with any monitoring tool which can execute external scripts or support any of the standard protocols.
+To use NSClient++ you need a monitoring system deployed in your network many people use Nagios, Icinga, Neteye or Op5 but strictly speaking NSClient++ is designed to work with any monitoring tool which can execute external scripts or support any of the standard protocols.
 
 When it comes to Supported OSes NSClient++ was original design to run only on Windows but since 0.4.1 is can be used on Linux as well.
 But currently most modules are Windows only thus the benefit on other operating systems are limited.
@@ -188,7 +188,7 @@ timeout = 90
 
 ## Communication
 
-As we stated initially NSClient++ by itself is not very usefull.
+As we stated initially NSClient++ by itself is not very useful.
 Thus you need to enable some form of communication with your central server.
 
 ### Choosing a transport/protocol

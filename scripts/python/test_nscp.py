@@ -171,8 +171,8 @@ class NSCPServerTest(BasicTest):
 		for i in range(0,10):
 			if self.has_response(uid):
 				rmsg = self.get_response(uid)
-				#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%alias)
-				result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%alias)
+				#result.add_message(rmsg.got_response, 'Testing to receive message using %s'%alias)
+				result.add_message(rmsg.got_simple_response, 'Testing to receive simple message using %s'%alias)
 				result.add_message(len(response_message.payload) == 1, 'Verify that we only get one payload response for %s'%alias, '%s != 1'%len(response_message.payload))
 				result.assert_equals(response_message.payload[0].result, status, 'Verify that status is sent through %s'%alias)
 				result.assert_equals(response_message.payload[0].message, msg, 'Verify that message is sent through %s'%alias)
@@ -184,7 +184,7 @@ class NSCPServerTest(BasicTest):
 				log('Waiting for %s (%s/%s)'%(uid,alias,target))
 				sleep(500)
 		if not found:
-			result.add_message(False, 'Testing to recieve message using %s'%alias)
+			result.add_message(False, 'Testing to receive message using %s'%alias)
 		return result
 
 	def test_one(self, ssl=True, state = status.UNKNOWN, tag = 'TODO'):

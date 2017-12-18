@@ -159,8 +159,8 @@ function TestNRPE:submit_payload(tag, ssl, length, payload_length, source, statu
 	for i = 0,10 do
 		if (self:has_response(uid)) then
 			rmsg = self:get_response(uid)
-			--#result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-			result:add_message(rmsg.got_simple_response, 'Testing to recieve simple message using '..tag)
+			--#result.add_message(rmsg.got_response, 'Testing to receive message using %s'%tag)
+			result:add_message(rmsg.got_simple_response, 'Testing to receive simple message using '..tag)
 			result:add_message(response_message:size_payload() == 1, 'Verify that we only get one payload response for '..tag)
 			pl = response_message:get_payload(1)
 			result:assert_equals(pl:get_result(), test.status_to_int(status), 'Verify that status is sent through '..tag)
@@ -287,7 +287,7 @@ function TestNRPE:test_timeout(ssl, server_timeout, client_timeout, length)
 	for i = 0,10 do
 		if (self:has_response(uid)) then
 			rmsg = self:get_response(uid)
-			result:add_message(false, string.format('Testing to recieve message using'))
+			result:add_message(false, string.format('Testing to receive message using'))
 			self:del_response(uid)
 			found = true
 			break

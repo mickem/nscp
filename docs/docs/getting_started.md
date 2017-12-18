@@ -84,7 +84,7 @@ They are merely a glorified way to save yourself some typing for instance `nscp 
 | nrpe     | Use a NRPE client to request information from other systems via NRPE similar to standard NRPE check_nrpe command. |
 | nsca     | Use a NSCA to submit passive checks to a remote system. Similar to the send_nsca command                          |
 | python   | Execute python scripts                                                                                            |
-| sys      | Various system tools to get information about the system (generally PDH on windows curretly)                      |
+| sys      | Various system tools to get information about the system (generally PDH on windows currently)                      |
 | test     | The best way to diagnose and find errors with your configuration and setup.                                       |
 | web      | Configure the web server                                                                                          |
 | wmi      | Run WMI queries from command line                                                                                 |
@@ -231,10 +231,10 @@ commands
 check_cpu  -Check that the load of the CPU(s) are within bounds.
 check_memory    -Check free/used memory on the system.
 check_network   -Check network interface status.
-check_os_version        -Check the version of the underlaying OS.
+check_os_version        -Check the version of the underlying OS.
 check_pagefile  -Check the size of the system pagefile(s).
 check_pdh       -Check the value of a performance (PDH) counter on the local or remote system.
-The counters can also be added and polled periodcally to get average values. Performance Log Users group membership is required to check performance counters.
+The counters can also be added and polled periodically to get average values. Performance Log Users group membership is required to check performance counters.
 check_process   -Check state/metrics of one or more of the processes running on the computer.
 check_service   -Check the state of one or more of the computer services.
 check_uptime    -Check time since last server re-boot.

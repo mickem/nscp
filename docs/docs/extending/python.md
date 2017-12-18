@@ -268,7 +268,7 @@ The bound function should look like this:
 
 ```
 def my_function(args):
-  return (status.OK, "This is the messge", "'count'=123;200;600")
+  return (status.OK, "This is the message", "'count'=123;200;600")
 ```
 
 **Example:**
@@ -278,7 +278,7 @@ from NSCP import log, Registry, status
 
 def my_function(args):
   log('Got arguments: %s'%args)
-  return (status.OK, "This is the messge", "'count'=123;200;600")
+  return (status.OK, "This is the message", "'count'=123;200;600")
 
 def init(plugin_id, plugin_alias, script_alias):
   reg = Registry.get(plugin_id)
@@ -290,7 +290,7 @@ def init(plugin_id, plugin_alias, script_alias):
 `Registry.cmdline(command_name, function)`
 
 Bind a function to a check query. This is similar to the `Registry.simple_cmdline` function but the bound
-function uses a more powerfull syntax which requires you to parse the reques/response using the protobuf API.
+function uses a more powerful syntax which requires you to parse the request/response using the protobuf API.
 
 
 Option       | Description
@@ -340,7 +340,7 @@ The bound function should look like this:
 
 ```
 def my_function(args):
-  return (0, "This is the messge")
+  return (0, "This is the message")
 ```
 
 **Example:**
@@ -429,7 +429,7 @@ def filter_nsca(channel, source, command, status, message, perf):
     core = Core.get(g_plugin_id)
     core.simple_submit('NSCA', command, status.CRITICAL, message.encode('utf-8'), perf)
   else:
-    log("Supressing duplicte message")
+    log("Supressing duplicate message")
 
 def init(plugin_id, plugin_alias, script_alias):
   global g_plugin_id
@@ -636,7 +636,7 @@ from NSCP import Core, log
 
 def init(plugin_id, plugin_alias, script_alias):
   core = Core.get(plugin_id)
-  path = core.expand_path("${scripts}/ptython/myscript.py")
+  path = core.expand_path("${scripts}/python/myscript.py")
   log('The script path is: %s'%path)
 ```
 
