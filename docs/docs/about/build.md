@@ -122,4 +122,4 @@ cd precise32 # Replace this with precise64 or oracle-linux-6.4_64
 vagrant up -- provision
 ```
 
-The resultiung packages will be found under packages
+The resulting packages will be found under packages

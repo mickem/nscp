@@ -1,6 +1,6 @@
 # CauseCrashes
 
-*DO NOT USE* This module is usefull except for debugging purpouses and outright dangerous as it allows someone remotley to crash your client!
+*DO NOT USE* This module is useful except for debugging purposes and outright dangerous as it allows someone remotely to crash your client!
 
 
 

@@ -187,7 +187,7 @@ enabled = true
 Adding this will not do much since we don't have a filter yet but adding one is pretty simple as well so lets go ahead and do that.
 
 To make life simple we set the destination in this filter to "log" which means the information only ends up in the NSClient++ log file.
-Not very usefull in reality but very usefull when we are debuggning as it removes possible errors sources.
+Not very useful in reality but very useful when we are debuggning as it removes possible errors sources.
 
 **configuration:**
 ```
@@ -203,7 +203,7 @@ Going through the configuration line by line we have:
 
 * `log=application` is the log we listen to.
 * `destination=log` is where the message is sent
-* `filter=level='error'` means we only want to recieve error messages.
+* `filter=level='error'` means we only want to receive error messages.
 * `maximum age=30s` sets a repeating "ok" messages every 30 seconds.
 * `debug=true` will increase the debug level for this filter
 
@@ -494,7 +494,7 @@ Shorthand for setting default unique index: ${log}-${source}-${id}.
 | [guid](#check_eventlog_guid)                   | The logfile name                                                                                             |
 | [id](#check_eventlog_id)                       | Eventlog id                                                                                                  |
 | [keyword](#check_eventlog_keyword)             | The keyword associated with this event                                                                       |
-| [level](#check_eventlog_level)                 | Severity level (error, warning, info, success, auditSucess, auditFailure)                                    |
+| [level](#check_eventlog_level)                 | Severity level (error, warning, info, success, auditSuccess, auditFailure)                                    |
 | [list](#check_eventlog_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
 | [log](#check_eventlog_log)                     | alias for file                                                                                               |
 | [message](#check_eventlog_message)             | The message rendered as a string.                                                                            |
@@ -670,7 +670,7 @@ lookup names=true
 
 **BUFFER_SIZE**
 
-The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.
+The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.
 
 
 

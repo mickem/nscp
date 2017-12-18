@@ -135,7 +135,7 @@ namespace nsclient {
 							"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
 
 							("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"),
-								"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
+								"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.")
 
 						;
 

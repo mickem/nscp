@@ -11,7 +11,7 @@ A list of all available queries (check commands)
 | Command                               | Description                              |
 |---------------------------------------|------------------------------------------|
 | [check_memory](#check_memory)         | Check free/used memory on the system.    |
-| [check_os_version](#check_os_version) | Check the version of the underlaying OS. |
+| [check_os_version](#check_os_version) | Check the version of the underlying OS. |
 | [check_uptime](#check_uptime)         | Check time since last server re-boot.    |
 
 
@@ -274,7 +274,7 @@ This is the syntax for the base names of the performance data.
 
 ### check_os_version
 
-Check the version of the underlaying OS.
+Check the version of the underlying OS.
 
 
 * [Command-line Arguments](#check_os_version_options)

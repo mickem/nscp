@@ -410,7 +410,7 @@ namespace eventlog_filter {
 				(type_custom_type, &fun_convert_new_type)
 				;
 			registry_.add_int()
-				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSucess, auditFailure)")
+				("level", type_custom_type, boost::bind(&filter_obj::get_el_type, _1), "Severity level (error, warning, info, success, auditSuccess, auditFailure)")
 				;
 		} else {
 			registry_.add_int()

@@ -315,4 +315,4 @@ if options.cmake_config:
         options.cmake_config = config['build.folder']
     write_config(config, options.cmake_config)
 else:
-    print 'WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very usefull...'
+    print 'WARN Since you did not specify --cmake-config we will not write the cmake config file so most likely this was not very useful...'

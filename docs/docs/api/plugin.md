@@ -643,7 +643,7 @@ repeated | Request | payload |
 <a name=".Plugin.ScheduleNotificationMessage.Request"/>
 ### Request
 
-`Plugin.ScheduleNotificationMessage.Request` A request message of a schule notification
+`Plugin.ScheduleNotificationMessage.Request` A request message of a schedule notification
 
 Modifier | Type        | Key       | Description
 -------- | ----------- | --------- | -----------

@@ -43,7 +43,7 @@ check_service exclude=nfoo
 L        cli CRITICAL: CRITICAL: nscp=stopped (auto), nscp2=stopped (auto), ...
 ```
 
-Excluding nscp2 with substring like mathcing filter:
+Excluding nscp2 with substring like matching filter:
 ```
 check_service exclude=nfoo "filter=name not like 'nscp'"
 L        cli CRITICAL: CRITICAL: ...

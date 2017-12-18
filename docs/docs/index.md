@@ -4,7 +4,7 @@
 NSClient++ (nscp) aims to be a simple yet powerful and secure monitoring daemon.
 It was built for Nagios/Icinga/Neamon, but nothing in the daemon is Nagios/Icinga/Neamon specific and it can be used in many other scenarios where you want to receive/distribute check metrics.
 
-The deamon has some basic features:
+The daemon has some basic features:
 
 *   Allow a remote machine (monitoring server) to request commands to be run on this machine (the monitored machine) which return the status of the machine.
 *   Submit the same results to a remote (monitoring server)

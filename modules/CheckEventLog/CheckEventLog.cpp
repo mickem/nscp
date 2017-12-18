@@ -95,7 +95,7 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			"SYNTAX", "Set this to use a specific syntax string for all commands (that don't specify one).")
 
 		("buffer size", sh::int_key(&buffer_length_, 128 * 1024),
-			"BUFFER_SIZE", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
+			"BUFFER_SIZE", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.")
 
 		;
 

@@ -157,7 +157,7 @@ class NSCAServerTest(BasicTest):
 				found = True
 				break
 		if not found:
-			result.add_message(False, 'Failed to recieve message %s using %s'%(uuid, tag))
+			result.add_message(False, 'Failed to receive message %s using %s'%(uuid, tag))
 			return False
 		
 		for i in range(0,10):
@@ -169,8 +169,8 @@ class NSCAServerTest(BasicTest):
 				log_debug('Got delayed response %s'%uuid)
 				break
 		
-		result.add_message(rmsg.got_response, 'Testing to recieve message using %s'%tag)
-		result.add_message(rmsg.got_simple_response, 'Testing to recieve simple message using %s'%tag)
+		result.add_message(rmsg.got_response, 'Testing to receive message using %s'%tag)
+		result.add_message(rmsg.got_simple_response, 'Testing to receive simple message using %s'%tag)
 		result.assert_equals(rmsg.command, uuid, 'Verify that command is sent through using %s'%tag)
 		result.assert_contains(rmsg.message, msg, 'Verify that message is sent through using %s'%tag)
 		

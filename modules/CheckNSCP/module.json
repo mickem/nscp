@@ -1,7 +1,7 @@
 {
 	"module"		: {
 		"title"			: "Check status of NSClient++",
-		"description"	: "Use this module to check the healt and status of NSClient++ it self",
+		"description"	: "Use this module to check the health and status of NSClient++ it self",
 		"name"			: "CheckNSCP",
 		"alias"			: "check_nscp",
 		"version"		: "auto"
@@ -13,7 +13,7 @@
 
 	"commands" : {
 		"check_nscp" : { 
-			"description" : "Check the internal healt of NSClient++."
+			"description" : "Check the internal health of NSClient++."
 			},
 		"check_nscp_version" : { 
 			"description" : "Check the version of NSClient++ which is used."

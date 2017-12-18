@@ -65,7 +65,7 @@ To get help you can run: `nscp sys -- --help`
 | --password arg     | The password to login with (only meaningful if computer is specified)                                       |
 | --lookup-index arg | Lookup a numeric value in the PDH index table                                                               |
 | --lookup-name arg  | Lookup a string value in the PDH index table                                                                |
-| --expand-path arg  | Expand a counter path contaning wildcards into corresponding objects (for instance --expand-path \System\*) |
+| --expand-path arg  | Expand a counter path containing wildcards into corresponding objects (for instance --expand-path \System\*) |
 | --check            | Check that performance counters are working                                                                 |
 | --list arg         | List counters and/or instances                                                                              |
 | --validate arg     | List counters and/or instances                                                                              |

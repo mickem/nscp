@@ -99,7 +99,7 @@ check_cpu help
 
 As you can see the help is rather extensive and comprehensive.
 
-All commands are added on the form of `*keyword*=*value*`. Or in some instance *keyword* only when a value is not nessecary.
+All commands are added on the form of `*keyword*=*value*`. Or in some instance *keyword* only when a value is not necessary.
 For instance help like so: `check_cpu help`
 
 Using the normal form *keyword*=*value* it looks like this: `check_cpu filter=none`
@@ -157,7 +157,7 @@ To get a list of all keyword we can use the help option as shown above. Here is 
 
 
 In our example we used the core to limit the output to only show core 0.
-Now if you run this without a filter using the extended isplay as before we get:
+Now if you run this without a filter using the extended display as before we get:
 
 ```
 check_cpu "top-syntax=${list}"

@@ -731,7 +731,7 @@ std::string cli_parser::get_description(std::string key) {
 	} else if (key == "wmi") {
 		return "Run WMI queries from command line";
 	} else if (key == "sys") {
-		return "Various system tools to get information about the system (generally PDH on windows curretly)";
+		return "Various system tools to get information about the system (generally PDH on windows currently)";
 	} else {
 		return "TODO: describe: " + key;
 	}
