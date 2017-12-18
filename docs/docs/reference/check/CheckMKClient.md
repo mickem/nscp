@@ -1,6 +1,6 @@
 # CheckMKClient
 
-check_mk client can be used both from command line and from queries to check remote systes via check_mk
+check_mk client can be used both from command line and from queries to check remote systems via check_mk
 
 
 
