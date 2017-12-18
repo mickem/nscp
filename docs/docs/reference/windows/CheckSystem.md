@@ -178,7 +178,7 @@ Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Deafult Value:* | `core = 'total'`
+*Default Value:* | `core = 'total'`
 
 
 
@@ -190,7 +190,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `load > 80`
+*Default Value:* | `load > 80`
 
 
 
@@ -202,7 +202,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `load > 90`
+*Default Value:* | `load > 90`
 
 
 
@@ -224,7 +224,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -246,7 +246,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${problem_list}`
+*Default Value:* | `${status}: ${problem_list}`
 
 
 
@@ -258,7 +258,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): CPU load is ok.`
+*Default Value:* | `%(status): CPU load is ok.`
 
 
 
@@ -281,7 +281,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${time}: ${load}%`
+*Default Value:* | `${time}: ${load}%`
 
 
 
@@ -292,7 +292,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${core} ${time}`
+*Default Value:* | `${core} ${time}`
 
 
 
@@ -452,7 +452,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `used > 80%`
+*Default Value:* | `used > 80%`
 
 
 
@@ -464,7 +464,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `used > 90%`
+*Default Value:* | `used > 90%`
 
 
 
@@ -486,7 +486,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -508,7 +508,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -542,7 +542,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${type} = ${used}`
+*Default Value:* | `${type} = ${used}`
 
 
 
@@ -553,7 +553,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${type}`
+*Default Value:* | `${type}`
 
 
 
@@ -663,7 +663,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `total > 10000`
+*Default Value:* | `total > 10000`
 
 
 
@@ -675,7 +675,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `total > 100000`
+*Default Value:* | `total > 100000`
 
 
 
@@ -697,7 +697,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `critical`
+*Default Value:* | `critical`
 
 
 
@@ -719,7 +719,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -731,7 +731,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): Network interfaces seem ok.`
+*Default Value:* | `%(status): Network interfaces seem ok.`
 
 
 
@@ -754,7 +754,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${name} >${sent} <${received} bps`
+*Default Value:* | `${name} >${sent} <${received} bps`
 
 
 
@@ -765,7 +765,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${name}`
+*Default Value:* | `${name}`
 
 
 
@@ -905,7 +905,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `version <= 50`
+*Default Value:* | `version <= 50`
 
 
 
@@ -917,7 +917,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `version <= 50`
+*Default Value:* | `version <= 50`
 
 
 
@@ -939,7 +939,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -961,7 +961,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -995,7 +995,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${version} (${major}.${minor}.${build})`
+*Default Value:* | `${version} (${major}.${minor}.${build})`
 
 
 
@@ -1006,7 +1006,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `version`
+*Default Value:* | `version`
 
 
 
@@ -1161,7 +1161,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `used > 60%`
+*Default Value:* | `used > 60%`
 
 
 
@@ -1173,7 +1173,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `used > 80%`
+*Default Value:* | `used > 80%`
 
 
 
@@ -1195,7 +1195,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -1217,7 +1217,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -1251,7 +1251,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${name} ${used} (${size})`
+*Default Value:* | `${name} ${used} (${size})`
 
 
 
@@ -1262,7 +1262,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${name}`
+*Default Value:* | `${name}`
 
 
 
@@ -1503,7 +1503,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -1525,7 +1525,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -1559,7 +1559,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${alias} = ${value}`
+*Default Value:* | `${alias} = ${value}`
 
 
 
@@ -1570,7 +1570,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${alias}`
+*Default Value:* | `${alias}`
 
 
 
@@ -1580,7 +1580,7 @@ This is the syntax for the base names of the performance data.
 Format of value (double, long, large)
 
 
-*Deafult Value:* | `large`
+*Default Value:* | `large`
 
 
 
@@ -1747,7 +1747,7 @@ Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Deafult Value:* | `state != 'unreadable'`
+*Default Value:* | `state != 'unreadable'`
 
 
 
@@ -1759,7 +1759,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `state not in ('started')`
+*Default Value:* | `state not in ('started')`
 
 
 
@@ -1771,7 +1771,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `state = 'stopped', count = 0`
+*Default Value:* | `state = 'stopped', count = 0`
 
 
 
@@ -1793,7 +1793,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -1815,7 +1815,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${problem_list}`
+*Default Value:* | `${status}: ${problem_list}`
 
 
 
@@ -1827,7 +1827,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): all processes are ok.`
+*Default Value:* | `%(status): all processes are ok.`
 
 
 
@@ -1838,7 +1838,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `UNKNOWN: No processes found`
+*Default Value:* | `UNKNOWN: No processes found`
 
 
 
@@ -1851,7 +1851,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${exe}=${state}`
+*Default Value:* | `${exe}=${state}`
 
 
 
@@ -1862,7 +1862,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${exe}`
+*Default Value:* | `${exe}`
 
 
 
@@ -2100,7 +2100,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `not state_is_perfect()`
+*Default Value:* | `not state_is_perfect()`
 
 
 
@@ -2112,7 +2112,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `not state_is_ok()`
+*Default Value:* | `not state_is_ok()`
 
 
 
@@ -2134,7 +2134,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -2156,7 +2156,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${crit_list}, delayed (${warn_list})`
+*Default Value:* | `${status}: ${crit_list}, delayed (${warn_list})`
 
 
 
@@ -2168,7 +2168,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): All %(count) service(s) are ok.`
+*Default Value:* | `%(status): All %(count) service(s) are ok.`
 
 
 
@@ -2179,7 +2179,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `%(status): No services found`
+*Default Value:* | `%(status): No services found`
 
 
 
@@ -2192,7 +2192,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${name}=${state} (${start_type})`
+*Default Value:* | `${name}=${state} (${start_type})`
 
 
 
@@ -2203,7 +2203,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${name}`
+*Default Value:* | `${name}`
 
 
 
@@ -2213,7 +2213,7 @@ This is the syntax for the base names of the performance data.
 The types of services to enumerate available types are driver, file-system-driver, kernel-driver, service, service-own-process, service-share-process
 
 
-*Deafult Value:* | `service`
+*Default Value:* | `service`
 
 
 
@@ -2223,7 +2223,7 @@ The types of services to enumerate available types are driver, file-system-drive
 The types of services to enumerate available states are active, inactive or all
 
 
-*Deafult Value:* | `all`
+*Default Value:* | `all`
 
 
 
@@ -2367,7 +2367,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `uptime < 2d`
+*Default Value:* | `uptime < 2d`
 
 
 
@@ -2379,7 +2379,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `uptime < 1d`
+*Default Value:* | `uptime < 1d`
 
 
 
@@ -2401,7 +2401,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -2423,7 +2423,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -2457,7 +2457,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `uptime: ${uptime}h, boot: ${boot} (UTC)`
+*Default Value:* | `uptime: ${uptime}h, boot: ${boot} (UTC)`
 
 
 
@@ -2468,7 +2468,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `uptime`
+*Default Value:* | `uptime`
 
 
 
@@ -2550,7 +2550,7 @@ Legacy version of check_pdh
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 
@@ -2615,7 +2615,7 @@ Legacy version of check_cpu
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 
@@ -2680,7 +2680,7 @@ Legacy version of check_mem
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 
@@ -2736,7 +2736,7 @@ Legacy version of check_process
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 
@@ -2784,7 +2784,7 @@ Legacy version of check_service
 Check all services.
 
 
-*Deafult Value:* | `true`
+*Default Value:* | `true`
 
 
 
@@ -2794,7 +2794,7 @@ Check all services.
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 
@@ -2856,7 +2856,7 @@ Legacy version of check_uptime
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 

@@ -209,7 +209,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -231,7 +231,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${list}`
+*Default Value:* | `${list}`
 
 
 
@@ -265,7 +265,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `%(line)`
+*Default Value:* | `%(line)`
 
 
 
@@ -285,7 +285,7 @@ This is the syntax for the base names of the performance data.
 The WMI root namespace to bind to.
 
 
-*Deafult Value:* | `root\cimv2`
+*Default Value:* | `root\cimv2`
 
 
 

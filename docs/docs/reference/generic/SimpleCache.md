@@ -97,7 +97,7 @@ Fetch results from the cache.
 The message to display when a message is not found
 
 
-*Deafult Value:* | `Entry not found`
+*Default Value:* | `Entry not found`
 
 
 
@@ -107,7 +107,7 @@ The message to display when a message is not found
 The return status to return when a message is not found
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 

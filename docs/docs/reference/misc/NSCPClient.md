@@ -144,7 +144,7 @@ Request remote information via NSCP.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -251,7 +251,7 @@ Execute remote script via NSCP.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -358,7 +358,7 @@ Request remote information via NSCP.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -490,7 +490,7 @@ Submit information to remote host via NSCP.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 

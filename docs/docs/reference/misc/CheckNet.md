@@ -111,7 +111,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `time > 60 or loss > 5%`
+*Default Value:* | `time > 60 or loss > 5%`
 
 
 
@@ -123,7 +123,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `time > 100 or loss > 10%`
+*Default Value:* | `time > 100 or loss > 10%`
 
 
 
@@ -145,7 +145,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -167,7 +167,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${ok_count}/${count} (${problem_list})`
+*Default Value:* | `${status}: ${ok_count}/${count} (${problem_list})`
 
 
 
@@ -179,7 +179,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): All %(count) hosts are ok`
+*Default Value:* | `%(status): All %(count) hosts are ok`
 
 
 
@@ -190,7 +190,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `No hosts found`
+*Default Value:* | `No hosts found`
 
 
 
@@ -203,7 +203,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${ip} Packet loss = ${loss}%, RTA = ${time}ms`
+*Default Value:* | `${ip} Packet loss = ${loss}%, RTA = ${time}ms`
 
 
 
@@ -214,7 +214,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${host}`
+*Default Value:* | `${host}`
 
 
 
@@ -224,7 +224,7 @@ This is the syntax for the base names of the performance data.
 Number of packets to send.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -234,7 +234,7 @@ Number of packets to send.
 Timeout in milliseconds.
 
 
-*Deafult Value:* | `500`
+*Default Value:* | `500`
 
 
 

@@ -232,7 +232,7 @@ Just return CRITICAL (anything passed along will be used as a message).
 Message to return
 
 
-*Deafult Value:* | `No message`
+*Default Value:* | `No message`
 
 
 
@@ -288,7 +288,7 @@ Run more then one check and return the worst state.
 Separator between messages
 
 
-*Deafult Value:* | `, `
+*Default Value:* | `, `
 
 
 
@@ -383,7 +383,7 @@ Just return OK (anything passed along will be used as a message).
 Message to return
 
 
-*Deafult Value:* | `No message`
+*Default Value:* | `No message`
 
 
 
@@ -505,7 +505,7 @@ Just return WARNING (anything passed along will be used as a message).
 Message to return
 
 
-*Deafult Value:* | `No message`
+*Default Value:* | `No message`
 
 
 
@@ -556,7 +556,7 @@ Run a check and filter performance data.
 The sort order to use: none, normal or reversed
 
 
-*Deafult Value:* | `none`
+*Default Value:* | `none`
 
 
 
@@ -566,7 +566,7 @@ The sort order to use: none, normal or reversed
 The maximum number of items to return (0 returns all items)
 
 
-*Deafult Value:* | `0`
+*Default Value:* | `0`
 
 
 
@@ -691,7 +691,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -713,7 +713,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `%(status): %(message) %(list)`
+*Default Value:* | `%(status): %(message) %(list)`
 
 
 
@@ -747,7 +747,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
+*Default Value:* | `%(key)	%(value)	%(unit)	%(warn)	%(crit)	%(min)	%(max)
 `
 
 
@@ -759,7 +759,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `%(key)`
+*Default Value:* | `%(key)`
 
 
 

@@ -163,7 +163,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -185,7 +185,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${count}/${total} (${problem_list})`
+*Default Value:* | `${count}/${total} (${problem_list})`
 
 
 
@@ -207,7 +207,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `%(status): Nothing found`
+*Default Value:* | `%(status): Nothing found`
 
 
 
@@ -220,7 +220,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${column1}`
+*Default Value:* | `${column1}`
 
 
 
@@ -231,7 +231,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${column1}`
+*Default Value:* | `${column1}`
 
 
 
@@ -241,7 +241,7 @@ This is the syntax for the base names of the performance data.
 Character string used to split a file into several lines (default \n)
 
 
-*Deafult Value:* | `\n`
+*Default Value:* | `\n`
 
 
 
@@ -251,7 +251,7 @@ Character string used to split a file into several lines (default \n)
 Character string to split a line into several columns (default \t)
 
 
-*Deafult Value:* | `\t`
+*Default Value:* | `\t`
 
 
 

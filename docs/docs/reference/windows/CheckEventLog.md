@@ -316,7 +316,7 @@ Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Deafult Value:* | `level in ('warning', 'error', 'critical')`
+*Default Value:* | `level in ('warning', 'error', 'critical')`
 
 
 
@@ -328,7 +328,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `level = 'warning', problem_count > 0`
+*Default Value:* | `level = 'warning', problem_count > 0`
 
 
 
@@ -340,7 +340,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `level in ('error', 'critical')`
+*Default Value:* | `level in ('error', 'critical')`
 
 
 
@@ -362,7 +362,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ok`
+*Default Value:* | `ok`
 
 
 
@@ -373,7 +373,7 @@ Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-*Deafult Value:* | `level(ignored:true)`
+*Default Value:* | `level(ignored:true)`
 
 
 
@@ -395,7 +395,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${count} message(s) ${problem_list}`
+*Default Value:* | `${status}: ${count} message(s) ${problem_list}`
 
 
 
@@ -407,7 +407,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): Event log seems fine`
+*Default Value:* | `%(status): Event log seems fine`
 
 
 
@@ -418,7 +418,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `%(status): No entries found`
+*Default Value:* | `%(status): No entries found`
 
 
 
@@ -431,7 +431,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${file} ${source} (${message})`
+*Default Value:* | `${file} ${source} (${message})`
 
 
 
@@ -442,7 +442,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${file}_${source}`
+*Default Value:* | `${file}_${source}`
 
 
 
@@ -472,7 +472,7 @@ A negative value scans backward (historical events) and a positive value scans f
 Shorthand for setting default unique index: ${log}-${source}-${id}.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -588,7 +588,7 @@ Legacy version of check_eventlog
 The file to check
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -598,7 +598,7 @@ The file to check
 Deprecated and has no meaning
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -608,7 +608,7 @@ Deprecated and has no meaning
 
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -618,7 +618,7 @@ Deprecated and has no meaning
 The syntax string
 
 
-*Deafult Value:* | `%source%, %strings%`
+*Default Value:* | `%source%, %strings%`
 
 
 
@@ -628,7 +628,7 @@ The syntax string
 The top level syntax string
 
 
-*Deafult Value:* | `${list}`
+*Default Value:* | `${list}`
 
 
 
