@@ -278,7 +278,7 @@
     <Binary Id='InstallerHelper' SourceFile='$(var.Source)/installer_lib.dll' />
 
     <InstallExecuteSequence>
-      <RemoveExistingProducts After='InstallValidate'>ALLOWUPGRADE="Yes"</RemoveExistingProducts>
+      <RemoveExistingProducts After='InstallValidate'></RemoveExistingProducts>
 
       <Custom Action="ApplyTool" After="CostFinalize">NOT REMOVE AND NOT UILevel=5</Custom>
       <Custom Action="ImportConfig" After="ApplyTool">NOT REMOVE AND NOT UILevel=5</Custom>
