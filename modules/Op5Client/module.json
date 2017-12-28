@@ -13,5 +13,5 @@
 
 	"channels" : "raw",
 
-	"command line exec" : "raw"
+	"command line exec" : "true"
 }

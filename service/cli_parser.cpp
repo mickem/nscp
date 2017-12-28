@@ -169,6 +169,7 @@ cli_parser::alias_map cli_parser::get_aliases() {
 	aliases["ext"] = "CheckExternalScripts";
 	aliases["web"] = "WEBServer";
 	aliases["test"] = "CommandClient";
+	aliases["op5"] = "Op5Client";
 	return aliases;
 }
 
