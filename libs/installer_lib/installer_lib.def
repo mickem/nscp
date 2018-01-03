@@ -7,3 +7,4 @@ EXPORTS
 	NeedUninstall
 	TranslateSid
 	ApplyTool
+	DetectTool

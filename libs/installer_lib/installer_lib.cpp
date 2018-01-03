@@ -285,6 +285,27 @@ void dump_config(msi_helper &h, std::wstring title) {
 }
 
 
+extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
+	msi_helper h(hInstall, L"DetectTool");
+
+	try {
+		h.logMessage("Detecting monitoring tool config");
+		if (!boost::algorithm::trim_copy(h.getPropery(L"OP5_SERVER")).empty()) {
+			h.setProperty(L"MONITORING_TOOL", L"OP5");
+		}
+		std::wstring tool = h.getPropery(L"MONITORING_TOOL");
+		h.logMessage(L"Detected monitoring tool is: " + tool);
+		dump_config(h, L"After DetectTool");
+	} catch (installer_exception e) {
+		h.logMessage(L"Failed to apply monitoring tool: " + e.what());
+		return ERROR_SUCCESS;
+	} catch (...) {
+		h.logMessage(L"Failed to apply monitoring tool: Unknown exception");
+		return ERROR_SUCCESS;
+	}
+	return ERROR_SUCCESS;
+}
+	
 extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, L"ApplyTool");
 	try {
@@ -533,6 +554,17 @@ void write_changed_key_mod(msi_helper &h, msi_helper::custom_action_data_w &data
 	write_key_mod(h, data, 1, key, val);
 }
 
+bool write_property_if_set(msi_helper &h, msi_helper::custom_action_data_w &data, const std::wstring prop, std::wstring path, std::wstring key) {
+	std::wstring val = boost::algorithm::trim_copy(h.getPropery(prop));
+	if (!val.empty()) {
+		h.logMessage(L"write_changed_key_mod: " + prop + L"; <modules>." + key + L"=" + val);
+		write_key(h, data, 1, path, key, val);
+		return true;
+	} else {
+		h.logMessage(L"IGNORING property not set: " + prop + L"; " + path + L"." + key + L"=" + val);
+	}
+	return false;
+}
 
 extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 	msi_helper h(hInstall, L"ScheduleWriteConfig");
@@ -558,6 +590,13 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		h.dumpProperty(KEY_CONF_CAN_CHANGE);
 
 
+		h.dumpProperty(L"OP5_SERVER");
+		h.dumpProperty(L"OP5_USER");
+		h.dumpProperty(L"OP5_PASSWORD");
+		h.dumpProperty(L"OP5_HOSTGROUPS");
+		h.dumpProperty(L"OP5_CONTACTGROUP");
+
+		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 		if (h.getPropery(KEY_CONF_CAN_CHANGE) != L"1") {
 			h.logMessage(L"Configuration changes not allowed: set CONF_CAN_CHANGE=1");
 			return ERROR_SUCCESS;
@@ -632,6 +671,14 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 				write_key(h, data, 1, lst[i], lst[i + 1], lst[i + 2]);
 			}
 		}
+
+		if (write_property_if_set(h, data, L"OP5_SERVER", L"/settings/op5", L"server")) {
+			write_key(h, data, 1, L"/modules", L"OP5Client", L"enabled");
+		}
+		write_property_if_set(h, data, L"OP5_USER", L"/settings/op5", L"user");
+		write_property_if_set(h, data, L"OP5_PASSWORD", L"/settings/op5", L"password");
+		write_property_if_set(h, data, L"OP5_HOSTGROUPS", L"/settings/op5", L"hostgroups");
+		write_property_if_set(h, data, L"OP5_CONTACTGROUP", L"/settings/op5", L"contactgroups");
 
 		if (data.has_data()) {
 			h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
