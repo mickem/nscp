@@ -107,9 +107,11 @@ public:
 	}
 	void setPropertyIfEmpty(std::wstring key, std::wstring val) {
 		std::wstring old = getPropery(key);
-		logMessage(L"Setting " + key + L" to " + val + L" if empty");
 		if (old.empty()) {
+			logMessage(L"Setting (empty) " + key + L" to " + val + L" if empty");
 			setProperty(key, val);
+		} else {
+			logMessage(L"Not setting (not empty) " + key + L" to " + val + L" if empty");
 		}
 	}
 	void setPropertyAndDefault(std::wstring key, std::wstring value) {

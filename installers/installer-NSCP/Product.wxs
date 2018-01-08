@@ -281,9 +281,9 @@
     <InstallExecuteSequence>
       <RemoveExistingProducts After='InstallValidate'></RemoveExistingProducts>
 
-      <Custom Action="DetectTool" After="CostFinalize">NOT REMOVE AND NOT UILevel=5</Custom>
-      <Custom Action="ApplyTool" After="DetectTool">NOT REMOVE AND NOT UILevel=5</Custom>
-      <Custom Action="ImportConfig" After="ApplyTool">NOT REMOVE AND NOT UILevel=5</Custom>
+      <Custom Action="DetectTool" After="CostFinalize">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="ApplyTool" After="DetectTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
+      <Custom Action="ImportConfig" After="ApplyTool">NOT (REMOVE ="ALL") AND NOT UILevel=5</Custom>
 
       <Custom Action="PreventDowngrading" After="FindRelatedProducts">NEWAPPFOUND</Custom>
       <Custom Action="ScheduleWriteConfig" After="InstallFiles">NOT (REMOVE ="ALL")</Custom>

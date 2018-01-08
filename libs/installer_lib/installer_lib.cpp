@@ -365,6 +365,7 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 		h.applyProperty(KEY_GENERATE_SAMPLE_CONFIG, GENERATE_SAMPLE_CONFIG);
 
 		h.setPropertyIfEmpty(KEY_CONF_CAN_CHANGE, L"1");
+		h.setPropertyIfEmpty(KEY_CONFIGURATION_TYPE, L"ini://${shared-path}/nsclient.ini");
 
 		dump_config(h, L"After ApplyConfig");
 
