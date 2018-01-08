@@ -105,10 +105,11 @@ int nsclient_core::settings_client::migrate_to(std::string target) {
 
 void nsclient_core::settings_client::dump_path(std::string root) {
 	BOOST_FOREACH(const std::string &path, get_core()->get()->get_sections(root)) {
-		if (!root.empty())
+		if (!root.empty()) {
 			dump_path(root + "/" + path);
-		else
+		} else if (!path.empty()) {
 			dump_path(path);
+		}
 	}
 	BOOST_FOREACH(std::string key, get_core()->get()->get_keys(root)) {
 		settings::settings_interface::op_string val = get_core()->get()->get_string(root, key);
