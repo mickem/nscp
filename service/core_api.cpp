@@ -326,7 +326,7 @@ NSCAPI::errorReturn NSCAPIProtobuf2Json(const char* object, const char* request_
 	return NSCAPI::api_return_codes::isSuccess;
 }
 #else
-NSCAPI::errorReturn NSCAPIJson2protobuf(const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
+NSCAPI::errorReturn NSCAPIJson2Protobuf(const char* request_buffer, unsigned int request_buffer_len, char ** response_buffer, unsigned int *response_buffer_len) {
 	mainClient->get_logger()->error("api", __FILE__, __LINE__, "Not compiled with jason spirit so json not supported");
 	return NSCAPI::hasFailed;
 }
