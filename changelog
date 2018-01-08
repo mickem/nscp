@@ -1,3 +1,15 @@
+2018-01-08 Michael Medin
+ * Possibly fixed #525 json-spirit should not be a required dependancy
+ * Fixed #527 infinite recursion with malformed config file
+ * Fixed #518 silent installer not applying cli values
+ * Fixed so OP5_SERVER et.al. are applied correctly to the installer
+ * Added new OP5Client
+ * optimized the markdown a bit
+ * started to fix debian builds
+ * Added http client for mongoose wrapper
+ * moved moongose impl behind the c++ wrappers
+ * add centreon plugins to docs: ref #512
+
 2017-11-19 Michael Medin
  * REST: Added crude settings API (needs more work before making official)
  * Fixed #435 added support for overriding http verb with X-HTTP-Method-Override
