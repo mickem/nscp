@@ -44,7 +44,7 @@ namespace nrpe {
 		struct packet {
 			int16_t   packet_version;
 			int16_t   packet_type;
-			u_int32_t crc32_value;
+			uint32_t crc32_value;
 			int16_t   result_code;
 		};
 	};
@@ -185,7 +185,7 @@ namespace nrpe {
 				throw nrpe::nrpe_exception("To much data cant create return packet (truncate data)");
 			update_payload(p, payload_);
 			p->crc32_value = 0;
-			crc32_ = p->crc32_value = swap_bytes::hton<u_int32_t>(calculate_crc32(tmpBuffer, packet_length));
+			crc32_ = p->crc32_value = swap_bytes::hton<uint32_t>(calculate_crc32(tmpBuffer, packet_length));
 			return tmpBuffer;
 		}
 
@@ -207,7 +207,7 @@ namespace nrpe {
 			version_ = swap_bytes::ntoh<int16_t>(p->packet_version);
 			if (version_ != nrpe::data::version2)
 				throw nrpe::nrpe_exception("Invalid packet version." + str::xtos(version_));
-			crc32_ = swap_bytes::ntoh<u_int32_t>(p->crc32_value);
+			crc32_ = swap_bytes::ntoh<uint32_t>(p->crc32_value);
 			// Verify CRC32
 			// @todo Fix this, currently we need a const buffer so we cannot change the CRC to 0.
 			char * tb = new char[length + 1];

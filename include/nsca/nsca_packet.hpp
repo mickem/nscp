@@ -36,8 +36,8 @@ namespace nsca {
 
 		typedef struct data_packet : public boost::noncopyable {
 			int16_t   packet_version;
-			u_int32_t crc32_value;
-			u_int32_t timestamp;
+			uint32_t crc32_value;
+			uint32_t timestamp;
 			int16_t   return_code;
 			char      data[];
 			/*
@@ -76,7 +76,7 @@ namespace nsca {
 		/* initialization packet containing IV and timestamp */
 		typedef struct iv_packet {
 			char      iv[transmitted_iuv_size];
-			u_int32_t timestamp;
+			uint32_t timestamp;
 		} init_packet;
 	};
 
@@ -165,15 +165,15 @@ namespace nsca {
 			memcpy(tmp, buffer, buffer_len);
 			nsca::data::data_packet *data = reinterpret_cast<nsca::data::data_packet*>(tmp);
 			//packet_version=swap_bytes::ntoh<int16_t>(data->packet_version);
-			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);
+			time = swap_bytes::ntoh<uint32_t>(data->timestamp);
 			code = swap_bytes::ntoh<int16_t>(data->return_code);
-			//data->crc32_value= swap_bytes::hton<u_int32_t>(0);
+			//data->crc32_value= swap_bytes::hton<uint32_t>(0);
 
 			host = data->get_host_ptr();
 			service = data->get_desc_ptr(nsca::length::host_length);
 			result = data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length);
 
-			unsigned int crc32 = swap_bytes::ntoh<u_int32_t>(data->crc32_value);
+			unsigned int crc32 = swap_bytes::ntoh<uint32_t>(data->crc32_value);
 			data->crc32_value = 0;
 			unsigned int calculated_crc32 = calculate_crc32(tmp, buffer_len);
 			delete[] tmp;
@@ -201,18 +201,18 @@ namespace nsca {
 
 			data->packet_version = swap_bytes::hton<int16_t>(nsca::data::version3);
 			if (servertime != 0)
-				data->timestamp = swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(servertime));
+				data->timestamp = swap_bytes::hton<uint32_t>(static_cast<uint32_t>(servertime));
 			else
-				data->timestamp = swap_bytes::hton<u_int32_t>(static_cast<u_int32_t>(time));
+				data->timestamp = swap_bytes::hton<uint32_t>(static_cast<uint32_t>(time));
 			data->return_code = swap_bytes::hton<int16_t>(static_cast<int16_t>(code));
-			data->crc32_value = swap_bytes::hton<u_int32_t>(0);
+			data->crc32_value = swap_bytes::hton<uint32_t>(0);
 
 			copy_string(data->get_host_ptr(), host, nsca::length::host_length);
 			copy_string(data->get_desc_ptr(nsca::length::host_length), service, nsca::length::desc_length);
 			copy_string(data->get_result_ptr(nsca::length::host_length, nsca::length::desc_length), result, get_payload_length());
 
 			unsigned int calculated_crc32 = calculate_crc32(buffer.c_str(), static_cast<int>(buffer.size()));
-			data->crc32_value = swap_bytes::hton<u_int32_t>(calculated_crc32);
+			data->crc32_value = swap_bytes::hton<uint32_t>(calculated_crc32);
 		}
 		std::string get_buffer() const {
 			std::string buffer;
@@ -225,20 +225,20 @@ namespace nsca {
 
 	class iv_packet {
 		std::string iv;
-		u_int32_t time;
+		uint32_t time;
 	public:
-		iv_packet(std::string iv, u_int32_t time) : iv(iv), time(time) {}
+		iv_packet(std::string iv, uint32_t time) : iv(iv), time(time) {}
 		iv_packet(std::string iv, boost::posix_time::ptime now) : iv(iv), time(ptime_to_unixtime(now)) {}
 		iv_packet(std::string buffer) {
 			parse(buffer);
 		}
-		u_int32_t ptime_to_unixtime(boost::posix_time::ptime now) {
+		uint32_t ptime_to_unixtime(boost::posix_time::ptime now) {
 			//boost::posix_time::ptime now = boost::posix_time::second_clock::local_time();
 			boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 			boost::posix_time::time_duration diff = now - time_t_epoch;
 			return diff.total_seconds();
 		}
-		u_int32_t get_time() const {
+		uint32_t get_time() const {
 			return time;
 		}
 		std::string get_iv() const {
@@ -250,7 +250,7 @@ namespace nsca {
 				throw nsca::nsca_exception("Invalid IV size: " + str::xtos(iv.size()) + " != " + str::xtos(nsca::length::iv::get_payload_length()));
 			nsca::data::iv_packet data;
 			memcpy(data.iv, iv.c_str(), iv.size());
-			data.timestamp = swap_bytes::hton<u_int32_t>(time);
+			data.timestamp = swap_bytes::hton<uint32_t>(time);
 			char *src = reinterpret_cast<char*>(&data);
 			std::string buffer(src, nsca::length::iv::get_packet_length());
 			return buffer;
@@ -260,7 +260,7 @@ namespace nsca {
 				throw nsca::nsca_exception("Buffer is to short: " + str::xtos(buffer.length()) + " > " + str::xtos(nsca::length::iv::get_packet_length()));
 			const nsca::data::iv_packet *data = reinterpret_cast<const nsca::data::iv_packet*>(buffer.c_str());
 			iv = std::string(data->iv, nsca::data::transmitted_iuv_size);
-			time = swap_bytes::ntoh<u_int32_t>(data->timestamp);
+			time = swap_bytes::ntoh<uint32_t>(data->timestamp);
 		}
 	};
 }
