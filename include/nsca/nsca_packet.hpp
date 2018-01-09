@@ -35,15 +35,15 @@ namespace nsca {
 		static const int16_t version3 = 3;
 
 		typedef struct data_packet : public boost::noncopyable {
-			int16_t   packet_version;
+			int16_t  packet_version;
 			uint32_t crc32_value;
 			uint32_t timestamp;
-			int16_t   return_code;
-			char      data[];
+			int16_t  return_code;
+			char     data[];
 			/*
-			char      host_name[];
-			char      svc_description[];
-			char      plugin_output[];
+			char     host_name[];
+			char     svc_description[];
+			char     plugin_output[];
 			*/
 			//data_packet_struct() : packet_version(NSCA_PACKET_VERSION_3) {}
 
@@ -75,7 +75,7 @@ namespace nsca {
 
 		/* initialization packet containing IV and timestamp */
 		typedef struct iv_packet {
-			char      iv[transmitted_iuv_size];
+			char     iv[transmitted_iuv_size];
 			uint32_t timestamp;
 		} init_packet;
 	};
