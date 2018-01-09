@@ -42,10 +42,10 @@ namespace nrpe {
 		static const std::size_t buffer_offset = 10;
 
 		struct packet {
-			int16_t   packet_version;
-			int16_t   packet_type;
+			int16_t  packet_version;
+			int16_t  packet_type;
 			uint32_t crc32_value;
-			int16_t   result_code;
+			int16_t  result_code;
 		};
 	};
 
