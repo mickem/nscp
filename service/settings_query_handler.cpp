@@ -4,8 +4,9 @@
 
 #include <nscapi/nscapi_protobuf_functions.hpp>
 
+#ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
-
+#endif
 #include <boost/foreach.hpp>
 #include <boost/unordered_set.hpp>
 
@@ -292,6 +293,7 @@ namespace nsclient {
 		void settings_query_handler::parse_registration(const Plugin::SettingsRequestMessage::Request::Registration &q, int plugin_id, Plugin::SettingsResponseMessage::Response* rp) {
 			rp->mutable_registration();
 			if (q.has_fields()) {
+#ifdef HAVE_JSON_SPIRIT
 				json_spirit::Object node;
 
 				try {
@@ -317,6 +319,9 @@ namespace nsclient {
 				//node.insert(json_spirit::Object::value_type("fields", value));
 				std::string tplData = json_spirit::write(node);
 				settings_manager::get_core()->register_tpl(plugin_id, q.node().path(), q.info().title(), tplData);
+#else
+				LOG_ERROR_CORE("Not compiled with json support");
+#endif
 			} else if (q.node().has_key()) {
 				nscapi::settings::settings_value defValue;
 				if (q.info().default_value().has_string_data())

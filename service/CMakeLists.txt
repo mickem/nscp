@@ -4,15 +4,6 @@ SET(TARGET nscp)
 
 PROJECT(service)
 INCLUDE_DIRECTORIES(${BOOST_INCLUDE_DIRS})
-IF(JSON_SPIRIT_FOUND)
-	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
-	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
-	ADD_DEFINITIONS(-DJSON_SPIRIT_STATIC_LINKED)
-	SET(JSON_LIB json_spirit nscp_json_pb)
-ELSE(JSON_SPIRIT_FOUND)
-	SET(JSON_LIB)
-ENDIF(JSON_SPIRIT_FOUND)
-
 LINK_DIRECTORIES(${BOOST_LIB_DIRS})
 
 SET(service_SRCS
@@ -22,7 +13,6 @@ SET(service_SRCS
 	master_plugin_list.cpp
 	path_manager.cpp
 	dll_plugin.cpp
-  zip_plugin.cpp
 
 
 	#logger
@@ -77,7 +67,6 @@ IF(WIN32)
 		master_plugin_list.hpp
 		path_manager.hpp
 		dll_plugin.h
-    zip_plugin.h
 		plugin_interface.hpp
 
 		
@@ -130,6 +119,21 @@ IF(WIN32)
 	
 	ADD_DEFINITIONS(-D_WIN32_DCOM)
 ENDIF(WIN32)
+
+IF(JSON_SPIRIT_FOUND)
+	INCLUDE_DIRECTORIES(${JSON_SPIRIT_INCLUDE_DIR})
+	ADD_DEFINITIONS(-DHAVE_JSON_SPIRIT)
+	ADD_DEFINITIONS(-DJSON_SPIRIT_STATIC_LINKED)
+	SET(JSON_LIB json_spirit nscp_json_pb)
+  
+	SET(service_SRCS ${service_SRCS}
+    zip_plugin.cpp
+    zip_plugin.h
+  )
+  
+ELSE(JSON_SPIRIT_FOUND)
+	SET(JSON_LIB)
+ENDIF(JSON_SPIRIT_FOUND)
 
 IF (PROTOC_GEN_JSON_FOUND)
 	ADD_DEFINITIONS(-DHAVE_JSON_PB)

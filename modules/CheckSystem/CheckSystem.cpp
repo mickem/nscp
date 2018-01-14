@@ -39,8 +39,9 @@
 #include <parsers/filter/cli_helper.hpp>
 #include <compat.hpp>
 #include <nsclient/nsclient_exception.hpp>
+#ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
-
+#endif
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
@@ -257,9 +258,12 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 	}
 	try {
 		int total = 0, match = 0;
+#ifdef HAVE_JSON_SPIRIT
 		json_spirit::Array data;
+#endif
 		BOOST_FOREACH(const PDH::Enumerations::Object &obj, list) {
 			if (json) {
+#ifdef HAVE_JSON_SPIRIT
 				BOOST_FOREACH(const std::string &inst, obj.instances) {
 					BOOST_FOREACH(const std::string &count, obj.counters) {
 						std::string line = "\\" + obj.name + "(" + inst + ")\\" + count;
@@ -269,6 +273,7 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 						data.push_back(v);
 					}
 				}
+#endif
 			} else if (porcelain) {
 				BOOST_FOREACH(const std::string &inst, obj.instances) {
 					std::string line = "\\" + obj.name + "(" + inst + ")\\";
@@ -330,8 +335,13 @@ bool render_list(const PDH::Enumerations::Objects &list, bool validate, bool por
 				}
 			}
 		}
-		if (json)
+		if (json) {
+#ifdef HAVE_JSON_SPIRIT
 			result = json_spirit::write(data, json_spirit::raw_utf8);
+#else
+			result = "No json support";
+#endif
+		}
 		else if (!porcelain) {
 			result += "---------------------------\n";
 			result += "Listed " + str::xtos(match) + " of " + str::xtos(total) + " counters.";

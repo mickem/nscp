@@ -27,7 +27,9 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
+#ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
+#endif
 
 #include <boost/regex.hpp>
 #include <boost/filesystem.hpp>
@@ -90,9 +92,10 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 
 	desc.add_options()
 		("help", "Show help.")
-
+#ifdef HAVE_JSON_SPIRIT
 		("json", po::bool_switch(&json),
 			"Return the list in json format.")
+#endif
 		("query", po::bool_switch(&query),
 			"List queries instead of scripts (for aliases).")
 		("include-lib", po::bool_switch(&lib),
@@ -116,13 +119,15 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 		return;
 	}
 	std::string resp;
+#ifdef HAVE_JSON_SPIRIT
 	json_spirit::Array data;
-
+#endif
 	if (query) {
 		BOOST_FOREACH(const std::string &cmd, provider_->get_commands()) {
 			if (json) {
-				json_spirit::Value v = cmd;
-				data.push_back(v);
+#ifdef HAVE_JSON_SPIRIT
+				data.push_back(cmd);
+#endif
 			} else {
 				resp += cmd + "\n";
 			}
@@ -142,8 +147,9 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 			boost::filesystem::path clone = i.parent_path();
 			if (boost::filesystem::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
 				if (json) {
-					json_spirit::Value v = s;
-					data.push_back(v);
+#ifdef HAVE_JSON_SPIRIT
+					data.push_back(s);
+#endif
 				} else {
 					resp += s + "\n";
 				}
@@ -151,8 +157,11 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 			}
 		}
 	}
-	if (json)
+#ifdef HAVE_JSON_SPIRIT
+	if (json) {
 		resp = json_spirit::write(data, json_spirit::raw_utf8);
+	}
+#endif
 
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }

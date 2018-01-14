@@ -20,8 +20,9 @@
 #include "plugin_manager.hpp"
 
 #include "dll_plugin.h"
+#ifdef HAVE_JSON_SPIRIT
 #include "zip_plugin.h"
-
+#endif
 #include <str/format.hpp>
 #include <file_helpers.hpp>
 #include <settings/settings_core.hpp>
@@ -308,9 +309,11 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
 		return dup;
 	}
 	loaded = true;
+#ifdef HAVE_JSON_SPIRIT
 	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
 		return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
 	}
+#endif
 	return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
 }
 

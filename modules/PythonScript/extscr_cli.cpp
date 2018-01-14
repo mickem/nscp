@@ -27,7 +27,9 @@
 #include <file_helpers.hpp>
 #include <config.h>
 
+#ifdef HAVE_JSON_SPIRIT
 #include <json_spirit.h>
+#endif
 
 #include <boost/regex.hpp>
 #include <boost/optional.hpp>
@@ -90,8 +92,10 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 	desc.add_options()
 		("help", "Show help.")
 
+#ifdef HAVE_JSON_SPIRIT
 		("json", po::bool_switch(&json),
 			"Return the list in json format.")
+#endif
 		("query", po::bool_switch(&query),
 			"List queries instead of scripts (for aliases).")
 		("include-lib", po::bool_switch(&lib),
@@ -115,8 +119,9 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 		return;
 	}
 	std::string resp;
+#ifdef HAVE_JSON_SPIRIT
 	json_spirit::Array data;
-
+#endif
 	if (query) {
 		Plugin::RegistryRequestMessage rrm;
 		Plugin::RegistryResponseMessage response;
@@ -129,8 +134,9 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 		BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response &p, response.payload()) {
 			BOOST_FOREACH(const ::Plugin::RegistryResponseMessage_Response_Inventory &i, p.inventory()) {
 				if (json) {
-					json_spirit::Value v = i.name();
-					data.push_back(v);
+#ifdef HAVE_JSON_SPIRIT
+					data.push_back(i.name());
+#endif
 				} else {
 					resp += i.name() + "\n";
 				}
@@ -151,8 +157,9 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 			fs::path clone = i.parent_path();
 			if (fs::is_regular_file(i) && !boost::algorithm::contains(clone.string(), "lib")) {
 				if (json) {
-					json_spirit::Value v = s;
-					data.push_back(v);
+#ifdef HAVE_JSON_SPIRIT
+					data.push_back(s);
+#endif
 				} else {
 					resp += s + "\n";
 				}
@@ -160,9 +167,11 @@ void extscr_cli::list(const Plugin::ExecuteRequestMessage::Request &request, Plu
 			}
 		}
 	}
-	if (json)
+#ifdef HAVE_JSON_SPIRIT
+	if (json) {
 		resp = json_spirit::write(data, json_spirit::raw_utf8);
-
+	}
+#endif
 	nscapi::protobuf::functions::set_response_good(*response, resp);
 }
 
