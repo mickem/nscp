@@ -104,7 +104,7 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			("interval", sh::string_key(&interval, "5m"),
 			"Check interval", "How often to submit passive check results you can use an optional suffix to denote time (s, m, h)")
 
-			("remove", sh::bool_key(&config.deregister, "false"),
+			("remove", sh::bool_key(&config.deregister, false),
 			"Remove checks on exit", "If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)")
 
 			("hostgroups", sh::string_key(&config.hostgroups, ""),

@@ -53,7 +53,7 @@ Section for the Op5 server
 | [hostname](#/settings/op5_hostname)           | auto          | HOSTNAME              |
 | [interval](#/settings/op5_interval)           | 5m            | Check interval        |
 | [password](#/settings/op5_password)           |               | Op5 password          |
-| [remove](#/settings/op5_remove)               | true          | Remove checks on exit |
+| [remove](#/settings/op5_remove)               | false         | Remove checks on exit |
 | [server](#/settings/op5_server)               |               | Op5 base url          |
 | [user](#/settings/op5_user)                   |               | Op5 user              |
 
@@ -65,7 +65,7 @@ Section for the Op5 server
 channel=op5
 hostname=auto
 interval=5m
-remove=true
+remove=false
 
 ```
 
@@ -262,7 +262,7 @@ If we should remove all checks when NSClient++ shuts down (for truly elastic sce
 |----------------|---------------------------------|
 | Path:          | [/settings/op5](#/settings/op5) |
 | Key:           | remove                          |
-| Default value: | `true`                          |
+| Default value: | `false`                         |
 | Used by:       | Op5Client                       |
 
 
@@ -271,7 +271,7 @@ If we should remove all checks when NSClient++ shuts down (for truly elastic sce
 ```
 [/settings/op5]
 # Remove checks on exit
-remove=true
+remove=false
 ```
 
 

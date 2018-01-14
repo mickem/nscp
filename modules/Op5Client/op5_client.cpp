@@ -119,7 +119,8 @@ std::string get_my_ip() {
 
 boost::shared_ptr<Mongoose::Response> op5_client::do_call(const char *verb, const std::string url, const std::string payload) {
 	std::string base_url;
-	std::map<std::string, std::string> hdr;
+	typedef Mongoose::Client::header_type hdr_type;
+	hdr_type hdr;
 	{
 		boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 		if (!lock.owns_lock()) {
@@ -132,8 +133,25 @@ boost::shared_ptr<Mongoose::Response> op5_client::do_call(const char *verb, cons
 	}
 	hdr["Accept"] = "application/json";
 	hdr["Content-type"] = "application/json";
+	NSC_TRACE_ENABLED() {
+		NSC_TRACE_MSG(std::string(verb) + ": " + base_url + url);
+		BOOST_FOREACH(const hdr_type::value_type &v, hdr) {
+			NSC_TRACE_MSG(v.first + "=" + v.second);
+		}
+		if (!payload.empty()) {
+			NSC_TRACE_MSG(payload);
+		}
+	}
 	Mongoose::Client query(base_url + url);
-	return query.fetch(verb, hdr, payload);
+	boost::shared_ptr<Mongoose::Response> ret = query.fetch(verb, hdr, payload);
+	NSC_TRACE_ENABLED() {
+		if (ret) {
+			NSC_TRACE_MSG(str::xtos(ret->get_response_code()) + ": " + ret->getBody());
+		}
+		NSC_TRACE_MSG("------------------------");
+	}
+	return ret;
+
 }
 
 
@@ -149,8 +167,8 @@ bool op5_client::has_host(std::string host) {
 		std::string data = response->getBody();
 		json_spirit::read_or_throw(data, root);
 		return root.getArray().size() > 0;
-	} catch (const json_spirit::ParseError &e) {
-		NSC_LOG_ERROR("Failed to parse reponse: " + response->getBody());
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR("Failed to parse reponse: " + utf8::utf8_from_native(e.what()));
 		return false;
 	}
 	return false;
@@ -385,6 +403,11 @@ void op5_client::thread_proc() {
 			}
 			try {
 				NSC_TRACE_MSG("Running op5 checks...");
+				std::string status;
+				if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "Everything is fine", status)) {
+					NSC_LOG_ERROR("Failed to submit host ok status: " + status);
+				}
+
 				op5_config::check_map copy;
 				{
 					boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
