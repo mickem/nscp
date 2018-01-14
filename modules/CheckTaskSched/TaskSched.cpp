@@ -68,9 +68,9 @@ void find_old(tasksched_filter::filter &filter) {
 	}
 }
 
-void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive);
+void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive, bool hidden);
 
-void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive, bool old) {
+void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, std::string user, std::string domain, std::string password, std::string folder, bool recursive, bool hidden, bool old) {
 	if (old) {
 		return find_old(filter);
 	}
@@ -98,10 +98,10 @@ void TaskSched::findAll(tasksched_filter::filter &filter, std::string computer, 
 		NSC_DEBUG_MSG("Failed to connect to: computer: '" + computer + "', domain: '" + domain + "', user: '" + user + "', password: '" + std::string(password.size(), '*') + "': " + str::xtos(hr));
 		throw nsclient::nsclient_exception("Failed to connect to task service on " + computer + ": " + error::com::get(hr));
 	}
-	do_get(taskSched, filter, folder, recursive);
+	do_get(taskSched, filter, folder, recursive, hidden);
 }
 
-void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive) {
+void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, std::string folder, bool recursive, bool hidden) {
 	CComPtr<ITaskFolder> pRootFolder;
 	HRESULT hr = taskSched->GetFolder(_bstr_t(utf8::cvt<std::wstring>(folder).c_str()), &pRootFolder);
 	if (FAILED(hr)) {
@@ -129,7 +129,7 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 	}
 
 	CComPtr<IRegisteredTaskCollection> pTaskCollection;
-	hr = pRootFolder->GetTasks(NULL, &pTaskCollection);
+	hr = pRootFolder->GetTasks(hidden?TASK_ENUM_HIDDEN:NULL, &pTaskCollection);
 	if (FAILED(hr)) {
 		throw nsclient::nsclient_exception("Failed to enum work items failed: " + error::com::get(hr));
 	}
@@ -150,6 +150,6 @@ void do_get(CComPtr<ITaskService> taskSched, tasksched_filter::filter &filter, s
 	}
 
 	BOOST_FOREACH(const std::string f, sub_folders) {
-		do_get(taskSched, filter, f, recursive);
+		do_get(taskSched, filter, f, recursive, hidden);
 	}
 }

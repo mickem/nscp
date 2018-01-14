@@ -132,7 +132,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 	std::vector<std::string> file_list;
 	std::string files_string;
 	std::string computer, user, domain, password, folder;
-	bool recursive = true, old = false;
+	bool recursive = true, old = false, hidden = false;
 
 	filter_type filter;
 	filter_helper.add_options("exit_code != 0", "exit_code < 0", "enabled = 1", filter.get_filter_syntax(), "warning");
@@ -145,6 +145,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 		("password", po::value<std::string>(&password), "The password that is used to connect to the computer. If the user name and password are not specified, then the current token is used.")
 		("folder", po::value<std::string>(&folder), "The folder in which the tasks to check reside.")
 		("recursive", po::value<bool>(&recursive), "Recurse sub folder (defaults to true).")
+		("hidden", po::value<bool>(&hidden), "Look for hidden tasks.")
 		;
 
 	if (!filter_helper.parse_options())
@@ -155,7 +156,7 @@ void CheckTaskSched::check_tasksched(const Plugin::QueryRequestMessage::Request 
 
 	try {
 		TaskSched query;
-		query.findAll(filter, computer, user, domain, password, folder, recursive, old);
+		query.findAll(filter, computer, user, domain, password, folder, recursive, hidden, old);
 		filter_helper.post_process(filter);
 	} catch (const nsclient::nsclient_exception &e) {
 		return nscapi::protobuf::functions::set_response_bad(*response, "Failed to fetch tasks: " + e.reason());

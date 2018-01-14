@@ -79,6 +79,8 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 
 <a name="check_tasksched_recursive"/>
 
+<a name="check_tasksched_hidden"/>
+
 <a name="check_tasksched_options"/>
 #### Command-line Arguments
 
@@ -112,6 +114,7 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 | password                                        |                                       | The password that is used to connect to the computer. If the user name and password are not specified, then the current token is used. |
 | folder                                          |                                       | The folder in which the tasks to check reside.                                                                                         |
 | recursive                                       |                                       | Recurse sub folder (defaults to true).                                                                                                 |
+| hidden                                          |                                       | Look for hidden tasks.                                                                                                                 |
 
 
 
