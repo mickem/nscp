@@ -1,3 +1,8 @@
+2018-01-15 Michael Medin
+ * Added hidden to check_tasksched to allow checking of hidden tasks
+ * Added tracing and fixed some issues to op5 client
+ * Fixed #525 json spirit should be an optional dependency (though a lot of things break without it)
+
 2018-01-08 Michael Medin
  * Possibly fixed #525 json-spirit should not be a required dependancy
  * Fixed #527 infinite recursion with malformed config file
