@@ -404,7 +404,7 @@ void op5_client::thread_proc() {
 			try {
 				NSC_TRACE_MSG("Running op5 checks...");
 				std::string status;
-				if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "Everything is fine", status)) {
+				if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "OK", status)) {
 					NSC_LOG_ERROR("Failed to submit host ok status: " + status);
 				}
 
