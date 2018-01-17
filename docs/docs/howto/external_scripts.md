@@ -328,7 +328,7 @@ If we instead look at powershell (for which it was conceived) the benefit become
 ```
 [/settings/external scripts/wrappings]
 
-ps1=cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -");
+ps1=cmd /c echo scripts\\\\%SCRIPT% %ARGS%; exit($lastexitcode) | powershell.exe -command -
 ```
 
 And when you define the scripts you simply add:
