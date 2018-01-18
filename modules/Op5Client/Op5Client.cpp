@@ -64,10 +64,18 @@ namespace bai = boost::asio::ip;
 
 bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	try {
+		typedef std::map<std::string, std::string> def_check_type;
+		def_check_type default_checks;
+		default_checks["CPU Load"] = "check_cpu";
+		default_checks["Memory Usage"] = "check_memory";
+// 		default_checks["Disk Read Average Latency"] = "check_pdh \"counter=\\LogicalDisk(*)\\Avg.Disk sec/Read\" show-all \"crit=value > 25\" \"warn=value > 20\"";
+// 		default_checks["Disk Write Average Latency"] = "check_pdh \"counter=\\LogicalDisk(*)\\Avg.Disk sec / Write\" show-all \"crit=value > 25\" \"warn=value > 20\"";
+		default_checks["Disk Usage"] = "check_drivesize";
+
 		sh::settings_registry settings(get_settings_proxy());
 		settings.set_alias("op5", alias);
 		std::string interval;
-
+		bool defChecks = true;
 		op5_config config;
 
 
@@ -107,6 +115,9 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			("remove", sh::bool_key(&config.deregister, false),
 			"Remove checks on exit", "If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)")
 
+			("default checks", sh::bool_key(&defChecks, true),
+			"Install default checks", "Set to false to disable default checks")
+
 			("hostgroups", sh::string_key(&config.hostgroups, ""),
 			"Host groups", "A coma separated list of host groups to add to this host when registering it in monitor")
 
@@ -117,6 +128,14 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 		settings.register_all();
 		settings.notify();
+
+		if (defChecks) {
+			BOOST_FOREACH(const def_check_type::value_type &v, default_checks) {
+				if (config.checks.find(v.first) == config.checks.end()) {
+					config.checks[v.first] = v.second;
+				}
+			}
+		}
 
 		nscapi::core_helper core(get_core(), get_id());
 		core.register_channel(channel_);

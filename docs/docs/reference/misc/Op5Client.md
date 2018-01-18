@@ -14,17 +14,18 @@ Client for connecting nativly to the Op5 Nortbound API
 
     
     
-| Path / Section                  | Key                                           | Description           |
-|---------------------------------|-----------------------------------------------|-----------------------|
-| [/settings/op5](#/settings/op5) | [channel](#/settings/op5_channel)             | CHANNEL               |
-| [/settings/op5](#/settings/op5) | [contactgroups](#/settings/op5_contactgroups) | Contact groups        |
-| [/settings/op5](#/settings/op5) | [hostgroups](#/settings/op5_hostgroups)       | Host groups           |
-| [/settings/op5](#/settings/op5) | [hostname](#/settings/op5_hostname)           | HOSTNAME              |
-| [/settings/op5](#/settings/op5) | [interval](#/settings/op5_interval)           | Check interval        |
-| [/settings/op5](#/settings/op5) | [password](#/settings/op5_password)           | Op5 password          |
-| [/settings/op5](#/settings/op5) | [remove](#/settings/op5_remove)               | Remove checks on exit |
-| [/settings/op5](#/settings/op5) | [server](#/settings/op5_server)               | Op5 base url          |
-| [/settings/op5](#/settings/op5) | [user](#/settings/op5_user)                   | Op5 user              |
+| Path / Section                  | Key                                             | Description            |
+|---------------------------------|-------------------------------------------------|------------------------|
+| [/settings/op5](#/settings/op5) | [channel](#/settings/op5_channel)               | CHANNEL                |
+| [/settings/op5](#/settings/op5) | [contactgroups](#/settings/op5_contactgroups)   | Contact groups         |
+| [/settings/op5](#/settings/op5) | [default checks](#/settings/op5_default checks) | Install default checks |
+| [/settings/op5](#/settings/op5) | [hostgroups](#/settings/op5_hostgroups)         | Host groups            |
+| [/settings/op5](#/settings/op5) | [hostname](#/settings/op5_hostname)             | HOSTNAME               |
+| [/settings/op5](#/settings/op5) | [interval](#/settings/op5_interval)             | Check interval         |
+| [/settings/op5](#/settings/op5) | [password](#/settings/op5_password)             | Op5 password           |
+| [/settings/op5](#/settings/op5) | [remove](#/settings/op5_remove)                 | Remove checks on exit  |
+| [/settings/op5](#/settings/op5) | [server](#/settings/op5_server)                 | Op5 base url           |
+| [/settings/op5](#/settings/op5) | [user](#/settings/op5_user)                     | Op5 user               |
 
 
 | Path / Section                                | Description          |
@@ -45,17 +46,18 @@ Section for the Op5 server
 
 
 
-| Key                                           | Default Value | Description           |
-|-----------------------------------------------|---------------|-----------------------|
-| [channel](#/settings/op5_channel)             | op5           | CHANNEL               |
-| [contactgroups](#/settings/op5_contactgroups) |               | Contact groups        |
-| [hostgroups](#/settings/op5_hostgroups)       |               | Host groups           |
-| [hostname](#/settings/op5_hostname)           | auto          | HOSTNAME              |
-| [interval](#/settings/op5_interval)           | 5m            | Check interval        |
-| [password](#/settings/op5_password)           |               | Op5 password          |
-| [remove](#/settings/op5_remove)               | false         | Remove checks on exit |
-| [server](#/settings/op5_server)               |               | Op5 base url          |
-| [user](#/settings/op5_user)                   |               | Op5 user              |
+| Key                                             | Default Value | Description            |
+|-------------------------------------------------|---------------|------------------------|
+| [channel](#/settings/op5_channel)               | op5           | CHANNEL                |
+| [contactgroups](#/settings/op5_contactgroups)   |               | Contact groups         |
+| [default checks](#/settings/op5_default checks) | true          | Install default checks |
+| [hostgroups](#/settings/op5_hostgroups)         |               | Host groups            |
+| [hostname](#/settings/op5_hostname)             | auto          | HOSTNAME               |
+| [interval](#/settings/op5_interval)             | 5m            | Check interval         |
+| [password](#/settings/op5_password)             |               | Op5 password           |
+| [remove](#/settings/op5_remove)                 | false         | Remove checks on exit  |
+| [server](#/settings/op5_server)                 |               | Op5 base url           |
+| [user](#/settings/op5_user)                     |               | Op5 user               |
 
 
 
@@ -63,6 +65,7 @@ Section for the Op5 server
 # Section for the Op5 server
 [/settings/op5]
 channel=op5
+default checks=true
 hostname=auto
 interval=5m
 remove=false
@@ -124,6 +127,33 @@ A coma separated list of contact groups to add to this host when registering it 
 [/settings/op5]
 # Contact groups
 contactgroups=
+```
+
+
+<a name="/settings/op5_default checks"/>
+
+**Install default checks**
+
+Set to false to disable default checks
+
+
+
+
+
+| Key            | Description                     |
+|----------------|---------------------------------|
+| Path:          | [/settings/op5](#/settings/op5) |
+| Key:           | default checks                  |
+| Default value: | `true`                          |
+| Used by:       | Op5Client                       |
+
+
+**Sample:**
+
+```
+[/settings/op5]
+# Install default checks
+default checks=true
 ```
 
 

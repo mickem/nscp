@@ -297,7 +297,7 @@ bool op5_client::add_service(std::string host, std::string service) {
 	json_spirit::Object req;
 	req["service_description"] = service;
 	req["host_name"] = host;
-	req["check_command"] = "check-host-alive";
+	req["check_command"] = "bizproc_pas";
 	req["active_checks_enabled"] = 0;
 	req["freshness_threshold"] = 600;
 
@@ -392,16 +392,6 @@ void op5_client::thread_proc() {
 
 		while (true) {
 			try {
-				boost::this_thread::sleep(boost::posix_time::seconds(interval));
-			} catch (const boost::thread_interrupted &e) {
-				if (stop_thread_) {
-					if (deregister) {
-						deregister_host(hostname);
-					}
-					return;
-				}
-			}
-			try {
 				NSC_TRACE_MSG("Running op5 checks...");
 				std::string status;
 				if (!send_a_check("host_check", NSCAPI::query_return_codes::returnOK, "OK", status)) {
@@ -453,6 +443,16 @@ void op5_client::thread_proc() {
 					deregister_host(hostname);
 				}
 				return;
+			}
+			try {
+				boost::this_thread::sleep(boost::posix_time::seconds(interval));
+			} catch (const boost::thread_interrupted &e) {
+				if (stop_thread_) {
+					if (deregister) {
+						deregister_host(hostname);
+					}
+					return;
+				}
 			}
 		}
 	} catch (...) {
