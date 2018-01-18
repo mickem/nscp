@@ -436,7 +436,7 @@ void op5_client::thread_proc() {
 					}
 				}
 			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_EX("Failed to submit data: ", e);
+				NSC_LOG_ERROR_EXR("Failed to submit data: ", e);
 			}
 			if (stop_thread_) {
 				if (deregister) {

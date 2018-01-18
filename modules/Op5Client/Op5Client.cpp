@@ -68,8 +68,8 @@ bool Op5Client::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		def_check_type default_checks;
 		default_checks["CPU Load"] = "check_cpu";
 		default_checks["Memory Usage"] = "check_memory";
-// 		default_checks["Disk Read Average Latency"] = "check_pdh \"counter=\\LogicalDisk(*)\\Avg.Disk sec/Read\" show-all \"crit=value > 25\" \"warn=value > 20\"";
-// 		default_checks["Disk Write Average Latency"] = "check_pdh \"counter=\\LogicalDisk(*)\\Avg.Disk sec / Write\" show-all \"crit=value > 25\" \"warn=value > 20\"";
+ 		default_checks["Disk Read Average Latency"] = "check_pdh \"counter=\\\\LogicalDisk(*)\\\\Avg. Disk sec/Read\" show-all \"crit=value > 25\" \"warn=value > 20\"";
+ 		default_checks["Disk Write Average Latency"] = "check_pdh \"counter=\\\\LogicalDisk(*)\\\\Avg. Disk sec/Write\" show-all \"crit=value > 25\" \"warn=value > 20\"";
 		default_checks["Disk Usage"] = "check_drivesize";
 
 		sh::settings_registry settings(get_settings_proxy());
