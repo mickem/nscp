@@ -801,5 +801,5 @@ boost::filesystem::path nsclient::core::plugin_manager::get_filename(boost::file
 }
 
 void nsclient::core::plugin_manager::set_path(boost::filesystem::path path) {
-	plugin_path_ = path.make_preferred();
+	plugin_path_ = file_helpers::meta::make_preferred(path);
 }

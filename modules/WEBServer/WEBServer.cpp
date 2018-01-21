@@ -265,7 +265,7 @@ bool WEBServer::cli_add_user(const Plugin::ExecuteRequestMessage::Request &reque
 	desc.add_options()
 		("help", "Show help.")
 
-		("user", po::value<std::string>(&user)->required(),
+		("user", po::value<std::string>(&user),
 		"The username to login as")
 
 		("password", po::value<std::string>(&password),

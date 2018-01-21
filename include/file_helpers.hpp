@@ -78,6 +78,14 @@ namespace file_helpers {
 			return path.extension(); 
 #endif
 		}
+		static fs::path make_preferred(fs::path &path) {
+#if BOOST_VERSION >= 104600
+			return path.make_preferred();
+#else
+			return path; 
+#endif
+		}
+    
 	};
 
 	class patterns {

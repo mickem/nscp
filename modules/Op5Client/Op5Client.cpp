@@ -21,8 +21,6 @@
 
 #include <json_spirit.h>
 
-#include <helpers.h>
-
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
@@ -350,10 +348,10 @@ bool Op5Client::cli_add(const Plugin::ExecuteRequestMessage::Request &request, P
 	desc.add_options()
 		("help", "Show help.")
 
-		("alias", po::value<std::string>(&alias)->required(),
+		("alias", po::value<std::string>(&alias),
 		"The alias (service name) of the check")
 
-		("command", po::value<std::string>(&command)->required(),
+		("command", po::value<std::string>(&command),
 		"The command to execute in NSClient++")
 
 		;

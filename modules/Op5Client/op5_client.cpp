@@ -20,7 +20,7 @@
 #include "op5_client.hpp"
 
 #include <json_spirit.h>
-#include <helpers.h>
+#include <Helpers.h>
 
 //#include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/nscapi_core_helper.hpp>

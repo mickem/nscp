@@ -23,9 +23,11 @@
 
 #include <Response.h>
 
-#include <boost/atomic/atomic.hpp>
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
+#if BOOST_VERSION >= 105300
+#include <boost/atomic/atomic.hpp>
+#endif
 
 #include <string>
 
@@ -53,7 +55,11 @@ private:
 	int plugin_id_;
 	op5_config config_;
 
+#if BOOST_VERSION >= 105300
 	boost::atomic<bool> stop_thread_;
+#else
+	bool stop_thread_;
+#endif
 	boost::timed_mutex mutex_;
 	boost::shared_ptr<boost::thread> thread_;
 
