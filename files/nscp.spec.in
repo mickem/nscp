@@ -130,6 +130,7 @@ Shared libraries used by both NSClient++ server and client.
 /usr/lib/nsclient/modules/libSimpleFileWriter.so
 /usr/lib/nsclient/modules/libSyslogClient.so
 /usr/lib/nsclient/modules/libWEBServer.so
+/usr/lib/nsclient/modules/libOp5Client.so
 
 
 %files nsca
