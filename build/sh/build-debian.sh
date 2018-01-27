@@ -11,6 +11,7 @@ cd /build/deb
 tar zxvf /build/nsclient++_$VERSION.orig.tar.gz || exit 1
 mv nscp-$VERSION-Source/* .
 rm -rf nscp-$VERSION-Source
+dch -v $VERSION-1 "Upstream package" || exit 1
 dpkg-buildpackage || exit 1
 mv ../nsclient++*_$VERSION_*.deb /packages
 . /etc/os-release
