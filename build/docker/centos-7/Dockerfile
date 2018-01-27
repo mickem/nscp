@@ -1,7 +1,7 @@
 FROM centos:7
 
-RUN mkdir -p /src/nscp
-ADD . /src/nscp/
+RUN mkdir /nscp
+ADD . /nscp/
 
 RUN yum update -y epel-release
 RUN yum install -y cmake python-devel openssl-devel boost-devel lua-devel redhat-lsb rpmdevtools
@@ -19,10 +19,10 @@ ENV GH_TOKEN=UPDATE_ME
 
 RUN pip install jinja2 mkdocs mkdocs-material github3.py
 
-RUN mkdir -p /src/build
-RUN mkdir -p /src/packages
+RUN mkdir -p /build
+RUN mkdir -p /packages
 
-VOLUME /src/packages
+VOLUME /packages
 
 CMD /src/nscp/build/sh/build-centos.sh
 
