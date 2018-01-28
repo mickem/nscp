@@ -238,6 +238,10 @@ namespace modern_filter {
 					boost::replace_all(data.syntax_top, "${problem_list}", "${detail_list}");
 				else if (data.syntax_top.find("%(problem_list)") != std::string::npos)
 					boost::replace_all(data.syntax_top, "%(problem_list)", "%(detail_list)");
+				else if (data.syntax_top.find("%(list)") != std::string::npos)
+					boost::replace_all(data.syntax_top, "%(list)", "%(list)");
+				else if (data.syntax_top.find("${list}") != std::string::npos)
+					boost::replace_all(data.syntax_top, "${list}", "%(list)");
 				else
 					data.syntax_top = + "%(detail_list)";
 			}
