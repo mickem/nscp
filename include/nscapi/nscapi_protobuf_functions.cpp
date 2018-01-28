@@ -693,11 +693,11 @@ namespace nscapi {
 
 		Plugin::Common::ResultCode functions::parse_nagios(const std::string &status) {
 			std::string lcstat = boost::to_lower_copy(status);
-			if (lcstat == "o" || lcstat == "ok")
+			if (lcstat == "o" || lcstat == "ok" || lcstat == "0")
 				return Plugin::Common_ResultCode_OK;
-			if (lcstat == "w" || lcstat == "warn" || lcstat == "warning")
+			if (lcstat == "w" || lcstat == "warn" || lcstat == "warning" || lcstat == "1")
 				return Plugin::Common_ResultCode_WARNING;
-			if (lcstat == "c" || lcstat == "crit" || lcstat == "critical")
+			if (lcstat == "c" || lcstat == "crit" || lcstat == "critical" || lcstat == "2")
 				return Plugin::Common_ResultCode_CRITICAL;
 			return Plugin::Common_ResultCode_UNKNOWN;
 		}
