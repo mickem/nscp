@@ -9,7 +9,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y build-essential
 
 RUN apt-get install -y cmake python python-dev libssl-dev libboost-all-dev protobuf-compiler python-protobuf libprotobuf-dev python-sphinx libcrypto++-dev libcrypto++ liblua5.1-0-dev libgtest-dev
-RUN apt-get install -y git wget dos2unix debhelper dh-virtualenv python-pip zip
+RUN apt-get install -y git wget dos2unix debhelper dh-virtualenv python-pip zip devscripts 
 
 ENV GH_TOKEN=UPDATE_ME
 
