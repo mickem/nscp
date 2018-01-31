@@ -38,6 +38,10 @@ void real_time_thread::set_path(const std::string &p) {
 	filters_.set_path(p);
 }
 
+inline bool icase_eq(const std::string &x, const std::string &y) {
+	return boost::algorithm::ilexicographical_compare(x, y) == 0;
+}
+
 void real_time_thread::thread_proc() {
 	filter_helper helper(core, plugin_id);
 	std::list<std::string> logs;
@@ -57,7 +61,7 @@ void real_time_thread::thread_proc() {
 		helper.add_item(object, data, "eventlog");
 	}
 	logs.sort();
-	logs.unique();
+	logs.unique(icase_eq);
 	NSC_DEBUG_MSG_STD("Scanning logs: " + utf8::cvt<std::string>(str::format::join(logs, ", ")));
 
 	typedef boost::shared_ptr<eventlog_wrapper> eventlog_type;
