@@ -1,5 +1,18 @@
+2018-02-03 Michael Medin
+ * Updated documentation (#513)
+ * eventlog: Fixed issue where real-time eventlog message return duplicate results if same log with different case was added
+ * NSCA Client: Fixed #511 nsca status can be set with a number from command line
+ * filters: show-all will not change if the list is already present: fixes #528
+ * Added dockerfiles for debian #537
+ * Some linux build fixes
+ * Fixed 401 issue with Op5Client
+ * corrected spelling
+
 2018-01-18 Michael Medin
  * Fixed some Op5Client issues
+
+2018-01-17 Philipp
+ * Fix syntax error for PowerShell wrapper
 
  2018-01-15 Michael Medin
  * Added hidden to check_tasksched to allow checking of hidden tasks
