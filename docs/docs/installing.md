@@ -85,6 +85,13 @@ The MSI file can be customized during the installer. The following keys are avai
 | CONF_WEB           | Enabled WEB Server                                                                                                      |
 | NRPEMODE           | NRPE Mode (LEGACY = default old insecure SSL, SAFE = new secure SSL)                                                    |
 | NSCLIENT_PWD       | Password to use for check_nt (and web server)                                                                           |
+| CONF_INCLUDES      | Additional files to include in the config syntax: <alias>;<file> For instance CONF_INCLUDES=op5;op5.ini;local;local.ini |
+| OP5_SERVER         | OP5 Server if you want to automatically submit passive checks via Op5 northbound API.                                   |
+| OP5_USER           | The username to login with on the OP5_SERVER                                                                            |
+| OP5_PASSWORD       | The password to login with on the OP5_SERVER                                                                            |
+| OP5_HOSTGROUPS     | Additional hostgroups to add to the host.                                                                               |
+| OP5_CONTACTGROUP   | Additional contactgroups to add to the host.                                                                            |
+|                    |                                                                                                                         |
 
 ### Features
 
@@ -130,6 +137,23 @@ msiexec /i NSCP-<version>.msi CONF_CAN_CHANGE=1 MONITORING_TOOL=none
 
 CONF_CAN_CHANGE forces the config to become writable (if you run silently the detection never happens so this flag is never updated).
 MONITORING_TOOL If no monitoring tool is specified it will default to "default" and overwrite various options given on the command line.
+
+#### Silent op5 install
+
+To enable active checks via NRPE from OP5 you can set the `MONITORING_TOOL` option to `OP5`.
+
+```
+msiexec /i NSClient++.msi MONITORING_TOOL=OP5
+```
+
+#### Silent op5 install (Northbound)
+
+To enable passive reports via OP5s Northbound API you can set the `OP5_SERVER`, `OP5_USER` and `OP5_PASSWORD` options.
+In this case setting `MONITORING_TOOL` is done automatically when ever `OP5_SERVER` is detected.
+
+```
+msiexec /i NSClient++.msi OP5_SERVER=https://op5.com OP5_USER=monitor OP5_PASSWORD=rotinom
+```
 
 ## Multiple NSClient++
 

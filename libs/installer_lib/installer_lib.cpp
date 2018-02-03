@@ -230,6 +230,14 @@ std::wstring read_map_data(msi_helper &h) {
 #define CONF_WEB L"CONF_WEB"
 #define CONF_NSCLIENT L"CONF_NSCLIENT"
 #define NRPEMODE L"NRPEMODE"
+#define MONITORING_TOOL L"MONITORING_TOOL"
+#define MONITORING_TOOL_OP5 L"OP5"
+
+#define OP5_SERVER L"OP5_SERVER"
+#define OP5_USER L"OP5_USER"
+#define OP5_PASSWORD L"OP5_PASSWORD"
+#define OP5_HOSTGROUPS L"OP5_HOSTGROUPS"
+#define OP5_CONTACTGROUP L"OP5_CONTACTGROUP"
 
 #define CONFIGURATION_TYPE L"CONFIGURATION_TYPE"
 #define CONF_CAN_CHANGE L"CONF_CAN_CHANGE"
@@ -290,10 +298,10 @@ extern "C" UINT __stdcall DetectTool(MSIHANDLE hInstall) {
 
 	try {
 		h.logMessage("Detecting monitoring tool config");
-		if (!boost::algorithm::trim_copy(h.getPropery(L"OP5_SERVER")).empty()) {
-			h.setProperty(L"MONITORING_TOOL", L"OP5");
+		if (!boost::algorithm::trim_copy(h.getPropery(OP5_SERVER)).empty()) {
+			h.setProperty(MONITORING_TOOL, MONITORING_TOOL_OP5);
 		}
-		std::wstring tool = h.getPropery(L"MONITORING_TOOL");
+		std::wstring tool = h.getPropery(MONITORING_TOOL);
 		h.logMessage(L"Detected monitoring tool is: " + tool);
 		dump_config(h, L"After DetectTool");
 	} catch (installer_exception e) {
@@ -310,10 +318,10 @@ extern "C" UINT __stdcall ApplyTool(MSIHANDLE hInstall) {
 	msi_helper h(hInstall, L"ApplyTool");
 	try {
 		h.logMessage("Applying monitoring tool config");
-		std::wstring tool = h.getPropery(L"MONITORING_TOOL");
+		std::wstring tool = h.getPropery(MONITORING_TOOL);
 		h.logMessage(L"Monitoring tool is: " + tool);
 
-		if (tool == L"OP5") {
+		if (tool == MONITORING_TOOL_OP5) {
 			h.setPropertyAndDefault(KEY_NSCLIENT_PWD, L"");
 			h.setProperty(KEY_NSCLIENT_PWD_DEFAULT, L"");
 			h.setPropertyAndDefault(KEY_CONF_CHECKS, L"1");
@@ -591,11 +599,11 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 		h.dumpProperty(KEY_CONF_CAN_CHANGE);
 
 
-		h.dumpProperty(L"OP5_SERVER");
-		h.dumpProperty(L"OP5_USER");
-		h.dumpProperty(L"OP5_PASSWORD");
-		h.dumpProperty(L"OP5_HOSTGROUPS");
-		h.dumpProperty(L"OP5_CONTACTGROUP");
+		h.dumpProperty(OP5_SERVER);
+		h.dumpProperty(OP5_USER);
+		h.dumpProperty(OP5_PASSWORD);
+		h.dumpProperty(OP5_HOSTGROUPS);
+		h.dumpProperty(OP5_CONTACTGROUP);
 
 		                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 		if (h.getPropery(KEY_CONF_CAN_CHANGE) != L"1") {
@@ -673,13 +681,13 @@ extern "C" UINT __stdcall ScheduleWriteConfig (MSIHANDLE hInstall) {
 			}
 		}
 
-		if (write_property_if_set(h, data, L"OP5_SERVER", L"/settings/op5", L"server")) {
+		if (write_property_if_set(h, data, OP5_SERVER, L"/settings/op5", L"server")) {
 			write_key(h, data, 1, L"/modules", L"OP5Client", L"enabled");
 		}
-		write_property_if_set(h, data, L"OP5_USER", L"/settings/op5", L"user");
-		write_property_if_set(h, data, L"OP5_PASSWORD", L"/settings/op5", L"password");
-		write_property_if_set(h, data, L"OP5_HOSTGROUPS", L"/settings/op5", L"hostgroups");
-		write_property_if_set(h, data, L"OP5_CONTACTGROUP", L"/settings/op5", L"contactgroups");
+		write_property_if_set(h, data, OP5_USER, L"/settings/op5", L"user");
+		write_property_if_set(h, data, OP5_PASSWORD, L"/settings/op5", L"password");
+		write_property_if_set(h, data, OP5_HOSTGROUPS, L"/settings/op5", L"hostgroups");
+		write_property_if_set(h, data, OP5_CONTACTGROUP, L"/settings/op5", L"contactgroups");
 
 		if (data.has_data()) {
 			h.logMessage(L"Scheduling (ExecWriteConfig): " + data.to_string());
