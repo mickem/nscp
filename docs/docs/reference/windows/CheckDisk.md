@@ -188,7 +188,7 @@ Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-*Deafult Value:* | `mounted = 1`
+*Default Value:* | `mounted = 1`
 
 
 
@@ -200,7 +200,7 @@ If anything matches this filter the return status will be escalated to warning.
 
 
 
-*Deafult Value:* | `used > 80%`
+*Default Value:* | `used > 80%`
 
 
 
@@ -212,7 +212,7 @@ If anything matches this filter the return status will be escalated to critical.
 
 
 
-*Deafult Value:* | `used > 90%`
+*Default Value:* | `used > 90%`
 
 
 
@@ -234,7 +234,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -256,7 +256,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status} ${problem_list}`
+*Default Value:* | `${status} ${problem_list}`
 
 
 
@@ -268,7 +268,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status) All %(count) drive(s) are ok`
+*Default Value:* | `%(status) All %(count) drive(s) are ok`
 
 
 
@@ -279,7 +279,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `%(status): No drives found`
+*Default Value:* | `%(status): No drives found`
 
 
 
@@ -292,7 +292,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${drive_or_name}: ${used}/${size} used`
+*Default Value:* | `${drive_or_name}: ${used}/${size} used`
 
 
 
@@ -303,7 +303,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${drive_or_id}`
+*Default Value:* | `${drive_or_id}`
 
 
 
@@ -540,7 +540,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `unknown`
+*Default Value:* | `unknown`
 
 
 
@@ -562,7 +562,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${problem_count}/${count} files (${problem_list})`
+*Default Value:* | `${status}: ${problem_count}/${count} files (${problem_list})`
 
 
 
@@ -574,7 +574,7 @@ DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-*Deafult Value:* | `%(status): All %(count) files are ok`
+*Default Value:* | `%(status): All %(count) files are ok`
 
 
 
@@ -585,7 +585,7 @@ Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-*Deafult Value:* | `No files found`
+*Default Value:* | `No files found`
 
 
 
@@ -598,7 +598,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${name}`
+*Default Value:* | `${name}`
 
 
 
@@ -609,7 +609,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `${name}`
+*Default Value:* | `${name}`
 
 
 
@@ -629,7 +629,7 @@ Notice that specifying multiple path will create an aggregate set you will not c
 The pattern of files to search for (works like a filter but is faster and can be combined with a filter).
 
 
-*Deafult Value:* | `*.*`
+*Default Value:* | `*.*`
 
 
 
@@ -639,7 +639,7 @@ The pattern of files to search for (works like a filter but is faster and can be
 Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter
 
 
-*Deafult Value:* | `filter`
+*Default Value:* | `filter`
 
 
 
@@ -770,7 +770,7 @@ Legacy version of check_drivesize
 Checks all drives.
 
 
-*Deafult Value:* | `true`
+*Default Value:* | `true`
 
 
 
@@ -780,7 +780,7 @@ Checks all drives.
 Checks all drives turns the drive option into an exclude option.
 
 
-*Deafult Value:* | `true`
+*Default Value:* | `true`
 
 
 
@@ -790,7 +790,7 @@ Checks all drives turns the drive option into an exclude option.
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
 
-*Deafult Value:* | `short`
+*Default Value:* | `short`
 
 
 

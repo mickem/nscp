@@ -163,7 +163,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {{help.long_description}}
 
 {% if help.default_value %}
-*Deafult Value:* | `{{help.default_value}}`
+*Default Value:* | `{{help.default_value}}`
 {%- endif %}
 
 {{'\n'}}

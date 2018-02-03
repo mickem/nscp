@@ -166,7 +166,7 @@ Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
 
-*Deafult Value:* | `ignored`
+*Default Value:* | `ignored`
 
 
 
@@ -188,7 +188,7 @@ Used to format the message to return can include text as well as special keyword
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${status}: ${list}`
+*Default Value:* | `${status}: ${list}`
 
 
 
@@ -222,7 +222,7 @@ Used to format each resulting item in the message.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
 
-*Deafult Value:* | `${release}.${major}.${minor}.${build} (${date})`
+*Default Value:* | `${release}.${major}.${minor}.${build} (${date})`
 
 
 
@@ -233,7 +233,7 @@ Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
 
-*Deafult Value:* | `version`
+*Default Value:* | `version`
 
 
 

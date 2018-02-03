@@ -139,7 +139,7 @@ Request remote information via check_mk.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 

@@ -150,7 +150,7 @@ Request remote information via NRPE.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -263,7 +263,7 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -400,7 +400,7 @@ Request remote information via NRPE.
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
@@ -519,7 +519,7 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 Initial an ssl handshake with the server.
 
 
-*Deafult Value:* | `1`
+*Default Value:* | `1`
 
 
 
