@@ -84,7 +84,7 @@ This can be useful when you run into problems and things does not work as you ex
 
 We have also learned that we can specify which settings tore to use and that NSClient++ has an empty settings tore called dummy which can be useful if you want to get around the current configuration.
 
-# Getting help
+## Getting help
 
 Since you have found your way to this document it is safe to assume that you are aware that all commands are described here in the help.
 In addition to this all commands also feature built-in command line help. Since this is extensive it can not really be used remotely via for instance check_nrpe since it has a limited payload (out of the box).
@@ -104,7 +104,7 @@ For instance help like so: `check_cpu help`
 
 Using the normal form *keyword*=*value* it looks like this: `check_cpu filter=none`
 
-# Filters
+## Filters
 
 The next thing we need to understand is the basics for configuring checks.
 NSClient++ uses something called "filters" filters are the basis for everything and very important to understand.

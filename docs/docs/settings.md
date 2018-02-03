@@ -63,7 +63,7 @@ This can be very useful to distribute a baseline configuration for a company or 
 Then all "machine specific customization" would go into the nsclient.ini config where as client.ini would be reserved for the clients global config. And finally baseline.ini would be monitoring tool specific configuration.
 
 
-# Settings stores
+## Settings stores
 
 Settings are historically stored in an ini file but you can store settings in many other locations as well.
 While the most obvious one to use is the registry there are other options as well.

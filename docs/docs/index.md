@@ -52,7 +52,7 @@ Since NSClient++ is not very useful alone it also supports a lot of protocols to
 | 0.4.4                       | X          | X              | X               |                |            |
 | 0.5.0                       | X          | X              | X               | X              |            |
 | 0.5.1                       | X          | X              | X               | X              |            |
-| 0.5.2 (forthcoming version) | X          | X              | X               | X              | X          |
+| 0.5.2                       | X          | X              | X               | X              | X          |
 | 0.5.3 (forthcoming version) | X          | X              | X               | X              | X          |
 | 0.6.0 (forthcoming version) | deprecated | X              | X               | Hopefully      | X          |
 

@@ -49,8 +49,7 @@ pages:
       - 0.5.1: about/whatsnew/0.5.1.md
       - 0.5.2: about/whatsnew/0.5.2.md
     - Building NSClient++: about/build.md
-    - Reporting Bugs: about/bugs.md
-    - Copyright: about/copyright.md
+    - Reporting Bugs: about/reporting-bugs.md
     - License: about/license.md
   - Tutorial: tutorial/index.md
   - Howto:

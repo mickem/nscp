@@ -55,7 +55,7 @@ Firewall configuration should be pretty straight forward:
 
 All these ports can be changed so be sure to check your nsclient.ini for your ports.
 
-# Automated installation
+## Automated installation
 
 The NSClient++ installer for windows is a standard MSI installer which means it can be installed using pretty much all deployment techniques available on the windows platform.
 This means that there is no built-in deploy and configuration mechanism in NSClient++ instead it fully relies on standard tools provided for the Windows platform.
@@ -66,32 +66,32 @@ MSI files can be tweaked in several ways.
 There are several options for deploying configuration and copying text-file is probably the worst of them.
 You can use group policies to push the configuration files but there are several other ways to do the same.
 
-## MSI Options
+### MSI Options
 
 The MSI file can be customized during the installer. The following keys are available:
 
-| Keyword            | Description                                                          |
-|--------------------|----------------------------------------------------------------------|
-| INSTALLLOCATION    | Folder where NSClient++ is installed.                                |
-| CONF_CAN_CHANGE    | Has to be set for all configuration changes to be applied.           |
-| ADD_DEFAULTS       | Add default values to the configuration file.                        |
-| ALLOWED_HOSTS      | Set allowed hosts value                                              |
-| CONFIGURATION_TYPE | Configuration context to use                                         |
-| CONF_CHECKS        | Enable default check plugins                                         |
-| CONF_NRPE          | Enable NRPE server                                                   |
-| CONF_NSCA          | Enable NSCA Collection /OU probably need scheduler as well)          |
-| CONF_NSCLIENT      | Enable NSClient Server (check_nt)                                    |
-| CONF_SCHEDULER     | Enable Scheduler (required by NSCA)                                  |
-| CONF_WEB           | Enabled WEB Server                                                   |
-| NRPEMODE           | NRPE Mode (LEGACY = default old insecure SSL, SAFE = new secure SSL) |
-| NSCLIENT_PWD       | Password to use for check_nt (and web server)                        |
+| Keyword            | Description                                                                                                             |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| INSTALLLOCATION    | Folder where NSClient++ is installed.                                                                                   |
+| CONF_CAN_CHANGE    | Has to be set for all configuration changes to be applied.                                                              |
+| ADD_DEFAULTS       | Add default values to the configuration file.                                                                           |
+| ALLOWED_HOSTS      | Set allowed hosts value                                                                                                 |
+| CONFIGURATION_TYPE | Configuration context to use                                                                                            |
+| CONF_CHECKS        | Enable default check plugins                                                                                            |
+| CONF_NRPE          | Enable NRPE server                                                                                                      |
+| CONF_NSCA          | Enable NSCA Collection /OU probably need scheduler as well)                                                             |
+| CONF_NSCLIENT      | Enable NSClient Server (check_nt)                                                                                       |
+| CONF_SCHEDULER     | Enable Scheduler (required by NSCA)                                                                                     |
+| CONF_WEB           | Enabled WEB Server                                                                                                      |
+| NRPEMODE           | NRPE Mode (LEGACY = default old insecure SSL, SAFE = new secure SSL)                                                    |
+| NSCLIENT_PWD       | Password to use for check_nt (and web server)                                                                           |
 
-## Features
+### Features
 
 NSClient++ consists of the following features most which can be disable when doing silent installs.
 
 | Feature Name        | Title                  | Description                                                                               |
-|---------------------|------------------------|-------------------------------------------------------------------------------------------|
+| ------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
 | CheckPlugins        | Check Plugins          | Various plugins to check your system. (Includes all check plugins)                        |
 | Documentation       | Documentation (pdf)    | Documentation for NSClient++ and how to use it from Nagios                                |
 | DotNetPluginSupport | .net plugin support    | Support for loading modules written in .dot net (Requires installing .net framework)      |
@@ -106,8 +106,9 @@ NSClient++ consists of the following features most which can be disable when doi
 | SampleScripts       | Scripts                | Scripts for checking and testing various aspects of your computer and NSClient++          |
 | Shortcuts           | Shortcuts              | Main Service shortcuts                                                                    |
 | WEBPlugins          | WEB Server             | NSClient WEB Server. Use this to administrate or check NSClient via a browser or REST API |
+| OP5Montoring        | OP5 Monitoring         | Scripts/config for the op5 monitoring system.                                             |
 
-## Silent install
+### Silent install
 
 Now we can put all this together using the normal silent installer which is again part of the standard windows install toolkit.
 So if you already have a framework for managing installs use that instead of this command line.
@@ -119,7 +120,7 @@ For instance Installing (with log) NSClient++ into c:\foobar using registry as c
 msiexec /qn /l* log.txt /i NSCP-0.4.3.50-x64.msi INSTALLLOCATION=c:\FooBar CONFIGURATION_TYPE=registry://HKEY_LOCAL_MACHINE/software/NSClient++ ADDLOCAL=ALL REMOVE=PythonScript
 ```
 
-### Using Silent install in 0.4.4 and 0.5.0
+#### Using Silent install in 0.4.4 and 0.5.0
 
 You need to add two options in these version if you plan to update the configuration in a silent install:
 
@@ -135,7 +136,8 @@ MONITORING_TOOL If no monitoring tool is specified it will default to "default" 
 As NSClient++ uninstalls it self if you install there are two options for running multiple NSClient++ on a machine.
 
 1.  You can add multiple services for the same installation
-2.  You can manually install NSClient++
+2.  You can install NSClient++_Secondary binary to get two instance on the same machine
+3.  You can manually install NSClient++ (allows any number of installs)
 
 To add multiple service you need to first create the services: `nscp service --install --name nscp2`
 

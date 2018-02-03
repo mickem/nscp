@@ -21,7 +21,7 @@ As I stated initially NSCA is "sort of the reverse" of NRPE and the diagram abov
 
 For regular checks this might seem like a firewall versus configuration question but when it comes to **real time monitoring** it have a bigger impact as you can get the error much quicker since there is no polling interval involved hence you gain the ability to react to problems faster.
 
-# NSClient++
+## NSClient++
 
 ![nsclient++](images/nsca-nsclient-internals.png)
 
@@ -178,7 +178,7 @@ encryption=aes
 password=unbreakable
 ```
 
-# NSCA Server
+## NSCA Server
 
 ![nsca-server](images/nagios-passive-nsca-002.png)
 
@@ -224,7 +224,7 @@ Return Code: '0', Output: 'Everything is fine|'
 Jul 12 19:47:02 localhost nsca: End of connection...
 ```
 
-# Configure Nagios
+## Configure Nagios
 
 ![Nagios config](images/nagios-configuration-inheritance.png)
 
@@ -241,7 +241,7 @@ Like I show at the bottom line in the diagram above.
 Whats makes this a tad more complicated is that you can inherit things from a "parent" definition.
 Which is what I show with arrows (bottom to top) above. The templates with dashed lines are the base templates which all services and hosts inherit.
 
-## Passive Checks
+### Passive Checks
 
 The main difference between passive checks and active checks are the following two flags:
 *   active_checks_enabled
@@ -263,7 +263,7 @@ So you say what shall I enter for command for my passive checks?
 There are several options for this depending on what you want I wont (as always) go into the details in this quick guide but the short of it is either you use check_dummy or you use the actual command and setup freshness checks.
 With freshness checks active it means that if a result is not submitted Nagios will actively go out and seek the information (this is what I would recommend for host checks at least).
 
-## Template
+### Template
 
 First, its best practice to create a new template for each different type of host you'll be monitoring.
 Let's create a new template for windows servers.
@@ -287,7 +287,7 @@ define host {
 
 Notice that the tpl-windows-servers template definition is inheriting default values from the generic-host template, which is defined in the sample localhost.cfg file that gets installed when you follow the Nagios quick-start installation guide.
 
-## Host definition
+### Host definition
 
 Next we need to define a new host for the remote windows server that references the newly created tpl-windows-servers host template.
 
@@ -304,7 +304,7 @@ define host {
 
 Defining a service for monitoring the remote Windows server.
 
-## Service definitions
+### Service definitions
 
 The following service will monitor the CPU load on the remote host.
 The "alias_cpu" argument which is passed to the check_nrpe command definition tells NSClient++ to run the "alias_cpu" command as defined in the alias section of the nsclient.ini file.

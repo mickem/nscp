@@ -1,9 +1,11 @@
-# Finding Scripts
+# External scripts
+
+## Finding Scripts
 
 Scripts can be found on many third party sites such as [http://exchange.nagios.org](http://exchange.nagios.org) or [http://exchange.icinga.org](http://exchange.icinga.org).
 You can also find scripts in many other place such as your monitoring providers web page or similar.
 
-# Writing Scripts
+## Writing Scripts
 
 Writing scripts is easy and works exactly like writing script on Linux. And if you install an common language runtime such as perl or python you can even re-use your scripts across platform. In essence the communication between a script and NSClient++ consists of three things:
 
@@ -43,7 +45,7 @@ echo %ERRORLEVEL%
 0
 ```
 
-# Theory: How scripts work
+## Theory: How scripts work
 
 
 ![architecture](images/external-scripts.png)
@@ -54,7 +56,7 @@ In our examples we have NRPEServer exposing the commands to a remote Nagios serv
 
 This means that if you want to run a Perl script you need to have a perl interpreter installed it also means that you can easily debug and test all your scripts using the normal windows shell.
 
-# Adding scripts
+## Adding scripts
 
 For scripts to work we need at least the [CheckExternalScripts](../reference/check/CheckExternalScripts.md) module but in reality most likely `NRPEServer <NRPEServer>`_ or `Scheduler <Scheduler>`_ as well.
 We will initially focus on just check external scripts before introducing executing them remotely via NRPE for how to configure them via NSCA please check the NSCA guide in conjunction with the setup for this page.
@@ -71,7 +73,7 @@ CheckExternalScripts=enabled
 
 Notice that enabled can also be 1 as well as some other syntax's which we wont cover here.
 
-## Adding a script
+### Adding a script
 
 Adding a script is equally simple just add a line under the /settings/external scripts/scripts section like so:
 
@@ -95,7 +97,7 @@ Also please note that the script does not have to be a script it can be any vali
 list_file=cmd /c "dir c:\\"
 ```
 
-## Adding more scripts
+### Adding more scripts
 
 Adding more then one script is much the same here we have several scripts bound to different command:
 
@@ -158,9 +160,9 @@ echo $?
 0
 ```
 
-# Arguments
+## Arguments
 
-## NO arguments
+### NO arguments
 
 Using arguments requires you to decide on a strategy as there are two options. All this boils down to security versus easy of use.
 The first and most secure option disallows arguments entirely. This will require you to configure all scripts bound with all their arguments.
@@ -182,7 +184,7 @@ allow arguments=false
 foo=scripts\\foo.bat "argument 1" "argument 2"
 ```
 
-## Arguments for internal commands
+### Arguments for internal commands
 
 The second strategy allows arguments for built-in commands but NOT external commands.
 This is not much more useful for us but means all internal commands can be configured from Nagios and only the external once have to be hand configured in NSClient++
@@ -203,7 +205,7 @@ allow arguments=false
 foo=scripts\\foo.bat "argument 1" "argument 2"
 ```
 
-## Arguments for both internal commands and external commands
+### Arguments for both internal commands and external commands
 
 The third option is to allow arguments BOTH for internal commands AND external scripts.
 This means we can keep (almost) all configuration inside Nagios but on the other hand provides a third party with command line access to our configured machine which is a security night mare. It is vitally important if you do this that your network is other wise secure and you use the allowed hosts directive as well as firewalls to disallow anyone except the monitoring machine to access your NSClient++ remotely.
@@ -224,11 +226,11 @@ allow arguments=true
 foo=scripts\\foo.bat $ARG1$ $ARG2$
 ```
 
-# Languages
+## Languages
 
 As scripting on Windows is not as easy as it is on Linux where the script it self can dictate how it should be run we have a section detailing some common scripting languages and how to run them.
 
-## VBS --- Visual Basic Script
+### VBS --- Visual Basic Script
 
 The was the most common scripting language for advanced things but powershell has pretty much taken over.
 Thus if you are starting anew and/or migrating it might be a good idea to consider powershell.
@@ -237,7 +239,7 @@ Anyways, VB Script (VBS) is a common language and there are numerous VBS script 
 VBScript is somewhat loosely related to Visual Basic (hence the name) but in reality they have little in common.
 
 Writing VB scripts guide can be found on the web so we will not focus on the language here in detail.
-THe normal stuff applies i.e. the "console output" will be returned as a message, anything after a | char is treated as performance data.
+The normal stuff applies i.e. the "console output" will be returned as a message, anything after a | char is treated as performance data.
 And finally the exit code dictates the status.
 
 A quick sample script:
@@ -265,15 +267,15 @@ check_updates=scripts\check_updates.vbs
 
 This makes for less typing if you plan on adding many vbs scripts.
 
-## PY --- Python
+### PY --- Python
 
 **TODO**
 
-## PL --- Perl
+### PL --- Perl
 
 **TODO**
 
-## PS1 --- Power Shell
+### PS1 --- Power Shell
 
 Powershell is probably the strangest beat to tame when it comes to scripting. The main reason for this is that Microsoft went with a non standard console for it. This means that it wont work like normal script languages from a programming perspective.
 The most obvious way this is visible is the extremely arcane syntax for running powershell. The reason behind it is to force powershell to acknowledge the regular stdin/stdout redirection schemes which we need to use to be able to read powershell output.
@@ -297,9 +299,9 @@ There are also some things to remember when writing script:
 -   For instance some powershell "print" methods will wrap (whilst other wont)
 
 
-# Advanced topics
+## Advanced topics
 
-## Wrapped scripts
+### Wrapped scripts
 
 Wrapped script really become a necessity when powershell started to become more used.
 As I mentioned in the powershell section above the command line syntax for powershell script is arcane at best.
@@ -340,7 +342,7 @@ test_ps1_2=test2.ps1 $ARG1$ $ARG2$
 test_ps1_3=test3.ps1
 ```
 
-## Ignoring performance data
+### Ignoring performance data
 
 With 0.4.0 NSClient++ started to parse Nagios performance data. There are some snags with this and also sometimes nothing you want.
 This can be disabled both on a per command basis and a global basis:

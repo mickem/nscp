@@ -1,4 +1,6 @@
-# How it works
+# Tutorial
+
+## How it works
 
 ![nsclient](tutorial/images/normal-nrpe.png)
 
@@ -40,14 +42,14 @@ But you can also extend it with custom scripts:
 *   Executable files
 *   Batch (.BAT) files
 
-## Requirements
+### Requirements
 
 To use NSClient++ you need a monitoring system deployed in your network many people use Nagios, Icinga, Neteye or Op5 but stricctly speaking NSClient++ is designed to work with any monitoring tool which can execute external scripts or support any of the standard protocols.
 
 When it comes to Supported OSes NSClient++ was original design to run only on Windows but since 0.4.1 is can be used on Linux as well.
 But currently most modules are Windows only thus the benefit on other operating systems are limited.
 
-### Windows:
+#### Windows:
 
 NSClient++ should run on the following operating systems:
 
@@ -56,16 +58,16 @@ NSClient++ should run on the following operating systems:
 *   Win32, x64 as well as various Linux hardware as well.
 
 
-### Linux:
+#### Linux:
 
 NSClient++ has official packages for:
 
 -   Debian
 -   Centos/Redhat
 
-# Configuration
+## Configuration
 
-## Introduction
+### Introduction
 
 Before rushing on the binaries and install them, you must spend 15m in making the config file.
 
@@ -76,7 +78,7 @@ Before rushing on the binaries and install them, you must spend 15m in making th
 One important thing to understand when it comes to NSClient++ configuration is that while most people use ini-files it is not the only possibility other options include registry and remote files.
 But for the reminder of this tutorial we only consider ini files since it is the normal and simplest way.
 
-## Editing
+### Editing
 
 NSClient++ config file is in the well-known INI Format. To edit it you can use any text editor such as notepad. Using advanced editors such as notepad++ you can also achieve syntax coloring so that is preferable.
 
@@ -102,13 +104,13 @@ In general NSClient++ has a hierarchical settings structure much like a file-sys
 ...
 ```
 
-### Comments
+#### Comments
 
 Comments are line starting by a semi-colon ";"
 
 -   This is a comment, which appears in green on notepad++. Colors helps me a lot!
 
-### Values
+#### Values
 
 Values are in the following format: `key = value`
 
@@ -116,12 +118,12 @@ Values are in the following format: `key = value`
 foo = bar ; Give foo the value bar
 ```
 
-## Configuring
+### Configuring
 
 To make you configuration you first need to decide which modules you want then and configure each one of them in turn.
 We will start the same why by presenting the various modules you can use and covering how to configure some of them.
 
-## Modules
+### Modules
 
 Here are the available modules. Each module get loaded if enabled. You can enable all and use only one, but that may open doors for nothing and add load on your systems.
 There are a few ways you can enable modules, setting the value to 1, true and enabled are all correct but enabled is preferred like so:
@@ -172,7 +174,7 @@ nrpe3 = NRPEServer
     This is the only difficult part. You must tell NSClient++ how to behave for the modules you want it to run.
     We will cover here the most needed modules, which are in bold in previous chapter.
 
-## Default settings
+### Default settings
 
 If you omit some settings per protocol, default values will be used. Here are the recommended default value section:
 
@@ -184,12 +186,12 @@ password = CHECK_NT PASSWORD
 timeout = 90
 ```
 
-# Communication
+## Communication
 
 As we stated initially NSClient++ by itself is not very usefull.
 Thus you need to enable some form of communication with your central server.
 
-## Choosing a transport/protocol
+### Choosing a transport/protocol
 
 NSClient++ supports several transports and you can use either one or several of these or you can create your own custom transport.
 Transports are methods which facilitates communication between Monitoring server and your server.
@@ -210,7 +212,7 @@ A file gets transferred. In our case the end result is that a monitoring result 
 *   Make your own
     The spirit of NSClient++ is to allow you do decide what you want to do so you can make any combination of the above   and even use some other third party protocols or what not...
 
-## NRPE Server
+### NRPE Server
 
 !!! note
     This module is used by the check_nrpe on Nagios.
@@ -242,7 +244,7 @@ allow nasty characters = true
 
 TODO: Add information about secure mode!
 
-## NSCA Client
+### NSCA Client
 
 !!! note
     This is used by NSCA server on Nagios.
@@ -266,11 +268,11 @@ password = Password_Which_Must_Be_Identical_On_NSCA_Server_On_Nagios
 timeout = 90
 ```
 
-# Checking things
+## Checking things
 
 TODO: Add information about basic checks here!
 
-## External scripts
+### External scripts
 
 !!! note
     This allow to call arbitrary program/script through any protocol and get result back.
@@ -307,7 +309,7 @@ check_openmanage = scripts/check_openmanage.exe
 check_updates=check_updates.vbs $ARG1$ $ARG2$
 ```
 
-## Eventlogs
+### Eventlogs
 
 !!! note
     Event-logs are a great source of information for monitoring. Allow real-time monitoring and extended filtering.
@@ -319,13 +321,13 @@ check_eventlog
 
 TODO: Extend this section
 
-# Installation
+## Installation
 
 TODO: Add section about automating installs and central config
 
-# Security
+## Security
 
-## Account running nsclient++
+### Account running nsclient++
 
 By default, the Windows service run as Local System.
 This is simple (no access denied issue), but may lead to security issue if a breach appears (in NSClient++ or in your scripts).
@@ -342,15 +344,15 @@ Using a domain account is also useful for specific monitoring, like for SharePoi
 
 You can use `Process monitor <http://technet.microsoft.com/en-us/sysinternals/bb896645.aspx>` to get access denied logs.
 
-## Securing communication
+### Securing communication
 
 Encryption depend heavily on which communication protocol you need. For NSCA, you will need a shared passphrase and a common encryption protocol (AES in our examples).
 
 You can restrict hosts allowed to speak to NSClient++ from the config file. This add security to firewall rules, by also restricting access within the same network.
 
-# Other topics
+## Other topics
 
-## Extending NSClient++
+### Extending NSClient++
 
 NSClient++ is designed to be open ended and allow you to customize it in any way you design thus extensibility is a core feature.
 
