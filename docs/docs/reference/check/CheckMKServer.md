@@ -7,79 +7,43 @@ A server that listens for incoming check_mk connection and processes incoming re
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                          | Key                                                                   | Description           |
-|---------------------------------------------------------|-----------------------------------------------------------------------|-----------------------|
-| [/settings/check_mk/server](#/settings/check_mk/server) | [port](#/settings/check_mk/server_port)                               | PORT NUMBER           |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [use ssl](#/settings/check_mk/server_use ssl)                         | ENABLE SSL ENCRYPTION |
-| [/settings/default](#/settings/default)                 | [allowed hosts](#/settings/default_allowed hosts)                     | ALLOWED HOSTS         |
-| [/settings/default](#/settings/default)                 | [bind to](#/settings/default_bind to)                                 | BIND TO ADDRESS       |
-| [/settings/default](#/settings/default)                 | [cache allowed hosts](#/settings/default_cache allowed hosts)         | CACHE ALLOWED HOSTS   |
-| [/settings/default](#/settings/default)                 | [inbox](#/settings/default_inbox)                                     | INBOX                 |
-| [/settings/default](#/settings/default)                 | [password](#/settings/default_password)                               | PASSWORD              |
-| [/settings/default](#/settings/default)                 | [timeout](#/settings/default_timeout)                                 | TIMEOUT               |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [allowed ciphers](#/settings/check_mk/server_allowed ciphers)         | ALLOWED CIPHERS       |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [allowed hosts](#/settings/check_mk/server_allowed hosts)             | ALLOWED HOSTS         |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [bind to](#/settings/check_mk/server_bind to)                         | BIND TO ADDRESS       |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [ca](#/settings/check_mk/server_ca)                                   | CA                    |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [cache allowed hosts](#/settings/check_mk/server_cache allowed hosts) | CACHE ALLOWED HOSTS   |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [certificate](#/settings/check_mk/server_certificate)                 | SSL CERTIFICATE       |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [certificate format](#/settings/check_mk/server_certificate format)   | CERTIFICATE FORMAT    |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [certificate key](#/settings/check_mk/server_certificate key)         | SSL CERTIFICATE       |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [dh](#/settings/check_mk/server_dh)                                   | DH KEY                |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [socket queue size](#/settings/check_mk/server_socket queue size)     | LISTEN QUEUE          |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [ssl options](#/settings/check_mk/server_ssl options)                 | VERIFY MODE           |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [thread pool](#/settings/check_mk/server_thread pool)                 | THREAD POOL           |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [timeout](#/settings/check_mk/server_timeout)                         | TIMEOUT               |
-| [/settings/check_mk/server](#/settings/check_mk/server) | [verify mode](#/settings/check_mk/server_verify mode)                 | VERIFY MODE           |
-| [/settings/default](#/settings/default)                 | [encoding](#/settings/default_encoding)                               | NRPE PAYLOAD ENCODING |
-| [/settings/default](#/settings/default)                 | [socket queue size](#/settings/default_socket queue size)             | LISTEN QUEUE          |
-| [/settings/default](#/settings/default)                 | [thread pool](#/settings/default_thread pool)                         | THREAD POOL           |
-
-
-| Path / Section                                                          | Description               |
-|-------------------------------------------------------------------------|---------------------------|
-| [/settings/check_mk/server/scripts](#/settings/check_mk/server/scripts) | REMOTE TARGET DEFINITIONS |
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/check_mk/server"/>
-### CHECK MK SERVER SECTION
+
+
+| Path / Section                                                  | Description               |
+|-----------------------------------------------------------------|---------------------------|
+| [/settings/check_mk/server](#check-mk-server-section)           | CHECK MK SERVER SECTION   |
+| [/settings/check_mk/server/scripts](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+| [/settings/default](#)                                          |                           |
+
+
+
+### CHECK MK SERVER SECTION <a id="/settings/check_mk/server"/>
 
 Section for check_mk (CheckMKServer.dll) protocol options.
 
 
 
 
-| Key                                                                   | Default Value                       | Description           |
-|-----------------------------------------------------------------------|-------------------------------------|-----------------------|
-| [allowed ciphers](#/settings/check_mk/server_allowed ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
-| [allowed hosts](#/settings/check_mk/server_allowed hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
-| [bind to](#/settings/check_mk/server_bind to)                         |                                     | BIND TO ADDRESS       |
-| [ca](#/settings/check_mk/server_ca)                                   | ${certificate-path}/ca.pem          | CA                    |
-| [cache allowed hosts](#/settings/check_mk/server_cache allowed hosts) | true                                | CACHE ALLOWED HOSTS   |
-| [certificate](#/settings/check_mk/server_certificate)                 | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
-| [certificate format](#/settings/check_mk/server_certificate format)   | PEM                                 | CERTIFICATE FORMAT    |
-| [certificate key](#/settings/check_mk/server_certificate key)         |                                     | SSL CERTIFICATE       |
-| [dh](#/settings/check_mk/server_dh)                                   | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
-| [port](#/settings/check_mk/server_port)                               | 6556                                | PORT NUMBER           |
-| [socket queue size](#/settings/check_mk/server_socket queue size)     | 0                                   | LISTEN QUEUE          |
-| [ssl options](#/settings/check_mk/server_ssl options)                 |                                     | VERIFY MODE           |
-| [thread pool](#/settings/check_mk/server_thread pool)                 | 10                                  | THREAD POOL           |
-| [timeout](#/settings/check_mk/server_timeout)                         | 30                                  | TIMEOUT               |
-| [use ssl](#/settings/check_mk/server_use ssl)                         | false                               | ENABLE SSL ENCRYPTION |
-| [verify mode](#/settings/check_mk/server_verify mode)                 | none                                | VERIFY MODE           |
+| Key                                         | Default Value                       | Description           |
+|---------------------------------------------|-------------------------------------|-----------------------|
+| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |                                     | BIND TO ADDRESS       |
+| [ca](#ca)                                   | ${certificate-path}/ca.pem          | CA                    |
+| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS   |
+| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
+| [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
+| [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
+| [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
+| [port](#port-number)                        | 6556                                | PORT NUMBER           |
+| [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
+| [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
+| [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
+| [timeout](#timeout)                         | 30                                  | TIMEOUT               |
+| [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
+| [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
 
 
 
@@ -105,9 +69,8 @@ verify mode=none
 
 
 
-<a name="/settings/check_mk/server_allowed ciphers"/>
 
-**ALLOWED CIPHERS**
+#### ALLOWED CIPHERS <a id="/settings/check_mk/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
@@ -134,9 +97,8 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
 
-<a name="/settings/check_mk/server_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/check_mk/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -162,9 +124,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/check_mk/server_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/check_mk/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -191,9 +152,8 @@ bind to=
 ```
 
 
-<a name="/settings/check_mk/server_ca"/>
 
-**CA**
+#### CA <a id="/settings/check_mk/server/ca"></a>
 
 
 
@@ -219,9 +179,8 @@ ca=${certificate-path}/ca.pem
 ```
 
 
-<a name="/settings/check_mk/server_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/check_mk/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -247,9 +206,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/check_mk/server_certificate"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/check_mk/server/certificate"></a>
 
 
 
@@ -275,9 +233,8 @@ certificate=${certificate-path}/certificate.pem
 ```
 
 
-<a name="/settings/check_mk/server_certificate format"/>
 
-**CERTIFICATE FORMAT**
+#### CERTIFICATE FORMAT <a id="/settings/check_mk/server/certificate format"></a>
 
 
 
@@ -303,9 +260,8 @@ certificate format=PEM
 ```
 
 
-<a name="/settings/check_mk/server_certificate key"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/check_mk/server/certificate key"></a>
 
 
 
@@ -332,9 +288,8 @@ certificate key=
 ```
 
 
-<a name="/settings/check_mk/server_dh"/>
 
-**DH KEY**
+#### DH KEY <a id="/settings/check_mk/server/dh"></a>
 
 
 
@@ -360,9 +315,8 @@ dh=${certificate-path}/nrpe_dh_512.pem
 ```
 
 
-<a name="/settings/check_mk/server_port"/>
 
-**PORT NUMBER**
+#### PORT NUMBER <a id="/settings/check_mk/server/port"></a>
 
 Port to use for check_mk.
 
@@ -387,9 +341,8 @@ port=6556
 ```
 
 
-<a name="/settings/check_mk/server_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/check_mk/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -415,9 +368,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/check_mk/server_ssl options"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/check_mk/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 
@@ -453,9 +405,8 @@ ssl options=
 ```
 
 
-<a name="/settings/check_mk/server_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/check_mk/server/thread pool"></a>
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -481,9 +432,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/check_mk/server_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/check_mk/server/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -509,9 +459,8 @@ timeout=30
 ```
 
 
-<a name="/settings/check_mk/server_use ssl"/>
 
-**ENABLE SSL ENCRYPTION**
+#### ENABLE SSL ENCRYPTION <a id="/settings/check_mk/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
 
@@ -536,9 +485,8 @@ use ssl=false
 ```
 
 
-<a name="/settings/check_mk/server_verify mode"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/check_mk/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 
@@ -575,8 +523,7 @@ verify mode=none
 ```
 
 
-<a name="/settings/check_mk/server/scripts"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/server/scripts"/>
 
 
 
@@ -588,25 +535,24 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/default"/>
-### /settings/default
+### /settings/default <a id="/settings/default"/>
 
 
 
 
 
 
-| Key                                                           | Default Value | Description           |
-|---------------------------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#/settings/default_allowed hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#/settings/default_bind to)                         |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#/settings/default_cache allowed hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#/settings/default_encoding)                       |               | NRPE PAYLOAD ENCODING |
-| [inbox](#/settings/default_inbox)                             | inbox         | INBOX                 |
-| [password](#/settings/default_password)                       |               | PASSWORD              |
-| [socket queue size](#/settings/default_socket queue size)     | 0             | LISTEN QUEUE          |
-| [thread pool](#/settings/default_thread pool)                 | 10            | THREAD POOL           |
-| [timeout](#/settings/default_timeout)                         | 30            | TIMEOUT               |
+| Key                                         | Default Value | Description           |
+|---------------------------------------------|---------------|-----------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
+| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
+| [inbox](#inbox)                             | inbox         | INBOX                 |
+| [password](#password)                       |               | PASSWORD              |
+| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
+| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
+| [timeout](#timeout)                         | 30            | TIMEOUT               |
 
 
 
@@ -625,9 +571,8 @@ timeout=30
 
 
 
-<a name="/settings/default_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -652,9 +597,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/default_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
@@ -680,9 +624,8 @@ bind to=
 ```
 
 
-<a name="/settings/default_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -707,9 +650,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/default_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
 
 
 
@@ -736,9 +678,8 @@ encoding=
 ```
 
 
-<a name="/settings/default_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
 
@@ -763,9 +704,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/default_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -791,9 +731,8 @@ password=
 ```
 
 
-<a name="/settings/default_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
@@ -819,9 +758,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/default_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
 
 
 
@@ -847,9 +785,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/default_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 

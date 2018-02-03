@@ -7,75 +7,35 @@ A server that listens for incoming NRPE connection and processes incoming reques
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                                  | Key                                                                     | Description                            |
-|-------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------|
-| [/settings/default](#/settings/default)         | [allowed hosts](#/settings/default_allowed hosts)                       | ALLOWED HOSTS                          |
-| [/settings/default](#/settings/default)         | [bind to](#/settings/default_bind to)                                   | BIND TO ADDRESS                        |
-| [/settings/default](#/settings/default)         | [cache allowed hosts](#/settings/default_cache allowed hosts)           | CACHE ALLOWED HOSTS                    |
-| [/settings/default](#/settings/default)         | [inbox](#/settings/default_inbox)                                       | INBOX                                  |
-| [/settings/default](#/settings/default)         | [password](#/settings/default_password)                                 | PASSWORD                               |
-| [/settings/default](#/settings/default)         | [timeout](#/settings/default_timeout)                                   | TIMEOUT                                |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [allow arguments](#/settings/NRPE/server_allow arguments)               | COMMAND ARGUMENT PROCESSING            |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [allow nasty characters](#/settings/NRPE/server_allow nasty characters) | COMMAND ALLOW NASTY META CHARS         |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [extended response](#/settings/NRPE/server_extended response)           | EXTENDED RESPONSE                      |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [insecure](#/settings/NRPE/server_insecure)                             | ALLOW INSECURE CHIPHERS and ENCRYPTION |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [port](#/settings/NRPE/server_port)                                     | PORT NUMBER                            |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [use ssl](#/settings/NRPE/server_use ssl)                               | ENABLE SSL ENCRYPTION                  |
-| [/settings/default](#/settings/default)         | [encoding](#/settings/default_encoding)                                 | NRPE PAYLOAD ENCODING                  |
-| [/settings/default](#/settings/default)         | [socket queue size](#/settings/default_socket queue size)               | LISTEN QUEUE                           |
-| [/settings/default](#/settings/default)         | [thread pool](#/settings/default_thread pool)                           | THREAD POOL                            |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [allowed ciphers](#/settings/NRPE/server_allowed ciphers)               | ALLOWED CIPHERS                        |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [allowed hosts](#/settings/NRPE/server_allowed hosts)                   | ALLOWED HOSTS                          |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [bind to](#/settings/NRPE/server_bind to)                               | BIND TO ADDRESS                        |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [ca](#/settings/NRPE/server_ca)                                         | CA                                     |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [cache allowed hosts](#/settings/NRPE/server_cache allowed hosts)       | CACHE ALLOWED HOSTS                    |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [certificate](#/settings/NRPE/server_certificate)                       | SSL CERTIFICATE                        |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [certificate format](#/settings/NRPE/server_certificate format)         | CERTIFICATE FORMAT                     |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [certificate key](#/settings/NRPE/server_certificate key)               | SSL CERTIFICATE                        |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [dh](#/settings/NRPE/server_dh)                                         | DH KEY                                 |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [encoding](#/settings/NRPE/server_encoding)                             | NRPE PAYLOAD ENCODING                  |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [payload length](#/settings/NRPE/server_payload length)                 | PAYLOAD LENGTH                         |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [performance data](#/settings/NRPE/server_performance data)             | PERFORMANCE DATA                       |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [socket queue size](#/settings/NRPE/server_socket queue size)           | LISTEN QUEUE                           |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [ssl options](#/settings/NRPE/server_ssl options)                       | VERIFY MODE                            |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [thread pool](#/settings/NRPE/server_thread pool)                       | THREAD POOL                            |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [timeout](#/settings/NRPE/server_timeout)                               | TIMEOUT                                |
-| [/settings/NRPE/server](#/settings/NRPE/server) | [verify mode](#/settings/NRPE/server_verify mode)                       | VERIFY MODE                            |
-
-
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/default"/>
-### /settings/default
+
+
+| Path / Section                        | Description |
+|---------------------------------------|-------------|
+| [/settings/default](#)                |             |
+| [/settings/NRPE/server](#nrpe-server) | NRPE Server |
+
+
+
+### /settings/default <a id="/settings/default"/>
 
 
 
 
 
 
-| Key                                                           | Default Value | Description           |
-|---------------------------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#/settings/default_allowed hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#/settings/default_bind to)                         |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#/settings/default_cache allowed hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#/settings/default_encoding)                       |               | NRPE PAYLOAD ENCODING |
-| [inbox](#/settings/default_inbox)                             | inbox         | INBOX                 |
-| [password](#/settings/default_password)                       |               | PASSWORD              |
-| [socket queue size](#/settings/default_socket queue size)     | 0             | LISTEN QUEUE          |
-| [thread pool](#/settings/default_thread pool)                 | 10            | THREAD POOL           |
-| [timeout](#/settings/default_timeout)                         | 30            | TIMEOUT               |
+| Key                                         | Default Value | Description           |
+|---------------------------------------------|---------------|-----------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
+| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
+| [inbox](#inbox)                             | inbox         | INBOX                 |
+| [password](#password)                       |               | PASSWORD              |
+| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
+| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
+| [timeout](#timeout)                         | 30            | TIMEOUT               |
 
 
 
@@ -94,9 +54,8 @@ timeout=30
 
 
 
-<a name="/settings/default_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -121,9 +80,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/default_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
@@ -149,9 +107,8 @@ bind to=
 ```
 
 
-<a name="/settings/default_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -176,9 +133,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/default_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
 
 
 
@@ -205,9 +161,8 @@ encoding=
 ```
 
 
-<a name="/settings/default_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
 
@@ -232,9 +187,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/default_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -260,9 +214,8 @@ password=
 ```
 
 
-<a name="/settings/default_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
@@ -288,9 +241,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/default_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
 
 
 
@@ -316,9 +268,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/default_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
@@ -343,39 +294,38 @@ timeout=30
 ```
 
 
-<a name="/settings/NRPE/server"/>
-### NRPE Server
+### NRPE Server <a id="/settings/NRPE/server"/>
 
 Section for NRPE (NRPEServer.dll) (check_nrpe) protocol options.
 
 
 
 
-| Key                                                                     | Default Value                       | Description                            |
-|-------------------------------------------------------------------------|-------------------------------------|----------------------------------------|
-| [allow arguments](#/settings/NRPE/server_allow arguments)               | false                               | COMMAND ARGUMENT PROCESSING            |
-| [allow nasty characters](#/settings/NRPE/server_allow nasty characters) | false                               | COMMAND ALLOW NASTY META CHARS         |
-| [allowed ciphers](#/settings/NRPE/server_allowed ciphers)               | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                        |
-| [allowed hosts](#/settings/NRPE/server_allowed hosts)                   | 127.0.0.1                           | ALLOWED HOSTS                          |
-| [bind to](#/settings/NRPE/server_bind to)                               |                                     | BIND TO ADDRESS                        |
-| [ca](#/settings/NRPE/server_ca)                                         | ${certificate-path}/ca.pem          | CA                                     |
-| [cache allowed hosts](#/settings/NRPE/server_cache allowed hosts)       | true                                | CACHE ALLOWED HOSTS                    |
-| [certificate](#/settings/NRPE/server_certificate)                       | ${certificate-path}/certificate.pem | SSL CERTIFICATE                        |
-| [certificate format](#/settings/NRPE/server_certificate format)         | PEM                                 | CERTIFICATE FORMAT                     |
-| [certificate key](#/settings/NRPE/server_certificate key)               |                                     | SSL CERTIFICATE                        |
-| [dh](#/settings/NRPE/server_dh)                                         | ${certificate-path}/nrpe_dh_512.pem | DH KEY                                 |
-| [encoding](#/settings/NRPE/server_encoding)                             |                                     | NRPE PAYLOAD ENCODING                  |
-| [extended response](#/settings/NRPE/server_extended response)           | true                                | EXTENDED RESPONSE                      |
-| [insecure](#/settings/NRPE/server_insecure)                             | false                               | ALLOW INSECURE CHIPHERS and ENCRYPTION |
-| [payload length](#/settings/NRPE/server_payload length)                 | 1024                                | PAYLOAD LENGTH                         |
-| [performance data](#/settings/NRPE/server_performance data)             | true                                | PERFORMANCE DATA                       |
-| [port](#/settings/NRPE/server_port)                                     | 5666                                | PORT NUMBER                            |
-| [socket queue size](#/settings/NRPE/server_socket queue size)           | 0                                   | LISTEN QUEUE                           |
-| [ssl options](#/settings/NRPE/server_ssl options)                       |                                     | VERIFY MODE                            |
-| [thread pool](#/settings/NRPE/server_thread pool)                       | 10                                  | THREAD POOL                            |
-| [timeout](#/settings/NRPE/server_timeout)                               | 30                                  | TIMEOUT                                |
-| [use ssl](#/settings/NRPE/server_use ssl)                               | true                                | ENABLE SSL ENCRYPTION                  |
-| [verify mode](#/settings/NRPE/server_verify mode)                       | none                                | VERIFY MODE                            |
+| Key                                                       | Default Value                       | Description                            |
+|-----------------------------------------------------------|-------------------------------------|----------------------------------------|
+| [allow arguments](#command-argument-processing)           | false                               | COMMAND ARGUMENT PROCESSING            |
+| [allow nasty characters](#command-allow-nasty-meta-chars) | false                               | COMMAND ALLOW NASTY META CHARS         |
+| [allowed ciphers](#allowed-ciphers)                       | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS                        |
+| [allowed hosts](#allowed-hosts)                           | 127.0.0.1                           | ALLOWED HOSTS                          |
+| [bind to](#bind-to-address)                               |                                     | BIND TO ADDRESS                        |
+| [ca](#ca)                                                 | ${certificate-path}/ca.pem          | CA                                     |
+| [cache allowed hosts](#cache-allowed-hosts)               | true                                | CACHE ALLOWED HOSTS                    |
+| [certificate](#ssl-certificate)                           | ${certificate-path}/certificate.pem | SSL CERTIFICATE                        |
+| [certificate format](#certificate-format)                 | PEM                                 | CERTIFICATE FORMAT                     |
+| [certificate key](#ssl-certificate)                       |                                     | SSL CERTIFICATE                        |
+| [dh](#dh-key)                                             | ${certificate-path}/nrpe_dh_512.pem | DH KEY                                 |
+| [encoding](#nrpe-payload-encoding)                        |                                     | NRPE PAYLOAD ENCODING                  |
+| [extended response](#extended-response)                   | true                                | EXTENDED RESPONSE                      |
+| [insecure](#allow-insecure-chiphers-and-encryption)       | false                               | ALLOW INSECURE CHIPHERS and ENCRYPTION |
+| [payload length](#payload-length)                         | 1024                                | PAYLOAD LENGTH                         |
+| [performance data](#performance-data)                     | true                                | PERFORMANCE DATA                       |
+| [port](#port-number)                                      | 5666                                | PORT NUMBER                            |
+| [socket queue size](#listen-queue)                        | 0                                   | LISTEN QUEUE                           |
+| [ssl options](#verify-mode)                               |                                     | VERIFY MODE                            |
+| [thread pool](#thread-pool)                               | 10                                  | THREAD POOL                            |
+| [timeout](#timeout)                                       | 30                                  | TIMEOUT                                |
+| [use ssl](#enable-ssl-encryption)                         | true                                | ENABLE SSL ENCRYPTION                  |
+| [verify mode](#verify-mode)                               | none                                | VERIFY MODE                            |
 
 
 
@@ -407,9 +357,8 @@ verify mode=none
 
 
 
-<a name="/settings/NRPE/server_allow arguments"/>
 
-**COMMAND ARGUMENT PROCESSING**
+#### COMMAND ARGUMENT PROCESSING <a id="/settings/NRPE/server/allow arguments"></a>
 
 This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
 
@@ -434,9 +383,8 @@ allow arguments=false
 ```
 
 
-<a name="/settings/NRPE/server_allow nasty characters"/>
 
-**COMMAND ALLOW NASTY META CHARS**
+#### COMMAND ALLOW NASTY META CHARS <a id="/settings/NRPE/server/allow nasty characters"></a>
 
 This option determines whether or not the we will allow clients to specify nasty (as in \|\`&><'"\\[]{}) characters in arguments.
 
@@ -461,9 +409,8 @@ allow nasty characters=false
 ```
 
 
-<a name="/settings/NRPE/server_allowed ciphers"/>
 
-**ALLOWED CIPHERS**
+#### ALLOWED CIPHERS <a id="/settings/NRPE/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
@@ -490,9 +437,8 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
 
-<a name="/settings/NRPE/server_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/NRPE/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -518,9 +464,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/NRPE/server_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/NRPE/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -547,9 +492,8 @@ bind to=
 ```
 
 
-<a name="/settings/NRPE/server_ca"/>
 
-**CA**
+#### CA <a id="/settings/NRPE/server/ca"></a>
 
 
 
@@ -575,9 +519,8 @@ ca=${certificate-path}/ca.pem
 ```
 
 
-<a name="/settings/NRPE/server_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/NRPE/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -603,9 +546,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/NRPE/server_certificate"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NRPE/server/certificate"></a>
 
 
 
@@ -631,9 +573,8 @@ certificate=${certificate-path}/certificate.pem
 ```
 
 
-<a name="/settings/NRPE/server_certificate format"/>
 
-**CERTIFICATE FORMAT**
+#### CERTIFICATE FORMAT <a id="/settings/NRPE/server/certificate format"></a>
 
 
 
@@ -659,9 +600,8 @@ certificate format=PEM
 ```
 
 
-<a name="/settings/NRPE/server_certificate key"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NRPE/server/certificate key"></a>
 
 
 
@@ -688,9 +628,8 @@ certificate key=
 ```
 
 
-<a name="/settings/NRPE/server_dh"/>
 
-**DH KEY**
+#### DH KEY <a id="/settings/NRPE/server/dh"></a>
 
 
 
@@ -716,9 +655,8 @@ dh=${certificate-path}/nrpe_dh_512.pem
 ```
 
 
-<a name="/settings/NRPE/server_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/NRPE/server/encoding"></a>
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -745,9 +683,8 @@ encoding=
 ```
 
 
-<a name="/settings/NRPE/server_extended response"/>
 
-**EXTENDED RESPONSE**
+#### EXTENDED RESPONSE <a id="/settings/NRPE/server/extended response"></a>
 
 Send more then 1 return packet to allow response to go beyond payload size (requires modified client if legacy is true this defaults to false).
 
@@ -772,9 +709,8 @@ extended response=true
 ```
 
 
-<a name="/settings/NRPE/server_insecure"/>
 
-**ALLOW INSECURE CHIPHERS and ENCRYPTION**
+#### ALLOW INSECURE CHIPHERS and ENCRYPTION <a id="/settings/NRPE/server/insecure"></a>
 
 Only enable this if you are using legacy check_nrpe client.
 
@@ -799,9 +735,8 @@ insecure=false
 ```
 
 
-<a name="/settings/NRPE/server_payload length"/>
 
-**PAYLOAD LENGTH**
+#### PAYLOAD LENGTH <a id="/settings/NRPE/server/payload length"></a>
 
 Length of payload to/from the NRPE agent. This is a hard specific value so you have to "configure" (read recompile) your NRPE agent to use the same value for it to work.
 
@@ -827,9 +762,8 @@ payload length=1024
 ```
 
 
-<a name="/settings/NRPE/server_performance data"/>
 
-**PERFORMANCE DATA**
+#### PERFORMANCE DATA <a id="/settings/NRPE/server/performance data"></a>
 
 Send performance data back to nagios (set this to 0 to remove all performance data).
 
@@ -855,9 +789,8 @@ performance data=true
 ```
 
 
-<a name="/settings/NRPE/server_port"/>
 
-**PORT NUMBER**
+#### PORT NUMBER <a id="/settings/NRPE/server/port"></a>
 
 Port to use for NRPE.
 
@@ -882,9 +815,8 @@ port=5666
 ```
 
 
-<a name="/settings/NRPE/server_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/NRPE/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -910,9 +842,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/NRPE/server_ssl options"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NRPE/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 
@@ -948,9 +879,8 @@ ssl options=
 ```
 
 
-<a name="/settings/NRPE/server_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/NRPE/server/thread pool"></a>
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -976,9 +906,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/NRPE/server_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/NRPE/server/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -1004,9 +933,8 @@ timeout=30
 ```
 
 
-<a name="/settings/NRPE/server_use ssl"/>
 
-**ENABLE SSL ENCRYPTION**
+#### ENABLE SSL ENCRYPTION <a id="/settings/NRPE/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
 
@@ -1031,9 +959,8 @@ use ssl=true
 ```
 
 
-<a name="/settings/NRPE/server_verify mode"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NRPE/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 

@@ -7,39 +7,27 @@ CollectD client can be used to submit metrics to a collectd server
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                                          | Key                                             | Description |
-|---------------------------------------------------------|-------------------------------------------------|-------------|
-| [/settings/collectd/client](#/settings/collectd/client) | [hostname](#/settings/collectd/client_hostname) | HOSTNAME    |
-
-
-| Path / Section                                                          | Description               |
-|-------------------------------------------------------------------------|---------------------------|
-| [/settings/collectd/client/targets](#/settings/collectd/client/targets) | REMOTE TARGET DEFINITIONS |
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/collectd/client"/>
-### COLLECTD CLIENT SECTION
+
+
+| Path / Section                                                  | Description               |
+|-----------------------------------------------------------------|---------------------------|
+| [/settings/collectd/client](#collectd-client-section)           | COLLECTD CLIENT SECTION   |
+| [/settings/collectd/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### COLLECTD CLIENT SECTION <a id="/settings/collectd/client"/>
 
 Section for NSCA passive check module.
 
 
 
 
-| Key                                             | Default Value | Description |
-|-------------------------------------------------|---------------|-------------|
-| [hostname](#/settings/collectd/client_hostname) | auto          | HOSTNAME    |
+| Key                   | Default Value | Description |
+|-----------------------|---------------|-------------|
+| [hostname](#hostname) | auto          | HOSTNAME    |
 
 
 
@@ -53,9 +41,8 @@ hostname=auto
 
 
 
-<a name="/settings/collectd/client_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/collectd/client/hostname"></a>
 
 The host name of the monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -91,8 +78,7 @@ hostname=auto
 ```
 
 
-<a name="/settings/collectd/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/collectd/client/targets"/>
 
 
 

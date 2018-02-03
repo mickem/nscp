@@ -4,6 +4,11 @@ NSCA client can be used both from command line and from queries to submit passiv
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the NSCAClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,31 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                  | Key                                         | Description        |
-|-------------------------------------------------|---------------------------------------------|--------------------|
-| [/settings/NSCA/client](#/settings/NSCA/client) | [channel](#/settings/NSCA/client_channel)   | CHANNEL            |
-| [/settings/NSCA/client](#/settings/NSCA/client) | [hostname](#/settings/NSCA/client_hostname) | HOSTNAME           |
-| [/settings/NSCA/client](#/settings/NSCA/client) | [encoding](#/settings/NSCA/client_encoding) | NSCA DATA ENCODING |
-
-
-| Path / Section                                                    | Description               |
-|-------------------------------------------------------------------|---------------------------|
-| [/settings/NSCA/client/handlers](#/settings/NSCA/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/NSCA/client/targets](#/settings/NSCA/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the NSCAClient module.
 
 ### submit_nsca
 
@@ -52,65 +32,35 @@ Submit information to the remote NSCA server.
 
 
 <a name="submit_nsca_help"/>
-
 <a name="submit_nsca_help-pb"/>
-
 <a name="submit_nsca_show-default"/>
-
 <a name="submit_nsca_help-short"/>
-
 <a name="submit_nsca_host"/>
-
 <a name="submit_nsca_port"/>
-
 <a name="submit_nsca_address"/>
-
 <a name="submit_nsca_timeout"/>
-
 <a name="submit_nsca_target"/>
-
 <a name="submit_nsca_retry"/>
-
 <a name="submit_nsca_retries"/>
-
 <a name="submit_nsca_source-host"/>
-
 <a name="submit_nsca_sender-host"/>
-
 <a name="submit_nsca_command"/>
-
 <a name="submit_nsca_alias"/>
-
 <a name="submit_nsca_message"/>
-
 <a name="submit_nsca_result"/>
-
 <a name="submit_nsca_separator"/>
-
 <a name="submit_nsca_batch"/>
-
 <a name="submit_nsca_certificate"/>
-
 <a name="submit_nsca_dh"/>
-
 <a name="submit_nsca_certificate-key"/>
-
 <a name="submit_nsca_certificate-format"/>
-
 <a name="submit_nsca_ca"/>
-
 <a name="submit_nsca_verify"/>
-
 <a name="submit_nsca_allowed-ciphers"/>
-
 <a name="submit_nsca_payload-length"/>
-
 <a name="submit_nsca_buffer-length"/>
-
 <a name="submit_nsca_password"/>
-
 <a name="submit_nsca_time-offset"/>
-
 <a name="submit_nsca_options"/>
 #### Command-line Arguments
 
@@ -152,18 +102,13 @@ Submit information to the remote NSCA server.
 
 
 
-<a name="submit_nsca_ssl"/>
-**ssl:**
+<h5 id="submit_nsca_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
+*Default Value:* `1`
 
-*Default Value:* | `1`
-
-
-
-<a name="submit_nsca_encryption"/>
-**encryption:**
+<h5 id="submit_nsca_encryption">encryption:</h5>
 
 Name of encryption algorithm to use.
 Has to be the same as your server i using or it wont work at all.This is also independent of SSL and generally used instead of SSL.
@@ -187,24 +132,30 @@ gost = GOST
 
 
 
-
-
-
 ## Configuration
 
-<a name="/settings/NSCA/client"/>
-### NSCA CLIENT SECTION
+
+
+| Path / Section                                              | Description               |
+|-------------------------------------------------------------|---------------------------|
+| [/settings/NSCA/client](#nsca-client-section)               | NSCA CLIENT SECTION       |
+| [/settings/NSCA/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/NSCA/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### NSCA CLIENT SECTION <a id="/settings/NSCA/client"/>
 
 Section for NSCA passive check module.
 
 
 
 
-| Key                                         | Default Value | Description        |
-|---------------------------------------------|---------------|--------------------|
-| [channel](#/settings/NSCA/client_channel)   | NSCA          | CHANNEL            |
-| [encoding](#/settings/NSCA/client_encoding) |               | NSCA DATA ENCODING |
-| [hostname](#/settings/NSCA/client_hostname) | auto          | HOSTNAME           |
+| Key                             | Default Value | Description        |
+|---------------------------------|---------------|--------------------|
+| [channel](#channel)             | NSCA          | CHANNEL            |
+| [encoding](#nsca-data-encoding) |               | NSCA DATA ENCODING |
+| [hostname](#hostname)           | auto          | HOSTNAME           |
 
 
 
@@ -219,9 +170,8 @@ hostname=auto
 
 
 
-<a name="/settings/NSCA/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/NSCA/client/channel"></a>
 
 The channel to listen to.
 
@@ -246,9 +196,8 @@ channel=NSCA
 ```
 
 
-<a name="/settings/NSCA/client_encoding"/>
 
-**NSCA DATA ENCODING**
+#### NSCA DATA ENCODING <a id="/settings/NSCA/client/encoding"></a>
 
 
 
@@ -275,9 +224,8 @@ encoding=
 ```
 
 
-<a name="/settings/NSCA/client_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/NSCA/client/hostname"></a>
 
 The host name of the monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -313,8 +261,7 @@ hostname=auto
 ```
 
 
-<a name="/settings/NSCA/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/NSCA/client/handlers"/>
 
 
 
@@ -326,8 +273,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/NSCA/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/NSCA/client/targets"/>
 
 
 

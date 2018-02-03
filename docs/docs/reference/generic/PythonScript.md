@@ -7,21 +7,17 @@ Loads and processes internal Python scripts
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/python/scripts"/>
-### Python scripts
+
+
+| Path / Section                              | Description    |
+|---------------------------------------------|----------------|
+| [/settings/python/scripts](#python-scripts) | Python scripts |
+
+
+
+### Python scripts <a id="/settings/python/scripts"/>
 
 A list of scripts available to run from the PythonScript module.
 

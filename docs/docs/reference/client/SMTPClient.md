@@ -4,6 +4,11 @@ SMTP client can be used both from command line and from queries to check remote 
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the SMTPClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,29 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                  | Key                                       | Description |
-|-------------------------------------------------|-------------------------------------------|-------------|
-| [/settings/SMTP/client](#/settings/SMTP/client) | [channel](#/settings/SMTP/client_channel) | CHANNEL     |
-
-
-| Path / Section                                                    | Description               |
-|-------------------------------------------------------------------|---------------------------|
-| [/settings/SMTP/client/handlers](#/settings/SMTP/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/SMTP/client/targets](#/settings/SMTP/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the SMTPClient module.
 
 ### submit_smtp
 
@@ -50,53 +32,29 @@ Submit information to the remote SMTP server.
 
 
 <a name="submit_smtp_help"/>
-
 <a name="submit_smtp_help-pb"/>
-
 <a name="submit_smtp_show-default"/>
-
 <a name="submit_smtp_help-short"/>
-
 <a name="submit_smtp_host"/>
-
 <a name="submit_smtp_port"/>
-
 <a name="submit_smtp_address"/>
-
 <a name="submit_smtp_timeout"/>
-
 <a name="submit_smtp_target"/>
-
 <a name="submit_smtp_retry"/>
-
 <a name="submit_smtp_retries"/>
-
 <a name="submit_smtp_source-host"/>
-
 <a name="submit_smtp_sender-host"/>
-
 <a name="submit_smtp_command"/>
-
 <a name="submit_smtp_alias"/>
-
 <a name="submit_smtp_message"/>
-
 <a name="submit_smtp_result"/>
-
 <a name="submit_smtp_separator"/>
-
 <a name="submit_smtp_batch"/>
-
 <a name="submit_smtp_sender"/>
-
 <a name="submit_smtp_recipient"/>
-
 <a name="submit_smtp_template"/>
-
 <a name="submit_smtp_source-host"/>
-
 <a name="submit_smtp_sender-host"/>
-
 <a name="submit_smtp_options"/>
 #### Command-line Arguments
 
@@ -135,17 +93,26 @@ Submit information to the remote SMTP server.
 
 ## Configuration
 
-<a name="/settings/SMTP/client"/>
-### SMTP CLIENT SECTION
+
+
+| Path / Section                                              | Description               |
+|-------------------------------------------------------------|---------------------------|
+| [/settings/SMTP/client](#smtp-client-section)               | SMTP CLIENT SECTION       |
+| [/settings/SMTP/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/SMTP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### SMTP CLIENT SECTION <a id="/settings/SMTP/client"/>
 
 Section for SMTP passive check module.
 
 
 
 
-| Key                                       | Default Value | Description |
-|-------------------------------------------|---------------|-------------|
-| [channel](#/settings/SMTP/client_channel) | SMTP          | CHANNEL     |
+| Key                 | Default Value | Description |
+|---------------------|---------------|-------------|
+| [channel](#channel) | SMTP          | CHANNEL     |
 
 
 
@@ -159,9 +126,8 @@ channel=SMTP
 
 
 
-<a name="/settings/SMTP/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/SMTP/client/channel"></a>
 
 The channel to listen to.
 
@@ -186,8 +152,7 @@ channel=SMTP
 ```
 
 
-<a name="/settings/SMTP/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/SMTP/client/handlers"/>
 
 
 
@@ -199,8 +164,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/SMTP/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/SMTP/client/targets"/>
 
 
 

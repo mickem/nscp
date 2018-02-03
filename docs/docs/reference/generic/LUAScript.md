@@ -7,21 +7,17 @@ Loads and processes internal Lua scripts
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/lua/scripts"/>
-### Lua scripts
+
+
+| Path / Section                        | Description |
+|---------------------------------------|-------------|
+| [/settings/lua/scripts](#lua-scripts) | Lua scripts |
+
+
+
+### Lua scripts <a id="/settings/lua/scripts"/>
 
 A list of scripts available to run from the LuaSCript module.
 

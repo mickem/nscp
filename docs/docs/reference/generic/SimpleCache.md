@@ -4,6 +4,11 @@ Stores status updates and allows for active checks to retrieve them
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the SimpleCache module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -24,24 +29,6 @@ A list of all short hand aliases for queries (check commands)
 | checkcache | Alias for: :query:`check_cache` |
 
 
-**Configuration Keys:**
-
-
-
-    
-| Path / Section                      | Key                                             | Description         |
-|-------------------------------------|-------------------------------------------------|---------------------|
-| [/settings/cache](#/settings/cache) | [channel](#/settings/cache_channel)             | CHANNEL             |
-| [/settings/cache](#/settings/cache) | [primary index](#/settings/cache_primary index) | PRIMARY CACHE INDEX |
-
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the SimpleCache module.
-
 ### check_cache
 
 Fetch results from the cache.
@@ -54,23 +41,14 @@ Fetch results from the cache.
 
 
 <a name="check_cache_help"/>
-
 <a name="check_cache_help-pb"/>
-
 <a name="check_cache_show-default"/>
-
 <a name="check_cache_help-short"/>
-
 <a name="check_cache_key"/>
-
 <a name="check_cache_host"/>
-
 <a name="check_cache_command"/>
-
 <a name="check_cache_channel"/>
-
 <a name="check_cache_alias"/>
-
 <a name="check_cache_options"/>
 #### Command-line Arguments
 
@@ -91,25 +69,17 @@ Fetch results from the cache.
 
 
 
-<a name="check_cache_not-found-msg"/>
-**not-found-msg:**
+<h5 id="check_cache_not-found-msg">not-found-msg:</h5>
 
 The message to display when a message is not found
 
+*Default Value:* `Entry not found`
 
-*Default Value:* | `Entry not found`
-
-
-
-<a name="check_cache_not-found-code"/>
-**not-found-code:**
+<h5 id="check_cache_not-found-code">not-found-code:</h5>
 
 The return status to return when a message is not found
 
-
-*Default Value:* | `unknown`
-
-
+*Default Value:* `unknown`
 
 
 ### list_cache
@@ -124,13 +94,9 @@ List all keys in the cache.
 
 
 <a name="list_cache_help"/>
-
 <a name="list_cache_help-pb"/>
-
 <a name="list_cache_show-default"/>
-
 <a name="list_cache_help-short"/>
-
 <a name="list_cache_options"/>
 #### Command-line Arguments
 
@@ -149,18 +115,25 @@ List all keys in the cache.
 
 ## Configuration
 
-<a name="/settings/cache"/>
-### CACHE
+
+
+| Path / Section            | Description |
+|---------------------------|-------------|
+| [/settings/cache](#cache) | CACHE       |
+
+
+
+### CACHE <a id="/settings/cache"/>
 
 Section for simple cache module (SimpleCache.dll).
 
 
 
 
-| Key                                             | Default Value       | Description         |
-|-------------------------------------------------|---------------------|---------------------|
-| [channel](#/settings/cache_channel)             | CACHE               | CHANNEL             |
-| [primary index](#/settings/cache_primary index) | ${alias-or-command} | PRIMARY CACHE INDEX |
+| Key                                   | Default Value       | Description         |
+|---------------------------------------|---------------------|---------------------|
+| [channel](#channel)                   | CACHE               | CHANNEL             |
+| [primary index](#primary-cache-index) | ${alias-or-command} | PRIMARY CACHE INDEX |
 
 
 
@@ -175,9 +148,8 @@ primary index=${alias-or-command}
 
 
 
-<a name="/settings/cache_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/cache/channel"></a>
 
 The channel to listen to.
 
@@ -202,9 +174,8 @@ channel=CACHE
 ```
 
 
-<a name="/settings/cache_primary index"/>
 
-**PRIMARY CACHE INDEX**
+#### PRIMARY CACHE INDEX <a id="/settings/cache/primary index"></a>
 
 Set this to the value you want to use as unique key for the cache.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} = The result status (number).

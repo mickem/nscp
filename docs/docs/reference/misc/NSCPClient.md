@@ -4,6 +4,11 @@ NSCP client can be used both from command line and from queries to check remote 
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the NSCPClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -19,29 +24,6 @@ A list of all available queries (check commands)
 
 
 
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                  | Key                                       | Description |
-|-------------------------------------------------|-------------------------------------------|-------------|
-| [/settings/NSCP/client](#/settings/NSCP/client) | [channel](#/settings/NSCP/client_channel) | CHANNEL     |
-
-
-| Path / Section                                                    | Description               |
-|-------------------------------------------------------------------|---------------------------|
-| [/settings/NSCP/client/handlers](#/settings/NSCP/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/NSCP/client/targets](#/settings/NSCP/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the NSCPClient module.
-
 ### check_remote_nscp
 
 Request remote information via NSCP.
@@ -54,55 +36,30 @@ Request remote information via NSCP.
 
 
 <a name="check_remote_nscp_help"/>
-
 <a name="check_remote_nscp_help-pb"/>
-
 <a name="check_remote_nscp_show-default"/>
-
 <a name="check_remote_nscp_help-short"/>
-
 <a name="check_remote_nscp_host"/>
-
 <a name="check_remote_nscp_port"/>
-
 <a name="check_remote_nscp_address"/>
-
 <a name="check_remote_nscp_timeout"/>
-
 <a name="check_remote_nscp_target"/>
-
 <a name="check_remote_nscp_retry"/>
-
 <a name="check_remote_nscp_retries"/>
-
 <a name="check_remote_nscp_source-host"/>
-
 <a name="check_remote_nscp_sender-host"/>
-
 <a name="check_remote_nscp_command"/>
-
 <a name="check_remote_nscp_argument"/>
-
 <a name="check_remote_nscp_separator"/>
-
 <a name="check_remote_nscp_batch"/>
-
 <a name="check_remote_nscp_certificate"/>
-
 <a name="check_remote_nscp_dh"/>
-
 <a name="check_remote_nscp_certificate-key"/>
-
 <a name="check_remote_nscp_certificate-format"/>
-
 <a name="check_remote_nscp_ca"/>
-
 <a name="check_remote_nscp_verify"/>
-
 <a name="check_remote_nscp_allowed-ciphers"/>
-
 <a name="check_remote_nscp_password"/>
-
 <a name="check_remote_nscp_options"/>
 #### Command-line Arguments
 
@@ -138,15 +95,11 @@ Request remote information via NSCP.
 
 
 
-<a name="check_remote_nscp_ssl"/>
-**ssl:**
+<h5 id="check_remote_nscp_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### exec_remote_nscp
@@ -161,55 +114,30 @@ Execute remote script via NSCP.
 
 
 <a name="exec_remote_nscp_help"/>
-
 <a name="exec_remote_nscp_help-pb"/>
-
 <a name="exec_remote_nscp_show-default"/>
-
 <a name="exec_remote_nscp_help-short"/>
-
 <a name="exec_remote_nscp_host"/>
-
 <a name="exec_remote_nscp_port"/>
-
 <a name="exec_remote_nscp_address"/>
-
 <a name="exec_remote_nscp_timeout"/>
-
 <a name="exec_remote_nscp_target"/>
-
 <a name="exec_remote_nscp_retry"/>
-
 <a name="exec_remote_nscp_retries"/>
-
 <a name="exec_remote_nscp_source-host"/>
-
 <a name="exec_remote_nscp_sender-host"/>
-
 <a name="exec_remote_nscp_command"/>
-
 <a name="exec_remote_nscp_argument"/>
-
 <a name="exec_remote_nscp_separator"/>
-
 <a name="exec_remote_nscp_batch"/>
-
 <a name="exec_remote_nscp_certificate"/>
-
 <a name="exec_remote_nscp_dh"/>
-
 <a name="exec_remote_nscp_certificate-key"/>
-
 <a name="exec_remote_nscp_certificate-format"/>
-
 <a name="exec_remote_nscp_ca"/>
-
 <a name="exec_remote_nscp_verify"/>
-
 <a name="exec_remote_nscp_allowed-ciphers"/>
-
 <a name="exec_remote_nscp_password"/>
-
 <a name="exec_remote_nscp_options"/>
 #### Command-line Arguments
 
@@ -245,15 +173,11 @@ Execute remote script via NSCP.
 
 
 
-<a name="exec_remote_nscp_ssl"/>
-**ssl:**
+<h5 id="exec_remote_nscp_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### remote_nscp_query
@@ -268,55 +192,30 @@ Request remote information via NSCP.
 
 
 <a name="remote_nscp_query_help"/>
-
 <a name="remote_nscp_query_help-pb"/>
-
 <a name="remote_nscp_query_show-default"/>
-
 <a name="remote_nscp_query_help-short"/>
-
 <a name="remote_nscp_query_host"/>
-
 <a name="remote_nscp_query_port"/>
-
 <a name="remote_nscp_query_address"/>
-
 <a name="remote_nscp_query_timeout"/>
-
 <a name="remote_nscp_query_target"/>
-
 <a name="remote_nscp_query_retry"/>
-
 <a name="remote_nscp_query_retries"/>
-
 <a name="remote_nscp_query_source-host"/>
-
 <a name="remote_nscp_query_sender-host"/>
-
 <a name="remote_nscp_query_command"/>
-
 <a name="remote_nscp_query_argument"/>
-
 <a name="remote_nscp_query_separator"/>
-
 <a name="remote_nscp_query_batch"/>
-
 <a name="remote_nscp_query_certificate"/>
-
 <a name="remote_nscp_query_dh"/>
-
 <a name="remote_nscp_query_certificate-key"/>
-
 <a name="remote_nscp_query_certificate-format"/>
-
 <a name="remote_nscp_query_ca"/>
-
 <a name="remote_nscp_query_verify"/>
-
 <a name="remote_nscp_query_allowed-ciphers"/>
-
 <a name="remote_nscp_query_password"/>
-
 <a name="remote_nscp_query_options"/>
 #### Command-line Arguments
 
@@ -352,15 +251,11 @@ Request remote information via NSCP.
 
 
 
-<a name="remote_nscp_query_ssl"/>
-**ssl:**
+<h5 id="remote_nscp_query_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### remote_nscpforward
@@ -394,59 +289,32 @@ Submit information to remote host via NSCP.
 
 
 <a name="submit_remote_nscp_help"/>
-
 <a name="submit_remote_nscp_help-pb"/>
-
 <a name="submit_remote_nscp_show-default"/>
-
 <a name="submit_remote_nscp_help-short"/>
-
 <a name="submit_remote_nscp_host"/>
-
 <a name="submit_remote_nscp_port"/>
-
 <a name="submit_remote_nscp_address"/>
-
 <a name="submit_remote_nscp_timeout"/>
-
 <a name="submit_remote_nscp_target"/>
-
 <a name="submit_remote_nscp_retry"/>
-
 <a name="submit_remote_nscp_retries"/>
-
 <a name="submit_remote_nscp_source-host"/>
-
 <a name="submit_remote_nscp_sender-host"/>
-
 <a name="submit_remote_nscp_command"/>
-
 <a name="submit_remote_nscp_alias"/>
-
 <a name="submit_remote_nscp_message"/>
-
 <a name="submit_remote_nscp_result"/>
-
 <a name="submit_remote_nscp_separator"/>
-
 <a name="submit_remote_nscp_batch"/>
-
 <a name="submit_remote_nscp_certificate"/>
-
 <a name="submit_remote_nscp_dh"/>
-
 <a name="submit_remote_nscp_certificate-key"/>
-
 <a name="submit_remote_nscp_certificate-format"/>
-
 <a name="submit_remote_nscp_ca"/>
-
 <a name="submit_remote_nscp_verify"/>
-
 <a name="submit_remote_nscp_allowed-ciphers"/>
-
 <a name="submit_remote_nscp_password"/>
-
 <a name="submit_remote_nscp_options"/>
 #### Command-line Arguments
 
@@ -484,32 +352,37 @@ Submit information to remote host via NSCP.
 
 
 
-<a name="submit_remote_nscp_ssl"/>
-**ssl:**
+<h5 id="submit_remote_nscp_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 
 
 ## Configuration
 
-<a name="/settings/NSCP/client"/>
-### NSCP CLIENT SECTION
+
+
+| Path / Section                                              | Description               |
+|-------------------------------------------------------------|---------------------------|
+| [/settings/NSCP/client](#nscp-client-section)               | NSCP CLIENT SECTION       |
+| [/settings/NSCP/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/NSCP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### NSCP CLIENT SECTION <a id="/settings/NSCP/client"/>
 
 Section for NSCP active/passive check module.
 
 
 
 
-| Key                                       | Default Value | Description |
-|-------------------------------------------|---------------|-------------|
-| [channel](#/settings/NSCP/client_channel) | NSCP          | CHANNEL     |
+| Key                 | Default Value | Description |
+|---------------------|---------------|-------------|
+| [channel](#channel) | NSCP          | CHANNEL     |
 
 
 
@@ -523,9 +396,8 @@ channel=NSCP
 
 
 
-<a name="/settings/NSCP/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/NSCP/client/channel"></a>
 
 The channel to listen to.
 
@@ -550,8 +422,7 @@ channel=NSCP
 ```
 
 
-<a name="/settings/NSCP/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/NSCP/client/handlers"/>
 
 
 
@@ -563,8 +434,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/NSCP/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/NSCP/client/targets"/>
 
 
 

@@ -4,6 +4,11 @@ Check status of your scheduled jobs.
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the CheckTaskSched module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -15,13 +20,6 @@ A list of all available queries (check commands)
 
 
 
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the CheckTaskSched module.
 
 ### check_tasksched
 
@@ -48,39 +46,22 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 
 
 <a name="check_tasksched_warn"/>
-
 <a name="check_tasksched_crit"/>
-
 <a name="check_tasksched_debug"/>
-
 <a name="check_tasksched_show-all"/>
-
 <a name="check_tasksched_escape-html"/>
-
 <a name="check_tasksched_help"/>
-
 <a name="check_tasksched_help-pb"/>
-
 <a name="check_tasksched_show-default"/>
-
 <a name="check_tasksched_help-short"/>
-
 <a name="check_tasksched_force-old"/>
-
 <a name="check_tasksched_computer"/>
-
 <a name="check_tasksched_user"/>
-
 <a name="check_tasksched_domain"/>
-
 <a name="check_tasksched_password"/>
-
 <a name="check_tasksched_folder"/>
-
 <a name="check_tasksched_recursive"/>
-
 <a name="check_tasksched_hidden"/>
-
 <a name="check_tasksched_options"/>
 #### Command-line Arguments
 
@@ -118,167 +99,123 @@ check_nrpe --host 192.168.56.103 --command check_tasksched
 
 
 
-<a name="check_tasksched_filter"/>
-**filter:**
+<h5 id="check_tasksched_filter">filter:</h5>
 
 Filter which marks interesting items.
 Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+*Default Value:* `enabled = 1`
 
-*Default Value:* | `enabled = 1`
-
-
-
-<a name="check_tasksched_warning"/>
-**warning:**
+<h5 id="check_tasksched_warning">warning:</h5>
 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
+*Default Value:* `exit_code != 0`
 
-*Default Value:* | `exit_code != 0`
-
-
-
-<a name="check_tasksched_critical"/>
-**critical:**
+<h5 id="check_tasksched_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
+*Default Value:* `exit_code < 0`
 
-*Default Value:* | `exit_code < 0`
-
-
-
-<a name="check_tasksched_ok"/>
-**ok:**
+<h5 id="check_tasksched_ok">ok:</h5>
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
 
-
-
-
-<a name="check_tasksched_empty-state"/>
-**empty-state:**
+<h5 id="check_tasksched_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+*Default Value:* `warning`
 
-*Default Value:* | `warning`
-
-
-
-<a name="check_tasksched_perf-config"/>
-**perf-config:**
+<h5 id="check_tasksched_perf-config">perf-config:</h5>
 
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-
-
-
-<a name="check_tasksched_top-syntax"/>
-**top-syntax:**
+<h5 id="check_tasksched_top-syntax">top-syntax:</h5>
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${status}: ${problem_list}`
 
-*Default Value:* | `${status}: ${problem_list}`
-
-
-
-<a name="check_tasksched_ok-syntax"/>
-**ok-syntax:**
+<h5 id="check_tasksched_ok-syntax">ok-syntax:</h5>
 
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
+*Default Value:* `%(status): All tasks are ok`
 
-*Default Value:* | `%(status): All tasks are ok`
-
-
-
-<a name="check_tasksched_empty-syntax"/>
-**empty-syntax:**
+<h5 id="check_tasksched_empty-syntax">empty-syntax:</h5>
 
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
+*Default Value:* `%(status): No tasks found`
 
-*Default Value:* | `%(status): No tasks found`
-
-
-
-<a name="check_tasksched_detail-syntax"/>
-**detail-syntax:**
+<h5 id="check_tasksched_detail-syntax">detail-syntax:</h5>
 
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${folder}/${title}: ${exit_code} != 0`
 
-*Default Value:* | `${folder}/${title}: ${exit_code} != 0`
-
-
-
-<a name="check_tasksched_perf-syntax"/>
-**perf-syntax:**
+<h5 id="check_tasksched_perf-syntax">perf-syntax:</h5>
 
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
-
-*Default Value:* | `${title}`
-
-
+*Default Value:* `${title}`
 
 
 <a name="check_tasksched_filter_keys"/>
 #### Filter keywords
 
 
-| Option                                                        | Description                                                                                                  |
-|---------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [application](#check_tasksched_application)                   | Retrieves the name of the application that the task is associated with.                                      |
-| [comment](#check_tasksched_comment)                           | Retrieves the comment or description for the work item.                                                      |
-| [count](#check_tasksched_count)                               | Number of items matching the filter. Common option for all checks.                                           |
-| [creator](#check_tasksched_creator)                           | Retrieves the creator of the work item.                                                                      |
-| [crit_count](#check_tasksched_crit_count)                     | Number of items matched the critical criteria. Common option for all checks.                                 |
-| [crit_list](#check_tasksched_crit_list)                       | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| [detail_list](#check_tasksched_detail_list)                   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| [enabled](#check_tasksched_enabled)                           | TODO.                                                                                                        |
-| [exit_code](#check_tasksched_exit_code)                       | Retrieves the work item's last exit code.                                                                    |
-| [folder](#check_tasksched_folder)                             | The task folder                                                                                              |
-| [has_run](#check_tasksched_has_run)                           | True if the task has ever executed.                                                                          |
-| [list](#check_tasksched_list)                                 | A list of all items which matched the filter. Common option for all checks.                                  |
-| [max_run_time](#check_tasksched_max_run_time)                 | Retrieves the maximum length of time the task can run.                                                       |
-| [most_recent_run_time](#check_tasksched_most_recent_run_time) | Retrieves the most recent time the work item began running.                                                  |
-| [ok_count](#check_tasksched_ok_count)                         | Number of items matched the ok criteria. Common option for all checks.                                       |
-| [ok_list](#check_tasksched_ok_list)                           | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| [parameters](#check_tasksched_parameters)                     | Retrieves the command-line parameters of a task.                                                             |
-| [priority](#check_tasksched_priority)                         | Retrieves the priority for the task.                                                                         |
-| [problem_count](#check_tasksched_problem_count)               | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| [problem_list](#check_tasksched_problem_list)                 | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| [status](#check_tasksched_status)                             | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| [task_status](#check_tasksched_task_status)                   | Retrieves the status of the work item.                                                                       |
-| [title](#check_tasksched_title)                               | The task title                                                                                               |
-| [total](#check_tasksched_total)                               | Total number of items. Common option for all checks.                                                         |
-| [warn_count](#check_tasksched_warn_count)                     | Number of items matched the warning criteria. Common option for all checks.                                  |
-| [warn_list](#check_tasksched_warn_list)                       | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| [working_directory](#check_tasksched_working_directory)       | Retrieves the working directory of the task.                                                                 |
+| Option               | Description                                                                                                  |
+|----------------------|--------------------------------------------------------------------------------------------------------------|
+| application          | Retrieves the name of the application that the task is associated with.                                      |
+| comment              | Retrieves the comment or description for the work item.                                                      |
+| count                | Number of items matching the filter. Common option for all checks.                                           |
+| creator              | Retrieves the creator of the work item.                                                                      |
+| crit_count           | Number of items matched the critical criteria. Common option for all checks.                                 |
+| crit_list            | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| detail_list          | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| enabled              | TODO.                                                                                                        |
+| exit_code            | Retrieves the work item's last exit code.                                                                    |
+| folder               | The task folder                                                                                              |
+| has_run              | True if the task has ever executed.                                                                          |
+| list                 | A list of all items which matched the filter. Common option for all checks.                                  |
+| max_run_time         | Retrieves the maximum length of time the task can run.                                                       |
+| most_recent_run_time | Retrieves the most recent time the work item began running.                                                  |
+| ok_count             | Number of items matched the ok criteria. Common option for all checks.                                       |
+| ok_list              | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| parameters           | Retrieves the command-line parameters of a task.                                                             |
+| priority             | Retrieves the priority for the task.                                                                         |
+| problem_count        | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| problem_list         | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| status               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| task_status          | Retrieves the status of the work item.                                                                       |
+| title                | The task title                                                                                               |
+| total                | Total number of items. Common option for all checks.                                                         |
+| warn_count           | Number of items matched the warning criteria. Common option for all checks.                                  |
+| warn_list            | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| working_directory    | Retrieves the working directory of the task.                                                                 |
 
 
 ### checktasksched
@@ -293,37 +230,21 @@ Legacy version of check_tasksched
 
 
 <a name="checktasksched_help"/>
-
 <a name="checktasksched_help-pb"/>
-
 <a name="checktasksched_show-default"/>
-
 <a name="checktasksched_help-short"/>
-
 <a name="checktasksched_warn"/>
-
 <a name="checktasksched_crit"/>
-
 <a name="checktasksched_MaxWarn"/>
-
 <a name="checktasksched_MaxCrit"/>
-
 <a name="checktasksched_MinWarn"/>
-
 <a name="checktasksched_MinCrit"/>
-
 <a name="checktasksched_Counter"/>
-
 <a name="checktasksched_truncate"/>
-
 <a name="checktasksched_syntax"/>
-
 <a name="checktasksched_master-syntax"/>
-
 <a name="checktasksched_filter"/>
-
 <a name="checktasksched_debug"/>
-
 <a name="checktasksched_options"/>
 #### Command-line Arguments
 

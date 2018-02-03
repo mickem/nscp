@@ -4,6 +4,11 @@ Graphite client can be used to submit graph data to a graphite graphing system
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the GraphiteClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,30 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                          | Key                                             | Description |
-|---------------------------------------------------------|-------------------------------------------------|-------------|
-| [/settings/graphite/client](#/settings/graphite/client) | [channel](#/settings/graphite/client_channel)   | CHANNEL     |
-| [/settings/graphite/client](#/settings/graphite/client) | [hostname](#/settings/graphite/client_hostname) | HOSTNAME    |
-
-
-| Path / Section                                                            | Description               |
-|---------------------------------------------------------------------------|---------------------------|
-| [/settings/graphite/client/handlers](#/settings/graphite/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/graphite/client/targets](#/settings/graphite/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the GraphiteClient module.
 
 ### submit_graphite
 
@@ -51,45 +32,25 @@ Submit information to the remote Graphite server.
 
 
 <a name="submit_graphite_help"/>
-
 <a name="submit_graphite_help-pb"/>
-
 <a name="submit_graphite_show-default"/>
-
 <a name="submit_graphite_help-short"/>
-
 <a name="submit_graphite_host"/>
-
 <a name="submit_graphite_port"/>
-
 <a name="submit_graphite_address"/>
-
 <a name="submit_graphite_timeout"/>
-
 <a name="submit_graphite_target"/>
-
 <a name="submit_graphite_retry"/>
-
 <a name="submit_graphite_retries"/>
-
 <a name="submit_graphite_source-host"/>
-
 <a name="submit_graphite_sender-host"/>
-
 <a name="submit_graphite_command"/>
-
 <a name="submit_graphite_alias"/>
-
 <a name="submit_graphite_message"/>
-
 <a name="submit_graphite_result"/>
-
 <a name="submit_graphite_separator"/>
-
 <a name="submit_graphite_batch"/>
-
 <a name="submit_graphite_path"/>
-
 <a name="submit_graphite_options"/>
 #### Command-line Arguments
 
@@ -124,18 +85,27 @@ Submit information to the remote Graphite server.
 
 ## Configuration
 
-<a name="/settings/graphite/client"/>
-### GRAPHITE CLIENT SECTION
+
+
+| Path / Section                                                  | Description               |
+|-----------------------------------------------------------------|---------------------------|
+| [/settings/graphite/client](#graphite-client-section)           | GRAPHITE CLIENT SECTION   |
+| [/settings/graphite/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/graphite/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### GRAPHITE CLIENT SECTION <a id="/settings/graphite/client"/>
 
 Section for graphite passive check module.
 
 
 
 
-| Key                                             | Default Value | Description |
-|-------------------------------------------------|---------------|-------------|
-| [channel](#/settings/graphite/client_channel)   | GRAPHITE      | CHANNEL     |
-| [hostname](#/settings/graphite/client_hostname) | auto          | HOSTNAME    |
+| Key                   | Default Value | Description |
+|-----------------------|---------------|-------------|
+| [channel](#channel)   | GRAPHITE      | CHANNEL     |
+| [hostname](#hostname) | auto          | HOSTNAME    |
 
 
 
@@ -150,9 +120,8 @@ hostname=auto
 
 
 
-<a name="/settings/graphite/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/graphite/client/channel"></a>
 
 The channel to listen to.
 
@@ -177,9 +146,8 @@ channel=GRAPHITE
 ```
 
 
-<a name="/settings/graphite/client_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/graphite/client/hostname"></a>
 
 The host name of the monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -215,8 +183,7 @@ hostname=auto
 ```
 
 
-<a name="/settings/graphite/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/graphite/client/handlers"/>
 
 
 
@@ -228,8 +195,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/graphite/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/graphite/client/targets"/>
 
 
 

@@ -7,21 +7,17 @@ Plugin to load and manage plugins written in dot net.
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-
-
-
-
-
 ## Configuration
 
-<a name="/modules/dotnet"/>
-### DOT NET MODULES
+
+
+| Path / Section                      | Description     |
+|-------------------------------------|-----------------|
+| [/modules/dotnet](#dot-net-modules) | DOT NET MODULES |
+
+
+
+### DOT NET MODULES <a id="/modules/dotnet"/>
 
 Modules written in dotnet/CLR
 

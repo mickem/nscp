@@ -4,6 +4,11 @@
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the CauseCrashes module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -22,13 +27,6 @@ A list of all short hand aliases for queries (check commands)
 |-------------|----------------------------------|
 | crashclient | Alias for: :query:`crash_client` |
 
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the CauseCrashes module.
 
 ### crash_client
 
@@ -73,13 +71,9 @@ This will cause NSClient++ to crash so please dont do this.
 
 
 <a name="crash_client_help"/>
-
 <a name="crash_client_help-pb"/>
-
 <a name="crash_client_show-default"/>
-
 <a name="crash_client_help-short"/>
-
 <a name="crash_client_options"/>
 #### Command-line Arguments
 

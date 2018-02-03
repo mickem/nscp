@@ -7,57 +7,36 @@ Client for connecting nativly to the Op5 Nortbound API
 
 
 
+## Configuration
 
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                  | Key                                             | Description            |
-|---------------------------------|-------------------------------------------------|------------------------|
-| [/settings/op5](#/settings/op5) | [channel](#/settings/op5_channel)               | CHANNEL                |
-| [/settings/op5](#/settings/op5) | [contactgroups](#/settings/op5_contactgroups)   | Contact groups         |
-| [/settings/op5](#/settings/op5) | [default checks](#/settings/op5_default checks) | Install default checks |
-| [/settings/op5](#/settings/op5) | [hostgroups](#/settings/op5_hostgroups)         | Host groups            |
-| [/settings/op5](#/settings/op5) | [hostname](#/settings/op5_hostname)             | HOSTNAME               |
-| [/settings/op5](#/settings/op5) | [interval](#/settings/op5_interval)             | Check interval         |
-| [/settings/op5](#/settings/op5) | [password](#/settings/op5_password)             | Op5 password           |
-| [/settings/op5](#/settings/op5) | [remove](#/settings/op5_remove)                 | Remove checks on exit  |
-| [/settings/op5](#/settings/op5) | [server](#/settings/op5_server)                 | Op5 base url           |
-| [/settings/op5](#/settings/op5) | [user](#/settings/op5_user)                     | Op5 user               |
 
 
 | Path / Section                                | Description          |
 |-----------------------------------------------|----------------------|
-| [/settings/op5/checks](#/settings/op5/checks) | Op5 passive Commands |
+| [/settings/op5](#op5-configuration)           | Op5 Configuration    |
+| [/settings/op5/checks](#op5-passive-commands) | Op5 passive Commands |
 
 
 
-
-
-## Configuration
-
-<a name="/settings/op5"/>
-### Op5 Configuration
+### Op5 Configuration <a id="/settings/op5"/>
 
 Section for the Op5 server
 
 
 
 
-| Key                                             | Default Value | Description            |
-|-------------------------------------------------|---------------|------------------------|
-| [channel](#/settings/op5_channel)               | op5           | CHANNEL                |
-| [contactgroups](#/settings/op5_contactgroups)   |               | Contact groups         |
-| [default checks](#/settings/op5_default checks) | true          | Install default checks |
-| [hostgroups](#/settings/op5_hostgroups)         |               | Host groups            |
-| [hostname](#/settings/op5_hostname)             | auto          | HOSTNAME               |
-| [interval](#/settings/op5_interval)             | 5m            | Check interval         |
-| [password](#/settings/op5_password)             |               | Op5 password           |
-| [remove](#/settings/op5_remove)                 | false         | Remove checks on exit  |
-| [server](#/settings/op5_server)                 |               | Op5 base url           |
-| [user](#/settings/op5_user)                     |               | Op5 user               |
+| Key                                       | Default Value | Description            |
+|-------------------------------------------|---------------|------------------------|
+| [channel](#channel)                       | op5           | CHANNEL                |
+| [contactgroups](#contact-groups)          |               | Contact groups         |
+| [default checks](#install-default-checks) | true          | Install default checks |
+| [hostgroups](#host-groups)                |               | Host groups            |
+| [hostname](#hostname)                     | auto          | HOSTNAME               |
+| [interval](#check-interval)               | 5m            | Check interval         |
+| [password](#op5-password)                 |               | Op5 password           |
+| [remove](#remove-checks-on-exit)          | false         | Remove checks on exit  |
+| [server](#op5-base-url)                   |               | Op5 base url           |
+| [user](#op5-user)                         |               | Op5 user               |
 
 
 
@@ -75,9 +54,8 @@ remove=false
 
 
 
-<a name="/settings/op5_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/op5/channel"></a>
 
 The channel to listen to.
 
@@ -102,9 +80,8 @@ channel=op5
 ```
 
 
-<a name="/settings/op5_contactgroups"/>
 
-**Contact groups**
+#### Contact groups <a id="/settings/op5/contactgroups"></a>
 
 A coma separated list of contact groups to add to this host when registering it in monitor
 
@@ -130,9 +107,8 @@ contactgroups=
 ```
 
 
-<a name="/settings/op5_default checks"/>
 
-**Install default checks**
+#### Install default checks <a id="/settings/op5/default checks"></a>
 
 Set to false to disable default checks
 
@@ -157,9 +133,8 @@ default checks=true
 ```
 
 
-<a name="/settings/op5_hostgroups"/>
 
-**Host groups**
+#### Host groups <a id="/settings/op5/hostgroups"></a>
 
 A coma separated list of host groups to add to this host when registering it in monitor
 
@@ -185,9 +160,8 @@ hostgroups=
 ```
 
 
-<a name="/settings/op5_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/op5/hostname"></a>
 
 The host name of this monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -223,9 +197,8 @@ hostname=auto
 ```
 
 
-<a name="/settings/op5_interval"/>
 
-**Check interval**
+#### Check interval <a id="/settings/op5/interval"></a>
 
 How often to submit passive check results you can use an optional suffix to denote time (s, m, h)
 
@@ -250,9 +223,8 @@ interval=5m
 ```
 
 
-<a name="/settings/op5_password"/>
 
-**Op5 password**
+#### Op5 password <a id="/settings/op5/password"></a>
 
 The password for the user to authenticate as
 
@@ -278,9 +250,8 @@ password=
 ```
 
 
-<a name="/settings/op5_remove"/>
 
-**Remove checks on exit**
+#### Remove checks on exit <a id="/settings/op5/remove"></a>
 
 If we should remove all checks when NSClient++ shuts down (for truly elastic scenarios)
 
@@ -305,9 +276,8 @@ remove=false
 ```
 
 
-<a name="/settings/op5_server"/>
 
-**Op5 base url**
+#### Op5 base url <a id="/settings/op5/server"></a>
 
 The op5 base url i.e. the url of the Op5 monitor REST API for instance https://monitor.mycompany.com
 
@@ -333,9 +303,8 @@ server=
 ```
 
 
-<a name="/settings/op5_user"/>
 
-**Op5 user**
+#### Op5 user <a id="/settings/op5/user"></a>
 
 The user to authenticate as
 
@@ -361,8 +330,7 @@ user=
 ```
 
 
-<a name="/settings/op5/checks"/>
-### Op5 passive Commands
+### Op5 passive Commands <a id="/settings/op5/checks"/>
 
 
 

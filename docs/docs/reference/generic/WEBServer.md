@@ -7,64 +7,37 @@ A server that listens for incoming HTTP connection and processes incoming reques
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-    
-| Path / Section                                | Key                                                              | Description           |
-|-----------------------------------------------|------------------------------------------------------------------|-----------------------|
-| [/settings/default](#/settings/default)       | [allowed hosts](#/settings/default_allowed hosts)                | ALLOWED HOSTS         |
-| [/settings/default](#/settings/default)       | [bind to](#/settings/default_bind to)                            | BIND TO ADDRESS       |
-| [/settings/default](#/settings/default)       | [cache allowed hosts](#/settings/default_cache allowed hosts)    | CACHE ALLOWED HOSTS   |
-| [/settings/default](#/settings/default)       | [inbox](#/settings/default_inbox)                                | INBOX                 |
-| [/settings/default](#/settings/default)       | [password](#/settings/default_password)                          | PASSWORD              |
-| [/settings/default](#/settings/default)       | [timeout](#/settings/default_timeout)                            | TIMEOUT               |
-| [/settings/WEB/server](#/settings/WEB/server) | [certificate](#/settings/WEB/server_certificate)                 | CERTIFICATE           |
-| [/settings/WEB/server](#/settings/WEB/server) | [port](#/settings/WEB/server_port)                               | PORT NUMBER           |
-| [/settings/WEB/server](#/settings/WEB/server) | [threads](#/settings/WEB/server_threads)                         | NUMBER OF THREADS     |
-| [/settings/default](#/settings/default)       | [encoding](#/settings/default_encoding)                          | NRPE PAYLOAD ENCODING |
-| [/settings/default](#/settings/default)       | [socket queue size](#/settings/default_socket queue size)        | LISTEN QUEUE          |
-| [/settings/default](#/settings/default)       | [thread pool](#/settings/default_thread pool)                    | THREAD POOL           |
-| [/settings/WEB/server](#/settings/WEB/server) | [allowed hosts](#/settings/WEB/server_allowed hosts)             | ALLOWED HOSTS         |
-| [/settings/WEB/server](#/settings/WEB/server) | [cache allowed hosts](#/settings/WEB/server_cache allowed hosts) | CACHE ALLOWED HOSTS   |
-| [/settings/WEB/server](#/settings/WEB/server) | [password](#/settings/WEB/server_password)                       | PASSWORD              |
-
-
-| Path / Section                                            | Description |
-|-----------------------------------------------------------|-------------|
-| [/settings/WEB/server/roles](#/settings/WEB/server/roles) | Roles       |
-| [/settings/WEB/server/users](#/settings/WEB/server/users) | Users       |
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/default"/>
-### /settings/default
+
+
+| Path / Section                       | Description |
+|--------------------------------------|-------------|
+| [/settings/default](#)               |             |
+| [/settings/WEB/server](#web-server)  | Web server  |
+| [/settings/WEB/server/roles](#roles) | Roles       |
+| [/settings/WEB/server/users](#users) | Users       |
+
+
+
+### /settings/default <a id="/settings/default"/>
 
 
 
 
 
 
-| Key                                                           | Default Value | Description           |
-|---------------------------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#/settings/default_allowed hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#/settings/default_bind to)                         |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#/settings/default_cache allowed hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#/settings/default_encoding)                       |               | NRPE PAYLOAD ENCODING |
-| [inbox](#/settings/default_inbox)                             | inbox         | INBOX                 |
-| [password](#/settings/default_password)                       |               | PASSWORD              |
-| [socket queue size](#/settings/default_socket queue size)     | 0             | LISTEN QUEUE          |
-| [thread pool](#/settings/default_thread pool)                 | 10            | THREAD POOL           |
-| [timeout](#/settings/default_timeout)                         | 30            | TIMEOUT               |
+| Key                                         | Default Value | Description           |
+|---------------------------------------------|---------------|-----------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
+| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
+| [inbox](#inbox)                             | inbox         | INBOX                 |
+| [password](#password)                       |               | PASSWORD              |
+| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
+| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
+| [timeout](#timeout)                         | 30            | TIMEOUT               |
 
 
 
@@ -83,9 +56,8 @@ timeout=30
 
 
 
-<a name="/settings/default_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -110,9 +82,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/default_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
@@ -138,9 +109,8 @@ bind to=
 ```
 
 
-<a name="/settings/default_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -165,9 +135,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/default_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
 
 
 
@@ -194,9 +163,8 @@ encoding=
 ```
 
 
-<a name="/settings/default_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
 
@@ -221,9 +189,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/default_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -249,9 +216,8 @@ password=
 ```
 
 
-<a name="/settings/default_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
@@ -277,9 +243,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/default_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
 
 
 
@@ -305,9 +270,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/default_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
@@ -332,22 +296,21 @@ timeout=30
 ```
 
 
-<a name="/settings/WEB/server"/>
-### Web server
+### Web server <a id="/settings/WEB/server"/>
 
 Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 
 
 
-| Key                                                              | Default Value                       | Description         |
-|------------------------------------------------------------------|-------------------------------------|---------------------|
-| [allowed hosts](#/settings/WEB/server_allowed hosts)             | 127.0.0.1                           | ALLOWED HOSTS       |
-| [cache allowed hosts](#/settings/WEB/server_cache allowed hosts) | true                                | CACHE ALLOWED HOSTS |
-| [certificate](#/settings/WEB/server_certificate)                 | ${certificate-path}/certificate.pem | CERTIFICATE         |
-| [password](#/settings/WEB/server_password)                       |                                     | PASSWORD            |
-| [port](#/settings/WEB/server_port)                               | 8443                                | PORT NUMBER         |
-| [threads](#/settings/WEB/server_threads)                         | 10                                  | NUMBER OF THREADS   |
+| Key                                         | Default Value                       | Description         |
+|---------------------------------------------|-------------------------------------|---------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS |
+| [certificate](#certificate)                 | ${certificate-path}/certificate.pem | CERTIFICATE         |
+| [password](#password)                       |                                     | PASSWORD            |
+| [port](#port-number)                        | 8443                                | PORT NUMBER         |
+| [threads](#number-of-threads)               | 10                                  | NUMBER OF THREADS   |
 
 
 
@@ -365,9 +328,8 @@ threads=10
 
 
 
-<a name="/settings/WEB/server_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/WEB/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -393,9 +355,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/WEB/server_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/WEB/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -421,9 +382,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/WEB/server_certificate"/>
 
-**CERTIFICATE**
+#### CERTIFICATE <a id="/settings/WEB/server/certificate"></a>
 
 Ssl certificate to use for the ssl server
 
@@ -448,9 +408,8 @@ certificate=${certificate-path}/certificate.pem
 ```
 
 
-<a name="/settings/WEB/server_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/WEB/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -477,9 +436,8 @@ password=
 ```
 
 
-<a name="/settings/WEB/server_port"/>
 
-**PORT NUMBER**
+#### PORT NUMBER <a id="/settings/WEB/server/port"></a>
 
 Port to use for WEB server.
 
@@ -504,9 +462,8 @@ port=8443
 ```
 
 
-<a name="/settings/WEB/server_threads"/>
 
-**NUMBER OF THREADS**
+#### NUMBER OF THREADS <a id="/settings/WEB/server/threads"></a>
 
 The number of threads in the sever response pool.
 
@@ -531,8 +488,7 @@ threads=10
 ```
 
 
-<a name="/settings/WEB/server/roles"/>
-### Roles
+### Roles <a id="/settings/WEB/server/roles"/>
 
 A list of roles and with coma separated list of access rights.
 
@@ -551,8 +507,7 @@ A list of roles and with coma separated list of access rights.
 
 
 
-<a name="/settings/WEB/server/users"/>
-### Users
+### Users <a id="/settings/WEB/server/users"/>
 
 Users which can access the REST API
 

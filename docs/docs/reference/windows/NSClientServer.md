@@ -7,70 +7,35 @@ A server that listens for incoming check_nt connection and processes incoming re
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                                          | Key                                                                   | Description           |
-|---------------------------------------------------------|-----------------------------------------------------------------------|-----------------------|
-| [/settings/default](#/settings/default)                 | [allowed hosts](#/settings/default_allowed hosts)                     | ALLOWED HOSTS         |
-| [/settings/default](#/settings/default)                 | [bind to](#/settings/default_bind to)                                 | BIND TO ADDRESS       |
-| [/settings/default](#/settings/default)                 | [cache allowed hosts](#/settings/default_cache allowed hosts)         | CACHE ALLOWED HOSTS   |
-| [/settings/default](#/settings/default)                 | [inbox](#/settings/default_inbox)                                     | INBOX                 |
-| [/settings/default](#/settings/default)                 | [password](#/settings/default_password)                               | PASSWORD              |
-| [/settings/default](#/settings/default)                 | [timeout](#/settings/default_timeout)                                 | TIMEOUT               |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [performance data](#/settings/NSClient/server_performance data)       | PERFORMANCE DATA      |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [port](#/settings/NSClient/server_port)                               | PORT NUMBER           |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [use ssl](#/settings/NSClient/server_use ssl)                         | ENABLE SSL ENCRYPTION |
-| [/settings/default](#/settings/default)                 | [encoding](#/settings/default_encoding)                               | NRPE PAYLOAD ENCODING |
-| [/settings/default](#/settings/default)                 | [socket queue size](#/settings/default_socket queue size)             | LISTEN QUEUE          |
-| [/settings/default](#/settings/default)                 | [thread pool](#/settings/default_thread pool)                         | THREAD POOL           |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [allowed ciphers](#/settings/NSClient/server_allowed ciphers)         | ALLOWED CIPHERS       |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [allowed hosts](#/settings/NSClient/server_allowed hosts)             | ALLOWED HOSTS         |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [bind to](#/settings/NSClient/server_bind to)                         | BIND TO ADDRESS       |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [ca](#/settings/NSClient/server_ca)                                   | CA                    |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [cache allowed hosts](#/settings/NSClient/server_cache allowed hosts) | CACHE ALLOWED HOSTS   |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [certificate](#/settings/NSClient/server_certificate)                 | SSL CERTIFICATE       |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [certificate format](#/settings/NSClient/server_certificate format)   | CERTIFICATE FORMAT    |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [certificate key](#/settings/NSClient/server_certificate key)         | SSL CERTIFICATE       |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [dh](#/settings/NSClient/server_dh)                                   | DH KEY                |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [password](#/settings/NSClient/server_password)                       | PASSWORD              |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [socket queue size](#/settings/NSClient/server_socket queue size)     | LISTEN QUEUE          |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [ssl options](#/settings/NSClient/server_ssl options)                 | VERIFY MODE           |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [thread pool](#/settings/NSClient/server_thread pool)                 | THREAD POOL           |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [timeout](#/settings/NSClient/server_timeout)                         | TIMEOUT               |
-| [/settings/NSClient/server](#/settings/NSClient/server) | [verify mode](#/settings/NSClient/server_verify mode)                 | VERIFY MODE           |
-
-
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/default"/>
-### /settings/default
+
+
+| Path / Section                                        | Description             |
+|-------------------------------------------------------|-------------------------|
+| [/settings/default](#)                                |                         |
+| [/settings/NSClient/server](#nsclient-server-section) | NSCLIENT SERVER SECTION |
+
+
+
+### /settings/default <a id="/settings/default"/>
 
 
 
 
 
 
-| Key                                                           | Default Value | Description           |
-|---------------------------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#/settings/default_allowed hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#/settings/default_bind to)                         |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#/settings/default_cache allowed hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#/settings/default_encoding)                       |               | NRPE PAYLOAD ENCODING |
-| [inbox](#/settings/default_inbox)                             | inbox         | INBOX                 |
-| [password](#/settings/default_password)                       |               | PASSWORD              |
-| [socket queue size](#/settings/default_socket queue size)     | 0             | LISTEN QUEUE          |
-| [thread pool](#/settings/default_thread pool)                 | 10            | THREAD POOL           |
-| [timeout](#/settings/default_timeout)                         | 30            | TIMEOUT               |
+| Key                                         | Default Value | Description           |
+|---------------------------------------------|---------------|-----------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
+| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
+| [inbox](#inbox)                             | inbox         | INBOX                 |
+| [password](#password)                       |               | PASSWORD              |
+| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
+| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
+| [timeout](#timeout)                         | 30            | TIMEOUT               |
 
 
 
@@ -89,9 +54,8 @@ timeout=30
 
 
 
-<a name="/settings/default_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -116,9 +80,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/default_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
@@ -144,9 +107,8 @@ bind to=
 ```
 
 
-<a name="/settings/default_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -171,9 +133,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/default_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
 
 
 
@@ -200,9 +161,8 @@ encoding=
 ```
 
 
-<a name="/settings/default_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
 
@@ -227,9 +187,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/default_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -255,9 +214,8 @@ password=
 ```
 
 
-<a name="/settings/default_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
@@ -283,9 +241,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/default_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
 
 
 
@@ -311,9 +268,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/default_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
@@ -338,34 +294,33 @@ timeout=30
 ```
 
 
-<a name="/settings/NSClient/server"/>
-### NSCLIENT SERVER SECTION
+### NSCLIENT SERVER SECTION <a id="/settings/NSClient/server"/>
 
 Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 
 
 
 
-| Key                                                                   | Default Value                       | Description           |
-|-----------------------------------------------------------------------|-------------------------------------|-----------------------|
-| [allowed ciphers](#/settings/NSClient/server_allowed ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
-| [allowed hosts](#/settings/NSClient/server_allowed hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
-| [bind to](#/settings/NSClient/server_bind to)                         |                                     | BIND TO ADDRESS       |
-| [ca](#/settings/NSClient/server_ca)                                   | ${certificate-path}/ca.pem          | CA                    |
-| [cache allowed hosts](#/settings/NSClient/server_cache allowed hosts) | true                                | CACHE ALLOWED HOSTS   |
-| [certificate](#/settings/NSClient/server_certificate)                 | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
-| [certificate format](#/settings/NSClient/server_certificate format)   | PEM                                 | CERTIFICATE FORMAT    |
-| [certificate key](#/settings/NSClient/server_certificate key)         |                                     | SSL CERTIFICATE       |
-| [dh](#/settings/NSClient/server_dh)                                   | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
-| [password](#/settings/NSClient/server_password)                       |                                     | PASSWORD              |
-| [performance data](#/settings/NSClient/server_performance data)       | true                                | PERFORMANCE DATA      |
-| [port](#/settings/NSClient/server_port)                               | 12489                               | PORT NUMBER           |
-| [socket queue size](#/settings/NSClient/server_socket queue size)     | 0                                   | LISTEN QUEUE          |
-| [ssl options](#/settings/NSClient/server_ssl options)                 |                                     | VERIFY MODE           |
-| [thread pool](#/settings/NSClient/server_thread pool)                 | 10                                  | THREAD POOL           |
-| [timeout](#/settings/NSClient/server_timeout)                         | 30                                  | TIMEOUT               |
-| [use ssl](#/settings/NSClient/server_use ssl)                         | false                               | ENABLE SSL ENCRYPTION |
-| [verify mode](#/settings/NSClient/server_verify mode)                 | none                                | VERIFY MODE           |
+| Key                                         | Default Value                       | Description           |
+|---------------------------------------------|-------------------------------------|-----------------------|
+| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |                                     | BIND TO ADDRESS       |
+| [ca](#ca)                                   | ${certificate-path}/ca.pem          | CA                    |
+| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS   |
+| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
+| [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
+| [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
+| [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
+| [password](#password)                       |                                     | PASSWORD              |
+| [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
+| [port](#port-number)                        | 12489                               | PORT NUMBER           |
+| [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
+| [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
+| [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
+| [timeout](#timeout)                         | 30                                  | TIMEOUT               |
+| [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
+| [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
 
 
 
@@ -392,9 +347,8 @@ verify mode=none
 
 
 
-<a name="/settings/NSClient/server_allowed ciphers"/>
 
-**ALLOWED CIPHERS**
+#### ALLOWED CIPHERS <a id="/settings/NSClient/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
@@ -421,9 +375,8 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
 
-<a name="/settings/NSClient/server_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/NSClient/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -449,9 +402,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/NSClient/server_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/NSClient/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -478,9 +430,8 @@ bind to=
 ```
 
 
-<a name="/settings/NSClient/server_ca"/>
 
-**CA**
+#### CA <a id="/settings/NSClient/server/ca"></a>
 
 
 
@@ -506,9 +457,8 @@ ca=${certificate-path}/ca.pem
 ```
 
 
-<a name="/settings/NSClient/server_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/NSClient/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -534,9 +484,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/NSClient/server_certificate"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NSClient/server/certificate"></a>
 
 
 
@@ -562,9 +511,8 @@ certificate=${certificate-path}/certificate.pem
 ```
 
 
-<a name="/settings/NSClient/server_certificate format"/>
 
-**CERTIFICATE FORMAT**
+#### CERTIFICATE FORMAT <a id="/settings/NSClient/server/certificate format"></a>
 
 
 
@@ -590,9 +538,8 @@ certificate format=PEM
 ```
 
 
-<a name="/settings/NSClient/server_certificate key"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NSClient/server/certificate key"></a>
 
 
 
@@ -619,9 +566,8 @@ certificate key=
 ```
 
 
-<a name="/settings/NSClient/server_dh"/>
 
-**DH KEY**
+#### DH KEY <a id="/settings/NSClient/server/dh"></a>
 
 
 
@@ -647,9 +593,8 @@ dh=${certificate-path}/nrpe_dh_512.pem
 ```
 
 
-<a name="/settings/NSClient/server_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/NSClient/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -676,9 +621,8 @@ password=
 ```
 
 
-<a name="/settings/NSClient/server_performance data"/>
 
-**PERFORMANCE DATA**
+#### PERFORMANCE DATA <a id="/settings/NSClient/server/performance data"></a>
 
 Send performance data back to Nagios (set this to 0 to remove all performance data).
 
@@ -703,9 +647,8 @@ performance data=true
 ```
 
 
-<a name="/settings/NSClient/server_port"/>
 
-**PORT NUMBER**
+#### PORT NUMBER <a id="/settings/NSClient/server/port"></a>
 
 Port to use for check_nt.
 
@@ -730,9 +673,8 @@ port=12489
 ```
 
 
-<a name="/settings/NSClient/server_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/NSClient/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -758,9 +700,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/NSClient/server_ssl options"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NSClient/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 
@@ -796,9 +737,8 @@ ssl options=
 ```
 
 
-<a name="/settings/NSClient/server_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/NSClient/server/thread pool"></a>
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -824,9 +764,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/NSClient/server_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/NSClient/server/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -852,9 +791,8 @@ timeout=30
 ```
 
 
-<a name="/settings/NSClient/server_use ssl"/>
 
-**ENABLE SSL ENCRYPTION**
+#### ENABLE SSL ENCRYPTION <a id="/settings/NSClient/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
 
@@ -879,9 +817,8 @@ use ssl=false
 ```
 
 
-<a name="/settings/NSClient/server_verify mode"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NSClient/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 

@@ -4,6 +4,11 @@ NRPE client can be used both from command line and from queries to check remote 
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the NRPEClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -19,29 +24,6 @@ A list of all available queries (check commands)
 
 
 
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                  | Key                                       | Description |
-|-------------------------------------------------|-------------------------------------------|-------------|
-| [/settings/NRPE/client](#/settings/NRPE/client) | [channel](#/settings/NRPE/client_channel) | CHANNEL     |
-
-
-| Path / Section                                                    | Description               |
-|-------------------------------------------------------------------|---------------------------|
-| [/settings/NRPE/client/handlers](#/settings/NRPE/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/NRPE/client/targets](#/settings/NRPE/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the NRPEClient module.
-
 ### check_nrpe
 
 Request remote information via NRPE.
@@ -54,59 +36,32 @@ Request remote information via NRPE.
 
 
 <a name="check_nrpe_help"/>
-
 <a name="check_nrpe_help-pb"/>
-
 <a name="check_nrpe_show-default"/>
-
 <a name="check_nrpe_help-short"/>
-
 <a name="check_nrpe_host"/>
-
 <a name="check_nrpe_port"/>
-
 <a name="check_nrpe_address"/>
-
 <a name="check_nrpe_timeout"/>
-
 <a name="check_nrpe_target"/>
-
 <a name="check_nrpe_retry"/>
-
 <a name="check_nrpe_retries"/>
-
 <a name="check_nrpe_source-host"/>
-
 <a name="check_nrpe_sender-host"/>
-
 <a name="check_nrpe_command"/>
-
 <a name="check_nrpe_argument"/>
-
 <a name="check_nrpe_separator"/>
-
 <a name="check_nrpe_batch"/>
-
 <a name="check_nrpe_certificate"/>
-
 <a name="check_nrpe_dh"/>
-
 <a name="check_nrpe_certificate-key"/>
-
 <a name="check_nrpe_certificate-format"/>
-
 <a name="check_nrpe_ca"/>
-
 <a name="check_nrpe_verify"/>
-
 <a name="check_nrpe_allowed-ciphers"/>
-
 <a name="check_nrpe_insecure"/>
-
 <a name="check_nrpe_payload-length"/>
-
 <a name="check_nrpe_buffer-length"/>
-
 <a name="check_nrpe_options"/>
 #### Command-line Arguments
 
@@ -144,15 +99,11 @@ Request remote information via NRPE.
 
 
 
-<a name="check_nrpe_ssl"/>
-**ssl:**
+<h5 id="check_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### exec_nrpe
@@ -167,59 +118,32 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 
 
 <a name="exec_nrpe_help"/>
-
 <a name="exec_nrpe_help-pb"/>
-
 <a name="exec_nrpe_show-default"/>
-
 <a name="exec_nrpe_help-short"/>
-
 <a name="exec_nrpe_host"/>
-
 <a name="exec_nrpe_port"/>
-
 <a name="exec_nrpe_address"/>
-
 <a name="exec_nrpe_timeout"/>
-
 <a name="exec_nrpe_target"/>
-
 <a name="exec_nrpe_retry"/>
-
 <a name="exec_nrpe_retries"/>
-
 <a name="exec_nrpe_source-host"/>
-
 <a name="exec_nrpe_sender-host"/>
-
 <a name="exec_nrpe_command"/>
-
 <a name="exec_nrpe_argument"/>
-
 <a name="exec_nrpe_separator"/>
-
 <a name="exec_nrpe_batch"/>
-
 <a name="exec_nrpe_certificate"/>
-
 <a name="exec_nrpe_dh"/>
-
 <a name="exec_nrpe_certificate-key"/>
-
 <a name="exec_nrpe_certificate-format"/>
-
 <a name="exec_nrpe_ca"/>
-
 <a name="exec_nrpe_verify"/>
-
 <a name="exec_nrpe_allowed-ciphers"/>
-
 <a name="exec_nrpe_insecure"/>
-
 <a name="exec_nrpe_payload-length"/>
-
 <a name="exec_nrpe_buffer-length"/>
-
 <a name="exec_nrpe_options"/>
 #### Command-line Arguments
 
@@ -257,15 +181,11 @@ Execute remote script via NRPE. (Most likely you want nrpe_query).
 
 
 
-<a name="exec_nrpe_ssl"/>
-**ssl:**
+<h5 id="exec_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### nrpe_forward
@@ -280,7 +200,6 @@ Forward the request as-is to remote host via NRPE.
 
 
 <a name="nrpe_forward_*"/>
-
 <a name="nrpe_forward_options"/>
 #### Command-line Arguments
 
@@ -304,59 +223,32 @@ Request remote information via NRPE.
 
 
 <a name="nrpe_query_help"/>
-
 <a name="nrpe_query_help-pb"/>
-
 <a name="nrpe_query_show-default"/>
-
 <a name="nrpe_query_help-short"/>
-
 <a name="nrpe_query_host"/>
-
 <a name="nrpe_query_port"/>
-
 <a name="nrpe_query_address"/>
-
 <a name="nrpe_query_timeout"/>
-
 <a name="nrpe_query_target"/>
-
 <a name="nrpe_query_retry"/>
-
 <a name="nrpe_query_retries"/>
-
 <a name="nrpe_query_source-host"/>
-
 <a name="nrpe_query_sender-host"/>
-
 <a name="nrpe_query_command"/>
-
 <a name="nrpe_query_argument"/>
-
 <a name="nrpe_query_separator"/>
-
 <a name="nrpe_query_batch"/>
-
 <a name="nrpe_query_certificate"/>
-
 <a name="nrpe_query_dh"/>
-
 <a name="nrpe_query_certificate-key"/>
-
 <a name="nrpe_query_certificate-format"/>
-
 <a name="nrpe_query_ca"/>
-
 <a name="nrpe_query_verify"/>
-
 <a name="nrpe_query_allowed-ciphers"/>
-
 <a name="nrpe_query_insecure"/>
-
 <a name="nrpe_query_payload-length"/>
-
 <a name="nrpe_query_buffer-length"/>
-
 <a name="nrpe_query_options"/>
 #### Command-line Arguments
 
@@ -394,15 +286,11 @@ Request remote information via NRPE.
 
 
 
-<a name="nrpe_query_ssl"/>
-**ssl:**
+<h5 id="nrpe_query_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 ### submit_nrpe
@@ -417,63 +305,34 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 
 
 <a name="submit_nrpe_help"/>
-
 <a name="submit_nrpe_help-pb"/>
-
 <a name="submit_nrpe_show-default"/>
-
 <a name="submit_nrpe_help-short"/>
-
 <a name="submit_nrpe_host"/>
-
 <a name="submit_nrpe_port"/>
-
 <a name="submit_nrpe_address"/>
-
 <a name="submit_nrpe_timeout"/>
-
 <a name="submit_nrpe_target"/>
-
 <a name="submit_nrpe_retry"/>
-
 <a name="submit_nrpe_retries"/>
-
 <a name="submit_nrpe_source-host"/>
-
 <a name="submit_nrpe_sender-host"/>
-
 <a name="submit_nrpe_command"/>
-
 <a name="submit_nrpe_alias"/>
-
 <a name="submit_nrpe_message"/>
-
 <a name="submit_nrpe_result"/>
-
 <a name="submit_nrpe_separator"/>
-
 <a name="submit_nrpe_batch"/>
-
 <a name="submit_nrpe_certificate"/>
-
 <a name="submit_nrpe_dh"/>
-
 <a name="submit_nrpe_certificate-key"/>
-
 <a name="submit_nrpe_certificate-format"/>
-
 <a name="submit_nrpe_ca"/>
-
 <a name="submit_nrpe_verify"/>
-
 <a name="submit_nrpe_allowed-ciphers"/>
-
 <a name="submit_nrpe_insecure"/>
-
 <a name="submit_nrpe_payload-length"/>
-
 <a name="submit_nrpe_buffer-length"/>
-
 <a name="submit_nrpe_options"/>
 #### Command-line Arguments
 
@@ -513,32 +372,37 @@ Submit information to remote host via NRPE. (Most likely you want nrpe_query).
 
 
 
-<a name="submit_nrpe_ssl"/>
-**ssl:**
+<h5 id="submit_nrpe_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 
 
 ## Configuration
 
-<a name="/settings/NRPE/client"/>
-### NRPE CLIENT SECTION
+
+
+| Path / Section                                              | Description               |
+|-------------------------------------------------------------|---------------------------|
+| [/settings/NRPE/client](#nrpe-client-section)               | NRPE CLIENT SECTION       |
+| [/settings/NRPE/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/NRPE/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### NRPE CLIENT SECTION <a id="/settings/NRPE/client"/>
 
 Section for NRPE active/passive check module.
 
 
 
 
-| Key                                       | Default Value | Description |
-|-------------------------------------------|---------------|-------------|
-| [channel](#/settings/NRPE/client_channel) | NRPE          | CHANNEL     |
+| Key                 | Default Value | Description |
+|---------------------|---------------|-------------|
+| [channel](#channel) | NRPE          | CHANNEL     |
 
 
 
@@ -552,9 +416,8 @@ channel=NRPE
 
 
 
-<a name="/settings/NRPE/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/NRPE/client/channel"></a>
 
 The channel to listen to.
 
@@ -579,8 +442,7 @@ channel=NRPE
 ```
 
 
-<a name="/settings/NRPE/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/NRPE/client/handlers"/>
 
 
 
@@ -592,8 +454,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/NRPE/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/NRPE/client/targets"/>
 
 
 

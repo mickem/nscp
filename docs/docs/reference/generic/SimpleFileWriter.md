@@ -7,45 +7,31 @@ Write status updates to a text file (A bit like the NSCA server does)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-| Path / Section                                    | Key                                                      | Description            |
-|---------------------------------------------------|----------------------------------------------------------|------------------------|
-| [/settings/writers/file](#/settings/writers/file) | [channel](#/settings/writers/file_channel)               | CHANNEL                |
-| [/settings/writers/file](#/settings/writers/file) | [file](#/settings/writers/file_file)                     | FILE TO WRITE TO       |
-| [/settings/writers/file](#/settings/writers/file) | [host-syntax](#/settings/writers/file_host-syntax)       | HOST MESSAGE SYNTAX    |
-| [/settings/writers/file](#/settings/writers/file) | [service-syntax](#/settings/writers/file_service-syntax) | SERVICE MESSAGE SYNTAX |
-| [/settings/writers/file](#/settings/writers/file) | [syntax](#/settings/writers/file_syntax)                 | MESSAGE SYNTAX         |
-| [/settings/writers/file](#/settings/writers/file) | [time-syntax](#/settings/writers/file_time-syntax)       | TIME SYNTAX            |
-
-
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/writers/file"/>
-### FILE WRITER
+
+
+| Path / Section                         | Description |
+|----------------------------------------|-------------|
+| [/settings/writers/file](#file-writer) | FILE WRITER |
+
+
+
+### FILE WRITER <a id="/settings/writers/file"/>
 
 Section for simple file writer module (SimpleFileWriter.dll).
 
 
 
 
-| Key                                                      | Default Value                            | Description            |
-|----------------------------------------------------------|------------------------------------------|------------------------|
-| [channel](#/settings/writers/file_channel)               | FILE                                     | CHANNEL                |
-| [file](#/settings/writers/file_file)                     | output.txt                               | FILE TO WRITE TO       |
-| [host-syntax](#/settings/writers/file_host-syntax)       |                                          | HOST MESSAGE SYNTAX    |
-| [service-syntax](#/settings/writers/file_service-syntax) |                                          | SERVICE MESSAGE SYNTAX |
-| [syntax](#/settings/writers/file_syntax)                 | ${alias-or-command} ${result} ${message} | MESSAGE SYNTAX         |
-| [time-syntax](#/settings/writers/file_time-syntax)       | %Y-%m-%d %H:%M:%S                        | TIME SYNTAX            |
+| Key                                       | Default Value                            | Description            |
+|-------------------------------------------|------------------------------------------|------------------------|
+| [channel](#channel)                       | FILE                                     | CHANNEL                |
+| [file](#file-to-write-to)                 | output.txt                               | FILE TO WRITE TO       |
+| [host-syntax](#host-message-syntax)       |                                          | HOST MESSAGE SYNTAX    |
+| [service-syntax](#service-message-syntax) |                                          | SERVICE MESSAGE SYNTAX |
+| [syntax](#message-syntax)                 | ${alias-or-command} ${result} ${message} | MESSAGE SYNTAX         |
+| [time-syntax](#time-syntax)               | %Y-%m-%d %H:%M:%S                        | TIME SYNTAX            |
 
 
 
@@ -62,9 +48,8 @@ time-syntax=%Y-%m-%d %H:%M:%S
 
 
 
-<a name="/settings/writers/file_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/writers/file/channel"></a>
 
 The channel to listen to.
 
@@ -89,9 +74,8 @@ channel=FILE
 ```
 
 
-<a name="/settings/writers/file_file"/>
 
-**FILE TO WRITE TO**
+#### FILE TO WRITE TO <a id="/settings/writers/file/file"></a>
 
 The filename to write output to.
 
@@ -116,9 +100,8 @@ file=output.txt
 ```
 
 
-<a name="/settings/writers/file_host-syntax"/>
 
-**HOST MESSAGE SYNTAX**
+#### HOST MESSAGE SYNTAX <a id="/settings/writers/file/host-syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
@@ -145,9 +128,8 @@ host-syntax=
 ```
 
 
-<a name="/settings/writers/file_service-syntax"/>
 
-**SERVICE MESSAGE SYNTAX**
+#### SERVICE MESSAGE SYNTAX <a id="/settings/writers/file/service-syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
@@ -174,9 +156,8 @@ service-syntax=
 ```
 
 
-<a name="/settings/writers/file_syntax"/>
 
-**MESSAGE SYNTAX**
+#### MESSAGE SYNTAX <a id="/settings/writers/file/syntax"></a>
 
 The syntax of the message to write to the line.
 Can be any arbitrary string as well as include any of the following special keywords:${command} = The command name, ${host} the host, ${channel} the recieving channel, ${alias} the alias for the command, ${alias-or-command} = alias if set otherweise command, ${message} = the message data (no escape), ${result} or ${result_number} = The result status (number), ${epoch} = seconds since unix epoch, ${time} = time using time-format.
@@ -202,9 +183,8 @@ syntax=${alias-or-command} ${result} ${message}
 ```
 
 
-<a name="/settings/writers/file_time-syntax"/>
 
-**TIME SYNTAX**
+#### TIME SYNTAX <a id="/settings/writers/file/time-syntax"></a>
 
 The date format using strftime format flags. This is the time of writing the message as messages currently does not have a source time.
 

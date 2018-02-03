@@ -4,6 +4,11 @@ This is a sample plugin used to demonstrate how to make plugins
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the SamplePluginSimple module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,13 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the SamplePluginSimple module.
 
 ### sample_raw_command
 

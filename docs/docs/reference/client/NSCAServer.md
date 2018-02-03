@@ -7,73 +7,35 @@ A server that listens for incoming NSCA connection and processes incoming reques
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                                  | Key                                                               | Description           |
-|-------------------------------------------------|-------------------------------------------------------------------|-----------------------|
-| [/settings/default](#/settings/default)         | [allowed hosts](#/settings/default_allowed hosts)                 | ALLOWED HOSTS         |
-| [/settings/default](#/settings/default)         | [bind to](#/settings/default_bind to)                             | BIND TO ADDRESS       |
-| [/settings/default](#/settings/default)         | [cache allowed hosts](#/settings/default_cache allowed hosts)     | CACHE ALLOWED HOSTS   |
-| [/settings/default](#/settings/default)         | [inbox](#/settings/default_inbox)                                 | INBOX                 |
-| [/settings/default](#/settings/default)         | [password](#/settings/default_password)                           | PASSWORD              |
-| [/settings/default](#/settings/default)         | [timeout](#/settings/default_timeout)                             | TIMEOUT               |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [encryption](#/settings/NSCA/server_encryption)                   | ENCRYPTION            |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [payload length](#/settings/NSCA/server_payload length)           | PAYLOAD LENGTH        |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [performance data](#/settings/NSCA/server_performance data)       | PERFORMANCE DATA      |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [port](#/settings/NSCA/server_port)                               | PORT NUMBER           |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [use ssl](#/settings/NSCA/server_use ssl)                         | ENABLE SSL ENCRYPTION |
-| [/settings/default](#/settings/default)         | [encoding](#/settings/default_encoding)                           | NRPE PAYLOAD ENCODING |
-| [/settings/default](#/settings/default)         | [socket queue size](#/settings/default_socket queue size)         | LISTEN QUEUE          |
-| [/settings/default](#/settings/default)         | [thread pool](#/settings/default_thread pool)                     | THREAD POOL           |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [allowed ciphers](#/settings/NSCA/server_allowed ciphers)         | ALLOWED CIPHERS       |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [allowed hosts](#/settings/NSCA/server_allowed hosts)             | ALLOWED HOSTS         |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [bind to](#/settings/NSCA/server_bind to)                         | BIND TO ADDRESS       |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [ca](#/settings/NSCA/server_ca)                                   | CA                    |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [cache allowed hosts](#/settings/NSCA/server_cache allowed hosts) | CACHE ALLOWED HOSTS   |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [certificate](#/settings/NSCA/server_certificate)                 | SSL CERTIFICATE       |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [certificate format](#/settings/NSCA/server_certificate format)   | CERTIFICATE FORMAT    |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [certificate key](#/settings/NSCA/server_certificate key)         | SSL CERTIFICATE       |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [dh](#/settings/NSCA/server_dh)                                   | DH KEY                |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [inbox](#/settings/NSCA/server_inbox)                             | INBOX                 |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [password](#/settings/NSCA/server_password)                       | PASSWORD              |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [socket queue size](#/settings/NSCA/server_socket queue size)     | LISTEN QUEUE          |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [ssl options](#/settings/NSCA/server_ssl options)                 | VERIFY MODE           |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [thread pool](#/settings/NSCA/server_thread pool)                 | THREAD POOL           |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [timeout](#/settings/NSCA/server_timeout)                         | TIMEOUT               |
-| [/settings/NSCA/server](#/settings/NSCA/server) | [verify mode](#/settings/NSCA/server_verify mode)                 | VERIFY MODE           |
-
-
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/default"/>
-### /settings/default
+
+
+| Path / Section                                | Description         |
+|-----------------------------------------------|---------------------|
+| [/settings/default](#)                        |                     |
+| [/settings/NSCA/server](#nsca-server-section) | NSCA SERVER SECTION |
+
+
+
+### /settings/default <a id="/settings/default"/>
 
 
 
 
 
 
-| Key                                                           | Default Value | Description           |
-|---------------------------------------------------------------|---------------|-----------------------|
-| [allowed hosts](#/settings/default_allowed hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
-| [bind to](#/settings/default_bind to)                         |               | BIND TO ADDRESS       |
-| [cache allowed hosts](#/settings/default_cache allowed hosts) | true          | CACHE ALLOWED HOSTS   |
-| [encoding](#/settings/default_encoding)                       |               | NRPE PAYLOAD ENCODING |
-| [inbox](#/settings/default_inbox)                             | inbox         | INBOX                 |
-| [password](#/settings/default_password)                       |               | PASSWORD              |
-| [socket queue size](#/settings/default_socket queue size)     | 0             | LISTEN QUEUE          |
-| [thread pool](#/settings/default_thread pool)                 | 10            | THREAD POOL           |
-| [timeout](#/settings/default_timeout)                         | 30            | TIMEOUT               |
+| Key                                         | Default Value | Description           |
+|---------------------------------------------|---------------|-----------------------|
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1     | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |               | BIND TO ADDRESS       |
+| [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
+| [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
+| [inbox](#inbox)                             | inbox         | INBOX                 |
+| [password](#password)                       |               | PASSWORD              |
+| [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
+| [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
+| [timeout](#timeout)                         | 30            | TIMEOUT               |
 
 
 
@@ -92,9 +54,8 @@ timeout=30
 
 
 
-<a name="/settings/default_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/default/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.
 
@@ -119,9 +80,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/default_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/default/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses.
 
@@ -147,9 +107,8 @@ bind to=
 ```
 
 
-<a name="/settings/default_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/default/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.
 
@@ -174,9 +133,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/default_encoding"/>
 
-**NRPE PAYLOAD ENCODING**
+#### NRPE PAYLOAD ENCODING <a id="/settings/default/encoding"></a>
 
 
 
@@ -203,9 +161,8 @@ encoding=
 ```
 
 
-<a name="/settings/default_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/default/inbox"></a>
 
 The default channel to post incoming messages on
 
@@ -230,9 +187,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/default_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -258,9 +214,8 @@ password=
 ```
 
 
-<a name="/settings/default_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/default/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts.
 
@@ -286,9 +241,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/default_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/default/thread pool"></a>
 
 
 
@@ -314,9 +268,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/default_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/default/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out.
 
@@ -341,37 +294,36 @@ timeout=30
 ```
 
 
-<a name="/settings/NSCA/server"/>
-### NSCA SERVER SECTION
+### NSCA SERVER SECTION <a id="/settings/NSCA/server"/>
 
 Section for NSCA (NSCAServer) (check_nsca) protocol options.
 
 
 
 
-| Key                                                               | Default Value                       | Description           |
-|-------------------------------------------------------------------|-------------------------------------|-----------------------|
-| [allowed ciphers](#/settings/NSCA/server_allowed ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
-| [allowed hosts](#/settings/NSCA/server_allowed hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
-| [bind to](#/settings/NSCA/server_bind to)                         |                                     | BIND TO ADDRESS       |
-| [ca](#/settings/NSCA/server_ca)                                   | ${certificate-path}/ca.pem          | CA                    |
-| [cache allowed hosts](#/settings/NSCA/server_cache allowed hosts) | true                                | CACHE ALLOWED HOSTS   |
-| [certificate](#/settings/NSCA/server_certificate)                 | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
-| [certificate format](#/settings/NSCA/server_certificate format)   | PEM                                 | CERTIFICATE FORMAT    |
-| [certificate key](#/settings/NSCA/server_certificate key)         |                                     | SSL CERTIFICATE       |
-| [dh](#/settings/NSCA/server_dh)                                   | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
-| [encryption](#/settings/NSCA/server_encryption)                   | aes                                 | ENCRYPTION            |
-| [inbox](#/settings/NSCA/server_inbox)                             | inbox                               | INBOX                 |
-| [password](#/settings/NSCA/server_password)                       |                                     | PASSWORD              |
-| [payload length](#/settings/NSCA/server_payload length)           | 512                                 | PAYLOAD LENGTH        |
-| [performance data](#/settings/NSCA/server_performance data)       | true                                | PERFORMANCE DATA      |
-| [port](#/settings/NSCA/server_port)                               | 5667                                | PORT NUMBER           |
-| [socket queue size](#/settings/NSCA/server_socket queue size)     | 0                                   | LISTEN QUEUE          |
-| [ssl options](#/settings/NSCA/server_ssl options)                 |                                     | VERIFY MODE           |
-| [thread pool](#/settings/NSCA/server_thread pool)                 | 10                                  | THREAD POOL           |
-| [timeout](#/settings/NSCA/server_timeout)                         | 30                                  | TIMEOUT               |
-| [use ssl](#/settings/NSCA/server_use ssl)                         | false                               | ENABLE SSL ENCRYPTION |
-| [verify mode](#/settings/NSCA/server_verify mode)                 | none                                | VERIFY MODE           |
+| Key                                         | Default Value                       | Description           |
+|---------------------------------------------|-------------------------------------|-----------------------|
+| [allowed ciphers](#allowed-ciphers)         | ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH   | ALLOWED CIPHERS       |
+| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS         |
+| [bind to](#bind-to-address)                 |                                     | BIND TO ADDRESS       |
+| [ca](#ca)                                   | ${certificate-path}/ca.pem          | CA                    |
+| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS   |
+| [certificate](#ssl-certificate)             | ${certificate-path}/certificate.pem | SSL CERTIFICATE       |
+| [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
+| [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
+| [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
+| [encryption](#encryption)                   | aes                                 | ENCRYPTION            |
+| [inbox](#inbox)                             | inbox                               | INBOX                 |
+| [password](#password)                       |                                     | PASSWORD              |
+| [payload length](#payload-length)           | 512                                 | PAYLOAD LENGTH        |
+| [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
+| [port](#port-number)                        | 5667                                | PORT NUMBER           |
+| [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
+| [ssl options](#verify-mode)                 |                                     | VERIFY MODE           |
+| [thread pool](#thread-pool)                 | 10                                  | THREAD POOL           |
+| [timeout](#timeout)                         | 30                                  | TIMEOUT               |
+| [use ssl](#enable-ssl-encryption)           | false                               | ENABLE SSL ENCRYPTION |
+| [verify mode](#verify-mode)                 | none                                | VERIFY MODE           |
 
 
 
@@ -401,9 +353,8 @@ verify mode=none
 
 
 
-<a name="/settings/NSCA/server_allowed ciphers"/>
 
-**ALLOWED CIPHERS**
+#### ALLOWED CIPHERS <a id="/settings/NSCA/server/allowed ciphers"></a>
 
 The chipers which are allowed to be used.
 The default here will differ is used in "insecure" mode or not. check_nrpe uses a very old chipers and should preferably not be used. For details of chipers please see the OPEN ssl documentation: https://www.openssl.org/docs/apps/ciphers.html
@@ -430,9 +381,8 @@ allowed ciphers=ALL:!ADH:!LOW:!EXP:!MD5:@STRENGTH
 ```
 
 
-<a name="/settings/NSCA/server_allowed hosts"/>
 
-**ALLOWED HOSTS**
+#### ALLOWED HOSTS <a id="/settings/NSCA/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -458,9 +408,8 @@ allowed hosts=127.0.0.1
 ```
 
 
-<a name="/settings/NSCA/server_bind to"/>
 
-**BIND TO ADDRESS**
+#### BIND TO ADDRESS <a id="/settings/NSCA/server/bind to"></a>
 
 Allows you to bind server to a specific local address. This has to be a dotted ip address not a host name. Leaving this blank will bind to all available IP addresses. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -487,9 +436,8 @@ bind to=
 ```
 
 
-<a name="/settings/NSCA/server_ca"/>
 
-**CA**
+#### CA <a id="/settings/NSCA/server/ca"></a>
 
 
 
@@ -515,9 +463,8 @@ ca=${certificate-path}/ca.pem
 ```
 
 
-<a name="/settings/NSCA/server_cache allowed hosts"/>
 
-**CACHE ALLOWED HOSTS**
+#### CACHE ALLOWED HOSTS <a id="/settings/NSCA/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -543,9 +490,8 @@ cache allowed hosts=true
 ```
 
 
-<a name="/settings/NSCA/server_certificate"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NSCA/server/certificate"></a>
 
 
 
@@ -571,9 +517,8 @@ certificate=${certificate-path}/certificate.pem
 ```
 
 
-<a name="/settings/NSCA/server_certificate format"/>
 
-**CERTIFICATE FORMAT**
+#### CERTIFICATE FORMAT <a id="/settings/NSCA/server/certificate format"></a>
 
 
 
@@ -599,9 +544,8 @@ certificate format=PEM
 ```
 
 
-<a name="/settings/NSCA/server_certificate key"/>
 
-**SSL CERTIFICATE**
+#### SSL CERTIFICATE <a id="/settings/NSCA/server/certificate key"></a>
 
 
 
@@ -628,9 +572,8 @@ certificate key=
 ```
 
 
-<a name="/settings/NSCA/server_dh"/>
 
-**DH KEY**
+#### DH KEY <a id="/settings/NSCA/server/dh"></a>
 
 
 
@@ -656,9 +599,8 @@ dh=${certificate-path}/nrpe_dh_512.pem
 ```
 
 
-<a name="/settings/NSCA/server_encryption"/>
 
-**ENCRYPTION**
+#### ENCRYPTION <a id="/settings/NSCA/server/encryption"></a>
 
 Name of encryption algorithm to use.
 Has to be the same as your agent i using or it wont work at all.This is also independent of SSL and generally used instead of SSL.
@@ -699,9 +641,8 @@ encryption=aes
 ```
 
 
-<a name="/settings/NSCA/server_inbox"/>
 
-**INBOX**
+#### INBOX <a id="/settings/NSCA/server/inbox"></a>
 
 The default channel to post incoming messages on parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -727,9 +668,8 @@ inbox=inbox
 ```
 
 
-<a name="/settings/NSCA/server_password"/>
 
-**PASSWORD**
+#### PASSWORD <a id="/settings/NSCA/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -756,9 +696,8 @@ password=
 ```
 
 
-<a name="/settings/NSCA/server_payload length"/>
 
-**PAYLOAD LENGTH**
+#### PAYLOAD LENGTH <a id="/settings/NSCA/server/payload length"></a>
 
 Length of payload to/from the NSCA agent. This is a hard specific value so you have to "configure" (read recompile) your NSCA agent to use the same value for it to work.
 
@@ -783,9 +722,8 @@ payload length=512
 ```
 
 
-<a name="/settings/NSCA/server_performance data"/>
 
-**PERFORMANCE DATA**
+#### PERFORMANCE DATA <a id="/settings/NSCA/server/performance data"></a>
 
 Send performance data back to nagios (set this to false to remove all performance data).
 
@@ -810,9 +748,8 @@ performance data=true
 ```
 
 
-<a name="/settings/NSCA/server_port"/>
 
-**PORT NUMBER**
+#### PORT NUMBER <a id="/settings/NSCA/server/port"></a>
 
 Port to use for NSCA.
 
@@ -837,9 +774,8 @@ port=5667
 ```
 
 
-<a name="/settings/NSCA/server_socket queue size"/>
 
-**LISTEN QUEUE**
+#### LISTEN QUEUE <a id="/settings/NSCA/server/socket queue size"></a>
 
 Number of sockets to queue before starting to refuse new incoming connections. This can be used to tweak the amount of simultaneous sockets that the server accepts. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -865,9 +801,8 @@ socket queue size=0
 ```
 
 
-<a name="/settings/NSCA/server_ssl options"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NSCA/server/ssl options"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 
@@ -903,9 +838,8 @@ ssl options=
 ```
 
 
-<a name="/settings/NSCA/server_thread pool"/>
 
-**THREAD POOL**
+#### THREAD POOL <a id="/settings/NSCA/server/thread pool"></a>
 
  parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -931,9 +865,8 @@ thread pool=10
 ```
 
 
-<a name="/settings/NSCA/server_timeout"/>
 
-**TIMEOUT**
+#### TIMEOUT <a id="/settings/NSCA/server/timeout"></a>
 
 Timeout when reading packets on incoming sockets. If the data has not arrived within this time we will bail out. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -959,9 +892,8 @@ timeout=30
 ```
 
 
-<a name="/settings/NSCA/server_use ssl"/>
 
-**ENABLE SSL ENCRYPTION**
+#### ENABLE SSL ENCRYPTION <a id="/settings/NSCA/server/use ssl"></a>
 
 This option controls if SSL should be enabled.
 
@@ -986,9 +918,8 @@ use ssl=false
 ```
 
 
-<a name="/settings/NSCA/server_verify mode"/>
 
-**VERIFY MODE**
+#### VERIFY MODE <a id="/settings/NSCA/server/verify mode"></a>
 
 Comma separated list of verification flags to set on the SSL socket.
 

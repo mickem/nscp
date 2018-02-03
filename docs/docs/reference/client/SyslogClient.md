@@ -4,6 +4,11 @@ Forward information as syslog messages to a syslog server
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the SyslogClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,30 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                      | Key                                           | Description |
-|-----------------------------------------------------|-----------------------------------------------|-------------|
-| [/settings/syslog/client](#/settings/syslog/client) | [channel](#/settings/syslog/client_channel)   | CHANNEL     |
-| [/settings/syslog/client](#/settings/syslog/client) | [hostname](#/settings/syslog/client_hostname) | HOSTNAME    |
-
-
-| Path / Section                                                        | Description               |
-|-----------------------------------------------------------------------|---------------------------|
-| [/settings/syslog/client/handlers](#/settings/syslog/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/syslog/client/targets](#/settings/syslog/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the SyslogClient module.
 
 ### submit_syslog
 
@@ -51,61 +32,33 @@ Submit information to the remote syslog server.
 
 
 <a name="submit_syslog_help"/>
-
 <a name="submit_syslog_help-pb"/>
-
 <a name="submit_syslog_show-default"/>
-
 <a name="submit_syslog_help-short"/>
-
 <a name="submit_syslog_host"/>
-
 <a name="submit_syslog_port"/>
-
 <a name="submit_syslog_address"/>
-
 <a name="submit_syslog_timeout"/>
-
 <a name="submit_syslog_target"/>
-
 <a name="submit_syslog_retry"/>
-
 <a name="submit_syslog_retries"/>
-
 <a name="submit_syslog_source-host"/>
-
 <a name="submit_syslog_sender-host"/>
-
 <a name="submit_syslog_command"/>
-
 <a name="submit_syslog_alias"/>
-
 <a name="submit_syslog_message"/>
-
 <a name="submit_syslog_result"/>
-
 <a name="submit_syslog_separator"/>
-
 <a name="submit_syslog_batch"/>
-
 <a name="submit_syslog_path"/>
-
 <a name="submit_syslog_severity"/>
-
 <a name="submit_syslog_unknown-severity"/>
-
 <a name="submit_syslog_ok-severity"/>
-
 <a name="submit_syslog_warning-severity"/>
-
 <a name="submit_syslog_critical-severity"/>
-
 <a name="submit_syslog_facility"/>
-
 <a name="submit_syslog_tag template"/>
-
 <a name="submit_syslog_message template"/>
-
 <a name="submit_syslog_options"/>
 #### Command-line Arguments
 
@@ -148,18 +101,27 @@ Submit information to the remote syslog server.
 
 ## Configuration
 
-<a name="/settings/syslog/client"/>
-### SYSLOG CLIENT SECTION
+
+
+| Path / Section                                                | Description               |
+|---------------------------------------------------------------|---------------------------|
+| [/settings/syslog/client](#syslog-client-section)             | SYSLOG CLIENT SECTION     |
+| [/settings/syslog/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/syslog/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### SYSLOG CLIENT SECTION <a id="/settings/syslog/client"/>
 
 Section for SYSLOG passive check module.
 
 
 
 
-| Key                                           | Default Value | Description |
-|-----------------------------------------------|---------------|-------------|
-| [channel](#/settings/syslog/client_channel)   | syslog        | CHANNEL     |
-| [hostname](#/settings/syslog/client_hostname) | auto          | HOSTNAME    |
+| Key                   | Default Value | Description |
+|-----------------------|---------------|-------------|
+| [channel](#channel)   | syslog        | CHANNEL     |
+| [hostname](#hostname) | auto          | HOSTNAME    |
 
 
 
@@ -174,9 +136,8 @@ hostname=auto
 
 
 
-<a name="/settings/syslog/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/syslog/client/channel"></a>
 
 The channel to listen to.
 
@@ -201,9 +162,8 @@ channel=syslog
 ```
 
 
-<a name="/settings/syslog/client_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/syslog/client/hostname"></a>
 
 The host name of the monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -239,8 +199,7 @@ hostname=auto
 ```
 
 
-<a name="/settings/syslog/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/syslog/client/handlers"/>
 
 
 
@@ -252,8 +211,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/syslog/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/syslog/client/targets"/>
 
 
 

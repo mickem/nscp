@@ -4,6 +4,11 @@ Use this module to check the healt and status of NSClient++ it self
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the CheckNSCP module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -15,13 +20,6 @@ A list of all available queries (check commands)
 
 
 
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the CheckNSCP module.
 
 ### check_nscp
 
@@ -35,13 +33,9 @@ Check the internal healt of NSClient++.
 
 
 <a name="check_nscp_help"/>
-
 <a name="check_nscp_help-pb"/>
-
 <a name="check_nscp_show-default"/>
-
 <a name="check_nscp_help-short"/>
-
 <a name="check_nscp_options"/>
 #### Command-line Arguments
 
@@ -69,23 +63,14 @@ Check the version of NSClient++ which is used.
 
 
 <a name="check_nscp_version_warn"/>
-
 <a name="check_nscp_version_crit"/>
-
 <a name="check_nscp_version_debug"/>
-
 <a name="check_nscp_version_show-all"/>
-
 <a name="check_nscp_version_escape-html"/>
-
 <a name="check_nscp_version_help"/>
-
 <a name="check_nscp_version_help-pb"/>
-
 <a name="check_nscp_version_show-default"/>
-
 <a name="check_nscp_version_help-short"/>
-
 <a name="check_nscp_version_options"/>
 #### Command-line Arguments
 
@@ -115,154 +100,110 @@ Check the version of NSClient++ which is used.
 
 
 
-<a name="check_nscp_version_filter"/>
-**filter:**
+<h5 id="check_nscp_version_filter">filter:</h5>
 
 Filter which marks interesting items.
 Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-
-
-
-<a name="check_nscp_version_warning"/>
-**warning:**
+<h5 id="check_nscp_version_warning">warning:</h5>
 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
 
-
-
-
-<a name="check_nscp_version_critical"/>
-**critical:**
+<h5 id="check_nscp_version_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
 
-
-
-
-<a name="check_nscp_version_ok"/>
-**ok:**
+<h5 id="check_nscp_version_ok">ok:</h5>
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
 
-
-
-
-<a name="check_nscp_version_empty-state"/>
-**empty-state:**
+<h5 id="check_nscp_version_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+*Default Value:* `ignored`
 
-*Default Value:* | `ignored`
-
-
-
-<a name="check_nscp_version_perf-config"/>
-**perf-config:**
+<h5 id="check_nscp_version_perf-config">perf-config:</h5>
 
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-
-
-
-<a name="check_nscp_version_top-syntax"/>
-**top-syntax:**
+<h5 id="check_nscp_version_top-syntax">top-syntax:</h5>
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${status}: ${list}`
 
-*Default Value:* | `${status}: ${list}`
-
-
-
-<a name="check_nscp_version_ok-syntax"/>
-**ok-syntax:**
+<h5 id="check_nscp_version_ok-syntax">ok-syntax:</h5>
 
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
 
-
-
-
-<a name="check_nscp_version_empty-syntax"/>
-**empty-syntax:**
+<h5 id="check_nscp_version_empty-syntax">empty-syntax:</h5>
 
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
 
-
-
-
-<a name="check_nscp_version_detail-syntax"/>
-**detail-syntax:**
+<h5 id="check_nscp_version_detail-syntax">detail-syntax:</h5>
 
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${release}.${major}.${minor}.${build} (${date})`
 
-*Default Value:* | `${release}.${major}.${minor}.${build} (${date})`
-
-
-
-<a name="check_nscp_version_perf-syntax"/>
-**perf-syntax:**
+<h5 id="check_nscp_version_perf-syntax">perf-syntax:</h5>
 
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
-
-*Default Value:* | `version`
-
-
+*Default Value:* `version`
 
 
 <a name="check_nscp_version_filter_keys"/>
 #### Filter keywords
 
 
-| Option                                             | Description                                                                                                  |
-|----------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [build](#check_nscp_version_build)                 | The build (the 3 in 0.1.2.3)                                                                                 |
-| [count](#check_nscp_version_count)                 | Number of items matching the filter. Common option for all checks.                                           |
-| [crit_count](#check_nscp_version_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
-| [crit_list](#check_nscp_version_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| [date](#check_nscp_version_date)                   | The NSClient++ Build date                                                                                    |
-| [detail_list](#check_nscp_version_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| [list](#check_nscp_version_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
-| [major](#check_nscp_version_major)                 | The major (the 1 in 0.1.2.3)                                                                                 |
-| [minor](#check_nscp_version_minor)                 | The minor (the 2 in 0.1.2.3)                                                                                 |
-| [ok_count](#check_nscp_version_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
-| [ok_list](#check_nscp_version_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| [problem_count](#check_nscp_version_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| [problem_list](#check_nscp_version_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| [release](#check_nscp_version_release)             | The release (the 0 in 0.1.2.3)                                                                               |
-| [status](#check_nscp_version_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| [total](#check_nscp_version_total)                 | Total number of items. Common option for all checks.                                                         |
-| [version](#check_nscp_version_version)             | The NSClient++ Version as a string                                                                           |
-| [warn_count](#check_nscp_version_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
-| [warn_list](#check_nscp_version_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| Option        | Description                                                                                                  |
+|---------------|--------------------------------------------------------------------------------------------------------------|
+| build         | The build (the 3 in 0.1.2.3)                                                                                 |
+| count         | Number of items matching the filter. Common option for all checks.                                           |
+| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
+| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| date          | The NSClient++ Build date                                                                                    |
+| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| list          | A list of all items which matched the filter. Common option for all checks.                                  |
+| major         | The major (the 1 in 0.1.2.3)                                                                                 |
+| minor         | The minor (the 2 in 0.1.2.3)                                                                                 |
+| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
+| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| release       | The release (the 0 in 0.1.2.3)                                                                               |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| total         | Total number of items. Common option for all checks.                                                         |
+| version       | The NSClient++ Version as a string                                                                           |
+| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
+| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
 
 
 

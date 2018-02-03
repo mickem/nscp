@@ -4,6 +4,11 @@ check_mk client can be used both from command line and from queries to check rem
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the CheckMKClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,31 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-    
-| Path / Section                                          | Key                                           | Description |
-|---------------------------------------------------------|-----------------------------------------------|-------------|
-| [/settings/check_mk/client](#/settings/check_mk/client) | [channel](#/settings/check_mk/client_channel) | CHANNEL     |
-
-
-| Path / Section                                                            | Description               |
-|---------------------------------------------------------------------------|---------------------------|
-| [/settings/check_mk/client/handlers](#/settings/check_mk/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/check_mk/client/scripts](#/settings/check_mk/client/scripts)   | REMOTE TARGET DEFINITIONS |
-| [/settings/check_mk/client/targets](#/settings/check_mk/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the CheckMKClient module.
 
 ### check_mk_query
 
@@ -52,53 +32,29 @@ Request remote information via check_mk.
 
 
 <a name="check_mk_query_help"/>
-
 <a name="check_mk_query_help-pb"/>
-
 <a name="check_mk_query_show-default"/>
-
 <a name="check_mk_query_help-short"/>
-
 <a name="check_mk_query_host"/>
-
 <a name="check_mk_query_port"/>
-
 <a name="check_mk_query_address"/>
-
 <a name="check_mk_query_timeout"/>
-
 <a name="check_mk_query_target"/>
-
 <a name="check_mk_query_retry"/>
-
 <a name="check_mk_query_retries"/>
-
 <a name="check_mk_query_source-host"/>
-
 <a name="check_mk_query_sender-host"/>
-
 <a name="check_mk_query_command"/>
-
 <a name="check_mk_query_argument"/>
-
 <a name="check_mk_query_separator"/>
-
 <a name="check_mk_query_batch"/>
-
 <a name="check_mk_query_certificate"/>
-
 <a name="check_mk_query_dh"/>
-
 <a name="check_mk_query_certificate-key"/>
-
 <a name="check_mk_query_certificate-format"/>
-
 <a name="check_mk_query_ca"/>
-
 <a name="check_mk_query_verify"/>
-
 <a name="check_mk_query_allowed-ciphers"/>
-
 <a name="check_mk_query_options"/>
 #### Command-line Arguments
 
@@ -133,32 +89,38 @@ Request remote information via check_mk.
 
 
 
-<a name="check_mk_query_ssl"/>
-**ssl:**
+<h5 id="check_mk_query_ssl">ssl:</h5>
 
 Initial an ssl handshake with the server.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 
 
 ## Configuration
 
-<a name="/settings/check_mk/client"/>
-### CHECK MK CLIENT SECTION
+
+
+| Path / Section                                                  | Description               |
+|-----------------------------------------------------------------|---------------------------|
+| [/settings/check_mk/client](#check-mk-client-section)           | CHECK MK CLIENT SECTION   |
+| [/settings/check_mk/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/check_mk/client/scripts](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+| [/settings/check_mk/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### CHECK MK CLIENT SECTION <a id="/settings/check_mk/client"/>
 
 Section for check_mk active/passive check module.
 
 
 
 
-| Key                                           | Default Value | Description |
-|-----------------------------------------------|---------------|-------------|
-| [channel](#/settings/check_mk/client_channel) | CheckMK       | CHANNEL     |
+| Key                 | Default Value | Description |
+|---------------------|---------------|-------------|
+| [channel](#channel) | CheckMK       | CHANNEL     |
 
 
 
@@ -172,9 +134,8 @@ channel=CheckMK
 
 
 
-<a name="/settings/check_mk/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/check_mk/client/channel"></a>
 
 The channel to listen to.
 
@@ -199,8 +160,7 @@ channel=CheckMK
 ```
 
 
-<a name="/settings/check_mk/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/check_mk/client/handlers"/>
 
 
 
@@ -212,8 +172,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/check_mk/client/scripts"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/scripts"/>
 
 
 
@@ -225,8 +184,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/check_mk/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/check_mk/client/targets"/>
 
 
 

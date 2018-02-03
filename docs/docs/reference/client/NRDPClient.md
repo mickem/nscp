@@ -4,6 +4,11 @@ NRDP client can be used both from command line and from queries to check remote 
 
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the NRDPClient module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -14,30 +19,6 @@ A list of all available queries (check commands)
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                  | Key                                         | Description |
-|-------------------------------------------------|---------------------------------------------|-------------|
-| [/settings/NRDP/client](#/settings/NRDP/client) | [channel](#/settings/NRDP/client_channel)   | CHANNEL     |
-| [/settings/NRDP/client](#/settings/NRDP/client) | [hostname](#/settings/NRDP/client_hostname) | HOSTNAME    |
-
-
-| Path / Section                                                    | Description               |
-|-------------------------------------------------------------------|---------------------------|
-| [/settings/NRDP/client/handlers](#/settings/NRDP/client/handlers) | CLIENT HANDLER SECTION    |
-| [/settings/NRDP/client/targets](#/settings/NRDP/client/targets)   | REMOTE TARGET DEFINITIONS |
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the NRDPClient module.
 
 ### submit_nrdp
 
@@ -51,53 +32,29 @@ Submit information to the remote NRDP Server.
 
 
 <a name="submit_nrdp_help"/>
-
 <a name="submit_nrdp_help-pb"/>
-
 <a name="submit_nrdp_show-default"/>
-
 <a name="submit_nrdp_help-short"/>
-
 <a name="submit_nrdp_host"/>
-
 <a name="submit_nrdp_port"/>
-
 <a name="submit_nrdp_address"/>
-
 <a name="submit_nrdp_timeout"/>
-
 <a name="submit_nrdp_target"/>
-
 <a name="submit_nrdp_retry"/>
-
 <a name="submit_nrdp_retries"/>
-
 <a name="submit_nrdp_source-host"/>
-
 <a name="submit_nrdp_sender-host"/>
-
 <a name="submit_nrdp_command"/>
-
 <a name="submit_nrdp_alias"/>
-
 <a name="submit_nrdp_message"/>
-
 <a name="submit_nrdp_result"/>
-
 <a name="submit_nrdp_separator"/>
-
 <a name="submit_nrdp_batch"/>
-
 <a name="submit_nrdp_key"/>
-
 <a name="submit_nrdp_password"/>
-
 <a name="submit_nrdp_source-host"/>
-
 <a name="submit_nrdp_sender-host"/>
-
 <a name="submit_nrdp_token"/>
-
 <a name="submit_nrdp_options"/>
 #### Command-line Arguments
 
@@ -136,18 +93,27 @@ Submit information to the remote NRDP Server.
 
 ## Configuration
 
-<a name="/settings/NRDP/client"/>
-### SMTP CLIENT SECTION
+
+
+| Path / Section                                              | Description               |
+|-------------------------------------------------------------|---------------------------|
+| [/settings/NRDP/client](#smtp-client-section)               | SMTP CLIENT SECTION       |
+| [/settings/NRDP/client/handlers](#client-handler-section)   | CLIENT HANDLER SECTION    |
+| [/settings/NRDP/client/targets](#remote-target-definitions) | REMOTE TARGET DEFINITIONS |
+
+
+
+### SMTP CLIENT SECTION <a id="/settings/NRDP/client"/>
 
 Section for SMTP passive check module.
 
 
 
 
-| Key                                         | Default Value | Description |
-|---------------------------------------------|---------------|-------------|
-| [channel](#/settings/NRDP/client_channel)   | NRDP          | CHANNEL     |
-| [hostname](#/settings/NRDP/client_hostname) | auto          | HOSTNAME    |
+| Key                   | Default Value | Description |
+|-----------------------|---------------|-------------|
+| [channel](#channel)   | NRDP          | CHANNEL     |
+| [hostname](#hostname) | auto          | HOSTNAME    |
 
 
 
@@ -162,9 +128,8 @@ hostname=auto
 
 
 
-<a name="/settings/NRDP/client_channel"/>
 
-**CHANNEL**
+#### CHANNEL <a id="/settings/NRDP/client/channel"></a>
 
 The channel to listen to.
 
@@ -189,9 +154,8 @@ channel=NRDP
 ```
 
 
-<a name="/settings/NRDP/client_hostname"/>
 
-**HOSTNAME**
+#### HOSTNAME <a id="/settings/NRDP/client/hostname"></a>
 
 The host name of the monitored computer.
 Set this to auto (default) to use the windows name of the computer.
@@ -227,8 +191,7 @@ hostname=auto
 ```
 
 
-<a name="/settings/NRDP/client/handlers"/>
-### CLIENT HANDLER SECTION
+### CLIENT HANDLER SECTION <a id="/settings/NRDP/client/handlers"/>
 
 
 
@@ -240,8 +203,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/NRDP/client/targets"/>
-### REMOTE TARGET DEFINITIONS
+### REMOTE TARGET DEFINITIONS <a id="/settings/NRDP/client/targets"/>
 
 
 

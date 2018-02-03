@@ -10,6 +10,11 @@ CheckDisk can check various file and disk related things.
     In other words the following will **NOT** work: `check_drivesize drive=m:` But the following will: `check_drivesize drive=\\myserver\\mydrive`
 
 
+
+## Queries
+
+A quick reference for all available queries (check commands) in the CheckDisk module.
+
 **List of commands:**
 
 A list of all available queries (check commands)
@@ -23,13 +28,6 @@ A list of all available queries (check commands)
 
 
 
-
-
-
-
-## Queries
-
-A quick reference for all available queries (check commands) in the CheckDisk module.
 
 ### check_drivesize
 
@@ -120,31 +118,18 @@ C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=
 
 
 <a name="check_drivesize_warn"/>
-
 <a name="check_drivesize_crit"/>
-
 <a name="check_drivesize_debug"/>
-
 <a name="check_drivesize_show-all"/>
-
 <a name="check_drivesize_escape-html"/>
-
 <a name="check_drivesize_help"/>
-
 <a name="check_drivesize_help-pb"/>
-
 <a name="check_drivesize_show-default"/>
-
 <a name="check_drivesize_help-short"/>
-
 <a name="check_drivesize_mounted"/>
-
 <a name="check_drivesize_magic"/>
-
 <a name="check_drivesize_exclude"/>
-
 <a name="check_drivesize_total"/>
-
 <a name="check_drivesize_options"/>
 #### Command-line Arguments
 
@@ -180,151 +165,99 @@ C:\: 205GB/223GB used, D:\: 448GB/466GB used, M:\: 2.6TB/2.68TB used|'C:\ used'=
 
 
 
-<a name="check_drivesize_filter"/>
-**filter:**
+<h5 id="check_drivesize_filter">filter:</h5>
 
 Filter which marks interesting items.
 Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+*Default Value:* `mounted = 1`
 
-*Default Value:* | `mounted = 1`
-
-
-
-<a name="check_drivesize_warning"/>
-**warning:**
+<h5 id="check_drivesize_warning">warning:</h5>
 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
+*Default Value:* `used > 80%`
 
-*Default Value:* | `used > 80%`
-
-
-
-<a name="check_drivesize_critical"/>
-**critical:**
+<h5 id="check_drivesize_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
+*Default Value:* `used > 90%`
 
-*Default Value:* | `used > 90%`
-
-
-
-<a name="check_drivesize_ok"/>
-**ok:**
+<h5 id="check_drivesize_ok">ok:</h5>
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
 
-
-
-
-<a name="check_drivesize_empty-state"/>
-**empty-state:**
+<h5 id="check_drivesize_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+*Default Value:* `unknown`
 
-*Default Value:* | `unknown`
-
-
-
-<a name="check_drivesize_perf-config"/>
-**perf-config:**
+<h5 id="check_drivesize_perf-config">perf-config:</h5>
 
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-
-
-
-<a name="check_drivesize_top-syntax"/>
-**top-syntax:**
+<h5 id="check_drivesize_top-syntax">top-syntax:</h5>
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${status} ${problem_list}`
 
-*Default Value:* | `${status} ${problem_list}`
-
-
-
-<a name="check_drivesize_ok-syntax"/>
-**ok-syntax:**
+<h5 id="check_drivesize_ok-syntax">ok-syntax:</h5>
 
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
+*Default Value:* `%(status) All %(count) drive(s) are ok`
 
-*Default Value:* | `%(status) All %(count) drive(s) are ok`
-
-
-
-<a name="check_drivesize_empty-syntax"/>
-**empty-syntax:**
+<h5 id="check_drivesize_empty-syntax">empty-syntax:</h5>
 
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
+*Default Value:* `%(status): No drives found`
 
-*Default Value:* | `%(status): No drives found`
-
-
-
-<a name="check_drivesize_detail-syntax"/>
-**detail-syntax:**
+<h5 id="check_drivesize_detail-syntax">detail-syntax:</h5>
 
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${drive_or_name}: ${used}/${size} used`
 
-*Default Value:* | `${drive_or_name}: ${used}/${size} used`
-
-
-
-<a name="check_drivesize_perf-syntax"/>
-**perf-syntax:**
+<h5 id="check_drivesize_perf-syntax">perf-syntax:</h5>
 
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
+*Default Value:* `${drive_or_id}`
 
-*Default Value:* | `${drive_or_id}`
-
-
-
-<a name="check_drivesize_drive"/>
-**drive:**
+<h5 id="check_drivesize_drive">drive:</h5>
 
 The drives to check.
 Multiple options can be used to check more then one drive or wildcards can be used to indicate multiple drives to check. Examples: drive=c, drive=d:, drive=*, drive=all-volumes, drive=all-drives
 
 
-
-
-
-<a name="check_drivesize_ignore-unreadable"/>
-**ignore-unreadable:**
+<h5 id="check_drivesize_ignore-unreadable">ignore-unreadable:</h5>
 
 DEPRECATED (manually set filter instead) Ignore drives which are not reachable by the current user.
 For instance Microsoft Office creates a drive which cannot be read by normal users.
-
-
-
 
 
 
@@ -332,49 +265,49 @@ For instance Microsoft Office creates a drive which cannot be read by normal use
 #### Filter keywords
 
 
-| Option                                            | Description                                                                                                  |
-|---------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [count](#check_drivesize_count)                   | Number of items matching the filter. Common option for all checks.                                           |
-| [crit_count](#check_drivesize_crit_count)         | Number of items matched the critical criteria. Common option for all checks.                                 |
-| [crit_list](#check_drivesize_crit_list)           | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| [detail_list](#check_drivesize_detail_list)       | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| [drive](#check_drivesize_drive)                   | Technical name of drive                                                                                      |
-| [drive_or_id](#check_drivesize_drive_or_id)       | Drive letter if present if not use id                                                                        |
-| [drive_or_name](#check_drivesize_drive_or_name)   | Drive letter if present if not use name                                                                      |
-| [erasable](#check_drivesize_erasable)             | 1 (true) if drive is erasable                                                                                |
-| [flags](#check_drivesize_flags)                   | String representation of flags                                                                               |
-| [free](#check_drivesize_free)                     | Shorthand for total_free (Number of free bytes)                                                              |
-| [free_pct](#check_drivesize_free_pct)             | Shorthand for total_free_pct (% free space)                                                                  |
-| [hotplug](#check_drivesize_hotplug)               | 1 (true) if drive is hotplugable                                                                             |
-| [id](#check_drivesize_id)                         | Drive or id of drive                                                                                         |
-| [letter](#check_drivesize_letter)                 | Letter the drive is mountedd on                                                                              |
-| [list](#check_drivesize_list)                     | A list of all items which matched the filter. Common option for all checks.                                  |
-| [media_type](#check_drivesize_media_type)         | Get the media type                                                                                           |
-| [mounted](#check_drivesize_mounted)               | Check if a drive is mounted                                                                                  |
-| [name](#check_drivesize_name)                     | Descriptive name of drive                                                                                    |
-| [ok_count](#check_drivesize_ok_count)             | Number of items matched the ok criteria. Common option for all checks.                                       |
-| [ok_list](#check_drivesize_ok_list)               | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| [problem_count](#check_drivesize_problem_count)   | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| [problem_list](#check_drivesize_problem_list)     | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| [readable](#check_drivesize_readable)             | 1 (true) if drive is readable                                                                                |
-| [removable](#check_drivesize_removable)           | 1 (true) if drive is removable                                                                               |
-| [size](#check_drivesize_size)                     | Total size of drive                                                                                          |
-| [status](#check_drivesize_status)                 | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| [total](#check_drivesize_total)                   | Total number of items. Common option for all checks.                                                         |
-| [total_free](#check_drivesize_total_free)         | Number of free bytes                                                                                         |
-| [total_free_pct](#check_drivesize_total_free_pct) | % free space                                                                                                 |
-| [total_used](#check_drivesize_total_used)         | Number of used bytes                                                                                         |
-| [total_used_pct](#check_drivesize_total_used_pct) | % used space                                                                                                 |
-| [type](#check_drivesize_type)                     | Type of drive                                                                                                |
-| [used](#check_drivesize_used)                     | Number of used bytes                                                                                         |
-| [used_pct](#check_drivesize_used_pct)             | Shorthand for total_used_pct (% used space)                                                                  |
-| [user_free](#check_drivesize_user_free)           | Free space available to user (which runs NSClient++)                                                         |
-| [user_free_pct](#check_drivesize_user_free_pct)   | % free space available to user                                                                               |
-| [user_used](#check_drivesize_user_used)           | Number of used bytes (related to user)                                                                       |
-| [user_used_pct](#check_drivesize_user_used_pct)   | % used space available to user                                                                               |
-| [warn_count](#check_drivesize_warn_count)         | Number of items matched the warning criteria. Common option for all checks.                                  |
-| [warn_list](#check_drivesize_warn_list)           | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| [writable](#check_drivesize_writable)             | 1 (true) if drive is writable                                                                                |
+| Option         | Description                                                                                                  |
+|----------------|--------------------------------------------------------------------------------------------------------------|
+| count          | Number of items matching the filter. Common option for all checks.                                           |
+| crit_count     | Number of items matched the critical criteria. Common option for all checks.                                 |
+| crit_list      | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| detail_list    | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| drive          | Technical name of drive                                                                                      |
+| drive_or_id    | Drive letter if present if not use id                                                                        |
+| drive_or_name  | Drive letter if present if not use name                                                                      |
+| erasable       | 1 (true) if drive is erasable                                                                                |
+| flags          | String representation of flags                                                                               |
+| free           | Shorthand for total_free (Number of free bytes)                                                              |
+| free_pct       | Shorthand for total_free_pct (% free space)                                                                  |
+| hotplug        | 1 (true) if drive is hotplugable                                                                             |
+| id             | Drive or id of drive                                                                                         |
+| letter         | Letter the drive is mountedd on                                                                              |
+| list           | A list of all items which matched the filter. Common option for all checks.                                  |
+| media_type     | Get the media type                                                                                           |
+| mounted        | Check if a drive is mounted                                                                                  |
+| name           | Descriptive name of drive                                                                                    |
+| ok_count       | Number of items matched the ok criteria. Common option for all checks.                                       |
+| ok_list        | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| problem_count  | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| problem_list   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| readable       | 1 (true) if drive is readable                                                                                |
+| removable      | 1 (true) if drive is removable                                                                               |
+| size           | Total size of drive                                                                                          |
+| status         | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| total          | Total number of items. Common option for all checks.                                                         |
+| total_free     | Number of free bytes                                                                                         |
+| total_free_pct | % free space                                                                                                 |
+| total_used     | Number of used bytes                                                                                         |
+| total_used_pct | % used space                                                                                                 |
+| type           | Type of drive                                                                                                |
+| used           | Number of used bytes                                                                                         |
+| used_pct       | Shorthand for total_used_pct (% used space)                                                                  |
+| user_free      | Free space available to user (which runs NSClient++)                                                         |
+| user_free_pct  | % free space available to user                                                                               |
+| user_used      | Number of used bytes (related to user)                                                                       |
+| user_used_pct  | % used space available to user                                                                               |
+| warn_count     | Number of items matched the warning criteria. Common option for all checks.                                  |
+| warn_list      | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| writable       | 1 (true) if drive is writable                                                                                |
 
 
 ### check_files
@@ -431,29 +364,17 @@ L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.tx
 
 
 <a name="check_files_warn"/>
-
 <a name="check_files_crit"/>
-
 <a name="check_files_debug"/>
-
 <a name="check_files_show-all"/>
-
 <a name="check_files_escape-html"/>
-
 <a name="check_files_help"/>
-
 <a name="check_files_help-pb"/>
-
 <a name="check_files_show-default"/>
-
 <a name="check_files_help-short"/>
-
 <a name="check_files_file"/>
-
 <a name="check_files_paths"/>
-
 <a name="check_files_max-depth"/>
-
 <a name="check_files_options"/>
 #### Command-line Arguments
 
@@ -489,199 +410,143 @@ L        cli  Performance data: 'AsChkDev.txt size'=29.04101KB;20;0 'AsDCDVer.tx
 
 
 
-<a name="check_files_filter"/>
-**filter:**
+<h5 id="check_files_filter">filter:</h5>
 
 Filter which marks interesting items.
 Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
 
-
-
-
-<a name="check_files_warning"/>
-**warning:**
+<h5 id="check_files_warning">warning:</h5>
 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
 
-
-
-
-<a name="check_files_critical"/>
-**critical:**
+<h5 id="check_files_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
 
-
-
-
-<a name="check_files_ok"/>
-**ok:**
+<h5 id="check_files_ok">ok:</h5>
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
 
-
-
-
-<a name="check_files_empty-state"/>
-**empty-state:**
+<h5 id="check_files_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+*Default Value:* `unknown`
 
-*Default Value:* | `unknown`
-
-
-
-<a name="check_files_perf-config"/>
-**perf-config:**
+<h5 id="check_files_perf-config">perf-config:</h5>
 
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
 
-
-
-
-<a name="check_files_top-syntax"/>
-**top-syntax:**
+<h5 id="check_files_top-syntax">top-syntax:</h5>
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${status}: ${problem_count}/${count} files (${problem_list})`
 
-*Default Value:* | `${status}: ${problem_count}/${count} files (${problem_list})`
-
-
-
-<a name="check_files_ok-syntax"/>
-**ok-syntax:**
+<h5 id="check_files_ok-syntax">ok-syntax:</h5>
 
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
+*Default Value:* `%(status): All %(count) files are ok`
 
-*Default Value:* | `%(status): All %(count) files are ok`
-
-
-
-<a name="check_files_empty-syntax"/>
-**empty-syntax:**
+<h5 id="check_files_empty-syntax">empty-syntax:</h5>
 
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
+*Default Value:* `No files found`
 
-*Default Value:* | `No files found`
-
-
-
-<a name="check_files_detail-syntax"/>
-**detail-syntax:**
+<h5 id="check_files_detail-syntax">detail-syntax:</h5>
 
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${name}`
 
-*Default Value:* | `${name}`
-
-
-
-<a name="check_files_perf-syntax"/>
-**perf-syntax:**
+<h5 id="check_files_perf-syntax">perf-syntax:</h5>
 
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
+*Default Value:* `${name}`
 
-*Default Value:* | `${name}`
-
-
-
-<a name="check_files_path"/>
-**path:**
+<h5 id="check_files_path">path:</h5>
 
 The path to search for files under.
 Notice that specifying multiple path will create an aggregate set you will not check each path individually.In other words if one path contains an error the entire check will result in error.
 
 
-
-
-
-<a name="check_files_pattern"/>
-**pattern:**
+<h5 id="check_files_pattern">pattern:</h5>
 
 The pattern of files to search for (works like a filter but is faster and can be combined with a filter).
 
+*Default Value:* `*.*`
 
-*Default Value:* | `*.*`
-
-
-
-<a name="check_files_total"/>
-**total:**
+<h5 id="check_files_total">total:</h5>
 
 Include the total of either (filter) all files matching the filter or (all) all files regardless of the filter
 
-
-*Default Value:* | `filter`
-
-
+*Default Value:* `filter`
 
 
 <a name="check_files_filter_keys"/>
 #### Filter keywords
 
 
-| Option                                      | Description                                                                                                  |
-|---------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [access](#check_files_access)               | Last access time                                                                                             |
-| [access_l](#check_files_access_l)           | Last access time (local time)                                                                                |
-| [access_u](#check_files_access_u)           | Last access time (UTC)                                                                                       |
-| [age](#check_files_age)                     | Seconds since file was last written                                                                          |
-| [count](#check_files_count)                 | Number of items matching the filter. Common option for all checks.                                           |
-| [creation](#check_files_creation)           | When file was created                                                                                        |
-| [creation_l](#check_files_creation_l)       | When file was created (local time)                                                                           |
-| [creation_u](#check_files_creation_u)       | When file was created (UTC)                                                                                  |
-| [crit_count](#check_files_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
-| [crit_list](#check_files_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| [detail_list](#check_files_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| [file](#check_files_file)                   | The name of the file                                                                                         |
-| [filename](#check_files_filename)           | The name of the file                                                                                         |
-| [line_count](#check_files_line_count)       | Number of lines in the file (text files)                                                                     |
-| [list](#check_files_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
-| [name](#check_files_name)                   | The name of the file                                                                                         |
-| [ok_count](#check_files_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
-| [ok_list](#check_files_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| [path](#check_files_path)                   | Path of file                                                                                                 |
-| [problem_count](#check_files_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| [problem_list](#check_files_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| [size](#check_files_size)                   | File size                                                                                                    |
-| [status](#check_files_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| [total](#check_files_total)                 | Total number of items. Common option for all checks.                                                         |
-| [type](#check_files_type)                   | Type of item (file or dir)                                                                                   |
-| [version](#check_files_version)             | Windows exe/dll file version                                                                                 |
-| [warn_count](#check_files_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
-| [warn_list](#check_files_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| [write](#check_files_write)                 | Alias for written                                                                                            |
-| [written](#check_files_written)             | When file was last written to                                                                                |
-| [written_l](#check_files_written_l)         | When file was last written  to (local time)                                                                  |
-| [written_u](#check_files_written_u)         | When file was last written  to (UTC)                                                                         |
+| Option        | Description                                                                                                  |
+|---------------|--------------------------------------------------------------------------------------------------------------|
+| access        | Last access time                                                                                             |
+| access_l      | Last access time (local time)                                                                                |
+| access_u      | Last access time (UTC)                                                                                       |
+| age           | Seconds since file was last written                                                                          |
+| count         | Number of items matching the filter. Common option for all checks.                                           |
+| creation      | When file was created                                                                                        |
+| creation_l    | When file was created (local time)                                                                           |
+| creation_u    | When file was created (UTC)                                                                                  |
+| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
+| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| file          | The name of the file                                                                                         |
+| filename      | The name of the file                                                                                         |
+| line_count    | Number of lines in the file (text files)                                                                     |
+| list          | A list of all items which matched the filter. Common option for all checks.                                  |
+| name          | The name of the file                                                                                         |
+| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
+| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| path          | Path of file                                                                                                 |
+| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| size          | File size                                                                                                    |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| total         | Total number of items. Common option for all checks.                                                         |
+| type          | Type of item (file or dir)                                                                                   |
+| version       | Windows exe/dll file version                                                                                 |
+| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
+| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| write         | Alias for written                                                                                            |
+| written       | When file was last written to                                                                                |
+| written_l     | When file was last written  to (local time)                                                                  |
+| written_u     | When file was last written  to (UTC)                                                                         |
 
 
 ### checkdrivesize
@@ -696,43 +561,24 @@ Legacy version of check_drivesize
 
 
 <a name="checkdrivesize_help"/>
-
 <a name="checkdrivesize_help-pb"/>
-
 <a name="checkdrivesize_show-default"/>
-
 <a name="checkdrivesize_help-short"/>
-
 <a name="checkdrivesize_Drive"/>
-
 <a name="checkdrivesize_FilterType"/>
-
 <a name="checkdrivesize_perf-unit"/>
-
 <a name="checkdrivesize_MaxWarn"/>
-
 <a name="checkdrivesize_MaxCrit"/>
-
 <a name="checkdrivesize_MinWarn"/>
-
 <a name="checkdrivesize_MinCrit"/>
-
 <a name="checkdrivesize_MaxWarnFree"/>
-
 <a name="checkdrivesize_MaxCritFree"/>
-
 <a name="checkdrivesize_MinWarnFree"/>
-
 <a name="checkdrivesize_MinCritFree"/>
-
 <a name="checkdrivesize_MaxWarnUsed"/>
-
 <a name="checkdrivesize_MaxCritUsed"/>
-
 <a name="checkdrivesize_MinWarnUsed"/>
-
 <a name="checkdrivesize_MinCritUsed"/>
-
 <a name="checkdrivesize_options"/>
 #### Command-line Arguments
 
@@ -764,35 +610,23 @@ Legacy version of check_drivesize
 
 
 
-<a name="checkdrivesize_CheckAll"/>
-**CheckAll:**
+<h5 id="checkdrivesize_CheckAll">CheckAll:</h5>
 
 Checks all drives.
 
+*Default Value:* `true`
 
-*Default Value:* | `true`
-
-
-
-<a name="checkdrivesize_CheckAllOthers"/>
-**CheckAllOthers:**
+<h5 id="checkdrivesize_CheckAllOthers">CheckAllOthers:</h5>
 
 Checks all drives turns the drive option into an exclude option.
 
+*Default Value:* `true`
 
-*Default Value:* | `true`
-
-
-
-<a name="checkdrivesize_ShowAll"/>
-**ShowAll:**
+<h5 id="checkdrivesize_ShowAll">ShowAll:</h5>
 
 Configures display format (if set shows all items not only failures, if set to long shows all cores).
 
-
-*Default Value:* | `short`
-
-
+*Default Value:* `short`
 
 
 ### checkfiles
@@ -807,41 +641,23 @@ Legacy version of check_drivesize
 
 
 <a name="checkfiles_help"/>
-
 <a name="checkfiles_help-pb"/>
-
 <a name="checkfiles_show-default"/>
-
 <a name="checkfiles_help-short"/>
-
 <a name="checkfiles_syntax"/>
-
 <a name="checkfiles_master-syntax"/>
-
 <a name="checkfiles_path"/>
-
 <a name="checkfiles_pattern"/>
-
 <a name="checkfiles_alias"/>
-
 <a name="checkfiles_debug"/>
-
 <a name="checkfiles_max-dir-depth"/>
-
 <a name="checkfiles_filter"/>
-
 <a name="checkfiles_warn"/>
-
 <a name="checkfiles_crit"/>
-
 <a name="checkfiles_MaxWarn"/>
-
 <a name="checkfiles_MaxCrit"/>
-
 <a name="checkfiles_MinWarn"/>
-
 <a name="checkfiles_MinCrit"/>
-
 <a name="checkfiles_options"/>
 #### Command-line Arguments
 

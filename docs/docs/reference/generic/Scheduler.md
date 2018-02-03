@@ -7,39 +7,27 @@ Use this to schedule check commands and jobs in conjunction with for instance pa
 
 
 
-
-**Configuration Keys:**
-
-
-
-    
-    
-| Path / Section                              | Key                                     | Description |
-|---------------------------------------------|-----------------------------------------|-------------|
-| [/settings/scheduler](#/settings/scheduler) | [threads](#/settings/scheduler_threads) | Threads     |
-
-
-| Path / Section                                                  | Description |
-|-----------------------------------------------------------------|-------------|
-| [/settings/scheduler/schedules](#/settings/scheduler/schedules) | Schedules   |
-
-
-
-
-
 ## Configuration
 
-<a name="/settings/scheduler"/>
-### Scheduler
+
+
+| Path / Section                              | Description |
+|---------------------------------------------|-------------|
+| [/settings/scheduler](#scheduler)           | Scheduler   |
+| [/settings/scheduler/schedules](#schedules) | Schedules   |
+
+
+
+### Scheduler <a id="/settings/scheduler"/>
 
 Section for the Scheduler module.
 
 
 
 
-| Key                                     | Default Value | Description |
-|-----------------------------------------|---------------|-------------|
-| [threads](#/settings/scheduler_threads) | 5             | Threads     |
+| Key                 | Default Value | Description |
+|---------------------|---------------|-------------|
+| [threads](#threads) | 5             | Threads     |
 
 
 
@@ -53,9 +41,8 @@ threads=5
 
 
 
-<a name="/settings/scheduler_threads"/>
 
-**Threads**
+#### Threads <a id="/settings/scheduler/threads"></a>
 
 Number of threads to use.
 
@@ -80,8 +67,7 @@ threads=5
 ```
 
 
-<a name="/settings/scheduler/schedules"/>
-### Schedules
+### Schedules <a id="/settings/scheduler/schedules"/>
 
 Section for the Scheduler module.
 

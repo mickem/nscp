@@ -26,66 +26,9 @@ There is an extensive guide on using external scripts with NSClient++ [here](../
 
 
 
-
-**List of command aliases:**
-
-A list of all short hand aliases for queries (check commands)
-
-
-| Command               | Description                         |
-|-----------------------|-------------------------------------|
-| alias_cpu             | Alias for: :query:`check_cpu`       |
-| alias_cpu_ex          | Alias for: :query:`check_cpu`       |
-| alias_disk            | Alias for: :query:`check_drivesize` |
-| alias_disk_loose      | Alias for: :query:`check_drivesize` |
-| alias_event_log       | Alias for: :query:`check_eventlog`  |
-| alias_file_age        | Alias for: :query:`check_files`     |
-| alias_file_size       | Alias for: :query:`check_files`     |
-| alias_mem             | Alias for: :query:`check_memory`    |
-| alias_process         | Alias for: :query:`check_process`   |
-| alias_process_count   | Alias for: :query:`check_process`   |
-| alias_process_hung    | Alias for: :query:`check_process`   |
-| alias_process_stopped | Alias for: :query:`check_process`   |
-| alias_sched_all       | Alias for: :query:`check_tasksched` |
-| alias_sched_long      | Alias for: :query:`check_tasksched` |
-| alias_sched_task      | Alias for: :query:`check_tasksched` |
-| alias_service         | Alias for: :query:`check_service`   |
-| alias_service_ex      | Alias for: :query:`check_service`   |
-| alias_up              | Alias for: :query:`check_uptime`    |
-| alias_volumes         | Alias for: :query:`check_drivesize` |
-| alias_volumes_loose   | Alias for: :query:`check_drivesize` |
-
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-    
-    
-| Path / Section                                            | Key                                                                          | Description                                                 |
-|-----------------------------------------------------------|------------------------------------------------------------------------------|-------------------------------------------------------------|
-| [/settings/external scripts](#/settings/external scripts) | [allow arguments](#/settings/external scripts_allow arguments)               | Allow arguments when executing external scripts             |
-| [/settings/external scripts](#/settings/external scripts) | [allow nasty characters](#/settings/external scripts_allow nasty characters) | Allow certain potentially dangerous characters in arguments |
-| [/settings/external scripts](#/settings/external scripts) | [script path](#/settings/external scripts_script path)                       | Load all scripts in a given folder                          |
-| [/settings/external scripts](#/settings/external scripts) | [script root](#/settings/external scripts_script root)                       | Script root folder                                          |
-| [/settings/external scripts](#/settings/external scripts) | [timeout](#/settings/external scripts_timeout)                               | Command timeout                                             |
-
-
-| Path / Section                                                                            | Description      |
-|-------------------------------------------------------------------------------------------|------------------|
-| [/settings/external scripts/alias](#/settings/external scripts/alias)                     | Command aliases  |
-| [/settings/external scripts/scripts](#/settings/external scripts/scripts)                 | External scripts |
-| [/settings/external scripts/wrapped scripts](#/settings/external scripts/wrapped scripts) | Wrapped scripts  |
-| [/settings/external scripts/wrappings](#/settings/external scripts/wrappings)             | Script wrappings |
-
-
-
 ## Samples
 
-_Feel free to add more samples [on this page](https://github.com/mickem/docs/blob/master/docs/samples/CheckExternalScripts_samples.md)_
+_Feel free to add more samples [on this page](https://github.com/mickem/nscp/blob/master/docs/samples/CheckExternalScripts_samples.md)_
 
 ### Adding a simple script
 
@@ -180,21 +123,32 @@ The draw back to this is that the script cannot return any output neither messag
 
 ## Configuration
 
-<a name="/settings/external scripts"/>
-### External script settings
+
+
+| Path / Section                                                 | Description              |
+|----------------------------------------------------------------|--------------------------|
+| [/settings/external scripts](#external-script-settings)        | External script settings |
+| [/settings/external scripts/alias](#command-aliases)           | Command aliases          |
+| [/settings/external scripts/scripts](#external-scripts)        | External scripts         |
+| [/settings/external scripts/wrapped scripts](#wrapped-scripts) | Wrapped scripts          |
+| [/settings/external scripts/wrappings](#script-wrappings)      | Script wrappings         |
+
+
+
+### External script settings <a id="/settings/external scripts"/>
 
 General settings for the external scripts module (CheckExternalScripts).
 
 
 
 
-| Key                                                                          | Default Value | Description                                                 |
-|------------------------------------------------------------------------------|---------------|-------------------------------------------------------------|
-| [allow arguments](#/settings/external scripts_allow arguments)               | false         | Allow arguments when executing external scripts             |
-| [allow nasty characters](#/settings/external scripts_allow nasty characters) | false         | Allow certain potentially dangerous characters in arguments |
-| [script path](#/settings/external scripts_script path)                       |               | Load all scripts in a given folder                          |
-| [script root](#/settings/external scripts_script root)                       | ${scripts}    | Script root folder                                          |
-| [timeout](#/settings/external scripts_timeout)                               | 60            | Command timeout                                             |
+| Key                                                                                    | Default Value | Description                                                 |
+|----------------------------------------------------------------------------------------|---------------|-------------------------------------------------------------|
+| [allow arguments](#allow-arguments-when-executing-external-scripts)                    | false         | Allow arguments when executing external scripts             |
+| [allow nasty characters](#allow-certain-potentially-dangerous-characters-in-arguments) | false         | Allow certain potentially dangerous characters in arguments |
+| [script path](#load-all-scripts-in-a-given-folder)                                     |               | Load all scripts in a given folder                          |
+| [script root](#script-root-folder)                                                     | ${scripts}    | Script root folder                                          |
+| [timeout](#command-timeout)                                                            | 60            | Command timeout                                             |
 
 
 
@@ -211,9 +165,8 @@ timeout=60
 
 
 
-<a name="/settings/external scripts_allow arguments"/>
 
-**Allow arguments when executing external scripts**
+#### Allow arguments when executing external scripts <a id="/settings/external scripts/allow arguments"></a>
 
 This option determines whether or not the we will allow clients to specify arguments to commands that are executed.
 
@@ -238,9 +191,8 @@ allow arguments=false
 ```
 
 
-<a name="/settings/external scripts_allow nasty characters"/>
 
-**Allow certain potentially dangerous characters in arguments**
+#### Allow certain potentially dangerous characters in arguments <a id="/settings/external scripts/allow nasty characters"></a>
 
 This option determines whether or not the we will allow clients to specify nasty (as in \|\`&><'"\\[]{}) characters in arguments.
 
@@ -265,9 +217,8 @@ allow nasty characters=false
 ```
 
 
-<a name="/settings/external scripts_script path"/>
 
-**Load all scripts in a given folder**
+#### Load all scripts in a given folder <a id="/settings/external scripts/script path"></a>
 
 Load all scripts in a given directory and use them as commands.
 
@@ -293,9 +244,8 @@ script path=
 ```
 
 
-<a name="/settings/external scripts_script root"/>
 
-**Script root folder**
+#### Script root folder <a id="/settings/external scripts/script root"></a>
 
 Root path where all scripts are contained (You can not upload/download scripts outside this folder).
 
@@ -320,9 +270,8 @@ script root=${scripts}
 ```
 
 
-<a name="/settings/external scripts_timeout"/>
 
-**Command timeout**
+#### Command timeout <a id="/settings/external scripts/timeout"></a>
 
 The maximum time in seconds that a command can execute. (if more then this execution will be aborted). NOTICE this only affects external commands not internal ones.
 
@@ -347,8 +296,7 @@ timeout=60
 ```
 
 
-<a name="/settings/external scripts/alias"/>
-### Command aliases
+### Command aliases <a id="/settings/external scripts/alias"/>
 
 A list of aliases for already defined commands (with arguments).
 An alias is an internal command that has been predefined to provide a single command without arguments. Be careful so you don't create loops (ie check_loop=check_a, check_a=check_loop)
@@ -411,8 +359,7 @@ parent=default
 
 
 
-<a name="/settings/external scripts/scripts"/>
-### External scripts
+### External scripts <a id="/settings/external scripts/scripts"/>
 
 A list of scripts available to run from the CheckExternalScripts module. Syntax is: `command=script arguments`
 
@@ -464,8 +411,7 @@ parent=default
 
 
 
-<a name="/settings/external scripts/wrapped scripts"/>
-### Wrapped scripts
+### Wrapped scripts <a id="/settings/external scripts/wrapped scripts"/>
 
 A list of wrapped scripts (ie. script using a template mechanism).
 The template used will be defined by the extension of the script. Thus a foo.ps1 will use the ps1 wrapping from the wrappings section.
@@ -478,8 +424,7 @@ This is a section of objects. This means that you will create objects below this
 
 
 
-<a name="/settings/external scripts/wrappings"/>
-### Script wrappings
+### Script wrappings <a id="/settings/external scripts/wrappings"/>
 
 A list of templates for defining script commands.
 Enter any command line here and they will be expanded by scripts placed under the wrapped scripts section. %SCRIPT% will be replaced by the actual script an %ARGS% will be replaced by any given arguments.

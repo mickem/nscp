@@ -4,46 +4,10 @@ Check for errors and warnings in the event log.
 
 
 
-**List of commands:**
-
-A list of all available queries (check commands)
-
-| Command                           | Description                        |
-|-----------------------------------|------------------------------------|
-| [check_eventlog](#check_eventlog) | Check for errors in the event log. |
-| [checkeventlog](#checkeventlog)   | Legacy version of check_eventlog   |
-
-
-
-
-**Configuration Keys:**
-
-
-
-    
-    
-    
-| Path / Section                                                | Key                                                      | Description        |
-|---------------------------------------------------------------|----------------------------------------------------------|--------------------|
-| [/settings/eventlog](#/settings/eventlog)                     | [buffer size](#/settings/eventlog_buffer size)           | BUFFER_SIZE        |
-| [/settings/eventlog](#/settings/eventlog)                     | [debug](#/settings/eventlog_debug)                       | DEBUG              |
-| [/settings/eventlog](#/settings/eventlog)                     | [lookup names](#/settings/eventlog_lookup names)         | LOOKUP NAMES       |
-| [/settings/eventlog](#/settings/eventlog)                     | [syntax](#/settings/eventlog_syntax)                     | SYNTAX             |
-| [/settings/eventlog/real-time](#/settings/eventlog/real-time) | [debug](#/settings/eventlog/real-time_debug)             | DEBUG              |
-| [/settings/eventlog/real-time](#/settings/eventlog/real-time) | [enabled](#/settings/eventlog/real-time_enabled)         | REAL TIME CHECKING |
-| [/settings/eventlog/real-time](#/settings/eventlog/real-time) | [log](#/settings/eventlog/real-time_log)                 | LOGS TO CHECK      |
-| [/settings/eventlog/real-time](#/settings/eventlog/real-time) | [startup age](#/settings/eventlog/real-time_startup age) | STARTUP AGE        |
-
-
-| Path / Section                                                                | Description       |
-|-------------------------------------------------------------------------------|-------------------|
-| [/settings/eventlog/real-time/filters](#/settings/eventlog/real-time/filters) | Real-time filters |
-
-
 
 ## Samples
 
-_Feel free to add more samples [on this page](https://github.com/mickem/docs/blob/master/docs/samples/CheckEventLog_samples.md)_
+_Feel free to add more samples [on this page](https://github.com/mickem/nscp/blob/master/docs/samples/CheckEventLog_samples.md)_
 
 ### Monitoring event-log
 
@@ -239,6 +203,18 @@ If we check the log we should see something similar to this:
 
 A quick reference for all available queries (check commands) in the CheckEventLog module.
 
+**List of commands:**
+
+A list of all available queries (check commands)
+
+| Command                           | Description                        |
+|-----------------------------------|------------------------------------|
+| [check_eventlog](#check_eventlog) | Check for errors in the event log. |
+| [checkeventlog](#checkeventlog)   | Legacy version of check_eventlog   |
+
+
+
+
 ### check_eventlog
 
 Check for errors in the event log.
@@ -252,27 +228,16 @@ Check for errors in the event log.
 
 
 <a name="check_eventlog_warn"/>
-
 <a name="check_eventlog_crit"/>
-
 <a name="check_eventlog_debug"/>
-
 <a name="check_eventlog_show-all"/>
-
 <a name="check_eventlog_escape-html"/>
-
 <a name="check_eventlog_help"/>
-
 <a name="check_eventlog_help-pb"/>
-
 <a name="check_eventlog_show-default"/>
-
 <a name="check_eventlog_help-short"/>
-
 <a name="check_eventlog_log"/>
-
 <a name="check_eventlog_truncate-message"/>
-
 <a name="check_eventlog_options"/>
 #### Command-line Arguments
 
@@ -308,211 +273,151 @@ Check for errors in the event log.
 
 
 
-<a name="check_eventlog_filter"/>
-**filter:**
+<h5 id="check_eventlog_filter">filter:</h5>
 
 Filter which marks interesting items.
 Interesting items are items which will be included in the check.
 They do not denote warning or critical state instead it defines which items are relevant and you can remove unwanted items.
 
+*Default Value:* `level in ('warning', 'error', 'critical')`
 
-*Default Value:* | `level in ('warning', 'error', 'critical')`
-
-
-
-<a name="check_eventlog_warning"/>
-**warning:**
+<h5 id="check_eventlog_warning">warning:</h5>
 
 Filter which marks items which generates a warning state.
 If anything matches this filter the return status will be escalated to warning.
 
 
+*Default Value:* `level = 'warning', problem_count > 0`
 
-*Default Value:* | `level = 'warning', problem_count > 0`
-
-
-
-<a name="check_eventlog_critical"/>
-**critical:**
+<h5 id="check_eventlog_critical">critical:</h5>
 
 Filter which marks items which generates a critical state.
 If anything matches this filter the return status will be escalated to critical.
 
 
+*Default Value:* `level in ('error', 'critical')`
 
-*Default Value:* | `level in ('error', 'critical')`
-
-
-
-<a name="check_eventlog_ok"/>
-**ok:**
+<h5 id="check_eventlog_ok">ok:</h5>
 
 Filter which marks items which generates an ok state.
 If anything matches this any previous state for this item will be reset to ok.
 
 
 
-
-
-
-<a name="check_eventlog_empty-state"/>
-**empty-state:**
+<h5 id="check_eventlog_empty-state">empty-state:</h5>
 
 Return status to use when nothing matched filter.
 If no filter is specified this will never happen unless the file is empty.
 
+*Default Value:* `ok`
 
-*Default Value:* | `ok`
-
-
-
-<a name="check_eventlog_perf-config"/>
-**perf-config:**
+<h5 id="check_eventlog_perf-config">perf-config:</h5>
 
 Performance data generation configuration
 TODO: obj ( key: value; key: value) obj (key:valuer;key:value)
 
+*Default Value:* `level(ignored:true)`
 
-*Default Value:* | `level(ignored:true)`
-
-
-
-<a name="check_eventlog_unique-index"/>
-**unique-index:**
+<h5 id="check_eventlog_unique-index">unique-index:</h5>
 
 Unique syntax.
 Used to filter unique items (counted will still increase but messages will not repeated)
 
 
-
-
-
-<a name="check_eventlog_top-syntax"/>
-**top-syntax:**
+<h5 id="check_eventlog_top-syntax">top-syntax:</h5>
 
 Top level syntax.
 Used to format the message to return can include text as well as special keywords which will include information from the checks.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${status}: ${count} message(s) ${problem_list}`
 
-*Default Value:* | `${status}: ${count} message(s) ${problem_list}`
-
-
-
-<a name="check_eventlog_ok-syntax"/>
-**ok-syntax:**
+<h5 id="check_eventlog_ok-syntax">ok-syntax:</h5>
 
 ok syntax.
 DEPRECATED! This is the syntax for when an ok result is returned.
 This value will not be used if your syntax contains %(list) or %(count).
 
+*Default Value:* `%(status): Event log seems fine`
 
-*Default Value:* | `%(status): Event log seems fine`
-
-
-
-<a name="check_eventlog_empty-syntax"/>
-**empty-syntax:**
+<h5 id="check_eventlog_empty-syntax">empty-syntax:</h5>
 
 Empty syntax.
 DEPRECATED! This is the syntax for when nothing matches the filter.
 
+*Default Value:* `%(status): No entries found`
 
-*Default Value:* | `%(status): No entries found`
-
-
-
-<a name="check_eventlog_detail-syntax"/>
-**detail-syntax:**
+<h5 id="check_eventlog_detail-syntax">detail-syntax:</h5>
 
 Detail level syntax.
 Used to format each resulting item in the message.
 %(list) will be replaced with all the items formated by this syntax string in the top-syntax.
 To add a keyword to the message you can use two syntaxes either ${keyword} or %(keyword) (there is no difference between them apart from ${} can be difficult to excpae on linux).
 
+*Default Value:* `${file} ${source} (${message})`
 
-*Default Value:* | `${file} ${source} (${message})`
-
-
-
-<a name="check_eventlog_perf-syntax"/>
-**perf-syntax:**
+<h5 id="check_eventlog_perf-syntax">perf-syntax:</h5>
 
 Performance alias syntax.
 This is the syntax for the base names of the performance data.
 
+*Default Value:* `${file}_${source}`
 
-*Default Value:* | `${file}_${source}`
-
-
-
-<a name="check_eventlog_file"/>
-**file:**
+<h5 id="check_eventlog_file">file:</h5>
 
 File to read (can be specified multiple times to check multiple files.
 Notice that specifying multiple files will create an aggregate set you will not check each file individually.In other words if one file contains an error the entire check will result in error.
 
 
-
-
-
-<a name="check_eventlog_scan-range"/>
-**scan-range:**
+<h5 id="check_eventlog_scan-range">scan-range:</h5>
 
 Date range to scan.
 A negative value scans backward (historical events) and a positive value scans forwards (future events). This is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.
 
 
-
-
-
-<a name="check_eventlog_unique"/>
-**unique:**
+<h5 id="check_eventlog_unique">unique:</h5>
 
 Shorthand for setting default unique index: ${log}-${source}-${id}.
 
-
-*Default Value:* | `1`
-
-
+*Default Value:* `1`
 
 
 <a name="check_eventlog_filter_keys"/>
 #### Filter keywords
 
 
-| Option                                         | Description                                                                                                  |
-|------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [category](#check_eventlog_category)           | TODO                                                                                                         |
-| [computer](#check_eventlog_computer)           | Which computer generated the message                                                                         |
-| [count](#check_eventlog_count)                 | Number of items matching the filter. Common option for all checks.                                           |
-| [crit_count](#check_eventlog_crit_count)       | Number of items matched the critical criteria. Common option for all checks.                                 |
-| [crit_list](#check_eventlog_crit_list)         | A list of all items which matched the critical criteria. Common option for all checks.                       |
-| [customer](#check_eventlog_customer)           | TODO                                                                                                         |
-| [detail_list](#check_eventlog_detail_list)     | A special list with critical, then warning and finally ok. Common option for all checks.                     |
-| [file](#check_eventlog_file)                   | The logfile name                                                                                             |
-| [guid](#check_eventlog_guid)                   | The logfile name                                                                                             |
-| [id](#check_eventlog_id)                       | Eventlog id                                                                                                  |
-| [keyword](#check_eventlog_keyword)             | The keyword associated with this event                                                                       |
-| [level](#check_eventlog_level)                 | Severity level (error, warning, info, success, auditSucess, auditFailure)                                    |
-| [list](#check_eventlog_list)                   | A list of all items which matched the filter. Common option for all checks.                                  |
-| [log](#check_eventlog_log)                     | alias for file                                                                                               |
-| [message](#check_eventlog_message)             | The message rendered as a string.                                                                            |
-| [ok_count](#check_eventlog_ok_count)           | Number of items matched the ok criteria. Common option for all checks.                                       |
-| [ok_list](#check_eventlog_ok_list)             | A list of all items which matched the ok criteria. Common option for all checks.                             |
-| [problem_count](#check_eventlog_problem_count) | Number of items matched either warning or critical criteria. Common option for all checks.                   |
-| [problem_list](#check_eventlog_problem_list)   | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
-| [provider](#check_eventlog_provider)           | Source system.                                                                                               |
-| [rawid](#check_eventlog_rawid)                 | Raw message id (contains many other fields all baked into a single number)                                   |
-| [source](#check_eventlog_source)               | Source system.                                                                                               |
-| [status](#check_eventlog_status)               | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
-| [task](#check_eventlog_task)                   | The type of event (task)                                                                                     |
-| [total](#check_eventlog_total)                 | Total number of items. Common option for all checks.                                                         |
-| [type](#check_eventlog_type)                   | alias for level (old, deprecated)                                                                            |
-| [warn_count](#check_eventlog_warn_count)       | Number of items matched the warning criteria. Common option for all checks.                                  |
-| [warn_list](#check_eventlog_warn_list)         | A list of all items which matched the warning criteria. Common option for all checks.                        |
-| [written](#check_eventlog_written)             | When the message was written to file                                                                         |
-| [xml](#check_eventlog_xml)                     | Get event as XML message.                                                                                    |
+| Option        | Description                                                                                                  |
+|---------------|--------------------------------------------------------------------------------------------------------------|
+| category      | TODO                                                                                                         |
+| computer      | Which computer generated the message                                                                         |
+| count         | Number of items matching the filter. Common option for all checks.                                           |
+| crit_count    | Number of items matched the critical criteria. Common option for all checks.                                 |
+| crit_list     | A list of all items which matched the critical criteria. Common option for all checks.                       |
+| customer      | TODO                                                                                                         |
+| detail_list   | A special list with critical, then warning and finally ok. Common option for all checks.                     |
+| file          | The logfile name                                                                                             |
+| guid          | The logfile name                                                                                             |
+| id            | Eventlog id                                                                                                  |
+| keyword       | The keyword associated with this event                                                                       |
+| level         | Severity level (error, warning, info, success, auditSucess, auditFailure)                                    |
+| list          | A list of all items which matched the filter. Common option for all checks.                                  |
+| log           | alias for file                                                                                               |
+| message       | The message rendered as a string.                                                                            |
+| ok_count      | Number of items matched the ok criteria. Common option for all checks.                                       |
+| ok_list       | A list of all items which matched the ok criteria. Common option for all checks.                             |
+| problem_count | Number of items matched either warning or critical criteria. Common option for all checks.                   |
+| problem_list  | A list of all items which matched either the critical or the warning criteria. Common option for all checks. |
+| provider      | Source system.                                                                                               |
+| rawid         | Raw message id (contains many other fields all baked into a single number)                                   |
+| source        | Source system.                                                                                               |
+| status        | The returned status (OK/WARN/CRIT/UNKNOWN). Common option for all checks.                                    |
+| task          | The type of event (task)                                                                                     |
+| total         | Total number of items. Common option for all checks.                                                         |
+| type          | alias for level (old, deprecated)                                                                            |
+| warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
+| warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
+| written       | When the message was written to file                                                                         |
+| xml           | Get event as XML message.                                                                                    |
 
 
 ### checkeventlog
@@ -527,33 +432,19 @@ Legacy version of check_eventlog
 
 
 <a name="checkeventlog_help"/>
-
 <a name="checkeventlog_help-pb"/>
-
 <a name="checkeventlog_show-default"/>
-
 <a name="checkeventlog_help-short"/>
-
 <a name="checkeventlog_MaxWarn"/>
-
 <a name="checkeventlog_MaxCrit"/>
-
 <a name="checkeventlog_MinWarn"/>
-
 <a name="checkeventlog_MinCrit"/>
-
 <a name="checkeventlog_warn"/>
-
 <a name="checkeventlog_crit"/>
-
 <a name="checkeventlog_filter"/>
-
 <a name="checkeventlog_file"/>
-
 <a name="checkeventlog_truncate"/>
-
 <a name="checkeventlog_scan-range"/>
-
 <a name="checkeventlog_options"/>
 #### Command-line Arguments
 
@@ -582,75 +473,64 @@ Legacy version of check_eventlog
 
 
 
-<a name="checkeventlog_debug"/>
-**debug:**
+<h5 id="checkeventlog_debug">debug:</h5>
 
 The file to check
 
+*Default Value:* `1`
 
-*Default Value:* | `1`
-
-
-
-<a name="checkeventlog_descriptions"/>
-**descriptions:**
+<h5 id="checkeventlog_descriptions">descriptions:</h5>
 
 Deprecated and has no meaning
 
+*Default Value:* `1`
 
-*Default Value:* | `1`
-
-
-
-<a name="checkeventlog_unique"/>
-**unique:**
+<h5 id="checkeventlog_unique">unique:</h5>
 
 
 
+*Default Value:* `1`
 
-*Default Value:* | `1`
-
-
-
-<a name="checkeventlog_syntax"/>
-**syntax:**
+<h5 id="checkeventlog_syntax">syntax:</h5>
 
 The syntax string
 
+*Default Value:* `%source%, %strings%`
 
-*Default Value:* | `%source%, %strings%`
-
-
-
-<a name="checkeventlog_top-syntax"/>
-**top-syntax:**
+<h5 id="checkeventlog_top-syntax">top-syntax:</h5>
 
 The top level syntax string
 
-
-*Default Value:* | `${list}`
-
-
+*Default Value:* `${list}`
 
 
 
 
 ## Configuration
 
-<a name="/settings/eventlog"/>
-### Eventlog configuration
+
+
+| Path / Section                                             | Description            |
+|------------------------------------------------------------|------------------------|
+| [/settings/eventlog](#eventlog-configuration)              | Eventlog configuration |
+| [/settings/eventlog/real-time](#real-time-monitoring)      | Real-time monitoring   |
+| [/settings/eventlog/real-time/filters](#real-time-filters) | Real-time filters      |
+
+
+
+### Eventlog configuration <a id="/settings/eventlog"/>
 
 Section for the EventLog Checker (CheckEventLog.dll).
 
 
 
 
-| Key                                              | Default Value | Description  |
-|--------------------------------------------------|---------------|--------------|
-| [buffer size](#/settings/eventlog_buffer size)   | 131072        | BUFFER_SIZE  |
-| [debug](#/settings/eventlog_debug)               | false         | DEBUG        |
-| [lookup names](#/settings/eventlog_lookup names) | true          | LOOKUP NAMES |
-| [syntax](#/settings/eventlog_syntax)             |               | SYNTAX       |
+| Key                           | Default Value | Description  |
+|-------------------------------|---------------|--------------|
+| [buffer size](#buffer_size)   | 131072        | BUFFER_SIZE  |
+| [debug](#debug)               | false         | DEBUG        |
+| [lookup names](#lookup-names) | true          | LOOKUP NAMES |
+| [syntax](#syntax)             |               | SYNTAX       |
 
 
 
@@ -666,9 +546,8 @@ lookup names=true
 
 
 
-<a name="/settings/eventlog_buffer size"/>
 
-**BUFFER_SIZE**
+#### BUFFER_SIZE <a id="/settings/eventlog/buffer size"></a>
 
 The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.
 
@@ -693,9 +572,8 @@ buffer size=131072
 ```
 
 
-<a name="/settings/eventlog_debug"/>
 
-**DEBUG**
+#### DEBUG <a id="/settings/eventlog/debug"></a>
 
 Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -720,9 +598,8 @@ debug=false
 ```
 
 
-<a name="/settings/eventlog_lookup names"/>
 
-**LOOKUP NAMES**
+#### LOOKUP NAMES <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
 
@@ -747,9 +624,8 @@ lookup names=true
 ```
 
 
-<a name="/settings/eventlog_syntax"/>
 
-**SYNTAX**
+#### SYNTAX <a id="/settings/eventlog/syntax"></a>
 
 Set this to use a specific syntax string for all commands (that don't specify one).
 
@@ -775,20 +651,19 @@ syntax=
 ```
 
 
-<a name="/settings/eventlog/real-time"/>
-### Real-time monitoring
+### Real-time monitoring <a id="/settings/eventlog/real-time"/>
 
 A set of options to configure the real time checks
 
 
 
 
-| Key                                                      | Default Value      | Description        |
-|----------------------------------------------------------|--------------------|--------------------|
-| [debug](#/settings/eventlog/real-time_debug)             | false              | DEBUG              |
-| [enabled](#/settings/eventlog/real-time_enabled)         | false              | REAL TIME CHECKING |
-| [log](#/settings/eventlog/real-time_log)                 | application,system | LOGS TO CHECK      |
-| [startup age](#/settings/eventlog/real-time_startup age) | 30m                | STARTUP AGE        |
+| Key                            | Default Value      | Description        |
+|--------------------------------|--------------------|--------------------|
+| [debug](#debug)                | false              | DEBUG              |
+| [enabled](#real-time-checking) | false              | REAL TIME CHECKING |
+| [log](#logs-to-check)          | application,system | LOGS TO CHECK      |
+| [startup age](#startup-age)    | 30m                | STARTUP AGE        |
 
 
 
@@ -805,9 +680,8 @@ startup age=30m
 
 
 
-<a name="/settings/eventlog/real-time_debug"/>
 
-**DEBUG**
+#### DEBUG <a id="/settings/eventlog/real-time/debug"></a>
 
 Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -832,9 +706,8 @@ debug=false
 ```
 
 
-<a name="/settings/eventlog/real-time_enabled"/>
 
-**REAL TIME CHECKING**
+#### REAL TIME CHECKING <a id="/settings/eventlog/real-time/enabled"></a>
 
 Spawns a background thread which detects issues and reports them back instantly.
 
@@ -859,9 +732,8 @@ enabled=false
 ```
 
 
-<a name="/settings/eventlog/real-time_log"/>
 
-**LOGS TO CHECK**
+#### LOGS TO CHECK <a id="/settings/eventlog/real-time/log"></a>
 
 Comma separated list of logs to check
 
@@ -886,9 +758,8 @@ log=application,system
 ```
 
 
-<a name="/settings/eventlog/real-time_startup age"/>
 
-**STARTUP AGE**
+#### STARTUP AGE <a id="/settings/eventlog/real-time/startup age"></a>
 
 The initial age to scan when starting NSClient++
 
@@ -913,8 +784,7 @@ startup age=30m
 ```
 
 
-<a name="/settings/eventlog/real-time/filters"/>
-### Real-time filters
+### Real-time filters <a id="/settings/eventlog/real-time/filters"/>
 
 A set of filters to use in real-time mode
 

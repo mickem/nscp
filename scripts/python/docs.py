@@ -19,7 +19,19 @@ module_template = u"""# {{module.key}}
 {{ module.ext_desc}}
 {%- endif %}
 
+{% if module.sample %}
+## Samples
+
+_Feel free to add more samples [on this page](https://github.com/mickem/nscp/blob/master/docs/{{module.sample_source}})_
+
+{{module.sample}}
+
+{%- endif %}
 {% if module.queries -%}
+
+## Queries
+
+A quick reference for all available queries (check commands) in the {{module.key}} module.
 
 **List of commands:**
 
@@ -37,7 +49,6 @@ A list of all available queries (check commands)
     {%- endif %}
 {%- endfor %}
 {{table|rst_table('Command', 'Description')}}
-{%- endif %}
 
 {% if module.aliases -%}
 **List of command aliases:**
@@ -58,62 +69,6 @@ A list of all short hand aliases for queries (check commands)
 {%- endfor %}
 {{table|rst_table('Command', 'Description')}}
 {%- endif %}
-
-{% if module.paths -%}
-**Configuration Keys:**
-
-{% set table = [] -%}
-{% set has_paths = [] -%}
-{% set paths = [] -%}
-{% for pk,path in module.paths|dictsort  -%}
-    {% set pkey = path.key|md_self_link -%}
-    {% for k,key in path.keys|dictsort  -%}
-        {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
-        {% if key.info.sample -%}
-        {%- elif key.info.advanced -%}
-        {%- else -%}
-            {% do has_paths.append(pk) -%}
-            {% do table.append([pkey, kkey, key.info.title|firstline]) -%}
-        {%- endif %}
-    {%- endfor %}
-{%- endfor %}
-{% for pk,path in module.paths|dictsort  -%}
-    {% set pkey = path.key|md_self_link -%}
-    {% for k,key in path.keys|dictsort  -%}
-        {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
-        {% if key.info.sample -%}
-        {%- elif key.info.advanced -%}
-            {% do has_paths.append(pk) -%}
-            {% do table.append([pkey, kkey, key.info.title|firstline]) -%}
-        {%- else -%}
-        {%- endif %}
-    {%- endfor %}
-    {% if pk not in has_paths -%}
-        {% do paths.append([pkey, path.info.title|firstline]) -%}
-    {%- endif %}
-{%- endfor %}
-{% if table -%}
-
-{{table|rst_table('Path / Section', 'Key', 'Description')}}
-
-{{paths|rst_table('Path / Section', 'Description')}}
-
-{%- endif %}
-{%- endif %}
-
-{% if module.sample %}
-## Samples
-
-_Feel free to add more samples [on this page](https://github.com/mickem/docs/blob/master/docs/{{module.sample_source}})_
-
-{{module.sample}}
-
-{%- endif %}
-{% if module.queries -%}
-
-## Queries
-
-A quick reference for all available queries (check commands) in the {{module.key}} module.
 
 {% for k,query in module.queries|dictsort -%}
 
@@ -139,8 +94,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {%- endif %}
 
 {% for help in query.params -%}{%- if help.is_simple %}
-<a name="{{help.name|md_prefix_lnk(query.key)}}"/>
-{% endif %}{%- endfor %}
+<a name="{{help.name|md_prefix_lnk(query.key)}}"/>{% endif %}{%- endfor %}
 <a name="{{"options"|md_prefix_lnk(query.key)}}"/>
 #### Command-line Arguments
 
@@ -157,16 +111,12 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {{table|rst_table('Option', 'Default Value', 'Description')}}
 
 {% for help in query.params -%}{%- if not help.is_simple %}
-<a name="{{help.name|md_prefix_lnk(query.key)}}"/>
-**{{help.name}}:**
+<h5 id="{{help.name|md_prefix_lnk(query.key)}}">{{help.name}}:</h5>
 
 {{help.long_description}}
-
 {% if help.default_value %}
-*Default Value:* | `{{help.default_value}}`
-{%- endif %}
-
-{{'\n'}}
+*Default Value:* `{{help.default_value}}`
+{%- endif %}{{'\n'}}
 {%- endif %}{%- endfor %}
 
 {% if query.fields -%}
@@ -175,7 +125,7 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 
 {% set table = [] -%}
 {% for help in query.fields -%}
-    {% do table.append([help.name|md_prefix_lnk(query.key)|md_self_link(help.name),help.long_description|firstline]) %}
+    {% do table.append([help.name,help.long_description|firstline]) %}
 {%- endfor %}
 {{table|rst_table('Option', 'Description')}}
 {{'\n'}}
@@ -187,9 +137,21 @@ _To edit these sample please edit [this page](https://github.com/mickem/nscp-doc
 {% if module.paths -%}
 ## Configuration
 
+{% set has_paths = [] -%}
+{% set paths = [] -%}
+{% for pk,path in module.paths|dictsort  -%}
+    {% set pkey = path.info.title|as_text|mkref|md_self_link(pk) -%}
+    {% if pk not in has_paths -%}
+        {% do has_paths.append(pk) -%}
+        {% do paths.append([pkey, path.info.title|firstline]) -%}
+    {%- endif %}
+{%- endfor %}
+
+{{paths|rst_table('Path / Section', 'Description')}}
+
+
 {% for pkey,path in module.paths|dictsort -%}
-<a name="{{path.key}}"/>
-### {% if path.info.title %}{{path.info.title}}{%else%}{{pkey}}{%endif%}
+### {% if path.info.title %}{{path.info.title}}{%else%}{{pkey}}{%endif%} <a id="{{path.key}}"/>
 
 {{path.info.description}}
 
@@ -231,7 +193,7 @@ This is a section of objects. This means that you will create objects below this
 {% set tbl = [] -%}
 {% set pkey = path.key|md_self_link -%}
 {% for k,key in path.keys|dictsort  -%}
-    {% set kkey = k|md_prefix_lnk(path.key)|md_self_link(k) -%}
+    {% set kkey = key.info.title|as_text|mkref|md_self_link(k) -%}
     {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
 {%- endfor %}
 {{tbl|rst_table('Key', 'Default Value', 'Description')}}
@@ -250,9 +212,8 @@ This is a section of objects. This means that you will create objects below this
 {% endif %}
 
 {% for kkey,key in path.keys|dictsort %}
-<a name="{{kkey|md_prefix_lnk(path.key)}}"/>
 
-**{{key.info.title|as_text}}**
+#### {{key.info.title|as_text}} <a id="{{kkey|md_conf_lnk(path.key)}}"></a>
 
 {{key.info.description|as_text}}
 
@@ -535,8 +496,10 @@ def make_md_code(name):
     return '`%s`'%name
 def make_md_prefix_lnk(value, prefix):
     return '%s_%s'%(prefix, value)
-def make_md_filter_lnk(value, prefix):
-    return '%s_flt_%s'%(prefix, value)
+def make_md_conf_lnk(value, prefix):
+    return '%s/%s'%(prefix, value)
+def mkref(value):
+    return value.lower().replace(" ", "-")
 
 def largest_value(a,b):
     return map(lambda n: n[0] if len(n[0])>len(n[1]) else n[1], zip(a, b))
@@ -768,7 +731,7 @@ class DocumentationHelper(object):
         env.filters['rst_link'] = make_rst_link
         env.filters['md_link'] = make_md_link
         env.filters['md_prefix_lnk'] = make_md_prefix_lnk
-        env.filters['md_filter_lnk'] = make_md_filter_lnk
+        env.filters['md_conf_lnk'] = make_md_conf_lnk
         env.filters['md_self_link'] = make_md_self_link
         env.filters['md_code'] = make_md_code
         env.filters['rst_table'] = render_rst_table
@@ -777,6 +740,7 @@ class DocumentationHelper(object):
         env.filters['block_pad'] = block_pad
         env.filters['common_head'] = calculate_common_head
         env.filters['as_text'] = as_text
+        env.filters['mkref'] = mkref
         
         for (module,minfo) in root.plugins.iteritems():
             out_base_path = '%s/docs/'%output_dir
