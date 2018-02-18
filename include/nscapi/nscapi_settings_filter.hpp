@@ -47,6 +47,7 @@ namespace nscapi {
 			NSCAPI::nagiosReturn severity;
 			std::string command;
 			boost::optional<boost::posix_time::time_duration> max_age;
+			boost::optional<boost::posix_time::time_duration> silent_period;
 			std::string target_id;
 			std::string source_id;
 			std::string timeout_msg;
@@ -76,6 +77,7 @@ namespace nscapi {
 				, severity(other.severity) 
 				, command(other.command)
 				, max_age(other.max_age)
+				, silent_period(other.silent_period)
 				, target_id(other.target_id)
 				, source_id(other.source_id)
 				, timeout_msg(other.timeout_msg)
@@ -113,6 +115,10 @@ namespace nscapi {
 			void set_max_age(std::string age) {
 				if (age != "none" && age != "infinite" && age != "false" && age != "off")
 					max_age = parse_time(age);
+			}
+			void set_silent_period(std::string age) {
+				if (age != "none" && age != "infinite" && age != "false" && age != "off")
+					silent_period = parse_time(age);
 			}
 
 			void read_object(nscapi::settings_helper::path_extension &path, const bool is_default);

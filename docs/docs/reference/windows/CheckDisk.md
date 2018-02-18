@@ -353,7 +353,7 @@ L        cli WARNING: WARNING: 0/1 files (AsChkDev.txt: 328)
 L        cli  Performance data: 'count'=1;0;0
 ```
 
-### Check file sizes
+#### Check file sizes
 
 ```
 check_files path=c:/windows pattern=*.txt "detail-syntax=%(filename): %(size)" "warn=size>20k" max-depth=1

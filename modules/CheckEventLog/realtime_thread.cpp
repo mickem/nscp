@@ -87,16 +87,12 @@ void real_time_thread::thread_proc() {
 	for (int i = 0; i < evlog_list.size(); i++) {
 		evlog_list[i]->notify(handles[i + 1]);
 	}
-	__time64_t ltime;
-
 	helper.touch_all();
 
 	unsigned int errors = 0;
 	while (true) {
 		bool has_errors = false;
 		filter_helper::op_duration dur = helper.find_minimum_timeout();
-
-		_time64(&ltime);
 
 		DWORD dwWaitTime = INFINITE;
 		if (dur && dur->total_milliseconds() < 0)
@@ -107,26 +103,35 @@ void real_time_thread::thread_proc() {
 		NSC_DEBUG_MSG("Sleeping for: " + str::xtos(dwWaitTime) + "ms");
 		DWORD dwWaitReason = WaitForMultipleObjects(static_cast<DWORD>(evlog_list.size() + 1), handles, FALSE, dwWaitTime);
 		if (dwWaitReason == WAIT_TIMEOUT) {
+			NSC_DEBUG_MSG_STD("No events detected looking for any ok events to send");
 			helper.process_no_items();
 		} else if (dwWaitReason == WAIT_OBJECT_0) {
 			delete[] handles;
 			return;
 		} else if (dwWaitReason > WAIT_OBJECT_0 && dwWaitReason <= (WAIT_OBJECT_0 + evlog_list.size())) {
 			int index = dwWaitReason - WAIT_OBJECT_0 - 1;
+			eventlog_type el = evlog_list[index];
 			try {
-				eventlog_type el = evlog_list[index];
 				NSC_DEBUG_MSG_STD("Detected action on: " + el->get_name());
 
 				for (boost::shared_ptr<eventlog_filter::filter_obj> item = el->read_record(handles[index + 1]);
 					item; item = el->read_record(handles[index + 1])) {
 					helper.process_items(item);
 				}
-				el->reset_event(handles[index + 1]);
 			} catch (const nsclient::nsclient_exception &e) {
 				NSC_LOG_ERROR("Failed to process eventlog: " + e.reason());
 				has_errors = true;
 			} catch (...) {
 				NSC_LOG_ERROR("Failed to process eventlog: UNKNOWN EXCEPTION");
+				has_errors = true;
+			}
+			try {
+				el->reset_event(handles[index + 1]);
+			} catch (const nsclient::nsclient_exception &e) {
+				NSC_LOG_ERROR("FATAL ERROR: Failed to process eventlog: " + e.reason());
+				has_errors = true;
+			} catch (...) {
+				NSC_LOG_ERROR("FATAL ERROR: Failed to process eventlog: UNKNOWN EXCEPTION");
 				has_errors = true;
 			}
 		} else {

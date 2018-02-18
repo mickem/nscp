@@ -57,6 +57,9 @@ namespace nscapi {
 				("maximum age", sh::string_fun_key(boost::bind(&filter_object::set_max_age, this, _1), "5m"),
 					"MAGIMUM AGE", "How long before reporting \"ok\".\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
 
+				("silent period", sh::string_fun_key(boost::bind(&filter_object::set_silent_period, this, _1), "false"),
+					"Silent period", "How long before a new alert is reported after an alert is reported. In other words whenever an alert is fired and a notification is sent the same notification will not be sent again until this period has ended.\nIf this is set to \"false\" no periodic ok messages will be reported only errors.")
+
 				("empty message", sh::string_key(&timeout_msg, "eventlog found no records"),
 					"EMPTY MESSAGE", "The message to display if nothing matches the filter (generally considered the ok state).", !is_default)
 
