@@ -138,6 +138,7 @@ namespace simple_scheduler {
 
 	void scheduler::watch_dog(int id) {
 		schedule_queue_type::value_type instance;
+		bool maximum_threads_reached = false;
 		while (!stop_requested_) {
 			try {
 				try {
@@ -145,10 +146,11 @@ namespace simple_scheduler {
 					if (instance) {
 						boost::posix_time::time_duration off = now() - (*instance).time;
 						if (off.total_seconds() > 5) {
-							if (thread_count_ < 10)
+							if (thread_count_ < 10) {
 								thread_count_++;
-							if (threads_.threadCount() > thread_count_) {
-								log_error(__FILE__, __LINE__, "Scheduler is overloading: " + str::xtos(instance->schedule_id) + " is " + str::xtos(off.total_seconds()) + " seconds slow");
+							}  else if (!maximum_threads_reached) {
+								log_error(__FILE__, __LINE__, "Auto-scaling of scheduler failed (maximum of 10 threads reached) you need to manually configure threads to reasolve items running slow");
+								maximum_threads_reached = true;
 							}
 						}
 					}
