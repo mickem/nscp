@@ -28,7 +28,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 // 		}
 		//NSC_LOG_ERROR("Rejected connection from: " + request.getRemoteIp());
 		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Your not allowed");
+		response.append("403 You're not allowed");
 		return false;
 	}
 	if (request.hasVariable(HTTP_HDR_AUTH)) {
@@ -37,7 +37,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 			str::utils::token token = str::utils::split2(decode_key(auth.substr(6)), ":");
 			if (!validate_user(token.first, token.second)) {
 				response.setCode(HTTP_FORBIDDEN);
-				response.append("403 Your not allowed");
+				response.append("403 You're not allowed");
 				return false;
 			}
 			setup_token(token.first, response);
@@ -53,7 +53,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
 			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 Your not allowed");
+			response.append("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
@@ -64,7 +64,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 		std::string fake_user = "admin";
 		if (!validate_user(fake_user, pwd)) {
 			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 Your not allowed");
+			response.append("403 You're not allowed");
 			return false;
 		}
 		setup_token(fake_user, response);
@@ -78,7 +78,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 	if (!token.empty()) {
 		if (!tokens.validate(token)) {
 			response.setCode(HTTP_FORBIDDEN);
-			response.append("403 Your not allowed");
+			response.append("403 You're not allowed");
 			return false;
 		}
 		return true;
@@ -114,12 +114,12 @@ bool session_manager_interface::can(std::string grant, Mongoose::Request & reque
 	std::string uid = response.getCookie("uid");
 	if (uid.empty()) {
 		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Your not allowed");
+		response.append("403 You're not allowed");
 		return false;
 	}
 	if (!tokens.can(uid, grant)) {
 		response.setCode(HTTP_FORBIDDEN);
-		response.append("403 Your not allowed");
+		response.append("403 You're not allowed");
 		return false;
 	}
 	return true;
