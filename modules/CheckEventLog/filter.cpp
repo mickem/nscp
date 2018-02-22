@@ -387,6 +387,7 @@ namespace eventlog_filter {
 			("provider", boost::bind(&filter_obj::get_provider, _1), "Source system.")
 			("task", boost::bind(&filter_obj::get_task, _1), "The type of event (task)")
 			("keyword", boost::bind(&filter_obj::get_keyword, _1), "The keyword associated with this event")
+			("written_str", boost::bind(&filter_obj::get_written_hs, _1), "When the message was written to file as an absolute date string")
 			;
 
 		registry_.add_int()
@@ -429,4 +430,12 @@ namespace eventlog_filter {
 				;
 		}
 	}
+
+	std::string filter_obj::get_written_hs() const {
+		long long time = get_written();
+		static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
+		boost::posix_time::ptime pt = epoch + boost::posix_time::seconds(time);
+		return boost::posix_time::to_iso_extended_string(pt);
+	}
+
 }

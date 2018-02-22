@@ -77,8 +77,9 @@ namespace eventlog_filter {
 		virtual bool is_modern() const = 0;
 		virtual std::string get_written_s() const {
 			unsigned long long time = get_written();
-			return str::format::itos_as_time((now_-time)*1000);
+			return str::format::itos_as_time((now_ - time) * 1000);
 		}
+		virtual std::string get_written_hs() const;
 		virtual std::string to_string() const = 0;
 	};
 

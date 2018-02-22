@@ -417,6 +417,7 @@ Shorthand for setting default unique index: ${log}-${source}-${id}.
 | warn_count    | Number of items matched the warning criteria. Common option for all checks.                                  |
 | warn_list     | A list of all items which matched the warning criteria. Common option for all checks.                        |
 | written       | When the message was written to file                                                                         |
+| written_str   | When the message was written to file as an absolute date string                                              |
 | xml           | Get event as XML message.                                                                                    |
 
 
