@@ -118,8 +118,11 @@ eventlog_filter::filter::object_type eventlog_wrapper_new::read_record(HANDLE &h
 		DWORD status = GetLastError();
 		if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT)
 			return eventlog_filter::filter::object_type();
-		else if (status != ERROR_SUCCESS)
+		else if (status != ERROR_SUCCESS) {
+			NSC_LOG_ERROR("Failed to read eventlog in real-time thread (resetting eventlog): " + error::lookup::last_error(status));
+			reset_event(handle);
 			return eventlog_filter::filter::object_type();
+		}
 	}
 	return eventlog_filter::filter::object_type(new eventlog_filter::new_filter_obj(ltime, name, hEvents[0], hContext, 0));
 }
