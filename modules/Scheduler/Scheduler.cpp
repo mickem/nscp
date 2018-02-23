@@ -198,6 +198,8 @@ void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		boost::uint64_t errors__ = scheduler_.get_scheduler().get_metric_errors();
 		boost::uint64_t threads = scheduler_.get_scheduler().get_metric_threads();
 		boost::uint64_t queue = scheduler_.get_scheduler().get_metric_ql();
+		boost::uint64_t avgtime = scheduler_.get_scheduler().get_avg_time();
+		boost::uint64_t rate = scheduler_.get_scheduler().get_metric_rate();
 
 		Plugin::Common::Metric *m = bundle->add_value();
 		m->set_key("jobs");
@@ -214,6 +216,12 @@ void Scheduler::fetchMetrics(Plugin::MetricsMessage::Response *response) {
 		m = bundle->add_value();
 		m->set_key("queue");
 		m->mutable_value()->set_int_data(queue);
+		m = bundle->add_value();
+		m->set_key("avgtime");
+		m->mutable_value()->set_int_data(avgtime);
+		m = bundle->add_value();
+		m->set_key("rate");
+		m->mutable_value()->set_int_data(rate);
 	} else {
 		Plugin::Common::Metric *m = bundle->add_value();
 		m->set_key("metrics.available");

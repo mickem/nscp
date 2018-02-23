@@ -187,6 +187,8 @@ namespace simple_scheduler {
 		int get_metric_executed() const;
 		int get_metric_compleated() const;
 		int get_metric_errors() const;
+		int get_avg_time() const;
+		int get_metric_rate() const;
 		std::size_t get_metric_threads() const;
 		std::size_t get_metric_ql();
 		bool has_metrics() const;
@@ -227,7 +229,7 @@ namespace simple_scheduler {
 				handler_->on_trace(file, line, err);
 		}
 
-		inline boost::posix_time::ptime now() {
+		inline boost::posix_time::ptime now() const {
 			return boost::get_system_time();
 		}
 	};

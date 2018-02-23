@@ -19,15 +19,17 @@
 
 #include <scheduler/simple_scheduler.hpp>
 
-#include <boost/bind.hpp>
 #include <utf8.hpp>
-
 #include <nscapi/macros.hpp>
+
+#include <boost/bind.hpp>
+#include <boost/date_time/gregorian/gregorian.hpp>
 
 #if BOOST_VERSION >= 105300
 #include <boost/interprocess/detail/atomic.hpp>
 #endif
 
+boost::posix_time::ptime time_t_epoch(boost::gregorian::date(1970, 1, 1));
 
 
 namespace simple_scheduler {
@@ -37,13 +39,28 @@ namespace simple_scheduler {
 	volatile boost::uint32_t metric_executed = 0;
 	volatile boost::uint32_t metric_compleated = 0;
 	volatile boost::uint32_t metric_errors = 0;
+	volatile boost::uint32_t metric_time = 0;
+	volatile boost::uint32_t metric_count = 0;
+	volatile boost::uint32_t metric_max_time = 0;
+	volatile boost::uint32_t metric_start = 0;
 	using namespace boost::interprocess::ipcdetail;
+	inline void my_atomic_add(volatile boost::uint32_t *mem, boost::uint32_t value) {
+		boost::uint32_t old, c(atomic_read32(mem));
+		while ((old = atomic_cas32(mem, c + value, c)) != c) {
+			c = old;
+		}
+	}
 #else
 	volatile int metric_executed = 0;
 	volatile int metric_compleated = 0;
 	volatile int metric_errors = 0;
+	volatile long long metric_time = 0;
+	volatile long long metric_count = 0;
+	volatile long long metric_max_time = 0;
+	volatile int metric_start = 0;
 	int atomic_inc32(volatile int *i) { return 0;  }
 	int atomic_read32(volatile int *i) { return 0; }
+	void my_atomic_add(volatile int *i, int j) { }
 #endif
 
 	bool scheduler::has_metrics() const {
@@ -70,9 +87,33 @@ namespace simple_scheduler {
 	std::size_t scheduler::get_metric_ql() {
 		return queue_.size();
 	}
+	int scheduler::get_avg_time() const {
+		boost::uint32_t t = atomic_read32(&metric_time);
+		boost::uint32_t c = atomic_read32(&metric_count);
+		if (c == 0) {
+			return 0;
+		}
+		if (t > 4000000000) {
+			atomic_write32(&metric_time, 0);
+			atomic_write32(&metric_count, 0);
+		}
+		return t / c;
+	}
+
+	int scheduler::get_metric_rate() const {
+		boost::posix_time::time_duration diff = now() - time_t_epoch;
+		boost::uint32_t total_time = diff.total_seconds() - metric_start;
+		boost::uint32_t count = atomic_read32(&metric_compleated);
+		if (total_time == 0) {
+			return 0;
+		}
+		return count / total_time;
+	}
 
 
 	void scheduler::start() {
+		boost::posix_time::time_duration diff = now() - time_t_epoch;
+		metric_start = diff.total_seconds();
 		log_trace(__FILE__, __LINE__, "starting all threads");
 		running_ = true;
 		start_threads();
@@ -149,7 +190,7 @@ namespace simple_scheduler {
 							if (thread_count_ < 10) {
 								thread_count_++;
 							}  else if (!maximum_threads_reached) {
-								log_error(__FILE__, __LINE__, "Auto-scaling of scheduler failed (maximum of 10 threads reached) you need to manually configure threads to reasolve items running slow");
+								log_error(__FILE__, __LINE__, "Auto-scaling of scheduler failed (maximum of 10 threads reached) you need to manually configure threads to resolve items running slow");
 								maximum_threads_reached = true;
 							}
 						}
@@ -213,8 +254,13 @@ namespace simple_scheduler {
 				if (item) {
 					try {
 						bool to_reschedule = false;
-						if (handler_)
+						if (handler_) {
 							to_reschedule = handler_->handle_schedule(*item);
+						}
+						boost::posix_time::time_duration duration = now() - now_time;
+
+						my_atomic_add(&metric_time, duration.total_milliseconds());
+						atomic_inc32(&metric_count);
 						if (to_reschedule) {
 							reschedule(*item, now_time);
 							atomic_inc32(&metric_compleated);
