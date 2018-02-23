@@ -24,16 +24,16 @@ Elastic sends metrics, events and logs to elastic search
 
 
 
-| Key                                                   | Default Value        | Description                    |
-|-------------------------------------------------------|----------------------|--------------------------------|
-| [address](#elastic-address)                           |                      | Elastic address                |
-| [event index](#elastic-index-used-for-events)         | nsclient-%(date)     | Elastic index used for events  |
-| [event type](#elastic-type-used-for-events)           | eventlog             | Elastic type used for events   |
-| [events](#event)                                      | eventlog:*,logfile:* | Event                          |
-| [metrics index](#elastic-index-used-for-metrics)      | nsclient-%(date)     | Elastic index used for metrics |
-| [metrics type](#elastic-type-used-for-metrics)        | metrics              | Elastic type used for metrics  |
-| [nsclient log index](#elastic-index-used-for-metrics) | nsclient-%(date)     | Elastic index used for metrics |
-| [nsclient log type](#elastic-type-used-for-metrics)   | nsclient log         | Elastic type used for metrics  |
+| Key                                                   | Default Value            | Description                    |
+|-------------------------------------------------------|--------------------------|--------------------------------|
+| [address](#elastic-address)                           |                          | Elastic address                |
+| [event index](#elastic-index-used-for-events)         | nsclient-%(date)         | Elastic index used for events  |
+| [event type](#elastic-type-used-for-events)           | eventlog                 | Elastic type used for events   |
+| [events](#event)                                      | eventlog:*,logfile:*     | Event                          |
+| [metrics index](#elastic-index-used-for-metrics)      | nsclient_metrics-%(date) | Elastic index used for metrics |
+| [metrics type](#elastic-type-used-for-metrics)        | metrics                  | Elastic type used for metrics  |
+| [nsclient log index](#elastic-index-used-for-metrics) | nsclient-%(date)         | Elastic index used for metrics |
+| [nsclient log type](#elastic-type-used-for-metrics)   | nsclient log             | Elastic type used for metrics  |
 
 
 
@@ -43,7 +43,7 @@ Elastic sends metrics, events and logs to elastic search
 event index=nsclient-%(date)
 event type=eventlog
 events=eventlog:*,logfile:*
-metrics index=nsclient-%(date)
+metrics index=nsclient_metrics-%(date)
 metrics type=metrics
 nsclient log index=nsclient-%(date)
 nsclient log type=nsclient log
@@ -171,7 +171,7 @@ The elastic index to use for metrics.
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | metrics index                                         |
-| Default value: | `nsclient-%(date)`                                    |
+| Default value: | `nsclient_metrics-%(date)`                            |
 | Used by:       | ElasticClient                                         |
 
 
@@ -180,7 +180,7 @@ The elastic index to use for metrics.
 ```
 [/settings/elastic/client]
 # Elastic index used for metrics
-metrics index=nsclient-%(date)
+metrics index=nsclient_metrics-%(date)
 ```
 
 

@@ -88,7 +88,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			("event type", sh::string_key(&event_type, "eventlog"),
 			"Elastic type used for events", "The elastic type to use for events (log messages).")
 
-			("metrics index", sh::string_key(&metrics_index, "nsclient-%(date)"),
+			("metrics index", sh::string_key(&metrics_index, "nsclient_metrics-%(date)"),
 			"Elastic index used for metrics", "The elastic index to use for metrics.")
 			("metrics type", sh::string_key(&metrics_type, "metrics"),
 			"Elastic type used for metrics", "The elastic type to use for metrics.")
