@@ -151,6 +151,9 @@
             <Component Id="Op5Client" Guid="D8378E84-4785-41FD-8FCD-2409135FBFF4" Win64="$(var.Win64)">
               <File Id="ModOp5Client.dll" Name="Op5Client.dll" DiskId="1" Source="$(var.Source)/modules/Op5Client.dll" Vital="no" />
             </Component>
+            <Component Id="ElasticClient" Guid="0B83F904-327D-47C4-B1AB-F5AE122B2FE7" Win64="$(var.Win64)">
+              <File Id="ModElasticClient.dll" Name="ElasticClient.dll" DiskId="1" Source="$(var.Source)/modules/ElasticClient.dll" Vital="no" />
+            </Component>
           </Directory>
           <Component Id="PythonBin" Guid="2802DD6D-C4F2-4BDF-BBE8-A96A041AF899" Win64="$(var.Win64)">
             <File Id="PythonDLL" Name="python27.dll" DiskId="1" Source="$(var.Source)/../python-dist/python27.dll" Vital="no" />
@@ -239,6 +242,9 @@
         </Feature>
         <Feature Id="NSCAPlugin" Title="NSCA plugin" Description="Plugin to submit passive results to an NSCA server" Level="1" Absent="allow">
           <ComponentRef Id="NSCA" />
+        </Feature>
+        <Feature Id="ElasticPlugin" Title="Elastic plugin" Description="Plugin to submit passive results and metrics to an Elastic server" Level="1" Absent="allow">
+          <ComponentRef Id="ElasticClient" />
         </Feature>
         <Feature Id="ExtraClientPlugin" Title="Various client plugins" Description="Plugins to connect to various sytems such as syslog, graphite and smtp" Level="1" Absent="allow">
           <ComponentRef Id="ExtraClients" />
