@@ -14,12 +14,12 @@ Where it is split by module.
 Another really useful feature of the settings in NSClient++ is the ability to include various other settings.
 This is very flexible and you can include ini file from the registry and vice versa.
 
-The way to include a file (if you are using ini-files) is to add a key under the /include section.
+The way to include a file (if you are using ini-files) is to add a key under the /includes section.
 
 including file:
 
 ```
-[/include]
+[/includes]
 foo=foo.ini
 ```
 
@@ -30,7 +30,7 @@ And example of this:
 
 *   nsclient.ini:
 ```
-[/include]
+[/includes]
 client=client.ini
 
 [/test]
@@ -38,7 +38,7 @@ key1=This values comes from nsclient.ini
 ```
 *   client.ini:
 ```
-[/include]
+[/includes]
 baseline=baseline.ini
 
 [/test]
