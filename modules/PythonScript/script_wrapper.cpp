@@ -876,8 +876,8 @@ int script_wrapper::settings_wrapper::get_int(std::string path, std::string key,
 void script_wrapper::settings_wrapper::set_int(std::string path, std::string key, int value) {
 	settings.set_int(path, key, value);
 }
-std::list<std::string> script_wrapper::settings_wrapper::get_section(std::string path) {
-	return settings.get_keys(path);
+boost::python::list script_wrapper::settings_wrapper::get_section(std::string path) {
+	return convert(settings.get_keys(path));
 }
 void script_wrapper::settings_wrapper::save() {
 	settings.save();
