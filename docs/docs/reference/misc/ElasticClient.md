@@ -27,12 +27,13 @@ Elastic sends metrics, events and logs to elastic search
 | Key                                                   | Default Value            | Description                    |
 |-------------------------------------------------------|--------------------------|--------------------------------|
 | [address](#elastic-address)                           |                          | Elastic address                |
-| [event index](#elastic-index-used-for-events)         | nsclient-%(date)         | Elastic index used for events  |
+| [event index](#elastic-index-used-for-events)         | nsclient_event-%(date)   | Elastic index used for events  |
 | [event type](#elastic-type-used-for-events)           | eventlog                 | Elastic type used for events   |
 | [events](#event)                                      | eventlog:*,logfile:*     | Event                          |
+| [hostname](#hostname)                                 | auto                     | HOSTNAME                       |
 | [metrics index](#elastic-index-used-for-metrics)      | nsclient_metrics-%(date) | Elastic index used for metrics |
 | [metrics type](#elastic-type-used-for-metrics)        | metrics                  | Elastic type used for metrics  |
-| [nsclient log index](#elastic-index-used-for-metrics) | nsclient-%(date)         | Elastic index used for metrics |
+| [nsclient log index](#elastic-index-used-for-metrics) | nsclient_log-%(date)     | Elastic index used for metrics |
 | [nsclient log type](#elastic-type-used-for-metrics)   | nsclient log             | Elastic type used for metrics  |
 
 
@@ -40,12 +41,13 @@ Elastic sends metrics, events and logs to elastic search
 ```ini
 # 
 [/settings/elastic/client]
-event index=nsclient-%(date)
+event index=nsclient_event-%(date)
 event type=eventlog
 events=eventlog:*,logfile:*
+hostname=auto
 metrics index=nsclient_metrics-%(date)
 metrics type=metrics
-nsclient log index=nsclient-%(date)
+nsclient log index=nsclient_log-%(date)
 nsclient log type=nsclient log
 
 ```
@@ -93,7 +95,7 @@ The elastic index to use for events (log messages).
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | event index                                           |
-| Default value: | `nsclient-%(date)`                                    |
+| Default value: | `nsclient_event-%(date)`                              |
 | Used by:       | ElasticClient                                         |
 
 
@@ -102,7 +104,7 @@ The elastic index to use for events (log messages).
 ```
 [/settings/elastic/client]
 # Elastic index used for events
-event index=nsclient-%(date)
+event index=nsclient_event-%(date)
 ```
 
 
@@ -155,6 +157,43 @@ The events to subscribe to such as eventlog:* or logfile:mylog.
 [/settings/elastic/client]
 # Event
 events=eventlog:*,logfile:*
+```
+
+
+
+#### HOSTNAME <a id="/settings/elastic/client/hostname"></a>
+
+The host name of the monitored computer.
+Set this to auto (default) to use the windows name of the computer.
+
+auto	Hostname
+${host}	Hostname
+${host_lc}
+Hostname in lowercase
+${host_uc}	Hostname in uppercase
+${domain}	Domainname
+${domain_lc}	Domainname in lowercase
+${domain_uc}	Domainname in uppercase
+
+
+
+
+
+
+| Key            | Description                                           |
+|----------------|-------------------------------------------------------|
+| Path:          | [/settings/elastic/client](#/settings/elastic/client) |
+| Key:           | hostname                                              |
+| Default value: | `auto`                                                |
+| Used by:       | ElasticClient                                         |
+
+
+**Sample:**
+
+```
+[/settings/elastic/client]
+# HOSTNAME
+hostname=auto
 ```
 
 
@@ -223,7 +262,7 @@ The elastic index to use for metrics.
 |----------------|-------------------------------------------------------|
 | Path:          | [/settings/elastic/client](#/settings/elastic/client) |
 | Key:           | nsclient log index                                    |
-| Default value: | `nsclient-%(date)`                                    |
+| Default value: | `nsclient_log-%(date)`                                |
 | Used by:       | ElasticClient                                         |
 
 
@@ -232,7 +271,7 @@ The elastic index to use for metrics.
 ```
 [/settings/elastic/client]
 # Elastic index used for metrics
-nsclient log index=nsclient-%(date)
+nsclient log index=nsclient_log-%(date)
 ```
 
 
