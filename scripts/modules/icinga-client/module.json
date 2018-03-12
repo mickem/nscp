@@ -1,0 +1,8 @@
+{
+    "name": "icinga-client",
+    "description": "Icinga client",
+    "version": "1.0.0",
+    "scripts": [
+        "scripts/python/icinga.py"
+    ]
+}
