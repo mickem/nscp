@@ -40,8 +40,9 @@ namespace graphite_handler {
 			set_property_bool("send perfdata", true);
 			set_property_bool("send status", true);
 			set_property_int("timeout", 30);
-			set_property_string("perf path", "system.${hostname}.${check_alias}.${perf_alias}");
-			set_property_string("status path", "system.${hostname}.${check_alias}.status");
+			set_property_string("perf path", "nsclient.${hostname}.${check_alias}.${perf_alias}");
+			set_property_string("status path", "nsclient.${hostname}.${check_alias}.status");
+			set_property_string("metric path", "nsclient.${hostname}.${metric}");
 		}
 		graphite_target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
@@ -58,10 +59,10 @@ namespace graphite_handler {
 
 				root_path.add_key()
 
-					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1), "system.${hostname}.${check_alias}.${perf_alias}"),
+					("path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "perf path", _1), "nsclient.${hostname}.${check_alias}.${perf_alias}"),
 						"PATH FOR METRICS", "Path mapping for metrics")
 
-					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1), "system.${hostname}.${check_alias}.status"),
+					("status path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "status path", _1), "nsclient.${hostname}.${check_alias}.status"),
 						"PATH FOR STATUS", "Path mapping for status")
 
 					("send perfdata", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send perfdata", _1), true),
@@ -69,6 +70,9 @@ namespace graphite_handler {
 
 					("send status", sh::bool_fun_key(boost::bind(&parent::set_property_bool, this, "send status", _1), true),
 						"SEND STATUS", "Send status data to this server")
+
+					("metric path", sh::string_fun_key(boost::bind(&parent::set_property_string, this, "metric path", _1), "nsclient.${hostname}.${metric}"),
+					"PATH FOR METRICS", "Path mapping for metrics")
 
 					;
 			} else {

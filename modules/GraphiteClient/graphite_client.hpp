@@ -29,6 +29,7 @@ namespace graphite_client {
 	struct connection_data : public socket_helpers::connection_info {
 		std::string ppath;
 		std::string spath;
+		std::string mpath;
 		std::string sender_hostname;
 		bool send_perf;
 		bool send_status;
@@ -42,6 +43,7 @@ namespace graphite_client {
 			spath = target.get_string_data("status path");
 			send_perf = target.get_bool_data("send perfdata");
 			send_status = target.get_bool_data("send status");
+			mpath = target.get_string_data("metric path");
 			if (sender.has_data("host"))
 				sender_hostname = sender.get_string_data("host");
 			else 
@@ -132,18 +134,20 @@ namespace graphite_client {
 		}
 
 
-		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b, std::string path) {
+		void push_metrics(std::list<graphite_client::g_data> &list, const Plugin::Common::MetricsBundle &b, std::string path, std::string mpath) {
 			std::string mypath;
 			if (!path.empty())
 				mypath = path + ".";
 			mypath += b.key();
 			BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
-				push_metrics(list, b2, mypath);
+				push_metrics(list, b2, mypath, mpath);
 			}
 			BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
 				graphite_client::g_data d;
 				const ::Plugin::Common_AnyDataType &value = v.value();
-				d.path = fix_graphite_string(mypath + "." + v.key());
+				d.path = mpath;
+				str::utils::replace(d.path, "${metric}", mypath + "." + v.key());
+				d.path = fix_graphite_string(d.path);
 				if (value.has_int_data()) {
 					d.value = str::xtos(v.value().int_data());
 					list.push_back(d);
@@ -156,12 +160,15 @@ namespace graphite_client {
 
 		bool metrics(client::destination_container sender, client::destination_container target, const Plugin::MetricsMessage &request_message) {
 			std::list<graphite_client::g_data> list;
+			connection_data con(sender, target);
+			std::string mpath = con.mpath;
+			str::utils::replace(mpath, "${hostname}", con.sender_hostname);
+
 			BOOST_FOREACH(const Plugin::MetricsMessage::Response &r, request_message.payload()) {
 				BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, r.bundles()) {
-					push_metrics(list, b, "");
+					push_metrics(list, b, "", mpath);
 				}
 			}
-			connection_data con(sender, target);
 			send(con, list);
 			return true;
 		}
