@@ -24,6 +24,7 @@
 #include <nsclient/logger/logger.hpp>
 
 #include <str/xtos.hpp>
+#include <str/utils.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>
@@ -292,7 +293,9 @@ namespace nsclient {
 				writeLock.unlock();
 				throw plugins_list_exception("Failed to find plugin: " + str::xtos(plugin_id) + ", Plugins: " + to_string());
 			}
-			listeners_[lc].insert(plugin_id);
+			BOOST_FOREACH(const std::string c, str::utils::split_lst(lc, ",")) {
+				listeners_[c].insert(plugin_id);
+			}
 		}
 
 		std::list<plugin_type> get(std::string channel) {

@@ -731,10 +731,12 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::send_notification(const char
 NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string &request) {
 	Plugin::EventMessage em; em.ParseFromString(request);
 	BOOST_FOREACH(const Plugin::EventMessage::Request &r, em.payload()) {
+		bool has_matched = false;
 		try {
 			BOOST_FOREACH(nsclient::plugin_type p, event_subscribers_.get(r.event())) {
 				try {
 					p->on_event(request);
+					has_matched = true;
 				} catch (const std::exception &e) {
 					LOG_ERROR_CORE("Failed to emit event to " + p->get_alias_or_name() + ": " + utf8::utf8_from_native(e.what()));
 				} catch (...) {
@@ -750,6 +752,9 @@ NSCAPI::errorReturn nsclient::core::plugin_manager::emit_event(const std::string
 		} catch (...) {
 			LOG_ERROR_CORE("No handler for event");
 			return NSCAPI::api_return_codes::hasFailed;
+		}
+		if (!has_matched) {
+			LOG_DEBUG_CORE("No handler for event: " + r.event());
 		}
 	}
 	return NSCAPI::api_return_codes::isSuccess;
