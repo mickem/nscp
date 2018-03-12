@@ -63,6 +63,7 @@ namespace nsclient {
 		private:
 			::dll::dll_impl module_;
 			bool loaded_;
+			bool loading_;
 			bool broken_;
 
 			nscapi::plugin_api::lpModuleHelperInit fModuleHelperInit;

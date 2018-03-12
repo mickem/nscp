@@ -35,6 +35,7 @@ nsclient::core::dll_plugin::dll_plugin(const unsigned int id, const boost::files
 	: plugin_interface(id, alias)
 	, module_(file)
 	, loaded_(false)
+	, loading_(false)
 	, broken_(false)
 	, fModuleHelperInit(NULL)
 	, fLoadModule(NULL)
@@ -119,12 +120,14 @@ void nsclient::core::dll_plugin::load_dll() {
 }
 
 bool nsclient::core::dll_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
-	if (loaded_ && mode != NSCAPI::reloadStart)
+	if ((loaded_ || loading_) && mode != NSCAPI::reloadStart)
 		return true;
 	if (!fLoadModule)
 		throw plugin_exception(get_alias_or_name(), "Critical error (fLoadModule)");
+	loading_ = true;
 	if (fLoadModule(get_id(), get_alias().c_str(), mode)) {
 		loaded_ = true;
+		loading_ = false;
 		return true;
 	}
 	return false;
