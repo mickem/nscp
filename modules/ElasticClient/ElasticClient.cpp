@@ -66,16 +66,16 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 		settings.set_alias("elastic", alias, "client");
  
 		settings.alias().add_key_to_settings()
-// 			("hostname", sh::string_key(&hostname_, "auto"),
-// 				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
-// 				"auto\tHostname\n"
-// 				"${host}\tHostname\n"
-// 				"${host_lc}\nHostname in lowercase\n"
-// 				"${host_uc}\tHostname in uppercase\n"
-// 				"${domain}\tDomainname\n"
-// 				"${domain_lc}\tDomainname in lowercase\n"
-// 				"${domain_uc}\tDomainname in uppercase\n"
-// 				)
+ 			("hostname", sh::string_key(&hostname_, "auto"),
+ 				"HOSTNAME", "The host name of the monitored computer.\nSet this to auto (default) to use the windows name of the computer.\n\n"
+ 				"auto\tHostname\n"
+ 				"${host}\tHostname\n"
+ 				"${host_lc}\nHostname in lowercase\n"
+ 				"${host_uc}\tHostname in uppercase\n"
+ 				"${domain}\tDomainname\n"
+ 				"${domain_lc}\tDomainname in lowercase\n"
+ 				"${domain_uc}\tDomainname in uppercase\n"
+ 				)
 
 			("events", sh::string_key(&events, "eventlog:*,logfile:*"),
 				"Event", "The events to subscribe to such as eventlog:* or logfile:mylog.")
@@ -83,7 +83,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			("address", sh::string_key(&address),
 				"Elastic address", "The address to send data to (http://127.0.0.1:9200/_bulk).")
 
-			("event index", sh::string_key(&event_index, "nsclient-%(date)"),
+			("event index", sh::string_key(&event_index, "nsclient_event-%(date)"),
 			"Elastic index used for events", "The elastic index to use for events (log messages).")
 			("event type", sh::string_key(&event_type, "eventlog"),
 			"Elastic type used for events", "The elastic type to use for events (log messages).")
@@ -93,7 +93,7 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 			("metrics type", sh::string_key(&metrics_type, "metrics"),
 			"Elastic type used for metrics", "The elastic type to use for metrics.")
 
-			("nsclient log index", sh::string_key(&nsclient_index, "nsclient-%(date)"),
+			("nsclient log index", sh::string_key(&nsclient_index, "nsclient_log-%(date)"),
 			"Elastic index used for metrics", "The elastic index to use for metrics.")
 			("nsclient log type", sh::string_key(&nsclient_type, "nsclient log"),
 			"Elastic type used for metrics", "The elastic type to use for metrics.")
@@ -108,45 +108,45 @@ bool ElasticClient::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 // 		nscapi::core_helper core(get_core(), get_id());
 // 		core.register_channel(channel_);
 // 
-// 		if (hostname_ == "auto") {
-// 			hostname_ = boost::asio::ip::host_name();
-// 		} else if (hostname_ == "auto-lc") {
-// 			hostname_ = boost::asio::ip::host_name();
-// 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
-// 		} else if (hostname_ == "auto-uc") {
-// 			hostname_ = boost::asio::ip::host_name();
-// 			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
-// 		} else {
-// 			str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
-// 
-// 			try {
-// 				boost::asio::io_service svc;
-// 				boost::asio::ip::tcp::resolver resolver(svc);
-// 				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
-// 				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
-// 
-// 				std::string s;
-// 				while (iter != end) {
-// 					s += iter->host_name();
-// 					s += " - ";
-// 					s += iter->endpoint().address().to_string();
-// 					iter++;
-// 				}
-// 			} catch (const std::exception& e) {
-// 				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
-// 			}
-// 
-// 			str::utils::replace(hostname_, "${host}", dn.first);
-// 			str::utils::replace(hostname_, "${domain}", dn.second);
-// 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
-// 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
-// 			str::utils::replace(hostname_, "${host_uc}", dn.first);
-// 			str::utils::replace(hostname_, "${domain_uc}", dn.second);
-// 			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
-// 			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
-// 			str::utils::replace(hostname_, "${host_lc}", dn.first);
-// 			str::utils::replace(hostname_, "${domain_lc}", dn.second);
-// 		}
+		if (hostname_ == "auto") {
+			hostname_ = boost::asio::ip::host_name();
+		} else if (hostname_ == "auto-lc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::tolower);
+		} else if (hostname_ == "auto-uc") {
+			hostname_ = boost::asio::ip::host_name();
+			std::transform(hostname_.begin(), hostname_.end(), hostname_.begin(), ::toupper);
+		} else {
+			str::utils::token dn = str::utils::getToken(boost::asio::ip::host_name(), '.');
+
+			try {
+				boost::asio::io_service svc;
+				boost::asio::ip::tcp::resolver resolver(svc);
+				boost::asio::ip::tcp::resolver::query query(boost::asio::ip::host_name(), "");
+				boost::asio::ip::tcp::resolver::iterator iter = resolver.resolve(query), end;
+
+				std::string s;
+				while (iter != end) {
+					s += iter->host_name();
+					s += " - ";
+					s += iter->endpoint().address().to_string();
+					iter++;
+				}
+			} catch (const std::exception& e) {
+				NSC_LOG_ERROR_EXR("Failed to resolve: ", e);
+			}
+
+			str::utils::replace(hostname_, "${host}", dn.first);
+			str::utils::replace(hostname_, "${domain}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::toupper);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::toupper);
+			str::utils::replace(hostname_, "${host_uc}", dn.first);
+			str::utils::replace(hostname_, "${domain_uc}", dn.second);
+			std::transform(dn.first.begin(), dn.first.end(), dn.first.begin(), ::tolower);
+			std::transform(dn.second.begin(), dn.second.end(), dn.second.begin(), ::tolower);
+			str::utils::replace(hostname_, "${host_lc}", dn.first);
+			str::utils::replace(hostname_, "${domain_lc}", dn.second);
+		}
 
 		nscapi::core_helper ch(get_core(), get_id());
 		ch.register_event(events);
@@ -273,6 +273,7 @@ void ElasticClient::onEvent(const Plugin::EventMessage & request, const std::str
 			}
 		}
 		node["@timestamp"] = time;
+		node["hostname"] = hostname_;
 		payloads.push_back(json_spirit::write(node, json_spirit::Output_options::raw_utf8));
 	}
 	send_to_elastic(address, event_index, event_type, payloads, true);
@@ -303,6 +304,7 @@ void ElasticClient::submitMetrics(const Plugin::MetricsMessage &response) {
 	}
 	json_spirit::Object metrics;
 	metrics["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+	metrics["hostname"] = hostname_;
 	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
 		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
 			build_metrics(metrics, "", b);
@@ -327,6 +329,7 @@ void ElasticClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 	node["line"] = message.line();
 	node["level"] = nsclient::logging::logger_helper::render_log_level_long(message.level());
 	node["@timestamp"] = boost::posix_time::to_iso_extended_string(boost::posix_time::microsec_clock::universal_time());
+	node["hostname"] = hostname_;
 
 	bool log = message.sender() != "elastic";
 	std::vector<std::string> payloads;
