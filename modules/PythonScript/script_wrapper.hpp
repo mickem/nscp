@@ -236,7 +236,7 @@ namespace script_wrapper {
 		void set_bool(std::string path, std::string key, bool value);
 		int get_int(std::string path, std::string key, int def);
 		void set_int(std::string path, std::string key, int value);
-		std::list<std::string> get_section(std::string path);
+		boost::python::list get_section(std::string path);
 		void save();
 		NSCAPI::settings_type get_type(std::string stype);
 		void settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue);
