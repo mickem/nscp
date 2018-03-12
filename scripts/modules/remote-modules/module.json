@@ -1,0 +1,10 @@
+{
+    "name": "remote-modules",
+    "description": "A module for fetching remote modules",
+    "version": "1.0.0",
+    "scripts": [
+        "scripts/python/remote-modules.py"
+    ]
+}
+
+

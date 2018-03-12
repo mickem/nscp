@@ -142,6 +142,7 @@
               <File Id="ModSimpleFileWriter.dll" Name="SimpleFileWriter.dll" DiskId="1" Source="$(var.Source)/modules/SimpleFileWriter.dll" Vital="no" />
               <File Id="ModCheckLogFile.dll" Name="CheckLogFile.dll" DiskId="1" Source="$(var.Source)/modules/CheckLogFile.dll" Vital="no" />
               <File Id="ModCheckNet.dll" Name="CheckNet.dll" DiskId="1" Source="$(var.Source)/modules/CheckNet.dll" Vital="no" />
+              <File Id="RemoteModules" Name="remote-modules.zip" DiskId="1" Source="$(var.Source)/modules/remote-modules.zip" Vital="no" />
             </Component>
             <Component Id="LuaScript" Guid="C5A3C7E2-77A0-4BE2-B60D-808F4B14F56F" Win64="$(var.Win64)">
               <File Id="ModLUAScript.dll" Name="LUAScript.dll" DiskId="1" Source="$(var.Source)/modules/LUAScript.dll" Vital="no" />
