@@ -1,0 +1,10 @@
+{
+    "name": "IcingaCamp",
+    "description": "Icinga Camp",
+    "version": "1.0.0",
+    "scripts": [
+        "scripts/python/icamp.py"
+    ]
+}
+
+
