@@ -377,6 +377,16 @@ namespace eventlog {
 			DWORD Flags
 			);
 
+		typedef EVT_HANDLE (WINAPI *tEvtCreateBookmark)(
+			LPCWSTR BookmarkXml
+			);
+		typedef BOOL (WINAPI *tEvtUpdateBookmark)(
+			EVT_HANDLE Bookmark,
+			EVT_HANDLE Event
+		);
+
+
+
 		void load_procs();
 		bool supports_modern();
 	}
@@ -393,6 +403,9 @@ namespace eventlog {
 	BOOL EvtNextPublisherId(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed);
 	api::EVT_HANDLE EvtOpenChannelEnum(api::EVT_HANDLE Session, DWORD Flags);
 	BOOL EvtNextChannelPath(api::EVT_HANDLE PublisherEnum, DWORD PublisherIdBufferSize, LPWSTR PublisherIdBuffer, PDWORD PublisherIdBufferUsed);
+	api::EVT_HANDLE EvtCreateBookmark(LPCWSTR BookmarkXml);
+	BOOL EvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event);
+
 
 	BOOL EvtGetPublisherMetadataProperty(api::EVT_HANDLE PublisherMetadata, api::EVT_PUBLISHER_METADATA_PROPERTY_ID PropertyId, DWORD Flags, DWORD PublisherMetadataPropertyBufferSize, api::PEVT_VARIANT PublisherMetadataPropertyBuffer, PDWORD PublisherMetadataPropertyBufferUsed);
 	BOOL EvtGetObjectArrayProperty(api::EVT_OBJECT_ARRAY_PROPERTY_HANDLE ObjectArray, DWORD PropertyId, DWORD ArrayIndex, DWORD Flags, DWORD PropertyValueBufferSize, api::PEVT_VARIANT PropertyValueBuffer, PDWORD PropertyValueBufferUsed);
