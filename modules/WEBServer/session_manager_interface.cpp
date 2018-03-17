@@ -20,7 +20,7 @@ std::string decode_key(std::string encoded) {
 	return Mongoose::Helpers::decode_b64(encoded);
 }
 
-bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, bool respond /*= true*/) {
+bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request &request, Mongoose::StreamResponse &response) {
 	std::list<std::string> errors;
 	if (!allowed_hosts.is_allowed(boost::asio::ip::address::from_string(request.getRemoteIp()), errors)) {
 // 		BOOST_FOREACH(const std::string &e, errors) {
@@ -41,7 +41,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 				return false;
 			}
 			setup_token(token.first, response);
-			return true;
+			return can(grant, request, response);
 		} else {
 			response.setCode(HTTP_BAD_REQUEST);
 			response.append("Invalid authentication scheme");
@@ -57,7 +57,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 			return false;
 		}
 		setup_token(fake_user, response);
-		return true;
+		return can(grant, request, response);
 	}
 	if (request.hasVariable("password")) {
 		std::string pwd = request.readHeader("password");
@@ -68,7 +68,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 			return false;
 		}
 		setup_token(fake_user, response);
-		return true;
+		return can(grant, request, response);
 	}
 
 
@@ -81,7 +81,7 @@ bool session_manager_interface::is_loggedin(Mongoose::Request &request, Mongoose
 			response.append("403 Your not allowed");
 			return false;
 		}
-		return true;
+		return can(grant, request, response);
 	}
 	response.setCode(HTTP_FORBIDDEN);
 	response.append("403 Please login first");

@@ -150,9 +150,9 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		}
 
 		session->add_user("admin", "full", admin_password);
-		session->add_grant("legacy", "*");
+		session->add_grant("legacy", "legacy");
 		session->add_grant("full", "*");
-		session->add_grant("client", "info.get,info.get.version,queries.list,queries.get,queries.execute");
+		session->add_grant("client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute");
 
 		server.reset(Mongoose::Server::make_server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {

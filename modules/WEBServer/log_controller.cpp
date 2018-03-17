@@ -45,10 +45,7 @@ bool is_str_empty(const std::string& m) {
 	return m.empty();
 }
 void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
-
-	if (!session->can("logs.list", request, response))
+	if (!session->is_loggedin("logs.list", request, response))
 		return;
 
 	json_spirit::Array root;
@@ -87,12 +84,8 @@ void log_controller::get_log(Mongoose::Request &request, boost::smatch &what, Mo
 }
 
 void log_controller::add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("logs.put", request, response))
 		return;
-
-	if (!session->can("logs.put", request, response))
-		return;
-
 
 	try {
 		json_spirit::Value root;

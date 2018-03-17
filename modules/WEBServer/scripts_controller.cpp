@@ -62,10 +62,7 @@ scripts_controller::scripts_controller(boost::shared_ptr<session_manager_interfa
 }
 
 void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
-
-	if (!session->can("scripts.list.runtimes", request, response))
+	if (!session->is_loggedin("scripts.list.runtimes", request, response))
 		return;
 
 	Plugin::RegistryRequestMessage rrm;
@@ -107,7 +104,7 @@ void scripts_controller::get_runtimes(Mongoose::Request &request, boost::smatch 
 }
 
 void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("scripts", request, response))
 		return;
 
 	if (!validate_arguments(1, what, response)) {
@@ -143,7 +140,7 @@ void scripts_controller::get_scripts(Mongoose::Request &request, boost::smatch &
 
 
 void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("scripts", request, response))
 		return;
 
 	if (!validate_arguments(2, what, response)) {
@@ -176,7 +173,7 @@ void scripts_controller::get_script(Mongoose::Request &request, boost::smatch &w
 
 
 void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("scripts", request, response))
 		return;
 
 	if (!validate_arguments(2, what, response)) {
@@ -220,7 +217,7 @@ void scripts_controller::add_script(Mongoose::Request &request, boost::smatch &w
 
 
 void scripts_controller::delete_script(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("scripts", request, response))
 		return;
 
 	if (!validate_arguments(2, what, response)) {

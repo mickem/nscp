@@ -22,10 +22,7 @@ info_controller::info_controller(boost::shared_ptr<session_manager_interface> se
 }
 
 void info_controller::get_info(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
-
-	if (!session->can("info.get", request, response))
+	if (!session->is_loggedin("info.get", request, response))
 		return;
 
 	json_spirit::Object root;
@@ -37,10 +34,7 @@ void info_controller::get_info(Mongoose::Request &request, boost::smatch &what, 
 
 
 void info_controller::get_version(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
-
-	if (!session->can("info.get.version", request, response))
+	if (!session->is_loggedin("info.get.version", request, response))
 		return;
 
 	json_spirit::Object root;

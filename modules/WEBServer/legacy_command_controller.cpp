@@ -11,7 +11,7 @@ legacy_command_controller::legacy_command_controller(boost::shared_ptr<session_m
 {}
 
 void legacy_command_controller::handle_query(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin(request, response))
+  if (!session->is_loggedin("legacy", request, response))
     return;
 
   Plugin::QueryRequestMessage rm;
@@ -34,7 +34,7 @@ void legacy_command_controller::handle_query(std::string obj, Mongoose::Request 
 }
 
 void legacy_command_controller::handle_exec(std::string obj, Mongoose::Request &request, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin(request, response))
+  if (!session->is_loggedin("legacy", request, response))
     return;
   std::size_t pos = obj.find("/");
   if (pos == std::string::npos)
