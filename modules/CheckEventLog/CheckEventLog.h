@@ -17,10 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <boost/shared_ptr.hpp>
+#include "bookmarks.hpp"
+#include "filter.hpp"
 
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
+
+#include <boost/shared_ptr.hpp>
 
 struct real_time_thread;
 class CheckEventLog : public nscapi::impl::simple_plugin {
@@ -30,6 +33,7 @@ private:
 	std::string syntax_;
 	int buffer_length_;
 	bool lookup_names_;
+	bookmarks bookmarks_;
 
 public:
 	CheckEventLog() {}
@@ -46,4 +50,9 @@ public:
 	void insert_eventlog(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 	void list_providers(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
 	void add_filter(const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response);
+
+
+private:
+	void save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults);
+	void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter, std::string bookmark);
 };

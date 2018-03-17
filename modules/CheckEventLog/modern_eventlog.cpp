@@ -45,6 +45,8 @@ namespace eventlog {
 		tEvtRender pEvtRender = NULL;
 		tEvtOpenPublisherMetadata pEvtOpenPublisherMetadata = NULL;
 		tEvtFormatMessage pEvtFormatMessage = NULL;
+		tEvtCreateBookmark pEvtCreateBookmark = NULL;
+		tEvtUpdateBookmark pEvtUpdateBookmark = NULL;
 
 		void load_procs() {
 			HMODULE hModule = LoadLibrary(L"Wevtapi.dll");
@@ -64,6 +66,8 @@ namespace eventlog {
 			pEvtGetObjectArrayProperty = reinterpret_cast<api::tEvtGetObjectArrayProperty>(GetProcAddress(hModule, "EvtGetObjectArrayProperty"));
 			pEvtGetObjectArraySize = reinterpret_cast<api::tEvtGetObjectArraySize>(GetProcAddress(hModule, "EvtGetObjectArraySize"));
 			pEvtSubscribe = reinterpret_cast<api::tEvtSubscribe>(GetProcAddress(hModule, "EvtSubscribe"));
+			pEvtCreateBookmark = reinterpret_cast<api::tEvtCreateBookmark>(GetProcAddress(hModule, "EvtCreateBookmark"));
+			pEvtUpdateBookmark = reinterpret_cast<api::tEvtUpdateBookmark>(GetProcAddress(hModule, "EvtUpdateBookmark"));
 		}
 		bool supports_modern() {
 			return pEvtQuery != NULL;
@@ -93,6 +97,17 @@ namespace eventlog {
 	}
 
 
+	api::EVT_HANDLE EvtCreateBookmark(LPCWSTR BookmarkXml) {
+		if (!api::pEvtCreateBookmark)
+			throw nsclient::nsclient_exception("Failed to load: EvtCreateBookmark");
+		return api::pEvtCreateBookmark(BookmarkXml);
+	}
+
+	BOOL EvtUpdateBookmark(api::EVT_HANDLE Bookmark, api::EVT_HANDLE Event) {
+		if (!api::pEvtUpdateBookmark)
+			throw nsclient::nsclient_exception("Failed to load: EvtUpdateBookmark");
+		return api::pEvtUpdateBookmark(Bookmark, Event);
+	}
 
 
 	api::EVT_HANDLE EvtOpenPublisherMetadata(api::EVT_HANDLE Session, LPCWSTR PublisherId, LPCWSTR LogFilePath, LCID Locale, DWORD Flags) {

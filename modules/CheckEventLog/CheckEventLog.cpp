@@ -229,7 +229,38 @@ void check_legacy(const std::string &logfile, std::string &scan_range, const int
 	CloseEventLog(hLog);
 }
 
-void check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter) {
+void CheckEventLog::save_bookmark(const std::string bookmark, eventlog::api::EVT_HANDLE &hResults) {
+	if (bookmark.empty()) {
+		return;
+	}
+	eventlog::evt_handle hBookmark = eventlog::EvtCreateBookmark(NULL);
+	if (!hBookmark) {
+		NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
+		return;
+	}
+	if (!EvtUpdateBookmark(hBookmark, hResults)) {
+		NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
+		return;
+	}
+
+	hlp::buffer<wchar_t, LPWSTR> buffer(4096);
+	DWORD dwBufferSize = 0;
+	DWORD dwPropertyCount = 0;
+
+	if (!eventlog::EvtRender(NULL, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
+		DWORD status = GetLastError();
+		if (status == ERROR_INSUFFICIENT_BUFFER) {
+			buffer.resize(dwBufferSize);
+			if (!eventlog::EvtRender(NULL, hBookmark, eventlog::api::EvtRenderBookmark, static_cast<DWORD>(buffer.size()), buffer.get(), &dwBufferSize, &dwPropertyCount)) {
+				NSC_LOG_ERROR("Failed to save bookmark: " + error::lookup::last_error());
+				return;
+			}
+		}
+	}
+	bookmarks_.add(bookmark, utf8::cvt<std::string>(buffer.get()));
+}
+
+void CheckEventLog::check_modern(const std::string &logfile, const std::string &scan_range, const int truncate_message, eventlog_filter::filter &filter, std::string bookmark) {
 	typedef eventlog_filter::filter filter_type;
 	DWORD status = ERROR_SUCCESS;
 	const int batch_size = 10;	// TODO make configurable
@@ -268,6 +299,19 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 	if (!hContext)
 		throw nsclient::nsclient_exception("EvtCreateRenderContext failed: " + error::lookup::last_error());
 
+	if (!bookmark.empty()) {
+		bookmarks::op_string xmlBm = bookmarks_.get(bookmark);
+		if (xmlBm) {
+			eventlog::evt_handle hBookmark = eventlog::EvtCreateBookmark(utf8::cvt<std::wstring>(*xmlBm).c_str());
+			if (!hBookmark) {
+				NSC_LOG_ERROR("Failed to create bookmark: " + error::lookup::last_error());
+			} else {
+				if (!eventlog::EvtSeek(hResults, 1, hBookmark, 0, eventlog::api::EvtSeekRelativeToBookmark)) {
+					NSC_LOG_ERROR("Failed to lookup bookmark: " + error::lookup::last_error());
+				}
+			}
+		}
+	}
 	while (true) {
 		DWORD status = ERROR_SUCCESS;
 		hlp::buffer<eventlog::api::EVT_HANDLE> hEvents(batch_size);
@@ -279,8 +323,13 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 		while (true) {
 			if (!eventlog::EvtNext(hResults, batch_size, hEvents, 100, 0, &dwReturned)) {
 				status = GetLastError();
-				if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT)
+				if (status == ERROR_NO_MORE_ITEMS || status == ERROR_TIMEOUT) {
+					if (!bookmark.empty()) {
+						NSC_LOG_ERROR("Cannot update bookmarks for empty reads yet");
+						//save_bookmark(bookmark, hResults);
+					}
 					return;
+				}
 				else if (status != ERROR_SUCCESS)
 					throw nsclient::nsclient_exception("EvtNext failed: " + error::lookup::last_error(status));
 			}
@@ -288,11 +337,17 @@ void check_modern(const std::string &logfile, const std::string &scan_range, con
 				try {
 					filter_type::object_type item(new eventlog_filter::new_filter_obj(ltime, logfile, hEvents[i], hContext, truncate_message));
 					if (direction == direction_backwards && item->get_written() < stop_date) {
+						if (dwReturned > 0) {
+							save_bookmark(bookmark, hEvents[dwReturned - 1]);
+						}
 						for (; i < dwReturned; i++)
 							eventlog::EvtClose(hEvents[i]);
 						return;
 					}
 					if (direction == direction_forwards && item->get_written() > stop_date) {
+						if (dwReturned > 0) {
+							save_bookmark(bookmark, hEvents[dwReturned - 1]);
+						}
 						for (; i < dwReturned; i++)
 							eventlog::EvtClose(hEvents[i]);
 						return;
@@ -411,6 +466,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 	std::string files_string;
 	std::string mode;
 	std::string scan_range;
+	std::string bookmark;
 	bool unique = false;
 	int truncate_message = 0;
 
@@ -431,6 +487,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		("scan-range", po::value<std::string>(&scan_range), "Date range to scan.\nA negative value scans backward (historical events) and a positive value scans forwards (future events). This is the approximate dates to search through this speeds up searching a lot but there is no guarantee messages are ordered.")
 		("truncate-message", po::value<int>(&truncate_message), "Maximum length of message for each event log message text.")
 		("unique", po::value<bool>(&unique)->implicit_value("true"), "Shorthand for setting default unique index: ${log}-${source}-${id}.")
+		("bookmark", po::value<std::string>(&bookmark)->implicit_value("auto"), "Use bookmarks to only look for messages since last check (with the same bookmark name). If you set this to auto or leave it empty the bookmark name will be derived from your logs, filters, warn and crit.")
 		;
 	if (!filter_helper.parse_options())
 		return;
@@ -445,11 +502,30 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 		file_list.push_back("Application");
 		file_list.push_back("System");
 	}
+	std::string bookmark_prefix = "auto,log[", bookmark_suffix;
+	if (bookmark == "auto") {
+		bookmark_suffix += "],filters[";
+		BOOST_FOREACH(const std::string &file, filter_helper.data.filter_string) {
+			bookmark_suffix += "," + file;
+		}
+		bookmark_suffix += "],warn[";
+		BOOST_FOREACH(const std::string &file, filter_helper.data.warn_string) {
+			bookmark_suffix += "," + file;
+		}
+		bookmark_suffix += "],crit[";
+		BOOST_FOREACH(const std::string &file, filter_helper.data.crit_string) {
+			bookmark_suffix += "," + file;
+		}
+		bookmark_suffix += "]";
+	}
 
 	if (!filter_helper.build_filter(filter))
 		return;
 
 	BOOST_FOREACH(const std::string &file, file_list) {
+		if (!bookmark_suffix.empty()) {
+			bookmark = bookmark_prefix + file + bookmark_suffix;
+		}
 		std::string name = file;
 		if (lookup_names_) {
 			name = eventlog_wrapper::find_eventlog_name(name);
@@ -458,7 +534,7 @@ void CheckEventLog::check_eventlog(const Plugin::QueryRequestMessage::Request &r
 			}
 		}
 		if (eventlog::api::supports_modern())
-			check_modern(name, scan_range, truncate_message, filter);
+			check_modern(name, scan_range, truncate_message, filter, bookmark);
 		else
 			check_legacy(name, scan_range, truncate_message, filter);
 	}
