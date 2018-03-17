@@ -25,7 +25,7 @@ private:
 public:
 	session_manager_interface();
 
-	bool is_loggedin(Mongoose::Request &request, Mongoose::StreamResponse &response, bool respond = true);
+	bool is_loggedin(std::string grant, Mongoose::Request &request, Mongoose::StreamResponse &response);
 
 	bool is_allowed(std::string ip);
 

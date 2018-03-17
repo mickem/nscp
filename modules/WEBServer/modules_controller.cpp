@@ -31,11 +31,8 @@ modules_controller::modules_controller(boost::shared_ptr<session_manager_interfa
 }
 
 void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-  if (!session->is_loggedin(request, response))
+  if (!session->is_loggedin("modules.list", request, response))
     return;
-
-  if (!session->can("modules.list", request, response))
-	  return;
 
   std::string fetch_all = request.get("all", "false");
   Plugin::RegistryRequestMessage rrm;
@@ -76,10 +73,7 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 }
 
 void modules_controller::get_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
-		return;
-
-	if (!session->can("modules.get", request, response))
+	if (!session->is_loggedin("modules.get", request, response))
 		return;
 
 	if (what.size() != 2) {
@@ -129,7 +123,7 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 }
 
 void modules_controller::module_command(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("modules", request, response))
 		return;
 
 	if (!validate_arguments(2, what, response)) {
@@ -186,17 +180,13 @@ void modules_controller::unload_module(std::string module, Mongoose::StreamRespo
 
 
 void modules_controller::put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("modules.put", request, response))
 		return;
 
 	if (!validate_arguments(1, what, response)) {
 		return;
 	}
 	std::string module = what.str(1);
-
-
-	if (!session->can("modules.put", request, response))
-		return;
 
 	try {
 
@@ -258,16 +248,13 @@ void modules_controller::put_module(Mongoose::Request &request, boost::smatch &w
 
 
 void modules_controller::post_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("modules.post", request, response))
 		return;
 
 	if (!validate_arguments(1, what, response)) {
 		return;
 	}
 	std::string module = what.str(1);
-
-	if (!session->can("modules.post", request, response))
-		return;
 
 	try {
 

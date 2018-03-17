@@ -28,7 +28,7 @@ settings_controller::settings_controller(boost::shared_ptr<session_manager_inter
 
 
 void settings_controller::get_section(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("settings.list", request, response))
 		return;
 
 	if (!validate_arguments(1, what, response)) {
@@ -36,10 +36,6 @@ void settings_controller::get_section(Mongoose::Request &request, boost::smatch 
 	}
 
 	std::string path = what.str(1);
-
-	if (!session->can("settings.list", request, response))
-		return;
-
 
 	Plugin::SettingsRequestMessage rm;
 	Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
@@ -94,7 +90,7 @@ void settings_controller::get_section(Mongoose::Request &request, boost::smatch 
 }
 
 void settings_controller::get_key(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("settings", request, response))
 		return;
 
 	if (!validate_arguments(2, what, response)) {

@@ -60,7 +60,7 @@ bool legacy_controller::set_status(std::string status_) {
 }
 
 void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	std::string command = request.get("command", "help");
 
@@ -68,7 +68,7 @@ void legacy_controller::console_exec(Mongoose::Request &request, Mongoose::Strea
 	response.append("{\"status\" : \"ok\"}");
 }
 void legacy_controller::registry_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 
 	Plugin::RegistryRequestMessage rrm;
@@ -98,7 +98,7 @@ void legacy_controller::registry_inventory(Mongoose::Request &request, Mongoose:
 	response.append(json_response);
 }
 void legacy_controller::registry_control_module_load(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 
 	Plugin::RegistryRequestMessage rrm;
@@ -114,7 +114,7 @@ void legacy_controller::registry_control_module_load(Mongoose::Request &request,
 	response.append(json_response);
 }
 void legacy_controller::registry_control_module_unload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 
 	Plugin::RegistryRequestMessage rrm;
@@ -130,7 +130,7 @@ void legacy_controller::registry_control_module_unload(Mongoose::Request &reques
 	response.append(json_response);
 }
 void legacy_controller::registry_inventory_modules(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 
 	Plugin::RegistryRequestMessage rrm;
@@ -147,7 +147,7 @@ void legacy_controller::registry_inventory_modules(Mongoose::Request &request, M
 }
 
 void legacy_controller::settings_inventory(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	Plugin::SettingsRequestMessage rm;
 	Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
@@ -180,7 +180,7 @@ void legacy_controller::settings_inventory(Mongoose::Request &request, Mongoose:
 	response.append(json_response);
 }
 void legacy_controller::settings_query_json(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	std::string request_pb, response_pb, response_json;
 	if (!core->json_to_protobuf(request.getData(), request_pb)) {
@@ -193,7 +193,7 @@ void legacy_controller::settings_query_json(Mongoose::Request &request, Mongoose
 	response.append(response_json);
 }
 void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	std::string response_pb;
 	if (!core->settings_query(request.getData(), response_pb)) {
@@ -204,7 +204,7 @@ void legacy_controller::settings_query_pb(Mongoose::Request &request, Mongoose::
 	response.append(response_pb);
 }
 void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	std::string response_pb;
 	if (!core->query(request.getData(), response_pb)) {
@@ -215,7 +215,7 @@ void legacy_controller::run_query_pb(Mongoose::Request &request, Mongoose::Strea
 	response.append(response_pb);
 }
 void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	std::string response_pb;
 	if (!core->exec_command("*", request.getData(), response_pb))
@@ -223,7 +223,7 @@ void legacy_controller::run_exec_pb(Mongoose::Request &request, Mongoose::Stream
 	response.append(response_pb);
 }
 void legacy_controller::settings_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	Plugin::SettingsRequestMessage rm;
 	Plugin::SettingsRequestMessage::Request *payload = rm.add_payload();
@@ -266,7 +266,7 @@ void legacy_controller::redirect_index(Mongoose::Request&, Mongoose::StreamRespo
 }
 
 void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	error_handler_interface::status status = session->get_log_data()->get_status();
 	std::string tmp = status.last_error;
@@ -274,7 +274,7 @@ void legacy_controller::log_status(Mongoose::Request &request, Mongoose::StreamR
 	response.append("{ \"status\" : { \"count\" : " + str::xtos(status.error_count) + ", \"error\" : \"" + tmp + "\"} }");
 }
 void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	json_spirit::Object root, log;
 	json_spirit::Array data;
@@ -299,18 +299,18 @@ void legacy_controller::log_messages(Mongoose::Request &request, Mongoose::Strea
 	response.append(json_spirit::write(root));
 }
 void legacy_controller::get_metrics(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	response.append(session->get_metrics());
 }
 void legacy_controller::log_reset(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	session->reset_log();
 	response.append("{\"status\" : \"ok\"}");
 }
 void legacy_controller::reload(Mongoose::Request &request, Mongoose::StreamResponse &response) {
-	if (!session->is_loggedin(request, response))
+	if (!session->is_loggedin("legacy", request, response))
 		return;
 	core->reload("delayed,service");
 	set_status("reload");
