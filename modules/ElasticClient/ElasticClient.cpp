@@ -210,6 +210,12 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 		}
 	}
 	boost::shared_ptr<Mongoose::Response> r = c.fetch("POST", http_hdr, payload);
+	if (!r) {
+		if (log_errors) {
+			NSC_LOG_ERROR("Failed to send log record to elastic (no response from server)");
+		}
+		return;
+	}
 	payload = r->getBody();
 	if (log_errors) {
 		NSC_TRACE_ENABLED() {
