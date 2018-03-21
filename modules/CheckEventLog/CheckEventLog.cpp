@@ -123,6 +123,12 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 	thread_->filters_.add_missing(get_settings_proxy(), "default", "");
 
 	if (mode == NSCAPI::normalStart) {
+
+		nscapi::core_helper core(get_core(), get_id());
+		BOOST_FOREACH(const nscapi::core_helper::storage_map::value_type &e, core.get_storage_strings("eventlog.bookmarks")) {
+			bookmarks_.add(e.first, e.second);
+		}
+
 		if (!thread_->start())
 			NSC_LOG_ERROR_STD("Failed to start collection thread");
 	}
@@ -131,6 +137,11 @@ bool CheckEventLog::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode)
 bool CheckEventLog::unloadModule() {
 	if (!thread_->stop())
 		NSC_LOG_ERROR_STD("Failed to start collection thread");
+
+	nscapi::core_helper core(get_core(), get_id());
+ 	BOOST_FOREACH(const bookmarks::map_type::value_type &v, bookmarks_.get_copy()) {
+ 		core.put_storage("eventlog.bookmarks", v.first, v.second, false, false);
+ 	}
 	return true;
 }
 

@@ -20,3 +20,13 @@ bookmarks::op_string bookmarks::get(const std::string key) {
 	}
 	return cit->second;
 }
+
+bookmarks::map_type bookmarks::get_copy() {
+	bookmarks::map_type ret;
+	boost::unique_lock<boost::timed_mutex> lock(mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
+	if (!lock.owns_lock()) {
+		return ret;
+	}
+	ret.insert(bookmarks_.begin(), bookmarks_.end());
+	return ret;
+}
