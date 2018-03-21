@@ -23,7 +23,9 @@ SET(service_SRCS
   
 	settings_query_handler.cpp
 	registry_query_handler.cpp
+	storage_query_handler.cpp
 	plugin_cache.cpp
+	storage_manager.cpp
 	
 	cli_parser.cpp
 	settings_client.cpp
@@ -67,6 +69,7 @@ IF(WIN32)
 		path_manager.hpp
 		dll_plugin.h
 		plugin_interface.hpp
+		storage_manager.hpp
 
 		
 		plugin_list.hpp
@@ -86,6 +89,7 @@ IF(WIN32)
 
 		settings_query_handler.hpp
 		registry_query_handler.hpp
+		storage_query_handler.hpp
 		plugin_cache.hpp
 
 		service_manager.hpp

@@ -49,6 +49,10 @@ namespace nscapi {
 		bool emit_event(const std::string module, const std::string event, std::list<std::map<std::string, std::string> > data, std::string &error);
 		bool emit_event(const std::string module, const std::string event, std::map<std::string, std::string> data, std::string &error);
 
+		typedef std::map<std::string, std::string> storage_map;
+		bool put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data);
+		storage_map get_storage_strings(std::string context);
+
 		bool load_module(std::string name, std::string alias = "");
 		bool unload_module(std::string name);
 

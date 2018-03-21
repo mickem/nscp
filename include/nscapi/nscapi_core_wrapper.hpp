@@ -47,6 +47,7 @@ namespace nscapi {
 		nscapi::core_api::lpNSCAPIJson2Protobuf fNSCAPIJson2Protobuf;
 		nscapi::core_api::lpNSCAPIProtobuf2Json fNSCAPIProtobuf2Json;
 		nscapi::core_api::lpNSCAPIEmitEvent fNSCAPIEmitEvent;
+		nscapi::core_api::lpNSAPIStorageQuery fNSAPIStorageQuery;
 
 	public:
 
@@ -87,6 +88,9 @@ namespace nscapi {
 
 		NSCAPI::errorReturn registry_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
 		bool registry_query(const std::string request, std::string &response) const;
+
+		NSCAPI::errorReturn storage_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const;
+		bool storage_query(const std::string request, std::string &response) const;
 
 		bool load_endpoints(nscapi::core_api::lpNSAPILoader f);
 		void set_alias(const std::string default_alias, const std::string alias);

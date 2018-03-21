@@ -117,6 +117,7 @@ NSClientT::NSClientT()
 	, log_instance_(new nsclient::logging::impl::nsclient_logger())
 	, path_(new nsclient::core::path_manager(log_instance_))
 	, plugins_(new nsclient::core::plugin_manager(path_, log_instance_))
+	, storage_manager_(new nsclient::core::storage_manager(path_, log_instance_))
 {
 	provider_ = new nscp_settings_provider(path_, log_instance_);
 	log_instance_->startup();
@@ -296,6 +297,7 @@ bool NSClientT::boot_load_single_plugin(std::string plugin) {
 
 
 bool NSClientT::boot_start_plugins(bool boot) {
+	storage_manager_->load();
 	try {
 		plugins_->start_plugins(boot ? NSCAPI::normalStart : NSCAPI::dontStart);
 	} catch (...) {
@@ -329,6 +331,7 @@ bool NSClientT::stop_nsclient() {
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception raised when unloading non msg plugins");
 	}
+	storage_manager_->save();
 #ifdef WIN32
 	LOG_DEBUG_CORE("Stopping: COM helper");
 	try {

@@ -37,6 +37,7 @@
 
 #include "settings_query_handler.hpp"
 #include "registry_query_handler.hpp"
+#include "storage_query_handler.hpp"
 
 #define LOG_ERROR(core, msg) { core->get_logger()->error("core", __FILE__, __LINE__, msg); }
 
@@ -166,6 +167,27 @@ NSCAPI::errorReturn NSAPIRegistryQuery(const char *request_buffer, const unsigne
 	return NSCAPI::api_return_codes::isSuccess;
 }
 
+NSCAPI::errorReturn NSCAPIStorageQuery(const char *request_buffer, const unsigned int request_buffer_len, char **response_buffer, unsigned int *response_buffer_len) {
+
+	try {
+		Plugin::StorageRequestMessage request;
+		Plugin::StorageResponseMessage response;
+		request.ParseFromArray(request_buffer, request_buffer_len);
+
+		nsclient::core::storage_query_handler sqr(mainClient->get_storage_manager(), mainClient->get_plugin_manager(), mainClient->get_logger(), request);
+		sqr.parse(response);
+		*response_buffer_len = response.ByteSize();
+		*response_buffer = new char[*response_buffer_len + 10];
+		response.SerializeToArray(*response_buffer, *response_buffer_len);
+		return NSCAPI::api_return_codes::isSuccess;
+	} catch (const std::exception &e) {
+		LOG_ERROR(mainClient, "Storage query error: " + utf8::utf8_from_native(e.what()));
+	} catch (...) {
+		LOG_ERROR(mainClient, "Unknown settings query error");
+	}
+	return NSCAPI::api_return_codes::hasFailed;
+}
+
 NSCAPI::errorReturn NSAPIReload(const char *module) {
 	return mainClient->reload(module);
 }
@@ -205,6 +227,8 @@ nscapi::core_api::FUNPTR NSAPILoader(const char* buffer) {
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIProtobuf2Json);
 	if (strcmp(buffer, "NSCAPIEmitEvent") == 0)
 		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIEmitEvent);
+	if (strcmp(buffer, "NSAPIStorageQuery") == 0)
+		return reinterpret_cast<nscapi::core_api::FUNPTR>(&NSCAPIStorageQuery);
 	mainClient->get_logger()->critical("api", __FILE__, __LINE__, "Function not found: " + std::string(buffer));
 	return NULL;
 }

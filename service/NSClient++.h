@@ -23,6 +23,7 @@
 #include "scheduler_handler.hpp"
 #include "plugin_cache.hpp"
 #include "plugin_manager.hpp"
+#include "storage_manager.hpp"
 
 #include <nsclient/logger/logger.hpp>
 #include <service/system_service.hpp>
@@ -68,6 +69,7 @@ private:
 	nsclient::logging::logger_instance log_instance_;
 	nsclient::core::path_instance path_;
 	nsclient::core::plugin_mgr_instance plugins_;
+	nsclient::core::storage_manager_instance storage_manager_;
 
 	task_scheduler::scheduler scheduler_;
 
@@ -114,6 +116,10 @@ public:
 	nsclient::core::plugin_cache* get_plugin_cache() {
 		return plugins_->get_plugin_cache();
 	}
+	nsclient::core::storage_manager_instance get_storage_manager() override {
+		return storage_manager_;
+	}
+
 
 	struct service_controller {
 		std::string service;
@@ -140,6 +146,7 @@ private:
 	void unloadPlugins();
 
 	Plugin::Common::MetricsBundle ownMetricsFetcher();
+
 
 };
 

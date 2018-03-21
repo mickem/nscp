@@ -257,6 +257,22 @@ bool nscapi::core_wrapper::registry_query(const std::string request, std::string
 	return retC;
 }
 
+NSCAPI::errorReturn nscapi::core_wrapper::storage_query(const char *request, const unsigned int request_len, char **response, unsigned int *response_len) const {
+	if (!fNSAPIStorageQuery)
+		throw nsclient::nsclient_exception("NSCore has not been initiated...");
+	return fNSAPIStorageQuery(request, request_len, response, response_len);
+}
+bool nscapi::core_wrapper::storage_query(const std::string request, std::string &response) const {
+	char *buffer = NULL;
+	unsigned int buffer_size = 0;
+	bool retC = NSCAPI::api_ok(storage_query(request.c_str(), static_cast<unsigned int>(request.size()), &buffer, &buffer_size));
+	if (buffer_size > 0 && buffer != NULL) {
+		response = std::string(buffer, buffer_size);
+	}
+	DestroyBuffer(&buffer);
+	return retC;
+}
+
 bool nscapi::core_wrapper::json_to_protobuf(const std::string &request, std::string &response) const {
 	char *buffer = NULL;
 	unsigned int buffer_size = 0;
@@ -366,6 +382,7 @@ bool nscapi::core_wrapper::load_endpoints(nscapi::core_api::lpNSAPILoader f) {
 	fNSCAPIProtobuf2Json = (nscapi::core_api::lpNSCAPIProtobuf2Json)f("NSCAPIProtobuf2Json");
 
 	fNSCAPIEmitEvent = (nscapi::core_api::lpNSCAPIEmitEvent)f("NSCAPIEmitEvent");
+	fNSAPIStorageQuery = (nscapi::core_api::lpNSAPIStorageQuery)f("NSAPIStorageQuery");
 
 	return true;
 }

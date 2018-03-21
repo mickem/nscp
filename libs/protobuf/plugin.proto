@@ -692,3 +692,71 @@ message MetricsMessage {
 	optional Common.Header header = 1;
 	repeated Response payload = 2;
 }
+
+
+//
+// Storage Structure Disk
+//
+message Storage {
+	message Entry {
+		optional string context = 1;
+		optional string key = 2;
+		optional Common.AnyDataType value = 3;
+		optional bool binary_data = 4;
+		optional bool private_data = 5;
+	};
+	message Block {
+		optional string owner = 1;
+		optional int64 version = 2;
+		optional Storage.Entry entry = 3;
+	};
+	message File {
+		optional int64 version = 1;
+		optional int64 entries = 2;
+	};
+};
+
+//
+// Storeage Request Message 
+// Used to save/load data in the NSClient++ local storage
+//
+message StorageRequestMessage {
+	message Request {
+		message Put {
+			optional Storage.Entry entry = 1;
+		};
+		message Get {
+			optional string context = 1;
+			optional string key = 2;
+		};
+		optional int64 id = 1;
+		optional int32 plugin_id = 2;
+
+		optional Put put = 3;
+		optional Get get = 4;
+	};
+	repeated Request payload = 2;
+};
+//
+// Storeage Response Message 
+// Used to save/load data in the NSClient++ local storage
+//
+message StorageResponseMessage {
+	message Response {
+		message Put {
+			optional string context = 1;
+			optional string key = 2;
+			optional string error = 3;
+		};
+		message Get {
+			repeated Storage.Entry entry = 1;
+		};
+		optional int64 id = 1;
+		optional Common.Result result = 2;
+
+		optional Put put = 3;
+		optional Get get = 4;
+	};
+
+	repeated Response payload = 2;
+};

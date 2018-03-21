@@ -132,6 +132,8 @@ namespace nscapi {
 		typedef NSCAPI::errorReturn(*lpNSAPIDecrypt)(unsigned int, const wchar_t*, unsigned int, wchar_t*, unsigned int *);
 
 		typedef NSCAPI::errorReturn(*lpNSCAPIEmitEvent)(const char*, int);
+
+		typedef NSCAPI::errorReturn(*lpNSAPIStorageQuery)(const char *, const unsigned int, char **, unsigned int *);
 		
 	}
 

@@ -35,6 +35,59 @@ const nscapi::core_wrapper* nscapi::core_helper::get_core() {
 	return core_;
 }
 
+nscapi::core_helper::storage_map nscapi::core_helper::get_storage_strings(std::string context) {
+	storage_map ret;
+	Plugin::StorageRequestMessage rrm;
+	Plugin::StorageRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->mutable_get()->set_context(context);
+	//payload->mutable_put()->mutable_entry()->set_key(context);
+	std::string buffer;
+	get_core()->storage_query(rrm.SerializeAsString(), buffer);
+
+	Plugin::StorageResponseMessage resp_msg;
+	resp_msg.ParseFromString(buffer);
+	BOOST_FOREACH(const ::Plugin::StorageResponseMessage::Response &payload, resp_msg.payload()) {
+		if (payload.result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+			CORE_LOG_ERROR("Failed to store data " + context + ": " + payload.result().message());
+		} else {
+			BOOST_FOREACH(const ::Plugin::Storage::Entry &e, payload.get().entry()) {
+				if (e.value().has_string_data()) {
+					ret[e.key()] = e.value().string_data();
+				} else {
+					CORE_LOG_ERROR("Add support for non string type.");
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+bool nscapi::core_helper::put_storage(std::string context, std::string key, std::string value, bool private_data, bool binary_data) {
+	Plugin::StorageRequestMessage rrm;
+	Plugin::StorageRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->set_plugin_id(plugin_id_);
+	payload->mutable_put()->mutable_entry()->set_context(context);
+	payload->mutable_put()->mutable_entry()->set_key(key);
+	payload->mutable_put()->mutable_entry()->mutable_value()->set_string_data(value);
+	payload->mutable_put()->mutable_entry()->set_private_data(private_data);
+	payload->mutable_put()->mutable_entry()->set_binary_data(binary_data);
+	std::string buffer;
+	get_core()->storage_query(rrm.SerializeAsString(), buffer);
+
+	Plugin::StorageResponseMessage resp_msg;
+	resp_msg.ParseFromString(buffer);
+	bool ret = true;
+	BOOST_FOREACH(const ::Plugin::StorageResponseMessage::Response &payload, resp_msg.payload()) {
+		if (payload.result().code() != Plugin::Common_Result_StatusCodeType_STATUS_OK) {
+			CORE_LOG_ERROR("Failed to store data " + context + ": " + payload.result().message());
+			ret = false;
+		}
+	}
+	return ret;
+}
+
 bool nscapi::core_helper::load_module(std::string name, std::string alias) {
 	Plugin::RegistryRequestMessage rrm;
 	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
