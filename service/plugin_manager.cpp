@@ -63,6 +63,7 @@ nsclient::core::plugin_manager::plugin_manager(nsclient::core::path_instance pat
 nsclient::core::plugin_manager::~plugin_manager() {
 }
 
+// Find all plugins on the filesystem
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_plugins() {
 	plugin_alias_list_type ret;
 
@@ -113,6 +114,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	return ret;
 }
 
+// Find all plugins which are marked as active under the [/modules] section.
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins() {
 	plugin_alias_list_type ret;
 
@@ -158,7 +160,7 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	return ret;
 }
 
-
+// Load all configured (nsclient.ini) plugins.
 void nsclient::core::plugin_manager::load_active_plugins() {
 	if (plugin_path_.empty()) {
 		throw core_exception("Please configure plugin_manager first");
@@ -181,7 +183,7 @@ void nsclient::core::plugin_manager::load_active_plugins() {
 		}
 	}
 }
-
+// Load all available plugins (from the filesystem)
 void nsclient::core::plugin_manager::load_all_plugins() {
 	BOOST_FOREACH(plugin_alias_list_type::value_type v, find_all_plugins()) {
 		if (v.second == "NSCPDOTNET.dll" || v.second == "NSCPDOTNET" || v.second == "NSCP.Core")
@@ -252,7 +254,6 @@ void nsclient::core::plugin_manager::stop_plugins() {
 	commands_.remove_all();
 	channels_.remove_all();
 	std::list<plugin_type> tmp = plugin_list_.get_plugins();
-	plugin_list_.clear();
 	BOOST_FOREACH(plugin_type p, tmp) {
 		try {
 			if (p) {
@@ -265,6 +266,7 @@ void nsclient::core::plugin_manager::stop_plugins() {
 			LOG_ERROR_CORE("Unknown exception raised when unloading plugin");
 		}
 	}
+	plugin_list_.clear();
 }
 
 boost::optional<boost::filesystem::path> nsclient::core::plugin_manager::find_file(std::string file_name) {

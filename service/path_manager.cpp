@@ -8,32 +8,10 @@
 #ifdef WIN32
 #include <Windows.h>
 #include <shellapi.h>
+#include <Shlobj.h>
 #endif
 
 #include <boost/filesystem.hpp>
-
-
-#ifdef WIN32
-#ifndef CSIDL_COMMON_APPDATA
-#define CSIDL_COMMON_APPDATA 0x0023
-#endif
-#ifndef CSIDL_APPDATA
-#define CSIDL_APPDATA 0x001a
-#endif
-typedef BOOL(WINAPI *fnSHGetSpecialFolderPath)(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate);
-
-__inline BOOL WINAPI _SHGetSpecialFolderPath(HWND hwndOwner, LPTSTR lpszPath, int nFolder, BOOL fCreate) {
-	static fnSHGetSpecialFolderPath __SHGetSpecialFolderPath = NULL;
-	if (!__SHGetSpecialFolderPath) {
-		HMODULE hDLL = LoadLibrary(L"shfolder.dll");
-		if (hDLL != NULL)
-			__SHGetSpecialFolderPath = (fnSHGetSpecialFolderPath)GetProcAddress(hDLL, "SHGetSpecialFolderPathW");
-	}
-	if (__SHGetSpecialFolderPath)
-		return __SHGetSpecialFolderPath(hwndOwner, lpszPath, nFolder, fCreate);
-	return FALSE;
-}
-#endif
 
 nsclient::core::path_manager::path_manager(nsclient::logging::logger_instance log_instance_)
 	: log_instance_(log_instance_) {}
@@ -145,23 +123,32 @@ std::string nsclient::core::path_manager::getFolder(std::string key) {
 		default_value = getTempPath().string();
 	} else if (key == "shared-path" || key == "base-path" || key == "exe-path") {
 		// Use default;
-	}
+	} else if (key == "data-path") {
 #ifdef WIN32
-	else if (key == "common-appdata") {
 		wchar_t buf[MAX_PATH + 1];
-		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
+		if (SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
+			default_value = utf8::cvt<std::string>(buf) + "\\nsclient";
+		else
+			default_value = getBasePath().string();
+#else
+		default_value = "/var/lib/nsclient";
+#endif
+#ifdef WIN32
+	} else if (key == "common-appdata") {
+		wchar_t buf[MAX_PATH + 1];
+		if (SHGetSpecialFolderPath(NULL, buf, CSIDL_COMMON_APPDATA, FALSE))
 			default_value = utf8::cvt<std::string>(buf);
 		else
 			default_value = getBasePath().string();
 	} else if (key == "appdata") {
 		wchar_t buf[MAX_PATH + 1];
-		if (_SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
+		if (SHGetSpecialFolderPath(NULL, buf, CSIDL_APPDATA, FALSE))
 			default_value = utf8::cvt<std::string>(buf);
 		else
 			default_value = getBasePath().string();
 	}
 #else
-	else if (key == "etc") {
+	} else if (key == "etc") {
 		default_value = "/etc";
 	}
 #endif
