@@ -163,16 +163,16 @@ namespace parsers {
 			}
 			long long get_int() const {
 				if (i_value)
-					return *i_value;
+					return static_cast<long long>(*i_value);
 				if (f_value)
-					return *f_value;
+					return static_cast<long long>(*f_value);
 				throw filter_exception("Type is not int");
 			}
 			double get_float() const {
 				if (i_value)
-					return *i_value;
+					return static_cast<double>(*i_value);
 				if (f_value)
-					return *f_value;
+					return static_cast<double>(*f_value);
 				throw filter_exception("Type is not float");
 			}
 			long long get_int(long long def) const {
