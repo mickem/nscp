@@ -197,7 +197,7 @@ void send_to_elastic(const std::string address, const std::string index, std::st
 		json_spirit::Object header;
 		header["index"] = tgtidx;
 
-		payload += json_spirit::write(header, json_spirit::Output_options::raw_utf8) + "\n";
+		payload += json_spirit::write(header, json_spirit::raw_utf8) + "\n";
 		payload += data + "\n";
 	}
 	Mongoose::Client c(address);
@@ -280,7 +280,7 @@ void ElasticClient::onEvent(const Plugin::EventMessage & request, const std::str
 		}
 		node["@timestamp"] = time;
 		node["hostname"] = hostname_;
-		payloads.push_back(json_spirit::write(node, json_spirit::Output_options::raw_utf8));
+		payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
 	}
 	send_to_elastic(address, event_index, event_type, payloads, true);
 }
@@ -318,7 +318,7 @@ void ElasticClient::submitMetrics(const Plugin::MetricsMessage &response) {
 	}
 
 	std::vector<std::string> payloads;
-	payloads.push_back(json_spirit::write(metrics, json_spirit::Output_options::raw_utf8));
+	payloads.push_back(json_spirit::write(metrics, json_spirit::raw_utf8));
 	send_to_elastic(address, metrics_index, metrics_type, payloads, true);
 
 }
@@ -339,7 +339,7 @@ void ElasticClient::handleLogMessage(const Plugin::LogEntry::Entry &message) {
 
 	bool log = message.sender() != "elastic";
 	std::vector<std::string> payloads;
-	payloads.push_back(json_spirit::write(node, json_spirit::Output_options::raw_utf8));
+	payloads.push_back(json_spirit::write(node, json_spirit::raw_utf8));
 	send_to_elastic(address, nsclient_index, nsclient_type, payloads, log);
 
 
