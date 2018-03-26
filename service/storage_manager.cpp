@@ -29,11 +29,11 @@ bool read_chunk(::google::protobuf::io::CodedInputStream &stream, T &obj) {
 void nsclient::core::storage_manager::load() {
 	std::string file = get_filename();
 
-	std::ifstream input(file, std::ios::in | std::ios::binary);
+	std::ifstream in(file.c_str(), std::ios::in | std::ios::binary);
 
-	typedef boost::shared_ptr<::google::protobuf::io::ZeroCopyInputStream> istr_type;
-	typedef boost::shared_ptr<::google::protobuf::io::CodedInputStream> codedstr_type;
-	istr_type raw_in = istr_type(new ::google::protobuf::io::IstreamInputStream(&input));
+	typedef boost::shared_ptr<google::protobuf::io::ZeroCopyInputStream> istr_type;
+	typedef boost::shared_ptr<google::protobuf::io::CodedInputStream> codedstr_type;
+	istr_type raw_in = istr_type(new ::google::protobuf::io::IstreamInputStream(&in));
 	codedstr_type coded_in = codedstr_type(new ::google::protobuf::io::CodedInputStream(raw_in.get()));
 
 	::Plugin::Storage::File header;
@@ -94,11 +94,11 @@ void nsclient::core::storage_manager::save() {
 			if (!file_helpers::checks::is_file(path)) {
 				boost::filesystem::create_directories(path);
 			}
-			std::ofstream output(file, std::ios::out | std::ios::binary | std::ios::trunc);
+			std::ofstream out(file.c_str(), std::ios::out | std::ios::binary | std::ios::trunc);
 
-			typedef boost::shared_ptr<::google::protobuf::io::ZeroCopyOutputStream> istr_type;
-			typedef boost::shared_ptr<::google::protobuf::io::CodedOutputStream> codedstr_type;
-			istr_type raw_out = istr_type(new ::google::protobuf::io::OstreamOutputStream(&output));
+			typedef boost::shared_ptr<google::protobuf::io::ZeroCopyOutputStream> istr_type;
+			typedef boost::shared_ptr<google::protobuf::io::CodedOutputStream> codedstr_type;
+			istr_type raw_out = istr_type(new ::google::protobuf::io::OstreamOutputStream(&out));
 			codedstr_type coded_out = codedstr_type(new ::google::protobuf::io::CodedOutputStream(raw_out.get()));
 
 			::Plugin::Storage::File header;

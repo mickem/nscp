@@ -32,7 +32,7 @@ namespace nsclient {
 			}
 			storage_item(const storage_item& other)
 				: is_modified(other.is_modified)
-				, owner(owner)
+				, owner(other.owner)
 			{
 				entry.CopyFrom(other.entry);
 			}
@@ -48,7 +48,7 @@ namespace nsclient {
 		public:
 			typedef std::map<std::string, storage_item> storage_type;
 			typedef std::list<std::string> key_list_type;
-			typedef std::list<::Plugin::Storage_Entry> entry_list;
+			typedef std::list<Plugin::Storage_Entry> entry_list;
 
 		private:
 			nsclient::core::path_instance path_;
