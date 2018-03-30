@@ -74,8 +74,12 @@ void CheckExternalScripts::addAllScriptsFrom(std::string str_path) {
 	for (boost::filesystem::directory_iterator itr(path); itr != end_itr; ++itr) {
 		if (!is_directory(itr->status())) {
 			std::string name = file_helpers::meta::get_filename(itr->path());
+			std::string cmd = itr->path().string();
+			if (allowArgs_) {
+				cmd += " %ARGS%";
+			}
 			if (regex_match(name, re))
-				add_command(name, itr->path().string());
+				add_command(name, cmd);
 		}
 	}
 }
@@ -88,6 +92,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		aliases_.set_path(settings.alias().get_settings_path("alias"));
 		std::string wrappings_path = settings.alias().get_settings_path("wrappings");
 		boost::filesystem::path scriptRoot;
+		std::string scriptDirectory;
 		std::map<std::string, std::string> wrappings;
 
 		settings.alias().add_path_to_settings()
@@ -159,7 +164,7 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 			("allow nasty characters", sh::bool_key(&allowNasty_, false),
 				"Allow certain potentially dangerous characters in arguments", "This option determines whether or not the we will allow clients to specify nasty (as in |`&><'\"\\[]{}) characters in arguments.")
 
-			("script path", sh::string_key(&scriptDirectory_),
+			("script path", sh::string_key(&scriptDirectory),
 			"Load all scripts in a given folder", "Load all scripts in a given directory and use them as commands.")
 
 			("script root", sh::path_key(&scriptRoot, "${scripts}"),
@@ -219,8 +224,8 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 		settings.register_all();
 		settings.notify();
 
-		if (!scriptDirectory_.empty()) {
-			addAllScriptsFrom(scriptDirectory_);
+		if (!scriptDirectory.empty()) {
+			addAllScriptsFrom(scriptDirectory);
 		}
 
 		aliases_.add_samples(get_settings_proxy());

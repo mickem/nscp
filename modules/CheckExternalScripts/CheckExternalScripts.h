@@ -31,7 +31,6 @@ private:
 	boost::shared_ptr<script_provider_interface> provider_;
 	alias::command_handler aliases_;
 	unsigned int timeout;
-	std::string scriptDirectory_;
 	std::string root_;
 	bool allowArgs_;
 	bool allowNasty_;
