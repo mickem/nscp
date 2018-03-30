@@ -242,14 +242,14 @@ For instance the `/api/v1/modules/:module/commands/load` requires the `modules.l
 To hand this out to a role you would lie the string under the roles like so:
 
 ```
-[/settings/web/roles]
+[/settings/WEB/server/roles]
 my_role=modules.load
 ```
 
 This can easily become cumbersome and thus you can add a star (*) to add multiple privileges to a role like so:
 
 ```
-[/settings/web/roles]
+[/settings/WEB/server/roles]
 my_role=modules.*
 ```
 
@@ -257,7 +257,7 @@ This gives the role `my_role` not only `modules.load` but also all other `module
 This is in fact how the legacy role is created:
 
 ```
-[/settings/web/roles]
+[/settings/WEB/server/roles]
 legacy=*
 ```
 
@@ -270,7 +270,7 @@ nscp web add-user --user foo --password foo
 ```
 
 ```
-[/settings/web/users/foo]
+[/settings/WEB/server/users/foo]
 password=foo
 role=limited
 ```
