@@ -53,6 +53,7 @@ add_library(${TARGET} MODULE ${SRCS})
 target_link_libraries(${TARGET}
 	${Boost_FILESYSTEM_LIBRARY}
 	${Boost_PROGRAM_OPTIONS_LIBRARY}
+	${Boost_DATE_TIME_LIBRARY}
 	${NSCP_DEF_PLUGIN_LIB}
 	${JSON_LIB}
 	nscp_mongoose
