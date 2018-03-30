@@ -110,6 +110,28 @@ namespace wmi_impl {
 		return service;
 	}
 
+	template<class TRawType>
+	std::string get_array(SAFEARRAY *parray) {
+		long begin, end;
+		CComSafeArray<TRawType> arr(parray);
+		begin = arr.GetLowerBound();
+		end = arr.GetUpperBound();
+		std::stringstream ss;
+		ss << "[";
+		for (long index = begin; index <= end; index++) {
+			CComVariant vValue = arr.GetAt(index);
+			HRESULT hr = vValue.ChangeType(VT_BSTR);
+			if (FAILED(hr))
+				throw wmi_exception(hr, "Failed to convert array to string");
+			ss << utf8::cvt<std::string>(vValue.bstrVal);
+			if (index < end) {
+				ss << ", ";
+			}
+		}
+		ss << "]";
+		return ss.str();
+	}
+
 	std::string row::get_string(const std::string col) {
 		CComBSTR bCol(utf8::cvt<std::wstring>(col).c_str());
 		CComVariant vValue;
@@ -120,18 +142,19 @@ namespace wmi_impl {
 			return "<NULL>";
 
 		if (vValue.vt == (VT_ARRAY | VT_BSTR)) {
-			long begin, end;
-			CComSafeArray<BSTR> arr(vValue.parray);
-			begin = arr.GetLowerBound();
-			end = arr.GetUpperBound();
-			std::stringstream ss;
-			ss << "[";
-			for (long index = begin; index <= end; index++) {
-				CComBSTR bColumn = arr.GetAt(index);
-				ss << utf8::cvt<std::string>(bColumn.m_str) << ", ";
-			}
-			ss << "]";
-			return ss.str();
+			return get_array<BSTR>(vValue.parray);
+		}
+		if (vValue.vt == (VT_ARRAY | VT_I1)) {
+			return get_array<CHAR>(vValue.parray);
+		}
+		if (vValue.vt == (VT_ARRAY | VT_I2)) {
+			return get_array<SHORT>(vValue.parray);
+		}
+		if (vValue.vt == (VT_ARRAY | VT_I4)) {
+			return get_array<INT>(vValue.parray);
+		}
+		if (vValue.vt == (VT_ARRAY | VT_I8)) {
+			return get_array<LONG>(vValue.parray);
 		}
 		hr = vValue.ChangeType(VT_BSTR);
 		if (FAILED(hr))
