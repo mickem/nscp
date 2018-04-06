@@ -149,7 +149,7 @@ void query_controller::execute_query(std::string module, arg_vector args, Mongoo
 	json_spirit::Object node;
 	BOOST_FOREACH(const Plugin::QueryResponseMessage::Response &r, response.payload()) {
 		node["command"] = r.command();
-		node["result"] = r.result();
+		node["result"] = nscapi::plugin_helper::translateReturn(r.result());
 		json_spirit::Array lines;
 		BOOST_FOREACH(const Plugin::QueryResponseMessage::Response::Line &l, r.lines()) {
 			json_spirit::Object line;
