@@ -69,6 +69,7 @@ namespace nscapi {
 					bool matches(const std::string &path) const;
 					bool matches(const std::string &path, const std::string &key) const;
 					std::string get_string() const;
+					std::string path() const;
 					std::string key() const;
 					bool get_bool() const;
 					long long get_int() const;
@@ -80,7 +81,7 @@ namespace nscapi {
 				void get(const std::string path, const std::string key, const char* def);
 				void get(const std::string path, const std::string key, const long long def);
 				void get(const std::string path, const std::string key, const bool def);
-				void list(const std::string path);
+				void list(const std::string path, const bool recursive = false);
 
 				void set(const std::string path, const std::string key, std::string value);
 				void erase(const std::string path, const std::string key);

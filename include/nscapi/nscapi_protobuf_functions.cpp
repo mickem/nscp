@@ -776,6 +776,11 @@ namespace nscapi {
 				return pimpl->path == path;
 			}
 
+			std::string settings_query::key_values::path() const {
+				if (!pimpl)
+					return "";
+				return pimpl->path;
+			}
 			std::string settings_query::key_values::key() const {
 				if (!pimpl || !pimpl->key)
 					return "";
@@ -873,11 +878,12 @@ namespace nscapi {
 				r->mutable_query()->set_recursive(false);
 			}
 
-			void settings_query::list(const std::string path) {
+			void settings_query::list(const std::string path, const bool recursive) {
 				::Plugin::SettingsRequestMessage::Request *r = pimpl->request_message.add_payload();
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_inventory()->mutable_node()->set_path(path);
 				r->mutable_inventory()->set_fetch_keys(true);
+				r->mutable_inventory()->set_recursive_fetch(recursive);
 			}
 
 
@@ -941,6 +947,13 @@ namespace nscapi {
 									ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.value().int_data())));
 								else if (q.value().has_bool_data())
 									ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
+							} else if (q.node().has_key() && q.has_info() && q.info().has_default_value()) {
+								if (q.info().default_value().has_string_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), q.info().default_value().string_data()));
+								else if (q.info().default_value().has_int_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.info().default_value().int_data())));
+								else if (q.info().default_value().has_bool_data())
+									ret.push_back(key_values(q.node().path(), q.node().key(), q.info().default_value().bool_data()));
 							} else {
 								ret.push_back(key_values(q.node().path()));
 							}
