@@ -29,7 +29,6 @@ typedef int BOOL;
 #endif
 #ifdef WIN32
 typedef short int16_t;
-typedef unsigned long uint32_t;
 #endif
 
 
