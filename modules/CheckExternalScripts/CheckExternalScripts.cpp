@@ -259,6 +259,7 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::
 	try {
 		if (command == "help") {
 			nscapi::protobuf::functions::set_response_bad(*response, "Usage: nscp ext-scr [add|list|show|install|delete] --help");
+			return true;
 		} else {
 			if (!provider_) {
 				nscapi::protobuf::functions::set_response_bad(*response, "Failed to create provider");
@@ -268,8 +269,10 @@ bool CheckExternalScripts::commandLineExec(const int target_mode, const Plugin::
 		}
 	} catch (const std::exception &e) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Error: " + utf8::utf8_from_native(e.what()));
+		return true;
 	} catch (...) {
 		nscapi::protobuf::functions::set_response_bad(*response, "Error: ");
+		return true;
 	}
 	return false;
 }
