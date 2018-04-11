@@ -138,6 +138,9 @@ namespace Mongoose
 
 	bool ServerImpl::execute_reply_async(job_id id, const void *buf, int len) {
 		struct mg_connection *c;
+		if (buf == NULL) {
+			return false;
+		}
 		for (c = mg_next(&mgr, NULL); c != NULL; c = mg_next(&mgr, c)) {
 			if (c->user_data != NULL && ((udt*)c->user_data)->job_id == id) {
 				mg_send(c, buf, len);
