@@ -267,6 +267,24 @@ namespace client {
 			} catch (...) {
 				handler->output_message("Unknown exception");
 			}
+		} else if (command.size() >= 8 && command.substr(0, 8) == "settings") {
+			namespace pf = nscapi::protobuf::functions;
+
+			pf::settings_query q(handler->get_plugin_id());
+			q.list("/", true);
+
+			handler->get_core()->settings_query(q.request(), q.response());
+			if (!q.validate_response()) {
+				handler->output_message("ERROR: " + q.get_response_error());
+			} else {
+				BOOST_FOREACH(const pf::settings_query::key_values &val, q.get_query_key_response()) {
+					std::string tmp;
+					tmp += val.path();
+					tmp += "/" + val.key();
+					tmp += "=" + val.get_string();
+					handler->output_message(tmp);
+				}
+			}
 		} else if (!command.empty()) {
 			try {
 				std::list<std::string> args;
