@@ -574,7 +574,14 @@ namespace settings {
 			cache_type::const_iterator cit = settings_cache_.find(lookup);
 			if (cit != settings_cache_.end())
 				return true;
-			return has_real_key(lookup);
+			if (has_real_key(lookup)) {
+				return true;
+			}
+			instance_raw_ptr child = find_child_unsafe(lookup);
+			if (child) {
+				return true;
+			}
+			return false;
 		}
 
 		// Misc Functions
