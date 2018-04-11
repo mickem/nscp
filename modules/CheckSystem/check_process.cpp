@@ -214,6 +214,11 @@ namespace process_checks {
 	}
 
 
+	struct CaseBlindCompare {
+		bool operator() (const std::string& a, const std::string& b) const {
+			return stricmp(a.c_str(), b.c_str()) < 0;
+		}
+	};
 
 	namespace active {
 
@@ -256,7 +261,7 @@ namespace process_checks {
 			if (!filter_helper.build_filter(filter))
 				return;
 
-			std::set<std::string> procs;
+			std::set<std::string, CaseBlindCompare> procs;
 			bool all = false;
 			BOOST_FOREACH(const std::string &process, processes) {
 				if (process == "*")
