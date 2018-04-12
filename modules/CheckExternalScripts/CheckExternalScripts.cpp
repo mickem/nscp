@@ -376,7 +376,9 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	if (cmdline.find("%ARG") != std::string::npos) {
 		NSC_DEBUG_MSG_STD("Possible missing argument in: " + cmdline);
 	}
-	NSC_DEBUG_MSG("Command line: " + cmdline);
+	NSC_TRACE_ENABLED() {
+		NSC_TRACE_MSG(cd.get_alias() + " command line: " + cmdline);
+	}
 
 	process::exec_arguments arg(root_, cmdline, timeout, cd.encoding, cd.session, cd.display, !cd.no_fork);
 	if (!cd.user.empty()) {
@@ -390,6 +392,10 @@ void CheckExternalScripts::handle_command(const commands::command_object &cd, co
 	arg.display = cd.display;
 	std::string output;
 	int result = process::execute_process(arg, output);
+	NSC_TRACE_ENABLED() {
+		NSC_TRACE_MSG(cd.get_alias() + " return code: " + str::xtos(result));
+		NSC_TRACE_MSG(cd.get_alias() + " output: " + output);
+	}
 	if (!nscapi::plugin_helper::isNagiosReturnCode(result)) {
 		nscapi::protobuf::functions::set_response_bad(*response, "The command (" + cd.get_alias() + ") returned an invalid return code: " + str::xtos(result));
 		return;
