@@ -28,7 +28,12 @@
 #include <iostream>
 
 void nsclient::logging::logger_helper::log_fatal(std::string message) {
+
 	std::cout << message << "\n";
+	try {
+		std::ofstream stream("nsclient.fatal", std::ios::out | std::ios::app | std::ios::ate);
+		stream << message << "\n";
+	} catch (...) {}
 }
 
 std::string nsclient::logging::logger_helper::render_log_level_short(::Plugin::LogEntry::Entry::Level l) {

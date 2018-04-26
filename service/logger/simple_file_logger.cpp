@@ -97,18 +97,24 @@ namespace nsclient {
 					if (!message.ParseFromString(data)) {
 						logger_helper::log_fatal("Failed to parse message: " + str::format::strip_ctrl_chars(data));
 					} else {
-						std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
+						std::stringstream tmp;
 						for (int i = 0; i < message.entry_size(); i++) {
 							Plugin::LogEntry::Entry msg = message.entry(i);
+							tmp << date
+								<< (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level()))
+								<< (":") << msg.file()
+								<< (":") << msg.line()
+								<< (": ") << msg.message() << "\n";
+						}
+						try {
+							std::ofstream stream(file_.c_str(), std::ios::out | std::ios::app | std::ios::ate);
 							if (!stream) {
-								logger_helper::log_fatal(file_ + " could not be opened, Discarding: " + logger_helper::render_log_level_long(msg.level()) + ": " + msg.message());
+								logger_helper::log_fatal(file_ + " could not be opened, Discarding: " + tmp.str());
 							} else {
-								stream << date
-									<< (": ") << utf8::cvt<std::string>(logger_helper::render_log_level_long(msg.level()))
-									<< (":") << msg.file()
-									<< (":") << msg.line()
-									<< (": ") << msg.message() << "\n";
+								stream << tmp.str();
 							}
+						} catch (std::exception &e) {
+							logger_helper::log_fatal("Failed to write log: " + tmp.str() + ": " + e.what());
 						}
 					}
 				} catch (std::exception &e) {
