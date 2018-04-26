@@ -29,19 +29,23 @@
 
 namespace nscapi {
 	namespace settings_filters {
+
 		struct NSCAPI_EXPORT filter_object {
+
 			bool debug;
 			bool escape_html;
-
 			std::string syntax_top;
 			std::string syntax_detail;
 			std::string target;
 			std::string syntax_ok;
 			std::string syntax_empty;
-			std::string filter_string;
+		private:
+			std::string filter_string_;
+		public:
 			std::string filter_ok;
 			std::string filter_warn;
 			std::string filter_crit;
+
 			std::string perf_data;
 			std::string perf_config;
 			NSCAPI::nagiosReturn severity;
@@ -68,7 +72,7 @@ namespace nscapi {
 				, target(other.target)
 				, syntax_ok(other.syntax_ok)
 				, syntax_empty(other.syntax_empty)
-				, filter_string(other.filter_string)
+				, filter_string_(other.filter_string_)
 				, filter_ok(other.filter_ok)
 				, filter_warn(other.filter_warn)
 				, filter_crit(other.filter_crit)
@@ -83,6 +87,12 @@ namespace nscapi {
 				, timeout_msg(other.timeout_msg)
 			{}
 
+			void set_filter_string(const char* filter_string) {
+				filter_string_ = filter_string;
+			}
+			const char* filter_string() {
+				return filter_string_.c_str();
+			}
 
 			std::string to_string() const {
 				std::stringstream ss;

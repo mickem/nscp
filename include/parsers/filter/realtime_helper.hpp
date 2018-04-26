@@ -107,7 +107,7 @@ namespace parsers {
 						error = "Failed to build strings " + alias + ": " + message;
 						return false;
 					}
-					if (!filter.build_engines(config.debug, config.filter_string, config.filter_ok, config.filter_warn, config.filter_crit)) {
+					if (!filter.build_engines(config.debug, config.filter_string(), config.filter_ok, config.filter_warn, config.filter_crit)) {
 						error = "Failed to build filters: " + alias;
 						return false;
 					}

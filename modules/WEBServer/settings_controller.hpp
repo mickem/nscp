@@ -22,8 +22,8 @@ class settings_controller : public Mongoose::RegexpController {
 
 public:
 
-	settings_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
+	settings_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
-	void get_key(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
-	void get_section(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void get(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
+	void get_desc(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 };

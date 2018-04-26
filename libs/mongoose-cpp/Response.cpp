@@ -64,8 +64,12 @@ namespace Mongoose
         code = code_;
     }
 
-	std::string Response::getCookie(std::string key) {
-		return cookies[key];
+	std::string Response::getCookie(std::string key) const {
+		header_type::const_iterator cit = cookies.find(key);
+		if (cit == cookies.end()) {
+			return "";
+		}
+		return cit->second;
 	}
 
 }

@@ -16,6 +16,7 @@
 
 
 #define HTTP_HDR_AUTH "Authorization"
+#define HTTP_HDR_AUTH_LC "authorization"
 /**
  * A response to a request
  */
@@ -78,7 +79,7 @@ namespace Mongoose
 			* Get a cookie from the cookie list.
 			* @param string the key of the cookie
 			*/
-			virtual std::string getCookie(std::string key);
+			virtual std::string getCookie(std::string key) const ;
 
 			typedef std::map<std::string, std::string> header_type;
 

@@ -1,0 +1,20 @@
+mat-panel-title, 
+mat-panel-description {
+  flex-basis: 0;
+}
+
+mat-panel-description {
+  justify-content: space-between;
+  align-items: center;
+}
+.spacer {
+  flex: 1 1 auto;
+}
+
+
+.logview {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+}
+

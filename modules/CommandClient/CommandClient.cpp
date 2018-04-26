@@ -30,6 +30,10 @@
 
 #include <iostream>
 
+#ifdef WIN32
+#pragma warning(disable:4100)
+#endif
+
 namespace sh = nscapi::settings_helper;
 
 using namespace std;

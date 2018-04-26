@@ -1,0 +1,16 @@
+.example-spacer {
+  flex: 1 1 auto;
+}
+
+h3 {
+  font-weight: bold;
+}
+
+h4 {
+  font-weight: normal;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+fa-icon {
+  color: rgba(0, 0, 0, 0.54);
+}

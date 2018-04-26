@@ -1,0 +1,18 @@
+.outer {
+  padding: 12px;
+}
+
+mat-divider {
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+mat-drawer {
+  min-width: 200px;
+}
+
+.execute-field {
+  min-width: 150px;
+  max-width: 1200px;
+  width: 100%;
+}

@@ -255,7 +255,7 @@ namespace parsers {
 							if (ti)
 								return value_container::create_int(v);
 							if (tf)
-								return value_container::create_float(v);
+								return value_container::create_float(static_cast<double>(v));
 						} else {
 							context->warn("Failed to get " + name_ + " no object instance");
 							if (ti)
@@ -367,7 +367,7 @@ namespace parsers {
 						if (native_context != NULL && fun && native_context->has_object()) {
 							double v = fun(native_context->get_object(), context);
 							if (ti)
-								return value_container::create_int(v);
+								return value_container::create_int(static_cast<long long>(v));
 							if (tf)
 								return value_container::create_float(v);
 						} else {

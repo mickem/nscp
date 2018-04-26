@@ -1,0 +1,13 @@
+/* You can add global styles to this file, and also import other style files */
+@import "~@angular/material/prebuilt-themes/indigo-pink.css";
+@import "https://fonts.googleapis.com/css?family=Material+Icons";
+@import "https://fonts.googleapis.com/css?family=Roboto:400,300";
+
+html, body {
+  display: flex;
+  flex-direction: column;
+
+  font-family: Roboto, Arial, sans-serif;
+  margin: 0;
+  height: 100%;
+}

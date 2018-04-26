@@ -1,0 +1,12 @@
+.outer {
+    padding: 12px;
+}
+
+#login-dialog {
+    min-width: 300px;
+    max-width: 400px;
+}
+form {
+    width: 100%;
+}
+  

@@ -18,6 +18,14 @@ public:
 		return tokens.find(token) != tokens.end();
 	}
 
+	std::string get(const std::string &token) const {
+		token_map::const_iterator cit = tokens.find(token);
+		if (cit != tokens.end()) {
+			return cit->second;
+		}
+		return "";
+	}
+
 	std::string generate(std::string user) {
 		std::string token = generate_token(32);
 		tokens[token] = user;

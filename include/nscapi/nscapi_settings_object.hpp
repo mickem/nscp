@@ -163,22 +163,22 @@ namespace nscapi {
 
 			// VIrtual interface
 
-			virtual void translate(const std::string &key, const std::string &new_value) {
-				options[key] = new_value;
+			virtual void translate(const std::string &key, const std::string &value) {
+				options[key] = value;
 			}
 
-			virtual void import(boost::shared_ptr<object_instance_interface> new_parent) {}
+			virtual void import(boost::shared_ptr<object_instance_interface> parent) {}
 
 			// Accessors
 
 			bool has_option(std::string key) const {
 				return options.find(key) != options.end();
 			}
-			void set_property_int(std::string key, int new_value) {
-				translate(key, str::xtos(new_value));
+			void set_property_int(std::string key, int value) {
+				translate(key, str::xtos(value));
 			}
-			void set_property_bool(std::string key, bool new_value) {
-				translate(key, new_value ? "true" : "false");
+			void set_property_bool(std::string key, bool value) {
+				translate(key, value ? "true" : "false");
 			}
 			void set_property_string(std::string key, std::string new_value) {
 				translate(key, new_value);

@@ -25,7 +25,10 @@ namespace nsclient {
 
 		void settings_query_handler::settings_add_plugin_data(const std::set<unsigned int> &plugins, ::Plugin::Settings_Information* info) {
 			BOOST_FOREACH(const unsigned int i, plugins) {
-				info->add_plugin(core_->get_plugin_cache()->find_plugin_alias(i));
+				std::string name = core_->get_plugin_cache()->find_plugin_alias(i);
+				if (name.substr(0, 21) != "Failed to find plugin") {
+					info->add_plugin(name);
+				}
 			}
 		}
 
@@ -113,27 +116,10 @@ namespace nsclient {
 								rpp->mutable_info()->set_description(desc.description);
 								rpp->mutable_info()->set_advanced(desc.advanced);
 								rpp->mutable_info()->set_sample(desc.is_sample);
-								if (desc.defValue.string_value)
-									rpp->mutable_info()->mutable_default_value()->set_string_data(*desc.defValue.string_value);
-								if (desc.defValue.int_value)
-									rpp->mutable_info()->mutable_default_value()->set_int_data(*desc.defValue.int_value);
-								if (desc.defValue.bool_value)
-									rpp->mutable_info()->mutable_default_value()->set_bool_data(*desc.defValue.bool_value);
-								if (desc.type == NSCAPI::key_string) {
-									settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
-									if (val)
-										rpp->mutable_value()->set_string_data(*val);
-								} else if (desc.type == NSCAPI::key_integer) {
-									settings::settings_interface::op_int val = settings_manager::get_settings()->get_int(path, key);
-									if (val)
-										rpp->mutable_value()->set_int_data(*val);
-								} else if (desc.type == NSCAPI::key_bool) {
-									settings::settings_interface::op_bool val = settings_manager::get_settings()->get_bool(path, key);
-									if (val)
-										rpp->mutable_value()->set_bool_data(*val);
-								} else {
-									LOG_ERROR_CORE("Invalid type");
-								}
+								rpp->mutable_info()->set_default_value(desc.default_value);
+								settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
+								if (val)
+									rpp->mutable_node()->set_value(*val);
 								settings_add_plugin_data(desc.plugins, rpp->mutable_info());
 							}
 							if (!plugin_id) {
@@ -147,10 +133,10 @@ namespace nsclient {
 										rpp->mutable_node()->set_key(key);
 										rpp->mutable_info()->set_advanced(true);
 										rpp->mutable_info()->set_sample(false);
-										rpp->mutable_info()->mutable_default_value()->set_string_data("");
+										rpp->mutable_info()->set_default_value("");
 										settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
 										if (val)
-											rpp->mutable_value()->set_string_data(*val);
+											rpp->mutable_node()->set_value(*val);
 									}
 								}
 							}
@@ -190,22 +176,9 @@ namespace nsclient {
 							rpp->mutable_info()->set_description(desc.description);
 							rpp->mutable_info()->set_advanced(desc.advanced);
 							rpp->mutable_info()->set_sample(desc.is_sample);
-							if (desc.defValue.string_value)
-								rpp->mutable_info()->mutable_default_value()->set_string_data(*desc.defValue.string_value);
-							if (desc.defValue.int_value)
-								rpp->mutable_info()->mutable_default_value()->set_int_data(*desc.defValue.int_value);
-							if (desc.defValue.bool_value)
-								rpp->mutable_info()->mutable_default_value()->set_bool_data(*desc.defValue.bool_value);
+							rpp->mutable_info()->set_default_value(desc.default_value);
 							try {
-								if (desc.type == NSCAPI::key_string)
-									rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(path, key, ""));
-								else if (desc.type == NSCAPI::key_integer)
-									rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(path, key, 0));
-								else if (desc.type == NSCAPI::key_bool)
-									rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(path, key, false));
-								else {
-									LOG_ERROR_CORE("Invalid type");
-								}
+								rpp->mutable_node()->set_value(settings_manager::get_settings()->get_string(path, key, ""));
 							} catch (settings::settings_exception &) {}
 							settings_add_plugin_data(desc.plugins, rpp->mutable_info());
 						}
@@ -222,7 +195,7 @@ namespace nsclient {
 									rpp->mutable_info()->set_sample(false);
 									settings::settings_interface::op_string val = settings_manager::get_settings()->get_string(path, key);
 									if (val)
-										rpp->mutable_value()->set_string_data(*val);
+										rpp->mutable_node()->set_value(*val);
 								}
 							}
 						}
@@ -247,7 +220,7 @@ namespace nsclient {
 						rpp->mutable_node()->set_path(desc.path);
 						rpp->mutable_info()->set_title(desc.title);
 						rpp->mutable_info()->set_is_template(true);
-						rpp->mutable_value()->set_string_data(desc.data);
+						rpp->mutable_node()->set_value(desc.data);
 						rpp->mutable_info()->add_plugin(core_->get_plugin_cache()->find_plugin_alias(desc.plugin_id));
 					}
 					t.end();
@@ -256,35 +229,41 @@ namespace nsclient {
 			}
 		}
 
+		void settings_query_handler::recurse_find(Plugin::SettingsResponseMessage::Response::Query *rpp, const std::string base_path, bool recurse, bool fetch_keys) {
+			std::string path = base_path;
+			if (base_path.size() > 1 && base_path[base_path.size() - 1] == '/') {
+				path = base_path.substr(0, base_path.size()-1);
+			}
+			BOOST_FOREACH(const std::string &child, settings_manager::get_settings()->get_sections(path)) {
+				std::string child_path = settings::join_path(path, child);
+				if (!fetch_keys) {
+					Plugin::Settings::Node *node = rpp->add_nodes();
+					node->set_path(child_path);
+				}
+				if (recurse) {
+					recurse_find(rpp, child_path, true, fetch_keys);
+				}
+			}
+			if (fetch_keys) {
+				BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(path)) {
+					Plugin::Settings::Node *node = rpp->add_nodes();
+					node->set_path(path);
+					node->set_key(key);
+					node->set_value(settings_manager::get_settings()->get_string(path, key, ""));
+				}
+			}
+		}
+
+
 
 		void settings_query_handler::parse_query(const Plugin::SettingsRequestMessage::Request::Query &q, Plugin::SettingsResponseMessage::Response* rp) {
 			Plugin::SettingsResponseMessage::Response::Query *rpp = rp->mutable_query();
 			rpp->mutable_node()->CopyFrom(q.node());
 			if (q.node().has_key()) {
-				if (q.has_type() && q.type() == Plugin::Common_DataType_STRING) {
-					std::string def = q.has_default_value() && q.default_value().has_string_data() ? q.default_value().string_data() : "";
-					rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
-				} else if (q.has_type() && q.type() == Plugin::Common_DataType_INT) {
-					long long def = q.has_default_value() && q.default_value().has_int_data() ? q.default_value().int_data() : 0;
-					rpp->mutable_value()->set_int_data(settings_manager::get_settings()->get_int(q.node().path(), q.node().key(), def));
-				} else if (q.has_type() && q.type() == Plugin::Common_DataType_BOOL) {
-					bool def = q.has_default_value() && q.default_value().has_bool_data() ? q.default_value().bool_data() : false;
-					rpp->mutable_value()->set_bool_data(settings_manager::get_settings()->get_bool(q.node().path(), q.node().key(), def));
-				} else {
-					std::string def = q.has_default_value() && q.default_value().has_string_data() ? q.default_value().string_data() : "";
-					rpp->mutable_value()->set_string_data(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
-				}
+				std::string def = q.has_default_value() ? q.default_value() : "";
+				rpp->mutable_node()->set_value(settings_manager::get_settings()->get_string(q.node().path(), q.node().key(), def));
 			} else {
-				::Plugin::Common::AnyDataType *value = rpp->mutable_value();
-				if (q.has_recursive() && q.recursive()) {
-					BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_sections(q.node().path())) {
-						value->add_list_data(key);
-					}
-				} else {
-					BOOST_FOREACH(const std::string &key, settings_manager::get_settings()->get_keys(q.node().path())) {
-						value->add_list_data(key);
-					}
-				}
+				recurse_find(rpp, q.node().path(), q.has_recursive() && q.recursive(), q.has_include_keys() && q.include_keys());
 			}
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
@@ -323,14 +302,7 @@ namespace nsclient {
 				LOG_ERROR_CORE("Not compiled with json support");
 #endif
 			} else if (q.node().has_key()) {
-				nscapi::settings::settings_value defValue;
-				if (q.info().default_value().has_string_data())
-					defValue = nscapi::settings::settings_value::make_string(q.info().default_value().string_data());
-				else if (q.info().default_value().has_int_data())
-					defValue = nscapi::settings::settings_value::make_int(q.info().default_value().int_data());
-				else if (q.info().default_value().has_bool_data())
-					defValue = nscapi::settings::settings_value::make_bool(q.info().default_value().bool_data());
-				settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), settings::settings_core::key_string, q.info().title(), q.info().description(), defValue, q.info().advanced(), q.info().sample());
+				settings_manager::get_core()->register_key(plugin_id, q.node().path(), q.node().key(), q.info().title(), q.info().description(), q.info().default_value(), q.info().advanced(), q.info().sample());
 			} else {
 				if (q.info().subkey()) {
 					settings_manager::get_core()->register_subkey(plugin_id, q.node().path(), q.info().title(), q.info().description(), q.info().advanced(), q.info().sample());
@@ -344,18 +316,12 @@ namespace nsclient {
 
 		void settings_query_handler::parse_update(const Plugin::SettingsRequestMessage::Request::Update &p, Plugin::SettingsResponseMessage::Response* rp) {
 			rp->mutable_update();
-			if (p.has_value() && p.value().has_string_data()) {
-				settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.value().string_data());
-			} else if (p.has_value() && p.value().has_bool_data()) {
-				settings_manager::get_settings()->set_bool(p.node().path(), p.node().key(), p.value().bool_data());
-			} else if (p.has_value() && p.value().has_int_data()) {
-				settings_manager::get_settings()->set_int(p.node().path(), p.node().key(), p.value().int_data());
+			if (p.node().has_value()) {
+				settings_manager::get_settings()->set_string(p.node().path(), p.node().key(), p.node().value());
+			} else if (p.node().has_key()) {
+				settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());
 			} else {
-				if (p.node().has_key()) {
-					settings_manager::get_settings()->remove_key(p.node().path(), p.node().key());
-				} else {
-					settings_manager::get_settings()->remove_path(p.node().path());
-				}
+				settings_manager::get_settings()->remove_path(p.node().path());
 			}
 			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}

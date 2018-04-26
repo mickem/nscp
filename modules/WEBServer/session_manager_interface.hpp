@@ -34,7 +34,8 @@ public:
 	std::string generate_token(std::string user);
 
 	std::string get_metrics();
-	void set_metrics(std::string metrics);
+	std::string get_metrics_v2();
+	void set_metrics(std::string metrics, std::string metrics_list);
 
 	void add_log_message(bool is_error, error_handler_interface::log_entry entry);
 	error_handler_interface* get_log_data();
@@ -46,7 +47,10 @@ public:
 	std::list<std::string> boot();
 	bool validate_user(const std::string user, const std::string &password);
 	void setup_token(std::string &user, Mongoose::StreamResponse & response);
+	void setup_user(std::string &token, Mongoose::StreamResponse & response);
 	bool can(std::string grant, Mongoose::Request & request, Mongoose::StreamResponse & response);
+	void get_user(const Mongoose::StreamResponse & response, std::string &user, std::string &key) const;
 	void add_user(std::string user, std::string role, std::string password);
+	bool has_user(std::string user) const;
 	void add_grant(std::string role, std::string grant);
 };

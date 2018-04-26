@@ -11,12 +11,12 @@ A server that listens for incoming HTTP connection and processes incoming reques
 
 
 
-| Path / Section                       | Description |
-|--------------------------------------|-------------|
-| [/settings/default](#)               |             |
-| [/settings/WEB/server](#web-server)  | Web server  |
-| [/settings/WEB/server/roles](#roles) | Roles       |
-| [/settings/WEB/server/users](#users) | Users       |
+| Path / Section                                  | Description      |
+|-------------------------------------------------|------------------|
+| [/settings/default](#)                          |                  |
+| [/settings/WEB/server](#web-server)             | Web server       |
+| [/settings/WEB/server/roles](#web-server-roles) | Web server roles |
+| [/settings/WEB/server/users](#web-server-users) | Web server users |
 
 
 
@@ -34,7 +34,7 @@ A server that listens for incoming HTTP connection and processes incoming reques
 | [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
 | [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
 | [inbox](#inbox)                             | inbox         | INBOX                 |
-| [password](#password)                       |               | PASSWORD              |
+| [password](#password)                       |               | Password              |
 | [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
 | [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
 | [timeout](#timeout)                         | 30            | TIMEOUT               |
@@ -190,7 +190,7 @@ inbox=inbox
 
 
 
-#### PASSWORD <a id="/settings/default/password"></a>
+#### Password <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -211,7 +211,7 @@ Password used to authenticate against server
 
 ```
 [/settings/default]
-# PASSWORD
+# Password
 password=
 ```
 
@@ -303,14 +303,14 @@ Section for WEB (WEBServer.dll) (check_WEB) protocol options.
 
 
 
-| Key                                         | Default Value                       | Description         |
-|---------------------------------------------|-------------------------------------|---------------------|
-| [allowed hosts](#allowed-hosts)             | 127.0.0.1                           | ALLOWED HOSTS       |
-| [cache allowed hosts](#cache-allowed-hosts) | true                                | CACHE ALLOWED HOSTS |
-| [certificate](#certificate)                 | ${certificate-path}/certificate.pem | CERTIFICATE         |
-| [password](#password)                       |                                     | PASSWORD            |
-| [port](#port-number)                        | 8443                                | PORT NUMBER         |
-| [threads](#number-of-threads)               | 10                                  | NUMBER OF THREADS   |
+| Key                                                 | Default Value                       | Description                 |
+|-----------------------------------------------------|-------------------------------------|-----------------------------|
+| [allowed hosts](#allowed-hosts)                     | 127.0.0.1                           | Allowed hosts               |
+| [cache allowed hosts](#cache-list-of-allowed-hosts) | true                                | Cache list of allowed hosts |
+| [certificate](#tls-certificate)                     | ${certificate-path}/certificate.pem | TLS Certificate             |
+| [password](#password)                               |                                     | Password                    |
+| [port](#server-port)                                | 8443                                | Server port                 |
+| [threads](#server-threads)                          | 10                                  | Server threads              |
 
 
 
@@ -329,7 +329,7 @@ threads=10
 
 
 
-#### ALLOWED HOSTS <a id="/settings/WEB/server/allowed hosts"></a>
+#### Allowed hosts <a id="/settings/WEB/server/allowed hosts"></a>
 
 A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -350,13 +350,13 @@ A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to
 
 ```
 [/settings/WEB/server]
-# ALLOWED HOSTS
+# Allowed hosts
 allowed hosts=127.0.0.1
 ```
 
 
 
-#### CACHE ALLOWED HOSTS <a id="/settings/WEB/server/cache allowed hosts"></a>
+#### Cache list of allowed hosts <a id="/settings/WEB/server/cache allowed hosts"></a>
 
 If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server. parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -377,13 +377,13 @@ If host names (DNS entries) should be cached, improves speed and security somewh
 
 ```
 [/settings/WEB/server]
-# CACHE ALLOWED HOSTS
+# Cache list of allowed hosts
 cache allowed hosts=true
 ```
 
 
 
-#### CERTIFICATE <a id="/settings/WEB/server/certificate"></a>
+#### TLS Certificate <a id="/settings/WEB/server/certificate"></a>
 
 Ssl certificate to use for the ssl server
 
@@ -403,13 +403,13 @@ Ssl certificate to use for the ssl server
 
 ```
 [/settings/WEB/server]
-# CERTIFICATE
+# TLS Certificate
 certificate=${certificate-path}/certificate.pem
 ```
 
 
 
-#### PASSWORD <a id="/settings/WEB/server/password"></a>
+#### Password <a id="/settings/WEB/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -431,13 +431,13 @@ Password used to authenticate against server parent for this key is found under:
 
 ```
 [/settings/WEB/server]
-# PASSWORD
+# Password
 password=
 ```
 
 
 
-#### PORT NUMBER <a id="/settings/WEB/server/port"></a>
+#### Server port <a id="/settings/WEB/server/port"></a>
 
 Port to use for WEB server.
 
@@ -457,13 +457,13 @@ Port to use for WEB server.
 
 ```
 [/settings/WEB/server]
-# PORT NUMBER
+# Server port
 port=8443
 ```
 
 
 
-#### NUMBER OF THREADS <a id="/settings/WEB/server/threads"></a>
+#### Server threads <a id="/settings/WEB/server/threads"></a>
 
 The number of threads in the sever response pool.
 
@@ -483,31 +483,145 @@ The number of threads in the sever response pool.
 
 ```
 [/settings/WEB/server]
-# NUMBER OF THREADS
+# Server threads
 threads=10
 ```
 
 
-### Roles <a id="/settings/WEB/server/roles"/>
+### Web server roles <a id="/settings/WEB/server/roles"/>
 
 A list of roles and with coma separated list of access rights.
 
 
 
 
+| Key                            | Default Value                                                                                    | Description          |
+|--------------------------------|--------------------------------------------------------------------------------------------------|----------------------|
+| [client](#role-for-read-only)  | public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list | Role for read only   |
+| [full](#role-for-full-access)  | *                                                                                                | Role for Full access |
+| [legacy](#role-for-legacy-api) | legacy                                                                                           | Role for legacy API  |
+| [view](#role-for-full-access)  | *                                                                                                | Role for Full access |
 
 
 
 ```ini
 # A list of roles and with coma separated list of access rights.
 [/settings/WEB/server/roles]
+client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
+full=*
+legacy=legacy
+view=*
 
 ```
 
 
 
 
-### Users <a id="/settings/WEB/server/users"/>
+
+#### Role for read only <a id="/settings/WEB/server/roles/client"></a>
+
+Default role for read only
+
+
+
+
+
+| Key            | Description                                                                                        |
+|----------------|----------------------------------------------------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles)                                          |
+| Key:           | client                                                                                             |
+| Default value: | `public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list` |
+| Used by:       | WEBServer                                                                                          |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/roles]
+# Role for read only
+client=public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list
+```
+
+
+
+#### Role for Full access <a id="/settings/WEB/server/roles/full"></a>
+
+Default role for Full access
+
+
+
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
+| Key:           | full                                                      |
+| Default value: | `*`                                                       |
+| Used by:       | WEBServer                                                 |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/roles]
+# Role for Full access
+full=*
+```
+
+
+
+#### Role for legacy API <a id="/settings/WEB/server/roles/legacy"></a>
+
+Default role for legacy API
+
+
+
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
+| Key:           | legacy                                                    |
+| Default value: | `legacy`                                                  |
+| Used by:       | WEBServer                                                 |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/roles]
+# Role for legacy API
+legacy=legacy
+```
+
+
+
+#### Role for Full access <a id="/settings/WEB/server/roles/view"></a>
+
+Default role for Full access
+
+
+
+
+
+| Key            | Description                                               |
+|----------------|-----------------------------------------------------------|
+| Path:          | [/settings/WEB/server/roles](#/settings/WEB/server/roles) |
+| Key:           | view                                                      |
+| Default value: | `*`                                                       |
+| Used by:       | WEBServer                                                 |
+
+
+**Sample:**
+
+```
+[/settings/WEB/server/roles]
+# Role for Full access
+view=*
+```
+
+
+### Web server users <a id="/settings/WEB/server/users"/>
 
 Users which can access the REST API
 
@@ -518,23 +632,17 @@ This is a section of objects. This means that you will create objects below this
 **Keys:**
 
 
-| Key         | Default Value | Description |
-|-------------|---------------|-------------|
-| alias       |               | ALIAS       |
-| is template | false         | IS TEMPLATE |
-| parent      | default       | PARENT      |
-| password    |               | PASSWORD    |
-| role        |               | ROLE        |
+| Key      | Default Value | Description |
+|----------|---------------|-------------|
+| password |               | PASSWORD    |
+| role     |               | ROLE        |
 
 
 **Sample:**
 
 ```ini
-# An example of a Users section
+# An example of a Web server users section
 [/settings/WEB/server/users/sample]
-#alias=...
-is template=false
-parent=default
 #password=...
 #role=...
 

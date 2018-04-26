@@ -50,9 +50,6 @@ namespace NSCAPI {
 	const int dontStart = 1;
 	const int reloadStart = 2;
 	const int isInvalidBufferLen = -2;
-	const int key_string = 100;
-	const int key_integer = 200;
-	const int key_bool = 300;
 
 	const int target_module = 1;
 	const int target_any = 0;

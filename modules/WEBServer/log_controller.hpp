@@ -23,7 +23,7 @@ class log_controller : public Mongoose::RegexpController {
 
 public:
 
-	log_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
+	log_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id);
 
 	void get_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);
 	void add_log(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response);

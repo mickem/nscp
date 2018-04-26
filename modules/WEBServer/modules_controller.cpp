@@ -15,13 +15,18 @@
 #include <fstream>
 #include <iostream>
 
+#ifdef WIN32
+#pragma warning(disable:4456)
+#endif
 
 
-modules_controller::modules_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
+
+modules_controller::modules_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
   : session(session)
   , core(core)
   , plugin_id(plugin_id)
-  , RegexpController("/api/v1/modules")
+  , RegexpController(version==1?"/api/v1/modules":"/api/v2/modules")
+  , version(version)
 {
 	addRoute("GET", "/?$", this, &modules_controller::get_modules);
 	addRoute("POST", "/([^/]+)/?$", this, &modules_controller::post_module);
@@ -53,19 +58,22 @@ void modules_controller::get_modules(Mongoose::Request &request, boost::smatch &
 		  node["id"] = i.id();
 		  node["title"] = i.info().title();
 		  node["loaded"] = false;
+		  node["enabled"] = false;
 		  node["module_url"] = request.get_host() + "/api/v1/modules/" + i.name() + "/";
 		  json_spirit::Object keys;
 		  BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
 			  if (kvp.key() == "loaded") {
 				  node["loaded"] = kvp.value() == "true";
+			  } else if (kvp.key() == "enabled") {
+				  node["enabled"] = kvp.value() == "true";
 			  } else {
 				  keys[kvp.key()] = kvp.value();
 			  }
 		  }
 		  node["metadata"] = keys;
 		  node["description"] = i.info().description();
-		  node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";;
-		  node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";;
+		  node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";
+		  node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";
 		  root.push_back(node);
 	  }
   }
@@ -105,18 +113,23 @@ void modules_controller::get_module(Mongoose::Request &request, boost::smatch &w
 			node["id"] = i.id();
 			node["title"] = i.info().title();
 			node["loaded"] = false;
+			node["enabled"] = false;
 			json_spirit::Object keys;
 			BOOST_FOREACH(const ::Plugin::Common::KeyValue &kvp, i.info().metadata()) {
 				if (kvp.key() == "loaded") {
 					node["loaded"] = kvp.value() == "true";
+				} else if (kvp.key() == "enabled") {
+					node["enabled"] = kvp.value() == "true";
 				} else {
 					keys[kvp.key()] = kvp.value();
 				}
 			}
 			node["metadata"] = keys;
 			node["description"] = i.info().description();
-			node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";;
-			node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";;
+			node["load_url"] = get_base(request) + "/" + i.id() + "/commands/load";
+			node["unload_url"] = get_base(request) + "/" + i.id() + "/commands/unload";
+			node["enable_url"] = get_base(request) + "/" + i.id() + "/commands/enable";
+			node["disable_url"] = get_base(request) + "/" + i.id() + "/commands/disable";
 		}
 	}
 	response.append(json_spirit::write(node));
@@ -140,6 +153,14 @@ void modules_controller::module_command(Mongoose::Request &request, boost::smatc
 		if (!session->can("modules.unload", request, response))
 			return;
 		unload_module(module, response);
+	} else if (command == "enable") {
+		if (!session->can("modules.enable", request, response))
+			return;
+		enable_module(module, response);
+	} else if (command == "disable") {
+		if (!session->can("modules.disable", request, response))
+			return;
+		disable_module(module, response);
 	} else {
 		response.setCode(HTTP_NOT_FOUND);
 		response.append("unknown command: " + command);
@@ -160,7 +181,11 @@ void modules_controller::load_module(std::string module, Mongoose::StreamRespons
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
-	helpers::parse_result(response.payload(), http_response, "load " + module);
+	if (version == 2) {
+		helpers::parse_result_v2(response.payload(), http_response, "load " + module);
+	} else {
+		helpers::parse_result(response.payload(), http_response, "load " + module);
+	}
 }
 
 void modules_controller::unload_module(std::string module, Mongoose::StreamResponse &http_response) {
@@ -175,9 +200,51 @@ void modules_controller::unload_module(std::string module, Mongoose::StreamRespo
 	Plugin::RegistryResponseMessage response;
 	response.ParseFromString(pb_response);
 
-	helpers::parse_result(response.payload(), http_response, "unload " + module);
+	if (version == 2) {
+		helpers::parse_result_v2(response.payload(), http_response, "unload " + module);
+	} else {
+		helpers::parse_result(response.payload(), http_response, "unload " + module);
+	}
 }
 
+
+void modules_controller::enable_module(std::string module, Mongoose::StreamResponse &http_response) {
+	Plugin::RegistryRequestMessage rrm;
+	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_control()->set_command(Plugin::Registry_Command_ENABLE);
+	payload->mutable_control()->set_name(module);
+	std::string pb_response, json_response;
+	core->registry_query(rrm.SerializeAsString(), pb_response);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(pb_response);
+
+	if (version == 2) {
+		helpers::parse_result_v2(response.payload(), http_response, "enable " + module);
+	} else {
+		helpers::parse_result(response.payload(), http_response, "enable " + module);
+	}
+}
+
+void modules_controller::disable_module(std::string module, Mongoose::StreamResponse &http_response) {
+	Plugin::RegistryRequestMessage rrm;
+	Plugin::RegistryRequestMessage::Request *payload = rrm.add_payload();
+
+	payload->mutable_control()->set_type(Plugin::Registry_ItemType_MODULE);
+	payload->mutable_control()->set_command(Plugin::Registry_Command_DISABLE);
+	payload->mutable_control()->set_name(module);
+	std::string pb_response, json_response;
+	core->registry_query(rrm.SerializeAsString(), pb_response);
+	Plugin::RegistryResponseMessage response;
+	response.ParseFromString(pb_response);
+
+	if (version == 2) {
+		helpers::parse_result_v2(response.payload(), http_response, "disable " + module);
+	} else {
+		helpers::parse_result(response.payload(), http_response, "disable " + module);
+	}
+}
 
 void modules_controller::put_module(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
 	if (!session->is_loggedin("modules.put", request, response))

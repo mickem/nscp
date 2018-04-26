@@ -741,7 +741,7 @@ namespace parsers {
 				T obj = native_context->get_object();
 				return function(obj, context, subject);
 			} catch (const std::exception &e) {
-				context->error("Failed to evaluate function");
+				context->error("Failed to evaluate function: " + utf8::utf8_from_native(e.what()));
 				return parsers::where::factory::create_false();
 			}
 		}

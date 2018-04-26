@@ -24,19 +24,6 @@
 #include <boost/foreach.hpp>
 #include <boost/optional.hpp>
 
-#define STRING_FUN_STORER(val) boost::shared_ptr<store_functor>(new string_fun_storer(val))
-#define BOOL_FUN_STORER(val) boost::shared_ptr<store_functor>(new bool_fun_storer(val))
-
-#define STRING_STORER(val) boost::shared_ptr<store_functor>(new string_storer(val))
-#define PATH_STORER(val) boost::shared_ptr<store_functor>(new path_storer(val))
-#define BOOL_STORER(val) boost::shared_ptr<store_functor>(new bool_storer(val))
-#define INT_STORER(type, val) boost::shared_ptr<store_functor>(new int_storer<type>(val))
-
-#define MAP_STORER(fun) boost::shared_ptr<store_bin_functor>(new map_storer(fun))
-#define KVP_STORER(val) boost::shared_ptr<store_bin_functor>(new kvp_storer(val))
-
-
-#define LOOKUP_PATH boost::shared_ptr<post_processor>(new lookup_path_processor())
 
 namespace nscapi {
 	namespace settings_helper {
@@ -47,15 +34,19 @@ namespace nscapi {
 		}
 
 		struct post_processor {
-			virtual s::settings_value process(settings_impl_interface_ptr core, s::settings_value value) = 0;
+			virtual std::string process(settings_impl_interface_ptr core, std::string value) = 0;
 		};
 
 		struct store_functor {
-			virtual void store(s::settings_value value) = 0;
+			virtual void store(std::string value) = 0;
 		};
 		struct store_bin_functor {
-			virtual void store(s::settings_value key, s::settings_value value) = 0;
+			virtual void store(std::string key, std::string value) = 0;
 		};
+
+		typedef boost::shared_ptr<store_functor> store_ptr;
+		typedef boost::shared_ptr<post_processor> post_ptr;
+		typedef boost::shared_ptr<store_bin_functor> bin_ptr;
 
 		//////////////////////////////////////////////////////////////////////////
 		//
@@ -63,26 +54,36 @@ namespace nscapi {
 		//
 
 		class typed_key : public key_interface {
+			typedef store_ptr store_ptr;
+			typedef boost::shared_ptr<post_processor> post_ptr;
+
+			bool has_default_;
+			std::string default_value_;
+
+			post_ptr post_functor_;
+			store_ptr store_functor_;
 		public:
-			typed_key(boost::shared_ptr<store_functor> store_functor, const s::settings_value &default_value)
+			typed_key(store_functor *store_functor)
+				: has_default_(false)
+				, store_functor_(store_ptr(store_functor)) {}
+			typed_key(store_functor *store_functor, const std::string &default_value)
 				: has_default_(true)
 				, default_value_(default_value)
-				, store_functor_(store_functor) {}
-			typed_key(boost::shared_ptr<store_functor> store_functor)
+				, store_functor_(store_ptr(store_functor)) {}
+			typed_key(store_functor *store_functor, post_processor *post_functor)
 				: has_default_(false)
-				, default_value_(s::settings_value::make_empty())
-				, store_functor_(store_functor) {}
+				, store_functor_(store_ptr(store_functor))
+				, post_functor_(post_ptr(post_functor)) {}
+			typed_key(store_functor *store_functor, const std::string &default_value, post_processor *post_functor)
+				: has_default_(true)
+				, default_value_(default_value)
+				, store_functor_(store_ptr(store_functor))
+				, post_functor_(post_ptr(post_functor)) {}
 
-			typed_key* default_value(const s::settings_value &v) {
-				has_default_ = true;
-				default_value_ = v;
-				return this;
-			}
-
-			s::settings_value get_default() const {
+			std::string get_default() const {
 				return default_value_;
 			}
-			void update_target(s::settings_value &value) const {
+			void update_target(std::string &value) const {
 				if (store_functor_)
 					store_functor_->store(value);
 			}
@@ -90,41 +91,17 @@ namespace nscapi {
 				throw nsclient::nsclient_exception("Not implemented: notify_path");
 			}
 
-		protected:
-			bool has_default_;
-			s::settings_value default_value_;
-			boost::shared_ptr<store_functor> store_functor_;
-		};
-
-		class typed_string_value : public typed_key {
-			boost::shared_ptr<post_processor> post_processor_;
-			boost::shared_ptr<store_functor> store_functor_;
-		public:
-			typed_string_value(boost::shared_ptr<store_functor> store_functor)
-				: typed_key(store_functor) {}
-			typed_string_value(boost::shared_ptr<store_functor> store_functor, const std::string &v)
-				: typed_key(store_functor, s::settings_value::make_string(v)) {}
-			typed_string_value(boost::shared_ptr<store_functor> store_functor, boost::shared_ptr<post_processor> post_processor)
-				: typed_key(store_functor)
-				, post_processor_(post_processor) {}
-			typed_string_value(boost::shared_ptr<store_functor> store_functor, const std::string &v, boost::shared_ptr<post_processor> post_processor)
-				: typed_key(store_functor, s::settings_value::make_string(v))
-				, post_processor_(post_processor) {}
-			NSCAPI::settings_type get_type() const {
-				return NSCAPI::key_string;
-			}
 			void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
 				std::string dummy("$$DUMMY_VALUE_DO_NOT_USE$$");
-				if (typed_key::has_default_)
-					dummy = typed_key::default_value_.get_string();
+				if (has_default_)
+					dummy = default_value_;
 				std::string data = core_->get_string(path, key, dummy);
-				if (typed_key::has_default_ || data != dummy) {
+				if (has_default_ || data != dummy) {
 					try {
-						s::settings_value value = s::settings_value::make_string(data);
-						if (post_processor_) {
-							value = post_processor_->process(core_, value);
+						if (post_functor_) {
+							data = post_functor_->process(core_, data);
 						}
-						this->update_target(value);
+						this->update_target(data);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -132,16 +109,15 @@ namespace nscapi {
 			}
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
 				std::string dummy("$$DUMMY_VALUE_DO_NOT_USE$$");
-				if (typed_key::has_default_)
-					dummy = typed_key::default_value_.get_string();
+				if (has_default_)
+					dummy = default_value_;
 				std::string data = core_->get_string(parent, key, dummy);
-				if (typed_key::has_default_ || data != dummy)
+				if (has_default_ || data != dummy)
 					dummy = data;
 				data = core_->get_string(path, key, dummy);
-				if (typed_key::has_default_ || data != "$$DUMMY_VALUE_DO_NOT_USE$$") {
+				if (has_default_ || data != "$$DUMMY_VALUE_DO_NOT_USE$$") {
 					try {
-						s::settings_value value = s::settings_value::make_string(data);
-						this->update_target(value);
+						this->update_target(data);
 					} catch (const std::exception &e) {
 						core_->err(__FILE__, __LINE__, "Failed to parse key: " + make_skey(path, key) + ": " + utf8::utf8_from_native(e.what()));
 					}
@@ -150,107 +126,20 @@ namespace nscapi {
 		};
 
 		struct lookup_path_processor : public post_processor {
-			virtual s::settings_value process(settings_impl_interface_ptr core_, s::settings_value value) {
-				return s::settings_value::make_string(core_->expand_path(value.get_string()));
-			}
-		};
-		class typed_int_value : public typed_key {
-		public:
-			typed_int_value(boost::shared_ptr<store_functor> store_functor, long long v)
-				: typed_key(store_functor, s::settings_value::make_int(v)) {}
-			typed_int_value(boost::shared_ptr<store_functor> store_functor)
-				: typed_key(store_functor) {}
-			virtual NSCAPI::settings_type get_type() const {
-				return NSCAPI::key_integer;
-			}
-			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
-				int dummy = -1;
-				if (typed_key::has_default_)
-					dummy = typed_key::default_value_.get_int();
-				int val = core_->get_int(path, key, dummy);
-				if (!typed_key::has_default_ && val == dummy) {
-					dummy = -2;
-					val = core_->get_int(path, key, dummy);
-					if (val == dummy)
-						return;
-				}
-				s::settings_value value = s::settings_value::make_int(val);
-				this->update_target(value);
-			}
-			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
-				if (typed_key::has_default_) {
-					int default_value = core_->get_int(parent, key, default_value_.get_int());
-					int val = core_->get_int(path, key, default_value);
-					s::settings_value value = s::settings_value::make_int(val);
-					this->update_target(value);
-				} else {
-					int dummy = -1;
-					int defval = core_->get_int(path, key, dummy);
-					if (defval == dummy) {
-						dummy = -2;
-						defval = core_->get_int(path, key, dummy);
-					}
-					if (defval != dummy) {
-						int val = core_->get_int(path, key, defval);
-						s::settings_value value = s::settings_value::make_int(val);
-						this->update_target(value);
-					}
-					dummy = -1;
-					int val = core_->get_int(path, key, dummy);
-					if (val == dummy) {
-						dummy = -2;
-						val = core_->get_int(path, key, dummy);
-						if (val == dummy)
-							return;
-					}
-					s::settings_value value = s::settings_value::make_int(val);
-					this->update_target(value);
-				}
-			}
-		};
-
-		class typed_bool_value : public typed_key {
-		public:
-			typed_bool_value(boost::shared_ptr<store_functor> store_functor, const bool& v)
-				: typed_key(store_functor, s::settings_value::make_bool(v)) {}
-			typed_bool_value(boost::shared_ptr<store_functor> store_functor)
-				: typed_key(store_functor) {}
-			virtual NSCAPI::settings_type get_type() const {
-				return NSCAPI::key_bool;
-			}
-
-			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
-				if (typed_key::has_default_) {
-					bool val = core_->get_bool(path, key, default_value_.get_bool());
-					s::settings_value value = s::settings_value::make_bool(val);
-					this->update_target(value);
-				} else {
-					bool v1 = core_->get_bool(path, key, true);
-					bool v2 = core_->get_bool(path, key, false);
-					if (v1 == v2) {
-						s::settings_value value = s::settings_value::make_bool(v1);
-						this->update_target(value);
-					}
-				}
-			}
-			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const {
-				bool default_value = core_->get_bool(path, key, default_value_.get_bool());
-				bool val = core_->get_bool(path, key, default_value);
-				s::settings_value value = s::settings_value::make_bool(val);
-				this->update_target(value);
+			virtual std::string process(settings_impl_interface_ptr core_, std::string value) {
+				return core_->expand_path(value);
 			}
 		};
 
 		class typed_kvp_value : public key_interface {
+		private:
+			bin_ptr store_functor_;
 		public:
-			typed_kvp_value(boost::shared_ptr<store_bin_functor> store_functor) : store_functor_(store_functor) {}
+			typed_kvp_value(store_bin_functor *store_functor) 
+				: store_functor_(bin_ptr(store_functor)) {}
 
-			virtual NSCAPI::settings_type get_type() const {
-				return NSCAPI::key_string;
-			}
-
-			s::settings_value get_default() const {
-				return s::settings_value::make_empty();
+			std::string get_default() const {
+				return "";
 			}
 
 			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const {
@@ -264,51 +153,48 @@ namespace nscapi {
 				if (store_functor_) {
 					BOOST_FOREACH(std::string key, core_->get_keys(path)) {
 						std::string val = core_->get_string(path, key, "");
-						store_functor_->store(s::settings_value::make_string(key), s::settings_value::make_string(val));
+						store_functor_->store(key, val);
 					}
 					BOOST_FOREACH(std::string key, core_->get_sections(path)) {
-						store_functor_->store(s::settings_value::make_string(key), s::settings_value::make_empty());
+						store_functor_->store(key, "");
 					}
 				}
 			}
-
-		protected:
-			boost::shared_ptr<store_bin_functor> store_functor_;
 		};
 
 
 		struct string_storer : public store_functor {
 			std::string *store_to_;
 			string_storer(std::string *store_to) : store_to_(store_to) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (store_to_)
-					*store_to_ = value.get_string();
+					*store_to_ = value;
 			}
 		};
 		template<class T>
 		struct int_storer : public store_functor {
 			T *store_to_;
 			int_storer(T *store_to) : store_to_(store_to) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (store_to_)
-					*store_to_ = value.get_int();
+					*store_to_ = str::stox<T>(value, 0);
 			}
 		};
 		struct bool_storer : public store_functor {
 			bool *store_to_;
 			bool_storer(bool *store_to) : store_to_(store_to) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (store_to_)
-					*store_to_ = value.get_bool();
+					*store_to_ = s::settings_value::to_bool(value);
 			}
 		};
 
 		struct path_storer : public store_functor {
 			boost::filesystem::path *store_to_;
 			path_storer(boost::filesystem::path *store_to) : store_to_(store_to) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (store_to_)
-					*store_to_ = value.get_string();
+					*store_to_ = value;
 			}
 		};
 
@@ -316,9 +202,18 @@ namespace nscapi {
 			typedef boost::function<void(std::string)> fun_type;
 			fun_type callback_;
 			string_fun_storer(fun_type callback) : callback_(callback) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (callback_)
-					callback_(value.get_string());
+					callback_(value);
+			}
+		};
+		struct cstring_fun_storer : public store_functor {
+			typedef boost::function<void(const char*)> fun_type;
+			fun_type callback_;
+			cstring_fun_storer(fun_type callback) : callback_(callback) {}
+			void store(std::string value) {
+				if (callback_)
+					callback_(value.c_str());
 			}
 		};
 		template<class T>
@@ -326,109 +221,117 @@ namespace nscapi {
 			typedef boost::function<void(T)> fun_type;
 			fun_type callback_;
 			int_fun_storer(fun_type callback) : callback_(callback) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (callback_)
-					callback_(value.get_int());
+					callback_(str::stox<T>(value, -1));
 			}
 		};
 		struct bool_fun_storer : public store_functor {
 			typedef boost::function<void(bool)> fun_type;
 			fun_type callback_;
 			bool_fun_storer(fun_type callback) : callback_(callback) {}
-			void store(s::settings_value value) {
+			void store(std::string value) {
 				if (callback_)
-					callback_(value.get_bool());
+					callback_(s::settings_value::to_bool(value));
 			}
 		};
 
 
 		key_type string_fun_key(boost::function<void(std::string)> fun, std::string def) {
-			key_type r(new typed_string_value(STRING_FUN_STORER(fun), def));
+			key_type r(new typed_key(new string_fun_storer(fun), def));
 			return r;
 		}
 		key_type string_fun_key(boost::function<void(std::string)> fun) {
-			key_type r(new typed_string_value(STRING_FUN_STORER(fun)));
+			key_type r(new typed_key(new string_fun_storer(fun)));
+			return r;
+		}
+		key_type cstring_fun_key(boost::function<void(const char*)> fun, std::string def) {
+			key_type r(new typed_key(new cstring_fun_storer(fun), def));
+			return r;
+		}
+		key_type cstring_fun_key(boost::function<void(const char*)> fun) {
+			key_type r(new typed_key(new cstring_fun_storer(fun)));
 			return r;
 		}
 
 		key_type path_fun_key(boost::function<void(std::string)> fun, std::string def) {
-			key_type r(new typed_string_value(STRING_FUN_STORER(fun), def, LOOKUP_PATH));
+			key_type r(new typed_key(new string_fun_storer(fun), def, new lookup_path_processor()));
 			return r;
 		}
 		key_type path_fun_key(boost::function<void(std::string)> fun) {
-			key_type r(new typed_string_value(STRING_FUN_STORER(fun), LOOKUP_PATH));
+			key_type r(new typed_key(new string_fun_storer(fun), new lookup_path_processor()));
 			return r;
 		}
 
 		key_type bool_fun_key(boost::function<void(bool)> fun, bool def) {
-			key_type r(new typed_bool_value(BOOL_FUN_STORER(fun), def));
+			key_type r(new typed_key(new bool_fun_storer(fun), s::settings_value::from_bool(def)));
 			return r;
 		}
 		key_type bool_fun_key(boost::function<void(bool)> fun) {
-			key_type r(new typed_bool_value(BOOL_FUN_STORER(fun)));
+			key_type r(new typed_key(new bool_fun_storer(fun)));
 			return r;
 		}
 
 		key_type int_fun_key(boost::function<void(int)> fun, int def) {
-			key_type r(new typed_int_value(boost::shared_ptr<store_functor>(new int_fun_storer<int>(fun)), def));
+			key_type r(new typed_key(new int_fun_storer<int>(fun), s::settings_value::from_int(def)));
 			return r;
 		}
 		key_type int_fun_key(boost::function<void(int)> fun) {
-			key_type r(new typed_int_value(boost::shared_ptr<store_functor>(new int_fun_storer<int>(fun))));
+			key_type r(new typed_key(new int_fun_storer<int>(fun)));
 			return r;
 		}
 
 
 		key_type path_key(std::string *val, std::string def) {
-			key_type r(new typed_string_value(STRING_STORER(val), def, LOOKUP_PATH));
+			key_type r(new typed_key(new string_storer(val), def, new lookup_path_processor()));
 			return r;
 		}
 		key_type path_key(std::string *val) {
-			key_type r(new typed_string_value(STRING_STORER(val), LOOKUP_PATH));
+			key_type r(new typed_key(new string_storer(val), new lookup_path_processor()));
 			return r;
 		}
 		key_type path_key(boost::filesystem::path *val, std::string def) {
-			key_type r(new typed_string_value(PATH_STORER(val), def, LOOKUP_PATH));
+			key_type r(new typed_key(new path_storer(val), def, new lookup_path_processor()));
 			return r;
 		}
 		key_type path_key(boost::filesystem::path *val) {
-			key_type r(new typed_string_value(PATH_STORER(val), LOOKUP_PATH));
+			key_type r(new typed_key(new path_storer(val), new lookup_path_processor()));
 			return r;
 		}
 		key_type string_key(std::string *val, std::string def) {
-			key_type r(new typed_string_value(STRING_STORER(val), def));
+			key_type r(new typed_key(new string_storer(val), def));
 			return r;
 		}
 		key_type string_key(std::string *val) {
-			key_type r(new typed_string_value(STRING_STORER(val)));
+			key_type r(new typed_key(new string_storer(val)));
 			return r;
 		}
 		key_type int_key(int *val, int def) {
-			key_type r(new typed_int_value(INT_STORER(int, val), def));
+			key_type r(new typed_key(new int_storer<int>(val), s::settings_value::from_int(def)));
 			return r;
 		}
 		key_type size_key(std::size_t *val, std::size_t def) {
-			key_type r(new typed_int_value(INT_STORER(std::size_t, val), def));
+			key_type r(new typed_key(new int_storer<std::size_t>(val), str::xtos<std::size_t>(def)));
 			return r;
 		}
 		key_type int_key(int *val) {
-			key_type r(new typed_int_value(INT_STORER(int, val)));
+			key_type r(new typed_key(new int_storer<int>(val)));
 			return r;
 		}
 		key_type uint_key(unsigned int *val, unsigned int def) {
-			key_type r(new typed_int_value(INT_STORER(unsigned int, val), def));
+			key_type r(new typed_key(new int_storer<unsigned int>(val), s::settings_value::from_int(def)));
 			return r;
 		}
 		key_type uint_key(unsigned int *val) {
-			key_type r(new typed_int_value(INT_STORER(unsigned int, val)));
+			key_type r(new typed_key(new int_storer<unsigned int>(val)));
 			return r;
 		}
 		key_type bool_key(bool *val, bool def) {
-			key_type r(new typed_bool_value(BOOL_STORER(val), def));
+			key_type r(new typed_key(new bool_storer(val), s::settings_value::from_bool(def)));
 			return r;
 		}
 		key_type bool_key(bool *val) {
-			key_type r(new typed_bool_value(BOOL_STORER(val)));
+			key_type r(new typed_key(new bool_storer(val)));
 			return r;
 		}
 
@@ -436,27 +339,27 @@ namespace nscapi {
 			typedef std::map<std::string, std::string> map_type;
 			map_type *store_to_;
 			map_storer(map_type *store_to) : store_to_(store_to) {}
-			void store(s::settings_value key, s::settings_value value) {
-				if (store_to_ && !value.is_empty())
-					(*store_to_)[key.get_string()] = value.get_string();
+			void store(std::string key, std::string value) {
+				if (store_to_ && !value.empty())
+					(*store_to_)[key] = value;
 			}
 		};
 		struct kvp_storer : public store_bin_functor {
 			typedef boost::function<void(std::string, std::string)> fun_type;
 			fun_type callback_;
 			kvp_storer(fun_type callback) : callback_(callback) {}
-			void store(s::settings_value key, s::settings_value value) {
+			void store(std::string key, std::string value) {
 				if (callback_)
-					callback_(key.get_string(), value.get_string());
+					callback_(key, value);
 			}
 		};
 
 		key_type fun_values_path(boost::function<void(std::string, std::string)> fun) {
-			key_type r(new typed_kvp_value(KVP_STORER(fun)));
+			key_type r(new typed_kvp_value(new kvp_storer(fun)));
 			return r;
 		}
 		key_type string_map_path(std::map<std::string, std::string> *val) {
-			key_type r(new typed_kvp_value(MAP_STORER(val)));
+			key_type r(new typed_kvp_value(new map_storer(val)));
 			return r;
 		}
 		//////////////////////////////////////////////////////////////////////////
@@ -631,11 +534,11 @@ namespace nscapi {
 			BOOST_FOREACH(key_list::value_type v, keys_) {
 				if (v->key) {
 					if (v->has_parent()) {
-						core_->register_key(v->parent, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
+						core_->register_key(v->parent, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
 						std::string desc = v->description.description + " parent for this key is found under: " + v->parent + " this is marked as advanced in favor of the parent.";
-						core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, desc, v->key->get_default(), true, false);
+						core_->register_key(v->path, v->key_name, v->description.title, desc, v->key->get_default(), true, false);
 					} else {
-						core_->register_key(v->path, v->key_name, v->key->get_type(), v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
+						core_->register_key(v->path, v->key_name, v->description.title, v->description.description, v->key->get_default(), v->description.advanced, v->is_sample);
 					}
 				}
 			}

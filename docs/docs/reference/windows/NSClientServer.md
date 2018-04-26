@@ -32,7 +32,7 @@ A server that listens for incoming check_nt connection and processes incoming re
 | [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
 | [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
 | [inbox](#inbox)                             | inbox         | INBOX                 |
-| [password](#password)                       |               | PASSWORD              |
+| [password](#password)                       |               | Password              |
 | [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
 | [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
 | [timeout](#timeout)                         | 30            | TIMEOUT               |
@@ -188,7 +188,7 @@ inbox=inbox
 
 
 
-#### PASSWORD <a id="/settings/default/password"></a>
+#### Password <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -209,7 +209,7 @@ Password used to authenticate against server
 
 ```
 [/settings/default]
-# PASSWORD
+# Password
 password=
 ```
 
@@ -312,7 +312,7 @@ Section for NSClient (NSClientServer.dll) (check_nt) protocol options.
 | [certificate format](#certificate-format)   | PEM                                 | CERTIFICATE FORMAT    |
 | [certificate key](#ssl-certificate)         |                                     | SSL CERTIFICATE       |
 | [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
-| [password](#password)                       |                                     | PASSWORD              |
+| [password](#password)                       |                                     | Password              |
 | [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
 | [port](#port-number)                        | 12489                               | PORT NUMBER           |
 | [socket queue size](#listen-queue)          | 0                                   | LISTEN QUEUE          |
@@ -594,7 +594,7 @@ dh=${certificate-path}/nrpe_dh_512.pem
 
 
 
-#### PASSWORD <a id="/settings/NSClient/server/password"></a>
+#### Password <a id="/settings/NSClient/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -616,7 +616,7 @@ Password used to authenticate against server parent for this key is found under:
 
 ```
 [/settings/NSClient/server]
-# PASSWORD
+# Password
 password=
 ```
 

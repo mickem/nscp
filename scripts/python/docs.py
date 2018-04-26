@@ -163,7 +163,7 @@ This is a section of objects. This means that you will create objects below this
 
 {% set tbl = [] -%}
 {% for k,key in path.sample.keys|dictsort  -%}
-    {% do tbl.append([k, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+    {% do tbl.append([k, key.info.default_value, key.info.title|firstline]) -%}
 {%- endfor %}
 {{tbl|rst_table('Key', 'Default Value', 'Description')}}
 
@@ -173,7 +173,7 @@ This is a section of objects. This means that you will create objects below this
 # An example of a {{path.info.title}} section
 [{{path.key}}/sample]
 {% for kkey,key in path.sample.keys|dictsort -%}
-{% if key.info.default_value|extract_value %}{{kkey}}={{key.info.default_value|extract_value}}
+{% if key.info.default_value %}{{kkey}}={{key.info.default_value}}
 {% else %}#{{kkey}}=...
 {% endif %}
 {%- endfor %}
@@ -194,7 +194,7 @@ This is a section of objects. This means that you will create objects below this
 {% set pkey = path.key|md_self_link -%}
 {% for k,key in path.keys|dictsort  -%}
     {% set kkey = key.info.title|as_text|mkref|md_self_link(k) -%}
-    {% do tbl.append([kkey, key.info.default_value|extract_value, key.info.title|firstline]) -%}
+    {% do tbl.append([kkey, key.info.default_value, key.info.title|firstline]) -%}
 {%- endfor %}
 {{tbl|rst_table('Key', 'Default Value', 'Description')}}
 
@@ -203,8 +203,8 @@ This is a section of objects. This means that you will create objects below this
 # {{path.info.description|firstline}}
 [{{path.key}}]
 {% for kkey,key in path.keys|dictsort -%}
-{% if key.info.default_value|extract_value -%}
-{{kkey}}={{key.info.default_value|extract_value}}
+{% if key.info.default_value -%}
+{{kkey}}={{key.info.default_value}}
 {% endif %}
 {%- endfor %}
 ```
@@ -224,8 +224,8 @@ This is a section of objects. This means that you will create objects below this
 {% if key.info.advanced -%}
 {% do table.append(['Advanced:', 'Yes (means it is not commonly used)']) -%}
 {%- endif %}
-{% if key.info.default_value|extract_value -%}
-{% do table.append(['Default value:', '`' + key.info.default_value|extract_value + '`']) -%}
+{% if key.info.default_value -%}
+{% do table.append(['Default value:', '`' + key.info.default_value + '`']) -%}
 {% else %}
 {% do table.append(['Default value:', '_N/A_']) -%}
 {%- endif %}
@@ -240,7 +240,7 @@ This is a section of objects. This means that you will create objects below this
 ```
 [{{path.key}}]
 # {{key.info.title}}
-{{kkey}}={{key.info.default_value|extract_value}}
+{{kkey}}={{key.info.default_value}}
 ```
 
 {% endfor %}
@@ -504,15 +504,6 @@ def mkref(value):
 def largest_value(a,b):
     return map(lambda n: n[0] if len(n[0])>len(n[1]) else n[1], zip(a, b))
 
-def extract_value(value):
-    if value.HasField("string_data"):
-        return value.string_data
-    if value.HasField("int_data"):
-        return '%d'%value.int_data
-    if value.HasField("bool_data"):
-        return "true" if value.bool_data else "false"
-    return ''
-
 def as_text(value):
     value = value.replace('\\', '\\\\')
     value = value.replace('`', '\\`')
@@ -736,7 +727,6 @@ class DocumentationHelper(object):
         env.filters['md_code'] = make_md_code
         env.filters['rst_table'] = render_rst_table
         env.filters['rst_heading'] = render_rst_heading
-        env.filters['extract_value'] = extract_value
         env.filters['block_pad'] = block_pad
         env.filters['common_head'] = calculate_common_head
         env.filters['as_text'] = as_text

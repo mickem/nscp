@@ -1,0 +1,43 @@
+<mat-drawer-container style="height: 100%" autosize>
+  <mat-drawer mode="side" opened="true" style="min-width: 500px;">
+    <mat-toolbar>
+      <nscp-filter-text (changed)="filterChanged($event)"></nscp-filter-text>
+    </mat-toolbar>
+    <mat-nav-list>
+      <mat-list-item *ngFor="let m of filteredModules" [routerLink]="['/modules', m.name]">
+        <span fxFlex>{{ m.name }}</span>
+        <div>
+          <span *ngIf="m.enabled" style="padding-left: 20px;">Enabled</span>
+          <mat-slide-toggle (change)="toggle(m, $event)" [checked]="m.enabled"></mat-slide-toggle>
+        </div>
+      </mat-list-item>
+    </mat-nav-list>
+  </mat-drawer>
+  <mat-drawer-content style="padding: 12px;"  *ngIf="selected">
+    <mat-card>
+      <mat-card-title>
+        {{selected.name}}
+      </mat-card-title>
+      <mat-card-content>
+        <p>{{selected.description}}</p>
+      </mat-card-content>
+      <mat-card-actions>
+          <button mat-button *ngIf="selected.enabled" (click)="disable(selected, $event)">DISABLE</button>
+          <button mat-button *ngIf="!selected.enabled" (click)="enable(selected, $event)">ENABLE</button>
+        <button mat-button *ngIf="selected.loaded" (click)="unload(selected, $event)">UNLOAD</button>
+        <button mat-button *ngIf="!selected.loaded" (click)="load(selected, $event)">LOAD</button>
+      </mat-card-actions>
+    </mat-card>
+
+    <mat-card *ngIf="selected.queries && selected.queries.length > 0">
+        <mat-card-title>
+          Queries
+        </mat-card-title>
+        <mat-card-content>
+          <ul>
+              <li *ngFor="let q of selected.queries"><a [routerLink]="['/queries', q.name]">{{q.name}}</a></li>
+          </ul>
+        </mat-card-content>
+      </mat-card>
+    </mat-drawer-content>
+</mat-drawer-container>

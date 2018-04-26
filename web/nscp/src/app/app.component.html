@@ -1,0 +1,21 @@
+  <mat-toolbar color="primary">
+    <mat-toolbar-row fxLayout="row">
+      <span>NSClient++</span>
+      <span fxFlex></span>
+      <button mat-icon-button [matMenuTriggerFor]="themeMenu">
+        <mat-icon>more_vert</mat-icon>
+      </button>
+    </mat-toolbar-row>
+  </mat-toolbar>
+  <mat-sidenav-container style="height: calc(100% - 64px);">
+    <mat-sidenav mode="side" opened>
+      <app-nav></app-nav>
+    </mat-sidenav>
+
+    <mat-sidenav-content>
+        <router-outlet></router-outlet>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+<mat-menu #themeMenu x-position="before">
+  <button mat-menu-item (click)="logout()">Logout</button>
+</mat-menu>

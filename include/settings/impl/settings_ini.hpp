@@ -66,39 +66,6 @@ namespace settings {
 			return op_string(utf8::cvt<std::string>(val));
 		}
 		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str) {
-				try {
-					return str::stox<int>(*str);
-				} catch (const std::exception &e) {
-					return op_int();
-				}
-			}
-			return op_int();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return settings_interface_impl::string_to_bool(*str);
-			return op_bool();
-		}
-		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
 		///
 		/// @param path the path to look up
@@ -205,13 +172,21 @@ namespace settings {
 					std::string key = utf8::cvt<std::string>(e.pItem);
 					if (key.length() > path_len + 1 && key.substr(0, path_len) == path) {
 						std::string::size_type pos = key.find('/', path_len + 1);
-						if (pos == std::string::npos && path_len > 1)
-							key = key.substr(path_len + 1);
-						else if (pos == std::string::npos)
+						if (pos == std::string::npos && path_len > 1) {
+							if (key[path_len] == '/' || key[path_len] == '\\') {
+								key = key.substr(path_len + 1);
+							} else {
+								key = key.substr(path_len);
+							}
+						} else if (pos == std::string::npos)
 							key = key.substr(path_len);
-						else if (path_len > 1)
-							key = key.substr(path_len + 1, pos - path_len - 1);
-						else
+						else if (path_len > 1) {
+							if (key[path_len] == '/' || key[path_len] == '\\') {
+								key = key.substr(path_len + 1, pos - path_len - 1);
+							} else {
+								key = key.substr(path_len, pos - path_len);
+							}
+						} else
 							key = key.substr(path_len, pos - path_len);
 						list.push_back(key);
 					}
@@ -307,8 +282,7 @@ namespace settings {
 			for (CSimpleIni::TNamesDepend::const_iterator cit = lst.begin(); cit != lst.end(); ++cit) {
 				std::string alias = utf8::cvt<std::string>((*cit).pItem);
 				std::string child = utf8::cvt<std::string>(ini.GetValue(L"/includes", (*cit).pItem));
-				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), settings::settings_core::key_string,
-					"INCLUDED FILE", "Included configuration", "", true, false);
+				get_core()->register_key(999, "/includes", utf8::cvt<std::string>((*cit).pItem), "INCLUDED FILE", "Included configuration", "", true, false);
 				if (!child.empty())
 					add_child_unsafe(alias, child);
 			}

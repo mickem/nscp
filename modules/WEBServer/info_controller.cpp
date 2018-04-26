@@ -11,11 +11,11 @@
 #include <boost/regex.hpp>
 
 
-info_controller::info_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
+info_controller::info_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
   : session(session)
   , core(core)
   , plugin_id(plugin_id)
-  , RegexpController("/api/v1/info")
+  , RegexpController(version==1?"/api/v1/info":"/api/v2/info")
 {
 	addRoute("GET", "/?$", this, &info_controller::get_info);
 	addRoute("GET", "/version/?$", this, &info_controller::get_version);

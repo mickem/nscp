@@ -102,7 +102,7 @@ void nscapi::targets::target_object::translate(const std::string &key, const std
 		set_property_string("address", n.to_string());
 	} else if (key == "port") {
 		net::url n = net::parse(get_property_string("address"));
-		n.port = str::stox<unsigned int>(value);
+		n.port = str::stox<unsigned int>(value, 0);
 		set_property_string("address", n.to_string());
 	} else
 		parent::translate(key, value);

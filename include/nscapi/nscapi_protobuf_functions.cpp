@@ -793,7 +793,7 @@ namespace nscapi {
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_update()->mutable_node()->set_path(path);
 				r->mutable_update()->mutable_node()->set_key(key);
-				r->mutable_update()->mutable_value()->set_string_data(value);
+				r->mutable_update()->mutable_node()->set_value(value);
 			}
 
 			void settings_query::erase(const std::string path, const std::string key) {
@@ -808,8 +808,7 @@ namespace nscapi {
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
-				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
-				r->mutable_query()->mutable_default_value()->set_string_data(def);
+				r->mutable_query()->set_default_value(def);
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const char* def) {
@@ -817,8 +816,7 @@ namespace nscapi {
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
-				r->mutable_query()->set_type(::Plugin::Common_DataType_STRING);
-				r->mutable_query()->mutable_default_value()->set_string_data(def);
+				r->mutable_query()->set_default_value(def);
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const long long def) {
@@ -826,8 +824,7 @@ namespace nscapi {
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
-				r->mutable_query()->set_type(::Plugin::Common_DataType_INT);
-				r->mutable_query()->mutable_default_value()->set_int_data(def);
+				r->mutable_query()->set_default_value(str::xtos(def));
 				r->mutable_query()->set_recursive(false);
 			}
 			void settings_query::get(const std::string path, const std::string key, const bool def) {
@@ -835,8 +832,7 @@ namespace nscapi {
 				r->set_plugin_id(pimpl->plugin_id);
 				r->mutable_query()->mutable_node()->set_path(path);
 				r->mutable_query()->mutable_node()->set_key(key);
-				r->mutable_query()->set_type(::Plugin::Common_DataType_BOOL);
-				r->mutable_query()->mutable_default_value()->set_bool_data(def);
+				r->mutable_query()->set_default_value(def?"true":"false");
 				r->mutable_query()->set_recursive(false);
 			}
 
@@ -890,32 +886,17 @@ namespace nscapi {
 					::Plugin::SettingsResponseMessage::Response pl = pimpl->response_message.payload(i);
 					if (pl.has_query()) {
 						::Plugin::SettingsResponseMessage::Response::Query q = pl.query();
-						if (q.node().has_key() && q.has_value()) {
-							if (q.value().has_string_data())
-								ret.push_back(key_values(q.node().path(), q.node().key(), q.value().string_data()));
-							else if (q.value().has_int_data())
-								ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.value().int_data())));
-							else if (q.value().has_bool_data())
-								ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
+						if (q.node().has_key()) {
+							ret.push_back(key_values(q.node().path(), q.node().key(), q.node().value()));
 						} else {
 							ret.push_back(key_values(q.node().path()));
 						}
 					} else if (pl.inventory_size() > 0) {
 						BOOST_FOREACH(const ::Plugin::SettingsResponseMessage::Response::Inventory &q, pl.inventory()) {
-							if (q.node().has_key() && q.has_value()) {
-								if (q.value().has_string_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), q.value().string_data()));
-								else if (q.value().has_int_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.value().int_data())));
-								else if (q.value().has_bool_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), q.value().bool_data()));
+							if (q.node().has_key()) {
+								ret.push_back(key_values(q.node().path(), q.node().key(), q.node().value()));
 							} else if (q.node().has_key() && q.has_info() && q.info().has_default_value()) {
-								if (q.info().default_value().has_string_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), q.info().default_value().string_data()));
-								else if (q.info().default_value().has_int_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), static_cast<long long>(q.info().default_value().int_data())));
-								else if (q.info().default_value().has_bool_data())
-									ret.push_back(key_values(q.node().path(), q.node().key(), q.info().default_value().bool_data()));
+								ret.push_back(key_values(q.node().path(), q.node().key(), q.info().default_value()));
 							} else {
 								ret.push_back(key_values(q.node().path()));
 							}

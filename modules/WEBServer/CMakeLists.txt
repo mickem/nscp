@@ -34,6 +34,8 @@ SET(SRCS ${SRCS}
   log_controller.cpp
   info_controller.cpp
   settings_controller.cpp
+  login_controller.cpp
+  metrics_controller.cpp
 
 	${NSCP_INCLUDEDIR}/socket/socket_helpers.cpp
 	${NSCP_INCLUDEDIR}/client/simple_client.cpp

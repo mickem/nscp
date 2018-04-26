@@ -53,14 +53,13 @@ namespace nscapi {
 			///
 			/// @param path The path to register
 			/// @param key The key to register
-			/// @param type The type of value
 			/// @param title The title to use
 			/// @param description the description to use
 			/// @param defValue the default value
 			/// @param advanced advanced options will only be included if they are changed
 			///
 			/// @author mickem
-			virtual void register_key(std::string path, std::string key, int type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool sample) = 0;
+			virtual void register_key(std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool sample) = 0;
 
 			virtual void register_subkey(std::string path, std::string title, std::string description, bool advanced, bool sample) = 0;
 
@@ -85,46 +84,6 @@ namespace nscapi {
 			///
 			/// @author mickem
 			virtual void set_string(std::string path, std::string key, std::string value) = 0;
-
-			//////////////////////////////////////////////////////////////////////////
-			/// Get an integer value if it does not exist the default value will be returned
-			/// 
-			/// @param path the path to look up
-			/// @param key the key to lookup
-			/// @param def the default value to use when no value is found
-			/// @return the string value
-			///
-			/// @author mickem
-			virtual int get_int(std::string path, std::string key, int def) = 0;
-			//////////////////////////////////////////////////////////////////////////
-			/// Set or update an integer value
-			///
-			/// @param path the path to look up
-			/// @param key the key to lookup
-			/// @param value the value to set
-			///
-			/// @author mickem
-			virtual void set_int(std::string path, std::string key, int value) = 0;
-
-			//////////////////////////////////////////////////////////////////////////
-			/// Get a boolean value if it does not exist the default value will be returned
-			/// 
-			/// @param path the path to look up
-			/// @param key the key to lookup
-			/// @param def the default value to use when no value is found
-			/// @return the string value
-			///
-			/// @author mickem
-			virtual bool get_bool(std::string path, std::string key, bool def) = 0;
-			//////////////////////////////////////////////////////////////////////////
-			/// Set or update a boolean value
-			///
-			/// @param path the path to look up
-			/// @param key the key to lookup
-			/// @param value the value to set
-			///
-			/// @author mickem
-			virtual void set_bool(std::string path, std::string key, bool value) = 0;
 
 			// Meta Functions
 			//////////////////////////////////////////////////////////////////////////

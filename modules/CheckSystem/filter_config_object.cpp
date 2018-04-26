@@ -60,7 +60,7 @@ namespace filters {
 
 		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -103,7 +103,7 @@ namespace filters {
 
 		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -112,7 +112,7 @@ namespace filters {
 				root_path.set_sample();
 
 			if (is_default) {
-				filter.filter_string = "core = 'total'";
+				filter.set_filter_string("core = 'total'");
 			}
 
 
@@ -150,7 +150,7 @@ namespace filters {
 
 		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);
@@ -200,7 +200,7 @@ namespace filters {
 
 		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
-				filter.filter_string = get_value();
+				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
 
 			nscapi::settings_helper::settings_registry settings(proxy);

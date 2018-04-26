@@ -29,6 +29,12 @@
 #include <boost/iterator.hpp>
 #include <boost/algorithm/string.hpp>
 
+#ifdef _WIN32
+#pragma warning( disable : 4100)
+#pragma warning( disable : 4101)
+#pragma warning( disable : 4456)
+#endif
+
 namespace po = boost::program_options;
 
 
@@ -336,9 +342,9 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 					BOOST_FOREACH(const std::string &a, p.arguments()) {
 						if (a == "help-pb") {
 							::Plugin::Registry::ParameterDetails details;
-							::Plugin::Registry::ParameterDetail *d = details.add_parameter();
-							d->set_name("*");
-							d->set_short_description("This command will forward all arguments to remote system");
+							::Plugin::Registry::ParameterDetail *td = details.add_parameter();
+							td->set_name("*");
+							td->set_short_description("This command will forward all arguments to remote system");
 							nscapi::protobuf::functions::set_response_good_wdata(*response.add_payload(), details.SerializeAsString());
 							return;
 						}
@@ -394,16 +400,16 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				if (!handler->query(s, d, builder.query_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response d, local_response.payload()) {
-					response.add_payload()->CopyFrom(d);
+				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response td, local_response.payload()) {
+					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.is_exec()) {
 				Plugin::ExecuteResponseMessage local_response;
 				if (!handler->exec(s, d, builder.exec_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response d, local_response.payload()) {
-					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
+				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response td, local_response.payload()) {
+					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 				// TODO: Convert reply to native reply
 			} else if (builder.is_submit()) {
@@ -411,8 +417,8 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 				if (!handler->submit(s, d, builder.submit_message, local_response)) {
 					return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 				}
-				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response d, local_response.payload()) {
-					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
+				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response td, local_response.payload()) {
+					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else {
 				return nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " not found");
@@ -423,7 +429,7 @@ void client::configuration::i_do_query(destination_container &s, destination_con
 	}
 }
 
-bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command) {
+bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &t_default_command) {
 	Plugin::ExecuteResponseMessage local_response;
 
 	std::string target = "default";
@@ -454,7 +460,7 @@ bool client::configuration::do_exec(const Plugin::ExecuteRequestMessage &request
 				local_request_message.add_payload()->CopyFrom(local_request);
 				std::string command = local_request.command();
 				if (command.empty())
-					command = default_command;
+					command = t_default_command;
 				::Plugin::ExecuteResponseMessage local_response_message;
 				if (i_do_exec(s, d, command, local_request_message, local_response_message, false)) {
 					found = true;
@@ -556,8 +562,8 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response d, local_response.payload()) {
-					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
+				BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response td, local_response.payload()) {
+					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			} else if (builder.type == payload_builder::type_exec) {
 				Plugin::ExecuteResponseMessage local_response;
@@ -565,8 +571,8 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response d, local_response.payload()) {
-					response.add_payload()->CopyFrom(d);
+				BOOST_FOREACH(const ::Plugin::ExecuteResponseMessage::Response td, local_response.payload()) {
+					response.add_payload()->CopyFrom(td);
 				}
 			} else if (builder.type == payload_builder::type_submit) {
 				Plugin::SubmitResponseMessage local_response;
@@ -574,8 +580,8 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 					nscapi::protobuf::functions::set_response_bad(*response.add_payload(), command + " failed");
 					return true;
 				}
-				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response d, local_response.payload()) {
-					nscapi::protobuf::functions::copy_response(command, response.add_payload(), d);
+				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage::Response td, local_response.payload()) {
+					nscapi::protobuf::functions::copy_response(command, response.add_payload(), td);
 				}
 			}
 		}
@@ -585,6 +591,22 @@ bool client::configuration::i_do_exec(destination_container &s, destination_cont
 		return true;
 	}
 }
+
+
+void client::configuration::do_submit_item(const Plugin::SubmitRequestMessage &request, destination_container s, destination_container d, Plugin::SubmitResponseMessage &response) {
+	// Parse each objects command and execute them
+	BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response &local_request, request.payload()) {
+		::Plugin::SubmitRequestMessage local_request_message;
+		local_request_message.mutable_header()->CopyFrom(request.header());
+		local_request_message.add_payload()->CopyFrom(local_request);
+		::Plugin::SubmitResponseMessage local_response_message;
+		i_do_submit(s, d, "forward_raw", local_request_message, local_response_message, false);
+		BOOST_FOREACH(const ::Plugin::SubmitResponseMessage_Response &p, local_response_message.payload()) {
+			response.add_payload()->CopyFrom(p);
+		}
+	}
+}
+
 
 void client::configuration::do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response) {
 	Plugin::ExecuteResponseMessage local_response;
@@ -608,17 +630,7 @@ void client::configuration::do_submit(const Plugin::SubmitRequestMessage &reques
 			// If we have a header command treat the data as a batch
 			i_do_submit(s, d, command, request, response, true);
 		} else {
-			// Parse each objects command and execute them
-			BOOST_FOREACH(const ::Plugin::QueryResponseMessage::Response &local_request, request.payload()) {
-				::Plugin::SubmitRequestMessage local_request_message;
-				local_request_message.mutable_header()->CopyFrom(request.header());
-				local_request_message.add_payload()->CopyFrom(local_request);
-				::Plugin::SubmitResponseMessage local_response_message;
-				i_do_submit(s, d, "forward_raw", local_request_message, local_response_message, false);
-				BOOST_FOREACH(const ::Plugin::SubmitResponseMessage_Response &p, local_response_message.payload()) {
-					response.add_payload()->CopyFrom(p);
-				}
-			}
+			do_submit_item(request, s, d, response);
 		}
 	}
 }
@@ -666,7 +678,6 @@ void client::configuration::finalize(boost::shared_ptr<nscapi::settings_proxy> s
 	targets.add_samples(settings);
 	targets.add_missing(settings, "default", "");
 }
-
 void payload_builder::set_result(const std::string &value) {
 	if (is_submit()) {
 		get_submit_payload()->set_result(nscapi::protobuf::functions::parse_nagios(value));

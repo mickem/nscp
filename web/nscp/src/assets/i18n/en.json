@@ -1,0 +1,12 @@
+{
+  "aa": "bb",
+  "nav": {
+    "overview": "Overview",
+    "queries": "Queries",
+    "metrics": "Metrics",
+    "log": "Log",
+    "terminal": "Terminal",
+    "modules": "Modules",
+    "settings": "Settings"
+  }
+}

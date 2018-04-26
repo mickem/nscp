@@ -32,6 +32,8 @@
 #include "log_controller.hpp"
 #include "info_controller.hpp"
 #include "settings_controller.hpp"
+#include "login_controller.hpp"
+#include "metrics_controller.hpp"
 
 #include "error_handler.hpp"
 
@@ -81,8 +83,10 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 	std::string admin_password;
 	int threads;
 
-	typedef std::map<std::string, std::string> role_map;
 	role_map roles;
+
+	std::string role_path = settings.alias().get_settings_path("roles");
+	std::string user_path = settings.alias().get_settings_path("users");
 
 	users_.set_path(settings.alias().get_settings_path("users"));
 
@@ -90,32 +94,32 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		("Web server", "Section for WEB (WEBServer.dll) (check_WEB) protocol options.")
 
 		("users", sh::fun_values_path(boost::bind(&WEBServer::add_user, this, _1, _2)),
-		"Users", "Users which can access the REST API",
+		"Web server users", "Users which can access the REST API",
 		"REST USER", "")
 
 		("roles", sh::string_map_path(&roles)
-		, "Roles", "A list of roles and with coma separated list of access rights.")
+		, "Web server roles", "A list of roles and with coma separated list of access rights.")
 
 		;
 	settings.alias().add_key_to_settings()
 		("port", sh::string_key(&port, "8443"),
-		"PORT NUMBER", "Port to use for WEB server.")
+		"Server port", "Port to use for WEB server.")
 
 		("threads", sh::int_key(&threads, 10),
-		"NUMBER OF THREADS", "The number of threads in the sever response pool.")
+		"Server threads", "The number of threads in the sever response pool.")
 		;
 	settings.alias().add_key_to_settings()
 		("certificate", sh::string_key(&certificate, "${certificate-path}/certificate.pem"),
-			"CERTIFICATE", "Ssl certificate to use for the ssl server")
+			"TLS Certificate", "Ssl certificate to use for the ssl server")
 		;
 
 	settings.alias().add_parent("/settings/default").add_key_to_settings()
 
 		("allowed hosts", nscapi::settings_helper::string_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts, session, _1), "127.0.0.1"),
-			"ALLOWED HOSTS", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
+			"Allowed hosts", "A comma separated list of allowed hosts. You can use netmasks (/ syntax) or * to create ranges.")
 
 		("cache allowed hosts", nscapi::settings_helper::bool_fun_key(boost::bind(&session_manager_interface::set_allowed_hosts_cache, session, _1), true),
-			"CACHE ALLOWED HOSTS", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
+			"Cache list of allowed hosts", "If host names (DNS entries) should be cached, improves speed and security somewhat but won't allow you to have dynamic IPs for your Nagios server.")
 
 		("password", nscapi::settings_helper::string_key(&admin_password),
 			DEFAULT_PASSWORD_NAME, DEFAULT_PASSWORD_DESC)
@@ -129,9 +133,15 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 
 	users_.add_samples(get_settings_proxy());
 
+	ensure_role(roles, settings, role_path, "legacy", "legacy", "legacy API");
+	ensure_role(roles, settings, role_path, "full", "*", "Full access");
+	ensure_role(roles, settings, role_path, "client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute,login.get,modules.list", "read only");
+	ensure_role(roles, settings, role_path, "view", "*", "Full access");
+
+	ensure_user(settings, user_path, "admin", "full", admin_password, "Administrator");
+
 	if (mode == NSCAPI::normalStart) {
 		std::list<std::string> errors = session->boot();
-		//NSC_DEBUG_MSG_STD("Allowed hosts definition: " + allowed_hosts.to_string());
 
 		BOOST_FOREACH(const web_server::user_config_instance &o, users_.get_object_list()) {
 			session->add_user(o->get_alias(), o->role, o->password);
@@ -150,9 +160,6 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		}
 
 		session->add_user("admin", "full", admin_password);
-		session->add_grant("legacy", "legacy");
-		session->add_grant("full", "*");
-		session->add_grant("client", "public,info.get,info.get.version,queries.list,queries.get,queries.execute");
 
 		server.reset(Mongoose::Server::make_server(port));
 		if (!boost::filesystem::is_regular_file(certificate)) {
@@ -161,13 +168,26 @@ bool WEBServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 			NSC_DEBUG_MSG("Using certificate: " + certificate);
 			server->setSsl(certificate.c_str());
 		}
+
 		server->registerController(new StaticController(session, path));
-		server->registerController(new modules_controller(session, get_core(), get_id()));
-		server->registerController(new query_controller(session, get_core(), get_id()));
-		server->registerController(new scripts_controller(session, get_core(), get_id()));
-		server->registerController(new log_controller(session, get_core(), get_id()));
-		server->registerController(new info_controller(session, get_core(), get_id()));
-		server->registerController(new settings_controller(session, get_core(), get_id()));
+
+		server->registerController(new modules_controller(2, session, get_core(), get_id()));
+		server->registerController(new query_controller(2, session, get_core(), get_id()));
+		server->registerController(new scripts_controller(2, session, get_core(), get_id()));
+		server->registerController(new log_controller(2, session, get_core(), get_id()));
+		server->registerController(new info_controller(2, session, get_core(), get_id()));
+		server->registerController(new settings_controller(2, session, get_core(), get_id()));
+		server->registerController(new login_controller(2, session));
+		server->registerController(new metrics_controller(2, session, get_core(), get_id()));
+
+		server->registerController(new modules_controller(1, session, get_core(), get_id()));
+		server->registerController(new query_controller(1, session, get_core(), get_id()));
+		server->registerController(new scripts_controller(1, session, get_core(), get_id()));
+		server->registerController(new log_controller(1, session, get_core(), get_id()));
+		server->registerController(new info_controller(1, session, get_core(), get_id()));
+		server->registerController(new settings_controller(1, session, get_core(), get_id()));
+		server->registerController(new login_controller(1, session));
+
 		server->registerController(new api_controller(session));
 
 		server->registerController(new legacy_command_controller(session, get_core()));
@@ -605,32 +625,36 @@ bool WEBServer::password(const Plugin::ExecuteRequestMessage::Request &request, 
 	return true;
 }
 
-void build_metrics(json_spirit::Object &metrics, const Plugin::Common::MetricsBundle & b) {
+void build_metrics(json_spirit::Object &metrics, json_spirit::Object &metrics_list, const std::string trail, const Plugin::Common::MetricsBundle & b) {
 	json_spirit::Object node;
 	BOOST_FOREACH(const Plugin::Common::MetricsBundle &b2, b.children()) {
-		build_metrics(node, b2);
+		build_metrics(node, metrics_list, trail + "." + b2.key(), b2);
 	}
 	BOOST_FOREACH(const Plugin::Common::Metric &v, b.value()) {
 		const ::Plugin::Common_AnyDataType &value = v.value();
-		if (value.has_int_data())
+		if (value.has_int_data()) {
 			node.insert(json_spirit::Object::value_type(v.key(), v.value().int_data()));
-		else if (value.has_string_data())
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().int_data()));
+		} else if (value.has_string_data()) {
 			node.insert(json_spirit::Object::value_type(v.key(), v.value().string_data()));
-		else if (value.has_float_data())
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().string_data()));
+		} else if (value.has_float_data()) {
 			node.insert(json_spirit::Object::value_type(v.key(), v.value().float_data()));
-		else
+			metrics_list.insert(json_spirit::Object::value_type(trail + "." + v.key(), v.value().float_data()));
+		} else {
 			node.insert(json_spirit::Object::value_type(v.key(), "TODO"));
+		}
 	}
 	metrics.insert(json_spirit::Object::value_type(b.key(), node));
 }
 void WEBServer::submitMetrics(const Plugin::MetricsMessage &response) {
-	json_spirit::Object metrics;
+	json_spirit::Object metrics, metrics_list;
 	BOOST_FOREACH(const Plugin::MetricsMessage::Response &p, response.payload()) {
 		BOOST_FOREACH(const Plugin::Common::MetricsBundle &b, p.bundles()) {
-			build_metrics(metrics, b);
+			build_metrics(metrics, metrics_list, b.key(), b);
 		}
 	}
-	session->set_metrics(json_spirit::write(metrics));
+	session->set_metrics(json_spirit::write(metrics), json_spirit::write(metrics_list));
 	client->push_metrics(response);
 
 }
@@ -642,5 +666,24 @@ void WEBServer::add_user(std::string key, std::string arg) {
 		NSC_LOG_ERROR_EXR("Failed to add user: " + key, e);
 	} catch (...) {
 		NSC_LOG_ERROR_EX("Failed to add user: " + key);
+	}
+}
+
+void WEBServer::ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value, std::string reason) {
+	if (roles.find(role) == roles.end()) {
+		roles[role] = value;
+		settings.register_key(role_path, role, "Role for " + reason, "Default role for " + reason, value, false);
+		settings.set_static_key(role_path, role, value);
+	}
+}
+
+void WEBServer::ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string password, std::string reason) {
+	if (!session->has_user(user)) {
+		session->add_user(user, role, password);
+		std::string the_path = path + "/" + user;
+		settings.register_key(the_path, "password", "Password for " + reason, "Password name for" + reason, password, false);
+		settings.set_static_key(the_path, "password", password);
+		settings.register_key(the_path, "role", "Role for " + reason, "Role name for" + reason, role, false);
+		settings.set_static_key(the_path, "role", role);
 	}
 }

@@ -32,7 +32,7 @@ A server that listens for incoming NRPE connection and processes incoming reques
 | [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
 | [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
 | [inbox](#inbox)                             | inbox         | INBOX                 |
-| [password](#password)                       |               | PASSWORD              |
+| [password](#password)                       |               | Password              |
 | [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
 | [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
 | [timeout](#timeout)                         | 30            | TIMEOUT               |
@@ -188,7 +188,7 @@ inbox=inbox
 
 
 
-#### PASSWORD <a id="/settings/default/password"></a>
+#### Password <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -209,7 +209,7 @@ Password used to authenticate against server
 
 ```
 [/settings/default]
-# PASSWORD
+# Password
 password=
 ```
 

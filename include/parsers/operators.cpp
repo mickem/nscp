@@ -29,6 +29,10 @@
 #include <parsers/helpers.hpp>
 #include <parsers/where/helpers.hpp>
 
+#ifdef _WIN32
+#pragma warning( disable : 4100)
+#endif
+
 namespace parsers {
 	namespace where {
 		namespace operator_impl {

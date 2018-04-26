@@ -31,8 +31,11 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 		response.append("403 You're not allowed");
 		return false;
 	}
-	if (request.hasVariable(HTTP_HDR_AUTH)) {
+	if (request.hasVariable(HTTP_HDR_AUTH) || request.hasVariable(HTTP_HDR_AUTH_LC)) {
 		std::string auth = request.readHeader(HTTP_HDR_AUTH);
+		if (auth.empty()) {
+			auth = request.readHeader(HTTP_HDR_AUTH_LC);
+		}
 		if (boost::algorithm::starts_with(auth, "Basic ")) {
 			str::utils::token token = str::utils::split2(decode_key(auth.substr(6)), ":");
 			if (!validate_user(token.first, token.second)) {
@@ -41,6 +44,15 @@ bool session_manager_interface::is_loggedin(std::string grant, Mongoose::Request
 				return false;
 			}
 			setup_token(token.first, response);
+			return can(grant, request, response);
+		} else if (boost::algorithm::starts_with(auth, "Bearer ")) {
+			std::string token = auth.substr(7);
+			if (!tokens.validate(token)) {
+				response.setCode(HTTP_FORBIDDEN);
+				response.append("403 You're not allowed");
+				return false;
+			}
+			setup_user(token, response);
 			return can(grant, request, response);
 		} else {
 			response.setCode(HTTP_BAD_REQUEST);
@@ -110,6 +122,17 @@ void session_manager_interface::setup_token(std::string &user, Mongoose::StreamR
 	response.setCookie("uid", user);
 }
 
+
+void session_manager_interface::setup_user(std::string &token, Mongoose::StreamResponse & response) {
+	response.setCookie("token", token);
+	response.setCookie("uid", tokens.get(token));
+}
+
+void session_manager_interface::get_user(const Mongoose::StreamResponse & response, std::string &user, std::string &key) const {
+	user = response.getCookie("uid");
+	key = response.getCookie("token");
+}
+
 bool session_manager_interface::can(std::string grant, Mongoose::Request & request, Mongoose::StreamResponse & response) {
 	std::string uid = response.getCookie("uid");
 	if (uid.empty()) {
@@ -130,6 +153,11 @@ void session_manager_interface::add_user(std::string user, std::string role, std
 	users[user] = password;
 }
 
+bool session_manager_interface::has_user(std::string user) const {
+	return users.find(user) != users.end();
+}
+
+
 void session_manager_interface::add_grant(std::string role, std::string grant) {
 	tokens.add_grant(role, grant);
 }
@@ -137,8 +165,12 @@ void session_manager_interface::add_grant(std::string role, std::string grant) {
 std::string session_manager_interface::get_metrics() {
 	return metrics_store.get();
 }
-void session_manager_interface::set_metrics(std::string metrics) {
+std::string session_manager_interface::get_metrics_v2() {
+	return metrics_store.get_list();
+}
+void session_manager_interface::set_metrics(std::string metrics, std::string metrics_list) {
 	metrics_store.set(metrics);
+	metrics_store.set_list(metrics_list);
 }
 
 void session_manager_interface::add_log_message(bool is_error, error_handler_interface::log_entry entry) {

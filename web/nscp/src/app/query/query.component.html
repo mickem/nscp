@@ -1,0 +1,42 @@
+<mat-drawer-container style="height: 100%" autosize>
+  <mat-drawer mode="side" opened="true">
+    <mat-toolbar>
+      <nscp-filter-text (changed)="filterChanged($event)"></nscp-filter-text>
+    </mat-toolbar>
+    <mat-nav-list>
+      <mat-list-item *ngFor="let q of filteredQueries" [routerLink]="['/queries', q.name]">
+        <span>{{ q.name }}</span>
+      </mat-list-item>
+    </mat-nav-list>
+  </mat-drawer>
+  <mat-drawer-content style="padding: 12px;">
+    <mat-card *ngIf="selected" style="margin-bottom: 12px;">
+      <mat-card-title>
+        {{selected.name}}
+      </mat-card-title>
+      <mat-card-content>
+        <p>{{selected.description}}</p>
+        <p *ngIf="selected.plugin">
+          Plugin provided by <a [routerLink]="['/modules', selected.plugin]">{{selected.plugin}}</a>
+        </p>
+      </mat-card-content>
+    </mat-card>
+    <mat-card *ngIf="selected">
+      <mat-card-title>
+        Execute query
+      </mat-card-title>
+      <mat-card-content>
+        <mat-form-field class="execute-field">
+          <input matInput type="text" placeholder="Run command" [ngModel]="selected.command" />
+        </mat-form-field>
+        <button mat-raised-button color="primary" (click)="execute(selected)">Execute</button>
+        <div *ngIf="selected.result" fxLayout="row">
+          <mat-chip-list>
+            <mat-chip [style.background-color]="selected.resultColor">{{selected.resultStatus}}</mat-chip>
+          </mat-chip-list>
+          <pre fxFlex>{{selected.resultText}}</pre>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </mat-drawer-content>
+</mat-drawer-container>

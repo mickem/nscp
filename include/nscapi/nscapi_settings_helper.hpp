@@ -37,8 +37,7 @@ namespace nscapi {
 
 		class key_interface {
 		public:
-			virtual NSCAPI::settings_type get_type() const = 0;
-			virtual nscapi::settings::settings_value get_default() const = 0;
+			virtual std::string get_default() const = 0;
 			virtual void notify(settings_impl_interface_ptr core_, std::string path, std::string key) const = 0;
 			virtual void notify(settings_impl_interface_ptr core_, std::string parent, std::string path, std::string key) const = 0;
 			virtual void notify_path(settings_impl_interface_ptr core_, std::string path) const = 0;
@@ -60,6 +59,8 @@ namespace nscapi {
 
 		key_type string_fun_key(boost::function<void(std::string)> fun, std::string def);
 		key_type string_fun_key(boost::function<void(std::string)> fun);
+		key_type cstring_fun_key(boost::function<void(const char*)> fun);
+		key_type cstring_fun_key(boost::function<void(const char*)> fun, std::string def);
 		key_type path_fun_key(boost::function<void(std::string)> fun, std::string def);
 		key_type path_fun_key(boost::function<void(std::string)> fun);
 		key_type bool_fun_key(boost::function<void(bool)> fun, bool def);
@@ -338,8 +339,8 @@ namespace nscapi {
 				return core_->get_string(path, key, def_value);
 			}
 
-			void register_key(std::string path, std::string key, int type, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
-				core_->register_key(path, key, type, title, description, nscapi::settings::settings_value::make_string(defaultValue), advanced, false);
+			void register_key(std::string path, std::string key, std::string title, std::string description, std::string defaultValue, bool advanced = false) const {
+				core_->register_key(path, key, title, description, defaultValue, advanced, false);
 			}
 			void register_all() const;
 			void clear() {

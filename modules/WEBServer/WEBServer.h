@@ -33,11 +33,17 @@
 #include <boost/shared_ptr.hpp>
 
 class WEBServer : public nscapi::impl::simple_plugin {
+	typedef std::map<std::string, std::string> role_map;
+
 public:
 	WEBServer();
 	virtual ~WEBServer();
 	// Module calls
 	bool loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode);
+
+	void ensure_role(role_map &roles, nscapi::settings_helper::settings_registry &settings, std::string role_path, std::string role, std::string value, std::string reason);
+	void ensure_user(nscapi::settings_helper::settings_registry &settings, std::string path, std::string user, std::string role, std::string value, std::string reason);
+
 	bool unloadModule();
 	void handleLogMessage(const Plugin::LogEntry::Entry &message);
 	bool commandLineExec(const int target_mode, const Plugin::ExecuteRequestMessage::Request &request, Plugin::ExecuteResponseMessage::Response *response, const Plugin::ExecuteRequestMessage &request_message);

@@ -124,7 +124,7 @@ namespace nsclient {
 
 
 			plugin_type find_plugin(const unsigned int plugin_id);
-			void remove_plugin(const std::string name);
+			bool remove_plugin(const std::string name);
 			unsigned int clone_plugin(unsigned int plugin_id);
 			bool reload_plugin(const std::string module);
 
@@ -141,7 +141,11 @@ namespace nsclient {
 			void register_submission_listener(unsigned int plugin_id, const char* channel);
 			NSCAPI::nagiosReturn emit_event(const std::string &request);
 
+			bool is_enabled(const std::string module);
 			void process_metrics(Plugin::Common::MetricsBundle bundle);
+
+			bool enable_plugin(std::string name);
+			bool disable_plugin(std::string name);
 
 		private:
 			typedef std::multimap<std::string, std::string> plugin_alias_list_type;
@@ -157,6 +161,31 @@ namespace nsclient {
 			nsclient::logging::logger_instance get_logger() {
 				return log_instance_;
 			}
+			struct plugin_status {
+				std::string alias;
+				std::string plugin;
+				bool enabled;
+
+				plugin_status(std::string alias, std::string plugin, bool enabled)
+					: alias(alias)
+					, plugin(plugin)
+					, enabled(enabled) {}
+				plugin_status(std::string plugin)
+					: alias("")
+					, plugin(plugin)
+					, enabled(true) {}
+				plugin_status(const plugin_status &other)
+					: alias(other.alias)
+					, plugin(other.plugin)
+					, enabled(other.enabled) {}
+
+				plugin_status& operator=(const plugin_status &other) {
+					this->alias = other.alias;
+					this->plugin = other.plugin;
+					this->enabled = other.enabled;
+				}
+			};
+			plugin_status parse_plugin(std::string key);
 
 
 

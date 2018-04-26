@@ -1,0 +1,22 @@
+@import '~@angular/material/theming';
+@include mat-core();
+
+$primary: mat-palette($mat-deep-purple, 600, 500, 900);
+$accent: mat-palette($mat-amber, A400, A300, A600);
+
+
+.color-primary {
+  color: mat-color($primary);
+}
+
+.color-accent {
+  color: mat-color($accent);
+}
+.outer {
+  padding: 12px;
+}
+
+mat-divider {
+  margin-top: 20px;
+  margin-bottom: 20px;
+}

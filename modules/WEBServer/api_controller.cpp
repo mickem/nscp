@@ -13,6 +13,7 @@ api_controller::api_controller(boost::shared_ptr<session_manager_interface> sess
 {
 	addRoute("GET", "/?$", this, &api_controller::get_versions);
 	addRoute("GET", "/v1/?$", this, &api_controller::get_eps);
+	addRoute("GET", "/v2/?$", this, &api_controller::get_eps);
 }
 
 void api_controller::get_versions(Mongoose::Request &request, boost::smatch &what, Mongoose::StreamResponse &response) {
@@ -22,9 +23,9 @@ void api_controller::get_versions(Mongoose::Request &request, boost::smatch &wha
 	std::string host = request.get_host();
 
 	json_spirit::Object root;
-	root["current_api"] = host + "/api/v1";
-	root["legacy_api"] = host + "/";
-	root["beta_api"] = host + "/api/v1";
+	root["current_api"] = host + "/api/v2";
+	root["legacy_api"] = host + "/api/v1";
+	root["beta_api"] = host + "/api/v2";
 	response.append(json_spirit::write(root));
 }
 
@@ -35,10 +36,10 @@ void api_controller::get_eps(Mongoose::Request &request, boost::smatch &what, Mo
 	std::string host = request.get_host();
 
 	json_spirit::Object root;
-	root["scripts_url"] = host + "/api/v1/scripts";
-	root["modules_url"] = host + "/api/v1/modules";
-	root["queries_url"] = host + "/api/v1/queries";
-	root["logs_url"] = host + "/api/v1/logs";
-	root["info_url"] = host + "/api/v1/info";
+	root["scripts_url"] = host + "/api/v2/scripts";
+	root["modules_url"] = host + "/api/v2/modules";
+	root["queries_url"] = host + "/api/v2/queries";
+	root["logs_url"] = host + "/api/v2/logs";
+	root["info_url"] = host + "/api/v2/info";
 	response.append(json_spirit::write(root));
 }

@@ -3,6 +3,7 @@
 #include "ext/mongoose.h"
 
 #include <boost/thread.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include <string>
 #include <iostream>
@@ -194,7 +195,7 @@ namespace Mongoose {
 		do {
 			ret = mg_get_http_var(&data, key.c_str(), buffer, size);
 
-			if (ret == -1) {
+			if (ret == -1 || ret == 0) {
 				delete[] buffer;
 				return false;
 			}
@@ -232,6 +233,12 @@ namespace Mongoose {
 
         return fallback;
     }
+
+	bool Request::get_bool(string key, bool fallback) {
+		std::string v = boost::algorithm::to_lower_copy(get(key, fallback?"true":"false"));
+		return v == "true";
+	}
+
 
     string Request::getCookie(string key, string fallback)
     {

@@ -1,0 +1,14 @@
+<footer>
+    <div fxFlex fxLayout="row" fxLayout.xs="column" fxLayoutAlign="center center"
+         class.xs="footer-xs">
+        <div fxFlex="33">
+            <span>{{ 'angularExampleApp' | translate }} 2018</span>
+        </div>
+        <div fxFlex="33" class="text-center">
+            {{currentDate | date:'fullDate'}}
+        </div>
+        <div fxFlex class="text-right" class.xs="footer-xs">
+            <a href="https://nsclient.org/" target="_blank">NSClient</a>
+        </div>
+    </div>
+</footer>

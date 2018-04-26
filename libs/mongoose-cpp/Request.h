@@ -49,7 +49,12 @@ namespace Mongoose {
              *
              * @return string the value of the variable if it exists, fallback else
              */
-            string get(string key, string fallback = "");
+			string get(string key, string fallback = "");
+			bool get_bool(string key, bool fallback = false);
+			template <class T>
+			T get_number(string key, T fallback = 0) {
+				return str::stox<T>(get("page", str::xtos(fallback)), fallback);
+			}
 
             /**
              * Try to get the cookie value

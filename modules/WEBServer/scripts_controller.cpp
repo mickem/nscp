@@ -49,8 +49,8 @@ bool validate_response(const Plugin::ExecuteResponseMessage &resp, Mongoose::Str
 	return true;
 }
 
-scripts_controller::scripts_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
-	: RegexpController("/api/v1/scripts")
+scripts_controller::scripts_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
+	: RegexpController(version==1?"/api/v1/scripts":"/api/v2/scripts")
 	, session(session)
 	, core(core)
 	, plugin_id(plugin_id) {

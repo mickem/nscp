@@ -883,19 +883,8 @@ void script_wrapper::settings_wrapper::save() {
 	settings.save();
 }
 
-NSCAPI::settings_type script_wrapper::settings_wrapper::get_type(std::string stype) {
-	if (stype == "string" || stype == "str" || stype == "s")
-		return NSCAPI::key_string;
-	if (stype == "integer" || stype == "int" || stype == "i")
-		return NSCAPI::key_integer;
-	if (stype == "bool" || stype == "b")
-		return NSCAPI::key_bool;
-	NSC_LOG_ERROR_STD("Invalid settings type");
-	return NSCAPI::key_string;
-}
 void script_wrapper::settings_wrapper::settings_register_key(std::string path, std::string key, std::string stype, std::string title, std::string description, std::string defaultValue) {
-	NSCAPI::settings_type type = get_type(stype);
-	settings.register_key(path, key, type, title, description, defaultValue, false, false);
+	settings.register_key(path, key, title, description, defaultValue, false, false);
 }
 void script_wrapper::settings_wrapper::settings_register_path(std::string path, std::string title, std::string description) {
 	settings.register_path(path, title, description, false, false);

@@ -1,0 +1,54 @@
+<mat-drawer-container style="height: 100%" autosize>
+  <mat-drawer mode="side" opened="true" style="min-width: 500px;">
+    <mat-toolbar>
+      <nscp-filter-text [filter]="filterText" (changed)="filterChanged($event)"></nscp-filter-text>
+      <span class="example-spacer"></span>
+      <button mat-icon-button [matMenuTriggerFor]="menu">
+        <mat-icon>more_vert</mat-icon>
+      </button>
+      <mat-menu #menu="matMenu">
+          <button mat-menu-item (click)="toggleAdvancedKeys()">
+              <fa-icon icon="check" *ngIf="!hideAdvancedKeys" [fixedWidth]="true"></fa-icon>
+              <span>Show advanced keys</span>
+          </button>
+          <button mat-menu-item (click)="toggleUnchanged()">
+              <fa-icon icon="check" *ngIf="hideUnchanged" [fixedWidth]="true"></fa-icon>
+              <fa-icon *!ngIf="hideUnchanged" [fixedWidth]="true"></fa-icon>
+              <div style="width: 1.25em;" *ngIf="!hideUnchanged"></div>
+              <span>Hide unchanged</span>
+          </button>
+          </mat-menu>
+    </mat-toolbar>
+    <mat-nav-list>
+      <ng-container *ngFor="let node of settings">
+        <ng-container *ngIf="node.isVisible()">
+            <h3 mat-subheader [routerLink]="['/settings', node.path, '*']">
+              <fa-icon [icon]="node.icon" [fixedWidth]="true"></fa-icon>
+              {{node.title}}
+            </h3>
+            <mat-list-item *ngFor="let key of node.filteredSettings" [routerLink]="['/settings', key.path, key.key]">
+              <h4>{{ key.title }}</h4>
+            </mat-list-item>
+            <mat-list-item *ngIf="node.samples.length > 0" [routerLink]="['/settings', node.path, 'add']">
+              <h5>
+                  <fa-icon icon="plus" [fixedWidth]="true"></fa-icon>
+                  Add new...</h5>
+            </mat-list-item>
+        </ng-container>
+      </ng-container>
+    </mat-nav-list>
+  </mat-drawer>
+  <mat-drawer-content style="padding: 12px;" *ngIf="selected">
+    <mat-card *ngFor="let s of selected">
+      <mat-card-title>
+        {{s.title}}
+      </mat-card-title>
+      <mat-card-content>
+          <p>{{s.description}}</p>
+          <mat-form-field>
+            <input matInput [placeholder]="s.title" [value]="s.value">
+          </mat-form-field>
+        </mat-card-content>
+    </mat-card>
+  </mat-drawer-content>
+</mat-drawer-container>

@@ -119,7 +119,7 @@ namespace collectd {
 		}
 
 		bool is_full() const {
-			return buffer.size() > 300;
+			return buffer.size() > 200;
 		}
 
 
@@ -204,6 +204,10 @@ namespace collectd {
 
 		std::string get_buffer() const {
 			return buffer;
+		}
+
+		std::size_t get_size() const {
+			return buffer.size();
 		}
 	};
 

@@ -131,23 +131,22 @@ namespace nsclient {
 					settings.set_alias("log/file");
 
 					settings.add_path_to_settings()
-						("log", "LOG SECTION", "Configure log properties.")
 
-						("log/file", "LOG SECTION", "Configure log file properties.")
+						("log/file", "Logfile", "Configure log file properties.")
 						;
 
 					settings.add_key_to_settings("log")
 						("file name", sh::string_key(&ret.file, DEFAULT_LOG_LOCATION),
-							"FILENAME", "The file to write log data to. Set this to none to disable log to file.")
+							"Log file name", "The file to write log data to. Set this to none to disable log to file.")
 
 							("date format", sh::string_key(&ret.format, "%Y-%m-%d %H:%M:%S"),
-								"DATEMASK", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
+								"Date format", "The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.")
 
 						;
 
 					settings.add_key_to_settings("log/file")
 						("max size", sh::size_key(&ret.max_size, 0),
-							"MAXIMUM FILE SIZE", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
+							"Maximum file size", "When file size reaches this it will be truncated to 50% if set to 0 (default) truncation will be disabled")
 						;
 
 					settings.register_all();

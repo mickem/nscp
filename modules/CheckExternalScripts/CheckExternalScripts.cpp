@@ -114,17 +114,17 @@ bool CheckExternalScripts::loadModuleEx(std::string alias, NSCAPI::moduleLoadMod
 
 		if (wrappings.find("ps1") == wrappings.end()) {
 			wrappings["ps1"] = "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -";
-			settings.register_key(wrappings_path, "ps1", NSCAPI::key_string, "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts", "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -", false);
+			settings.register_key(wrappings_path, "ps1", "POWERSHELL WRAPPING", "Command line used for executing wrapped ps1 (powershell) scripts", "cmd /c echo If (-Not (Test-Path \"scripts\\%SCRIPT%\") ) { Write-Host \"UNKNOWN: Script `\"%SCRIPT%`\" not found.\"; exit(3) }; scripts\\%SCRIPT% $ARGS$; exit($lastexitcode) | powershell.exe /noprofile -command -", false);
 			settings.set_static_key(wrappings_path, "ps1", wrappings["ps1"]);
 		}
 		if (wrappings.find("vbs") == wrappings.end()) {
 			wrappings["vbs"] = "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "vbs", NSCAPI::key_string, "Visual basic script", "Command line used for wrapped vbs scripts", "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
+			settings.register_key(wrappings_path, "vbs", "Visual basic script", "Command line used for wrapped vbs scripts", "cscript.exe //T:30 //NoLogo scripts\\\\lib\\\\wrapper.vbs %SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "vbs", wrappings["vbs"]);
 		}
 		if (wrappings.find("bat") == wrappings.end()) {
 			wrappings["bat"] = "scripts\\\\%SCRIPT% %ARGS%";
-			settings.register_key(wrappings_path, "bat", NSCAPI::key_string, "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
+			settings.register_key(wrappings_path, "bat", "Batch file", "Command used for executing wrapped batch files", "scripts\\\\%SCRIPT% %ARGS%", false);
 			settings.set_static_key(wrappings_path, "bat", wrappings["bat"]);
 		}
 

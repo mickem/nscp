@@ -155,7 +155,7 @@ std::string nsclient::core::path_manager::getFolder(std::string key) {
 	try {
 		if (settings_manager::get_core()->is_ready()) {
 			std::string path = settings_manager::get_settings()->get_string(CONFIG_PATHS, key, default_value);
-			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, settings::settings_core::key_string, "Path for " + key, "", default_value, false, false);
+			settings_manager::get_core()->register_key(0xffff, CONFIG_PATHS, key, "Path for " + key, "", default_value, false, false);
 			paths_cache_[key] = path;
 			return path;
 		} else {

@@ -134,7 +134,7 @@ namespace settings {
 			BOOST_FOREACH(const std::string &s, list) {
 				op_string child = getString_(path, s);
 				if (child) {
-					get_core()->register_key(999, "/includes", s, settings::settings_core::key_string, "INCLUDED FILE", *child, *child, false, false);
+					get_core()->register_key(999, "/includes", s, "INCLUDED FILE", *child, *child, false, false);
 					add_child_unsafe(*child, *child);
 				}
 			}
@@ -152,39 +152,6 @@ namespace settings {
 		/// @author mickem
 		virtual op_string get_real_string(settings_core::key_path_type key) {
 			return getString_(get_reg_key(key.first), key.second);
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str && !str->empty()) {
-				try {
-					return str::stox<int>(*str);
-				} catch (const std::exception &e) {
-					throw settings_exception(__FILE__, __LINE__, "Failed to convert " + key.first + "." + key.second + " = " + *str + " to a number");
-				}
-			}
-			return op_int();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return settings_interface_impl::string_to_bool(*str);
-			return op_bool();
 		}
 		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
@@ -209,15 +176,7 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_real_value(settings_core::key_path_type key, conainer value) {
-			if (value.type == settings_core::key_string) {
-				setString_(get_reg_key(key), key.second, value.get_string());
-			} else if (value.type == settings_core::key_integer) {
-				setInt_(get_reg_key(key), key.second, value.get_int());
-			} else if (value.type == settings_core::key_bool) {
-				setInt_(get_reg_key(key), key.second, value.get_bool() ? 1 : 0);
-			} else {
-				throw settings_exception(__FILE__, __LINE__, "Invalid settings type.");
-			}
+			setString_(get_reg_key(key), key.second, value.get_string());
 		}
 		virtual void set_real_path(std::string path) {
 			// NOT Supported (and not needed) so silently ignored!
@@ -267,11 +226,6 @@ namespace settings {
 			open_key.setValueEx(key, REG_SZ, value);
 		}
 
-		static void setInt_(const reg_key &path, std::string key, DWORD value) {
-			write_reg_key open_key(path);
-			open_key.setValueEx(key, REG_DWORD, value);
-		}
-
 		static op_string getString_(reg_key path, std::string key) {
 			reg_handle hTemp;
 			if (RegOpenKeyEx(path.hKey, path.path.c_str(), 0, KEY_QUERY_VALUE, hTemp.ref()) != ERROR_SUCCESS)
@@ -298,24 +252,6 @@ namespace settings {
 			} else if (lRet == ERROR_FILE_NOT_FOUND)
 				return op_string();
 			throw settings_exception(__FILE__, __LINE__, "Failed to open key: " + path.to_string() + ": " + error::lookup::last_error(lRet));
-		}
-		static DWORD getInt_(HKEY hKey, LPCTSTR lpszPath, LPCTSTR lpszKey, DWORD def) {
-			DWORD ret = def;
-			LONG bRet;
-			reg_handle hTemp;
-			if ((bRet = RegOpenKeyEx(hKey, lpszPath, 0, KEY_READ, hTemp.ref())) != ERROR_SUCCESS) {
-				return def;
-			}
-			DWORD type;
-			DWORD cbData = sizeof(DWORD);
-			DWORD buffer;
-			bRet = RegQueryValueEx(hTemp, lpszKey, NULL, &type, reinterpret_cast<LPBYTE>(&buffer), &cbData);
-			if (type != REG_DWORD)
-				throw settings_exception(__FILE__, __LINE__, "Unsupported key type: ");
-			if (bRet == ERROR_SUCCESS) {
-				ret = buffer;
-			}
-			return ret;
 		}
 		static void getValues_(reg_key path, string_list &list) {
 			LONG bRet;

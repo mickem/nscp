@@ -518,27 +518,27 @@ The top level syntax string
 
 
 
-| Path / Section                                             | Description            |
-|------------------------------------------------------------|------------------------|
-| [/settings/eventlog](#eventlog-configuration)              | Eventlog configuration |
-| [/settings/eventlog/real-time](#real-time-monitoring)      | Real-time monitoring   |
-| [/settings/eventlog/real-time/filters](#real-time-filters) | Real-time filters      |
+| Path / Section                                                      | Description                   |
+|---------------------------------------------------------------------|-------------------------------|
+| [/settings/eventlog](#eventlog)                                     | Eventlog                      |
+| [/settings/eventlog/real-time](#real-time-eventlog-monitoring)      | Real-time eventlog monitoring |
+| [/settings/eventlog/real-time/filters](#real-time-eventlog-filters) | Real-time eventlog filters    |
 
 
 
-### Eventlog configuration <a id="/settings/eventlog"/>
+### Eventlog <a id="/settings/eventlog"/>
 
 Section for the EventLog Checker (CheckEventLog.dll).
 
 
 
 
-| Key                           | Default Value | Description  |
-|-------------------------------|---------------|--------------|
-| [buffer size](#buffer_size)   | 131072        | BUFFER_SIZE  |
-| [debug](#debug)               | false         | DEBUG        |
-| [lookup names](#lookup-names) | true          | LOOKUP NAMES |
-| [syntax](#syntax)             |               | SYNTAX       |
+| Key                                    | Default Value | Description           |
+|----------------------------------------|---------------|-----------------------|
+| [buffer size](#default-buffer-size)    | 131072        | Default buffer size   |
+| [debug](#enable-debugging)             | false         | Enable debugging      |
+| [lookup names](#lookup-eventlog-names) | true          | Lookup eventlog names |
+| [syntax](#default-syntax)              |               | Default syntax        |
 
 
 
@@ -555,9 +555,9 @@ lookup names=true
 
 
 
-#### BUFFER_SIZE <a id="/settings/eventlog/buffer size"></a>
+#### Default buffer size <a id="/settings/eventlog/buffer size"></a>
 
-The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can recieve.
+The size of the buffer to use when getting messages this affects the speed and maximum size of messages you can receive.
 
 
 
@@ -575,13 +575,13 @@ The size of the buffer to use when getting messages this affects the speed and m
 
 ```
 [/settings/eventlog]
-# BUFFER_SIZE
+# Default buffer size
 buffer size=131072
 ```
 
 
 
-#### DEBUG <a id="/settings/eventlog/debug"></a>
+#### Enable debugging <a id="/settings/eventlog/debug"></a>
 
 Log more information when filtering (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -601,13 +601,13 @@ Log more information when filtering (useful to detect issues with filters) not u
 
 ```
 [/settings/eventlog]
-# DEBUG
+# Enable debugging
 debug=false
 ```
 
 
 
-#### LOOKUP NAMES <a id="/settings/eventlog/lookup names"></a>
+#### Lookup eventlog names <a id="/settings/eventlog/lookup names"></a>
 
 Lookup the names of eventlog files
 
@@ -627,13 +627,13 @@ Lookup the names of eventlog files
 
 ```
 [/settings/eventlog]
-# LOOKUP NAMES
+# Lookup eventlog names
 lookup names=true
 ```
 
 
 
-#### SYNTAX <a id="/settings/eventlog/syntax"></a>
+#### Default syntax <a id="/settings/eventlog/syntax"></a>
 
 Set this to use a specific syntax string for all commands (that don't specify one).
 
@@ -654,24 +654,24 @@ Set this to use a specific syntax string for all commands (that don't specify on
 
 ```
 [/settings/eventlog]
-# SYNTAX
+# Default syntax
 syntax=
 ```
 
 
-### Real-time monitoring <a id="/settings/eventlog/real-time"/>
+### Real-time eventlog monitoring <a id="/settings/eventlog/real-time"/>
 
 A set of options to configure the real time checks
 
 
 
 
-| Key                            | Default Value      | Description        |
-|--------------------------------|--------------------|--------------------|
-| [debug](#debug)                | false              | DEBUG              |
-| [enabled](#real-time-checking) | false              | REAL TIME CHECKING |
-| [log](#logs-to-check)          | application,system | LOGS TO CHECK      |
-| [startup age](#startup-age)    | 30m                | STARTUP AGE        |
+| Key                                         | Default Value      | Description                 |
+|---------------------------------------------|--------------------|-----------------------------|
+| [debug](#enable-debugging)                  | false              | Enable debugging            |
+| [enabled](#enable-realtime-monitoring)      | false              | Enable realtime monitoring  |
+| [log](#logs-to-check)                       | application,system | Logs to check               |
+| [startup age](#read-old-records-at-startup) | 30m                | Read old records at startup |
 
 
 
@@ -689,7 +689,7 @@ startup age=30m
 
 
 
-#### DEBUG <a id="/settings/eventlog/real-time/debug"></a>
+#### Enable debugging <a id="/settings/eventlog/real-time/debug"></a>
 
 Log missed records (useful to detect issues with filters) not useful in production as it is a bit of a resource hog.
 
@@ -709,13 +709,13 @@ Log missed records (useful to detect issues with filters) not useful in producti
 
 ```
 [/settings/eventlog/real-time]
-# DEBUG
+# Enable debugging
 debug=false
 ```
 
 
 
-#### REAL TIME CHECKING <a id="/settings/eventlog/real-time/enabled"></a>
+#### Enable realtime monitoring <a id="/settings/eventlog/real-time/enabled"></a>
 
 Spawns a background thread which detects issues and reports them back instantly.
 
@@ -735,13 +735,13 @@ Spawns a background thread which detects issues and reports them back instantly.
 
 ```
 [/settings/eventlog/real-time]
-# REAL TIME CHECKING
+# Enable realtime monitoring
 enabled=false
 ```
 
 
 
-#### LOGS TO CHECK <a id="/settings/eventlog/real-time/log"></a>
+#### Logs to check <a id="/settings/eventlog/real-time/log"></a>
 
 Comma separated list of logs to check
 
@@ -761,13 +761,13 @@ Comma separated list of logs to check
 
 ```
 [/settings/eventlog/real-time]
-# LOGS TO CHECK
+# Logs to check
 log=application,system
 ```
 
 
 
-#### STARTUP AGE <a id="/settings/eventlog/real-time/startup age"></a>
+#### Read old records at startup <a id="/settings/eventlog/real-time/startup age"></a>
 
 The initial age to scan when starting NSClient++
 
@@ -787,12 +787,12 @@ The initial age to scan when starting NSClient++
 
 ```
 [/settings/eventlog/real-time]
-# STARTUP AGE
+# Read old records at startup
 startup age=30m
 ```
 
 
-### Real-time filters <a id="/settings/eventlog/real-time/filters"/>
+### Real-time eventlog filters <a id="/settings/eventlog/real-time/filters"/>
 
 A set of filters to use in real-time mode
 
@@ -832,7 +832,7 @@ This is a section of objects. This means that you will create objects below this
 **Sample:**
 
 ```ini
-# An example of a Real-time filters section
+# An example of a Real-time eventlog filters section
 [/settings/eventlog/real-time/filters/sample]
 #command=...
 #critical=...

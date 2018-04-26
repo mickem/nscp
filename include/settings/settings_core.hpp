@@ -40,6 +40,21 @@ namespace settings {
 	inline std::string key_to_string(std::string path, std::string key) {
 		return path + "." + key;
 	}
+
+	inline std::string join_path(const std::string &p1, const std::string &p2) {
+		if (p1.size() > 0 && p1[p1.size() - 1] == '/' && p2.size() > 1 && p2[0] == '/') {
+			// .../, /...
+			return p1 + p2.substr(1);
+		} else if (p1.size() > 0 && p1[p1.size() - 1] == '/') {
+			// .../, ...
+			return p1 + p2;
+		} else if (p2.size() > 1 && p2[0] == '/') {
+			// ..., /...
+			return p1 + p2;
+		}
+		// ..., ...
+		return p1 + "/" + p2;
+	}
 	class settings_exception : public std::exception {
 		const char* file_;
 		int line_;
@@ -74,31 +89,24 @@ namespace settings {
 	class settings_core {
 	public:
 		typedef std::list<std::string> string_list;
-		typedef enum {
-			key_string = 100,
-			key_integer = 200,
-			key_bool = 300
-		} key_type;
 		typedef std::pair<std::string, std::string> key_path_type;
 		struct key_description {
 			std::string title;
 			std::string description;
-			key_type type;
-			nscapi::settings::settings_value defValue;
+			std::string default_value;
 			bool advanced;
 			bool is_sample;
 			std::set<unsigned int> plugins;
-			key_description(unsigned int plugin_id, std::string title_, std::string description_, settings_core::key_type type_, nscapi::settings::settings_value defValue_, bool advanced_, bool is_sample_)
-				: title(title_), description(description_), type(type_), defValue(defValue_), advanced(advanced_), is_sample(is_sample_) {
+			key_description(unsigned int plugin_id, std::string title_, std::string description_, std::string default_value, bool advanced_, bool is_sample_)
+				: title(title_), description(description_), default_value(default_value), advanced(advanced_), is_sample(is_sample_) {
 				append_plugin(plugin_id);
 			}
-			key_description(unsigned int plugin_id) : type(settings_core::key_string), advanced(false), is_sample(false) { append_plugin(plugin_id); }
-			key_description() : type(settings_core::key_string), advanced(false), is_sample(false) {}
+			key_description(unsigned int plugin_id) : advanced(false), is_sample(false) { append_plugin(plugin_id); }
+			key_description() : advanced(false), is_sample(false) {}
 			key_description& operator=(const key_description &other) {
 				title = other.title;
 				description = other.description;
-				type = other.type;
-				defValue = other.defValue;
+				default_value = other.default_value;
 				advanced = other.advanced;
 				is_sample = other.is_sample;
 				plugins = other.plugins;
@@ -208,7 +216,7 @@ namespace settings {
 		/// @param advanced advanced options will only be included if they are changed
 		///
 		/// @author mickem
-		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, key_type type, std::string title, std::string description, nscapi::settings::settings_value defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
+		virtual void register_key(unsigned int plugin_id, std::string path, std::string key, std::string title, std::string description, std::string defValue, bool advanced, bool is_sample, bool update_existing = true) = 0;
 
 
 		virtual void register_tpl(unsigned int plugin_id, std::string path, std::string title, std::string data) = 0;
@@ -344,16 +352,6 @@ namespace settings {
 		virtual void clear_cache() = 0;
 
 		//////////////////////////////////////////////////////////////////////////
-		/// Get the type of a key (String, int, bool)
-		///
-		/// @param path the path to get type for
-		/// @param key the key to get the type for
-		/// @return the type of the key
-		///
-		/// @author mickem
-		virtual settings_core::key_type get_key_type(std::string path, std::string key) = 0;
-
-		//////////////////////////////////////////////////////////////////////////
 		/// Get a string value if it does not exist exception will be thrown
 		///
 		/// @param path the path to look up
@@ -381,64 +379,6 @@ namespace settings {
 		///
 		/// @author mickem
 		virtual void set_string(std::string path, std::string key, std::string value) = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual op_int get_int(std::string path, std::string key) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist the default value will be returned
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param def the default value to use when no value is found
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual int get_int(std::string path, std::string key, int def) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Set or update an integer value
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param value the value to set
-		///
-		/// @author mickem
-		virtual void set_int(std::string path, std::string key, int value) = 0;
-
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual op_bool get_bool(std::string path, std::string key) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist the default value will be returned
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param def the default value to use when no value is found
-		/// @return the string value
-		///
-		/// @author mickem
-		virtual bool get_bool(std::string path, std::string key, bool def) = 0;
-		//////////////////////////////////////////////////////////////////////////
-		/// Set or update a boolean value
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @param value the value to set
-		///
-		/// @author mickem
-		virtual void set_bool(std::string path, std::string key, bool value) = 0;
 
 		virtual void remove_key(std::string path, std::string key) = 0;
 		virtual void remove_path(std::string path) = 0;

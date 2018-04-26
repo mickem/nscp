@@ -230,34 +230,6 @@ namespace settings {
 		}
 
 		//////////////////////////////////////////////////////////////////////////
-		/// Get an integer value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the int value
-		///
-		/// @author mickem
-		virtual op_int get_real_int(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return op_int(str::stox<int>(*str));
-			return op_int();
-		}
-		//////////////////////////////////////////////////////////////////////////
-		/// Get a boolean value if it does not exist exception will be thrown
-		///
-		/// @param path the path to look up
-		/// @param key the key to lookup
-		/// @return the boolean value
-		///
-		/// @author mickem
-		virtual op_bool get_real_bool(settings_core::key_path_type key) {
-			op_string str = get_real_string(key);
-			if (str)
-				return op_bool(settings_interface_impl::string_to_bool(*str));
-			return op_bool();
-		}
-		//////////////////////////////////////////////////////////////////////////
 		/// Check if a key exists
 		///
 		/// @param path the path to look up

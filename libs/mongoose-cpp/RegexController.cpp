@@ -33,12 +33,15 @@ namespace Mongoose
 				}
 			}
 		}
-		return documentMissing("no handler for \"" + request.getMethod() + ":" + key + "\" in " + prefix);
+		return documentMissing("invalid handler for \"" + request.getMethod() + ":" + key + "\" in " + prefix);
     }
 
     void RegexpController::setPrefix(std::string prefix_) {
         prefix = prefix_;
     }
+	std::string RegexpController::get_prefix() const {
+		return prefix;
+	}
             
     void RegexpController::registerRoute(std::string httpMethod, std::string route, RegexpRequestHandlerBase *handler) {
 		std::string key = httpMethod + ":" + prefix + route;

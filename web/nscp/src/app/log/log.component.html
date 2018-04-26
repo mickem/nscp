@@ -1,0 +1,48 @@
+<mat-card>
+
+  <div class="logview mat-elevation-z8">
+    <mat-toolbar>
+      <span class="spacer"></span>
+      <button mat-button [matMenuTriggerFor]="menu">Columns</button>
+      <mat-menu #menu="matMenu">
+          <button mat-menu-item (click)="toggleColumn('date')">Date</button>
+          <button mat-menu-item (click)="toggleColumn('level')">Level</button>
+          <button mat-menu-item (click)="toggleColumn('message')">Message</button>
+          <button mat-menu-item (click)="toggleColumn('file')">Reference</button>
+        </mat-menu>
+      <button mat-button (click)="refresh()">
+        <i class="fa fas fa-spinner fa-spin" aria-hidden="true" *ngIf="isLoadingResults"></i>
+        <i class="fa fa-fas fa-retweet" aria-hidden="true" *ngIf="!isLoadingResults"> </i> Refresh
+      </button>
+    </mat-toolbar>
+
+    <table mat-table #table [dataSource]="dataSource">
+
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let row">{{ row.date | date }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="level">
+        <th mat-header-cell *matHeaderCellDef>Level</th>
+        <td mat-cell *matCellDef="let row">{{ row.level }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="message">
+        <th mat-header-cell *matHeaderCellDef>Message</th>
+        <td mat-cell *matCellDef="let row">{{ row.message }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="file">
+        <th mat-header-cell *matHeaderCellDef>Reference</th>
+        <td mat-cell *matCellDef="let row">{{ row.file }}:{{ row.line }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+
+    <mat-paginator [length]="paginationCount" [pageSize]="paginationLimit" [pageSizeOptions]="pageSizeOptions">
+    </mat-paginator>
+  </div>
+</mat-card>

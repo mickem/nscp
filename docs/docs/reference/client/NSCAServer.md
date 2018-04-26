@@ -32,7 +32,7 @@ A server that listens for incoming NSCA connection and processes incoming reques
 | [cache allowed hosts](#cache-allowed-hosts) | true          | CACHE ALLOWED HOSTS   |
 | [encoding](#nrpe-payload-encoding)          |               | NRPE PAYLOAD ENCODING |
 | [inbox](#inbox)                             | inbox         | INBOX                 |
-| [password](#password)                       |               | PASSWORD              |
+| [password](#password)                       |               | Password              |
 | [socket queue size](#listen-queue)          | 0             | LISTEN QUEUE          |
 | [thread pool](#thread-pool)                 | 10            | THREAD POOL           |
 | [timeout](#timeout)                         | 30            | TIMEOUT               |
@@ -188,7 +188,7 @@ inbox=inbox
 
 
 
-#### PASSWORD <a id="/settings/default/password"></a>
+#### Password <a id="/settings/default/password"></a>
 
 Password used to authenticate against server
 
@@ -209,7 +209,7 @@ Password used to authenticate against server
 
 ```
 [/settings/default]
-# PASSWORD
+# Password
 password=
 ```
 
@@ -314,7 +314,7 @@ Section for NSCA (NSCAServer) (check_nsca) protocol options.
 | [dh](#dh-key)                               | ${certificate-path}/nrpe_dh_512.pem | DH KEY                |
 | [encryption](#encryption)                   | aes                                 | ENCRYPTION            |
 | [inbox](#inbox)                             | inbox                               | INBOX                 |
-| [password](#password)                       |                                     | PASSWORD              |
+| [password](#password)                       |                                     | Password              |
 | [payload length](#payload-length)           | 512                                 | PAYLOAD LENGTH        |
 | [performance data](#performance-data)       | true                                | PERFORMANCE DATA      |
 | [port](#port-number)                        | 5667                                | PORT NUMBER           |
@@ -669,7 +669,7 @@ inbox=inbox
 
 
 
-#### PASSWORD <a id="/settings/NSCA/server/password"></a>
+#### Password <a id="/settings/NSCA/server/password"></a>
 
 Password used to authenticate against server parent for this key is found under: /settings/default this is marked as advanced in favor of the parent.
 
@@ -691,7 +691,7 @@ Password used to authenticate against server parent for this key is found under:
 
 ```
 [/settings/NSCA/server]
-# PASSWORD
+# Password
 password=
 ```
 

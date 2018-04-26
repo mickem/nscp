@@ -114,48 +114,57 @@ nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_ma
 	return ret;
 }
 
+nsclient::core::plugin_manager::plugin_status nsclient::core::plugin_manager::parse_plugin(std::string key) {
+	plugin_status status(key);
+	try {
+		status.alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, key, "");
+	} catch (settings::settings_exception e) {
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+	}
+	if (status.alias == "") {
+		status.enabled = false;
+	} else if (status.plugin == "enabled" || status.plugin == "1" || status.plugin == "true") {
+		status.plugin = status.alias;
+		status.alias = "";
+	} else if (status.alias == "enabled" || status.alias == "1" || status.alias == "true") {
+		status.alias = "";
+	} else if ((status.plugin == "disabled") || (status.alias == "disabled")) {
+		status.enabled = false;
+	} else if ((status.plugin == "0") || (status.alias == "0")) {
+		status.enabled = false;
+	} else if ((status.plugin == "false") || (status.alias == "false")) {
+		status.enabled = false;
+	} else if (status.plugin == "disabled" || status.plugin == "0" || status.plugin == "false") {
+		status.plugin = status.alias;
+		status.alias = "";
+	} else if (status.alias == "disabled" || status.alias == "0" || status.alias == "false") {
+		status.alias = "";
+	}
+	if (!status.alias.empty()) {
+		std::string tmp = status.plugin;
+		status.plugin = status.alias;
+		status.alias = tmp;
+	}
+	if (status.plugin.length() > 4 && status.plugin.substr(status.plugin.length() - 4) == ".dll")
+		status.plugin = status.plugin.substr(0, status.plugin.length() - 4);
+	return status;
+}
+
 // Find all plugins which are marked as active under the [/modules] section.
 nsclient::core::plugin_manager::plugin_alias_list_type nsclient::core::plugin_manager::find_all_active_plugins() {
 	plugin_alias_list_type ret;
 
-	settings::settings_interface::string_list list = settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION);
-	BOOST_FOREACH(std::string plugin, list) {
-		std::string alias;
-		try {
-			alias = settings_manager::get_settings()->get_string(MAIN_MODULES_SECTION, plugin, "");
-		} catch (settings::settings_exception e) {
-			LOG_DEBUG_CORE_STD("Exception looking for module: " + e.reason());
-		}
-		if (plugin == "enabled" || plugin == "1" || plugin == "true") {
-			plugin = alias;
-			alias = "";
-		} else if (alias == "enabled" || alias == "1" || alias == "true") {
-			alias = "";
-		} else if ((plugin == "disabled") || (alias == "disabled")) {
+	BOOST_FOREACH(std::string plugin, settings_manager::get_settings()->get_keys(MAIN_MODULES_SECTION)) {
+		plugin_status status = parse_plugin(plugin);
+		if (!status.enabled) {
 			continue;
-		} else if ((plugin == "0") || (alias == "0")) {
-			continue;
-		} else if ((plugin == "false") || (alias == "false")) {
-			continue;
-		} else if (plugin == "disabled" || plugin == "0" || plugin == "false") {
-			plugin = alias;
-			alias = "";
-		} else if (alias == "disabled" || alias == "0" || alias == "false") {
-			alias = "";
 		}
-		if (!alias.empty()) {
-			std::string tmp = plugin;
-			plugin = alias;
-			alias = tmp;
-		}
-		if (alias.empty()) {
-			LOG_DEBUG_CORE_STD("Found: " + plugin);
+		if (status.alias.empty()) {
+			LOG_DEBUG_CORE_STD("Found: " + status.plugin);
 		} else {
-			LOG_DEBUG_CORE_STD("Found: " + plugin + " as " + alias);
+			LOG_DEBUG_CORE_STD("Found: " + status.plugin + " as " + status.alias);
 		}
-		if (plugin.length() > 4 && plugin.substr(plugin.length() - 4) == ".dll")
-			plugin = plugin.substr(0, plugin.length() - 4);
-		ret.insert(plugin_alias_list_type::value_type(alias, plugin));
+		ret.insert(plugin_alias_list_type::value_type(status.alias, status.plugin));
 	}
 	return ret;
 }
@@ -351,7 +360,7 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
 		if (plugin->has_on_event()) {
 			event_subscribers_.add_plugin(plugin);
 		}
-		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
+		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), plugin->getName(), plugin->getDescription(), "0", false, false);
 		plugin_cache_.add_plugin(plugin);
 		return plugin;
     } catch (const nsclient::core::plugin_exception &e) {
@@ -380,11 +389,11 @@ bool nsclient::core::plugin_manager::reload_plugin(const std::string module) {
 
 
 
-void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
+bool nsclient::core::plugin_manager::remove_plugin(const std::string name) {
 	plugin_type plugin = plugin_list_.find_by_module(name);
 	if (!plugin) {
 		LOG_ERROR_CORE("Module " + name + " was not found.");
-		return;
+		return false;
 	}
 	unsigned int plugin_id = plugin->get_id();
 	plugin_list_.remove(plugin_id);
@@ -393,6 +402,7 @@ void nsclient::core::plugin_manager::remove_plugin(const std::string name) {
 	metrics_submitetrs_.remove_plugin(plugin_id);
 	plugin->unload_plugin();
 	plugin_cache_.remove_plugin(plugin_id);
+	return true;
 }
 
 unsigned int nsclient::core::plugin_manager::clone_plugin(unsigned int plugin_id) {
@@ -800,12 +810,36 @@ struct metrics_fetcher {
 	}
 };
 
+bool nsclient::core::plugin_manager::is_enabled(const std::string module) {
+	return parse_plugin(module).enabled;
+}
+
 void nsclient::core::plugin_manager::process_metrics(Plugin::Common::MetricsBundle bundle) {
 	metrics_fetcher f;
 	metrics_fetchers_.do_all(boost::bind(&metrics_fetcher::fetch, &f, _1));
 	f.get_root()->add_bundles()->CopyFrom(bundle);
 	f.render();
 	metrics_submitetrs_.do_all(boost::bind(&metrics_fetcher::digest, &f, _1));
+}
+
+bool nsclient::core::plugin_manager::enable_plugin(std::string name) {
+	try {
+		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "enabled");
+	} catch (settings::settings_exception e) {
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+		return false;
+	}
+	return true;
+}
+
+bool nsclient::core::plugin_manager::disable_plugin(std::string name) {
+	try {
+		settings_manager::get_settings()->set_string(MAIN_MODULES_SECTION, name, "disabled");
+	} catch (settings::settings_exception e) {
+		LOG_DEBUG_CORE_STD("Failed to read settings: " + e.reason());
+		return false;
+	}
+	return true;
 }
 
 boost::filesystem::path nsclient::core::plugin_manager::get_filename(boost::filesystem::path folder, std::string module) {

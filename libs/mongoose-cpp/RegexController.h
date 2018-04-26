@@ -60,6 +60,7 @@ namespace Mongoose
 			* @param string the prefix of all urls for this controller
 			*/
 			void setPrefix(std::string prefix);
+			std::string get_prefix() const;
 
 			template<class T>
 			void addRoute(std::string httpMethod, std::string url, T *instance, typename RegexpRequestHandler<T, Mongoose::StreamResponse>::fPtr handler) {

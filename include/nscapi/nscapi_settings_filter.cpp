@@ -22,7 +22,7 @@ namespace nscapi {
 		void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {
 			namespace sh = nscapi::settings_helper;
 			path.add_key()
-				("filter", sh::string_key(&filter_string),
+				("filter", sh::cstring_fun_key(boost::bind(&filter_object::set_filter_string, this, _1)),
 					"FILTER", "Scan files for matching rows for each matching rows an OK message will be submitted")
 
 				("warning", sh::string_key(&filter_warn),
@@ -86,7 +86,7 @@ namespace nscapi {
 
 			import_string(syntax_detail, parent.syntax_detail);
 			import_string(syntax_top, parent.syntax_top);
-			import_string(filter_string, parent.filter_string);
+			import_string(filter_string_, parent.filter_string_);
 			import_string(filter_warn, parent.filter_warn);
 			import_string(filter_crit, parent.filter_crit);
 			import_string(filter_ok, parent.filter_ok);

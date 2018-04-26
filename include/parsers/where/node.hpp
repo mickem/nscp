@@ -179,12 +179,12 @@ namespace parsers {
 				if (i_value)
 					return *i_value;
 				if (f_value)
-					return *f_value;
+					return static_cast<long long>(*f_value);
 				return def;
 			}
 			double get_float(double def) const {
 				if (i_value)
-					return *i_value;
+					return static_cast<double>(*i_value);
 				if (f_value)
 					return *f_value;
 				return def;

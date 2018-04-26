@@ -58,8 +58,7 @@ void scripts::nscp::settings_provider_impl::register_path(std::string path, std:
 }
 
 void scripts::nscp::settings_provider_impl::register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue) {
-	NSCAPI::settings_type iType = scripts::settings_provider::parse_type(type);
-	settings_.register_key(path, key, iType, title, description, defaultValue, false, false);
+	settings_.register_key(path, key, title, description, defaultValue, false, false);
 }
 
 void scripts::nscp::settings_provider_impl::save() {

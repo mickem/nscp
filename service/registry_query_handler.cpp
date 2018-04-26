@@ -105,7 +105,7 @@ namespace nsclient {
 								if (q.has_name() && q.name() != itm.dll && q.name() != itm.alias) {
 									continue;
 								}
-								add_module(rp, itm);
+								add_module(rp, itm, false);
 							}
 						}
 					}
@@ -114,7 +114,7 @@ namespace nsclient {
 			plugins_->get_plugin_cache()->add_plugins(tmp_list);
 		}
 
-		void registry_query_handler::add_module(Plugin::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin) {
+		void registry_query_handler::add_module(Plugin::RegistryResponseMessage::Response* rp, const plugin_cache_item &plugin, bool is_enabled) {
 			Plugin::RegistryResponseMessage::Response::Inventory *rpp = rp->add_inventory();
 			rpp->set_name(plugin.dll);
 			rpp->set_type(Plugin::Registry_ItemType_MODULE);
@@ -131,6 +131,9 @@ namespace nsclient {
 			kvp = rpp->mutable_info()->add_metadata();
 			kvp->set_key("alias");
 			kvp->set_value(plugin.alias);
+			kvp = rpp->mutable_info()->add_metadata();
+			kvp->set_key("enabled");
+			kvp->set_value(is_enabled ? "true" : "false");
 		}
 
 		void registry_query_handler::inventory_modules(const Plugin::RegistryRequestMessage::Request::Inventory &q, Plugin::RegistryResponseMessage::Response* rp) {
@@ -146,7 +149,7 @@ namespace nsclient {
 				}
 
 				if (q.fetch_all() || plugin.is_loaded  || (q.has_name() && q.name() == plugin.dll) ) {
-					add_module(rp, plugin);
+					add_module(rp, plugin, plugins_->is_enabled(plugin.dll));
 				}
 
 				if (q.has_name() && q.name() == plugin.dll) {
@@ -157,7 +160,7 @@ namespace nsclient {
 				nsclient::core::plugin_cache::plugin_cache_list_type tmp_list;
 				plugin_cache_item  itm = inventory_plugin_on_disk(tmp_list, q.name());
 				if (!itm.dll.empty()) {
-					add_module(rp, itm);
+					add_module(rp, itm, false);
 					plugins_->get_plugin_cache()->add_plugins(tmp_list);
 				}
 				return;
@@ -230,20 +233,32 @@ namespace nsclient {
 
 		void registry_query_handler::parse_control(const Plugin::RegistryRequestMessage::Request::Control &control, Plugin::RegistryResponseMessage &response) {
 			Plugin::RegistryResponseMessage::Response* rp = response.add_payload();
+			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_ERROR);
 			if (control.type() == Plugin::Registry_ItemType_MODULE) {
 				if (control.command() == Plugin::Registry_Command_LOAD) {
-					if (!plugins_->load_single_plugin(control.name(), control.alias(), true)) {
+					if (plugins_->load_single_plugin(control.name(), control.alias(), true)) {
+						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+					} else {
 						LOG_ERROR_CORE("Failed to find: " + control.name());
 					}
 				} else if (control.command() == Plugin::Registry_Command_UNLOAD) {
-					plugins_->remove_plugin(control.name());
+					if (plugins_->remove_plugin(control.name())) {
+						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+					}
+				} else if (control.command() == Plugin::Registry_Command_ENABLE) {
+					if (plugins_->enable_plugin(control.name())) {
+						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+					}
+				} else if (control.command() == Plugin::Registry_Command_DISABLE) {
+					if (plugins_->disable_plugin(control.name())) {
+						rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
+					}
 				} else {
 					LOG_ERROR_CORE("Registration query: Invalid command");
 				}
 			} else {
 				LOG_ERROR_CORE("Registration query: Unsupported type");
 			}
-			rp->mutable_result()->set_code(Plugin::Common_Result_StatusCodeType_STATUS_OK);
 		}
 
 		plugin_cache_item registry_query_handler::inventory_plugin_on_disk(nsclient::core::plugin_cache::plugin_cache_list_type &list, std::string plugin) {

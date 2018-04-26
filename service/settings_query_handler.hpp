@@ -31,6 +31,7 @@ namespace nsclient {
 			void parse_control(const Plugin::SettingsRequestMessage::Request::Control &q, Plugin::SettingsResponseMessage::Response* rp);
 			
 		private:
+			void recurse_find(Plugin::SettingsResponseMessage::Response::Query *rpp, const std::string base, bool recurse, bool fetch_keys);
 			void settings_add_plugin_data(const std::set<unsigned int> &plugins, ::Plugin::Settings_Information* info);
 			nsclient::logging::logger_instance get_logger() const {
 				return logger_;

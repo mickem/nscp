@@ -434,6 +434,8 @@ message Registry {
 		LOAD	= 1;
 		UNLOAD	= 2;
 		RELOAD	= 3;
+		ENABLE	= 4;
+		DISABLE	= 5;
 	};
 };
 
@@ -532,14 +534,13 @@ message Settings {
 	message Node {
 		required string path = 1;
 		optional string key = 2;
+		optional string value = 3;
 	};
 	message Information {
 		optional string title = 1;
 		optional string description = 2;
 		optional string icon = 10;
-		optional Common.AnyDataType default_value = 3;
-		optional string min_version = 4;
-		optional string max_version = 5;
+		optional string default_value = 13;
 		optional bool advanced = 6;
 		optional bool sample = 7;
 		optional bool is_template = 11;
@@ -564,12 +565,11 @@ message SettingsRequestMessage {
 		message Query {
 			optional Settings.Node node = 1;
 			optional bool recursive = 2;
-			optional Common.DataType type = 3;
-			optional Common.AnyDataType default_value = 5;
+			optional bool include_keys = 6;
+			optional string default_value = 7;
 		};
 		message Update {
 			optional Settings.Node node = 1;
-			optional Common.AnyDataType value = 2;
 		};
 		message Inventory {
 			optional string plugin = 11;
@@ -606,14 +606,13 @@ message SettingsResponseMessage {
 		};
 		message Query {
 			required Settings.Node node = 1;
-			optional Common.AnyDataType value = 2;
+			repeated Settings.Node nodes = 3;
 		};
 		message Update {
 		};
 		message Inventory {
 			required Settings.Node node = 1;
 			required Settings.Information info = 2;
-			optional Common.AnyDataType value = 3;
 		};
 		message Control {
 		};

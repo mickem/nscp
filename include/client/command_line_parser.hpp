@@ -256,6 +256,9 @@ namespace client {
 		void do_query(const Plugin::QueryRequestMessage &request, Plugin::QueryResponseMessage &response);
 		bool do_exec(const Plugin::ExecuteRequestMessage &request, Plugin::ExecuteResponseMessage &response, const std::string &default_command);
 		void do_submit(const Plugin::SubmitRequestMessage &request, Plugin::SubmitResponseMessage &response);
+
+		void do_submit_item(const Plugin::SubmitRequestMessage &request, destination_container s, destination_container d, Plugin::SubmitResponseMessage &response);
+
 		void do_metrics(const Plugin::MetricsMessage &request);
 
 		typedef boost::function<boost::program_options::options_description(client::destination_container &source, client::destination_container &destination)> client_desc_fun;

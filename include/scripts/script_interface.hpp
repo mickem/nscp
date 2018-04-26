@@ -86,15 +86,6 @@ namespace scripts {
 		virtual void register_path(std::string path, std::string title, std::string description, bool advanced) = 0;
 		virtual void register_key(std::string path, std::string key, std::string type, std::string title, std::string description, std::string defaultValue) = 0;
 
-		NSCAPI::settings_type parse_type(std::string stype) {
-			if (stype == "string" || stype == "str" || stype == "s")
-				return NSCAPI::key_string;
-			if (stype == "integer" || stype == "int" || stype == "i")
-				return NSCAPI::key_integer;
-			if (stype == "bool" || stype == "b")
-				return NSCAPI::key_bool;
-			return NSCAPI::key_string;
-		}
 	};
 
 	template<class script_trait>

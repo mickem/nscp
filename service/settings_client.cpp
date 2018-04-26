@@ -148,17 +148,7 @@ void nsclient_core::settings_client::switch_context(std::string contect) {
 }
 
 int nsclient_core::settings_client::set(std::string path, std::string key, std::string val) {
-	settings::settings_core::key_type type = get_core()->get()->get_key_type(path, key);
-	if (type == settings::settings_core::key_string) {
-		get_core()->get()->set_string(path, key, val);
-	} else if (type == settings::settings_core::key_integer) {
-		get_core()->get()->set_int(path, key, str::stox<int>(val));
-	} else if (type == settings::settings_core::key_bool) {
-		get_core()->get()->set_bool(path, key, settings::settings_interface::string_to_bool(val));
-	} else {
-		error_msg(__FILE__, __LINE__, "Failed to set key (not found)");
-		return -1;
-	}
+	get_core()->get()->set_string(path, key, val);
 	get_core()->get()->save();
 	return 0;
 }

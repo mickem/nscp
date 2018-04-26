@@ -110,7 +110,7 @@ namespace client {
 				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
 				r->mutable_update()->mutable_node()->set_path("/modules");
 				r->mutable_update()->mutable_node()->set_key(name);
-				r->mutable_update()->mutable_value()->set_string_data("enabled");
+				r->mutable_update()->mutable_node()->set_value("enabled");
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);
@@ -149,7 +149,7 @@ namespace client {
 				Plugin::SettingsRequestMessage::Request *r = srm.add_payload();
 				r->mutable_update()->mutable_node()->set_path("/modules");
 				r->mutable_update()->mutable_node()->set_key(name);
-				r->mutable_update()->mutable_value()->set_string_data("disabled");
+				r->mutable_update()->mutable_node()->set_value("disabled");
 				r->set_plugin_id(handler->get_plugin_id());
 				std::string response;
 				handler->get_core()->settings_query(srm.SerializeAsString(), response);

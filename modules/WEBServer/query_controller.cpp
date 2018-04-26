@@ -14,11 +14,11 @@
 #include <boost/regex.hpp>
 
 
-query_controller::query_controller(boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
+query_controller::query_controller(const int version, boost::shared_ptr<session_manager_interface> session, nscapi::core_wrapper* core, unsigned int plugin_id)
   : session(session)
   , core(core)
   , plugin_id(plugin_id)
-  , RegexpController("/api/v1/queries")
+  , RegexpController(version==1?"/api/v1/queries": "/api/v2/queries")
 {
 	addRoute("GET", "/?$", this, &query_controller::get_queries);
 	addRoute("GET", "/([^/]+)/?$", this, &query_controller::get_query);
@@ -45,6 +45,9 @@ void query_controller::get_queries(Mongoose::Request &request, boost::smatch &wh
 	  BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 		  json_spirit::Object node;
 		  node["name"] = i.name();
+		  if (i.info().plugin_size() > 0) {
+			  node["plugin"] = i.info().plugin(0);
+		  }
 		  node["query_url"] = get_base(request) + "/" + i.name() + "/";
 		  node["title"] = i.info().title();
 		  json_spirit::Object keys;
@@ -84,6 +87,9 @@ void query_controller::get_query(Mongoose::Request &request, boost::smatch &what
 	BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response r, pb_response.payload()) {
 		BOOST_FOREACH(const Plugin::RegistryResponseMessage::Response::Inventory i, r.inventory()) {
 			node["name"] = i.name();
+			if (i.info().plugin_size() > 0) {
+				node["plugin"] = i.info().plugin(0);
+			}
 			node["title"] = i.info().title();
 			node["execute_url"] = get_base(request) + "/" + i.name() + "/commands/execute";
 			node["execute_nagios_url"] = get_base(request) + "/" + i.name() + "/commands/execute_nagios";

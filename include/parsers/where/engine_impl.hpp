@@ -49,7 +49,7 @@ namespace parsers {
 			void enable_debug(bool enable_debug) {
 				enable_debug_ = enable_debug;
 			}
-			void debug(std::string msg) {
+			void debug(const std::string msg) {
 				if (enable_debug_)
 					debugs_.push_back(msg);
 			}
