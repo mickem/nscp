@@ -110,7 +110,7 @@ namespace nsclient {
 				return level_.should_critical();
 			}
 
-			virtual void set_log_level(const std::string level) {
+			virtual void set_log_level(std::string level) {
 				if (!level_.set(level)) {
 					do_log(log_message_factory::create_error("logger", __FILE__, __LINE__, "Invalid log level: " + level));
 				}
