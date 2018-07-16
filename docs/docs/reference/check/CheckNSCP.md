@@ -1,6 +1,6 @@
 # CheckNSCP
 
-Use this module to check the healt and status of NSClient++ it self
+Use this module to check the health and status of NSClient++ it self
 
 
 
