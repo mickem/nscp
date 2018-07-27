@@ -33,6 +33,7 @@ Create a folder in which we will build the code (you can use the same on as the 
 ```
 mkdir build
 cd build
+```
 
 Run cmake to create the build files:
 
@@ -88,6 +89,7 @@ Create a build folder:
 ```
 mkdir build
 cd build
+```
 
 Build all dependencies and required libraries (pick the right platform Win32 or x64):
 
