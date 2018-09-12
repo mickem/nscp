@@ -11,7 +11,7 @@ find_program(MKDOCS_EXECUTABLE
 
 include(FindPackageHandleStandardArgs)
 
-find_package_handle_standard_args(Mkdocs DEFAULT_MSG\r\n  MKDOCS_EXECUTABLE)
+find_package_handle_standard_args(Mkdocs "MKDocs not found"  MKDOCS_EXECUTABLE)
 
 mark_as_advanced(
   MKDOCS_EXECUTABLE
