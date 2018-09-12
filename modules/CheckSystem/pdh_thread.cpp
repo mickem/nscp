@@ -118,36 +118,44 @@ void pdh_thread::thread_proc() {
 	memory_checks::realtime::helper memory_helper(core, plugin_id);
 	process_checks::realtime::helper process_helper(core, plugin_id);
 
-	if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
-		PDH::factory::set_native();
-	} else if (subsystem == "thread-safe") {
-		PDH::factory::set_thread_safe();
-	} else {
-		NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
-	}
-	{
-		PDH::PDHQuery tmpPdh;
-		BOOST_FOREACH(PDH::pdh_object obj, configs_) {
-			try {
-				PDH::pdh_instance instance = PDH::factory::create(obj);
+	try {
+		if (subsystem == "fast" || subsystem == "auto" || subsystem == "default") {
+			PDH::factory::set_native();
+		} else if (subsystem == "thread-safe") {
+			PDH::factory::set_thread_safe();
+		} else {
+			NSC_LOG_ERROR_STD("Unknown PDH subsystem valid values are: fast (default) and thread-safe");
+		}
+		{
+			PDH::PDHQuery tmpPdh;
+			BOOST_FOREACH(PDH::pdh_object obj, configs_) {
+				try {
+					PDH::pdh_instance instance = PDH::factory::create(obj);
 
-				if (instance->has_instances()) {
-					BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) {
-						tmpPdh.addCounter(sc);
+					if (instance->has_instances()) {
+						BOOST_FOREACH(PDH::pdh_instance sc, instance->get_instances()) {
+							tmpPdh.addCounter(sc);
+						}
+					} else {
+						tmpPdh.addCounter(instance);
 					}
-				} else {
-					tmpPdh.addCounter(instance);
-				}
 
-				tmpPdh.open();
-				counters_.push_back(instance);
-				lookups_[instance->get_name()] = instance;
-				tmpPdh.close();
-			} catch (const std::exception &e) {
-				NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
-				continue;
+					tmpPdh.open();
+					counters_.push_back(instance);
+					lookups_[instance->get_name()] = instance;
+					tmpPdh.close();
+				} catch (const std::exception &e) {
+					NSC_LOG_ERROR_EX("Failed to add counter " + obj.alias + ": ", e);
+					continue;
+				}
 			}
 		}
+	} catch (const std::exception &e) {
+		NSC_LOG_ERROR_EXR("Failed to setup PDH counters: ", e);
+		counters_.clear();
+	} catch (...) {
+		NSC_LOG_ERROR("Failed to setup PDH counters");
+		counters_.clear();
 	}
 
 	PDH::PDHQuery pdh;
