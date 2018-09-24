@@ -4,14 +4,7 @@ if(LUA_SOURCE_FOUND)
 
 	SET(TARGET lua)
 
-		FIND_PATH(LUA_SOURCE_DIR lapi.c
-			${LUA_INCLUE_DIR}
-			${LUA_INCLUE_DIR}/src
-			${LUA_DIR}
-			${LUA_DIR}/src
-		)
-	
-		SET(SRCS
+	SET(SRCS
 			${LUA_SOURCE_DIR}/lapi.c
 			${LUA_SOURCE_DIR}/lauxlib.c
 			${LUA_SOURCE_DIR}/lbaselib.c
@@ -41,7 +34,7 @@ if(LUA_SOURCE_FOUND)
 			${LUA_SOURCE_DIR}/lundump.c
 			${LUA_SOURCE_DIR}/lvm.c
 			${LUA_SOURCE_DIR}/lzio.c
-		)
+	)
 	
 	FILE (GLOB lua_HEADERS "${LUA_SOURCE_DIR}/*.h")
 	if(NOT USE_STATIC_RUNTIME)

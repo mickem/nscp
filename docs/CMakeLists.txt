@@ -13,7 +13,6 @@ ELSE()
   ADD_CUSTOM_TARGET(generate_doc_sources
     COMMAND ${CMAKE_BINARY_DIR}/nscp client 
       --module PythonScript 
-      --no-stderr 
       --settings dummy 
       --load-all 
       --log error 

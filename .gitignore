@@ -17,3 +17,8 @@ legacy/*
 #Unix vi
 *~
 *swp
+
+
+# CLion
+.idea
+cmake-build-debug

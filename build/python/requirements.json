@@ -2,16 +2,18 @@
 	"python-modules": {
 		"tasks" : {
 			"build": [
-				"pip install sphinx",
+				"pip install mkdocs",
 				"pip install protobuf",
-				"pip install jinja2"
+				"pip install jinja2",
+				"pip install mkdocs-material"
 			]
 		},
 		"build": ["mkdir", "build"]
 	},
 	"lua": {
 		"source" : {
-			"url": "http://www.lua.org/ftp/lua-5.1.5.tar.gz"
+			"url": "https://www.lua.org/ftp/lua-5.1.5.tar.gz",
+			"hash": "b3882111ad02ecc6b972f8c1241647905cb2e3fc"
 		},
 		"build": ["fetch", "pre", "build"]
 	},
@@ -36,29 +38,22 @@
 	},
 	"openssl": {
 		"source" : {
-			"url": "https://www.openssl.org/source/openssl-1.0.1j.tar.gz",
-			"hash": "cff86857507624f0ad42d922bb6f77c4f1c2b819"
+			"url": "https://www.openssl.org/source/openssl-1.1.0i.tar.gz",
+			"hash": "6713f8b083e4c0b0e70fd090bf714169baf3717c"
 		},
 		"tasks": {
 			"pre-w32": [
-				"perl Configure VC-WIN32", 
-				"ms\\do_ms"
+				"perl Configure VC-WIN32 no-asm"
 			],
 			"pre-x64": [
-				"perl Configure VC-WIN64A", 
-				"ms\\do_win64a"
+				"perl Configure VC-WIN64A no-asm"
 			],
 			"patch-dynamic": [
-				"python.exe {{source.folder}}/build/python/openssl_xp_patch.py ms\\ntdll.mak"
 			],
 			"patch-static": [
-				"python.exe {{source.folder}}/build/python/openssl_xp_patch.py ms\\nt.mak"
 			],
-			"build-dynamic": [
-				"nmake -f ms\\ntdll.mak"
-			],
-			"build-static": [
-				"nmake -f ms\\nt.mak"
+			"build": [
+				"nmake"
 			]
 		},
 		"build": ["fetch", "pre", "patch", "build"]

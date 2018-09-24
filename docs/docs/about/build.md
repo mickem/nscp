@@ -33,6 +33,7 @@ Create a folder in which we will build the code (you can use the same on as the 
 ```
 mkdir build
 cd build
+```
 
 Run cmake to create the build files:
 
@@ -63,7 +64,9 @@ All tools have to be installed manually by hand (fetchdeps only manages librarie
 
 - CMake 2.6
 - Python 2.7 (Make sure the right python platform is in your path)
-- Visual Studio (I use 2012 and 2015)
+- pip (Python package manager)
+- Visual Studio 2012 or later
+  - For 2017 make sure you install "Windows Universal CRT SDK" and "Windows 8.1 SDK" 
 - WiX 3.9 (or later)
 - Perl 5.12 (required by openssl)
 - A git client (if you want to fetch the git sources)
@@ -73,6 +76,7 @@ Validate all tools are in your path:
 ```
 cmake --version
 python -V
+pip -V
 perl -v
 cl /?
 ```
@@ -92,8 +96,14 @@ cd build
 Build all dependencies and required libraries (pick the right platform Win32 or x64):
 
 ```
-nscp\build\python\fetchdeps.py --target <platform> --dyn --source <source path> --msver 2012
+nscp\build\python\fetchdeps.py --target <platform> --dyn --source <source path> --msver <version>
 ```
+
+For instance:
+```
+python c:\source\nscp\build\python\fetchdeps.py --target x64 --dyn --source c:\source\nscp --msver 2017
+```
+
 
 Validate that we have all dependencies:
 

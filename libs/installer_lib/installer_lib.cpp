@@ -102,7 +102,7 @@ public:
 
 
 void nsclient::logging::log_message_factory::log_fatal(std::string message) {
-	std::cout << message << "\n";
+//	std::cout << message << "\n";
 }
 
 std::string nsclient::logging::log_message_factory::create_critical(const std::string &module, const char* file, const int line, const std::string &message) {

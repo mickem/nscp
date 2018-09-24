@@ -215,14 +215,16 @@ boost_versions = {
     '2012': "msvc-11.0_xp",
     '2013': "msvc-12.0_xp",
     '2014': "msvc-13.0_xp",
-    '2015': "msvc-14.0_xp"
+    '2015': "msvc-14.0_xp",
+    '2017': "msvc-15.0_xp"
 }
 cmake_generator = { 
     '2005': "Visual Studio 8 2005", 
     '2012': "Visual Studio 11",
     '2013': "Visual Studio 12",
     '2014': "Visual Studio 13",
-    '2015': "Visual Studio 14"
+    '2015': "Visual Studio 14",
+    '2017': "Visual Studio 15"
 }
 
 parser = OptionParser()

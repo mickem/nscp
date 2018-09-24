@@ -43,6 +43,10 @@ elif sys.argv[1] == "2015":
 	convert_tool = True
 	target_vc = '9.00'
 	target_sln = '10.00'
+elif sys.argv[1] == "2017":
+	convert_tool = True
+	target_vc = '9.00'
+	target_sln = '10.00'
 else:
 	print "Invalid version: %s"%sys.argv[1]
 	os.exit(1)

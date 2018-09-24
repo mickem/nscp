@@ -54,9 +54,21 @@ set(MSVER "vc110")
 if(MSVC13)
 set(MSVER "vc130")
 endif()
-if(MSVC14)
+if(MSVC_VERSION EQUAL 1900)
 set(MSVER "vc140")
 endif()
+if(MSVC_VERSION GREATER 1910 AND MSVC_VERSION LESS 1920)
+set(MSVER "vc141")
+endif()
+
+if(OPENSSL_INCLUDE_DIR MATCHES ".*1\\.1\\.0.*")
+set(MSI_OPENSSL_CRYPTO libcrypto-1_1-x64.dll)
+set(MSI_OPENSSL_LIB libssl-1_1-x64.dll)
+else()
+set(MSI_OPENSSL_CRYPTO libeay32.dll)
+set(MSI_OPENSSL_LIB ssleay32.dll)
+endif()
+
 SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dVersion.Major=${VERSION_SERIES} -dVersion.Minor=${VERSION_MAJOR} -dVersion.Revision=${VERSION_MINOR} -dVersion.Build=${VERSION_BUILD} -dVersion.BuildPad=${VERSION_BUILD_PAD}
 	"-dWebHelpSource=${NSCP_PROJECT_BINARY_DIR_NATIVE}\\docs\\html"
@@ -71,9 +83,11 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	"-dApp.StartMenuPath=NSClient++"
 	"-dApp.ServiceName=nscp"
 	"-dApp.UppgradeCode=0B36E3B7-0042-452d-B376-57E0C07ADDBB"
+	-dOpenSSlCrypto=${MSI_OPENSSL_CRYPTO}
+	-dOpenSSlLib=${MSI_OPENSSL_LIB}
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=${MSVER}-mt-1_58
+	-dBoostTag=${MSVER}-mt-x64-1_68
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}
