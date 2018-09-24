@@ -95,7 +95,11 @@ namespace http {
 		boost::asio::ssl::stream<tcp::socket> ssl_socket_;
 
 		ssl_socket(boost::asio::io_service &io_service)
+#if BOOST_VERSION >= 106800
+			: context_(boost::asio::ssl::context::tlsv1)
+#else
 			: context_(io_service, boost::asio::ssl::context::tlsv1)
+#endif
 			, ssl_socket_(io_service, context_)
 			{
 			context_.set_verify_mode(boost::asio::ssl::context::verify_none);
@@ -145,8 +149,11 @@ namespace http {
 
 	class simple_client {
 
+#if BOOST_VERSION >= 106800
+		typedef boost::asio::basic_socket<tcp>  basic_socket_type;
+#else
 		typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
-
+#endif
 		boost::asio::io_service io_service_;
 		boost::scoped_ptr<generic_socket> socket_;
 	public:

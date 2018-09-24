@@ -216,8 +216,13 @@ void socket_helpers::connection_info::ssl_opts::configure_ssl_context(boost::asi
 	context.set_verify_mode(get_verify_mode(), er);
 	if (er)
 		errors.push_back("Failed to set verify mode: " + utf8::utf8_from_native(er.message()));
-	if (!allowed_ciphers.empty())
+	if (!allowed_ciphers.empty()) {
+#if BOOST_VERSION >= 106800
+		SSL_CTX_set_cipher_list(context.native_handle(), allowed_ciphers.c_str());
+#else
 		SSL_CTX_set_cipher_list(context.impl(), allowed_ciphers.c_str());
+#endif
+	}
 	if (!dh_key.empty() && dh_key != "none") {
 		context.use_tmp_dh_file(dh_key, er);
 		if (er)

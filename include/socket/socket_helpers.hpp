@@ -30,7 +30,7 @@
 #include <boost/enable_shared_from_this.hpp>
 #ifdef USE_SSL
 #include <boost/asio/ssl.hpp>
-#include <boost/asio/ssl/basic_context.hpp>
+#include <boost/asio/ssl/context.hpp>
 #endif
 
 #include <list>

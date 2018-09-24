@@ -19,9 +19,10 @@
 
 #pragma once
 
+#include <socket/socket_helpers.hpp>
+
 #include <boost/shared_ptr.hpp>
 
-#include <socket/socket_helpers.hpp>
 #include <iostream>
 
 using boost::asio::ip::tcp;
@@ -58,8 +59,11 @@ namespace socket_helpers {
 				}
 			}
 
+#if BOOST_VERSION >= 106800
+			typedef boost::asio::basic_socket<boost::asio::ip::tcp>  basic_socket_type;
+#else
 			typedef boost::asio::basic_socket<tcp, boost::asio::stream_socket_service<tcp> >  basic_socket_type;
-
+#endif
 			//////////////////////////////////////////////////////////////////////////
 			// Time related functions
 			//
@@ -321,7 +325,11 @@ namespace socket_helpers {
 			client(const socket_helpers::connection_info &info, typename boost::shared_ptr<typename protocol_type::client_handler> handler)
 				: info_(info), handler_(handler)
 #ifdef USE_SSL
+#if BOOST_VERSION >= 106800
+				, context_(boost::asio::ssl::context::sslv23)
+#else
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
+#endif
 #endif
 			{}
 			~client() {

@@ -69,7 +69,11 @@ namespace socket_helpers {
 			boost::asio::io_service io_service_;
 			boost::asio::ip::tcp::acceptor acceptor_v4;
 			boost::asio::ip::tcp::acceptor acceptor_v6;
+#if BOOST_VERSION >= 106800
+			boost::asio::io_service::strand accept_strand_;
+#else
 			boost::asio::strand accept_strand_;
+#endif
 			boost::shared_ptr<protocol_type> logger_;
 #ifdef USE_SSL
 			boost::asio::ssl::context context_;
@@ -89,7 +93,11 @@ namespace socket_helpers {
 				, accept_strand_(io_service_)
 				, logger_(protocol_type::create(info_, handler_))
 #ifdef USE_SSL
+#if BOOST_VERSION >= 106800
+				, context_(boost::asio::ssl::context::sslv23)
+#else
 				, context_(io_service_, boost::asio::ssl::context::sslv23)
+#endif
 #endif
 			{
 				boost::system::error_code er;

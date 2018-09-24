@@ -19,19 +19,18 @@
 	},
 	"boost": {
 		"source" : {
-			"url": "http://sourceforge.net/projects/boost/files/boost/1.58.0/boost_1_58_0.zip/download",
-			"file": "boost_1_58_0.zip",
-			"hash": "39c4c3bedd96ba191f9ed1ce8a90657d73c79544"
+			"url": "https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.zip",
+			"hash": "c4cd90922d22ca17d9b8330441637397395e5812"
 		},
 		"tasks": {
 			"pre": [ "bootstrap.bat" ],
 			"build-w32": [
-				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=shared link=shared", 
-				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=static"
+				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=shared link=shared",
+				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=static"
 			],
 			"build-x64": [
-				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=shared link=shared address-model=64", 
-				"bjam --toolset={{version.boost}} --without-context --without-coroutine runtime-link=static address-model=64"
+				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=shared link=shared address-model=64",
+				"bjam --toolset=msvc --without-context --without-coroutine runtime-link=static address-model=64"
 			]
 		},
 		"build": ["fetch", "pre", "build"]
