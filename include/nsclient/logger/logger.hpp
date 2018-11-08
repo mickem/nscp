@@ -31,10 +31,12 @@
 #define LOG_INFO_CORE_STD(msg) LOG_INFO_CORE(std::string(msg))
 #define LOG_DEBUG_CORE(msg) { get_logger()->debug("core", __FILE__, __LINE__, msg);}
 #define LOG_DEBUG_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
+#define LOG_DEBUG_CORE_RAW(file, line, msg) { get_logger()->debug("core", file, line, msg);}
 #define IS_LOG_DEBUG_CORE(msg) { if (get_logger()->should_debug())
 #define LOG_TRACE_CORE(msg) { get_logger()->trace("core", __FILE__, __LINE__, msg);}
 #define LOG_TRACE_CORE_STD(msg) LOG_DEBUG_CORE(std::string(msg))
 #define IS_LOG_TRACE_CORE(msg) if (get_logger()->should_trace())
+#define IS_NOT_LOG_DEBUG_CORE(msg) if (!get_logger()->should_debug())
 
 namespace nsclient {
 	namespace logging {
@@ -77,5 +79,6 @@ namespace nsclient {
 			virtual void set_backend(std::string backend) = 0;
 		};
 		typedef boost::shared_ptr<logger> logger_instance;
+
 	}
 }

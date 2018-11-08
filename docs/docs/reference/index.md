@@ -11,8 +11,6 @@
 | check   | [CheckExternalScripts](reference/check/CheckExternalScripts) | Module used to execute external scripts                                                                                                                                                            |
 | check   | [CheckHelpers](reference/check/CheckHelpers)                 | Various helper function to extend other checks.                                                                                                                                                    |
 | check   | [CheckLogFile](reference/check/CheckLogFile)                 | File for checking log files and various other forms of updating text files                                                                                                                         |
-| check   | [CheckMKClient](reference/check/CheckMKClient)               | check_mk client can be used both from command line and from queries to check remote systes via check_mk                                                                                            |
-| check   | [CheckMKServer](reference/check/CheckMKServer)               | A server that listens for incoming check_mk connection and processes incoming requests.                                                                                                            |
 | misc    | [CheckNet](reference/misc/CheckNet)                          | Network related check such as check_ping.                                                                                                                                                          |
 | check   | [CheckNSCP](reference/check/CheckNSCP)                       | Use this module to check the healt and status of NSClient++ it self                                                                                                                                |
 | windows | [CheckSystem](reference/windows/CheckSystem)                 | Various system related checks, such as CPU load, process state, service state memory usage and PDH counters.                                                                                       |
@@ -167,8 +165,6 @@
         
         
         
-        
-        
 | Module             | Command                                                                     | Description                                                                         |
 |--------------------|-----------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
 | CauseCrashes       | [crash_client](reference/misc/CauseCrashes#crash_client)                    | Raise a fatal exception (zero pointer reference) and cause NSClient++ crash.        |
@@ -193,7 +189,6 @@
 | CheckHelpers       | [render_perf](reference/check/CheckHelpers#render_perf)                     | Run a check and render the performance data as output message.                      |
 | CheckHelpers       | [xform_perf](reference/check/CheckHelpers#xform_perf)                       | Run a check and transform the performance data in various (currently one) way.      |
 | CheckLogFile       | [check_logfile](reference/check/CheckLogFile#check_logfile)                 | Check for errors in log file or generic pattern matching in text files.             |
-| CheckMKClient      | [check_mk_query](reference/check/CheckMKClient#check_mk_query)              | Request remote information via check_mk.                                            |
 | CheckNet           | [check_ping](reference/misc/CheckNet#check_ping)                            | Ping another host and check the result.                                             |
 | CheckNSCP          | [check_nscp](reference/check/CheckNSCP#check_nscp)                          | Check the internal healt of NSClient++.                                             |
 | CheckNSCP          | [check_nscp_version](reference/check/CheckNSCP#check_nscp_version)          | Check the version of NSClient++ which is used.                                      |

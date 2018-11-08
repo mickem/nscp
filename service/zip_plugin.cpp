@@ -30,6 +30,16 @@
 
 #include <json_spirit.h>
 
+template<class T>
+void debug_log_list(nsclient::logging::logger_instance logger, const char* file, const int line, const T &list, const std::string prefix) {
+	if (!logger || !logger->should_debug()) {
+		return;
+	}
+	BOOST_FOREACH(const std::string &s, list) {
+		logger->debug("core", file, line, prefix + s);
+	}
+}
+
 
 struct zip_archive {
 
@@ -208,9 +218,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 		args.push_back(script.alias);
 		args.push_back("--no-config");
 		plugins_->simple_exec(script.provider + ".add", args, ret);
-		BOOST_FOREACH(const std::string &s, ret) {
-			LOG_DEBUG_CORE(" : " + s);
-		}
+		debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
 	}
 	BOOST_FOREACH(const std::string &cmd, on_start_) {
 		std::list<std::string> ret;
@@ -225,9 +233,7 @@ bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
 		std::string command = args.front();
 		args.erase(args.begin());
 		plugins_->simple_exec(command, args, ret);
-		BOOST_FOREACH(const std::string &s, ret) {
-			LOG_DEBUG_CORE(" : " + s);
-		}
+		debug_log_list(get_logger(), __FILE__, __LINE__, ret, " : ");
 	}
 
 	return true;

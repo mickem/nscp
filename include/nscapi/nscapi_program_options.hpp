@@ -466,13 +466,13 @@ namespace nscapi {
 					detail->set_default_value(strip_default_value(op->format_parameter()));
 				} else
 					detail->set_content_type(Plugin::Common::BOOL);
-				std::string desc =op->description();
-				std::string::size_type pos = desc.find("\n");
+				std::string ldesc =op->description();
+				std::string::size_type pos = ldesc.find("\n");
 				if (pos == std::string::npos)
-					detail->set_short_description(desc);
+					detail->set_short_description(ldesc);
 				else
-					detail->set_short_description(desc.substr(0, pos));
-				detail->set_long_description(desc);
+					detail->set_short_description(ldesc.substr(0, pos));
+				detail->set_long_description(ldesc);
 			}
 			BOOST_FOREACH(const field_map::value_type &v, fields) {
 				::Plugin::Registry::FieldDetail *field= details.add_fields();

@@ -45,7 +45,7 @@ namespace nsclient {
 			virtual ~master_plugin_list();
 
 			void append_plugin(plugin_type plugin);
-			void remove(const int id);
+			void remove(std::size_t id);
 			void clear();
 
 			std::list<plugin_type> get_plugins();

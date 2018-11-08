@@ -7,7 +7,7 @@
         <File Id="BOOST_C" Name="boost_chrono-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_chrono-$(var.BoostTag).dll" Vital="yes" />
         <File Id="BOOST_FS" Name="boost_filesystem-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_filesystem-$(var.BoostTag).dll" Vital="yes" />
 				<File Id="BOOST_PO" Name="boost_program_options-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_program_options-$(var.BoostTag).dll" Vital="yes" />
-				<File Id="BOOST_PY" Name="boost_python-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_python-$(var.BoostTag).dll" Vital="yes" />
+				<File Id="BOOST_PY" Name="boost_python27-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_python27-$(var.BoostTag).dll" Vital="yes" />
 				<File Id="BOOST_RE" Name="boost_regex-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_regex-$(var.BoostTag).dll" Vital="yes" />
 				<File Id="BOOST_SYS" Name="boost_system-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_system-$(var.BoostTag).dll" Vital="yes" />
 				<File Id="BOOST_T" Name="boost_thread-$(var.BoostTag).dll" DiskId="1" Source="$(var.Source)/boost_thread-$(var.BoostTag).dll" Vital="yes" />

@@ -311,11 +311,13 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::only
 		return dup;
 	}
 	loaded = true;
-#ifdef HAVE_JSON_SPIRIT
 	if (boost::algorithm::ends_with(real_file->string(), ".zip")) {
+#ifdef HAVE_JSON_SPIRIT
 		return plugin_type(new nsclient::core::zip_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias, path_, shared_from_this(), log_instance_));
-	}
+#else
+		LOG_ERROR_CORE("Found zip module but json is not enbled during build: " + real_file->normalize());
 #endif
+	}
 	return plugin_type(new nsclient::core::dll_plugin(plugin_list_.get_next_id(), real_file->normalize(), alias));
 }
 
@@ -352,6 +354,9 @@ nsclient::core::plugin_manager::plugin_type nsclient::core::plugin_manager::add_
 		settings_manager::get_core()->register_key(0xffff, MAIN_MODULES_SECTION, plugin->getModule(), settings::settings_core::key_string, plugin->getName(), plugin->getDescription(), "0", false, false);
 		plugin_cache_.add_plugin(plugin);
 		return plugin;
+    } catch (const nsclient::core::plugin_exception &e) {
+        LOG_ERROR_CORE("Failed to load plugin " + e.file() + ": " + utf8::utf8_from_native(e.what()));
+        return nsclient::core::plugin_manager::plugin_type();
 	} catch (const std::exception &e) {
 		LOG_ERROR_CORE("Failed to load plugin " + file_name + ": " + utf8::utf8_from_native(e.what()));
 		return nsclient::core::plugin_manager::plugin_type();

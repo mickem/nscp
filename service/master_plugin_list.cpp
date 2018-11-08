@@ -43,7 +43,7 @@ void nsclient::core::master_plugin_list::append_plugin(plugin_type plugin) {
 	plugins_.insert(plugins_.end(), plugin);
 }
 
-void nsclient::core::master_plugin_list::remove(const int id) {
+void nsclient::core::master_plugin_list::remove(std::size_t id) {
 	boost::unique_lock<boost::shared_mutex> writeLock(m_mutexRW, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!writeLock.owns_lock()) {
 		LOG_ERROR_CORE("FATAL ERROR: Could not get write-mutex.");

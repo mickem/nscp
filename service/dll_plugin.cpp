@@ -114,7 +114,7 @@ void nsclient::core::dll_plugin::load_dll() {
 	try {
 		module_.load_library();
 	} catch (dll::dll_exception &e) {
-		throw plugin_exception(get_alias_or_name(), e.what());
+		throw plugin_exception(get_alias_or_name() + " (" + module_.get_file().string(), e.what());
 	}
 	loadRemoteProcs_();
 }

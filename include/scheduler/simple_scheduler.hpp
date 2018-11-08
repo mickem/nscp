@@ -75,7 +75,7 @@ namespace simple_scheduler {
 				if (time_to_wait < 1.0) {
 					time_to_wait = 1.0;
 				}
-				return now_time + boost::posix_time::seconds(time_to_wait);
+				return now_time + boost::posix_time::seconds(static_cast<long>(time_to_wait));
 			} else if (has_duration) {
 				return now_time;
 			}

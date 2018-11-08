@@ -104,8 +104,9 @@ namespace Mongoose
 			*
 			* @param certificate the name of the certificate to use
 			*/
+#if MG_ENABLE_SSL
 			void setSsl(const char *certificate);
-
+#endif
             /**
              * Polls the server
              */

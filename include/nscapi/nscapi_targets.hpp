@@ -31,15 +31,15 @@
 
 namespace nscapi {
 	namespace targets {
-		NSCAPI_EXPORT struct target_object : public nscapi::settings_objects::object_instance_interface {
+		struct target_object : public nscapi::settings_objects::object_instance_interface {
 			typedef nscapi::settings_objects::object_instance_interface parent;
 
 			NSCAPI_EXPORT target_object(std::string alias, std::string path) : parent(alias, path) {}
 			NSCAPI_EXPORT target_object(const nscapi::settings_objects::object_instance other, std::string alias, std::string path) : parent(other, alias, path) {}
 
 			NSCAPI_EXPORT std::string to_string() const;
-			NSCAPI_EXPORT void set_address(std::string value) {
-				set_property_string("address", value);
+			NSCAPI_EXPORT void set_address(std::string new_value) {
+				set_property_string("address", new_value);
 			}
 
 			NSCAPI_EXPORT virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);

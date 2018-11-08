@@ -88,7 +88,7 @@ SET(WIX_CANDLE_FLAGS -dboost=true -darch=${ARCH} -arch ${ARCH}
 	-dOpenSSlLib=${MSI_OPENSSL_LIB}
 	-dSource=${NSCP_PROJECT_BINARY_DIR} 
 	-dHelpers=${NSCP_PROJECT_BINARY_DIR}/installer-dlls
-	-dBoostTag=${MSVER}-mt-1_58
+	-dBoostTag=${MSVER}-mt-x64-1_68
 	-dHasATL=${HAS_ATL}
 	-dCRTMergeModule=${CRT_MERGE_MODULE}
 	-dRuntime=${RUNTIME}

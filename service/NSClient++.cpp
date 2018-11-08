@@ -293,6 +293,7 @@ bool NSClientT::boot_load_single_plugin(std::string plugin) {
 	} catch (...) {
 		LOG_ERROR_CORE("Unknown exception when loading plugins");
 	}
+	return false;
 }
 
 
@@ -344,7 +345,6 @@ bool NSClientT::stop_nsclient() {
 #endif
 	LOG_DEBUG_CORE("Stopping: Settings instance");
 	settings_manager::destroy_settings();
-	return true;
 	try {
 		log_instance_->shutdown();
 		google::protobuf::ShutdownProtobufLibrary();

@@ -151,9 +151,11 @@ namespace Mongoose
 		return false;
 	}
 
+#if MG_ENABLE_SSL
 	void ServerImpl::setSsl(const char *certificate) {
 		opts.ssl_cert = certificate;
 	}
+#endif
 
 
     void ServerImpl::start(int thread_count) {

@@ -5,11 +5,7 @@ IF(PYTHON_VERSION_MAJOR EQUAL 2 AND PYTHON_VERSION_MINOR LESS 7)
 	MESSAGE(STATUS "Python to old: No documentation will be built")
 ELSE()
   PROJECT(generate_docs)
-  IF(WIN32)
-    SET(DEFINEARG "/paths:module-path=\${base-path}/modules")
-  ELSE()
-    SET(DEFINEARG "/paths:module-path=%(base-path)/modules")
-  ENDIF()
+  SET(DEFINEARG "/paths:module-path=%(base-path)/modules")
   ADD_CUSTOM_TARGET(generate_doc_sources
     COMMAND ${CMAKE_BINARY_DIR}/nscp client 
       --module PythonScript 
