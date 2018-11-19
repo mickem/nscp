@@ -82,7 +82,9 @@ END
 """
 
 CPP_TEMPLATE = """#include "module.hpp"
-
+{%if module.managed %}
+#include <managed/convert.hpp>
+{% else %}
 #include <nscapi/nscapi_helper_singleton.hpp>
 #include <nscapi/nscapi_plugin_impl.hpp>
 #include <nscapi/nscapi_plugin_wrapper.hpp>
@@ -93,7 +95,7 @@ CPP_TEMPLATE = """#include "module.hpp"
 #include <nscapi/command_client.hpp>
 
 namespace ch = nscapi::command_helper;
-
+{% endif %}
 /**
  * New version of the load call.
  * Start the background collector thread and let it run until unloadModule() is called.
@@ -118,7 +120,9 @@ bool {{module.name}}Module::loadModuleEx(std::string alias, NSCAPI::moduleLoadMo
 			}
 			impl_.reset(new {{module.name}});
 			impl_->set_id(get_id());
+{%if options.hasRegisterCommand %}
 			registerCommands(get_command_proxy());
+{% endif %}
 		}
 {% if module.loaders == "both" or module.loaders == "load" %}
 		return impl_->loadModuleEx(alias, mode);
@@ -157,8 +161,15 @@ bool {{module.name}}Module::unloadModule() {
  * @return status code
  */
 NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &request, std::string &response) {
+{%if module.managed %}
+	Plugin::QueryResponseMessage::Builder^ response_message = Plugin::QueryResponseMessage::CreateBuilder();
+{% else %}
 	Plugin::QueryResponseMessage response_message;
+{% endif %}
 	try {
+{%if module.managed %}
+		Plugin::QueryRequestMessage^ request_message = Plugin::QueryRequestMessage::ParseFrom(to_pbd(request));
+{% else %}
 		Plugin::QueryRequestMessage request_message;
 		request_message.ParseFromString(request);
 		nscapi::protobuf::functions::make_return_header(response_message.mutable_header(), request_message.header());
@@ -166,11 +177,17 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 		if (!impl_) {
 			return NSCAPI::cmd_return_codes::returnIgnored;
 		}
+{% endif %}
 {% if module.command_fallback_raw %}
 				impl_->query_fallback(request_message, response_message);
 {% else %}
+{%if module.managed %}
+		for (int i=0;i<request_message->PayloadCount;i++) {
+			Plugin::QueryRequestMessage::Types::Request^ request_payload = request_message->GetPayload(i);
+{% else %}
 		for (int i=0;i<request_message.payload_size();i++) {
 			Plugin::QueryRequestMessage::Request request_payload = request_message.payload(i);
+{% endif %}
 			if (!impl_) {
 				return NSCAPI::cmd_return_codes::returnIgnored;
 {% for cmd in module.commands %}
@@ -223,13 +240,46 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 {% endfor %}
 {% if module.command_fallback %}
 			} else {
+{%if module.managed %}
+				Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
+				query_builder->SetCommand(request_payload->Command);
+				impl_->query_fallback(request_payload, query_builder, request_message);
+				response_message->AddPayload(query_builder);
+{% else %}
 				Plugin::QueryResponseMessage::Response *response_payload = response_message.add_payload();
 				response_payload->set_command(request_payload.command());
 				impl_->query_fallback(request_payload, response_payload, request_message);
 {% endif %}
+{% endif %}
 			}
 		}
 {% endif %}
+{%if module.managed %}
+	} catch (System::Exception ^e) {
+        response_message->ClearPayload();
+		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
+ 		query_builder->SetCommand("");
+		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
+		response_message->AddPayload(query_builder);
+	} catch (const std::exception &e) {
+        response_message->ClearPayload();
+		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
+ 		query_builder->SetCommand("");
+		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
+		response_message->AddPayload(query_builder);
+	} catch (...) {
+        response_message->ClearPayload();
+		Plugin::QueryResponseMessage::Types::Response::Builder^ query_builder = Plugin::QueryResponseMessage::Types::Response::CreateBuilder();
+ 		query_builder->SetCommand("");
+		query_builder->SetResult(Plugin::Common::Types::ResultCode::UNKNOWN);
+		response_message->AddPayload(query_builder);
+	}
+	System::IO::MemoryStream^ stream = gcnew System::IO::MemoryStream();
+	response_message->Build()->WriteTo(stream);
+	std::string response_buffer;
+	response = to_nstring(stream->ToArray());
+	return NSCAPI::cmd_return_codes::isSuccess;
+{% else %}
 	} catch (const std::exception &e) {
         response_message.clear_payload();
         ::Plugin::QueryResponseMessage::Response *payload = response_message.add_payload();
@@ -245,8 +295,10 @@ NSCAPI::nagiosReturn {{module.name}}Module::handleRAWCommand(const std::string &
 	}
     response_message.SerializeToString(&response);
     return NSCAPI::cmd_return_codes::isSuccess;
+{% endif %}
 }
 
+{%if options.hasRegisterCommand %}
 void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {
 	ch::command_registry registry(proxy);
 	registry.command()
@@ -283,8 +335,11 @@ void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_p
 */
 	registry.register_all();
 }
+{% endif %}
 {% else %}
+{%if options.hasRegisterCommand %}
 void {{module.name}}Module::registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy) {}
+{% endif %}
 {% endif %}
 
 {%if module.log_handler %}
@@ -511,9 +566,17 @@ NSCAPI::nagiosReturn {{module.name}}Module::onRAWEvent(const std::string &reques
 }
 {% endif %}
 
+{% if module.managed %}
+#pragma managed(push, off)
+BOOL APIENTRY DllMain(HANDLE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
+	return TRUE;
+}
+#pragma managed(pop)
+{% else %}
 #ifdef _WIN32
 	BOOL APIENTRY DllMain(HANDLE, DWORD, LPVOID) { return TRUE; }
 #endif
+{% endif %}
 	nscapi::helper_singleton* nscapi::plugin_singleton = new nscapi::helper_singleton();
 	typedef {{module.name}}Module plugin_impl_class;
 	static nscapi::plugin_instance_data<plugin_impl_class> plugin_instance;
@@ -650,7 +713,7 @@ extern "C" int NSOnEvent(unsigned int plugin_id, const char* buffer, unsigned in
 
 #include "{{options.source}}/{{module.name}}.h"
 
-class {{module.name}}Module : public nscapi::impl::simple_plugin {
+class {{module.name}}Module : public {{options.moduleBaseclass}} {
 
 public:
 	boost::shared_ptr<{{module.name}}> impl_;
@@ -753,7 +816,9 @@ public:
 	*/
 {% endif %}
 	// exposed functions
+{%if options.hasRegisterCommand %}
 	void registerCommands(boost::shared_ptr<nscapi::command_proxy> proxy);
+{% endif %}
 {% if module.events %}
 	NSCAPI::nagiosReturn onRAWEvent(const std::string &request);
 	/*
@@ -782,16 +847,19 @@ class Module:
 	alias = ''
 	version = None
 	loaders = "both"
+	managed = False
 	
 	def __init__(self, data):
 		if data['name']:
 			self.name = data['name']
-		if data['alias']:
+		if 'alias' in data and data['alias']:
 			self.alias = data['alias']
 		if data['description']:
 			self.description = data['description']
 		if data['title']:
 			self.title = data['title']
+		if 'managed' in data and data['managed']:
+			self.managed = data['managed']
 		if data['version']:
 			if data['version'] == 'auto':
 				self.version = None
@@ -974,6 +1042,12 @@ module.events = events
 env = Environment(extensions=["jinja2.ext.do",])
 env.filters['cstring'] = escape_cstring
 env.filters['rcstring'] = escape_rcstring
+
+
+options.moduleBaseclass = 'nscapi::impl::simple_plugin'
+options.hasRegisterCommand = len(module.commands) > 0
+if module.managed:
+	options.moduleBaseclass = 'nscapi::impl::thin_plugin'
 
 data = {'module': module, 'options': options}
 render_template(data, env.from_string(HPP_TEMPLATE), '%s/module.hpp'%options.target)
