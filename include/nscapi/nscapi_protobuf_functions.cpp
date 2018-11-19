@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <parsers/perfdata.hpp>
+
 #include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_protobuf.hpp>
 #include <nscapi/nscapi_protobuf_nagios.hpp>
@@ -42,21 +44,6 @@ namespace nscapi {
 			if (ret == Plugin::Common_ResultCode_UNKNOWN || ret == Plugin::Common_ResultCode_WARNING || ret == Plugin::Common_ResultCode_CRITICAL)
 				return Plugin::Common_Result_StatusCodeType_STATUS_ERROR;
 			return Plugin::Common_Result_StatusCodeType_STATUS_OK;
-		}
-
-		double trim_to_double(std::string s) {
-			std::string::size_type pend = s.find_first_not_of("0123456789,.-");
-			if (pend != std::string::npos)
-				s = s.substr(0, pend);
-			str::utils::replace(s, ",", ".");
-			if (s.empty()) {
-				return 0.0;
-			}
-			try {
-				return str::stox<double>(s);
-			} catch (...) {
-				return 0.0;
-			}
 		}
 
 		std::string functions::query_data_to_nagios_string(const Plugin::QueryResponseMessage &message, std::size_t max_length) {
@@ -479,88 +466,63 @@ namespace nscapi {
 			return "unknown";
 		}
 
-		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response::Line *payload, const std::string &perff) {
-			std::string perf = perff;
-			// TODO: make this work with const!
+		struct builder {
 
-			const std::string perf_separator = " ";
-			const std::string perf_lable_enclosure = "'";
-			const std::string perf_equal_sign = "=";
-			const std::string perf_item_splitter = ";";
-			const std::string perf_valid_number = "0123456789,.-";
 
-			while (true) {
-				if (perf.size() == 0)
-					return;
-				std::string::size_type p = 0;
-				p = perf.find_first_not_of(perf_separator, p);
-				if (p != 0)
-					perf = perf.substr(p);
-				if (perf[0] == perf_lable_enclosure[0]) {
-					p = perf.find(perf_lable_enclosure[0], 1) + 1;
-					if (p == std::string::npos)
-						return;
-				}
-				p = perf.find(perf_separator, p);
-				if (p == 0)
-					return;
-				std::string chunk;
-				if (p == std::string::npos) {
-					chunk = perf;
-					perf = std::string();
-				} else {
-					chunk = perf.substr(0, p);
-					p = perf.find_first_not_of(perf_separator, p);
-					if (p == std::string::npos)
-						perf = std::string();
-					else
-						perf = perf.substr(p);
-				}
-				std::vector<std::string> items;
-				str::utils::split(items, chunk, perf_item_splitter);
-				if (items.size() < 1) {
-					Plugin::Common::PerformanceData* perfData = payload->add_perf();
-					std::pair<std::string, std::string> fitem = str::utils::split2("", perf_equal_sign);
-					perfData->set_alias("invalid");
-					Plugin::Common_PerformanceData_StringValue* stringPerfData = perfData->mutable_string_value();
-					stringPerfData->set_value("invalid performance data");
-					break;
-				}
+			virtual void add(std::string alias) = 0;
+			virtual void set_value(float value) = 0;
+			virtual void set_warning(float value) = 0;
+			virtual void set_critical(float value) = 0;
+			virtual void set_minimum(float value) = 0;
+			virtual void set_maximum(float value) = 0;
+			virtual void set_unit(const std::string &value) = 0;
 
-				std::pair<std::string, std::string> fitem = str::utils::split2(items[0], perf_equal_sign);
-				std::string alias = fitem.first;
-				if (alias.size() > 0 && alias[0] == perf_lable_enclosure[0] && alias[alias.size() - 1] == perf_lable_enclosure[0])
-					alias = alias.substr(1, alias.size() - 2);
+			virtual void add_string(std::string alias, std::string value) = 0;
 
-				if (alias.empty())
-					continue;
+
+		};
+
+		struct perf_builder : public parsers::perfdata::builder {
+
+			Plugin::QueryResponseMessage::Response::Line *payload;
+			Plugin::Common::PerformanceData* lastPerf = NULL;
+
+			perf_builder(Plugin::QueryResponseMessage::Response::Line *payload) : payload(payload) {}
+
+
+			void add_string(std::string alias, std::string value) {
 				Plugin::Common::PerformanceData* perfData = payload->add_perf();
 				perfData->set_alias(alias);
-				Plugin::Common_PerformanceData_FloatValue* floatPerfData = perfData->mutable_float_value();
-
-				std::string::size_type pstart = fitem.second.find_first_of(perf_valid_number);
-				if (pstart == std::string::npos) {
-					floatPerfData->set_value(0);
-					continue;
-				}
-				if (pstart != 0)
-					fitem.second = fitem.second.substr(pstart);
-				std::string::size_type pend = fitem.second.find_first_not_of(perf_valid_number);
-				if (pend == std::string::npos) {
-					floatPerfData->set_value(trim_to_double(fitem.second));
-				} else {
-					floatPerfData->set_value(trim_to_double(fitem.second.substr(0, pend)));
-					floatPerfData->set_unit(fitem.second.substr(pend));
-				}
-				if (items.size() >= 2 && items[1].size() > 0)
-					floatPerfData->set_warning(trim_to_double(items[1]));
-				if (items.size() >= 3 && items[2].size() > 0)
-					floatPerfData->set_critical(trim_to_double(items[2]));
-				if (items.size() >= 4 && items[3].size() > 0)
-					floatPerfData->set_minimum(trim_to_double(items[3]));
-				if (items.size() >= 5 && items[4].size() > 0)
-					floatPerfData->set_maximum(trim_to_double(items[4]));
+				perfData->mutable_string_value()->set_value(value);
 			}
+
+			void add(std::string alias) {
+				lastPerf = payload->add_perf();
+				lastPerf->set_alias(alias);
+			}
+			void set_value(float value) {
+				lastPerf->mutable_float_value()->set_value(value);
+			}
+			void set_warning(float value) {
+				lastPerf->mutable_float_value()->set_warning(value);
+			}
+			void set_critical(float value) {
+				lastPerf->mutable_float_value()->set_critical(value);
+			}
+			void set_minimum(float value) {
+				lastPerf->mutable_float_value()->set_minimum(value);
+			}
+			void set_maximum(float value) {
+				lastPerf->mutable_float_value()->set_maximum(value);
+			}
+			void set_unit(const std::string &value) {
+				lastPerf->mutable_float_value()->set_unit(value);
+			}
+			void next() {}
+		};
+
+		void functions::parse_performance_data(Plugin::QueryResponseMessage::Response::Line *payload, const std::string &perf) {
+			parsers::perfdata::parse(boost::shared_ptr<parsers::perfdata::builder>(new perf_builder(payload)), perf);
 		}
 
 		void parse_float_perf_value(std::stringstream &ss, const Plugin::Common_PerformanceData_FloatValue &val) {
