@@ -9,13 +9,22 @@ namespace NSCP {
 
 		public ref class Result {
 		public:
-			Result(protobuf_data^ data) {
-				this->data = data;
-				this->result = true;
+			Result(bool result, protobuf_data^ data)
+				: data(data)
+				, result(result)
+			{
 			}
-			Result() {
-				this->result = false;
+			Result(protobuf_data^ data)
+				: data(data)
+				, result(true)
+			{
 			}
+			Result() 
+				: data()
+				, result(false)
+			{
+			}
+
 			protobuf_data^ data;
 			bool result;
 		};
@@ -41,7 +50,6 @@ namespace NSCP {
 			Result^ registry(protobuf_data^ request);
 			void log(protobuf_data^ request);
 
-			PluginInstance^ getInstance();
 		};
 
 		public ref class Codes {
@@ -50,6 +58,16 @@ namespace NSCP {
 			static int CRITICAL = 2;
 			static int UNKNOWN = 3;
 		};
+
+
+
+		public interface class IPluginCore : ICore {
+		public:
+
+			PluginInstance^ getInstance();
+		};
+
+
 
 		public interface class IQueryHandler {
 		public:
