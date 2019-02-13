@@ -4,7 +4,7 @@ Module used to execute external scripts
 
 ## Description
 
-`CheckExternalScripts` is used to run scripts and programs you provide your self as opposed to internal commands provided by modules and internal scripts. You can also fond many third part generated scripts at various sites:
+`CheckExternalScripts` is used to run scripts and programs you provide your self as opposed to internal commands provided by modules and internal scripts. You can also find many third part generated scripts at various sites:
 
 *   [Nagios Exchange](https://exchange.nagios.org/)
 *   [Icinga Exchange](https://exchange.icinga.com/)
