@@ -48,7 +48,7 @@ namespace nrpe_client {
 				ssl.certificate_key_format = target.get_string_data("certificate format");
 				ssl.ca_path = target.get_string_data("ca");
 				ssl.allowed_ciphers = target.get_string_data("allowed ciphers", "ADH");
-				ssl.dh_key = target.get_string_data("dh", "${certificate-path}/nrpe_dh_512.pem");
+				ssl.dh_key = target.get_string_data("dh", "${certificate-path}/nrpe_dh_2048.pem");
 				ssl.verify_mode = target.get_string_data("verify mode");
 			} else {
 				ssl.certificate = target.get_string_data("certificate", "${certificate-path}/certificate.pem");
