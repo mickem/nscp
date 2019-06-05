@@ -96,7 +96,7 @@ Also please note that the script does not have to be a script it can be any vali
 
 ```
 [/settings/external scripts/scripts]
-list_file=cmd /c "dir c:\\"
+list_file=cmd /c "dir c:\"
 ```
 
 ### Adding more scripts
