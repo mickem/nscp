@@ -330,7 +330,7 @@ namespace modern_filter {
 			has_unique_index = true;
 			return true;
 		}
-		bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, const std::string &ok_syntax, const std::string &empty_syntax, std::string &gerror) {
+		bool build_syntax(const bool debug, const std::string &top, const std::string &detail, const std::string &perf, const std::string &perf_config_data, const std::string &ok_syntax, const std::string &empty_syntax) {
 			if (debug)
 				set_debug(true);
 			if (!renderer_top.parse(context, top, get_error_handler(debug))) {

@@ -129,8 +129,8 @@ namespace collectd {
 			*b_value = swap_bytes::hton<T>(value);
 		}
 
-		void append_string(int type, std::string &string_data) {
-			std::string::size_type len = string_data.length() + 5;
+		void append_string(int16_t type, std::string &string_data) {
+			int16_t len = static_cast<int16_t>(string_data.length()) + 5;
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::string_part), '\0');
 			collectd::data::string_part *data = reinterpret_cast<collectd::data::string_part*>(&buffer[pos]);
@@ -138,15 +138,15 @@ namespace collectd {
 			data->length = swap_bytes::hton<int16_t>(len);
 			buffer.append(string_data.c_str(), string_data.length() + 1);
 		}
-		void append_int(int type, unsigned long long int_data) {
+		void append_int(int16_t type, unsigned long long int_data) {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(int16_t) + sizeof(int16_t) + sizeof(int64_t), '\0');
-			std::string::size_type len = buffer.length() - pos;
+			int16_t len = static_cast<int16_t>(buffer.length() - pos);
 			set_byte<uint16_t>(buffer, pos, type);
 			set_byte<uint16_t>(buffer, pos + sizeof(int16_t), len);
 			set_byte<uint64_t>(buffer, pos + sizeof(int16_t) + sizeof(int16_t), int_data);
 		}
-		void append_values(int base_type, int value_type, const std::list<double> &value_data) {
+		void append_values(int16_t base_type, int value_type, const std::list<double> &value_data) {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
 			for (std::size_t i = 0;  i < value_data.size(); i++) {
@@ -155,13 +155,13 @@ namespace collectd {
 			BOOST_FOREACH(const double &v, value_data) {
 				append_value_value(v);
 			}
-			std::string::size_type len = buffer.length() - pos;
+			int16_t len = static_cast<int16_t>(buffer.length() - pos);
 			collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part*>(&buffer[pos]);
 			data->type = swap_bytes::hton<int16_t>(base_type);
 			data->count = swap_bytes::hton<int16_t>(value_data.size());
 			data->length = swap_bytes::hton<int16_t>(len);
 		}
-		void append_values(int base_type, int value_type, const std::list<long long> &value_data) {
+		void append_values(int16_t base_type, int value_type, const std::list<long long> &value_data) {
 			std::string::size_type pos = buffer.length();
 			buffer.append(sizeof(collectd::data::value_part), '\0');
 			for (std::size_t i = 0; i < value_data.size(); i++) {
@@ -170,7 +170,7 @@ namespace collectd {
 			BOOST_FOREACH(const long long &v, value_data) {
 				append_value_value(v);
 			}
-			std::string::size_type len = buffer.length() - pos;
+			int16_t len = static_cast<int16_t>(buffer.length() - pos);
 			collectd::data::value_part *data = reinterpret_cast<collectd::data::value_part*>(&buffer[pos]);
 			data->type = swap_bytes::hton<int16_t>(base_type);
 			data->count = swap_bytes::hton<int16_t>(value_data.size());

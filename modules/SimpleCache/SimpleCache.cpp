@@ -27,15 +27,15 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <parsers/expression/expression.hpp>
 
 #include <str/format.hpp>
 
 #include <boost/foreach.hpp>
-#include <boost/bind.hpp>
+#include <boost/thread.hpp>
 #include <boost/assign.hpp>
-#include <boost/optional.hpp>
 
 #include <map>
 #include <vector>

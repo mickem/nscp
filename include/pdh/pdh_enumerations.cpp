@@ -21,8 +21,6 @@
 
 #include <list>
 #include <pdh.h>
-#include <pdhmsg.h>
-#include <sstream>
 #include <error/error.hpp>
 
 #include <buffer.hpp>

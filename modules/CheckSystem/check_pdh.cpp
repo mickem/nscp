@@ -17,16 +17,13 @@
  * along with NSClient++.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "module.hpp"
 #include "CheckSystem.h"
 
 #include <map>
-#include <set>
 
 #include <boost/regex.hpp>
 #include <boost/assign/list_of.hpp>
 #include <boost/program_options.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 
 #include <nscapi/nscapi_program_options.hpp>
@@ -37,11 +34,8 @@
 namespace sh = nscapi::settings_helper;
 namespace po = boost::program_options;
 
-void foo() {
-	check_pdh::counter_config_object *a = new check_pdh::counter_config_object("", "");
-}
 namespace check_pdh {
-	void counter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+	void counter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 		parent::read(proxy, oneliner, is_sample);
 		if (!get_value().empty())
 			counter = get_value();

@@ -231,7 +231,7 @@ namespace tasksched_filter {
 		std::string get_title() { return title; }
 		std::string get_folder() { return "/"; }
 
-		long long is_enabled() { return (get_status()&SCHED_S_TASK_DISABLED == SCHED_S_TASK_DISABLED) ? 0 : 1; }
+		long long is_enabled() { return ((get_status()&SCHED_S_TASK_DISABLED) == SCHED_S_TASK_DISABLED) ? 0 : 1; }
 
 		std::string get_account_name() { return account_name(task, title); }
 		std::string get_application_name() { return application_name(task, title); }

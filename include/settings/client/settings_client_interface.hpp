@@ -22,8 +22,6 @@
 #include <map>
 #include <list>
 
-#include <boost/optional/optional.hpp>
-
 #include <settings/settings_value.hpp>
 
 namespace nscapi {

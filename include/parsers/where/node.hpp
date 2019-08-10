@@ -27,7 +27,11 @@
 #include <boost/optional.hpp>
 
 #include <parsers/where/dll_defines.hpp>
-
+#ifdef WIN32
+#pragma warning(push)
+#pragma warning(disable:4251)
+#pragma warning(disable:4275)
+#endif
 namespace parsers {
 	namespace where {
 		class NSCAPI_EXPORT filter_exception : public std::exception {
@@ -394,3 +398,7 @@ namespace parsers {
 		};
 	}
 }
+
+#ifdef WIN32
+#pragma warning(pop)
+#endif

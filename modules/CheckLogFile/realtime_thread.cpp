@@ -39,6 +39,11 @@
 #include <vector>
 #include <time.h>
 
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+#endif
+
 #ifndef WIN32
 #include <poll.h>
 #include <sys/inotify.h>

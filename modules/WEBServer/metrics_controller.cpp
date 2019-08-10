@@ -1,8 +1,6 @@
 #include "metrics_controller.hpp"
 #include "helpers.hpp"
 
-#include <nscapi/nscapi_protobuf.hpp>
-#include <nscapi/nscapi_protobuf_functions.hpp>
 #include <nscapi/nscapi_helper.hpp>
 
 #include <str/utils.hpp>

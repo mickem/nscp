@@ -20,10 +20,12 @@
 
 #include <net/net.hpp>
 
+#include <boost/bind.hpp>
+
 namespace sh = nscapi::settings_helper;
 
 
-void nscapi::targets::target_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+void nscapi::targets::target_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool, bool is_sample) {
 	set_address(this->get_value());
 	nscapi::settings_helper::settings_registry settings(proxy);
 
@@ -95,15 +97,15 @@ std::string nscapi::targets::target_object::to_string() const {
 	return ss.str();
 }
 
-void nscapi::targets::target_object::translate(const std::string &key, const std::string &value) {
+void nscapi::targets::target_object::translate(const std::string &key, const std::string &new_value) {
 	if (key == "host") {
 		net::url n = net::parse(get_property_string("address"));
-		n.host = value;
+		n.host = new_value;
 		set_property_string("address", n.to_string());
 	} else if (key == "port") {
 		net::url n = net::parse(get_property_string("address"));
-		n.port = str::stox<unsigned int>(value, 0);
+		n.port = str::stox<unsigned int>(new_value, 0);
 		set_property_string("address", n.to_string());
 	} else
-		parent::translate(key, value);
+		parent::translate(key, new_value);
 }

@@ -25,6 +25,7 @@
 
 #include <str/xtos.hpp>
 #include <str/utils.hpp>
+#include <utf8.hpp>
 
 #include <boost/shared_ptr.hpp>
 #include <boost/foreach.hpp>

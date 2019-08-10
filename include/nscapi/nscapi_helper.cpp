@@ -20,6 +20,7 @@
 #include <str/utils.hpp>
 
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #define REPORT_ERROR	0x01
 #define REPORT_WARNING	0x02
@@ -75,22 +76,22 @@ std::string nscapi::report::to_string(unsigned int report) {
 }
 
 NSCAPI::log_level::level nscapi::logging::parse(std::string str) {
-	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-	if ("all" == str) {
+	const std::string tmp = boost::to_lower_copy(str);
+	if ("all" == tmp) {
 		return NSCAPI::log_level::trace;
-	} else if ("error" == str) {
+	} else if ("error" == tmp) {
 		return NSCAPI::log_level::error;
-	} else if ("critical" == str) {
+	} else if ("critical" == tmp) {
 		return NSCAPI::log_level::critical;
-	} else if ("debug" == str) {
+	} else if ("debug" == tmp) {
 		return NSCAPI::log_level::debug;
-	} else if ("trace" == str) {
+	} else if ("trace" == tmp) {
 		return NSCAPI::log_level::trace;
-	} else if ("info" == str) {
+	} else if ("info" == tmp) {
 		return NSCAPI::log_level::info;
-	} else if ("warning" == str) {
+	} else if ("warning" == tmp) {
 		return NSCAPI::log_level::warning;
-	} else if ("off" == str) {
+	} else if ("off" == tmp) {
 		return NSCAPI::log_level::off;
 	}
 	return NSCAPI::log_level::unknown;

@@ -5,6 +5,9 @@
 #include <str/wstring.hpp>
 #include <utf8.hpp>
 
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+
 #include <msi.h>
 #include <MsiQuery.h>
 #include <windows.h>
@@ -585,7 +588,7 @@ WcaGetRecordString() - gets a string field out of a record
 			write_string(strEx::xtos(i));
 		}
 		void write_list(std::list<std::wstring> list) {
-			write_int(list.size());
+			write_int(static_cast<int>(list.size()));
 			for (std::list<std::wstring>::const_iterator cit = list.begin(); cit != list.end(); ++cit) {
 				write_string(*cit);
 			}
@@ -607,8 +610,7 @@ WcaGetRecordString() - gets a string field out of a record
 	/********************************************************************
 	WcaDoDeferredAction() - schedules an action at this point in the script
 	********************************************************************/
-	HRESULT do_deferred_action(LPCWSTR wzAction, LPCWSTR wzCustomActionData, UINT uiCost) {
-		HRESULT hr = S_OK;
+	HRESULT do_deferred_action(LPCWSTR wzAction, LPCWSTR wzCustomActionData, UINT) {
 		UINT er;
 
 		if (wzCustomActionData && *wzCustomActionData) {
@@ -649,7 +651,6 @@ WcaGetRecordString() - gets a string field out of a record
 
 	std::list<std::wstring> enumProducts() {
 		WCHAR buffer[40];
-		DWORD id = 0;
 		std::list<std::wstring> ret;
 		for (int i = 0; ::MsiEnumProducts(i, reinterpret_cast<wchar_t*>(&buffer)) == ERROR_SUCCESS; i++) {
 			std::wstring name = getProductName(buffer);

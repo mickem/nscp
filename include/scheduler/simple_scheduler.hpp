@@ -69,7 +69,7 @@ namespace simple_scheduler {
 		}
 		boost::posix_time::ptime get_next(boost::posix_time::ptime now_time) const {
 			if (has_duration && duration.total_seconds() > 0) {
-				double total_delay = duration.total_seconds();
+				double total_delay = static_cast<double>(duration.total_seconds());
 				double val = (total_delay * randomeness) * (static_cast<double>(rand()) / static_cast<double>(RAND_MAX));
 				double time_to_wait = (total_delay * (1.0 - randomeness)) + val;
 				if (time_to_wait < 1.0) {
@@ -204,11 +204,11 @@ namespace simple_scheduler {
 		void prepare_shutdown();
 
 
-		void set_threads(int threads) {
+		void set_threads(std::size_t threads) {
 			thread_count_ = threads;
 			start_threads();
 		}
-		int get_threads() const { return thread_count_; }
+		std::size_t get_threads() const { return thread_count_; }
 
 	private:
 

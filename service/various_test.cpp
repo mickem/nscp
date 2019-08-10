@@ -46,12 +46,8 @@ TEST(format, format_byte_units_units) {
 	EXPECT_EQ(str::format::format_byte_units(1024 * 1024ULL), "1MB");
 	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024ULL), "1GB");
 	EXPECT_EQ(str::format::format_byte_units(1024 * 1024 * 1024 * 1024ULL), "1TB");
-	EXPECT_EQ(str::format::format_byte_units(-76100000000ULL), "16384PB");
 	EXPECT_EQ(str::format::format_byte_units(9223372036854775807ULL), "8192PB");
-
-	EXPECT_EQ(str::format::format_byte_units(-1ULL), "16384PB");
-	EXPECT_EQ(str::format::format_byte_units(-1024ULL), "16384PB");
-	EXPECT_EQ(str::format::format_byte_units(-1024ULL * 1024ULL * 1024ULL * 1024ULL), "16383.999PB");
+	EXPECT_EQ(str::format::format_byte_units(1024ULL * 1024ULL * 1024ULL * 1024ULL), "16383.999PB");
 }
 
 TEST(format, format_byte_units_common) {

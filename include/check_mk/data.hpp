@@ -22,8 +22,6 @@
 
 #include <str/utils.hpp>
 
-#include <nscapi/nscapi_protobuf.hpp>
-
 #include <boost/asio/buffer.hpp>
 
 #include <sstream>

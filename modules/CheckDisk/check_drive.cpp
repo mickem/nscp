@@ -77,7 +77,7 @@ struct drive_container {
 	std::string letter_only;
 	std::string name;
 	bool is_mounted;
-	typedef enum drive_flags {
+	enum drive_flags {
 		df_none = 0,
 		df_removable = 0x1,
 		df_hotplug = 0x2,

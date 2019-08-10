@@ -23,7 +23,8 @@
 
 #include <Response.h>
 
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/shared_ptr.hpp>
 #if BOOST_VERSION >= 105300
 #include <boost/atomic/atomic.hpp>

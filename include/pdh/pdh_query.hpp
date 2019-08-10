@@ -20,14 +20,8 @@
 #pragma once
 
 #include <list>
-#include <sstream>
 
 #include <boost/shared_ptr.hpp>
-
-#include <pdh.h>
-#include <pdhmsg.h>
-
-#include <error/error.hpp>
 
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_resolver.hpp>

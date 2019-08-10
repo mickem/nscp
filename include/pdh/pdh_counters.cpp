@@ -20,9 +20,6 @@
 #pragma once
 
 #include <list>
-#include <pdh.h>
-#include <pdhmsg.h>
-#include <sstream>
 #include <error/error.hpp>
 #include <pdh/pdh_interface.hpp>
 #include <pdh/pdh_counters.hpp>

@@ -9,16 +9,21 @@ from string import Template
 import json
 
 CONFIG_TEMPLATE = """
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+
 SET(USE_STATIC_RUNTIME FALSE)
 SET(LIBRARY_ROOT_FOLDER	"${build_folder}")
 SET(BOOST_ROOT "$${LIBRARY_ROOT_FOLDER}/${boost_rel_folder}")
 SET(BOOST_LIBRARYDIR "$${BOOST_ROOT}/stage/lib")
 SET(PROTOBUF_ROOT "$${LIBRARY_ROOT_FOLDER}/${protobuf_rel_folder}")
-SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}/out32dll")
-SET(_OPENSSL_INCLUDEDIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}/include")
-SET(LUA_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua_rel_folder}")
+SET(OPENSSL_ROOT_DIR "$${LIBRARY_ROOT_FOLDER}/${openssl_rel_folder}")
+SET(LUA_SOURCE_ROOT "$${LIBRARY_ROOT_FOLDER}/${lua_rel_folder}")
 SET(BREAKPAD_ROOT "$${LIBRARY_ROOT_FOLDER}/${breakpad_rel_folder}")
 SET(PYTHON_ROOT "${python_folder}")
+SET(CRYPTOPP_ROOT "$${LIBRARY_ROOT_FOLDER}/${cryptopp_rel_folder}")
+
+SET(CSHARP_DOTNET_VERSION "v4.0.30319")
 #SET(ARCHIVE_FOLDER "TODO")
 #SET(TARGET_SITE "TODO")
 """
@@ -185,7 +190,7 @@ def fetch_sources(config, alias, source):
     folder = config['target.folder']
     file = os.path.join(config['build.folder'], source['file'])
     if os.path.exists(folder):
-        print '   + Found cached folder (assuming things are good)'
+        print '   + Found cached folder: %s'%folder
         return True
         
     s = source_helper(file, source['url'], source['hash'])
@@ -193,7 +198,9 @@ def fetch_sources(config, alias, source):
     if not s.validate():
         return False
     zFolder = get_root_from_file(file)
-    if folder.endswith(zFolder):
+    print('zFolder=%s'%zFolder)
+    print('folder=%s'%folder)
+    if zFolder and folder.endswith(zFolder):
         folder = config['build.folder']
     if not s.decompress(folder):
         return False
@@ -274,8 +281,8 @@ for node, d in data.iteritems():
     print '****************************************************'
     print ''
     config['name'] = node
-    config['target.folder'] = os.path.join(options.directory, node)
-    config['target.rel.folder'] = node
+    config['target.rel.folder'] = d['folder'] if 'folder' in d else node
+    config['target.folder'] = os.path.join(options.directory, config['target.rel.folder'])
     config['source.folder'] = options.source
     config['architecture'] = 'x64' if options.target == 'x64' else 'w32'
     config['linkage'] = 'dynamic' if options.dyn else 'static'

@@ -17,6 +17,8 @@
 #include <nscapi/nscapi_settings_filter.hpp>
 #include <nscapi/nscapi_settings_object.hpp>
 
+#include <boost/bind.hpp>
+
 namespace nscapi {
 	namespace settings_filters {
 		void filter_object::read_object(nscapi::settings_helper::path_extension &path, const bool is_default) {

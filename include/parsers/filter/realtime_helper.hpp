@@ -103,8 +103,8 @@ namespace parsers {
 
 				bool build_filters(nscapi::settings_filters::filter_object config, std::string &error) {
 					std::string message;
-					if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok, config.syntax_empty, message)) {
-						error = "Failed to build strings " + alias + ": " + message;
+					if (!filter.build_syntax(config.debug, config.syntax_top, config.syntax_detail, config.perf_data, config.perf_config, config.syntax_ok, config.syntax_empty)) {
+						error = "Failed to build strings " + alias;
 						return false;
 					}
 					if (!filter.build_engines(config.debug, config.filter_string(), config.filter_ok, config.filter_warn, config.filter_crit)) {

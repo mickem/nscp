@@ -1,4 +1,9 @@
+#pragma once
+
 #include "dll_defines.hpp"
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
 #include <string>
 

@@ -11,7 +11,7 @@
 bool nonAsciiChar(const char c) {
 	return !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_');
 }
-void stripNonAscii(string &str) {
+void stripNonAscii(std::string &str) {
 	str.erase(std::remove_if(str.begin(), str.end(), nonAsciiChar), str.end());
 }
 
@@ -19,7 +19,7 @@ void stripNonAscii(string &str) {
 bool nonPathChar(const char c) {
 	return !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '/' || c == '-');
 }
-std::string stripPath(string str) {
+std::string stripPath(std::string str) {
 	str.erase(std::remove_if(str.begin(), str.end(), nonPathChar), str.end());
 	return str;
 }
@@ -77,7 +77,7 @@ Mongoose::Response* StaticController::handleRequest(Mongoose::Request &request) 
   if (is_css || is_font || is_gif || is_png || is_jpg || is_js) {
     sr->setHeader("Cache-Control", "max-age=3600"); //1 hour (60*60)
   }
-  std::ifstream in(file.string().c_str(), ios_base::in | ios_base::binary);
+  std::ifstream in(file.string().c_str(), std::ios_base::in | std::ios_base::binary);
   char buf[BUF_SIZE];
 
   std::string token = request.get("__TOKEN");
@@ -99,7 +99,7 @@ Mongoose::Response* StaticController::handleRequest(Mongoose::Request &request) 
             stripNonAscii(fname);
             fname += ".html";
             boost::filesystem::path file2 = base / "include" / fname;
-            std::ifstream in2(file2.string().c_str(), ios_base::in | ios_base::binary);
+            std::ifstream in2(file2.string().c_str(), std::ios_base::in | std::ios_base::binary);
             do {
               in2.read(&buf[0], BUF_SIZE);
               sr->write(&buf[0], in2.gcount());
@@ -127,7 +127,7 @@ Mongoose::Response* StaticController::handleRequest(Mongoose::Request &request) 
   in.close();
   return sr;
 }
-bool StaticController::handles(string method, string url) {
+bool StaticController::handles(std::string method, std::string url) {
   return boost::algorithm::ends_with(url, ".js")
     || boost::algorithm::ends_with(url, ".css")
     || boost::algorithm::ends_with(url, ".html")

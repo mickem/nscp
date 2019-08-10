@@ -113,16 +113,16 @@ namespace http {
 			parse_http_response(std::string(its, ite));
 			its = ite + 2;
 			while (true) {
-				std::vector<char>::iterator ite = std::adjacent_find(its, data.end(), find_line_end);
-				if (ite == data.end())
+				std::vector<char>::iterator iterator = std::adjacent_find(its, data.end(), find_line_end);
+				if (iterator == data.end())
 					break;
-				std::string line(its, ite);
+				std::string line(its, iterator);
 				if (line.empty()) {
-					payload_ = std::string(ite+2, data.end());
+					payload_ = std::string(iterator+2, data.end());
 					break;
 				}
 				add_header(line);
-				its = ite+2;
+				its = iterator+2;
 			}
 		}
 

@@ -2,6 +2,8 @@
 
 #include <str/xtos.hpp>
 
+#include <boost/foreach.hpp>
+
 settings::instance_ptr settings::settings_handler_impl::get() {
 	boost::unique_lock<boost::timed_mutex> mutex(instance_mutex_, boost::get_system_time() + boost::posix_time::seconds(5));
 	if (!mutex.owns_lock())

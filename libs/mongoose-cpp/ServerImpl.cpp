@@ -16,7 +16,7 @@ struct oubound_frame {
 	job_id id;
 	ServerImpl *server;
 	char *data;
-	int len;
+	std::size_t len;
 };
 
 struct udt {
@@ -41,12 +41,12 @@ void sendStockResponse(struct mg_connection *connection, int code, std::string m
 	response.setCode(code);
 	response.append(msg);
 	std::string buffer = response.getData();
-	mg_send(connection, buffer.c_str(), buffer.size());
+	mg_send(connection, buffer.c_str(), static_cast<int>(buffer.size()));
 	connection->flags |= MG_F_SEND_AND_CLOSE;
 }
 
 
-void on_wake_up(struct mg_connection *connection, int ev, void *ev_data) {
+void on_wake_up(struct mg_connection *connection, int, void *ev_data) {
 	if (ev_data == NULL || connection->user_data == NULL) {
 		return;
 	}
@@ -72,7 +72,7 @@ boost::posix_time::ptime now() {
 	return boost::get_system_time();
 }
 
-void ServerImpl::request_thread_proc(int id) {
+void ServerImpl::request_thread_proc() {
 	try {
 		job_queue_type::value_type instance;
 		while (!stopped) {
@@ -99,8 +99,8 @@ void ServerImpl::request_thread_proc(int id) {
 				continue;
 			}
 		}
-	} catch (const boost::thread_interrupted &e) {
-	} catch (const std::exception &e) {
+	} catch (const boost::thread_interrupted &) {
+	} catch (const std::exception &) {
 	} catch (...) {
 	}
 }
@@ -136,14 +136,14 @@ namespace Mongoose
 		mg_broadcast(&mgr, on_wake_up, (void*)&frame, sizeof(frame));
 	}
 
-	bool ServerImpl::execute_reply_async(job_id id, const void *buf, int len) {
+	bool ServerImpl::execute_reply_async(job_id id, const void *buf, std::size_t len) {
 		struct mg_connection *c;
 		if (buf == NULL) {
 			return false;
 		}
 		for (c = mg_next(&mgr, NULL); c != NULL; c = mg_next(&mgr, c)) {
 			if (c->user_data != NULL && ((udt*)c->user_data)->job_id == id) {
-				mg_send(c, buf, len);
+				mg_send(c, buf, static_cast<int>(len));
 				c->flags |= MG_F_SEND_AND_CLOSE;
 				return true;
 			}
@@ -169,10 +169,8 @@ namespace Mongoose
 		stopped = false;
 		mg_set_protocol_http_websocket(server_connection);
 
-		int thread_count_ = 10;
-
 		for (std::size_t i = 0; i < thread_count; i++) {
-			boost::function<void()> f = boost::bind(&ServerImpl::request_thread_proc, this, 100 + i);
+			boost::function<void()> f = boost::bind(&ServerImpl::request_thread_proc, this);
 			threads_.createThread(f);
 		}
 		mg_start_thread(server_poll, this);

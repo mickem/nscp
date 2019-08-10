@@ -372,7 +372,7 @@ void socket_helpers::write_certs(std::string cert, bool ca) {
 
 	std::size_t size = BIO_ctrl_pending(bio);
 	char * buf = new char[size];
-	if (BIO_read(bio, buf, size) < 0) {
+	if (BIO_read(bio, buf, static_cast<int>(size)) < 0) {
 		throw socket_helpers::socket_exception("Failed to write key");
 	}
 

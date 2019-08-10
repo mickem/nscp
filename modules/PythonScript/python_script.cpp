@@ -2,6 +2,8 @@
 
 #include "script_wrapper.hpp"
 
+#include <utf8.hpp>
+
 #include <boost/shared_ptr.hpp>
 #include <boost/python.hpp>
 

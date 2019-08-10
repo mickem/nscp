@@ -35,6 +35,7 @@
 //
 #ifdef USE_BREAKPAD
 
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <windows.h>
 #include <assert.h>
 #include <shellapi.h>

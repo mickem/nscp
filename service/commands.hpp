@@ -37,7 +37,6 @@ namespace nsclient {
 		class command_exception : public std::exception {
 			std::string what_;
 		public:
-			command_exception(std::wstring error) throw() : what_(utf8::cvt<std::string>(error)) {}
 			command_exception(std::string error) throw() : what_(error.c_str()) {}
 			virtual ~command_exception() throw() {};
 
@@ -296,10 +295,10 @@ namespace nsclient {
 			logger_->error("core", file, line, error);
 		}
 		void log_error(const char* file, int line, std::string error, std::string command) {
-			logger_->error("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->error("core", file, line, error + "for command: " + command);
 		}
 		void log_info(const char* file, int line, std::string error, std::string command) {
-			logger_->info("core", file, line, error + "for command: " + utf8::cvt<std::string>(command));
+			logger_->info("core", file, line, error + "for command: " + command);
 		}
 
 		inline bool have_plugin(unsigned long plugin_id) {

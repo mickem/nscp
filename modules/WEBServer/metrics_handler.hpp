@@ -1,7 +1,7 @@
 #pragma once
 
 
-#include <boost/thread.hpp>
+#include <boost/thread/mutex.hpp>
 
 #include <string>
 

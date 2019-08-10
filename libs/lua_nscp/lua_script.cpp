@@ -493,7 +493,7 @@ void lua::lua_script::luaopen(lua_State *L) {
 	Luna<registry_wrapper>::Register(L, "nscp");
 	Luna<settings_wrapper>::Register(L, "nscp");
 #ifdef HAVE_LUA_PB
-	lua_protobuf_Plugin_open(L);
+	lua_protobuf_PB_Commands_open(L);
 #else
 	GET_CORE()->log(NSCAPI::log_level::debug, __FILE__, __LINE__, "Lua not compiled with protocol buffer support");
 

@@ -24,6 +24,9 @@
 
 #include <boost/shared_ptr.hpp>
 #include <nscapi/dll_defines.hpp>
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
 namespace nscapi {
 	class command_proxy;

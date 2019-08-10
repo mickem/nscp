@@ -19,9 +19,8 @@
 
 #pragma once
 
-#include <boost/thread.hpp>
+#include <boost/thread/thread.hpp>
 #include <boost/unordered_map.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/variant.hpp>
 
 #include <pdh/pdh_interface.hpp>
@@ -31,7 +30,6 @@
 
 #include <rrd_buffer.hpp>
 #include <win_sysinfo/win_sysinfo.hpp>
-#include <error/error.hpp>
 
 #include "filter_config_object.hpp"
 #include "check_network.hpp"

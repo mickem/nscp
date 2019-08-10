@@ -31,6 +31,8 @@
 #pragma warning(disable:4100)
 #include <boost/program_options.hpp>
 #pragma warning(pop)
+#pragma warning(push)
+#pragma warning(disable:4505)
 #else
 #include <boost/program_options.hpp>
 #endif
@@ -798,3 +800,6 @@ namespace nscapi {
 		}
 	}
 }
+#ifdef WIN32
+#pragma warning(pop)
+#endif

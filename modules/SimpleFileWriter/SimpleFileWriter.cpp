@@ -26,13 +26,16 @@
 #include <nscapi/macros.hpp>
 #include <nscapi/nscapi_helper.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
+#include <nscapi/nscapi_settings_proxy.hpp>
 
 #include <parsers/expression/expression.hpp>
 
 #include <nsclient/nsclient_exception.hpp>
 
+#include <utf8.hpp>
+
 #include <boost/foreach.hpp>
-#include <boost/bind.hpp>
+#include <boost/thread/lock_types.hpp>
 #include <boost/date_time.hpp>
 
 #include <map>

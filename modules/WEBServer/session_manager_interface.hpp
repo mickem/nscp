@@ -8,7 +8,7 @@
 #include <StreamResponse.h>
 #include <Request.h>
 
-#include <socket/socket_helpers.hpp>
+#include <socket/allowed_hosts.hpp>
 
 #include <string>
 #include <list>

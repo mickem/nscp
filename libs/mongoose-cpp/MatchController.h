@@ -56,7 +56,7 @@ namespace Mongoose
 
         protected:
 			std::string prefix;
-			typedef map<std::string, RequestHandlerBase*> handler_map;
+			typedef std::map<std::string, RequestHandlerBase*> handler_map;
 			handler_map routes;
     };
 }

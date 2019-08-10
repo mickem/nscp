@@ -32,7 +32,7 @@ namespace Mongoose
 
                 try {
                     (controller->*function)(request, what, *response);
-				} catch (string exception) {
+				} catch (std::string exception) {
 					return controller->serverInternalError(exception);
 				} catch (const std::exception &exception) {
 					return controller->serverInternalError(exception.what());

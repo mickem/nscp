@@ -84,7 +84,7 @@ int nsclient_core::settings_client::migrate_from(std::string src) {
 		get_core()->migrate_from("master", expand_context(src));
 		return 1;
 	} catch (settings::settings_exception e) {
-		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}
@@ -96,7 +96,7 @@ int nsclient_core::settings_client::migrate_to(std::string target) {
 		get_core()->migrate_to("master", expand_context(target));
 		return 1;
 	} catch (const settings::settings_exception &e) {
-		error_msg(e.file(), e.line(), "Failed to initialize settings: " + e.reason());
+		error_msg(e.file(), e.line(), "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}
@@ -129,7 +129,7 @@ int nsclient_core::settings_client::generate(std::string target) {
 		}
 		return 0;
 	} catch (settings::settings_exception e) {
-		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Failed to initialize settings: " + utf8::utf8_from_native(e.what()));
 		return 1;
 	} catch (nsclient::core::plugin_exception &e) {
 		error_msg(__FILE__, __LINE__, "Failed to load plugins: " + e.reason());
@@ -174,7 +174,7 @@ int nsclient_core::settings_client::list(std::string path) {
 	try {
 		dump_path(path);
 	} catch (settings::settings_exception e) {
-		error_msg(__FILE__, __LINE__, "Settings error: " + e.reason());
+		error_msg(__FILE__, __LINE__, "Settings error: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		error_msg(__FILE__, __LINE__, "FATAL ERROR IN SETTINGS SUBSYTEM");
 	}

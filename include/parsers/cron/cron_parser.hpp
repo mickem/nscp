@@ -82,7 +82,7 @@ namespace cron_parser {
 		bool is_valid_for(long long v) const {
 			if (star_)
 				return true;
-			BOOST_FOREACH(const int &val, value_) {
+			BOOST_FOREACH(const long long &val, value_) {
 				if (val == v)
 					return true;
 			}
@@ -108,7 +108,7 @@ namespace cron_parser {
 				return "*";
 			std::stringstream ss;
 			bool first = true;
-			BOOST_FOREACH(const int &v, value_) {
+			BOOST_FOREACH(const long long &v, value_) {
 				if (!first) {
 					ss << ",";
 				}

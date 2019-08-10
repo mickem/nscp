@@ -194,7 +194,7 @@ void nsclient::core::zip_plugin::read_metadata(std::string data) {
 	}
 }
 
-bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode mode) {
+bool nsclient::core::zip_plugin::load_plugin(NSCAPI::moduleLoadMode) {
 	boost::filesystem::path scripts_folder = boost::filesystem::path(paths_->expand_path("${scripts}")) / "tmp";
 	boost::filesystem::path target_path = scripts_folder / getModule();
 	boost::filesystem::create_directory(scripts_folder);
@@ -256,38 +256,38 @@ void nsclient::core::zip_plugin::unload_plugin() {
 }
 
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleCommand(const std::string request, std::string &reply) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleCommand(const std::string reuest, std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::handle_schedule(const std::string &request) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::handle_schedule(const std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle schedule");
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleNotification(const char *channel, std::string &request, std::string &reply) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::handleNotification(const char *, std::string &, std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::on_event(const std::string &request) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::on_event(const std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::fetchMetrics(std::string &request) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::fetchMetrics(std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-NSCAPI::nagiosReturn nsclient::core::zip_plugin::submitMetrics(const std::string &request) {
+NSCAPI::nagiosReturn nsclient::core::zip_plugin::submitMetrics(const std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-void nsclient::core::zip_plugin::handleMessage(const char * data, unsigned int len) {
+void nsclient::core::zip_plugin::handleMessage(const char *, unsigned int) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
 
-int nsclient::core::zip_plugin::commandLineExec(bool targeted, std::string &request, std::string &reply) {
+int nsclient::core::zip_plugin::commandLineExec(bool, std::string &, std::string &) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 }
-bool nsclient::core::zip_plugin::is_duplicate(boost::filesystem::path file, std::string alias) {
+bool nsclient::core::zip_plugin::is_duplicate(boost::filesystem::path, std::string) {
 	return false;
 }
 
@@ -295,7 +295,7 @@ std::string nsclient::core::zip_plugin::get_version() {
 	return "1.0.0";
 }
 
-bool nsclient::core::zip_plugin::route_message(const char *channel, const char* buffer, unsigned int buffer_len, char **new_channel_buffer, char **new_buffer, unsigned int *new_buffer_len) {
+bool nsclient::core::zip_plugin::route_message(const char *, const char*, unsigned int, char **, char **, unsigned int *) {
 	throw plugin_exception(get_alias_or_name(), "cannot handle commands");
 
 }

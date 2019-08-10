@@ -46,7 +46,7 @@ namespace nscapi {
 
 			NSCAPI_EXPORT void add_ssl_keys(nscapi::settings_helper::path_extension root_path);
 
-			NSCAPI_EXPORT virtual void translate(const std::string &key, const std::string &value);
+			NSCAPI_EXPORT virtual void translate(const std::string &key, const std::string &new_value);
 		};
 	}
 }

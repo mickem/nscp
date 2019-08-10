@@ -15893,13 +15893,21 @@ const struct mg_iface_vtable mg_default_iface_vtable = MG_PIC32_IFACE_VTABLE;
 
 #ifdef _WIN32
 
-int rmdir(const char *dirname) {
+int mg_rmdir(const char *dirname) {
   return _rmdir(dirname);
 }
 
-unsigned int sleep(unsigned int seconds) {
+unsigned int mg_sleep(unsigned int seconds) {
   Sleep(seconds * 1000);
   return 0;
+}
+#else
+int mg_rmdir(const char *dirname) {
+	return rmdir(dirname);
+}
+
+unsigned int mg_sleep(unsigned int seconds) {
+	return sleep(seconds);
 }
 
 #endif /* _WIN32 */

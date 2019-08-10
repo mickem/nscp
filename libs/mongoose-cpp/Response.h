@@ -1,11 +1,12 @@
-#ifndef _MONGOOSE_RESPONSE_H
-#define _MONGOOSE_RESPONSE_H
+#pragma once
 
 #include "dll_defines.hpp"
+#ifdef WIN32
+#pragma warning(disable:4251)
+#endif
 
 #include <map>
-#include <sstream>
-#include <iostream>
+#include <string>
 
 #define HTTP_OK 200
 #define HTTP_BAD_REQUEST 400
@@ -88,11 +89,9 @@ namespace Mongoose
 			header_type& get_headers() {
 				return headers;
 			}
-        protected:
+        private:
             int code;
 			header_type headers;
 			header_type cookies;
 	};
 }
-
-#endif

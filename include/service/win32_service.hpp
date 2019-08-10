@@ -26,6 +26,9 @@
 #include <sysinfo.h>
 #include <error/error.hpp>
 
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+
 #ifndef _T
 #define _T(x) L ## x
 #endif
@@ -211,7 +214,7 @@ namespace service_helper_impl {
 		inline void print_debug(wchar_t *s) {
 			OutputDebugString(s);
 		}
-		static void handle_error(const int line, const char* file, std::string message) {
+		static void handle_error(const int, const char*, std::string message) {
 			OutputDebugString(utf8::cvt<std::wstring>(message).c_str());
 		}
 
@@ -309,7 +312,7 @@ namespace service_helper_impl {
 		* @date 03-13-2004
 		*
 		*/
-		void _handle_start(DWORD dwArgc, LPTSTR *lpszArgv) {
+		void _handle_start(DWORD, LPTSTR*) {
 			stop_mutex_.lock();
 			if (!_report_status_to_SCMgr(SERVICE_RUNNING, 0)) {
 				stop_service();

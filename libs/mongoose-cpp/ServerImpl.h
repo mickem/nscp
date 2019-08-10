@@ -15,7 +15,6 @@
 #include <boost/thread.hpp>
 
 #include <vector>
-#include <iostream>
 
 /**
  * Wrapper for the Mongoose server
@@ -118,9 +117,9 @@ namespace Mongoose
             bool handles(std::string method, std::string url);
 
 			void request_reply_async(job_id id, std::string data);
-			bool execute_reply_async(job_id id, const void *buf, int len);
+			bool execute_reply_async(job_id id, const void *buf, std::size_t len);
 
-			void request_thread_proc(int id);
+			void request_thread_proc();
 		protected:
 			std::string port;
 			struct mg_mgr mgr;
@@ -129,7 +128,7 @@ namespace Mongoose
             bool destroyed;
             struct mg_connection *server_connection;
 
-            vector<Controller *> controllers;
+            std::vector<Controller *> controllers;
 
 			has_threads threads_;
 			typedef nscp_thread::safe_queue<request_job, std::queue<request_job> > job_queue_type;

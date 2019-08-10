@@ -28,14 +28,14 @@
 #include <nscapi/macros.hpp>
 
 #include <str/utils.hpp>
+#include <utf8.hpp>
 
 #include <boost/foreach.hpp>
-#include <boost/optional.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/bind.hpp>
 
-#include <map>
 #include <string>
-#include <algorithm>
 
 namespace sh = nscapi::settings_helper;
 
@@ -76,7 +76,7 @@ namespace alias {
 			return ss.str();
 		}
 
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 			set_alias(boost::algorithm::to_lower_copy(get_alias()));
 

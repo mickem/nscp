@@ -90,7 +90,7 @@ namespace simple_registry {
 			return ret;
 		}
 
-		std::list<std::wstring> get_keys(DWORD buffer_length = 2048) {
+		std::list<std::wstring> get_keys() {
 			std::list<std::wstring> ret;
 			DWORD cSubKeys = 0;
 			DWORD cMaxKeyLen;

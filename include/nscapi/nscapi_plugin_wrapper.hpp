@@ -33,7 +33,6 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/nscapi_helper_singleton.hpp>
 
-#include <utf8.hpp>
 
 namespace nscapi {
 

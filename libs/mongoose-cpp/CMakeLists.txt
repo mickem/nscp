@@ -20,6 +20,31 @@ set (SOURCES
     ext/mongoose.c
 	
     )
+if(WIN32)
+	set (SOURCES 
+		${SOURCES}
+		Controller.h
+		Helpers.h
+		MatchController.h
+		RegexController.h
+		Request.h
+		Response.h
+		Server.h
+		ServerImpl.h
+		Client.hpp
+		StreamResponse.h
+		RegexRequestHandler.h
+		RequestHandler.h
+
+		dll_defines.hpp
+		mcp_exception.hpp
+		string_response.hpp	
+
+		${NSCP_INCLUDEDIR}/has-threads.hpp
+
+		ext/mongoose.h
+    )
+endif()
 
 IF(USE_STATIC_RUNTIME)
 	ADD_DEFINITIONS(-Dlib_mongoose_NOLIB)

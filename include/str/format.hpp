@@ -352,7 +352,7 @@ namespace str {
 			char postfix[] = BKMG_RANGE;
 			int idx = 0;
 			if (unit_uc.size() == 0) {
-				return i;
+				return static_cast<double>(i);
 			}
 			double cpy = static_cast<double>(i);
 			while (idx < BKMG_SIZE) {

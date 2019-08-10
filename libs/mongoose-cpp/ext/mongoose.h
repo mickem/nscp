@@ -323,8 +323,8 @@ typedef struct _stati64 cs_stat_t;
 #define MG_NET_IF MG_NET_IF_SOCKET
 #endif
 
-int rmdir(const char *dirname);
-unsigned int sleep(unsigned int seconds);
+int mg_rmdir(const char *dirname);
+unsigned int mg_sleep(unsigned int seconds);
 
 #endif /* CS_PLATFORM == CS_P_WINDOWS */
 #endif /* CS_COMMON_PLATFORMS_PLATFORM_WINDOWS_H_ */

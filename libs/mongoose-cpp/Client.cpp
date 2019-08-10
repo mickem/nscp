@@ -79,11 +79,8 @@ namespace Mongoose
 
 
 	boost::shared_ptr<Response> Client::fetch(std::string verb, Client::header_type hdr, std::string payload) {
-
 		Handler handler;
 		struct mg_mgr mgr;
-		int i;
-		//memset(&mgr, 0, sizeof(struct mg_mgr));
 
 		mg_mgr_init(&mgr, NULL);
 		std::stringstream headers;

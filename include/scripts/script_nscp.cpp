@@ -87,7 +87,7 @@ NSCAPI::nagiosReturn scripts::nscp::core_provider_impl::simple_query(const std::
 		msg = "Command failed.";
 		return NSCAPI::query_return_codes::returnUNKNOWN;
 	}
- 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, -1);
+ 	return nscapi::protobuf::functions::parse_simple_query_response(response, msg, perf, nscapi::protobuf::functions::no_truncation);
  }
 
 bool scripts::nscp::core_provider_impl::exec_simple_command(const std::string target, const std::string command, const std::list<std::string> &argument, std::list<std::string> & result) {

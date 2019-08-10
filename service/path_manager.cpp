@@ -5,7 +5,10 @@
 #include <config.h>
 #include <parsers/expression/expression.hpp>
 
+#include <utf8.hpp>
+
 #ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 #include <Windows.h>
 #include <shellapi.h>
 #include <Shlobj.h>
@@ -50,7 +53,7 @@ boost::filesystem::path nsclient::core::path_manager::getBasePath() {
 	try {
 		settings_manager::get_core()->set_base(basePath);
 	} catch (settings::settings_exception e) {
-		LOG_ERROR_CORE_STD("Failed to set settings file: " + e.reason());
+		LOG_ERROR_CORE_STD("Failed to set settings file: " + utf8::utf8_from_native(e.what()));
 	} catch (...) {
 		LOG_ERROR_CORE("Failed to set settings file");
 	}

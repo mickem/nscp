@@ -473,37 +473,37 @@ namespace parsers {
 					}
 				}
 
-				inline long long parse_time(long long value, std::string unit) const {
+				inline long long parse_time(long long new_value, std::string unit) const {
 					long long now = constants::get_now();
 					if (unit.empty())
-						return now + value;
+						return now + new_value;
 					else if ((unit == "s") || (unit == "S"))
-						return now + (value);
+						return now + (new_value);
 					else if ((unit == "m") || (unit == "M"))
-						return now + (value * 60);
+						return now + (new_value * 60);
 					else if ((unit == "h") || (unit == "H"))
-						return now + (value * 60 * 60);
+						return now + (new_value * 60 * 60);
 					else if ((unit == "d") || (unit == "D"))
-						return now + (value * 24 * 60 * 60);
+						return now + (new_value * 24 * 60 * 60);
 					else if ((unit == "w") || (unit == "W"))
-						return now + (value * 7 * 24 * 60 * 60);
-					return now + value;
+						return now + (new_value * 7 * 24 * 60 * 60);
+					return now + new_value;
 				}
 
-				inline long long parse_size(long long value, std::string unit) const {
+				inline long long parse_size(long long new_value, std::string unit) const {
 					if (unit.empty())
-						return value;
+						return new_value;
 					else if ((unit == "b") || (unit == "B"))
-						return value;
+						return new_value;
 					else if ((unit == "k") || (unit == "k"))
-						return value * 1024;
+						return new_value * 1024;
 					else if ((unit == "m") || (unit == "M"))
-						return value * 1024 * 1024;
+						return new_value * 1024 * 1024;
 					else if ((unit == "g") || (unit == "G"))
-						return value * 1024 * 1024 * 1024;
+						return new_value * 1024 * 1024 * 1024;
 					else if ((unit == "t") || (unit == "T"))
-						return value * 1024 * 1024 * 1024 * 1024;
-					return value;
+						return new_value * 1024 * 1024 * 1024 * 1024;
+					return new_value;
 				}
 			};
 

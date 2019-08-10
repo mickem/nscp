@@ -21,6 +21,13 @@
 
 #include "filter_config_object.hpp"
 
+#include <boost/thread.hpp>
+
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
+#include <windows.h>
+#endif
+
 struct real_time_thread {
 	boost::shared_ptr<boost::thread> thread_;
 	filters::filter_config_handler filters_;

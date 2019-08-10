@@ -15,5 +15,5 @@ public:
 	StaticController(boost::shared_ptr<session_manager_interface> session, std::string path);
 
 	Mongoose::Response *handleRequest(Mongoose::Request &request);
-	bool handles(string method, string url);
+	bool handles(std::string method, std::string url);
 };
