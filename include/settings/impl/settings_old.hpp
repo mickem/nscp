@@ -289,8 +289,6 @@ namespace settings {
 			try {
 				key = map.key(key);
 				WritePrivateProfileString(utf8::cvt<std::wstring>(key.first).c_str(), utf8::cvt<std::wstring>(key.second).c_str(), utf8::cvt<std::wstring>(value.get_string()).c_str(), utf8::cvt<std::wstring>(get_file_name()).c_str());
-			} catch (settings_exception e) {
-				get_logger()->error("settings", __FILE__, __LINE__, std::string("Failed to write key: " + e.reason()));
 			} catch (...) {
 				get_logger()->error("settings", __FILE__, __LINE__, "Unknown failure when writing key: " + make_skey(key.first, key.second));
 			}

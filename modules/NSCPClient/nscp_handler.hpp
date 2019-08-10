@@ -69,8 +69,8 @@ namespace nscp_handler {
 			settings.notify();
 		}
 
-		virtual void translate(const std::string &key, const std::string &value) {
-			parent::translate(key, value);
+		virtual void translate(const std::string &key, const std::string &translated_value) {
+			parent::translate(key, translated_value);
 		}
 	};
 
@@ -82,7 +82,7 @@ namespace nscp_handler {
 			return boost::make_shared<nrpe_target_object>(parent, alias, path);
 		}
 
-		void process(boost::program_options::options_description &desc, client::destination_container &source, client::destination_container &target) {
+		void process(boost::program_options::options_description &desc, client::destination_container &, client::destination_container &target) {
 			add_ssl_options(desc, target);
 
 			desc.add_options()

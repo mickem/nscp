@@ -47,7 +47,7 @@ bool NRPEServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
 		return false;
 	}
 
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("NRPE", alias, "server");
 
 	bool insecure;

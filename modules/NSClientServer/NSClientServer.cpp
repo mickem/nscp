@@ -43,7 +43,7 @@ NSClientServer::NSClientServer()
 NSClientServer::~NSClientServer() {}
 
 bool NSClientServer::loadModuleEx(std::string alias, NSCAPI::moduleLoadMode mode) {
-	sh::settings_registry settings(get_settings_proxy());
+	sh::settings_registry settings(nscapi::settings_proxy::create(get_id(), get_core()));
 	settings.set_alias("NSClient", alias, "server");
 
 	settings.alias().add_path_to_settings()

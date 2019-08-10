@@ -134,6 +134,9 @@ NSCAPI::nagiosReturn nscapi::core_wrapper::query(const char *request, const unsi
 	return fNSAPIInject(request, request_len, response, response_len);
 }
 
+NSCAPI::errorReturn nscapi::core_wrapper::emit_event(std::string &request) const {
+	return emit_event(request.c_str(), static_cast<unsigned int>(request.size()));
+}
 NSCAPI::errorReturn nscapi::core_wrapper::emit_event(const char *request, const unsigned int request_len) const {
 	if (!fNSCAPIEmitEvent)
 		throw nsclient::nsclient_exception("NSCore has not been initiated...");

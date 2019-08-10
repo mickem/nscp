@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <nscapi/nscapi_settings_proxy.hpp>
 #include <nscapi/nscapi_settings_helper.hpp>
 #include <nscapi/dll_defines.hpp>
 
@@ -103,7 +102,7 @@ namespace nscapi {
 			const options_map& get_options() const {
 				return options;
 			}
-			virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+			virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool) {
 				nscapi::settings_helper::settings_registry settings(proxy);
 				if (oneliner) {
 					parent = "default";
@@ -163,22 +162,22 @@ namespace nscapi {
 
 			// VIrtual interface
 
-			virtual void translate(const std::string &key, const std::string &value) {
-				options[key] = value;
+			virtual void translate(const std::string &key, const std::string &new_value) {
+				options[key] = new_value;
 			}
 
-			virtual void import(boost::shared_ptr<object_instance_interface> parent) {}
+			virtual void import(boost::shared_ptr<object_instance_interface> new_parent) {}
 
 			// Accessors
 
 			bool has_option(std::string key) const {
 				return options.find(key) != options.end();
 			}
-			void set_property_int(std::string key, int value) {
-				translate(key, str::xtos(value));
+			void set_property_int(std::string key, int new_value) {
+				translate(key, str::xtos(new_value));
 			}
-			void set_property_bool(std::string key, bool value) {
-				translate(key, value ? "true" : "false");
+			void set_property_bool(std::string key, bool new_value) {
+				translate(key, new_value ? "true" : "false");
 			}
 			void set_property_string(std::string key, std::string new_value) {
 				translate(key, new_value);
@@ -250,13 +249,13 @@ namespace nscapi {
 				path = path_;
 			}
 
-			void add_missing(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value) {
+			void add_missing(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string alias, std::string value) {
 				if (has_object(alias))
 					return;
 				add(proxy, alias, value);
 			}
 
-			void add_samples(boost::shared_ptr<nscapi::settings_proxy> proxy) {
+			void add_samples(nscapi::settings_helper::settings_impl_interface_ptr proxy) {
 				object_instance tmp = factory->create("sample", path);
 				tmp->read(proxy, false, true);
 			}
@@ -279,13 +278,13 @@ namespace nscapi {
 				return !objects.empty();
 			}
 
-			void ensure_default() {
+			void ensure_default(nscapi::settings_helper::settings_impl_interface_ptr proxy) {
 				if (has_object("default"))
 					return;
-				add(boost::shared_ptr<nscapi::settings_proxy>(), "default", "");
+				add(nscapi::settings_helper::settings_impl_interface_ptr(), "default", "");
 			}
 
-			object_instance add(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias, std::string value, bool force_template = false) {
+			object_instance add(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string alias, std::string value, bool force_template = false) {
 				bool is_template = (alias == "default") || force_template;
 				object_instance previous = find_object(alias);
 				if (previous) {
@@ -330,7 +329,7 @@ namespace nscapi {
 				ensure_default();
 			}
 
-			bool remove(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string alias) {
+			bool remove(nscapi::settings_helper::settings_impl_interface_ptr  proxy, std::string alias) {
 				proxy->remove_path(make_obj_path(path, alias));
 				proxy->remove_key(path, alias);
 				return remove(alias);

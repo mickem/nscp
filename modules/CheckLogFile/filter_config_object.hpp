@@ -56,7 +56,7 @@ namespace filters {
 		void set_files(std::string file_string);
 		void set_file(std::string file_string);
 
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 	};
 	typedef boost::optional<filter_config_object> optional_filter_config_object;
 

@@ -4,21 +4,23 @@
 
 #include <string>
 
+#include <boost/algorithm/string/case_conv.hpp>
+
 namespace nscapi {
 	namespace settings {
 		struct settings_value {
-			static std::string from_int(int i) {
+			static std::string from_int(const int i) {
 				return str::xtos(i);
 			}
-			static int to_int(std::string v, int def = -1) {
+			static int to_int(const std::string v, const int def = -1) {
 				return str::stox(v, def);
 			}
-			static std::string from_bool(bool i) {
+			static std::string from_bool(const bool i) {
 				return i ? "true" : "false";
 			}
-			static bool to_bool(std::string str) {
-				std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-				return str == "true" || str == "1" || str == "yes";
+			static bool to_bool(const std::string str) {
+				std::string tmp = boost::to_lower_copy(str);
+				return tmp == "true" || tmp == "1" || tmp == "yes";
 			}
 		};
 	}

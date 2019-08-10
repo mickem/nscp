@@ -50,7 +50,7 @@ namespace eventlog_filter {
 		std::list<std::string> files;
 
 		std::string to_string() const;
-		void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample);
 
 		static unsigned short get_language(std::string lang);
 

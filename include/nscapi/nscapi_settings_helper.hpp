@@ -280,6 +280,9 @@ namespace nscapi {
 		public:
 			settings_registry(settings_impl_interface_ptr core) : core_(core) {}
 			virtual ~settings_registry() {}
+			settings_impl_interface_ptr get_settings() {
+				return core_;
+			}
 			void add(boost::shared_ptr<key_info> info) {
 				keys_.push_back(info);
 			}

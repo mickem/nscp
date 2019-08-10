@@ -26,8 +26,8 @@
 namespace web_server {
 	namespace sh = nscapi::settings_helper;
 
-	struct user_config_object : public nscapi::simple_settings_objects::object_instance_interface {
-		typedef nscapi::simple_settings_objects::object_instance_interface parent;
+	struct user_config_object : public nscapi::settings_objects::object_instance_interface {
+		typedef nscapi::settings_objects::object_instance_interface parent;
 
 		std::string password;
 		std::string role;
@@ -35,8 +35,8 @@ namespace web_server {
 		user_config_object(std::string alias, std::string path) : parent(alias, path) {
 		}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool is_sample) {
-			parent::read(proxy, is_sample);
+		void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
+			parent::read(proxy, oneliner, is_sample);
 
 			nscapi::settings_helper::settings_registry settings(proxy);
 
@@ -60,7 +60,7 @@ namespace web_server {
 	};
 	typedef boost::shared_ptr<user_config_object> user_config_instance;
 
-	typedef nscapi::simple_settings_objects::object_handler<user_config_object> user_config;
+	typedef nscapi::settings_objects::object_handler<user_config_object> user_config;
 
 
 }

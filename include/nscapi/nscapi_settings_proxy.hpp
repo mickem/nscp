@@ -22,7 +22,7 @@
 #include <nscapi/nscapi_core_wrapper.hpp>
 #include <nscapi/dll_defines.hpp>
 
-#include <settings/settings_core.hpp>
+#include <settings/settings_interface.hpp>
 #include <settings/client/settings_client_interface.hpp>
 
 #include <list>
@@ -34,7 +34,11 @@ namespace nscapi {
 		nscapi::core_wrapper* core_;
 
 	public:
+		typedef boost::shared_ptr<nscapi::settings_proxy> ptr;
 		settings_proxy(unsigned int plugin_id, nscapi::core_wrapper* core) : plugin_id_(plugin_id), core_(core) {}
+
+		static ptr create(unsigned int plugin_id, nscapi::core_wrapper* core);
+
 
 		typedef std::list<std::string> string_list;
 

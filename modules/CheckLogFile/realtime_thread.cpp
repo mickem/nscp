@@ -202,7 +202,7 @@ bool real_time_thread::stop() {
 	return true;
 }
 
-void real_time_thread::add_realtime_filter(boost::shared_ptr<nscapi::settings_proxy> proxy, std::string key, std::string query) {
+void real_time_thread::add_realtime_filter(nscapi::settings_helper::settings_impl_interface_ptr proxy, std::string key, std::string query) {
 	try {
 		filters_.add(proxy, key, query);
 	} catch (const std::exception &e) {

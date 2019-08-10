@@ -58,7 +58,7 @@ namespace filters {
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
 				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
@@ -101,7 +101,7 @@ namespace filters {
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
 				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
@@ -148,7 +148,7 @@ namespace filters {
 			}
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
 				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();
@@ -198,7 +198,7 @@ namespace filters {
 			data.push_back(file_string);
 		}
 
-		void filter_config_object::read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		void filter_config_object::read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			if (!get_value().empty())
 				filter.set_filter_string(get_value().c_str());
 			bool is_default = parent::is_default();

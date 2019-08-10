@@ -108,7 +108,7 @@ namespace schedules {
 			return ss.str();
 		}
 
-		virtual void read(boost::shared_ptr<nscapi::settings_proxy> proxy, bool oneliner, bool is_sample) {
+		virtual void read(nscapi::settings_helper::settings_impl_interface_ptr proxy, bool oneliner, bool is_sample) {
 			parent::read(proxy, oneliner, is_sample);
 
 			set_command(get_value());
