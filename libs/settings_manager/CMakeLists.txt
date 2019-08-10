@@ -14,6 +14,7 @@ SET(service_SRCS
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 #	${NSCP_INCLUDEDIR}/settings/client/settings_client.cpp
 	${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+	${NSCP_INCLUDEDIR}/utf8.cpp
 )
 
 IF(WIN32)
@@ -34,6 +35,7 @@ IF(WIN32)
 		${NSCP_INCLUDEDIR}/settings/impl/settings_http.hpp
 
 		${NSCP_INCLUDEDIR}/http/client.hpp
+		${NSCP_INCLUDEDIR}/utf8.hpp
 
 	)
 ENDIF(WIN32)

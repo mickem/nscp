@@ -12,6 +12,7 @@ SET(SRCS ${SRCS}
 
 	${NSCP_INCLUDEDIR}/managed/convert.cpp
 	${NSCP_INCLUDEDIR}/managed/core_impl.cpp
+	${NSCP_INCLUDEDIR}/utf8.cpp
 
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp

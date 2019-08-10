@@ -17,6 +17,7 @@ IF(WIN32)
 
 		${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 		${NSCP_INCLUDEDIR}/simpleini/ConvertUTF.c
+		${NSCP_INCLUDEDIR}/utf8.cpp
 
 		"${TARGET}.def"
 		installer_helper.hpp

@@ -529,6 +529,7 @@ ENDFOREACH(CURRENT ${ALL_ZIP_MODULES})
 #############################################################################
 
 SET(NSCP_DEF_PLUGIN_CPP
+	${NSCP_INCLUDEDIR}/utf8.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.cpp
 )
@@ -540,11 +541,11 @@ SET(NSCP_DEF_PLUGIN_HPP
 	${NSCP_INCLUDEDIR}/NSCAPI.h
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_helper.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp  
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_common_options.hpp
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp
-  ${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_common_options.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_metrics_helper.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_impl.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_plugin_wrapper.hpp
+	${NSCP_INCLUDEDIR}/nscapi/nscapi_program_options.hpp
 )
 
 SET(NSCP_FILTER_CPP
@@ -564,10 +565,12 @@ SET(NSCP_FILTER_LIB
 
 
 SET(NSCP_CLIENT_CPP
+	${NSCP_INCLUDEDIR}/utf8.cpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.cpp
 )
 SET(NSCP_CLIENT_HPP
+	${NSCP_INCLUDEDIR}/utf8.hpp
 	${NSCP_INCLUDEDIR}/client/command_line_parser.hpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_settings_object.hpp
 )

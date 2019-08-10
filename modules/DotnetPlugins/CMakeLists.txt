@@ -11,12 +11,8 @@ SET(SRCS ${SRCS}
 	json.cpp
 	json_writer.cpp
 
-<<<<<<< HEAD
-=======
 	${NSCP_INCLUDEDIR}/utf8.cpp
 
-
->>>>>>> dc2c2978... various fixes
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_core_wrapper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper.cpp
 	${NSCP_INCLUDEDIR}/nscapi/nscapi_helper_singleton.cpp

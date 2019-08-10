@@ -13,6 +13,7 @@ SET(service_SRCS
 	master_plugin_list.cpp
 	path_manager.cpp
 	dll_plugin.cpp
+	${NSCP_INCLUDEDIR}/utf8.cpp
 
 
 	#logger
@@ -59,6 +60,7 @@ IF(WIN32)
 	SET(service_SRCS ${service_SRCS}
 		NSClient++.h
 		NSClient++.rc
+		${NSCP_INCLUDEDIR}/utf8.hpp
 		core_api.h
 		settings_client.hpp
 		cli_parser.hpp
